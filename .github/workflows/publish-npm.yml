@@ -1,0 +1,97 @@
+name: Publish npm packages
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag to publish, for example v0.1.3
+        required: true
+        type: string
+      verify_only:
+        description: Only verify packages already accepted by npm; do not publish again
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: publish-npm-${{ inputs.tag }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      # GitHub only exposes draft releases to tokens with push access.
+      contents: write
+      id-token: write
+    environment: npm-publish
+    env:
+      RELEASE_TAG: ${{ inputs.tag }}
+    steps:
+      - name: Check out the release tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Validate tag and package versions
+        id: release
+        run: node scripts/release-metadata.mjs
+
+      - name: Check out publishing verification tools
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          path: .tmp/release-tools
+          persist-credentials: false
+          sparse-checkout: |
+            scripts/verify-npm-release.mjs
+            scripts/update-release.mjs
+            scripts/download-npm-release-assets.mjs
+          sparse-checkout-cone-mode: false
+
+      - name: Check the GitHub Release is still a draft
+        if: ${{ !inputs.verify_only }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/release-draft.mjs check
+
+      - name: Download and validate locally built npm archives
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.release.outputs.version }}
+          VERIFY_ONLY: ${{ inputs.verify_only }}
+        run: node .tmp/release-tools/scripts/download-npm-release-assets.mjs
+
+      - name: Publish the Mac desktop package
+        if: ${{ !inputs.verify_only }}
+        run: >-
+          npm publish
+          ".tmp/npm-release/coworkos-desktop-darwin-arm64-${{ steps.release.outputs.version }}.tgz"
+          --access public
+          --provenance
+          --registry=https://registry.npmjs.org
+
+      - name: Publish the CLI package
+        if: ${{ !inputs.verify_only }}
+        run: >-
+          npm publish
+          ".tmp/npm-release/coworkos-app-${{ steps.release.outputs.version }}.tgz"
+          --access public
+          --provenance
+          --registry=https://registry.npmjs.org
+
+      - name: Verify the published versions
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+        run: node .tmp/release-tools/scripts/verify-npm-release.mjs
