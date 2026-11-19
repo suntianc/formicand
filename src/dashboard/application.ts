@@ -825,7 +825,7 @@ export function createDashboardApplication(
       throw new HttpError(400, "无效 Computer Use 授权");
     return computer.authorize(input.taskId, input.pid, input.windowId, input.mode);
   }
-  const modelSettings = createModelSettings(projectRoot, runtimeConfig, anyTurnActive);
+  const modelSettings = createModelSettings(projectRoot, runtimeConfig);
   const routes: DashboardRoutePorts = {
     projectData,
     mainSessions,

@@ -237,19 +237,22 @@ test("a damaged host credential store is reported and left for recovery", async 
     path,
     JSON.stringify({
       ...providerConfig([
-        { id: "a", name: "连接 A", baseUrl: "https://a.example/v1", model: "a-model", api: "openai-responses" }
+        {
+          id: "a",
+          name: "连接 A",
+          baseUrl: "https://a.example/v1",
+          model: "a-model",
+          api: "openai-responses"
+        }
       ])
     })
   );
   await writeFile(credentialsPath, "{not json");
   const config = readCoworkConfig(root);
-  const model = createModelSettings(root, config, () => false);
+  const model = createModelSettings(root, config);
   assert.equal(model.status().configured, false);
   assert.match(model.status().credentialError, /凭据存储无法读取/);
-  await assert.rejects(
-    model.saveProvider({ id: "a", apiKey: "another-key" }),
-    /凭据存储无法读取/
-  );
+  await assert.rejects(model.saveProvider({ id: "a", apiKey: "another-key" }), /凭据存储无法读取/);
   assert.equal(await readFile(credentialsPath, "utf8"), "{not json");
   const search = createWebSearchSettings(root, config, () => false);
   assert.match(search.status().credentialError, /凭据存储无法读取/);

@@ -58,7 +58,7 @@ coworkos doctor --test-connection
 
 ## App 与 Web 模型连接
 
-打开“设置 → 模型”。这里只管供应商和模型；Main、Executor、Reviewer 和自定义 Agent 用哪个模型，在“设置 → Agent”里选。修改供应商和模型前要先结束运行中的任务。
+打开“设置 → 模型”。这里只管供应商和模型；Main、Executor、Reviewer 和自定义 Agent 用哪个模型，在“设置 → Agent”里选。任务运行中也可以修改，正在进行的这一轮和工作项仍用开始时的设置，下一轮起用新的。
 
 1. 点击“添加供应商”，从“中国 / 国际 / 本地与自定义”中选一家。预置供应商已填好 API 地址和接口格式，只需填写 API Key；其他兼容 OpenAI 或 Anthropic 接口的服务选“自定义”，填写名称、API 地址并选择接口格式（Chat Completions、Responses 或 Anthropic Messages）。
 2. 点击“添加并获取模型”。App 读取服务商的模型列表，勾选要用的模型后点击“加入模型”；服务商不提供列表时关闭弹窗，点击“手动添加”填写模型 ID。

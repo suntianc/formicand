@@ -29,12 +29,10 @@ async function fixture(t, initial = { workspaceRoot: "/preserve" }) {
   for (const key of ENV) delete process.env[key];
   const path = join(root, "config.json");
   await writeFile(path, JSON.stringify(initial));
-  const state = { active: false };
   const config = {};
-  const settings = createModelSettings(root, config, () => state.active);
-  const reopen = () =>
-    createModelSettings(root, readCoworkConfig(root, { COWORK_CONFIG: path }), () => false);
-  return { root, path, config, settings, state, reopen, credentials: join(root, "credentials.json") };
+  const settings = createModelSettings(root, config);
+  const reopen = () => createModelSettings(root, readCoworkConfig(root, { COWORK_CONFIG: path }));
+  return { root, path, config, settings, reopen, credentials: join(root, "credentials.json") };
 }
 
 const providerNamed = (status, name) => status.providers.find((entry) => entry.name === name);
@@ -79,10 +77,6 @@ test("providers keep keys on the host, validate input and refuse changes during 
   );
   await assert.rejects(f.settings.saveProvider({ id: "missing", apiKey: key }), /不存在/);
   assert.equal(await readFile(f.path, "utf8"), before, "a rejected change writes nothing");
-
-  f.state.active = true;
-  await assert.rejects(f.settings.saveProvider({ id: provider.id, name: "运行中" }), /停止/);
-  f.state.active = false;
 
   // Anthropic has no prompt cache key; the flag never sticks.
   const anthropic = providerNamed(

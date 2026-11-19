@@ -58,7 +58,7 @@ After all checks pass and the model connection line reads `OK  流式模型连�
 
 ## App and Web model connections
 
-Open Settings → Models. It manages providers and models only; which model Main, Executor, Reviewer and custom Agents use is chosen under Settings → Agent. Stop running tasks before changing providers or models.
+Open Settings → Models. It manages providers and models only; which model Main, Executor, Reviewer and custom Agents use is chosen under Settings → Agent. Changes are allowed while a task runs: the current turn and work items keep what they started with, and the next one uses the new settings.
 
 1. Select Add provider and pick one from China, International or Local and custom. A preset fills in the API address and wire format, so you only enter the API key. For any other service that speaks the OpenAI or Anthropic API, choose Custom, enter a name and the API address, and pick the format (Chat Completions, Responses or Anthropic Messages).
 2. Select Add and fetch models. The App reads the provider's model list; tick the models you want and select Add models. If the provider offers no list, close the dialog and use Add manually with the model ID.

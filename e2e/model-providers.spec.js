@@ -287,7 +287,7 @@ test("a refused key fails the check with a plain message", async ({ page }) => {
   }
 });
 
-test("a provider edit refused during a run keeps its draft and saves after the run", async ({ page }) => {
+test("a provider edit during a run saves at once and leaves that turn alone", async ({ page }) => {
   test.setTimeout(90_000);
   let release;
   const gate = new Promise((done) => {
@@ -295,7 +295,7 @@ test("a provider edit refused during a run keeps its draft and saves after the r
   });
   const provider = await modelProtocolFixture("openai-completions", async () => {
     await gate;
-    return { text: "任务已结束，可以保存供应商" };
+    return { text: "这一轮照常结束" };
   });
   const dashboard = await startDashboard();
   const request = pageRequest(page, dashboard.base);
@@ -307,7 +307,7 @@ test("a provider edit refused during a run keeps its draft and saves after the r
       apiKey: "synthetic-initial-key"
     });
     await page.goto(dashboard.base);
-    await page.locator("#composer-input").fill("等待任务结束后再保存供应商");
+    await page.locator("#composer-input").fill("运行中修改供应商");
     await page.locator("#send-button").click();
     await expect.poll(() => provider.requests.length, { timeout: 30_000 }).toBe(1);
     const taskId = await page.locator(".conversation-item.active").getAttribute("data-task");
@@ -316,24 +316,14 @@ test("a provider edit refused during a run keeps its draft and saves after the r
     await selectProvider(page, "运行中供应商");
     await page.locator(".provider-name-input").fill("改名后的供应商");
     await saveProviderEdits(page);
-    await expect(page.locator("#toast")).toContainText("停止运行中的任务");
-    await expect(page.locator(".provider-name-input")).toHaveValue("改名后的供应商");
-    expect((await request("/api/model-settings")).body.providers[0].name).toBe("运行中供应商");
-    await leaveSettings(page);
-    await expect(page.locator("#composer-input")).toHaveValue("保留任务草稿");
-
-    release();
-    await expect(page.locator("#conversation")).toContainText("任务已结束，可以保存供应商", {
-      timeout: 30_000
-    });
-    await waitForIdle(page, taskId);
-    await openModelSettings(page);
-    await expect(page.locator(".provider-name-input")).toHaveValue("改名后的供应商");
-    await saveProviderEdits(page);
     await expect(page.locator("[data-provider-save]")).toBeHidden();
     expect((await request("/api/model-settings")).body.providers[0].name).toBe("改名后的供应商");
     await leaveSettings(page);
     await expect(page.locator("#composer-input")).toHaveValue("保留任务草稿");
+
+    release();
+    await expect(page.locator("#conversation")).toContainText("这一轮照常结束", { timeout: 30_000 });
+    await waitForIdle(page, taskId);
   } finally {
     release();
     await dashboard.stop();
