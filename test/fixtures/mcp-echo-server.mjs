@@ -1,7 +1,15 @@
 import { createInterface } from "node:readline";
 
-/** A stdio MCP server with two tools, for settings and runtime tests; ECHO_RESOURCES=1 adds two resources. */
+/**
+ * A stdio MCP server with two tools, for settings and runtime tests;
+ * ECHO_RESOURCES=1 adds two resources and ECHO_EXTRA_TOOLS=n adds n more tools.
+ */
 const resources = process.env.ECHO_RESOURCES === "1";
+const extra = Array.from({ length: Number(process.env.ECHO_EXTRA_TOOLS) || 0 }, (_, index) => ({
+  name: `extra_${index + 1}`,
+  description: "An extra tool",
+  inputSchema: { type: "object" }
+}));
 const reply = (id, result) => process.stdout.write(JSON.stringify({ jsonrpc: "2.0", id, result }) + "\n");
 createInterface({ input: process.stdin }).on("line", (line) => {
   const message = JSON.parse(line);
@@ -20,7 +28,8 @@ createInterface({ input: process.stdin }).on("line", (line) => {
           description: "Echo the text back",
           inputSchema: { type: "object", properties: { text: { type: "string" } } }
         },
-        { name: "erase", description: "Erase everything", inputSchema: { type: "object" } }
+        { name: "erase", description: "Erase everything", inputSchema: { type: "object" } },
+        ...extra
       ]
     });
   else if (message.method === "tools/call")

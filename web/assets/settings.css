@@ -2504,7 +2504,10 @@ html[data-theme] body :is(.provider-search, .provider-input) input:not([type="ch
   color: var(--color-text-3);
   font: 400 12px/1.4 var(--ui-font);
 }
+/* Positioned so absolutely placed children (screen-reader labels) scroll
+   inside the detail instead of stretching the settings page below it. */
 .skill-detail {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 18px;
