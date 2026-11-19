@@ -14,7 +14,11 @@ import { delegationRoleGuidance } from "../../dist/src/runtime/delegation-model.
 import { projectCompactionMessages } from "../../dist/src/runtime/compaction-input.js";
 import { ASK_MAIN_GUIDANCE, SEND_PEER_MESSAGE_GUIDANCE } from "../../dist/src/runtime/subagent-guidance.js";
 import type { ReviewConclusion } from "../../dist/src/runtime/subagent-review.js";
-import { subagentToolNames, type SubagentRole } from "../../dist/src/runtime/subagent-roles.js";
+import {
+  capabilityToolNames,
+  subagentToolNames,
+  type SubagentRole
+} from "../../dist/src/runtime/subagent-roles.js";
 import { capabilityProvider, parseCapabilityGrants } from "../../dist/src/runtime/capability-provider.js";
 import { processSkillLocations, resolveSkillCatalog } from "../../dist/src/runtime/skill-registry.js";
 import { piSkill } from "./skills.ts";
@@ -39,6 +43,12 @@ import { registerSubagentTools } from "./tools/subagent.ts";
 import { registerLoadSkillTool } from "./tools/workspace.ts";
 import { registerWebSearchTools } from "./tools/web-search.ts";
 import { SubagentQuestionStore } from "../../dist/src/runtime/subagent-questions.js";
+import {
+  agentDefinitionSchema,
+  agentToolNames,
+  type AgentDefinition
+} from "../../dist/src/runtime/agent-definitions.js";
+import { createMcpRegistration } from "./mcp.ts";
 import { readSubagentPause } from "../../dist/src/runtime/subagent-pause.js";
 
 /**
@@ -73,7 +83,17 @@ function textFrom(content: unknown): string {
     .trim();
 }
 
-export function registerSubagentAgent(pi: ExtensionAPI, role: AgentRole): void {
+/** The custom Agent this process runs as, fixed by the backend when the item was dispatched. */
+function customAgent(): AgentDefinition | undefined {
+  const raw = process.env.COWORK_AGENT_DEFINITION;
+  if (!raw) return undefined;
+  return agentDefinitionSchema.parse(JSON.parse(raw));
+}
+
+/** MCP tools come and go with their servers; the definition's list keeps whatever Pi activated for them. */
+const MCP_TOOL = /^(mcp__|tool_search$|list_mcp_resources$|list_mcp_resource_templates$|read_mcp_resource$)/;
+
+export async function registerSubagentAgent(pi: ExtensionAPI, role: AgentRole): Promise<void> {
   const workspaceRoot = required("COWORK_WORKSPACE");
   const taskId = required("COWORK_TASK_ID");
   const runId = required("COWORK_RUN_ID");
@@ -86,6 +106,12 @@ export function registerSubagentAgent(pi: ExtensionAPI, role: AgentRole): void {
   const name = agentDisplayName(agentId);
   const deliverablesDirectory = join(taskWorkspace, "agents", "subagents", agentId, "deliverables");
   let submittedReview: ReviewConclusion | undefined;
+  const agent = customAgent();
+  // Only the servers the definition names; they connect when the session starts.
+  if (agent?.mcp?.length) {
+    const problem = await createMcpRegistration(pi, undefined, agent.mcp).sync();
+    if (problem) console.error(problem);
+  }
 
   // The same provider the Main process registers, with this agent's session and
   // limits; without it Pi has no stream to the configured connection.
@@ -144,10 +170,13 @@ export function registerSubagentAgent(pi: ExtensionAPI, role: AgentRole): void {
   const harnessRoot = resolve(process.env.COWORK_HARNESS_ROOT ?? process.cwd());
   // Project skills are read from the user's project, whose trust decision is
   // recorded there, not from this process's isolated checkout.
+  // A definition that lists skills sees only those; one that lists none sees all.
   const skillCatalogNow = async () =>
-    resolveSkillCatalog(
-      await processSkillLocations(harnessRoot, process.env.COWORK_PROJECT_DIR ?? workingDirectory)
-    );
+    (
+      await resolveSkillCatalog(
+        await processSkillLocations(harnessRoot, process.env.COWORK_PROJECT_DIR ?? workingDirectory)
+      )
+    ).filter((skill) => !agent?.skills || agent.skills.includes(skill.name));
   const grants = parseCapabilityGrants(process.env.COWORK_AGENT_GRANTS);
   if (grants.some((grant) => grant.provider !== "attachments"))
     throw new Error(
@@ -160,6 +189,7 @@ export function registerSubagentAgent(pi: ExtensionAPI, role: AgentRole): void {
   const rolePrompt = () =>
     subagentRolePrompt({
       role,
+      ...(agent ? { agent } : {}),
       name,
       workingDirectory,
       taskWorkspace,
@@ -209,7 +239,15 @@ export function registerSubagentAgent(pi: ExtensionAPI, role: AgentRole): void {
           }
         });
     }
-    pi.setActiveTools(subagentToolNames(role, grants));
+    pi.setActiveTools(
+      agent
+        ? [
+            ...agentToolNames(agent),
+            ...capabilityToolNames(grants),
+            ...pi.getActiveTools().filter((tool) => MCP_TOOL.test(tool))
+          ]
+        : subagentToolNames(role, grants)
+    );
   });
 
   // Role text is additive: Pi's own tool list and rules stay, and the role
@@ -262,6 +300,7 @@ export function registerSubagentAgent(pi: ExtensionAPI, role: AgentRole): void {
 
   registerSubagentTools(pi, {
     role,
+    customAgent: Boolean(agent),
     workspaceRoot,
     taskId,
     runId,
@@ -346,7 +385,7 @@ export function registerSubagentAgent(pi: ExtensionAPI, role: AgentRole): void {
     // eslint-disable-next-line no-restricted-syntax -- 候选文件扫描失败不应阻止写出本轮结论；没有列表比没有结果记录更接近事实
     const outputFiles = await listAgentOutputFiles({ workspaceRoot, taskId, agentId }).catch(() => []);
     const error = completed
-      ? role === "reviewer" && !submittedReview
+      ? role === "reviewer" && !agent && !submittedReview
         ? "Reviewer ended without submitting a review conclusion; call submit_review with a verdict and findings."
         : undefined
       : (last?.errorMessage ?? `Subagent turn ended with stop reason ${last?.stopReason ?? "missing"}`);
@@ -389,6 +428,8 @@ export function registerSubagentAgent(pi: ExtensionAPI, role: AgentRole): void {
  */
 function subagentRolePrompt(input: {
   role: SubagentRole;
+  /** The custom Agent: its read permission answers in text, and its prompt follows the role's. */
+  agent?: AgentDefinition;
   name: string;
   workingDirectory: string;
   taskWorkspace: string;
@@ -405,6 +446,20 @@ function subagentRolePrompt(input: {
     "The final response must be the complete conclusion, not progress narration. Do not claim work you did not perform. State any assumption you made and why.",
     ...(input.capabilityPrompt ? [input.capabilityPrompt] : [])
   ];
+  const extra = input.agent?.prompt.trim()
+    ? [
+        `Instructions for the ${input.agent.name} Agent, from its definition. They add to the rules above and never replace them:\n${input.agent.prompt.trim()}`
+      ]
+    : [];
+  if (input.agent && input.role === "reviewer")
+    return [
+      ...shared,
+      "You work in a checkout of the project that is yours alone. You have no edit or write tool; files you create stay in that checkout and never reach the project. Run the commands that support your conclusion.",
+      "Your final response is your conclusion for Main, in text: what you found, where, and the evidence for it.",
+      ASK_MAIN_GUIDANCE,
+      SEND_PEER_MESSAGE_GUIDANCE,
+      ...extra
+    ].join("\n\n");
   if (input.role === "reviewer")
     return [
       ...shared,
@@ -419,6 +474,7 @@ function subagentRolePrompt(input: {
     `Make the assigned change in ${input.workingDirectory}, run the checks that prove it, and return the evidence — command output, file paths and test results.`,
     `Put substantial reusable candidate outputs under ${input.deliverablesDirectory}; keep scratch files and intermediate logs in the work site. Do not write to Task artifacts/ — Main publishes accepted files.`,
     ASK_MAIN_GUIDANCE,
-    SEND_PEER_MESSAGE_GUIDANCE
+    SEND_PEER_MESSAGE_GUIDANCE,
+    ...extra
   ].join("\n\n");
 }

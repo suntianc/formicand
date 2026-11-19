@@ -81,11 +81,21 @@ MCP 服务只有一份全局配置 `~/.atria/mcp.json`（`mcpServers` 格式，�
 
 设置页「MCP」检查连接、列出工具与 OAuth 登录都调用 Pi 自己的 `pi mcp list --json` 与 `pi mcp login`：后端在 `~/.atria/runtime/mcp-probe/` 下为每次操作建一个只含相关服务的临时目录（用完即删），该目录在 Pi 目录的 `trust.json` 中登记为信任；登录凭据写入 Pi 目录的 `mcp-auth.json`，按服务名与地址对应，Main 连接同名同址的服务时直接使用。
 
+### 自定义 Agent
+
+自定义 Agent 是 Markdown 文件（[定义与校验](../src/runtime/agent-definitions.ts)）：头部写 `name`、给 Main 的 `description`、`permission`（`write` 或 `read`），可选 `profile`/`model`、`tools`、`skills`、`mcp`、`enabled`，正文是附加提示词。全局放在 `~/.atria/agents/`，项目放在 `.atria/agents/`（项目信任后才读），同名时项目的生效；`executor`、`reviewer` 是内置名称。
+
+代码保证的规则：`read` 不能有 `edit`、`write`；可选工具只有 `read`、`bash`、`edit`、`write`、`grep`、`find`、`ls`、`browse_workspace`、`search`、`visit`，Main 专用工具与桌面、浏览器操控都不在其中；`ask_main`、`send_peer_message` 始终持有；不写 `skills` 时可见全部技能，写空列表则没有技能；不写 `mcp` 时不注册任何服务。
+
+Main 每轮在系统提示的 `<custom_agents>` 里看到已启用、有效的 Agent，用 `call_subagent` 的 `agent` 参数派出。后端在派单时解析定义并写进工作项（之后修改不影响它），记一条 `call.agent_selected`（名称、来源、权限、模型来源）；找不到、已停用或定义有误时直接报错并写明名称，不改派。`write` 以 Executor 角色在隔离现场运行，`read` 在 Reviewer 那样的独立 checkout 里运行但不提交审查结论，结论以文字交回。子进程按定义设置工具、过滤技能清单、只注册所列 MCP 服务，并把附加提示词接在角色提示之后。侧栏和需求面板用 Agent 名称代替角色名。
+
+设置页「Agent」分全局与项目两页（[接口](../src/dashboard/agent-routes.ts)），可新建、复制、修改、启停、删除，并标出引用了不存在或已停用的技能、MCP 服务的 Agent。工作区里第一次打开带 `.atria/agents`、`.atria/skills` 或 `.agents/skills` 的项目时，会询问是否信任（[询问](../web/assets/controllers/project-trust-prompt.js)），只读取名称来提问。
+
 ### 输入框 `/` 与 `@`
 
-输入框里打 `/` 列出技能、指令模板和命令，打 `@` 搜索项目文件和 MCP 资源（[菜单](../web/assets/controllers/composer-menu.js)，列表来自 [输入框服务](../src/dashboard/composer-service.ts)）。技能清单与 Main 看到的一致；指令模板是 `~/.atria/prompts/` 与项目 `.atria/prompts/` 下的 Markdown，同名时项目的优先，选中后直接展开成可再编辑的文字；文件列表在 Git 仓库里按 `.gitignore` 过滤，否则遍历目录并跳过 `node_modules` 等；MCP 资源由后端连接已启用的服务读取，`ui://` 界面资源不列，需要登录或用 `!命令` 取值的服务不列资源。
+输入框里打 `/` 列出技能、指令模板和命令，打 `@` 搜索项目文件、自定义 Agent 和 MCP 资源（[菜单](../web/assets/controllers/composer-menu.js)，列表来自 [输入框服务](../src/dashboard/composer-service.ts)）。技能清单与 Main 看到的一致；指令模板是 `~/.atria/prompts/` 与项目 `.atria/prompts/` 下的 Markdown，同名时项目的优先，选中后直接展开成可再编辑的文字；文件列表在 Git 仓库里按 `.gitignore` 过滤，否则遍历目录并跳过 `node_modules` 等；MCP 资源由后端连接已启用的服务读取，`ui://` 界面资源不列，需要登录或用 `!命令` 取值的服务不列资源。
 
-选中的技能、文件与资源在消息里留下 `/名称`、`@路径`、`@服务:地址`，发送、运行中插话与修改重发时由前端识别成引用随请求发送。后端只保留能解析的引用（技能在清单里、文件在项目内且存在、服务已启用），在消息开头加上 `<atria_references>` 清单（[格式](../src/runtime/composer-references.ts)），写明技能文件路径和每类引用的用法；清单在会话里不显示，只把对应的词标成标签。
+选中的技能、文件、Agent 与资源在消息里留下 `/名称`、`@路径`、`@Agent 名`、`@服务:地址`，发送、运行中插话与修改重发时由前端识别成引用随请求发送。后端只保留能解析的引用（技能在清单里、文件在项目内且存在、服务已启用），在消息开头加上 `<atria_references>` 清单（[格式](../src/runtime/composer-references.ts)），写明技能文件路径和每类引用的用法；清单在会话里不显示，只把对应的词标成标签。
 
 ## 显式委派附件
 

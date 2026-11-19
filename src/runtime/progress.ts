@@ -76,6 +76,7 @@ export async function readSubagentProgress(input: {
       payload?: {
         task?: string;
         delegation?: { role?: string };
+        agentDefinition?: { name?: string };
         projectDirectory?: string;
         dependsOn?: string[];
         developmentId?: string;
@@ -150,6 +151,7 @@ export async function readSubagentProgress(input: {
           // A blocked item is waiting, not working: it must not read as running.
           status: blocked ? "queued" : normalizeStatus(item.status),
           ...(role === "executor" || role === "reviewer" ? { role } : {}),
+          ...(item.payload?.agentDefinition?.name ? { agent: item.payload.agentDefinition.name } : {}),
           ...(selection?.model ? { model: selection.model } : {}),
           ...(selection?.connectionName ? { connectionName: selection.connectionName } : {}),
           ...(item.payload?.projectDirectory ? { workspace: item.payload.projectDirectory } : {}),

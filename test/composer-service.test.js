@@ -149,3 +149,27 @@ test("references keep what resolves and the manifest goes in front of the words"
   assert.equal(stripReferencesBlock("没有清单"), "没有清单");
   assert.equal(referencesBlock(project, []), "");
 });
+
+test("@ offers the Agents Main can use here and keeps only those references", async (t) => {
+  const { home, project, service } = await setup(t);
+  await mkdir(join(home, "agents"), { recursive: true });
+  await writeFile(
+    join(home, "agents", "db-migrator.md"),
+    "---\nname: db-migrator\ndescription: 迁移\npermission: write\n---\n"
+  );
+  await writeFile(
+    join(home, "agents", "retired.md"),
+    "---\nname: retired\ndescription: 停用\npermission: write\nenabled: false\n---\n"
+  );
+  assert.deepEqual((await service.agents("p1")).agents, [
+    { name: "db-migrator", description: "迁移", permission: "write" }
+  ]);
+  assert.deepEqual(
+    await service.resolve(project, [
+      { kind: "agent", name: "db-migrator" },
+      { kind: "agent", name: "retired" },
+      { kind: "agent", name: "nobody" }
+    ]),
+    [{ kind: "agent", name: "db-migrator" }]
+  );
+});

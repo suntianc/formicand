@@ -99,7 +99,10 @@ test("restored selections retain core discovery without exposing ungranted compu
   pi.setActiveTools = (names) => {
     selected = names;
   };
-  (await loadExtension())(pi);
+  // Main reads its MCP configuration before it registers its hooks.
+  await (
+    await loadExtension()
+  )(pi);
   // Stop after activation to keep this capability-selection fixture free of background polling.
   await assert.rejects(
     pi.handlers.get("session_start")(
@@ -157,7 +160,7 @@ test("call_subagent keeps task/mode required and dispatches one work item per ca
 
     const pi = fakePi();
     const extension = await loadExtension();
-    extension(pi);
+    await extension(pi);
     const request = { role: "user", content: "A follow-up after a context reset" };
     const callback = {
       role: "custom",
@@ -187,6 +190,7 @@ test("call_subagent keeps task/mode required and dispatches one work item per ca
       "task",
       "attachments",
       "mode",
+      "agent",
       "role",
       "dependsOn",
       "developmentId",

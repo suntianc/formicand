@@ -1,4 +1,9 @@
 import { resetMainSupervisorBackoff } from "../../dist/src/runtime/main-supervisor.js";
+import {
+  availableAgents,
+  customAgentsPrompt,
+  processAgentLocations
+} from "../../dist/src/runtime/agent-definitions.js";
 import { configuredWebTools } from "../../dist/src/runtime/web-search-config.js";
 import { queuedUserTurn, readQueuedUserTurn } from "../../dist/src/runtime/queued-user-turn.js";
 import {
@@ -117,7 +122,7 @@ import { createMcpRegistration } from "./mcp.ts";
 export default async function registerCoworkExtension(pi: ExtensionAPI) {
   const role = process.env.COWORK_AGENT_ROLE;
   if (role === "executor" || role === "reviewer") {
-    registerSubagentAgent(pi, role);
+    await registerSubagentAgent(pi, role);
     return;
   }
   return registerMainExtension(pi);
@@ -643,10 +648,13 @@ async function registerMainExtension(pi: ExtensionAPI) {
       `长期记忆文件：${join(taskWorkspace, "agents", "main", "context", "memory.md")}`,
       "对任务文件优先使用上面的绝对路径，避免 read/bash 与 browse_workspace 的相对路径混淆。"
     ].join("\n");
+    // The user's own Agents, read again every turn so a new or changed one applies to the next turn.
+    const agents = await availableAgents(await processAgentLocations(projectDirectory));
     // Keep SDK-owned tools and rules dynamic. Returning a forced prompt here
     // freezes snippets when enable_tools changes the active loadout mid-turn.
     return {
-      current_workspace: `<current_workspace>\n${workspace}\n</current_workspace>`
+      current_workspace: `<current_workspace>\n${workspace}\n</current_workspace>`,
+      custom_agents: agents.length ? `<custom_agents>\n${customAgentsPrompt(agents)}\n</custom_agents>` : ""
     };
   };
 

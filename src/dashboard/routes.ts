@@ -56,6 +56,8 @@ import type { SkillService } from "./skill-service.js";
 import { handleMcpRequest } from "./mcp-routes.js";
 import type { McpService } from "./mcp-service.js";
 import { handleComposerRequest } from "./composer-routes.js";
+import { handleAgentRequest } from "./agent-routes.js";
+import type { AgentService } from "./agent-service.js";
 import type { ComposerService } from "./composer-service.js";
 import {
   composerReferencesSchema,
@@ -108,6 +110,7 @@ export interface DashboardRoutePorts {
   skills?: SkillService;
   mcp?: McpService;
   composer?: ComposerService;
+  agents?: AgentService;
   mainCapacity?: MainCapacityService;
   uploads?: InputStore;
   computer: ComputerUse;
@@ -557,6 +560,7 @@ export function createDashboardHandler(
       if (await handleSkillRequest(request, response, url, ports.skills)) return;
       if (await handleMcpRequest(request, response, url, ports.mcp)) return;
       if (await handleComposerRequest(request, response, url, ports.composer)) return;
+      if (await handleAgentRequest(request, response, url, ports.agents)) return;
       if (request.method === "POST" && url.pathname === "/api/projects/choose-directory") {
         const directory = await chooseLocalDirectory();
         sendJson(response, 200, {

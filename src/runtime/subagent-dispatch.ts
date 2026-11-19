@@ -16,6 +16,12 @@ import { DurableScheduler, type WorkItem } from "./scheduler.js";
 import { SubagentProcessService, type SubagentProcessResult } from "./subagent-processes.js";
 import { resolveCapabilities } from "./task-capabilities.js";
 import { settleDelegatedExperiment, type DelegatedExperimentRef } from "./experiment-settlement.js";
+import {
+  agentSnapshot,
+  BUILTIN_AGENT_NAMES,
+  type AgentDefinition,
+  type AgentEntry
+} from "./agent-definitions.js";
 
 /**
  * The backend's half of delegation.
@@ -36,6 +42,8 @@ export interface SubagentDispatchRequest {
   task: string;
   mode: CallMode;
   role: "executor" | "reviewer";
+  /** A custom Agent by name; its permission decides the role. */
+  agent?: string;
   dependsOn?: string[];
   developmentId?: string;
   continueCallId?: string;
@@ -56,6 +64,8 @@ export interface SubagentDispatchAccepted {
   agentId: string;
   name: string;
   role: "executor" | "reviewer";
+  /** The custom Agent this item runs as. */
+  agent?: string;
   mode: CallMode;
   developmentId?: string;
   workspace?: string;
@@ -82,6 +92,8 @@ export interface SubagentDispatchPorts {
     taskId: string;
     developmentId: string;
   }): Promise<{ repository: string; commit: string } | undefined>;
+  /** The custom Agent a delegation names, fixed for the item; an error names a missing one. */
+  agent?(input: { taskId: string; name: string }): Promise<AgentEntry & { definition: AgentDefinition }>;
   /** Grants for the upload IDs Main named; refused here, before any work item exists. */
   grants?(input: { taskId: string; attachments: unknown }): Promise<CapabilityGrant[]>;
   /**
@@ -154,6 +166,8 @@ interface StoredPayload {
   thinkingLevel?: PiThinkingLevel;
   capabilityGrants?: CapabilityGrant[];
   experimentRef?: DelegatedExperimentRef;
+  /** The custom Agent's definition as it was when the item was dispatched. */
+  agentDefinition?: AgentDefinition;
 }
 
 export class SubagentDispatchService {
@@ -198,7 +212,8 @@ export class SubagentDispatchService {
   async dispatch(request: SubagentDispatchRequest): Promise<SubagentDispatchAccepted> {
     const taskId = request.taskId;
     if (!/^[A-Za-z0-9._-]+$/.test(taskId)) throw new Error("派单的任务 ID 不合法");
-    const role = request.role;
+    const named = await this.namedAgent(taskId, request);
+    const role = named.role;
     if (request.mode !== "sync" && request.mode !== "async")
       throw new Error("call_subagent mode must be sync or async");
     const taskWorkspace = join(this.ports.workspaceRoot, taskId);
@@ -232,6 +247,10 @@ export class SubagentDispatchService {
     const continued = request.continueCallId
       ? await this.continuation(items, request.continueCallId, taskWorkspace, terminal)
       : undefined;
+    // A rework is the same Agent: the definition the first round ran with, not a newer one.
+    const agentDefinition = continued?.agentDefinition ?? named.entry?.definition;
+    if (continued && request.agent && continued.agentDefinition?.name !== request.agent)
+      throw new Error(`工作项 ${request.continueCallId} 不是 Agent ${request.agent} 做的，不能以它续接`);
     if (continued && role !== "executor")
       throw new Error("continueCallId 只能续接 Executor 工作项，Reviewer 不能以原上下文返修");
     const requestedDevelopment = request.developmentId?.trim() || undefined;
@@ -279,10 +298,13 @@ export class SubagentDispatchService {
           // eslint-disable-next-line no-restricted-syntax -- 实验台账是旁路记录，打开失败时本次派单照常进行，只是不记指标
           .catch(() => undefined)
       : undefined;
+    // Main's one-off choice wins over the Agent's own; neither falls back silently.
+    const profileId = request.profileId?.trim() || agentDefinition?.profile;
+    const model = request.model?.trim() || agentDefinition?.model;
     const delegation: DelegatedModelRequest = {
       role,
-      ...(request.profileId?.trim() ? { profileId: request.profileId.trim() } : {}),
-      ...(request.model?.trim() ? { model: request.model.trim() } : {})
+      ...(profileId ? { profileId } : {}),
+      ...(model ? { model } : {})
     };
     const call: Call = {
       callId,
@@ -329,7 +351,8 @@ export class SubagentDispatchService {
           ...(request.thinkingLevel ? { thinkingLevel: request.thinkingLevel } : {}),
           ...(experimentRef ? { experimentRef } : {}),
           delegation,
-          capabilityGrants
+          capabilityGrants,
+          ...(agentDefinition ? { agentDefinition } : {})
         },
         maxAttempts:
           // A synchronous call holds the requesting turn: one attempt keeps a
@@ -360,6 +383,14 @@ export class SubagentDispatchService {
       })
     );
     await events.append(event({ taskId, runId }, callId, "step.queued", "coordinator", { callId, agentId }));
+    // Which Agent definition the item runs: name, where it came from, permission and model source.
+    if (named.entry)
+      await events.append(
+        event({ taskId, runId }, callId, "call.agent_selected", agentId, {
+          callId,
+          agent: agentSnapshot(named.entry)
+        })
+      );
     if (continued)
       await events.append(
         event({ taskId, runId }, callId, "call.continued", agentId, {
@@ -377,6 +408,7 @@ export class SubagentDispatchService {
       agentId,
       name: agentDisplayName(agentId),
       role,
+      ...(agentDefinition ? { agent: agentDefinition.name } : {}),
       mode: request.mode,
       ...(developmentId ? { developmentId } : {}),
       ...(workItemSite ? { workspace: workItemSite.directory } : {}),
@@ -442,7 +474,13 @@ export class SubagentDispatchService {
     fromCallId: string,
     taskWorkspace: string,
     terminal: (status: string) => boolean
-  ): Promise<{ agentId: string; workItemSite: WorkItemSite; developmentId: string; sessionCallId: string }> {
+  ): Promise<{
+    agentId: string;
+    workItemSite: WorkItemSite;
+    developmentId: string;
+    sessionCallId: string;
+    agentDefinition?: AgentDefinition;
+  }> {
     const original = items.find((item) => item.stepId === fromCallId);
     if (!original) throw new Error(`continueCallId 引用了本 Run 中不存在的工作项：${fromCallId}`);
     const payload = (original.payload ?? {}) as StoredPayload;
@@ -469,7 +507,8 @@ export class SubagentDispatchService {
       agentId: original.agentId,
       workItemSite: payload.workItemSite,
       developmentId: payload.developmentId,
-      sessionCallId
+      sessionCallId,
+      ...(payload.agentDefinition ? { agentDefinition: payload.agentDefinition } : {})
     };
   }
 
@@ -523,6 +562,32 @@ export class SubagentDispatchService {
         "review-site"
       )
     };
+  }
+
+  /**
+   * The role and custom Agent a request names. `executor` and `reviewer` are
+   * the built-in roles; any other name is a custom Agent whose permission sets
+   * the role — `write` runs as an Executor, `read` in a Reviewer's checkout.
+   */
+  private async namedAgent(
+    taskId: string,
+    request: SubagentDispatchRequest
+  ): Promise<{ role: "executor" | "reviewer"; entry?: AgentEntry & { definition: AgentDefinition } }> {
+    const name = request.agent?.trim();
+    if (!name) return { role: request.role };
+    if ((BUILTIN_AGENT_NAMES as readonly string[]).includes(name)) {
+      if (request.role !== name)
+        throw new Error(`agent=${name} 与 role=${request.role} 不一致；只写其中一个`);
+      return { role: request.role };
+    }
+    if (!this.ports.agent) throw new Error("这个节点不能派自定义 Agent");
+    const entry = await this.ports.agent({ taskId, name });
+    const role = entry.definition.permission === "write" ? "executor" : "reviewer";
+    if (request.role !== role && request.role !== "executor")
+      throw new Error(
+        `Agent ${name} 的权限是 ${entry.definition.permission}，不能以 role=${request.role} 派出`
+      );
+    return { role, entry };
   }
 
   private async grants(taskId: string, attachments: unknown): Promise<CapabilityGrant[]> {

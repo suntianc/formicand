@@ -63,11 +63,12 @@ export function createProjectController({
       (agent) => agent.role === "subagent" && ["running", "waiting", "queued"].includes(agent.state)
     );
   const roleLabel = (agent) =>
-    agent.workRole === "reviewer" ? "Reviewer" : agent.workRole === "executor" ? "Executor" : "";
+    agent.workAgent ||
+    (agent.workRole === "reviewer" ? "Reviewer" : agent.workRole === "executor" ? "Executor" : "");
   // A paused conversation holds its Subagents too: they show the pause, still.
   const subagentRow = (agent, paused) => {
     const tone = paused ? "is-paused" : agent.workRole === "reviewer" ? "is-review" : "is-running";
-    const role = roleLabel(agent);
+    const role = esc(roleLabel(agent));
     return `<div class="subagent-row" data-agent="${esc(agent.agentId)}" data-state="${esc(paused ? "paused" : agent.state)}"><span class="subagent-guide" aria-hidden="true"></span><span class="subagent-state ${tone}" aria-hidden="true">${icon(paused ? "pause" : "loader-circle")}</span><span class="subagent-name">${esc(agent.name || agent.agentId)}</span>${role ? `<span class="subagent-role">${role}</span>` : ""}</div>`;
   };
   const taskLabel = (task) =>

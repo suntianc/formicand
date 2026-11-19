@@ -9,6 +9,7 @@ import { z } from "zod";
 export const composerReferenceSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("skill"), name: z.string().min(1).max(100) }).strict(),
   z.object({ kind: z.literal("file"), path: z.string().min(1).max(1024) }).strict(),
+  z.object({ kind: z.literal("agent"), name: z.string().min(1).max(64) }).strict(),
   z
     .object({
       kind: z.literal("mcp_resource"),
@@ -24,6 +25,7 @@ export type ComposerReference = z.infer<typeof composerReferenceSchema>;
 export type ResolvedReference =
   | { kind: "skill"; name: string; path: string }
   | { kind: "file"; path: string }
+  | { kind: "agent"; name: string }
   | { kind: "mcp_resource"; server: string; uri: string };
 
 const OPEN = "<atria_references>\n";
@@ -33,6 +35,7 @@ const NOTE =
   "The user attached these references to the message below with / and @ in the composer. " +
   "skill: read the SKILL.md at path before anything else and follow it for this message. " +
   "file: a path relative to projectDirectory, referenced rather than uploaded; read it when you need it. " +
+  "agent: the user wants this work handed to that Agent; delegate it with call_subagent agent=<name>. " +
   "mcp_resource: read it with read_mcp_resource using server and uri.";
 
 /** The manifest put in front of a message; empty when nothing resolved. */

@@ -31,6 +31,8 @@ import type { SubagentRole } from "../../../dist/src/runtime/subagent-roles.js";
  */
 export interface SubagentToolContext {
   role: SubagentRole;
+  /** A custom read Agent answers in text, so it holds no submit_review. */
+  customAgent?: boolean;
   workspaceRoot: string;
   taskId: string;
   runId: string;
@@ -223,7 +225,7 @@ export function registerSubagentTools(pi: ExtensionAPI, context: SubagentToolCon
     }
   });
 
-  if (context.role !== "reviewer") return;
+  if (context.role !== "reviewer" || context.customAgent) return;
   pi.registerTool({
     name: "submit_review",
     label: "Submit Review",

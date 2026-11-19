@@ -1,4 +1,5 @@
 import { randomBytes } from "node:crypto";
+import { processAgentLocations, resolveAgent } from "../runtime/agent-definitions.js";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
 import { join } from "node:path";
@@ -86,6 +87,8 @@ export async function openSubagentHost(options: SubagentHostOptions): Promise<Su
     grants: async () => {
       throw new Error("本次运行没有可用的上传服务；CLI 运行不能按附件授予能力");
     },
+    agent: async ({ taskId, name }) =>
+      await resolveAgent(await processAgentLocations((await locateTask(taskId)).task.projectDirectory), name),
     ...(options.configPath ? { configPath: () => options.configPath } : {}),
     ...(options.piAgentDir ? { piAgentDir: () => options.piAgentDir } : {}),
     ...(options.pollMs === undefined ? {} : { pollMs: options.pollMs }),

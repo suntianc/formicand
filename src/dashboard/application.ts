@@ -9,6 +9,8 @@ import { createWebSearchSettings } from "./web-search-settings.js";
 import { createSkillService } from "./skill-service.js";
 import { createMcpService } from "./mcp-service.js";
 import { createComposerService } from "./composer-service.js";
+import { createAgentService } from "./agent-service.js";
+import { agentLocations, resolveAgent } from "../runtime/agent-definitions.js";
 import { homedir } from "node:os";
 import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
@@ -367,6 +369,11 @@ export function createDashboardApplication(
       const location = await locateTask(taskId);
       return await attachmentGrants(join(location.workspaceRoot, taskId), attachments);
     },
+    agent: async ({ taskId, name }) =>
+      await resolveAgent(
+        await agentLocations(data.home, (await locateTask(taskId)).task.projectDirectory),
+        name
+      ),
     experiment: async ({ taskId, callId, agentId, objective }) => {
       const location = await locateTask(taskId);
       return await new ExperimentProgramStore(location.workspaceRoot).openRun({
@@ -816,6 +823,12 @@ export function createDashboardApplication(
     developments,
     projectClones,
     mcp: createMcpService({ home: data.home, piAgentDir: data.piAgentDir, harnessRoot: projectRoot }),
+    agents: createAgentService({
+      harnessRoot: projectRoot,
+      home: data.home,
+      userHome: homedir(),
+      projectForId: workspaces.projectForId
+    }),
     composer: createComposerService({
       harnessRoot: projectRoot,
       home: data.home,

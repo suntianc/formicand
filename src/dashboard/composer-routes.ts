@@ -27,6 +27,9 @@ export async function handleComposerRequest(
       sendJson(response, 200, await composer.files(projectIdOf(url), query));
       return true;
     }
+    case "/api/composer/agents":
+      sendJson(response, 200, await composer.agents(projectIdOf(url)));
+      return true;
     case "/api/composer/resources":
       sendJson(response, 200, await composer.resources());
       return true;
