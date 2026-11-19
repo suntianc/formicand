@@ -15,7 +15,7 @@ test("the reasoning rail follows each model's levels, keys move it, and a model 
 }) => {
   const dashboard = await startDashboard();
   try {
-    await page.route("**/api/models", async (route) => {
+    await page.route(/\/api\/models(\?.*)?$/, async (route) => {
       const response = await route.fetch();
       const body = await response.json();
       await route.fulfill({
@@ -86,11 +86,10 @@ test("the reasoning rail follows each model's levels, keys move it, and a model 
     const box = await rail.boundingBox();
     await page.mouse.move(box.x + box.width - 8, box.y + box.height / 2);
     await page.mouse.down();
-    // Between two notches the knob follows the pointer instead of snapping.
+    // Between two notches the knob stays under the pointer instead of snapping or lagging.
     await page.mouse.move(box.x + box.width * 0.4, box.y + box.height / 2);
     const between = Number(await rail.evaluate((node) => node.style.getPropertyValue("--at")));
-    expect(between).toBeGreaterThan(0);
-    expect(between).toBeLessThan(1);
+    expect(between).toBeCloseTo((box.width * 0.4 - box.height / 2) / (box.width - box.height), 2);
     await page.mouse.move(box.x + 8, box.y + box.height / 2);
     await expect(menu.locator(".effort-level-name")).toHaveText("高");
     await expect(page.locator("#model-select .reasoning-name")).toHaveText("最大");

@@ -127,21 +127,11 @@ export function createModelPicker({ panel, view, chooseModel, chooseLevel }) {
     const share = (clientX - box.left - knob / 2) / Math.max(1, box.width - knob);
     return Math.min(1, Math.max(0, share)) * (levels().length - 1);
   };
-  /**
-   * The knob follows the pointer with a pull toward the nearest notch: close
-   * to one it lags and settles, halfway between it moves freely. The curve is
-   * continuous, so crossing a midpoint never jumps.
-   */
-  const damped = (position) => {
-    const notch = Math.round(position);
-    const offset = position - notch;
-    return notch + Math.sign(offset) * 0.5 * Math.abs(2 * offset) ** 1.8;
-  };
-  // While dragging only the rail moves; the choice is made when the pointer
-  // lets go, at the nearest notch. The heading names that notch as it moves.
+  // While dragging the knob stays under the pointer; the choice is made when
+  // the pointer lets go, at the nearest notch. The heading names that notch as it moves.
   const preview = (rail, position) => {
     const index = Math.round(position);
-    rail.style.setProperty("--at", String(Number(damped(position).toFixed(4))));
+    rail.style.setProperty("--at", String(Number(position.toFixed(4))));
     const name = panel.querySelector(".effort-level-name");
     if (name) name.textContent = levelLabel(levels()[index]);
     rail
