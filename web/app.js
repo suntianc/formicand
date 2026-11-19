@@ -405,6 +405,7 @@ const humanQuestions = createHumanQuestions($("#human-questions"), {
   submit: (taskId, requestId, answer) =>
     humanAction(taskId, `human/${encodeURIComponent(requestId)}/answer`, { answer }),
   resume: (taskId) => humanAction(taskId, "human/resume", {}),
+  onEditProposal: (proposal) => openAgentProposal(proposal),
   onVisibility: (visible) => {
     $(".composer").hidden = visible;
   }
@@ -1849,13 +1850,28 @@ const settingsPages = createSettingsPages({
   disconnectNode: (origin) => observeData.disconnectNode(origin),
   removeNode: (origin) => observeData.removeNode(origin)
 });
-createAgentSettings({
+const agentSettings = createAgentSettings({
   panel: $('[data-settings-panel="agents"]'),
   api,
   projects: () => projectController.visibleProjects(),
   onSection: settingsPages.onSection,
-  showToast
+  showToast,
+  // Main drafts the definition in a conversation and asks before it saves anything.
+  askMain: () => {
+    settingsPages.close();
+    beginNewConversation();
+    const input = $("#composer-input");
+    input.value = ui("帮我创建一个 Agent：");
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    input.focus();
+    input.setSelectionRange(input.value.length, input.value.length);
+  }
 });
+/** "Edit in settings" on a proposal opens the Agent page with that definition to finish. */
+function openAgentProposal(proposal) {
+  agentSettings.openProposal(proposal);
+  settingsPages.open("agents");
+}
 createSkillSettings({
   panel: $('[data-settings-panel="skills"]'),
   api,

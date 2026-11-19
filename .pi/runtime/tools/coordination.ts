@@ -44,113 +44,52 @@ export function registerCoordinationTools(pi: ExtensionAPI, context: CoworkToolC
       )
     }),
     async execute(_toolCallId, params, signal, _onUpdate, ctx): Promise<RuntimeToolResult> {
-      const releaseAnswers = context.inboxDelivery.holdHumanAnswers();
-      try {
-        const options = Array.isArray(params.options)
-          ? params.options.filter((option): option is string => typeof option === "string")
+      const options = Array.isArray(params.options)
+        ? params.options.filter((option): option is string => typeof option === "string")
+        : undefined;
+      const recommended =
+        typeof params.recommended === "number" &&
+        options &&
+        params.recommended >= 0 &&
+        params.recommended < options.length
+          ? params.recommended
           : undefined;
-        const recommended =
-          typeof params.recommended === "number" &&
-          options &&
-          params.recommended >= 0 &&
-          params.recommended < options.length
-            ? params.recommended
-            : undefined;
-        const request = await context.humanStore.create({
-          taskId: context.taskId,
-          runId: context.mainRunId,
+      const { request, settled } = await askHumanAndWait(
+        context,
+        {
           // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- askhuman 的 question 由模型以 JSON 参数传入，运行期可能缺失；空串回退让 humanStore.create 始终收到字符串
           question: String(params.question ?? ""),
           context: typeof params.context === "string" ? params.context : undefined,
           options,
           recommended
-        });
-        await new LocalWorkspaceStore(context.workspaceRoot).transitionTask(context.taskId, "waiting", {
-          runId: context.mainRunId,
-          reason: `waiting_for_human:${request.requestId}`
-        });
-        context.updateRuntime({
-          runtimePhase: "waiting",
-          runtimeLastEvent: { type: "human_question_created", summary: request.question.slice(0, 240) }
-        });
-        ctx.ui.notify(`Waiting for human answer · ${request.requestId}`, "info");
-
-        // Wait here, so the answer is this tool's result. Returning immediately
-        // meant the answer had to re-enter as a fabricated user turn, which showed
-        // up in the transcript as something the person had typed, and dragged the
-        // supervisor's own wake-up prompt in with it.
-        const settled = await context.humanStore.waitForAnswer(context.taskId, request.requestId, {
-          timeoutMs: configuredHumanAnswerTimeout(context.runtimeEnv),
-          isCancelled: async () => signal?.aborted === true
-        });
-
-        if (settled.status === "answered") {
-          // The question is closed, so the durable answer must not also arrive
-          // through the Inbox and be read as a second, unprompted instruction.
-          // eslint-disable-next-line no-restricted-syntax -- 答案已经由 waitForAnswer 作为工具结果返回，这里只是把 Inbox 重复副本标记为已消费；去重写失败不能让已回答的调用失败，残留消息仍带同一 requestId
-          await context.humanStore.consumeAnswerMessage(context.taskId, request.requestId).catch(() => {
-            /* nothing was queued */
-          });
-          await new LocalWorkspaceStore(context.workspaceRoot)
-            .transitionTask(context.taskId, "running", { runId: context.mainRunId, reason: "human_answered" })
-            // eslint-disable-next-line no-restricted-syntax -- 同步持久状态是回答后的尽力更新；runtime 事件已发出，写盘失败时下一次生命周期钩子按实际状态重算，不能因此丢掉答案结果
-            .catch(() => {});
-          context.updateRuntime({
-            runtimePhase: "active",
-            runtimeLastEvent: {
-              type: "human_answer_received",
-              summary: (settled.request.answer ?? "").slice(0, 240)
-            }
-          });
-          const payload = {
-            status: "answered",
-            requestId: request.requestId,
-            question: request.question,
-            answer: settled.request.answer
-          };
-          return { content: [{ type: "text", text: JSON.stringify(payload) }], details: payload };
-        }
-
-        if (settled.status === "cancelled") {
-          const payload = { status: "cancelled", requestId: request.requestId, question: request.question };
-          return { content: [{ type: "text", text: JSON.stringify(payload) }], details: payload };
-        }
-
-        // Nobody answered in time. The question stays open — a late answer still
-        // reaches Main through the durable path — but this turn continues rather
-        // than ending, so the person is not left with a stalled conversation.
-        // Nobody answered in time. The question is marked unanswered rather than
-        // left pending: pending means someone is blocked on it, and the completion
-        // gate treats that as outstanding work — so the turn could never finish.
-        // A late answer still reaches Main through the durable path.
-        // eslint-disable-next-line no-restricted-syntax -- 超时分支必须把超时结果返回给模型；标记 unanswered 失败时请求仍是 pending，门禁和下一次等待会重新读到它，写盘异常不能中断这次返回
-        await context.humanStore.markUnanswered(context.taskId, request.requestId).catch(() => {});
-        await new LocalWorkspaceStore(context.workspaceRoot)
-          .transitionTask(context.taskId, "running", {
-            runId: context.mainRunId,
-            reason: "human_answer_timeout"
-          })
-          // eslint-disable-next-line no-restricted-syntax -- 超时后回到 running 的持久迁移同样是尽力更新；runtime 事件已更新，写盘失败由后续生命周期钩子重算，不能阻断超时结果返回
-          .catch(() => {});
-        context.updateRuntime({
-          runtimePhase: "active",
-          runtimeLastEvent: { type: "human_answer_timeout", summary: request.question.slice(0, 240) }
-        });
-        const fallback =
-          request.recommended !== undefined ? request.options?.[request.recommended] : undefined;
+        },
+        signal,
+        ctx
+      );
+      if (settled.status === "answered") {
         const payload = {
-          status: "timeout",
+          status: "answered",
           requestId: request.requestId,
           question: request.question,
-          ...(fallback ? { recommendedOption: fallback } : {}),
-          instruction: fallback
-            ? `用户没有及时回答。按你推荐的选项「${fallback}」继续，并在最终回复里说明这是在没有确认的情况下做的选择。`
-            : "用户没有及时回答。选择最合理的做法继续，并在最终回复里说明这是在没有确认的情况下做的选择。"
+          answer: settled.request.answer
         };
         return { content: [{ type: "text", text: JSON.stringify(payload) }], details: payload };
-      } finally {
-        releaseAnswers();
       }
+      if (settled.status === "cancelled") {
+        const payload = { status: "cancelled", requestId: request.requestId, question: request.question };
+        return { content: [{ type: "text", text: JSON.stringify(payload) }], details: payload };
+      }
+      const fallback = request.recommended !== undefined ? request.options?.[request.recommended] : undefined;
+      const payload = {
+        status: "timeout",
+        requestId: request.requestId,
+        question: request.question,
+        ...(fallback ? { recommendedOption: fallback } : {}),
+        instruction: fallback
+          ? `用户没有及时回答。按你推荐的选项「${fallback}」继续，并在最终回复里说明这是在没有确认的情况下做的选择。`
+          : "用户没有及时回答。选择最合理的做法继续，并在最终回复里说明这是在没有确认的情况下做的选择。"
+      };
+      return { content: [{ type: "text", text: JSON.stringify(payload) }], details: payload };
     }
   });
 
@@ -851,5 +790,78 @@ async function readResultRecord(
     // eslint-disable-next-line no-restricted-syntax -- 结果记录尚未写出或损坏时按没有结果处理，等待结果里的状态与错误已经是结论
   } catch {
     return undefined;
+  }
+}
+
+type HumanInput = Parameters<CoworkToolContext["humanStore"]["create"]>[0];
+
+/**
+ * Ask the user and wait, so the answer is the calling tool's result.
+ *
+ * Returning immediately meant the answer had to re-enter as a fabricated user
+ * turn, which showed up in the transcript as something the person had typed.
+ * The wait is bounded: on a timeout the question is marked unanswered (a late
+ * answer still reaches Main through the durable path) and the turn goes on.
+ */
+export async function askHumanAndWait(
+  context: CoworkToolContext,
+  input: Omit<HumanInput, "taskId" | "runId">,
+  signal: AbortSignal | undefined,
+  ctx: { ui: { notify(message: string, type?: "info" | "warning" | "error"): void } }
+) {
+  const releaseAnswers = context.inboxDelivery.holdHumanAnswers();
+  try {
+    const request = await context.humanStore.create({
+      ...input,
+      taskId: context.taskId,
+      runId: context.mainRunId
+    });
+    await new LocalWorkspaceStore(context.workspaceRoot).transitionTask(context.taskId, "waiting", {
+      runId: context.mainRunId,
+      reason: `waiting_for_human:${request.requestId}`
+    });
+    context.updateRuntime({
+      runtimePhase: "waiting",
+      runtimeLastEvent: { type: "human_question_created", summary: request.question.slice(0, 240) }
+    });
+    ctx.ui.notify(`Waiting for human answer · ${request.requestId}`, "info");
+    const settled = await context.humanStore.waitForAnswer(context.taskId, request.requestId, {
+      timeoutMs: configuredHumanAnswerTimeout(context.runtimeEnv),
+      isCancelled: async () => signal?.aborted === true
+    });
+    if (settled.status === "answered") {
+      // The question is closed, so the durable answer must not also arrive
+      // through the Inbox and be read as a second, unprompted instruction.
+      // eslint-disable-next-line no-restricted-syntax -- 答案已经由 waitForAnswer 作为工具结果返回，这里只是把 Inbox 重复副本标记为已消费；去重写失败不能让已回答的调用失败，残留消息仍带同一 requestId
+      await context.humanStore.consumeAnswerMessage(context.taskId, request.requestId).catch(() => {
+        /* nothing was queued */
+      });
+      await new LocalWorkspaceStore(context.workspaceRoot)
+        .transitionTask(context.taskId, "running", { runId: context.mainRunId, reason: "human_answered" })
+        // eslint-disable-next-line no-restricted-syntax -- 同步持久状态是回答后的尽力更新；runtime 事件已发出，写盘失败时下一次生命周期钩子按实际状态重算，不能因此丢掉答案结果
+        .catch(() => {});
+      context.updateRuntime({
+        runtimePhase: "active",
+        runtimeLastEvent: {
+          type: "human_answer_received",
+          summary: (settled.request.answer ?? "").slice(0, 240)
+        }
+      });
+      return { request, settled };
+    }
+    if (settled.status === "cancelled") return { request, settled };
+    // eslint-disable-next-line no-restricted-syntax -- 超时分支必须把超时结果返回给模型；标记 unanswered 失败时请求仍是 pending，门禁和下一次等待会重新读到它，写盘异常不能中断这次返回
+    await context.humanStore.markUnanswered(context.taskId, request.requestId).catch(() => {});
+    await new LocalWorkspaceStore(context.workspaceRoot)
+      .transitionTask(context.taskId, "running", { runId: context.mainRunId, reason: "human_answer_timeout" })
+      // eslint-disable-next-line no-restricted-syntax -- 超时后回到 running 的持久迁移同样是尽力更新；runtime 事件已更新，写盘失败由后续生命周期钩子重算，不能阻断超时结果返回
+      .catch(() => {});
+    context.updateRuntime({
+      runtimePhase: "active",
+      runtimeLastEvent: { type: "human_answer_timeout", summary: request.question.slice(0, 240) }
+    });
+    return { request, settled };
+  } finally {
+    releaseAnswers();
   }
 }
