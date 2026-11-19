@@ -53,6 +53,8 @@ import type { createDashboardRunService, RunServicePorts } from "./run-service.j
 import { ProjectCloneError, type ProjectCloneService } from "./project-clone-service.js";
 import { handleSkillRequest } from "./skill-routes.js";
 import type { SkillService } from "./skill-service.js";
+import { handleMcpRequest } from "./mcp-routes.js";
+import type { McpService } from "./mcp-service.js";
 import { handleProjectCloneRequest } from "./project-clone-routes.js";
 import { handleSubagentRequest } from "./subagent-routes.js";
 import type { SubagentBackend } from "./subagent-backend.js";
@@ -81,6 +83,7 @@ export interface DashboardRoutePorts {
   projectClones?: ProjectCloneService;
   /** Skill settings; absent in partial handlers. */
   skills?: SkillService;
+  mcp?: McpService;
   mainCapacity?: MainCapacityService;
   uploads?: InputStore;
   computer: ComputerUse;
@@ -528,6 +531,7 @@ export function createDashboardHandler(
       }
       if (await handleProjectCloneRequest(request, response, url, ports.projectClones)) return;
       if (await handleSkillRequest(request, response, url, ports.skills)) return;
+      if (await handleMcpRequest(request, response, url, ports.mcp)) return;
       if (request.method === "POST" && url.pathname === "/api/projects/choose-directory") {
         const directory = await chooseLocalDirectory();
         sendJson(response, 200, {

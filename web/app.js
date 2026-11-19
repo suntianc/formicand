@@ -52,6 +52,7 @@ import { mergeRuntimeEvents, streamRecordKey } from "./assets/conversation.js";
 import { createEntryController } from "./assets/controllers/entry-controller.js";
 import { createSettingsPages } from "./assets/controllers/settings-pages.js";
 import { createSkillSettings } from "./assets/controllers/skill-settings.js";
+import { createMcpSettings } from "./assets/controllers/mcp-settings.js";
 import { createObserveData } from "./assets/controllers/observe-data.js";
 import { createObserveOverview } from "./assets/controllers/observe-overview.js";
 import { createObserveRuns } from "./assets/controllers/observe-runs.js";
@@ -1811,6 +1812,12 @@ createSkillSettings({
   panel: $('[data-settings-panel="skills"]'),
   api,
   projects: () => projectController.visibleProjects(),
+  onSection: settingsPages.onSection,
+  showToast
+});
+createMcpSettings({
+  panel: $('[data-settings-panel="mcp"]'),
+  api,
   onSection: settingsPages.onSection,
   showToast
 });

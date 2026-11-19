@@ -376,9 +376,11 @@ export async function startPi({ uiCompatibility } = {}) {
           connectionId
         );
     const args = [
-      // Pi 1.x loads a built-in MCP client that would add mcp__* tools to Main.
-      // Adopting it is a separate decision, so every CoworkOS launch keeps it off.
-      "--no-mcp",
+      // Pi's MCP client stays on for Main, but its servers come only from the
+      // extension (`~/.atria/mcp.json`, see .pi/runtime/mcp.ts). Ignoring
+      // project trust keeps a project's `.pi/mcp.json`, settings and extensions
+      // from adding anything on their own.
+      "--no-approve",
       // Pi would also scan its own state folder and project `.pi/skills`;
       // CoworkOS resolves one catalog itself and hands it to the prompt.
       "--no-skills",
@@ -558,9 +560,9 @@ async function startDelegatedAgent() {
   );
   const providerId = coworkProviderId(baseUrl, process.env.COWORK_CONNECTION_ID ?? "");
   const args = [
-    // The same capability defaults Main pins: a delegated process must not
-    // silently gain tools from the host's MCP configuration.
+    // Built-in Agents use no MCP server; a custom Agent will name its own.
     "--no-mcp",
+    "--no-approve",
     "--extension",
     resolve(harnessRoot, ".pi", "extensions", "cowork.ts"),
     "--provider",

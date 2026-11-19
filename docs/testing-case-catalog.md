@@ -157,12 +157,14 @@
 | TOOL-02 | 从外部项目加载 skill、包内脚本、缺文件、坏 skill                       | 返回实际存在的绝对脚本路径，安装包中可执行；失败不编造路径                          |
 | TOOL-07 | 五个技能来源同名覆盖、未信任项目、从索引移除与恢复                     | 清单唯一且 Main/子代理一致；未信任不读项目技能；移除后查不到、文件不动              |
 | TOOL-08 | 从文件夹、zip、Git 添加技能，同名、删除、项目信任                      | 只复制所选技能，临时文件清理；只删本产品安装的；未信任项目不列出也不能添加          |
+| TOOL-09 | MCP 服务增改、导入、停用、可见方式与连接检查                           | 与其他客户端同格式；不合法条目保留并说明原因；状态与工具来自 Pi                     |
+| TOOL-10 | Main 使用 `~/.atria/mcp.json` 的服务                                   | 先只见 `tool_search`；隐藏工具、停用服务与项目 `.pi/mcp.json` 不出现                |
 | TOOL-03 | read/write/edit/bash 相对路径与 Task 绝对路径                          | cwd 契约一致；受保护路径/评估器不可写；错误包含实际目标且脱敏                       |
 | TOOL-04 | 非零退出、工具抛错、取消、structured 图片/文本                         | 生命周期 start/end 成对，结果状态真实，原生图片块可达模型                           |
 | TOOL-05 | 新增工具 schema、坏参数、未知字段、Main/Subagent 配置                  | 输入在边界校验；消费者合同一致；取消和预算传递                                      |
 | TOOL-06 | workspace 浏览、状态/用量/轨迹读取、Main 与 Subagent 路径、空/损坏日志 | 实际文件和事件可定位；日志入口不把空 trace 当完整会话；用量不重复累加，未知值不伪造 |
 
-现有锚点：`tool-capability-selection.test.js`、`tool-lifecycle.test.js`、`main-task-paths-pi.test.js`、`bundled-skills.test.js`、`skill-catalog.test.js`、`skill-service.test.js`。
+现有锚点：`tool-capability-selection.test.js`、`tool-lifecycle.test.js`、`main-task-paths-pi.test.js`、`bundled-skills.test.js`、`skill-catalog.test.js`、`skill-service.test.js`、`mcp-service.test.js`、`mcp-runtime-pi.test.js`。
 
 ### 14 输入附件与视觉
 

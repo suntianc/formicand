@@ -75,6 +75,12 @@ Browser/CUA 对象属于当前 Pi 会话，退出或切换时清理。恢复工�
 
 Main 与委派子代理都用 Pi 原生的 `bash` / 文件工具，`cwd` 默认是所选项目目录（子代理是它自己的工作现场）；没有第二套 `run_command` / `run_tests` 工具，也没有程序化工具工厂。跨工具调用继续运行的命令使用 `start_job`，通过 `check_job` 查看。停止 Main 当前轮次不会自动取消已委派子智能体，需显式 `cancel_subagent`。
 
+### MCP 服务
+
+MCP 服务只有一份全局配置 `~/.atria/mcp.json`（`mcpServers` 格式，与其他客户端相同），所有项目共用，智能体不能读取它。Main 保留 Pi 内置的 MCP 客户端，但服务只经扩展注册（[MCP 注册](../.pi/runtime/mcp.ts)）：进程启动时注册已启用的服务，之后每轮开始重读配置，新增或修改的重新注册，删除或停用的注销，读取失败时沿用已有服务并提示一次。Pi 自己目录下的 `mcp.json` 保持为空；Main 与委派进程都以 `--no-approve` 启动，项目里的 `.pi/mcp.json`、设置与扩展不会被加载。可见方式只有三种：`deferred`（默认，经 `tool_search` 找到后才声明给模型）、`direct`（直接声明）与 `hidden`（不可达），单个工具可另设；CoworkOS 不启用 codemode，配置里的 `codemode` 会被拒绝。内置 Executor 与 Reviewer 仍以 `--no-mcp` 启动，不使用任何服务。
+
+设置页「MCP」检查连接、列出工具与 OAuth 登录都调用 Pi 自己的 `pi mcp list --json` 与 `pi mcp login`：后端在 `~/.atria/runtime/mcp-probe/` 下为每次操作建一个只含相关服务的临时目录（用完即删），该目录在 Pi 目录的 `trust.json` 中登记为信任；登录凭据写入 Pi 目录的 `mcp-auth.json`，按服务名与地址对应，Main 连接同名同址的服务时直接使用。
+
 ## 显式委派附件
 
 普通 `call_subagent({task,mode})` 保持有效。附件和桌面权限不会全部自动继承，需要显式共享范围：

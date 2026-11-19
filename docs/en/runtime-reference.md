@@ -75,6 +75,12 @@ Browser/CUA objects belong to the current Pi session and are cleared on exit or 
 
 Main and delegated agents both use Pi's native `bash` and file tools. The default working directory is the selected project (a delegated agent uses its own work site). There is no second `run_command` / `run_tests` tool and no programmatic tool factory. Work that must outlive one tool call uses `start_job` and `check_job`. Stopping Main's current turn does not cancel delegated agents; use `cancel_subagent` explicitly.
 
+### MCP servers
+
+There is one MCP configuration, `~/.atria/mcp.json` (the `mcpServers` format other clients use), shared by every project and unreadable to agents. Main keeps Pi's built-in MCP client, but servers reach it only through the extension ([MCP registration](../../.pi/runtime/mcp.ts)): enabled servers are registered at startup, and each turn re-reads the file, registering new or changed servers and dropping removed or disabled ones; a file that cannot be read keeps the current servers and is reported once. Pi's own `mcp.json` stays empty, and Main and delegated processes start with `--no-approve`, so a project's `.pi/mcp.json`, settings and extensions are not loaded. Three exposures exist: `deferred` (the default; declared to the model once `tool_search` finds it), `direct` and `hidden`, with per-tool overrides; CoworkOS does not enable codemode and refuses that exposure. The built-in Executor and Reviewer still start with `--no-mcp` and use no server.
+
+Settings → MCP checks connections, lists tools and signs in with Pi's own `pi mcp list --json` and `pi mcp login`: for each operation the backend creates a temporary folder under `~/.atria/runtime/mcp-probe/` holding only the servers involved (removed afterwards), and that folder is trusted in Pi's `trust.json`. Sign-in credentials go to `mcp-auth.json` in Pi's folder, keyed by server name and URL, so Main uses them when it connects to the same server.
+
 ## Delegated attachments
 
 Ordinary `call_subagent({task,mode})` remains supported. Attachments and desktop authorization are not all inherited. Share the required scope explicitly:

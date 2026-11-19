@@ -7,6 +7,7 @@ import {
 } from "../runtime/main-message-edit.js";
 import { createWebSearchSettings } from "./web-search-settings.js";
 import { createSkillService } from "./skill-service.js";
+import { createMcpService } from "./mcp-service.js";
 import { homedir } from "node:os";
 import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
@@ -813,6 +814,7 @@ export function createDashboardApplication(
     mainSessions,
     developments,
     projectClones,
+    mcp: createMcpService({ home: data.home, piAgentDir: data.piAgentDir, harnessRoot: projectRoot }),
     skills: createSkillService({
       harnessRoot: projectRoot,
       home: data.home,
