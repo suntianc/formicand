@@ -135,7 +135,7 @@ Main 自动压缩与 `clear_context` 共用原生近期尾部；Main 与子智�
 
 ### 技能与终端入口
 
-网页与视觉制作技能的路由在 [creative-design](../.pi/skills/creative-design/SKILL.md)，各技能及参考资源独立存放在 `.pi/skills/`。修改后运行 [安装资源闭包](../test/creative-skills.test.js) 与 [CLI 实际归档](../test/cli-packaging.test.js)，使用说明见 [制作流程](creative-workflows.md)。连接的思考格式归 [模型声明](../src/runtime/model-profile.ts) 与 [运行参数](../src/runtime/runtime-settings.ts)，协议及持久恢复见 [GLM 测试](../test/glm-thinking.test.js)。
+随产品提供的技能只有 [workspace-explore](../.pi/skills/workspace-explore/SKILL.md) 与 [cua](../.pi/skills/cua/SKILL.md)，存放在 `.pi/skills/`。修改后运行 [安装资源闭包](../test/bundled-skills.test.js) 与 [CLI 实际归档](../test/cli-packaging.test.js)。连接的思考格式归 [模型声明](../src/runtime/model-profile.ts) 与 [运行参数](../src/runtime/runtime-settings.ts)，协议及持久恢复见 [GLM 测试](../test/glm-thinking.test.js)。
 
 CoworkOS 的免依赖版本入口由 [cli-information](../scripts/cli-information.mjs) 与 [start-pi 薄入口](../scripts/start-pi.mjs) 装配；运行准备在 [start-pi-runtime](../scripts/start-pi-runtime.mjs)。命令身份与新日志路径由 [命令兼容层](../scripts/cli-shell-compatibility.mjs)、[固定策略](../scripts/cli-shell-policy.json) 和 [非交互 boot](../scripts/cli-shell-boot.mjs) 负责，回归 [真实命令/RPC](../test/cli-shell-identity.test.js) 与 [worker 隔离](../test/cli-runtime-host.test.js)。受限 SDK UI 策略、构建/加载和升级门槛见 [终端适配](cli-ui-adapter.md)，回归包含 [信息入口](../test/cli-information.test.js)、[manifest/拒绝](../test/cli-ui-compatibility.test.js)、[真实 PTY](../test/cli-ui-pty.test.js)。默认角色和压缩快照产品副本共用 [领域身份](../src/domain/agent-identity.ts)，验收 [身份/导出](../test/agent-identity.test.js) 及请求归档。
 

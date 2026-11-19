@@ -135,7 +135,7 @@
 | EXP-01 | 实验开始/partial/完成/失败、run ID 冲突、重复收据 | ledger 保存真实证据；partial 保持等待；指标/产物来源可追踪   |
 | EXP-02 | 迭代优化任务、预算耗尽、评估未提升、失败试验      | 不伪报最佳成绩；保留全部试验；达到预算停止并给出实际最佳结果 |
 
-现有锚点：`experiment-ledger.test.js`、`iterative-optimization-skill.test.js`。
+现有锚点：`experiment-ledger.test.js`。
 
 ### 12 后台 jobs
 
@@ -160,7 +160,7 @@
 | TOOL-05 | 新增工具 schema、坏参数、未知字段、Main/Subagent 配置                  | 输入在边界校验；消费者合同一致；取消和预算传递                                      |
 | TOOL-06 | workspace 浏览、状态/用量/轨迹读取、Main 与 Subagent 路径、空/损坏日志 | 实际文件和事件可定位；日志入口不把空 trace 当完整会话；用量不重复累加，未知值不伪造 |
 
-现有锚点：`tool-capability-selection.test.js`、`tool-lifecycle.test.js`、`workspace-explore-pi.test.js`、`main-task-paths-pi.test.js`、`machine-learning-skill-pi.test.js`。
+现有锚点：`tool-capability-selection.test.js`、`tool-lifecycle.test.js`、`workspace-explore-pi.test.js`、`main-task-paths-pi.test.js`、`bundled-skills.test.js`。
 
 ### 14 输入附件与视觉
 

@@ -420,7 +420,8 @@ test("the prompt and skill text name only tools a Subagent actually holds", asyn
       else if (entry.name.endsWith(".md")) files.push(join(directory, entry.name));
     }
   }
-  assert.ok(files.length > 10, "the scan covers the prompts and every bundled skill");
+  for (const file of [join(".pi", "prompts", "cowork-main.md"), join(".pi", "skills", "cua", "SKILL.md")])
+    assert.ok(files.includes(file), `the scan covers ${file}`);
   for (const path of files) {
     const text = await readFile(path, "utf8").catch(() => undefined);
     if (text === undefined) continue;

@@ -12,17 +12,7 @@ import {
 } from "../dist/src/runtime/skill-registry.js";
 import { checkDocumentation } from "../scripts/check-docs.mjs";
 
-const names = [
-  "creative-design",
-  "frontend-design",
-  "interactive-prototype",
-  "hi-fi-design",
-  "wireframe",
-  "charts",
-  "data-report",
-  "visual-exposure",
-  "animated-video"
-];
+const names = ["workspace-explore", "cua"];
 const source = resolve(".");
 const require = createRequire(import.meta.url);
 
@@ -39,7 +29,7 @@ async function markdownFiles(root) {
   return files;
 }
 
-test("creative skills load on demand and every local resource survives installed desktop selection", async (t) => {
+test("bundled skills load on demand and every local resource survives installed desktop selection", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "atria-creative-skills-package-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const config = require("../electron-builder.config.cjs");
@@ -51,6 +41,8 @@ test("creative skills load on demand and every local resource survives installed
       `Package excludes ${file}`
     );
   await cp(join(source, ".pi/skills"), join(root, ".pi/skills"), { recursive: true });
+  // The CUA skill links to user guides; the CLI package ships `docs/` beside it.
+  await cp(join(source, "docs"), join(root, "docs"), { recursive: true });
   const skills = await discoverSkills([join(root, ".pi/skills")]);
   const catalog = skillCatalogPrompt(skills);
   const loader = createLoadSkillTool(skills);
