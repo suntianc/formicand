@@ -2,6 +2,7 @@ import { language, ui } from "../ui/language.js";
 import { confirmCopied, copyText } from "../ui/code-blocks.js";
 import { createConversationProjection } from "./conversation-projection.js";
 import { splitUploadedFiles } from "../uploaded-files.js";
+import { markReferences, splitReferences } from "../references.js";
 import { modelErrorDiagnostic, modelPolicyRejection, requestErrorMessage } from "../request-error.js";
 import { outstandingWork } from "../tool-lifecycle.js";
 import { presentToolCall } from "../tool-presentation.js";
@@ -76,9 +77,9 @@ function latestModelRetry(events) {
  * indented, hard-wrapped items turned every number into "1." and split
  * sentences into paragraphs; like Codex, the prompt keeps its own lines.
  */
-function typedText(text) {
+function typedTextOf(text, references = []) {
   const shown = text.replace(/\s+$/, "");
-  return shown ? `<div class="user-text">${esc(shown)}</div>` : "";
+  return shown ? `<div class="user-text">${markReferences(shown, references, esc)}</div>` : "";
 }
 
 /**
@@ -86,7 +87,10 @@ function typedText(text) {
  * which sit above the bubble as cards (an image as its thumbnail), as Codex
  * shows a prompt with files.
  */
-function renderUserText(text, markdown) {
+function renderUserText(source, markdown) {
+  // `/` and `@` words are marked where they stand; the manifest in front is for Main.
+  const { text, references } = splitReferences(source);
+  const typedText = (words) => typedTextOf(words, references);
   const uploaded = splitUploadedFiles(text);
   if (uploaded.files.length)
     return {

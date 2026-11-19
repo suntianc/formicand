@@ -55,6 +55,13 @@ import { handleSkillRequest } from "./skill-routes.js";
 import type { SkillService } from "./skill-service.js";
 import { handleMcpRequest } from "./mcp-routes.js";
 import type { McpService } from "./mcp-service.js";
+import { handleComposerRequest } from "./composer-routes.js";
+import type { ComposerService } from "./composer-service.js";
+import {
+  composerReferencesSchema,
+  referencesBlock,
+  type ComposerReference
+} from "../runtime/composer-references.js";
 import { handleProjectCloneRequest } from "./project-clone-routes.js";
 import { handleSubagentRequest } from "./subagent-routes.js";
 import type { SubagentBackend } from "./subagent-backend.js";
@@ -63,6 +70,22 @@ import { normalizeReasoningEffort } from "../runtime/runtime-settings.js";
 
 type WorkspaceDirectory = ReturnType<typeof createWorkspaceDirectory>;
 type RunService = ReturnType<typeof createDashboardRunService>;
+
+/** A message with what its `/` and `@` references resolve to in front of it. */
+async function referencedPrompt(
+  composer: ComposerService | undefined,
+  projectDirectory: string | undefined,
+  raw: unknown,
+  text: string
+): Promise<string> {
+  if (raw === undefined) return text;
+  const parsed = composerReferencesSchema.safeParse(raw);
+  if (!parsed.success) throw new HttpError(400, "消息引用无效。");
+  const references: ComposerReference[] = parsed.data;
+  if (!composer || !references.length) return text;
+  return referencesBlock(projectDirectory, await composer.resolve(projectDirectory, references)) + text;
+}
+
 export interface DashboardRoutePorts {
   backendInfo(): { backendId: string; pid: number; startedAt: string };
   /** Local session authorization; absent only in partial handlers that serve one router. */
@@ -84,6 +107,7 @@ export interface DashboardRoutePorts {
   /** Skill settings; absent in partial handlers. */
   skills?: SkillService;
   mcp?: McpService;
+  composer?: ComposerService;
   mainCapacity?: MainCapacityService;
   uploads?: InputStore;
   computer: ComputerUse;
@@ -532,6 +556,7 @@ export function createDashboardHandler(
       if (await handleProjectCloneRequest(request, response, url, ports.projectClones)) return;
       if (await handleSkillRequest(request, response, url, ports.skills)) return;
       if (await handleMcpRequest(request, response, url, ports.mcp)) return;
+      if (await handleComposerRequest(request, response, url, ports.composer)) return;
       if (request.method === "POST" && url.pathname === "/api/projects/choose-directory") {
         const directory = await chooseLocalDirectory();
         sendJson(response, 200, {
@@ -861,7 +886,15 @@ export function createDashboardHandler(
               name: file.name,
               text: file.text,
               size: Buffer.byteLength(file.text, "utf8")
-            }))
+            })),
+            body.references === undefined
+              ? ""
+              : await referencedPrompt(
+                  ports.composer,
+                  (await locateTask(taskId)).task.projectDirectory,
+                  body.references,
+                  ""
+                )
           )
         );
         return;
@@ -912,6 +945,7 @@ export function createDashboardHandler(
             body.prompt !== undefined ||
             body.thinkingLevel !== undefined ||
             body.profileId !== undefined ||
+            body.references !== undefined ||
             (body.attachmentIds !== undefined &&
               (!Array.isArray(body.attachmentIds) || body.attachmentIds.length > 0)))
         )
@@ -922,6 +956,13 @@ export function createDashboardHandler(
           const files = await ports.uploads.attach(location.workspaceRoot, taskId, body.attachmentIds);
           prompt += inputPrompt(join(location.workspaceRoot, taskId), files);
         }
+        if (body.references !== undefined && prompt)
+          prompt = await referencedPrompt(
+            ports.composer,
+            (await locateTask(taskId)).task.projectDirectory,
+            body.references,
+            prompt
+          );
         const runId = typeof body.runId === "string" ? body.runId : undefined;
         const model = body.model === undefined ? undefined : normalizeModel(body.model);
         if (body.profileId !== undefined && (typeof body.profileId !== "string" || !body.profileId.trim()))
@@ -1024,6 +1065,13 @@ export function createDashboardHandler(
           const files = await ports.uploads.attach(location.workspaceRoot, taskId, body.attachmentIds);
           message += inputPrompt(join(location.workspaceRoot, taskId), files);
         }
+        if (message)
+          message = await referencedPrompt(
+            ports.composer,
+            location.task.projectDirectory,
+            body.references,
+            message
+          );
         const result = await ports.queueInterjection(taskId, target, message, delivery);
         sendJson(response, result.error ? 409 : 202, result);
         return;

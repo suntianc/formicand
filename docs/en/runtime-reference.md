@@ -81,6 +81,12 @@ There is one MCP configuration, `~/.atria/mcp.json` (the `mcpServers` format oth
 
 Settings → MCP checks connections, lists tools and signs in with Pi's own `pi mcp list --json` and `pi mcp login`: for each operation the backend creates a temporary folder under `~/.atria/runtime/mcp-probe/` holding only the servers involved (removed afterwards), and that folder is trusted in Pi's `trust.json`. Sign-in credentials go to `mcp-auth.json` in Pi's folder, keyed by server name and URL, so Main uses them when it connects to the same server.
 
+### Composer `/` and `@`
+
+Typing `/` in the composer lists skills, prompt templates and commands; `@` searches project files and MCP resources ([menu](../../web/assets/controllers/composer-menu.js), lists from the [composer service](../../src/dashboard/composer-service.ts)). The skills are the ones Main sees. Prompt templates are Markdown files in `~/.atria/prompts/` and the project's `.atria/prompts/`, the project's winning on a name clash, and a chosen one becomes editable text. Files follow `.gitignore` in a Git repository and otherwise come from walking the folder, skipping `node_modules` and the like. MCP resources come from the backend connecting to enabled servers; `ui://` interfaces are left out, and servers that need sign-in or take a value from a `!command` list none.
+
+A chosen skill, file or resource leaves `/name`, `@path` or `@server:uri` in the message, and the page turns these words into references sent with the request when sending, steering a running turn or editing a message. The backend keeps only references that resolve (a skill in the catalog, an existing file inside the project, an enabled server) and puts an `<atria_references>` manifest in front of the message ([format](../../src/runtime/composer-references.ts)) with the skill file paths and how to use each kind. The conversation hides the manifest and marks the words as chips.
+
 ## Delegated attachments
 
 Ordinary `call_subagent({task,mode})` remains supported. Attachments and desktop authorization are not all inherited. Share the required scope explicitly:

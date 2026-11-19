@@ -1795,7 +1795,8 @@ export function createDashboardRunService({
     body: string,
     attachmentIds: string[],
     model?: string,
-    textAttachments: EditTextFile[] = []
+    textAttachments: EditTextFile[] = [],
+    references = ""
   ) {
     return withTaskProjectLock(taskId, () =>
       serialize(taskId, async () => {
@@ -1855,8 +1856,9 @@ export function createDashboardRunService({
         const inline = textAttachments.length
           ? `\n\nAttached files:\n${textAttachments.map((file) => `--- ${file.name} ---\n${file.text}`).join("\n\n")}`
           : "";
-        const prompt =
+        const typed =
           (body.trim() ? body : "") + inline + inputPrompt(join(location.workspaceRoot, taskId), files);
+        const prompt = typed.trim() ? references + typed : typed;
         if (!prompt.trim()) throw new Error("请输入消息或保留至少一个附件。");
         let rollback: (() => Promise<void>) | undefined;
         let acceptedMessageId: string | undefined;

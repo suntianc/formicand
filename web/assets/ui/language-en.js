@@ -1589,5 +1589,16 @@ export default {
   "请粘贴 JSON": "Paste JSON first",
   已导入: "Imported",
   个服务: "servers",
-  保存未完成: "Save did not finish"
+  保存未完成: "Save did not finish",
+  切换本会话的模型与推理强度: "Switch this session's model and reasoning effort",
+  "没有匹配的技能、模板或命令": "No matching skills, templates or commands",
+  没有匹配的文件或资源: "No matching files or resources",
+  "↑↓ 选择": "↑↓ Select",
+  "↩ 插入": "↩ Insert",
+  "↩ 引用": "↩ Reference",
+  "Tab 补全": "Tab Complete",
+  "Esc 关闭": "Esc Close",
+  指令模板: "Prompt templates",
+  "MCP 资源": "MCP resources",
+  "菜单加载失败：": "Menu failed to load: "
 };

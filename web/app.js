@@ -68,6 +68,7 @@ import { installComputerUse } from "./assets/controllers/computer-use.js";
 import { installCodeBlockActions } from "./assets/ui/code-blocks.js";
 import { animateLayout, installSelectionGlide } from "./assets/ui/motion.js";
 import { formatArtifactSize, artifactParentPath, invalidateArtifactCache } from "./assets/artifacts.js";
+import { createComposerMenu } from "./assets/controllers/composer-menu.js";
 
 revealScrollbarsWhileScrolling();
 
@@ -337,6 +338,34 @@ const composerSession = createComposerSession({
   onPersist: () => window.bookmanDesktop?.saveComposerDrafts?.()
 });
 await composerSession.ready;
+/** The project the draft belongs to: the open session's, or the one chosen for a new session. */
+function composerProjectId() {
+  const task = state.selected
+    ? state.detail?.task || state.tasks.find((entry) => entry.taskId === state.selected)
+    : null;
+  return (task?.projectId ?? (state.selected ? null : state.selectedProjectId)) || undefined;
+}
+const composerMenu = createComposerMenu({
+  input: $("#composer-input"),
+  container: $(".composer"),
+  api,
+  getProjectId: composerProjectId,
+  commands: [
+    { name: "new", description: ui("新会话"), run: () => beginNewConversation() },
+    { name: "model", description: ui("切换本会话的模型与推理强度"), run: () => void toggleModelMenu() }
+  ],
+  onError: showToast
+});
+/** What a message's `/` and `@` words reference; the menus' lists are read first when it has any. */
+function hasReferenceWords(text) {
+  return /(^|\s)[/@]\S/.test(text);
+}
+async function draftReferences(text) {
+  if (!hasReferenceWords(text)) return [];
+  // eslint-disable-next-line no-restricted-syntax -- 列表读不到时按已知内容识别，消息照常发送
+  await composerMenu.prepare().catch(() => {});
+  return composerMenu.references(text);
+}
 const messageEdit = createMessageEditController({
   composerSession,
   input: $("#composer-input"),
@@ -349,6 +378,7 @@ const messageEdit = createMessageEditController({
     updateSendButton();
   },
   onSubmit: () => submitMessageEdit(),
+  referencesOf: draftReferences,
   onAccepted: async (taskId, run) => {
     if (state.selected === taskId) {
       state.localMessages = [];
@@ -2083,7 +2113,7 @@ async function forkConversation(sourceTaskId, messageId) {
 }
 
 /** Send to the running task's steering or follow-up queue, preserving draft ownership. */
-async function interject(taskId, text, delivery = "followUp") {
+async function interject(taskId, text, delivery = "followUp", references = []) {
   const draft = submissionDraft();
   const stopEpoch = stopEpochs.get(taskId) || 0;
   const model = state.model || state.defaultModel || undefined;
@@ -2100,7 +2130,8 @@ async function interject(taskId, text, delivery = "followUp") {
         body: JSON.stringify({
           message: text,
           delivery,
-          attachmentIds: uploadedFileIds(JSON.parse(draft.attachments))
+          attachmentIds: uploadedFileIds(JSON.parse(draft.attachments)),
+          ...(references.length ? { references } : {})
         })
       });
     } catch (error) {
@@ -2119,7 +2150,8 @@ async function interject(taskId, text, delivery = "followUp") {
         thinkingLevel: sentThinkingLevel(),
         resume: false,
         savedUsers,
-        attachmentIds: uploadedFileIds(JSON.parse(draft.attachments))
+        attachmentIds: uploadedFileIds(JSON.parse(draft.attachments)),
+        references
       });
       clearSubmittedDraft(taskId, draft);
       await refresh();
@@ -2241,6 +2273,7 @@ async function launchPrompt(
     retryRequestId,
     savedUsers,
     attachmentIds = [],
+    references = [],
     submission,
     body
   }
@@ -2265,6 +2298,7 @@ async function launchPrompt(
         ...(profileId ? { profileId } : {}),
         thinkingLevel,
         attachmentIds,
+        ...(references.length ? { references } : {}),
         retryRequestId
       })
     });
@@ -2420,6 +2454,7 @@ async function submitMessageEdit() {
   }
 }
 
+let resolvingReferences = false;
 async function sendMessage({ queue = false } = {}) {
   if (!$("#human-questions").hidden) return;
   if (firstUse.blocksSending()) return;
@@ -2433,10 +2468,28 @@ async function sendMessage({ queue = false } = {}) {
     return showToast(ui("请先保存或取消正在编辑的消息，底部草稿会保留。"));
   }
   if (state.modelConfigured === false) return void modelSettings.open();
+  composerMenu.close();
+  // Reading the menus' lists is a pause in which a second Enter must not send again;
+  // a message without `/` or `@` words sends without it.
+  if (resolvingReferences) return;
+  let references = [];
+  if (hasReferenceWords(text)) {
+    resolvingReferences = true;
+    try {
+      references = await draftReferences(text);
+    } finally {
+      resolvingReferences = false;
+    }
+  }
   // Running input joins Main's next step; a queued message waits for the round to end.
   if (state.detail?.task?.taskId === state.selected && state.detail?.runtime?.active && state.selected) {
     try {
-      return interject(state.selected, composePrompt(text, state.attachments), queue ? "followUp" : "steer");
+      return interject(
+        state.selected,
+        composePrompt(text, state.attachments),
+        queue ? "followUp" : "steer",
+        references
+      );
     } catch (error) {
       showToast(error.message);
       return;
@@ -2452,6 +2505,7 @@ async function sendMessage({ queue = false } = {}) {
     submission,
     body: draft.input,
     attachmentIds: uploadedFileIds(JSON.parse(draft.attachments)),
+    references,
     resume: detail?.task?.status === "waiting",
     model: state.model || state.defaultModel || undefined,
     profileId: state.profileId || undefined,
