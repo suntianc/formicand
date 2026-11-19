@@ -16,6 +16,7 @@ import { projectTrustDecision } from "../runtime/project-trust.js";
 import { removedSkillDirectories } from "../runtime/skill-index.js";
 import { listSkillEntries, skillRootsFor, type SkillSource } from "../runtime/skill-registry.js";
 import { parseSkillFrontmatter } from "../runtime/skill-frontmatter.js";
+import { agentLocations, availableAgents } from "../runtime/agent-definitions.js";
 
 const run = promisify(execFile);
 
@@ -310,6 +311,18 @@ export function createComposerService(options: ComposerServiceOptions) {
       return { resources: await resources() };
     },
 
+    /** The custom Agents Main can hand work to here, for the `@` menu. */
+    async agents(projectId?: string) {
+      const directory = await projectDirectory(projectId);
+      return {
+        agents: (await availableAgents(await agentLocations(options.home, directory))).map((agent) => ({
+          name: agent.name,
+          description: agent.description,
+          permission: agent.permission
+        }))
+      };
+    },
+
     /**
      * The references a message keeps: skills Main can load, files inside the
      * project, resources of configured servers. Anything else is dropped — the
@@ -323,6 +336,9 @@ export function createComposerService(options: ComposerServiceOptions) {
       const catalog = new Map((await skills(root)).map((skill) => [skill.name, skill.path]));
       const servers = new Set(
         enabledMcpServers(await readMcpServers(options.home)).map((server) => server.name)
+      );
+      const agents = new Set(
+        (await availableAgents(await agentLocations(options.home, root))).map((agent) => agent.name)
       );
       const resolved: ResolvedReference[] = [];
       for (const reference of references) {
@@ -340,6 +356,8 @@ export function createComposerService(options: ComposerServiceOptions) {
           } catch {
             continue;
           }
+        } else if (reference.kind === "agent") {
+          if (agents.has(reference.name)) resolved.push(reference);
         } else if (servers.has(reference.server)) resolved.push(reference);
       }
       // `./a.sql` and `a.sql` are one file.

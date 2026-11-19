@@ -2,8 +2,9 @@
  * The frontmatter subset SKILL.md files use: one YAML mapping fenced by `---`
  * at the top of the file. Skill discovery keeps its own reader so `src/runtime/`
  * does not import a Pi package just to list skills; the supported grammar is
- * what skills actually write (plain, quoted and block scalars), and keys with
- * any other structure are left alone.
+ * what skills and Agent definitions actually write (plain, quoted and block
+ * scalars, and lists of names as `[a, b]` or `- a` lines), and keys with any
+ * other structure are left alone.
  */
 export interface ParsedSkillFrontmatter {
   frontmatter: Record<string, unknown>;
@@ -37,6 +38,12 @@ function parseMapping(block: string): Record<string, unknown> {
       index = scalar.next - 1;
       continue;
     }
+    if (!rest && /^[ \t]+- /.test(lines[index + 1] ?? "")) {
+      const list = readBlockList(lines, index + 1);
+      frontmatter[key] = list.value;
+      index = list.next - 1;
+      continue;
+    }
     const scalar = readScalar(lines, index, rest);
     frontmatter[key] = scalar.value;
     index = scalar.next - 1;
@@ -62,6 +69,20 @@ function readScalar(lines: string[], start: number, first: string): { value: unk
     parts.push(stripComment(lines[index].trim()));
   }
   return { value: plainScalar(parts.join(" ").trim()), next: index + 1 };
+}
+
+/** `- item` lines under a key, each a plain or quoted scalar. */
+function readBlockList(lines: string[], start: number): { value: unknown[]; next: number } {
+  const value: unknown[] = [];
+  let index = start;
+  while (index < lines.length && /^[ \t]+- /.test(lines[index])) {
+    const item = lines[index].trim().slice(2).trim();
+    value.push(
+      item.startsWith('"') || item.startsWith("'") ? unquote(item, item[0]) : plainScalar(stripComment(item))
+    );
+    index += 1;
+  }
+  return { value, next: index };
 }
 
 function readBlockScalar(lines: string[], start: number, header: string): { value: string; next: number } {
@@ -137,5 +158,14 @@ function stripComment(value: string): string {
 function plainScalar(value: string): unknown {
   if (value === "true") return true;
   if (value === "false") return false;
+  // A flow list of plain or quoted names: `[read, "bash"]`.
+  if (value.startsWith("[") && value.endsWith("]")) {
+    const inner = value.slice(1, -1).trim();
+    if (!inner) return [];
+    return inner.split(",").map((item) => {
+      const trimmed = item.trim();
+      return trimmed.startsWith('"') || trimmed.startsWith("'") ? unquote(trimmed, trimmed[0]) : trimmed;
+    });
+  }
   return value;
 }

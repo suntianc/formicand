@@ -1,7 +1,7 @@
 import { expect } from "@playwright/test";
 
 /**
- * Settings is one page with eight sections; these helpers open it at a known place so
+ * Settings is one page with nine sections; these helpers open it at a known place so
  * a test reads the control it is about instead of the navigation.
  */
 export async function openSettings(page, section = "general") {

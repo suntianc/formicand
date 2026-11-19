@@ -250,6 +250,12 @@ export function registerCoordinationTools(pi: ExtensionAPI, context: CoworkToolC
           description:
             "sync waits for the Subagent result; async returns immediately and delivers a later callback. Both execute once; async does not mean persistent."
         }),
+        agent: Type.Optional(
+          Type.String({
+            description:
+              "A user-defined Agent from <custom_agents>, by name. Its permission decides the role and its definition fixes tools, skills, MCP servers and extra instructions for this item. A missing or switched-off Agent is an error, never a fallback."
+          })
+        ),
         role: Type.Optional(
           Type.Union([Type.Literal("executor"), Type.Literal("reviewer")], {
             description:
@@ -326,10 +332,12 @@ export function registerCoordinationTools(pi: ExtensionAPI, context: CoworkToolC
       // Main asks for a work item and the backend owns the process:
       // registration, dependencies, checkout, role connection and settlement
       // all happen there.
+      const agent = typeof params.agent === "string" ? params.agent.trim() : "";
       const accepted = await createSubagentClient({ taskId: context.taskId }).dispatch({
         task: goal,
         mode: params.mode,
         role,
+        ...(agent ? { agent } : {}),
         ...(dependsOn.length > 0 ? { dependsOn } : {}),
         ...(typeof params.developmentId === "string" && params.developmentId.trim()
           ? { developmentId: params.developmentId.trim() }
@@ -349,7 +357,8 @@ export function registerCoordinationTools(pi: ExtensionAPI, context: CoworkToolC
         runId: accepted.runId,
         agentId: accepted.agentId,
         name: accepted.name,
-        role,
+        role: accepted.role ?? role,
+        ...(accepted.agent ? { agent: accepted.agent } : {}),
         ...(accepted.developmentId
           ? { developmentId: accepted.developmentId, workspace: accepted.workspace }
           : {}),

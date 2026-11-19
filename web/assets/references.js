@@ -28,6 +28,7 @@ export function splitReferences(source) {
 export function referenceToken(reference) {
   if (reference.kind === "skill") return `/${reference.name}`;
   if (reference.kind === "file") return `@${reference.path}`;
+  if (reference.kind === "agent") return `@${reference.name}`;
   return `@${reference.server}:${reference.uri}`;
 }
 
@@ -54,6 +55,7 @@ export function findReferences(text, known) {
       const resource = SERVER_URI.exec(word);
       if (resource && known.servers.has(resource[1]))
         reference = { kind: "mcp_resource", server: resource[1], uri: resource[2] };
+      else if (known.agents?.has(word)) reference = { kind: "agent", name: word };
       else if (known.files.has(word) || /[/.]/.test(word)) reference = { kind: "file", path: word };
     }
     if (!reference) continue;

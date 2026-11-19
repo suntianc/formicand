@@ -220,7 +220,7 @@ test("Cowork provider and new delegations use the active Main effort", async (t)
     await new LocalWorkspaceStore(root).createTask("reasoning", { goal: "Reasoning regression" });
     const extension = await loadExtension();
     const pi = fakePi("off");
-    extension(pi);
+    await extension(pi);
     const ctx = {
       sessionManager: SessionManager.inMemory(),
       ui: { setStatus() {}, notify() {} },
@@ -242,7 +242,7 @@ test("Cowork provider and new delegations use the active Main effort", async (t)
     process.argv = [process.execPath, "pi", "--thinking", "off"];
     process.env.COWORK_SUPPORTS_REASONING_EFFORT = "0";
     const explicit = fakePi("off");
-    extension(explicit);
+    await extension(explicit);
     await explicit.handlers.get("session_start")({ reason: "startup" }, ctx);
     assert.deepEqual(explicit.selected, [], "session_start must not overwrite native CLI --thinking off");
     assert.equal(explicit.providers.get("cowork-glm").models[0].compat.supportsReasoningEffort, false);

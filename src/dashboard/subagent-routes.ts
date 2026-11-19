@@ -34,6 +34,7 @@ export async function handleSubagentRequest(
       task: text(body.task, "任务", 20_000),
       mode: oneOf(body.mode, ["sync", "async"], "派单模式"),
       role: body.role === undefined ? "executor" : oneOf(body.role, ["executor", "reviewer"], "角色"),
+      ...(optionalText(body.agent) === undefined ? {} : { agent: text(body.agent, "Agent", 64) }),
       ...(body.dependsOn === undefined ? {} : { dependsOn: strings(body.dependsOn, "dependsOn", 16) }),
       ...(optionalText(body.developmentId) === undefined
         ? {}

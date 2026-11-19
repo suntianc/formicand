@@ -52,6 +52,8 @@ import { mergeRuntimeEvents, streamRecordKey } from "./assets/conversation.js";
 import { createEntryController } from "./assets/controllers/entry-controller.js";
 import { createSettingsPages } from "./assets/controllers/settings-pages.js";
 import { createSkillSettings } from "./assets/controllers/skill-settings.js";
+import { createAgentSettings } from "./assets/controllers/agent-settings.js";
+import { createProjectTrustPrompt } from "./assets/controllers/project-trust-prompt.js";
 import { createMcpSettings } from "./assets/controllers/mcp-settings.js";
 import { createObserveData } from "./assets/controllers/observe-data.js";
 import { createObserveOverview } from "./assets/controllers/observe-overview.js";
@@ -79,6 +81,8 @@ for (const dot of document.querySelectorAll(".run-control-dot")) {
   dot.innerHTML = antMarkSvg;
 }
 
+/** Asks whether to trust a project's own Agents and skills; set once the composer exists. */
+let trustPrompt;
 const state = {
   online: true,
   modelConfigured: undefined,
@@ -340,10 +344,13 @@ const composerSession = createComposerSession({
 await composerSession.ready;
 /** The project the draft belongs to: the open session's, or the one chosen for a new session. */
 function composerProjectId() {
-  const task = state.selected
-    ? state.detail?.task || state.tasks.find((entry) => entry.taskId === state.selected)
-    : null;
-  return (task?.projectId ?? (state.selected ? null : state.selectedProjectId)) || undefined;
+  if (state.selected) {
+    const task = state.detail?.task || state.tasks.find((entry) => entry.taskId === state.selected);
+    return task?.projectId || undefined;
+  }
+  // A new draft goes where sending it would put it: the chosen project, else the first one.
+  if (state.selectedProjectId === null && state.composingNew) return undefined;
+  return state.selectedProjectId || state.projects?.[0]?.projectId || undefined;
 }
 const composerMenu = createComposerMenu({
   input: $("#composer-input"),
@@ -356,6 +363,7 @@ const composerMenu = createComposerMenu({
   ],
   onError: showToast
 });
+trustPrompt = createProjectTrustPrompt({ api, getProjectId: composerProjectId, showToast });
 /** What a message's `/` and `@` words reference; the menus' lists are read first when it has any. */
 function hasReferenceWords(text) {
   return /(^|\s)[/@]\S/.test(text);
@@ -595,6 +603,8 @@ const projectController = createProjectController({
     if (task) void sessionAction(action, taskId, task);
   },
   onRendered: () => {
+    // The project list has just been drawn: a draft's project may only be known now.
+    void trustPrompt?.check();
     if (!sessionMenu.isOpen) return;
     const trigger = $("#project-list").querySelector(
       `.conversation-item[data-task="${CSS.escape(sessionMenu.taskId)}"]`
@@ -1301,6 +1311,7 @@ function selectConversation(taskId) {
 
 function renderAll() {
   computerUse.syncTask();
+  void trustPrompt?.check();
   const detail = state.detail || {};
   const task = detail.task || {};
   paintTopbarContext();
@@ -1837,6 +1848,13 @@ const settingsPages = createSettingsPages({
   reconnectNode: (origin) => observeData.reconnectNode(origin),
   disconnectNode: (origin) => observeData.disconnectNode(origin),
   removeNode: (origin) => observeData.removeNode(origin)
+});
+createAgentSettings({
+  panel: $('[data-settings-panel="agents"]'),
+  api,
+  projects: () => projectController.visibleProjects(),
+  onSection: settingsPages.onSection,
+  showToast
 });
 createSkillSettings({
   panel: $('[data-settings-panel="skills"]'),

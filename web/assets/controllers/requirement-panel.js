@@ -321,8 +321,10 @@ export function createRequirementPanel({
     return `<section class="rp-section"><h3 class="rp-label">${ui("子 Agent")}</h3><ul class="rp-agents">${agents
       .map((agent) => {
         const active = ["running", "waiting", "queued"].includes(agent.state);
-        const role =
-          agent.workRole === "reviewer" ? "Reviewer" : agent.workRole === "executor" ? "Executor" : "";
+        const role = esc(
+          agent.workAgent ||
+            (agent.workRole === "reviewer" ? "Reviewer" : agent.workRole === "executor" ? "Executor" : "")
+        );
         return `<li class="rp-agent" data-state="${esc(agent.state)}"><span class="rp-agent-mark${active ? " is-active" : ""}" aria-hidden="true">${icon(active ? "loader-circle" : "circle-check")}</span><span class="rp-agent-name">${esc(agent.name || agent.agentId)}</span>${role ? `<span class="rp-agent-role">${role}</span>` : ""}<span class="rp-spacer"></span><span class="rp-agent-state">${esc(ui(AGENT_STATES[agent.state] || agent.state || ""))}</span></li>`;
       })
       .join("")}</ul></section>${note}`;

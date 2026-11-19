@@ -1,4 +1,5 @@
 import { readdir } from "node:fs/promises";
+import type { AgentDefinition, AgentEntry } from "../runtime/agent-definitions.js";
 import { dirname, join } from "node:path";
 import type { CoworkConfig } from "../runtime/config.js";
 import type { CapabilityGrant } from "../runtime/capability-provider.js";
@@ -59,6 +60,8 @@ export interface SubagentBackendPorts {
     taskId: string;
     developmentId: string;
   }): Promise<{ repository: string; commit: string } | undefined>;
+  /** The custom Agent a delegation names, resolved for the Task's project. */
+  agent?(input: { taskId: string; name: string }): Promise<AgentEntry & { definition: AgentDefinition }>;
   /** Grants for the upload IDs Main named. */
   grants(input: { taskId: string; attachments: unknown }): Promise<CapabilityGrant[]>;
   /** The experiment-ledger row a delegation records, when an open program absorbs it. */
@@ -125,6 +128,7 @@ export function createSubagentBackend(ports: SubagentBackendPorts): SubagentBack
       development: (input) => ports.development(input),
       frozenCandidate: (input) => ports.frozenCandidate(input),
       grants: (input) => ports.grants(input),
+      ...(ports.agent ? { agent: (input) => ports.agent!(input) } : {}),
       ...(ports.experiment ? { experiment: (input) => ports.experiment!(input) } : {}),
       // A settled item can be the prerequisite that unblocks another one.
       // Waiting for the next sweep would delay that start by a full cycle, so

@@ -90,7 +90,7 @@ interface WorkItemRecord {
   status?: unknown;
   createdAt?: unknown;
   updatedAt?: unknown;
-  payload?: { delegation?: { role?: unknown } };
+  payload?: { delegation?: { role?: unknown }; agentDefinition?: { name?: unknown } };
 }
 
 interface TraceAccumulator {
@@ -240,6 +240,10 @@ export async function readTaskActivity(input: {
       name: agentDisplayName(member.agentId),
       role: work === undefined ? "main" : "subagent",
       ...(role === "executor" || role === "reviewer" ? { workRole: role } : {}),
+      // A custom Agent is shown by its own name in place of the role.
+      ...(typeof work?.payload?.agentDefinition?.name === "string"
+        ? { workAgent: work.payload.agentDefinition.name }
+        : {}),
       ...(typeof work?.stepId === "string" ? { callId: work.stepId } : {}),
       state: agentState,
       stage,

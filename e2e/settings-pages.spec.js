@@ -13,7 +13,7 @@ import {
 const section = (page, name) => page.locator(`[data-settings-panel="${name}"]`);
 const navItem = (page, name) => page.locator(`[data-settings-section="${name}"]`);
 
-test("the eight sections switch from one navigation, return to the entry and no settings dialog remains", async ({
+test("the nine sections switch from one navigation, return to the entry and no settings dialog remains", async ({
   page
 }) => {
   const dashboard = await startDashboard();
@@ -23,7 +23,7 @@ test("the eight sections switch from one navigation, return to the entry and no 
     await openSettings(page);
 
     await expect(page.locator("#app-layout")).toBeHidden();
-    await expect(page.locator("#settings-entry .settings-nav-item")).toHaveCount(8);
+    await expect(page.locator("#settings-entry .settings-nav-item")).toHaveCount(9);
     await expect(navItem(page, "general")).toHaveAttribute("aria-current", "page");
     await expect(section(page, "general")).toBeVisible();
     await expect(section(page, "general").getByRole("heading", { level: 1 })).toHaveText("通用");
@@ -31,6 +31,7 @@ test("the eight sections switch from one navigation, return to the entry and no 
     for (const [name, title] of [
       ["nodes", "节点连接"],
       ["models", "模型与角色"],
+      ["agents", "Agent"],
       ["skills", "技能"],
       ["mcp", "MCP 服务"],
       ["capacity", "运行名额"],
@@ -41,7 +42,17 @@ test("the eight sections switch from one navigation, return to the entry and no 
       await expect(navItem(page, name)).toHaveAttribute("aria-current", "page");
       await expect(section(page, name)).toBeVisible();
       await expect(section(page, name).getByRole("heading", { level: 1 })).toHaveText(title);
-      for (const other of ["general", "nodes", "models", "skills", "mcp", "capacity", "members", "tools"])
+      for (const other of [
+        "general",
+        "nodes",
+        "models",
+        "agents",
+        "skills",
+        "mcp",
+        "capacity",
+        "members",
+        "tools"
+      ])
         if (other !== name) await expect(section(page, other)).toBeHidden();
     }
 

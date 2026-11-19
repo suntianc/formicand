@@ -1,4 +1,5 @@
 import { mkdir, readFile, readdir, rm } from "node:fs/promises";
+import type { AgentDefinition } from "./agent-definitions.js";
 import { join, relative, resolve } from "node:path";
 import { id, now } from "../domain/types.js";
 import { atomicWrite } from "../storage/atomic-file.js";
@@ -94,6 +95,8 @@ interface WorkPayload {
   capabilityGrants?: unknown[];
   /** The experiment-ledger row this delegation opened when it was dispatched. */
   experimentRef?: DelegatedExperimentRef;
+  /** The custom Agent's definition, fixed when the item was dispatched. */
+  agentDefinition?: AgentDefinition;
 }
 
 /** The roles this service launches and settles; Main belongs to the run service. */
@@ -370,6 +373,7 @@ export class SubagentProcessService {
         callId: item.stepId,
         agentId: item.agentId,
         role,
+        ...(payload.agentDefinition ? { agent: payload.agentDefinition.name } : {}),
         workingDirectory: site.directory,
         // A resumed session takes the rework brief as its prompt argument: the
         // transcript it opened already owns stdin's role for the first turn.
@@ -463,7 +467,9 @@ export class SubagentProcessService {
       COWORK_DASHBOARD_URL: undefined,
       ...(payload.capabilityGrants && payload.capabilityGrants.length > 0
         ? { COWORK_AGENT_GRANTS: JSON.stringify(payload.capabilityGrants) }
-        : {})
+        : {}),
+      // The process applies the definition itself: its tools, skills, MCP servers and prompt.
+      COWORK_AGENT_DEFINITION: payload.agentDefinition ? JSON.stringify(payload.agentDefinition) : undefined
     };
   }
 
@@ -699,7 +705,7 @@ export class SubagentProcessService {
     // completed turn but no usable conclusion is a failed call, not a review
     // Main has to interpret from prose.
     let review: ReviewConclusion | undefined;
-    if (record.role === "reviewer" && result.termination === "completed") {
+    if (record.role === "reviewer" && !record.agent && result.termination === "completed") {
       const parsed = parseReviewConclusion(result.review);
       if (!parsed.ok)
         return {

@@ -2916,6 +2916,196 @@ html[data-theme] body :is(.provider-search, .provider-input) input:not([type="ch
 .mcp-test-result[hidden] {
   display: none;
 }
+/* Settings → Agent: grouped list and the editor in the detail pane. */
+.agent-group {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  padding: 10px 9px 4px;
+  color: var(--color-text-3);
+  font: 400 12px/1.4 var(--ui-font);
+}
+.agent-group .is-mono {
+  font-family: var(--ui-mono);
+  font-size: 11px;
+}
+.skill-row.is-muted .skill-row-name {
+  color: var(--color-text-3);
+}
+.agent-path {
+  overflow: hidden;
+  color: var(--color-text-3);
+  font: 400 12px/1.4 var(--ui-mono);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.agent-form {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  margin-top: 16px;
+}
+.agent-form-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px 28px;
+}
+.agent-form-column {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 16px;
+}
+.agent-form textarea,
+.agent-form input[type="text"],
+.agent-form input:not([type]) {
+  min-width: 0;
+}
+.agent-form .mcp-field > select,
+.agent-form .mcp-field > .agent-permissions,
+.agent-form .mcp-field > .agent-tools,
+.agent-form .mcp-field > .agent-chips,
+.agent-form .mcp-field > .agent-hint {
+  grid-column: 1 / -1;
+}
+.agent-form #agent-description {
+  font-family: var(--ui-font);
+}
+.agent-permissions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.agent-permission {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  padding: 10px;
+  border: 1px solid var(--color-line);
+  border-radius: 9px;
+  cursor: pointer;
+}
+.agent-permission:has(input:checked) {
+  border-color: var(--color-line-strong);
+  background: var(--color-surface-2);
+}
+.agent-permission strong {
+  display: block;
+  color: var(--color-text);
+  font: 500 13px/1.4 var(--ui-font);
+}
+.agent-permission small {
+  color: var(--color-text-3);
+  font: 400 12px/1.4 var(--ui-font);
+}
+.agent-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.agent-tool {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  padding: 3px 8px;
+  border: 1px solid var(--color-line);
+  border-radius: 7px;
+  color: var(--color-text);
+  font-size: 12px;
+  cursor: pointer;
+}
+.agent-tool.is-off {
+  color: var(--color-text-3);
+  cursor: not-allowed;
+}
+.agent-tool .is-mono {
+  font-family: var(--ui-mono);
+}
+.agent-hint {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin: 0;
+  color: var(--color-text-3);
+  font: 400 12px/1.5 var(--ui-font);
+}
+.agent-hint .ui-icon {
+  width: 13px;
+  height: 13px;
+  flex: none;
+}
+.agent-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+.agent-chip {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+  font-family: var(--ui-mono);
+}
+.agent-chip button {
+  display: inline-flex;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-text-3);
+  cursor: pointer;
+}
+.agent-chip .ui-icon {
+  width: 12px;
+  height: 12px;
+}
+.agent-add {
+  width: auto;
+  min-width: 90px;
+}
+.agent-prompt {
+  min-height: 120px;
+}
+.agent-form-foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+/* The trust question in the work view. */
+.trust-dialog {
+  width: min(560px, calc(100vw - 32px));
+}
+.trust-path {
+  margin: -6px 0 12px;
+  color: var(--color-text-3);
+  font: 400 12px/1.4 var(--ui-mono);
+  overflow-wrap: anywhere;
+}
+.trust-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 12px 0;
+  padding: 0;
+  list-style: none;
+}
+.trust-list li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-line);
+  border-radius: 9px;
+  color: var(--color-text-2);
+  font: 400 12px/1.5 var(--ui-font);
+}
+.trust-list .is-mono {
+  color: var(--color-text);
+  font: 500 12px/1.5 var(--ui-mono);
+}
+.trust-remember {
+  margin: 4px 0 8px;
+}
 @media (max-width: 760px) {
   .skill-head,
   .skill-project-bar {
@@ -2931,5 +3121,9 @@ html[data-theme] body :is(.provider-search, .provider-input) input:not([type="ch
   }
   .skill-detail {
     padding: 20px 16px;
+  }
+  .agent-form-columns,
+  .agent-permissions {
+    grid-template-columns: minmax(0, 1fr);
   }
 }

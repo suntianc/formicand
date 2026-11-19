@@ -51,6 +51,8 @@ export interface AgentProcessLaunch {
   callId: string;
   agentId: string;
   role: AgentProcessRole;
+  /** The custom Agent a delegated process runs as. */
+  agent?: string;
   /** The work item's site; the process runs with this as its CWD. */
   workingDirectory: string;
   /**
@@ -96,6 +98,8 @@ export interface AgentProcessRecord {
   callId: string;
   agentId: string;
   role: AgentProcessRole;
+  /** The custom Agent this process ran as; a custom read Agent answers in text, not with a review. */
+  agent?: string;
   pid: number;
   host: string;
   /** OS process start identity; a reused pid does not match it. */
@@ -279,6 +283,7 @@ export class AgentProcessHost {
       callId: input.callId,
       agentId: input.agentId,
       role: input.role,
+      ...(input.agent ? { agent: input.agent } : {}),
       pid,
       host: hostname(),
       startedAt: identity?.startedAt ?? "",

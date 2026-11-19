@@ -46,6 +46,8 @@ test("/ and @ leave words in the draft and send what they name to Main", async (
     const input = page.locator("#composer-input");
     const menu = page.locator("#composer-menu");
     await expect(input).toBeEditable();
+    // The draft's project, whose files `@` searches, is known once the project list is drawn.
+    await expect(page.locator(".project-group").first()).toBeVisible();
 
     // `/` offers the skill, the prompt template and commands; a template becomes the draft's words.
     await input.pressSequentially("/pg");
@@ -113,7 +115,8 @@ test("/ and @ leave words in the draft and send what they name to Main", async (
     await page.setViewportSize({ width: 1280, height: 900 });
 
     await input.press("Enter");
-    await expect.poll(() => provider.requests.length).toBeGreaterThan(0);
+    // Main starts a real Pi process; on a busy machine that takes longer than the default wait.
+    await expect.poll(() => provider.requests.length, { timeout: 30_000 }).toBeGreaterThan(0);
     const sent = JSON.stringify(provider.requests[0].body.messages);
     const manifest = JSON.parse(
       JSON.parse(`"${/<atria_references>\\n(.*?)\\n<\/atria_references>/.exec(sent)[1]}"`)

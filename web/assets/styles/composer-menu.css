@@ -102,6 +102,10 @@
   background: var(--color-review-soft);
   color: var(--color-review);
 }
+.reference-chip.is-agent {
+  background: var(--color-warn-soft);
+  color: var(--color-warn);
+}
 .reference-chip.is-skill {
   background: var(--color-ok-soft);
   color: var(--color-ok);

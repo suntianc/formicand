@@ -66,7 +66,8 @@ export function createComposerMenu({ input, container, api, getProjectId, comman
   input.setAttribute("aria-controls", menu.id);
   input.setAttribute("aria-autocomplete", "list");
 
-  const known = { skills: new Set(), servers: new Set(), files: new Set() };
+  const known = { skills: new Set(), servers: new Set(), files: new Set(), agents: new Set() };
+  const agentCache = new Map();
   const slashCache = new Map();
   let resourceCache;
   let trigger;
@@ -84,6 +85,19 @@ export function createComposerMenu({ input, container, api, getProjectId, comman
     data.then(
       (value) => value.skills.forEach((skill) => known.skills.add(skill.name)),
       () => slashCache.delete(key)
+    );
+    return data;
+  }
+
+  async function agentData(projectId) {
+    const key = projectId ?? "";
+    const cached = agentCache.get(key);
+    if (cached && Date.now() - cached.at < SLASH_TTL_MS) return cached.data;
+    const data = api(`/api/composer/agents${projectId ? `?projectId=${encodeURIComponent(projectId)}` : ""}`);
+    agentCache.set(key, { at: Date.now(), data });
+    data.then(
+      (value) => value.agents.forEach((agent) => known.agents.add(agent.name)),
+      () => agentCache.delete(key)
     );
     return data;
   }
@@ -113,7 +127,7 @@ export function createComposerMenu({ input, container, api, getProjectId, comman
   function render() {
     if (!trigger) return;
     if (!items.length) {
-      menu.innerHTML = `<div class="composer-menu-empty">${esc(trigger.kind === "/" ? ui("没有匹配的技能、模板或命令") : ui("没有匹配的文件或资源"))}</div>`;
+      menu.innerHTML = `<div class="composer-menu-empty">${esc(trigger.kind === "/" ? ui("没有匹配的技能、模板或命令") : ui("没有匹配的文件、Agent 或资源"))}</div>`;
     } else {
       let group;
       menu.innerHTML =
@@ -167,7 +181,7 @@ export function createComposerMenu({ input, container, api, getProjectId, comman
     return [...skills, ...prompts, ...actions];
   }
 
-  function atItems(files, resources, query) {
+  function atItems(files, agents, resources, query) {
     const fileItems = files.map((path) => {
       const slash = path.lastIndexOf("/");
       return {
@@ -193,7 +207,17 @@ export function createComposerMenu({ input, container, api, getProjectId, comman
         badge: resource.server,
         insert: `${referenceToken({ kind: "mcp_resource", ...resource })} `
       }));
-    return [...fileItems, ...resourceItems];
+    const agentItems = ranked(agents, (agent) => agent.name, query)
+      .slice(0, GROUP_LIMIT)
+      .map((agent) => ({
+        group: "Agent",
+        icon: "team",
+        label: agent.name,
+        detail: agent.description,
+        badge: agent.permission === "write" ? ui("可写") : ui("只读"),
+        insert: `@${agent.name} `
+      }));
+    return [...fileItems, ...agentItems, ...resourceItems];
   }
 
   async function refresh() {
@@ -207,16 +231,17 @@ export function createComposerMenu({ input, container, api, getProjectId, comman
         items = slashItems(data, current.query);
       } else {
         const projectId = getProjectId();
-        const [files, resources] = await Promise.all([
+        const [files, agents, resources] = await Promise.all([
           projectId
             ? api(
                 `/api/composer/files?projectId=${encodeURIComponent(projectId)}&q=${encodeURIComponent(current.query)}`
               )
             : { files: [] },
+          agentData(projectId),
           resourceData()
         ]);
         if (ticket !== generation) return;
-        items = atItems(files.files, resources.resources, current.query);
+        items = atItems(files.files, agents.agents, resources.resources, current.query);
       }
       active = Math.min(active, Math.max(items.length - 1, 0));
       render();
@@ -328,7 +353,7 @@ export function createComposerMenu({ input, container, api, getProjectId, comman
     },
     /** Learn the skill names and MCP servers before a restored draft is sent. */
     async prepare() {
-      await Promise.all([slashData(getProjectId()), resourceData()]);
+      await Promise.all([slashData(getProjectId()), agentData(getProjectId()), resourceData()]);
     }
   };
 }

@@ -16,7 +16,12 @@ import {
  * at every turn: servers added or changed since are registered (registering a
  * name again replaces it), and servers removed or switched off are dropped.
  */
-export function createMcpRegistration(pi: ExtensionAPI, home = atriaHome()) {
+export function createMcpRegistration(
+  pi: ExtensionAPI,
+  home = atriaHome(),
+  /** A custom Agent's servers: only these are registered. Omitted: every enabled server. */
+  only?: readonly string[]
+) {
   const registered = new Map<string, string>();
   /** Returns a problem to show the user; the turn goes on with the servers already registered. */
   const sync = async (): Promise<string | undefined> => {
@@ -27,7 +32,9 @@ export function createMcpRegistration(pi: ExtensionAPI, home = atriaHome()) {
       return `MCP 配置读取失败，本轮沿用已有服务：${error instanceof Error ? error.message : String(error)}`;
     }
     const wanted = new Map<string, McpServerConfig>(
-      enabledMcpServers(records).map((server) => [server.name, piMcpServerConfig(server.config)])
+      enabledMcpServers(records)
+        .filter((server) => !only || only.includes(server.name))
+        .map((server) => [server.name, piMcpServerConfig(server.config)])
     );
     const problems: string[] = [];
     for (const name of registered.keys()) {
