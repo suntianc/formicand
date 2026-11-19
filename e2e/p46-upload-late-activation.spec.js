@@ -32,7 +32,7 @@ for (const firstProject of [false, true])
         await uploadGate;
         await route.continue();
       });
-      const bound = page.waitForRequest("**/api/models");
+      const bound = page.waitForRequest(/\/api\/models(\?.*)?$/);
       await page.goto(dashboard.base);
       // The composer only accepts input after the page's first activation; the
       // session is still unbound, so the activation under test is a later one.

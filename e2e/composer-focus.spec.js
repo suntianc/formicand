@@ -19,7 +19,7 @@ const test = base.extend({
       await page.request.post(`${dashboard.base}/api/tasks`, {
         data: { taskId: id, goal: id }
       });
-    await page.route("**/api/models", (route) =>
+    await page.route(/\/api\/models(\?.*)?$/, (route) =>
       route.fulfill({
         json: { configured: true, current: "focus-fixture", models: ["focus-fixture"] }
       })

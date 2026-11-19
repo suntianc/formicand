@@ -207,7 +207,7 @@ test("an upload in flight when the first catalog loads keeps its attachment", as
       await uploadHeld;
       await route.fulfill({ response });
     });
-    const backendBound = page.waitForRequest(/\/api\/models$/);
+    const backendBound = page.waitForRequest(/\/api\/models(\?.*)?$/);
     await page.goto(dashboard.base);
     await backendBound;
     await page.locator("#file-input").setInputFiles({
@@ -243,7 +243,7 @@ test("a conversation link keeps typing that lands before the catalog", async ({ 
       await catalogHeld;
       await route.fulfill({ response });
     });
-    const backendBound = page.waitForRequest(/\/api\/models$/);
+    const backendBound = page.waitForRequest(/\/api\/models(\?.*)?$/);
     await page.goto(`${dashboard.base}/?task=linked_task`);
     // The model read follows the bind, so drafts already belong to the backend.
     await backendBound;

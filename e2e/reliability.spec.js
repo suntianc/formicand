@@ -74,7 +74,7 @@ for (const width of [1280, 1440, 474, 320])
       await expect(page.locator("#model-select")).toBeHidden();
       for (const configured of [false, true]) {
         if (configured) {
-          await page.route("**/api/models", (route) =>
+          await page.route(/\/api\/models(\?.*)?$/, (route) =>
             route.fulfill({
               json: { configured: true, current: "layout-fixture", models: ["layout-fixture"] }
             })

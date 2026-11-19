@@ -14,7 +14,7 @@ test("a model connection that is no longer usable returns the guide and locks se
     await expect(page.locator(".new-session-start")).toBeVisible();
     await expect(page.locator(".first-use")).toHaveCount(0);
 
-    await page.route("**/api/models", (route) =>
+    await page.route(/\/api\/models(\?.*)?$/, (route) =>
       route.fulfill({ json: { configured: false, current: null, models: [] } })
     );
     await page.reload();

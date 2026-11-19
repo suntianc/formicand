@@ -37,7 +37,7 @@ test("trusted keyboard paste keeps mixed text, selections and per-session drafts
     await context.grantPermissions(["clipboard-read", "clipboard-write"]);
     for (const taskId of ["clipboard-first", "clipboard-second"])
       await page.request.post(`${dashboard.base}/api/tasks`, { data: { taskId, goal: taskId } });
-    await page.route("**/api/models", (route) =>
+    await page.route(/\/api\/models(\?.*)?$/, (route) =>
       route.fulfill({ json: { configured: true, current: "fixture", models: ["fixture"] } })
     );
     await page.goto(dashboard.base);

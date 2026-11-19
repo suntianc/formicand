@@ -6,7 +6,7 @@ const folder = "研究项目与团队协作的超长工作文件夹名称-示例
 const workspacePath = `/tmp/atria-layout/${folder}`;
 
 async function configuredModel(page, models = [model]) {
-  await page.route("**/api/models", (route) =>
+  await page.route(/\/api\/models(\?.*)?$/, (route) =>
     route.fulfill({ json: { configured: true, current: model, models } })
   );
 }
@@ -151,7 +151,7 @@ test("the running composer switches one primary action and preserves the draft t
       data: { taskId, goal: "停止按钮交互验收" }
     });
     const detail = await (await page.request.get(`${dashboard.base}/api/tasks/${taskId}`)).json();
-    await page.route("**/api/models", (route) =>
+    await page.route(/\/api\/models(\?.*)?$/, (route) =>
       route.fulfill({
         json: { configured: true, current: "Example-Model", models: ["Example-Model"] }
       })
