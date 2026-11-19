@@ -6,6 +6,8 @@ import {
   versionRuntimeEvents
 } from "../runtime/main-message-edit.js";
 import { createWebSearchSettings } from "./web-search-settings.js";
+import { createSkillService } from "./skill-service.js";
+import { homedir } from "node:os";
 import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
@@ -811,6 +813,12 @@ export function createDashboardApplication(
     mainSessions,
     developments,
     projectClones,
+    skills: createSkillService({
+      harnessRoot: projectRoot,
+      home: data.home,
+      userHome: homedir(),
+      projectForId: workspaces.projectForId
+    }),
     mainCapacity,
     launchMainRun,
     access,

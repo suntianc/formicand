@@ -51,6 +51,8 @@ import type { createWebSearchSettings } from "./web-search-settings.js";
 import type { createModelSettings } from "./model-settings.js";
 import type { createDashboardRunService, RunServicePorts } from "./run-service.js";
 import { ProjectCloneError, type ProjectCloneService } from "./project-clone-service.js";
+import { handleSkillRequest } from "./skill-routes.js";
+import type { SkillService } from "./skill-service.js";
 import { handleProjectCloneRequest } from "./project-clone-routes.js";
 import { handleSubagentRequest } from "./subagent-routes.js";
 import type { SubagentBackend } from "./subagent-backend.js";
@@ -77,6 +79,8 @@ export interface DashboardRoutePorts {
   subagents?: SubagentBackend;
   /** Git clones behind the add-project dialog; absent in partial handlers. */
   projectClones?: ProjectCloneService;
+  /** Skill settings; absent in partial handlers. */
+  skills?: SkillService;
   mainCapacity?: MainCapacityService;
   uploads?: InputStore;
   computer: ComputerUse;
@@ -523,6 +527,7 @@ export function createDashboardHandler(
         return;
       }
       if (await handleProjectCloneRequest(request, response, url, ports.projectClones)) return;
+      if (await handleSkillRequest(request, response, url, ports.skills)) return;
       if (request.method === "POST" && url.pathname === "/api/projects/choose-directory") {
         const directory = await chooseLocalDirectory();
         sendJson(response, 200, {

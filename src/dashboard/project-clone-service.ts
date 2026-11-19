@@ -68,7 +68,7 @@ interface RunningClone {
 const CLONE_ID = /^[A-Za-z0-9_-]{1,100}$/;
 /** Git may only speak these transports, whatever the host or repository config says. */
 const ALLOWED_PROTOCOLS = ["file", "git", "http", "https", "ssh"];
-const GIT_ALLOW_PROTOCOL = ALLOWED_PROTOCOLS.join(":");
+export const GIT_ALLOW_PROTOCOL = ALLOWED_PROTOCOLS.join(":");
 const OPERATION_ID = /^[A-Za-z0-9._:-]{1,200}$/;
 const URL_LIMIT = 2000;
 const PATH_LIMIT = 4096;
@@ -95,7 +95,7 @@ function redactRemote(value: string, remoteUrl?: string): string {
 }
 
 /** A remote must name a supported transport or a local filesystem path. */
-function remoteUrlOf(value: string): string {
+export function remoteUrlOf(value: string): string {
   const scheme = value.match(/^([a-z][a-z0-9+.-]*):\/\//i);
   if (scheme) {
     const protocol = scheme[1].toLowerCase();
