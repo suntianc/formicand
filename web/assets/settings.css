@@ -2694,28 +2694,69 @@ html[data-theme] body :is(.provider-search, .provider-input) input:not([type="ch
   font: 400 13px/1.6 var(--ui-font);
 }
 .skill-add-dialog {
+  --dialog-width: 640px;
   display: flex;
   flex-direction: column;
   gap: 14px;
-  width: min(560px, calc(100vw - 32px));
+}
+.skill-add-note {
+  margin: -6px 0 0;
+  color: var(--color-text-2);
+  font: 400 13px/1.5 var(--ui-font);
 }
 .skill-add-source {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   gap: 8px;
+}
+.skill-add-field {
+  display: grid;
+  flex: 1 1 auto;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px 12px;
+  align-items: baseline;
+  min-width: 0;
+}
+.skill-add-field[hidden] {
+  display: none;
+}
+.skill-add-field > label {
+  color: var(--color-text);
+  font: 500 13px/1.4 var(--ui-font);
+}
+.skill-add-field > small,
+.skill-found-head > small {
+  color: var(--color-text-3);
+  font: 400 12px/1.4 var(--ui-font);
+  text-align: right;
 }
 .skill-add-input {
   display: flex;
-  flex: 1 1 auto;
+  grid-column: 1 / -1;
   gap: 8px;
   min-width: 0;
-}
-.skill-add-input[hidden] {
-  display: none;
 }
 .skill-add-input input:not([type="file"]) {
   flex: 1 1 auto;
   min-width: 0;
+  font-family: var(--ui-mono);
+}
+.skill-add-source [data-skill-find] .ui-icon {
+  width: 14px;
+  height: 14px;
+}
+.skill-found-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+.skill-found-head .skill-section-title {
+  margin: 0;
+}
+.skill-chosen {
+  color: var(--color-text-2);
+  font: 400 12px/1.4 var(--ui-font);
 }
 .skill-found {
   display: flex;
@@ -2728,20 +2769,26 @@ html[data-theme] body :is(.provider-search, .provider-input) input:not([type="ch
 .skill-found-list {
   display: flex;
   flex-direction: column;
-  gap: 2px;
   max-height: 280px;
   margin: 0;
   padding: 0;
   overflow-y: auto;
+  border: 1px solid var(--color-line);
+  border-radius: 10px;
   list-style: none;
+}
+.skill-found-list li + li {
+  border-top: 1px solid var(--color-line);
 }
 .skill-found-row {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 9px;
-  border-radius: 8px;
+  gap: 12px;
+  padding: 10px 14px;
   cursor: pointer;
+}
+.skill-found-row input {
+  accent-color: var(--color-accent);
 }
 .skill-found-row:hover {
   background: var(--color-surface-2);
@@ -2832,12 +2879,49 @@ html[data-theme] body :is(.provider-search, .provider-input) input:not([type="ch
   width: auto;
 }
 .mcp-dialog {
+  --dialog-width: 660px;
   display: flex;
   flex-direction: column;
   gap: 14px;
-  width: min(600px, calc(100vw - 32px));
   max-height: calc(100vh - 48px);
   overflow-y: auto;
+}
+.mcp-dialog-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.app-dialog .mcp-dialog-head h2 {
+  margin: 0;
+}
+.mcp-kinds {
+  align-self: flex-start;
+}
+.mcp-kinds > button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.mcp-kinds .ui-icon {
+  width: 13px;
+  height: 13px;
+}
+.mcp-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px 16px;
+  align-items: start;
+}
+.mcp-row.is-command {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+}
+.mcp-row[hidden] {
+  display: none;
+}
+.mcp-row > .mcp-field[hidden] + .mcp-field,
+.mcp-row > .mcp-field:only-child {
+  grid-column: 1 / -1;
 }
 .mcp-form {
   display: flex;
@@ -2916,6 +3000,141 @@ html[data-theme] body :is(.provider-search, .provider-input) input:not([type="ch
 .mcp-test-result[hidden] {
   display: none;
 }
+/* Shared by the Skill, MCP and Agent pages: the note beside the page title,
+   the project picker above a project list, tags with icons and the pager. */
+.settings-head-note {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+  color: var(--color-text-3);
+  font: 400 12px/1.4 var(--ui-font);
+  white-space: nowrap;
+}
+.settings-head-note > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.settings-head-note .ui-icon {
+  width: 14px;
+  height: 14px;
+  flex: none;
+}
+.settings-project {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.settings-project[hidden] {
+  display: none;
+}
+.settings-project-picker {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-control);
+  background: var(--color-surface-2);
+  color: var(--color-text-2);
+  cursor: pointer;
+}
+.settings-project-picker:hover {
+  border-color: var(--color-line-strong);
+}
+.settings-project-picker:focus-within {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+.settings-project-picker .ui-icon {
+  width: 15px;
+  height: 15px;
+  flex: none;
+}
+.settings-project-picker select {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+.settings-project-text {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+}
+.settings-project-text > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.settings-project-text > span:first-child {
+  color: var(--color-text);
+  font: 500 13px/1.4 var(--ui-font);
+}
+.settings-project-text > .is-mono {
+  color: var(--color-text-3);
+  font: 400 11px/1.4 var(--ui-mono);
+}
+.settings-project-trust {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 24px;
+  padding: 0 4px;
+  color: var(--color-text-2);
+  font: 400 12px/1.4 var(--ui-font);
+}
+.settings-project-trust:empty {
+  display: none;
+}
+.settings-project-trust > span:nth-child(2) {
+  flex: 1 1 auto;
+}
+.settings-project-trust .ui-icon {
+  display: block;
+  width: 14px;
+  height: 14px;
+}
+.settings-project-trust .is-ok {
+  color: var(--color-ok);
+}
+.settings-project-trust .is-alert {
+  color: var(--ui-warning);
+}
+.settings-project-trust .settings-link {
+  color: var(--color-text-3);
+}
+.skill-tag.has-icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.skill-tag.has-icon .ui-icon {
+  width: 11px;
+  height: 11px;
+}
+.skill-pager .settings-icon-button {
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--color-line);
+  border-radius: 7px;
+}
+.skill-pager .settings-icon-button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.skill-detail-head .app-button.is-danger {
+  border-color: transparent;
+  background: color-mix(in srgb, var(--ui-danger) 14%, transparent);
+}
+.mcp-enabled {
+  white-space: nowrap;
+}
+
 /* Settings → Agent: grouped list and the editor in the detail pane. */
 .agent-group {
   display: flex;
@@ -2932,7 +3151,18 @@ html[data-theme] body :is(.provider-search, .provider-input) input:not([type="ch
 .skill-row.is-muted .skill-row-name {
   color: var(--color-text-3);
 }
+.skill-row.is-muted .settings-icon-box {
+  opacity: 0.5;
+}
+.agent-detail-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  max-width: 100%;
+}
 .agent-path {
+  min-width: 0;
   overflow: hidden;
   color: var(--color-text-3);
   font: 400 12px/1.4 var(--ui-mono);
@@ -2942,24 +3172,19 @@ html[data-theme] body :is(.provider-search, .provider-input) input:not([type="ch
 .agent-form {
   display: flex;
   flex-direction: column;
-  gap: 18px;
-  margin-top: 16px;
+  gap: 20px;
+  margin-top: 4px;
 }
 .agent-form-columns {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 18px 28px;
+  gap: 20px 40px;
 }
 .agent-form-column {
   display: flex;
   min-width: 0;
   flex-direction: column;
-  gap: 16px;
-}
-.agent-form textarea,
-.agent-form input[type="text"],
-.agent-form input:not([type]) {
-  min-width: 0;
+  gap: 20px;
 }
 .agent-form .mcp-field > select,
 .agent-form .mcp-field > .agent-permissions,
@@ -2968,35 +3193,88 @@ html[data-theme] body :is(.provider-search, .provider-input) input:not([type="ch
 .agent-form .mcp-field > .agent-hint {
   grid-column: 1 / -1;
 }
-.agent-form #agent-description {
-  font-family: var(--ui-font);
+.agent-form .mcp-field > input,
+.agent-form .mcp-field > textarea,
+.agent-form .mcp-field > select {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 38px;
+  padding: 8px 12px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-control);
+  outline: 0;
+  background: var(--color-surface-2);
+  color: var(--color-text);
+  font: 400 13px/1.5 var(--ui-font);
+}
+.agent-form .mcp-field > #agent-name {
+  font-family: var(--ui-mono);
+}
+.agent-form .mcp-field > textarea {
+  resize: vertical;
+}
+.agent-form .mcp-field > :is(input, textarea, select):focus-visible {
+  border-color: var(--color-accent);
+}
+.agent-form .mcp-field > :is(input, textarea, select):disabled {
+  color: var(--color-text-2);
+  cursor: default;
 }
 .agent-permissions {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
+  gap: 10px;
 }
 .agent-permission {
+  position: relative;
   display: flex;
-  gap: 8px;
-  align-items: flex-start;
-  padding: 10px;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 14px;
   border: 1px solid var(--color-line);
-  border-radius: 9px;
+  border-radius: var(--radius-control);
   cursor: pointer;
 }
 .agent-permission:has(input:checked) {
-  border-color: var(--color-line-strong);
-  background: var(--color-surface-2);
+  border-color: transparent;
+  background: var(--color-surface-3);
+}
+.agent-permission:has(input:focus-visible) {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+.agent-permission:has(input:disabled) {
+  cursor: default;
+}
+.agent-permission input,
+.agent-tool input,
+.agent-add select {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: inherit;
+}
+.agent-permission input {
+  pointer-events: none;
 }
 .agent-permission strong {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 6px;
   color: var(--color-text);
   font: 500 13px/1.4 var(--ui-font);
 }
+.agent-permission strong .ui-icon {
+  width: 14px;
+  height: 14px;
+}
 .agent-permission small {
   color: var(--color-text-3);
-  font: 400 12px/1.4 var(--ui-font);
+  font: 400 12px/1.5 var(--ui-font);
 }
 .agent-tools {
   display: flex;
@@ -3004,22 +3282,41 @@ html[data-theme] body :is(.provider-search, .provider-input) input:not([type="ch
   gap: 6px;
 }
 .agent-tool {
+  position: relative;
   display: inline-flex;
-  gap: 6px;
+  gap: 4px;
   align-items: center;
-  padding: 3px 8px;
-  border: 1px solid var(--color-line);
-  border-radius: 7px;
-  color: var(--color-text);
-  font-size: 12px;
+  padding: 3px 9px;
+  border-radius: 6px;
+  background: var(--color-surface-2);
+  color: var(--color-text-2);
+  font: 400 12px/1.5 var(--ui-mono);
   cursor: pointer;
 }
-.agent-tool.is-off {
-  color: var(--color-text-3);
-  cursor: not-allowed;
+.agent-tool .ui-icon {
+  display: none;
+  width: 12px;
+  height: 12px;
 }
-.agent-tool .is-mono {
-  font-family: var(--ui-mono);
+.agent-tool:has(input:checked) {
+  background: color-mix(in srgb, var(--color-ok) 14%, transparent);
+  color: var(--color-ok);
+}
+.agent-tool:has(input:checked) .ui-icon,
+.agent-tool.is-off .ui-icon {
+  display: block;
+}
+.agent-tool:has(input:focus-visible) {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+.agent-tool:has(input:disabled) {
+  cursor: default;
+}
+.agent-tool.is-off {
+  background: transparent;
+  color: var(--color-text-3);
+  opacity: 0.6;
 }
 .agent-hint {
   display: flex;
@@ -3034,17 +3331,36 @@ html[data-theme] body :is(.provider-search, .provider-input) input:not([type="ch
   height: 13px;
   flex: none;
 }
+.agent-form .settings-segmented {
+  justify-self: start;
+}
 .agent-chips {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
   align-items: center;
 }
-.agent-chip {
+.agent-chip,
+.agent-add {
   display: inline-flex;
-  gap: 4px;
+  gap: 5px;
   align-items: center;
-  font-family: var(--ui-mono);
+  padding: 3px 8px;
+  border-radius: 6px;
+  font: 400 12px/1.5 var(--ui-mono);
+}
+.agent-chip {
+  background: var(--color-surface-2);
+  color: var(--color-text);
+}
+.agent-chip .ui-icon,
+.agent-add .ui-icon {
+  width: 12px;
+  height: 12px;
+  flex: none;
+}
+.agent-chip > .ui-icon {
+  color: var(--color-text-3);
 }
 .agent-chip button {
   display: inline-flex;
@@ -3054,16 +3370,23 @@ html[data-theme] body :is(.provider-search, .provider-input) input:not([type="ch
   color: var(--color-text-3);
   cursor: pointer;
 }
-.agent-chip .ui-icon {
-  width: 12px;
-  height: 12px;
+.agent-chip button:hover {
+  color: var(--color-text);
 }
 .agent-add {
-  width: auto;
-  min-width: 90px;
+  position: relative;
+  border: 1px solid var(--color-line);
+  color: var(--color-text-2);
+  font-family: var(--ui-font);
+  cursor: pointer;
 }
-.agent-prompt {
-  min-height: 120px;
+.agent-add:hover {
+  color: var(--color-text);
+  border-color: var(--color-line-strong);
+}
+.agent-add:focus-within {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
 }
 .agent-form-foot {
   display: flex;
@@ -3072,39 +3395,86 @@ html[data-theme] body :is(.provider-search, .provider-input) input:not([type="ch
   align-items: center;
 }
 /* The trust question in the work view. */
-.trust-dialog {
-  width: min(560px, calc(100vw - 32px));
+.app-dialog.trust-dialog {
+  --dialog-width: 560px;
+}
+.trust-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.trust-mark {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--ui-warning) 16%, transparent);
+  color: var(--ui-warning);
+}
+.trust-mark .ui-icon {
+  width: 18px;
+  height: 18px;
+}
+.trust-head-text {
+  min-width: 0;
+}
+.app-dialog .trust-head h2 {
+  margin: 0;
 }
 .trust-path {
-  margin: -6px 0 12px;
+  margin: 2px 0 0;
   color: var(--color-text-3);
   font: 400 12px/1.4 var(--ui-mono);
   overflow-wrap: anywhere;
 }
+.trust-copy {
+  margin: 0;
+  color: var(--color-text-2);
+  font: 400 13px/1.6 var(--ui-font);
+}
 .trust-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  margin: 12px 0;
+  margin: 14px 0;
   padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--color-line);
+  border-radius: 10px;
   list-style: none;
 }
 .trust-list li {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 10px 12px;
-  border: 1px solid var(--color-line);
-  border-radius: 9px;
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr);
+  gap: 2px 10px;
+  padding: 10px 14px;
+  background: var(--color-surface-2);
   color: var(--color-text-2);
   font: 400 12px/1.5 var(--ui-font);
 }
+.trust-list li + li {
+  border-top: 1px solid var(--color-line);
+}
+.trust-list li .ui-icon {
+  width: 15px;
+  height: 15px;
+  margin-top: 2px;
+  color: var(--color-text-2);
+}
+.trust-list li > span:last-child {
+  grid-column: 2;
+}
 .trust-list .is-mono {
   color: var(--color-text);
-  font: 500 12px/1.5 var(--ui-mono);
+  font: 500 13px/1.5 var(--ui-mono);
 }
 .trust-remember {
-  margin: 4px 0 8px;
+  margin: 0 0 8px;
+}
+.trust-remember input {
+  accent-color: var(--color-accent);
 }
 @media (max-width: 760px) {
   .skill-head,
@@ -3123,7 +3493,9 @@ html[data-theme] body :is(.provider-search, .provider-input) input:not([type="ch
     padding: 20px 16px;
   }
   .agent-form-columns,
-  .agent-permissions {
+  .agent-permissions,
+  .mcp-row,
+  .mcp-row.is-command {
     grid-template-columns: minmax(0, 1fr);
   }
 }

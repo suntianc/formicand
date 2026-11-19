@@ -19,14 +19,16 @@ export function createProjectTrustPrompt({ api, getProjectId, showToast = () => 
   panel.className = "modal-backdrop app-dialog-backdrop";
   panel.hidden = true;
   panel.innerHTML = ui`<section class="modal-card app-dialog trust-dialog" role="dialog" aria-modal="true" aria-labelledby="trust-title" aria-describedby="trust-copy">
-      <h2 id="trust-title" data-trust-title></h2>
-      <p class="trust-path is-mono" data-trust-path></p>
-      <p class="skill-warning" id="trust-copy">${icon("triangle-alert")}<span>这个项目里带了 Agent 和技能。信任后它们会进入 Main 和子 Agent 的上下文，技能里的脚本可能被运行。只信任你了解的项目。</span></p>
+      <div class="trust-head">
+        <span class="trust-mark">${icon("shield-check")}</span>
+        <div class="trust-head-text"><h2 id="trust-title" data-trust-title></h2><p class="trust-path is-mono" data-trust-path></p></div>
+      </div>
+      <p class="trust-copy" id="trust-copy">这个项目里带了 Agent 和技能。信任后它们会进入 Main 和子 Agent 的上下文，技能里的脚本可能被运行。只信任你了解的项目。</p>
       <ul class="trust-list" data-trust-list></ul>
       <label class="settings-checkbox trust-remember"><input type="checkbox" data-trust-remember checked><span>记住我的选择（可在设置 · Agent · 项目中撤销）</span></label>
       <div class="modal-actions dialog-actions">
         <button class="app-button is-secondary" type="button" data-trust-no>不信任，忽略这些配置</button>
-        <button class="app-button is-primary" type="button" data-trust-yes>信任</button>
+        <button class="app-button is-primary" type="button" data-trust-yes>${icon("shield-check")}<span>信任</span></button>
       </div>
     </section>`;
   document.body.append(panel);
@@ -50,13 +52,13 @@ export function createProjectTrustPrompt({ api, getProjectId, showToast = () => 
   function show(preview) {
     current = preview.project.projectId;
     $("[data-trust-title]").textContent = ui`信任项目 ${preview.project.projectName}？`;
-    $("[data-trust-path]").textContent = preview.project.projectDirectory;
+    $("[data-trust-path]").textContent = preview.project.displayDirectory;
     $("[data-trust-list]").innerHTML = [
       preview.agents.length
-        ? `<li><span class="is-mono">.atria/agents/</span><span>${esc(agentLine(preview.agents))}</span></li>`
+        ? `<li>${icon("bot")}<span class="is-mono">.atria/agents/</span><span>${esc(agentLine(preview.agents))}</span></li>`
         : "",
       preview.skills.length
-        ? `<li><span class="is-mono">.atria/skills/ · .agents/skills/</span><span>${esc(skillLine(preview.skills))}</span></li>`
+        ? `<li>${icon("book-open")}<span class="is-mono">.atria/skills/ · .agents/skills/</span><span>${esc(skillLine(preview.skills))}</span></li>`
         : ""
     ].join("");
     $("[data-trust-remember]").checked = true;

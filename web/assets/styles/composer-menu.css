@@ -54,7 +54,7 @@
   flex: none;
   max-width: 60%;
   overflow: hidden;
-  font-size: 13px;
+  font: 500 13px/1.4 var(--ui-mono);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -87,11 +87,14 @@
   font-size: 12px;
 }
 .composer-menu-keys {
+  position: sticky;
+  bottom: -6px;
   display: flex;
   flex-wrap: wrap;
   gap: 14px;
-  margin-top: 4px;
-  padding: 8px 10px 4px;
+  margin: 4px -6px -6px;
+  padding: 8px 16px 10px;
+  background: var(--popover-fill);
   border-top: 1px solid var(--color-line);
   color: var(--color-text-3);
   font-size: 11px;

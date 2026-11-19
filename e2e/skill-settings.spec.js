@@ -86,12 +86,14 @@ test("a skill is added from a folder, then deleted", async ({ page }) => {
     const settings = await openSettings(page, "skills");
     await settings.getByRole("button", { name: "添加技能" }).click();
     const dialog = page.getByRole("dialog", { name: "添加技能" });
+    await dialog.getByRole("radio", { name: "本地文件夹" }).click();
     await dialog.locator("[data-skill-folder]").fill(source);
-    await dialog.getByRole("button", { name: "查找技能" }).click();
+    await dialog.getByRole("button", { name: "读取" }).click();
     await expect(dialog.locator("[data-skill-found-name]")).toHaveCount(2);
     await expect(dialog.locator("[data-skill-found-warning]")).toBeVisible();
     await dialog.locator('[data-skill-found-name][value="beta"]').uncheck();
-    await dialog.getByRole("button", { name: "安装 1 个" }).click();
+    await expect(dialog).toContainText("已选 1 个");
+    await dialog.getByRole("button", { name: "安装", exact: true }).click();
     await expect(dialog).toBeHidden();
 
     const list = settings.locator("[data-skill-list]");

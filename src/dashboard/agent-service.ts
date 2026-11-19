@@ -23,6 +23,7 @@ import {
 } from "../runtime/project-trust.js";
 import { removedSkillDirectories } from "../runtime/skill-index.js";
 import { discoverSkills, listSkillEntries, skillRootsFor } from "../runtime/skill-registry.js";
+import { displayPath } from "../runtime/display-path.js";
 import { HttpError } from "./http.js";
 
 export type AgentScope = { scope: "global" } | { scope: "project"; projectId: string };
@@ -31,6 +32,8 @@ export interface AgentView {
   name: string;
   source: AgentEntry["source"];
   path?: string;
+  /** `path` as the screen shows it: relative in the project, `~/…` under home. */
+  displayPath?: string;
   definition?: AgentDefinition;
   error?: string;
   /** For a global Agent, the project file that replaces it here. */
@@ -45,6 +48,7 @@ export interface AgentProjectView {
   projectId: string;
   projectName: string;
   projectDirectory: string;
+  displayDirectory: string;
   trust: ProjectTrust | null;
   folders: string[];
 }
@@ -68,6 +72,7 @@ export function createAgentService(options: AgentServiceOptions) {
       projectId,
       projectName: record.projectName ?? projectId,
       projectDirectory,
+      displayDirectory: displayPath(projectDirectory, { userHome: options.userHome }),
       trust: (await projectTrustDecision(options.home, projectDirectory)) ?? null,
       folders: projectDefinitionFolders(projectDirectory)
     };
@@ -115,7 +120,7 @@ export function createAgentService(options: AgentServiceOptions) {
       const known = await references(undefined, false);
       const entries = await listAgentEntries({ home: options.home, projectTrusted: false });
       return {
-        agents: entries.map((entry) => view(entry, known))
+        agents: entries.map((entry) => view(entry, known, undefined))
       };
     }
     const projectView = await project(target.projectId);
@@ -128,15 +133,29 @@ export function createAgentService(options: AgentServiceOptions) {
     });
     return {
       project: projectView,
-      agents: entries.filter((entry) => entry.source !== "builtin").map((entry) => view(entry, known))
+      agents: entries
+        .filter((entry) => entry.source !== "builtin")
+        .map((entry) => view(entry, known, projectView.projectDirectory))
     };
   }
 
-  function view(entry: AgentEntry, known: Awaited<ReturnType<typeof references>>): AgentView {
+  function view(
+    entry: AgentEntry,
+    known: Awaited<ReturnType<typeof references>>,
+    projectDirectory: string | undefined
+  ): AgentView {
     return {
       name: entry.name,
       source: entry.source,
-      ...(entry.path ? { path: entry.path } : {}),
+      ...(entry.path
+        ? {
+            path: entry.path,
+            displayPath: displayPath(entry.path, {
+              userHome: options.userHome,
+              ...(projectDirectory ? { projectDirectory } : {})
+            })
+          }
+        : {}),
       ...(entry.definition ? { definition: entry.definition } : {}),
       ...(entry.error ? { error: entry.error } : {}),
       ...(entry.shadowedBy ? { shadowedBy: entry.shadowedBy } : {}),

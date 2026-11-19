@@ -24,6 +24,7 @@ import {
   type SkillLocations,
   type SkillSource
 } from "../runtime/skill-registry.js";
+import { displayPath } from "../runtime/display-path.js";
 import { HttpError } from "./http.js";
 import { GIT_ALLOW_PROTOCOL, remoteUrlOf } from "./project-clone-service.js";
 
@@ -35,6 +36,8 @@ export interface SkillView {
   description: string;
   directory: string;
   path: string;
+  /** `path` as the screen shows it: relative in the project, `~/…` under home. */
+  displayPath: string;
   source: SkillSource;
   removed: boolean;
   shadowedBy?: string;
@@ -47,6 +50,7 @@ export interface SkillProjectView {
   projectId: string;
   projectName: string;
   projectDirectory: string;
+  displayDirectory: string;
   trust: ProjectTrust | null;
   /** Project-owned definition folders that exist, which is what trust is asked about. */
   folders: string[];
@@ -95,6 +99,7 @@ export function createSkillService(options: SkillServiceOptions) {
       projectId,
       projectName: record.projectName ?? projectId,
       projectDirectory,
+      displayDirectory: displayPath(projectDirectory, { userHome: options.userHome }),
       trust: (await projectTrustDecision(options.home, projectDirectory)) ?? null,
       folders: projectDefinitionFolders(projectDirectory)
     };
@@ -132,12 +137,16 @@ export function createSkillService(options: SkillServiceOptions) {
     }
   }
 
-  async function view(entry: SkillEntry): Promise<SkillView> {
+  async function view(entry: SkillEntry, projectDirectory?: string): Promise<SkillView> {
     return {
       name: entry.name,
       description: entry.description,
       directory: entry.directory,
       path: entry.path,
+      displayPath: displayPath(entry.path, {
+        userHome: options.userHome,
+        ...(projectDirectory ? { projectDirectory } : {})
+      }),
       source: entry.source,
       removed: entry.removed,
       ...(entry.shadowedBy ? { shadowedBy: entry.shadowedBy } : {}),
@@ -206,7 +215,7 @@ export function createSkillService(options: SkillServiceOptions) {
       const { project: projectView, skills } = await entries(target);
       return {
         ...(projectView ? { project: projectView } : {}),
-        skills: await Promise.all(skills.map(view))
+        skills: await Promise.all(skills.map((skill) => view(skill, projectView?.projectDirectory)))
       };
     },
 

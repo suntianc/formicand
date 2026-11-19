@@ -19,6 +19,7 @@ import {
   type McpServerRecord
 } from "../runtime/mcp-config.js";
 import { atomicWrite } from "../storage/atomic-file.js";
+import { displayPath } from "../runtime/display-path.js";
 import { HttpError } from "./http.js";
 
 export type McpState = "connected" | "needs-auth" | "failed" | "disabled" | "unchecked" | "invalid";
@@ -52,6 +53,7 @@ export interface McpServerView {
 
 export interface McpServiceOptions {
   home: string;
+  userHome: string;
   /** Pi's agent folder, where Pi keeps the OAuth credentials Main also reads. */
   piAgentDir: string;
   harnessRoot: string;
@@ -264,7 +266,12 @@ export function createMcpService(options: McpServiceOptions) {
   return {
     async list() {
       const records = await readMcpServers(options.home);
-      return { path: mcpConfigPath(options.home), servers: records.map(view) };
+      const path = mcpConfigPath(options.home);
+      return {
+        path,
+        displayPath: displayPath(path, { userHome: options.userHome }),
+        servers: records.map(view)
+      };
     },
 
     /** Check enabled servers again; all of them when `names` is omitted. */

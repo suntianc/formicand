@@ -81,8 +81,8 @@ export function createMcpSettings({ panel, api, onSection, showToast = () => {} 
 
   panel.innerHTML = ui`<div class="skill-head">
       <h1 class="settings-page-title">MCP 服务</h1>
-      <span class="settings-info" title="保存在 ~/.atria/mcp.json，所有项目共用；每个 Agent 再单独选用">${icon("info")}</span>
       <span class="settings-group-spacer"></span>
+      <span class="settings-head-note">${icon("info")}<span>保存在 ~/.atria/mcp.json，所有项目共用；每个 Agent 再单独选用</span></span>
       <button class="app-button is-secondary" type="button" data-mcp-import>${icon("copy")}<span>粘贴 JSON 导入</span></button>
       <button class="app-button is-primary" type="button" data-mcp-add>${icon("plus")}<span>添加服务</span></button>
     </div>
@@ -313,7 +313,7 @@ export function createMcpSettings({ panel, api, onSection, showToast = () => {} 
       <dl class="skill-facts">
         <dt>连接方式</dt><dd>${server.kind === "http" ? ui("远程地址") : ui("本地命令")}</dd>
         ${server.config ? connection : ""}
-        <dt>配置位置</dt><dd class="is-mono">${esc(view.data.path)}</dd>
+        <dt>配置位置</dt><dd class="is-mono" title="${esc(view.data.path)}">${esc(view.data.displayPath)}</dd>
       </dl>
       ${server.config && server.enabled ? renderTools(server) : ""}`;
   }
@@ -381,24 +381,29 @@ export function createMcpSettings({ panel, api, onSection, showToast = () => {} 
   editorPanel.className = "modal-backdrop app-dialog-backdrop";
   editorPanel.hidden = true;
   editorPanel.innerHTML = ui`<section class="modal-card app-dialog mcp-dialog" role="dialog" aria-modal="true" aria-labelledby="mcp-editor-title">
-      <h2 id="mcp-editor-title" data-mcp-editor-title>添加 MCP 服务</h2>
-      <div class="settings-segmented" role="radiogroup" aria-label="连接方式" data-mcp-kind>
-        <button type="button" role="radio" data-mcp-kind-value="stdio" aria-checked="true">本地命令</button>
-        <button type="button" role="radio" data-mcp-kind-value="http" aria-checked="false">远程地址</button>
-        <button type="button" role="radio" data-mcp-kind-value="json" aria-checked="false">粘贴 JSON</button>
+      <div class="mcp-dialog-head">
+        <h2 id="mcp-editor-title" data-mcp-editor-title>添加 MCP 服务</h2>
+        <button class="settings-icon-button" type="button" data-mcp-editor-close aria-label="关闭">${icon("close")}</button>
+      </div>
+      <div class="settings-segmented mcp-kinds" role="radiogroup" aria-label="连接方式" data-mcp-kind>
+        <button type="button" role="radio" data-mcp-kind-value="stdio" aria-checked="true">${icon("terminal")}本地命令</button>
+        <button type="button" role="radio" data-mcp-kind-value="http" aria-checked="false">${icon("globe")}远程地址</button>
+        <button type="button" role="radio" data-mcp-kind-value="json" aria-checked="false">${icon("code")}粘贴 JSON</button>
       </div>
       <form class="mcp-form" data-mcp-form>
         <div class="mcp-field" data-mcp-only="stdio http">
           <label for="mcp-name">名称</label><small>工具名为 mcp__名称__工具</small>
           <input id="mcp-name" data-mcp-name placeholder="postgres" autocomplete="off" spellcheck="false">
         </div>
-        <div class="mcp-field" data-mcp-only="stdio">
-          <label for="mcp-command">命令</label><small>一个可执行文件</small>
-          <input id="mcp-command" data-mcp-command placeholder="npx" autocomplete="off" spellcheck="false">
-        </div>
-        <div class="mcp-field" data-mcp-only="stdio">
-          <label for="mcp-args">参数</label><small>每行一个</small>
-          <textarea id="mcp-args" data-mcp-args rows="3" placeholder="-y&#10;@modelcontextprotocol/server-postgres" spellcheck="false"></textarea>
+        <div class="mcp-row is-command" data-mcp-only="stdio">
+          <div class="mcp-field">
+            <label for="mcp-command">命令</label><small>一个可执行文件</small>
+            <input id="mcp-command" data-mcp-command placeholder="npx" autocomplete="off" spellcheck="false">
+          </div>
+          <div class="mcp-field">
+            <label for="mcp-args">参数</label><small>每行一个</small>
+            <textarea id="mcp-args" data-mcp-args rows="2" placeholder="-y&#10;@modelcontextprotocol/server-postgres" spellcheck="false"></textarea>
+          </div>
         </div>
         <div class="mcp-field" data-mcp-only="http">
           <label for="mcp-url">地址</label>
@@ -409,17 +414,19 @@ export function createMcpSettings({ panel, api, onSection, showToast = () => {} 
           <div class="mcp-pairs" data-mcp-pairs></div>
           <button class="settings-link" type="button" data-mcp-pair-add>${icon("plus")}<span data-mcp-pair-add-label>添加变量</span></button>
         </div>
+        <div class="mcp-row">
         <div class="mcp-field" data-mcp-only="stdio">
           <label for="mcp-cwd">工作目录</label><small>可选，默认是项目目录</small>
           <input id="mcp-cwd" data-mcp-cwd autocomplete="off" spellcheck="false">
         </div>
         <div class="mcp-field" data-mcp-only="stdio http">
-          <span class="mcp-field-label">工具默认可见方式</span>
+          <span class="mcp-field-label">工具默认可见方式</span><span></span>
           <div class="settings-segmented" role="radiogroup" aria-label="工具默认可见方式" data-mcp-default-exposure>
             <button type="button" role="radio" data-mcp-default-value="direct" aria-checked="false">直接给模型</button>
             <button type="button" role="radio" data-mcp-default-value="deferred" aria-checked="true">按需搜索</button>
             <button type="button" role="radio" data-mcp-default-value="hidden" aria-checked="false">隐藏</button>
           </div>
+        </div>
         </div>
         <div class="mcp-field" data-mcp-only="json">
           <label for="mcp-json">JSON</label><small>与其他客户端的 mcpServers 格式相同</small>
@@ -430,7 +437,7 @@ export function createMcpSettings({ panel, api, onSection, showToast = () => {} 
       <p class="mcp-test-result" data-mcp-test-result hidden></p>
       <p class="dialog-error" data-mcp-editor-error role="alert" hidden></p>
       <div class="modal-actions dialog-actions">
-        <button class="app-button is-secondary" type="button" data-mcp-test>测试连接</button>
+        <button class="app-button is-secondary" type="button" data-mcp-test>${icon("plug")}<span>测试连接</span></button>
         <span class="settings-group-spacer"></span>
         <button class="app-button is-secondary" type="button" data-mcp-editor-cancel>取消</button>
         <button class="app-button is-primary" type="button" data-mcp-save>保存</button>
@@ -438,6 +445,9 @@ export function createMcpSettings({ panel, api, onSection, showToast = () => {} 
     </section>`;
   document.body.append(editorPanel);
   const editorModal = createModal(editorPanel, editorPanel.querySelector("[data-mcp-editor-cancel]"));
+  editorPanel
+    .querySelector("[data-mcp-editor-close]")
+    .addEventListener("click", () => editorPanel.querySelector("[data-mcp-editor-cancel]").click());
   const editor = { kind: "stdio", previous: undefined, base: {}, exposure: "deferred", busy: false };
   const ed = (selector) => editorPanel.querySelector(selector);
 
