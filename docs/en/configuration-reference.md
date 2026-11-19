@@ -33,7 +33,7 @@ For custom GLM gateways the SDK does not recognize, select GLM format or set `th
 
 ## Model providers
 
-The App and Web "Settings → Models and roles" page saves models per provider in the execution host's `modelProviders`. The top-level fields above are the CLI's single-connection form; when both exist, `modelProviders` wins.
+The App and Web "Settings → Models" page saves models per provider in the execution host's `modelProviders`. The top-level fields above are the CLI's single-connection form; when both exist, `modelProviders` wins.
 
 ```json
 {
@@ -129,9 +129,9 @@ Client sessions use the `CoworkOS Client` encryption identity through a separate
 
 ## Model roles
 
-`roleModels` in the execution host's configuration names one saved model per role, as `<provider id>#<model id>`: `host` defaults for every project on the machine. They never travel with shared project data, so another backend never inherits them. There is no per-project override: a conversation that needs another model picks it in the conversation panel. Resolution prefers an explicit per-launch selection, then the host default, then the first model of the first enabled provider (or the CLI's single connection when no provider is configured).
+`roleModels` in the execution host's configuration holds the built-in Agents' settings (Main, Executor, Reviewer), written by Settings → Agent. Each role may set `profileId` (a model, `<provider id>#<model id>`), `thinkingLevel`, `skills` and `mcp` (a list of names or `"all"`) and `prompt`; every field is optional. Without `skills` every skill is visible; without `mcp` Main uses every enabled server and Executor and Reviewer use none. `host` holds the defaults for every project on the machine and `projects` overrides single fields per project directory; a field a project leaves out follows `host`. Neither travels with shared project data, so another backend never inherits them; a conversation that needs another model picks it in the conversation panel. Model resolution prefers an explicit per-launch selection, then the project, then the host, then the first model of the first enabled provider (or the CLI's single connection when no provider is configured). Effort comes from the message's own choice, then a custom Agent's `thinking`, then the role, then the model's default.
 
-Main reads its role when a Run is admitted and records the non-sensitive source as `main.run_spawned.modelSelection`; a later settings change affects the next Run while an in-flight Run and a saved request retry keep their recorded selection. `executor` and `reviewer` are read each time a delegated work item actually starts — including an item still queued behind its prerequisites — so a binding change applies to items that have not started while a started attempt keeps its choice. With no binding the item keeps the launching Run's connection, which is why the settings view reports no fixed effective connection for them. `router` remains a later path's configuration key. A saved role referencing a missing model reports the role, scope and model reference and is refused rather than falling back to another account.
+Main reads its model when a Run is admitted, re-reads its skills, MCP servers and extra prompt at every turn, and records the non-sensitive source as `main.run_spawned.modelSelection`; a later settings change affects the next Run while an in-flight Run and a saved request retry keep their recorded selection. `executor` and `reviewer` fix their skills, MCP servers and extra prompt when an item is dispatched; their model is read each time a delegated work item actually starts — including an item still queued behind its prerequisites — so a binding change applies to items that have not started while a started attempt keeps its choice. With no binding the item keeps the launching Run's connection, which is why the settings view reports no fixed effective connection for them. `router` remains a later path's configuration key. A saved role referencing a missing model reports the role, scope and model reference and is refused rather than falling back to another account.
 
 ## Image input
 

@@ -4,8 +4,9 @@ import {
   agentDefinitionSchema,
   agentToolsFor,
   AGENT_CHANNEL_TOOLS,
+  BUILTIN_AGENTS,
   AGENT_NAME,
-  BUILTIN_AGENT_NAMES,
+  RESERVED_AGENT_NAMES,
   deleteAgentDefinition,
   globalAgentRoot,
   listAgentEntries,
@@ -24,6 +25,15 @@ import {
 import { removedSkillDirectories } from "../runtime/skill-index.js";
 import { discoverSkills, listSkillEntries, skillRootsFor } from "../runtime/skill-registry.js";
 import { displayPath } from "../runtime/display-path.js";
+import type { CoworkConfig } from "../runtime/config.js";
+import {
+  BUILTIN_ROLES,
+  builtinAgentSettings,
+  projectRoleSettings,
+  type BuiltinAgentSettings,
+  type BuiltinRole,
+  type RoleSettings
+} from "../runtime/role-models.js";
 import { HttpError } from "./http.js";
 
 export type AgentScope = { scope: "global" } | { scope: "project"; projectId: string };
@@ -42,7 +52,26 @@ export interface AgentView {
   readonly: boolean;
   /** Skills or MCP servers the definition names that no longer exist or are off. */
   problems: string[];
+  /** A built-in Agent's settings: what this page saved, and what the place runs with. */
+  builtin?: BuiltinView;
 }
+
+export interface BuiltinView {
+  role: BuiltinRole;
+  /** What this scope saved itself; on the project page, only the fields it overrides. */
+  settings: RoleSettings;
+  /** On the project page, the global settings a field follows when the project leaves it. */
+  global?: RoleSettings;
+  effective: BuiltinAgentSettings & Pick<RoleSettings, "profileId" | "thinkingLevel">;
+}
+
+/** Main in the same shape as the delegated built-ins; it is never delegated to. */
+const MAIN_DEFINITION: AgentDefinition = {
+  name: "main",
+  description: "理解需求、拆分与委派，并给出最终结论。",
+  permission: "write",
+  prompt: ""
+};
 
 export interface AgentProjectView {
   projectId: string;
@@ -60,6 +89,11 @@ export interface AgentServiceOptions {
   projectForId(
     projectId: string
   ): Promise<{ projectId: string; projectName?: string; projectDirectory?: string } | null>;
+  /** Built-in Agent settings live with the host's model configuration. */
+  builtins: {
+    config(): CoworkConfig;
+    save(input: { role: BuiltinRole; projectDirectory?: string; settings: RoleSettings }): Promise<unknown>;
+  };
 }
 
 /** Settings → Agent: the global and per-project lists, editing, and the trust question. */
@@ -100,7 +134,7 @@ export function createAgentService(options: AgentServiceOptions) {
   }
 
   function problems(
-    definition: AgentDefinition | undefined,
+    definition: Pick<AgentDefinition, "skills" | "mcp"> | undefined,
     known: Awaited<ReturnType<typeof references>>
   ): string[] {
     if (!definition) return [];
@@ -120,7 +154,14 @@ export function createAgentService(options: AgentServiceOptions) {
       const known = await references(undefined, false);
       const entries = await listAgentEntries({ home: options.home, projectTrusted: false });
       return {
-        agents: entries.map((entry) => view(entry, known, undefined))
+        agents: [
+          builtinView("main", known, undefined),
+          ...entries.map((entry) =>
+            entry.source === "builtin"
+              ? builtinView(entry.name as BuiltinRole, known, undefined)
+              : view(entry, known, undefined)
+          )
+        ]
       };
     }
     const projectView = await project(target.projectId);
@@ -133,9 +174,50 @@ export function createAgentService(options: AgentServiceOptions) {
     });
     return {
       project: projectView,
-      agents: entries
-        .filter((entry) => entry.source !== "builtin")
-        .map((entry) => view(entry, known, projectView.projectDirectory))
+      agents: [
+        ...BUILTIN_ROLES.map((role) => builtinView(role, known, projectView.projectDirectory)),
+        ...entries
+          .filter((entry) => entry.source !== "builtin")
+          .map((entry) => view(entry, known, projectView.projectDirectory))
+      ]
+    };
+  }
+
+  /** A built-in Agent with its settings for one place; its name, description and permission are fixed. */
+  function builtinView(
+    role: BuiltinRole,
+    known: Awaited<ReturnType<typeof references>>,
+    projectDirectory: string | undefined
+  ): AgentView {
+    const config = options.builtins.config();
+    const global = config.roleModels?.host?.[role] ?? {};
+    const own = projectDirectory ? (projectRoleSettings(config, role, projectDirectory) ?? {}) : global;
+    const merged = { ...global, ...(projectDirectory ? own : {}) };
+    const effective = builtinAgentSettings(config, role, projectDirectory);
+    const definition =
+      role === "main" ? MAIN_DEFINITION : BUILTIN_AGENTS.find((agent) => agent.name === role)!;
+    return {
+      name: role,
+      source: "builtin",
+      definition,
+      readonly: true,
+      problems: problems(
+        {
+          ...(effective.skills === "all" ? {} : { skills: effective.skills }),
+          ...(effective.mcp === "all" ? {} : { mcp: effective.mcp })
+        },
+        known
+      ),
+      builtin: {
+        role,
+        settings: own,
+        ...(projectDirectory ? { global } : {}),
+        effective: {
+          ...effective,
+          ...(merged.profileId ? { profileId: merged.profileId } : {}),
+          ...(merged.thinkingLevel ? { thinkingLevel: merged.thinkingLevel } : {})
+        }
+      }
     };
   }
 
@@ -211,8 +293,12 @@ export function createAgentService(options: AgentServiceOptions) {
           "agent_definition_invalid"
         );
       const definition = parsed.data;
-      if ((BUILTIN_AGENT_NAMES as readonly string[]).includes(definition.name))
-        throw new HttpError(409, "executor 与 reviewer 是内置 Agent 的名称，请换一个", "agent_name_reserved");
+      if ((RESERVED_AGENT_NAMES as readonly string[]).includes(definition.name))
+        throw new HttpError(
+          409,
+          "main、executor 与 reviewer 是内置 Agent 的名称，请换一个",
+          "agent_name_reserved"
+        );
       const folder = await root(target);
       const names = await definitionNames(folder);
       const renamed = previousName !== undefined && previousName !== definition.name;
@@ -223,6 +309,29 @@ export function createAgentService(options: AgentServiceOptions) {
       const path = await writeAgentDefinition(folder, definition);
       if (renamed) await deleteAgentDefinition(folder, previousName);
       return { path, definition };
+    },
+
+    /** Replace one built-in Agent's settings for the page's scope; an empty record follows the level above. */
+    async saveBuiltin(target: AgentScope, name: string, settings: RoleSettings) {
+      if (!(BUILTIN_ROLES as readonly string[]).includes(name))
+        throw new HttpError(404, "没有这个内置 Agent", "agent_missing");
+      const projectDirectory =
+        target.scope === "project" ? (await project(target.projectId)).projectDirectory : undefined;
+      try {
+        await options.builtins.save({
+          role: name as BuiltinRole,
+          ...(projectDirectory ? { projectDirectory } : {}),
+          settings
+        });
+      } catch (error) {
+        if (error instanceof HttpError) throw error;
+        throw new HttpError(
+          400,
+          error instanceof Error ? error.message : String(error),
+          "agent_builtin_invalid"
+        );
+      }
+      return { name };
     },
 
     async setEnabled(target: AgentScope, name: string, enabled: boolean) {

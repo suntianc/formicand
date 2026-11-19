@@ -19,8 +19,12 @@ import {
 export function createMcpRegistration(
   pi: ExtensionAPI,
   home = atriaHome(),
-  /** A custom Agent's servers: only these are registered. Omitted: every enabled server. */
-  only?: readonly string[]
+  /**
+   * The servers to register: a fixed list (a custom Agent's), or a function
+   * read at every sync (Main's setting, which can change between turns).
+   * Omitted, or a function returning `undefined`: every enabled server.
+   */
+  only?: readonly string[] | (() => readonly string[] | undefined)
 ) {
   const registered = new Map<string, string>();
   /** Returns a problem to show the user; the turn goes on with the servers already registered. */
@@ -31,9 +35,10 @@ export function createMcpRegistration(
     } catch (error) {
       return `MCP 配置读取失败，本轮沿用已有服务：${error instanceof Error ? error.message : String(error)}`;
     }
+    const names = typeof only === "function" ? only() : only;
     const wanted = new Map<string, McpServerConfig>(
       enabledMcpServers(records)
-        .filter((server) => !only || only.includes(server.name))
+        .filter((server) => !names || names.includes(server.name))
         .map((server) => [server.name, piMcpServerConfig(server.config)])
     );
     const problems: string[] = [];

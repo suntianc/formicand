@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import { type IncomingMessage, type ServerResponse } from "node:http";
 import { basename, join } from "node:path";
 import type { ModelLevels } from "../runtime/model-levels.js";
+import { projectRoleSettings, resolveModelRole } from "../runtime/role-models.js";
 import { serveArtifact } from "./artifact-response.js";
 import { resolveTaskArtifact } from "../workspace/artifact-store.js";
 import {
@@ -667,20 +668,6 @@ export function createDashboardHandler(
         sendJson(response, 200, await ports.modelSettings.test(await readJsonBody(request)));
         return;
       }
-      if (url.pathname === "/api/model-settings/roles") {
-        if (request.method !== "POST") {
-          sendJson(response, 405, { error: "method not allowed" });
-          return;
-        }
-        const body = await readJsonBody(request);
-        if (body.projectId !== undefined) {
-          if (typeof body.projectId !== "string" || !body.projectId.trim())
-            throw new HttpError(400, "项目 ID 不合法");
-          if (!(await ports.projectForId(body.projectId.trim()))) throw new HttpError(404, "项目不存在");
-        }
-        sendJson(response, 200, await ports.modelSettings.saveRole(body));
-        return;
-      }
       if (url.pathname === "/api/model-settings") {
         if (request.method === "GET") sendJson(response, 200, ports.modelSettings.status());
         else sendJson(response, 405, { error: "method not allowed" });
@@ -692,14 +679,31 @@ export function createDashboardHandler(
         // composer can show it instead of an assumed default. Read from the same
         // role resolution the launch uses; absent when that connection is unusable.
         const mainRole = status.modelRoles.roles.find((entry) => entry.role === "main")?.effective;
-        const mainEffort = mainRole?.thinkingLevel;
+        let mainEffort = mainRole?.thinkingLevel;
+        let current = runtimeValue("COWORK_MODEL");
+        let connectionProfileId = status.activeProfileId;
         // Whose models these are, so the composer can show the provider's mark.
-        const mainProviderId = (mainRole?.connectionId || status.activeProfileId).split("#")[0];
+        let mainProviderId = (mainRole?.connectionId || status.activeProfileId).split("#")[0];
+        // A project may give Main its own model or level; the composer of a
+        // conversation in that project shows and sends those.
+        const projectDirectory = url.searchParams.get("projectDirectory")?.trim();
+        const config = ports.modelSettings.config();
+        const own = projectDirectory ? projectRoleSettings(config, "main", projectDirectory) : undefined;
+        if (own?.profileId || own?.thinkingLevel) {
+          const selection = resolveModelRole(config, { role: "main", projectDirectory });
+          mainEffort = selection.thinkingLevel;
+          const projectProfileId = own.profileId;
+          if (selection.source === "project" && projectProfileId) {
+            current = selection.model;
+            connectionProfileId = projectProfileId;
+            mainProviderId = projectProfileId.split("#")[0];
+          }
+        }
         const owner = status.providers.find((provider) => provider.id === mainProviderId);
         const models = await availableModels();
         sendJson(response, 200, {
-          current: runtimeValue("COWORK_MODEL"),
-          connectionProfileId: status.activeProfileId,
+          current,
+          connectionProfileId,
           ...(mainEffort ? { reasoningEffort: mainEffort } : {}),
           ...(owner
             ? { provider: { name: owner.name, ...(owner.preset ? { preset: owner.preset } : {}) } }
@@ -715,6 +719,7 @@ export function createDashboardHandler(
               ...(provider.preset ? { preset: provider.preset } : {}),
               models: provider.models.map((model) => ({
                 id: model.id,
+                ...(model.name ? { name: model.name } : {}),
                 profileId: model.profileId,
                 reasoningEffort: model.reasoningEffort,
                 levels: model.supportsReasoningEffort

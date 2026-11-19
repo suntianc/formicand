@@ -77,13 +77,13 @@ Main 与委派子代理都用 Pi 原生的 `bash` / 文件工具，`cwd` 默认�
 
 ### MCP 服务
 
-MCP 服务只有一份全局配置 `~/.atria/mcp.json`（`mcpServers` 格式，与其他客户端相同），所有项目共用，智能体不能读取它。Main 保留 Pi 内置的 MCP 客户端，但服务只经扩展注册（[MCP 注册](../.pi/runtime/mcp.ts)）：进程启动时注册已启用的服务，之后每轮开始重读配置，新增或修改的重新注册，删除或停用的注销，读取失败时沿用已有服务并提示一次。Pi 自己目录下的 `mcp.json` 保持为空；Main 与委派进程都以 `--no-approve` 启动，项目里的 `.pi/mcp.json`、设置与扩展不会被加载。可见方式只有三种：`deferred`（默认，经 `tool_search` 找到后才声明给模型）、`direct`（直接声明）与 `hidden`（不可达），单个工具可另设；CoworkOS 不启用 codemode，配置里的 `codemode` 会被拒绝。内置 Executor 与 Reviewer 仍以 `--no-mcp` 启动，不使用任何服务。
+MCP 服务只有一份全局配置 `~/.atria/mcp.json`（`mcpServers` 格式，与其他客户端相同），所有项目共用，智能体不能读取它。Main 保留 Pi 内置的 MCP 客户端，但服务只经扩展注册（[MCP 注册](../.pi/runtime/mcp.ts)）：进程启动时注册已启用的服务，之后每轮开始重读配置，新增或修改的重新注册，删除或停用的注销，读取失败时沿用已有服务并提示一次。Pi 自己目录下的 `mcp.json` 保持为空；Main 与委派进程都以 `--no-approve` 启动，项目里的 `.pi/mcp.json`、设置与扩展不会被加载。可见方式只有三种：`deferred`（默认，经 `tool_search` 找到后才声明给模型）、`direct`（直接声明）与 `hidden`（不可达），单个工具可另设；CoworkOS 不启用 codemode，配置里的 `codemode` 会被拒绝。Main 只注册它在设置页「Agent」里选的服务（默认全部已启用的）；内置 Executor 与 Reviewer 默认以 `--no-mcp` 启动，设置里选了服务时只注册所选的。
 
 设置页「MCP」检查连接、列出工具与 OAuth 登录都调用 Pi 自己的 `pi mcp list --json` 与 `pi mcp login`：后端在 `~/.atria/runtime/mcp-probe/` 下为每次操作建一个只含相关服务的临时目录（用完即删），该目录在 Pi 目录的 `trust.json` 中登记为信任；登录凭据写入 Pi 目录的 `mcp-auth.json`，按服务名与地址对应，Main 连接同名同址的服务时直接使用。
 
 ### 自定义 Agent
 
-自定义 Agent 是 Markdown 文件（[定义与校验](../src/runtime/agent-definitions.ts)）：头部写 `name`、给 Main 的 `description`、`permission`（`write` 或 `read`），可选 `profile`/`model`、`tools`、`skills`、`mcp`、`enabled`，正文是附加提示词。全局放在 `~/.atria/agents/`，项目放在 `.atria/agents/`（项目信任后才读），同名时项目的生效；`executor`、`reviewer` 是内置名称。
+自定义 Agent 是 Markdown 文件（[定义与校验](../src/runtime/agent-definitions.ts)）：头部写 `name`、给 Main 的 `description`、`permission`（`write` 或 `read`），可选 `profile`/`model`、`thinking`（推理强度）、`tools`、`skills`、`mcp`、`enabled`，正文是附加提示词。没写模型时可写的跟 Executor、只读的跟 Reviewer。全局放在 `~/.atria/agents/`，项目放在 `.atria/agents/`（项目信任后才读），同名时项目的生效；`main`、`executor`、`reviewer` 是内置名称。
 
 代码保证的规则：`read` 不能有 `edit`、`write`；可选工具只有 `read`、`bash`、`edit`、`write`、`grep`、`find`、`ls`、`browse_workspace`、`search`、`visit`，Main 专用工具与桌面、浏览器操控都不在其中；`ask_main`、`send_peer_message` 始终持有；不写 `skills` 时可见全部技能，写空列表则没有技能；不写 `mcp` 时不注册任何服务。
 
@@ -91,7 +91,7 @@ Main 每轮在系统提示的 `<custom_agents>` 里看到已启用、有效的 A
 
 Main 用 `manage_agent`（[工具](../.pi/runtime/tools/agents.ts)）列出、新建、修改、停用或启用 Agent。每次写入前，它以带 `proposal` 的提问把完整定义交给用户：会话里显示定义卡片，用户点「确认」才写文件；拒绝、写修改意见、选「在设置里修改」或超时都不写入，「在设置里修改」会打开设置页并带上这份草稿。Main 只能引用已配置的 MCP 服务，不能新增；项目未信任时不能写项目 Agent。设置页的「让 Main 帮我写」新开会话，把请求放进输入框。
 
-设置页「Agent」分全局与项目两页（[接口](../src/dashboard/agent-routes.ts)），可新建、复制、修改、启停、删除，并标出引用了不存在或已停用的技能、MCP 服务的 Agent。工作区里第一次打开带 `.atria/agents`、`.atria/skills` 或 `.agents/skills` 的项目时，会询问是否信任（[询问](../web/assets/controllers/project-trust-prompt.js)），只读取名称来提问。
+设置页「Agent」分全局与项目两页（[接口](../src/dashboard/agent-routes.ts)），可新建、复制、修改、启停、删除，并标出引用了不存在或已停用的技能、MCP 服务的 Agent。两页都列出内置的 Main、Executor、Reviewer：名称、使用说明、权限和工具不可改，模型、推理强度、技能、MCP 和附加提示词存在执行主机配置的 `roleModels` 里，项目页可逐项覆盖（见[角色模型](configuration-reference.md#角色模型)）。Executor、Reviewer 派单时把这些设置写进工作项，子进程据此过滤技能、注册服务并把附加提示词接在角色提示之后；Main 每轮重读，附加提示词放在系统提示的 `<user_main_instructions>` 里。工作区里第一次打开带 `.atria/agents`、`.atria/skills` 或 `.agents/skills` 的项目时，会询问是否信任（[询问](../web/assets/controllers/project-trust-prompt.js)），只读取名称来提问。
 
 ### 输入框 `/` 与 `@`
 

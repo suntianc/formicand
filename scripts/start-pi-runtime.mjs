@@ -531,11 +531,15 @@ async function resolvePiEntry(harnessRoot) {
   }
 }
 
-/** The MCP servers the custom Agent this process runs as names; none for a built-in role. */
-function delegatedMcpServers() {
-  if (!process.env.COWORK_AGENT_DEFINITION) return [];
-  const definition = JSON.parse(process.env.COWORK_AGENT_DEFINITION);
-  return Array.isArray(definition.mcp) ? definition.mcp : [];
+/**
+ * Whether this delegated process may use MCP at all: the custom Agent's
+ * definition, or the built-in role's setting, names at least one server.
+ */
+function delegatedUsesMcp() {
+  const raw = process.env.COWORK_AGENT_DEFINITION ?? process.env.COWORK_BUILTIN_AGENT;
+  if (!raw) return false;
+  const { mcp } = JSON.parse(raw);
+  return mcp === "all" || (Array.isArray(mcp) && mcp.length > 0);
 }
 
 /**
@@ -567,8 +571,8 @@ async function startDelegatedAgent() {
   );
   const providerId = coworkProviderId(baseUrl, process.env.COWORK_CONNECTION_ID ?? "");
   const args = [
-    // Built-in Agents use no MCP server; a custom Agent registers the ones it names.
-    ...(delegatedMcpServers().length ? [] : ["--no-mcp"]),
+    // MCP stays off unless the custom Agent or the built-in role's setting names a server.
+    ...(delegatedUsesMcp() ? [] : ["--no-mcp"]),
     "--no-approve",
     "--extension",
     resolve(harnessRoot, ".pi", "extensions", "cowork.ts"),

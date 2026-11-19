@@ -6,6 +6,8 @@
  * flattened connection the runtime and role bindings use.
  */
 
+import { saveRoleModel } from "./role-settings.mjs";
+
 const MODEL_FIELDS = [
   "reasoningEffort",
   "reasoningLevels",
@@ -128,7 +130,7 @@ export async function saveTestConnection(request, value) {
   const id = `${saved.id}#${model}`;
   let status = models.body;
   if (activate ?? previousForm !== "") {
-    const bound = answer(await request("/api/model-settings/roles", { role: "main", profileId: id }));
+    const bound = answer(await saveRoleModel(request, "main", id));
     if (bound.status !== 200) return { ...bound.body, status: bound.status };
     status = bound.body;
   }

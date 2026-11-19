@@ -4,7 +4,7 @@ import { atriaHome } from "../../../scripts/data-home.cjs";
 import {
   agentDefinitionSchema,
   agentLocations,
-  BUILTIN_AGENT_NAMES,
+  RESERVED_AGENT_NAMES,
   globalAgentRoot,
   listAgentEntries,
   projectAgentRoot,
@@ -77,8 +77,8 @@ export function registerAgentTools(pi: ExtensionAPI, context: CoworkToolContext)
       const parsed = agentDefinitionSchema.safeParse(params.definition);
       if (!parsed.success) return { error: parsed.error.issues.map((issue) => issue.message).join("；") };
       definition = parsed.data;
-      if ((BUILTIN_AGENT_NAMES as readonly string[]).includes(definition.name))
-        return { error: "executor 与 reviewer 是内置 Agent 的名称，请换一个。" };
+      if ((RESERVED_AGENT_NAMES as readonly string[]).includes(definition.name))
+        return { error: "main、executor 与 reviewer 是内置 Agent 的名称，请换一个。" };
       const found = existing(definition.name);
       if (params.action === "create" && found)
         return {
@@ -155,6 +155,14 @@ export function registerAgentTools(pi: ExtensionAPI, context: CoworkToolContext)
               description: Type.String({ description: "When Main should delegate to this Agent." }),
               permission: Type.Union([Type.Literal("write"), Type.Literal("read")]),
               model: Type.Optional(Type.String({ description: "Omit to use the role's model." })),
+              thinking: Type.Optional(
+                Type.Union(
+                  ["off", "minimal", "low", "medium", "high", "xhigh", "max"].map((level) =>
+                    Type.Literal(level)
+                  ),
+                  { description: "Reasoning effort. Omit to use the role's." }
+                )
+              ),
               tools: Type.Optional(
                 Type.Array(Type.String(), {
                   description:

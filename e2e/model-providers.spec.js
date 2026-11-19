@@ -8,11 +8,13 @@ import { startDashboard } from "../test/dashboard-fixture.mjs";
 import { modelProtocolFixture } from "../test/model-protocol-fixture.mjs";
 import { stopNativeBackend } from "../test/native-backend-fixture.mjs";
 import { pageRequest, saveTestConnection } from "../test/model-provider-fixture.mjs";
+import { saveRoleModel } from "../test/role-settings.mjs";
 import {
   activeModelOf,
   addProviderThroughUi,
   checkProvider,
   chooseRoleModel,
+  openBuiltinAgent,
   leaveSettings,
   openModelParams,
   openModelSettings,
@@ -165,6 +167,26 @@ for (const native of [false, true]) {
       await leaveSettings(page);
       await expect(page.locator(".model-name")).toHaveText("first-model");
       expect(activeModelOf(await status()).contextWindow).toBe(64000);
+
+      // The project gives Main the other provider's model: the composer shows it and sends to it.
+      const agents = await openBuiltinAgent(page, "main");
+      await agents.locator('[data-agent-scope-value="project"]').click();
+      await agents.locator('[data-agent-select="builtin:main"]').click();
+      await agents.locator("[data-agent-model]").click();
+      await page
+        .locator(".role-menu:not([hidden]) .role-menu-item", { hasText: "second-model" })
+        .first()
+        .click();
+      await agents.locator("[data-agent-save]").click();
+      await expect(page.locator("#toast")).toContainText("已保存");
+      await leaveSettings(page);
+      await expect(page.locator(".model-name")).toHaveText("second-model");
+      const before = second.requests.length;
+      await page.locator("#composer-input").fill("项目里的主模型");
+      await page.locator("#send-button").click();
+      await expect.poll(() => second.requests.length).toBeGreaterThan(before);
+      await expect(page.locator("#stop-button")).toBeHidden({ timeout: 30_000 });
+      expect(second.requests.at(-1).body.model).toBe("second-model");
     } finally {
       await app?.close();
       await dashboard?.stop();
@@ -351,7 +373,7 @@ test("moving Main to another model during a run leaves that turn alone and takes
     await page.locator("#send-button").click();
     await expect.poll(() => provider.requests.length, { timeout: 30_000 }).toBe(1);
     // A role binding is read when a turn starts, so it may change while one runs.
-    const switched = await request("/api/model-settings/roles", { role: "main", profileId: next.profileId });
+    const switched = await saveRoleModel(request, "main", next.profileId);
     expect(switched.status).toBe(200);
     expect(switched.body.activeProfileId).toBe(next.profileId);
     release();
@@ -369,7 +391,9 @@ test("moving Main to another model during a run leaves that turn alone and takes
 });
 
 test("the composer switches one conversation to another provider's model and back", async ({ page }) => {
-  const alpha = await modelProtocolFixture("openai-completions", (body) => ({ text: `${body.model} 来自甲` }));
+  const alpha = await modelProtocolFixture("openai-completions", (body) => ({
+    text: `${body.model} 来自甲`
+  }));
   const beta = await modelProtocolFixture("openai-completions", (body) => ({ text: `${body.model} 来自乙` }));
   const dashboard = await startDashboard();
   const request = pageRequest(page, dashboard.base);
@@ -389,7 +413,10 @@ test("the composer switches one conversation to another provider's model and bac
     });
     await page.goto(dashboard.base);
     await expect(page.locator("#model-select .model-name")).toHaveText("alpha-model");
-    await expect(page.locator("#model-select .model-logo .provider-logo")).toHaveAttribute("data-logo", "generic");
+    await expect(page.locator("#model-select .model-logo .provider-logo")).toHaveAttribute(
+      "data-logo",
+      "generic"
+    );
     await page.locator("#composer-input").fill("第一轮走 Main 的连接");
     await page.locator("#send-button").click();
     await expect(page.locator("#conversation")).toContainText("alpha-model 来自甲", { timeout: 30_000 });
@@ -401,7 +428,10 @@ test("the composer switches one conversation to another provider's model and bac
     await expect(page.locator("#model-menu .picker-group")).toHaveText(["甲供应商", "乙供应商"]);
     await page.locator(`#model-menu [data-profile="${other.profileId}"]`).click();
     await expect(page.locator("#model-select .model-name")).toHaveText("deepseek-beta");
-    await expect(page.locator("#model-select .model-logo .provider-logo")).toHaveAttribute("data-logo", "deepseek");
+    await expect(page.locator("#model-select .model-logo .provider-logo")).toHaveAttribute(
+      "data-logo",
+      "deepseek"
+    );
     await page.keyboard.press("Escape");
     await page.locator("#composer-input").fill("第二轮换到乙");
     await page.locator("#send-button").click();

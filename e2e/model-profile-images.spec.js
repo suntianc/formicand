@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import { startDashboard } from "../test/dashboard-fixture.mjs";
 import { modelProtocolFixture } from "../test/model-protocol-fixture.mjs";
 import { pageRequest, saveTestConnection } from "../test/model-provider-fixture.mjs";
+import { saveRoleModel } from "../test/role-settings.mjs";
 
 // app.js attaches the file-input listener only after its top-level boot await, so a
 // file chosen right after navigation can be dropped. Choose it again until the chip
@@ -106,10 +107,7 @@ for (const imageApi of ["openai-completions", "openai-responses"]) {
       }
       expect(JSON.stringify(text.requests.at(-1).body)).toContain("当前模型不支持图片");
       phase = "restored";
-      const restored = await request("/api/model-settings/roles", {
-        role: "main",
-        profileId: first.profileId
-      });
+      const restored = await saveRoleModel(request, "main", first.profileId);
       expect(restored.status).toBe(200);
       await page.reload();
       await page.locator("#composer-input").fill("切回视觉后继续");

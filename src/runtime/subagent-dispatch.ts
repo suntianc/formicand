@@ -10,7 +10,7 @@ import { LocalWorkspaceStore } from "../workspace/workspace-store.js";
 import { agentDisplayName, reserveSubagentIdentity } from "./agent-identity.js";
 import { agentProcessDirectory } from "./agent-process.js";
 import type { CapabilityGrant } from "./capability-provider.js";
-import type { DelegatedModelRequest, ModelRoleSnapshot } from "./role-models.js";
+import type { BuiltinAgentSettings, DelegatedModelRequest, ModelRoleSnapshot } from "./role-models.js";
 import type { PiThinkingLevel } from "./runtime-settings.js";
 import { DurableScheduler, type WorkItem } from "./scheduler.js";
 import { SubagentProcessService, type SubagentProcessResult } from "./subagent-processes.js";
@@ -94,6 +94,8 @@ export interface SubagentDispatchPorts {
   }): Promise<{ repository: string; commit: string } | undefined>;
   /** The custom Agent a delegation names, fixed for the item; an error names a missing one. */
   agent?(input: { taskId: string; name: string }): Promise<AgentEntry & { definition: AgentDefinition }>;
+  /** What the user set for a built-in role in this project, read when the item is dispatched. */
+  builtinAgent?(input: { role: "executor" | "reviewer"; projectDirectory?: string }): BuiltinAgentSettings;
   /** Grants for the upload IDs Main named; refused here, before any work item exists. */
   grants?(input: { taskId: string; attachments: unknown }): Promise<CapabilityGrant[]>;
   /**
@@ -168,6 +170,8 @@ interface StoredPayload {
   experimentRef?: DelegatedExperimentRef;
   /** The custom Agent's definition as it was when the item was dispatched. */
   agentDefinition?: AgentDefinition;
+  /** A built-in Executor's or Reviewer's skills, MCP servers and extra prompt at dispatch. */
+  builtinAgent?: BuiltinAgentSettings;
 }
 
 export class SubagentDispatchService {
@@ -249,6 +253,13 @@ export class SubagentDispatchService {
       : undefined;
     // A rework is the same Agent: the definition the first round ran with, not a newer one.
     const agentDefinition = continued?.agentDefinition ?? named.entry?.definition;
+    const builtinAgent = agentDefinition
+      ? undefined
+      : (continued?.builtinAgent ??
+        this.ports.builtinAgent?.({
+          role,
+          ...(task.projectDirectory ? { projectDirectory: task.projectDirectory } : {})
+        }));
     if (continued && request.agent && continued.agentDefinition?.name !== request.agent)
       throw new Error(`工作项 ${request.continueCallId} 不是 Agent ${request.agent} 做的，不能以它续接`);
     if (continued && role !== "executor")
@@ -304,7 +315,10 @@ export class SubagentDispatchService {
     const delegation: DelegatedModelRequest = {
       role,
       ...(profileId ? { profileId } : {}),
-      ...(model ? { model } : {})
+      ...(model ? { model } : {}),
+      ...(agentDefinition?.thinking ? { thinkingLevel: agentDefinition.thinking } : {}),
+      // The user's project, not the item's checkout: its role settings are keyed by it.
+      ...(task.projectDirectory ? { projectDirectory: task.projectDirectory } : {})
     };
     const call: Call = {
       callId,
@@ -352,7 +366,8 @@ export class SubagentDispatchService {
           ...(experimentRef ? { experimentRef } : {}),
           delegation,
           capabilityGrants,
-          ...(agentDefinition ? { agentDefinition } : {})
+          ...(agentDefinition ? { agentDefinition } : {}),
+          ...(builtinAgent ? { builtinAgent } : {})
         },
         maxAttempts:
           // A synchronous call holds the requesting turn: one attempt keeps a
@@ -480,6 +495,7 @@ export class SubagentDispatchService {
     developmentId: string;
     sessionCallId: string;
     agentDefinition?: AgentDefinition;
+    builtinAgent?: BuiltinAgentSettings;
   }> {
     const original = items.find((item) => item.stepId === fromCallId);
     if (!original) throw new Error(`continueCallId 引用了本 Run 中不存在的工作项：${fromCallId}`);
@@ -508,7 +524,8 @@ export class SubagentDispatchService {
       workItemSite: payload.workItemSite,
       developmentId: payload.developmentId,
       sessionCallId,
-      ...(payload.agentDefinition ? { agentDefinition: payload.agentDefinition } : {})
+      ...(payload.agentDefinition ? { agentDefinition: payload.agentDefinition } : {}),
+      ...(payload.builtinAgent ? { builtinAgent: payload.builtinAgent } : {})
     };
   }
 

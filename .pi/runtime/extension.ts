@@ -5,6 +5,7 @@ import {
   processAgentLocations
 } from "../../dist/src/runtime/agent-definitions.js";
 import { configuredWebTools } from "../../dist/src/runtime/web-search-config.js";
+import { builtinAgentSettings } from "../../dist/src/runtime/role-models.js";
 import { queuedUserTurn, readQueuedUserTurn } from "../../dist/src/runtime/queued-user-turn.js";
 import {
   formatSkillsForPrompt,
@@ -176,15 +177,23 @@ async function registerMainExtension(pi: ExtensionAPI) {
    * resolves the sources, the trust decision and the removed index itself, so
    * a Subagent in the same project sees the same list.
    */
-  const skillCatalogNow = async () =>
-    resolveSkillCatalog(await processSkillLocations(harnessRoot, projectDirectory));
+  // What the user set for Main in the Agent page, read again at every turn.
+  let mainSettings = builtinAgentSettings(config, "main", projectDirectory);
+  const skillCatalogNow = async () => {
+    const allowed = mainSettings.skills;
+    return (await resolveSkillCatalog(await processSkillLocations(harnessRoot, projectDirectory))).filter(
+      (skill) => allowed === "all" || allowed.includes(skill.name)
+    );
+  };
   let currentSkillsSection: string | undefined;
   const mainSkills = async (): Promise<Skill[]> => (await skillCatalogNow()).map(piSkill);
   const skillsSection = (skills: Skill[]): string =>
     `<skills>\n${formatSkillsForPrompt(skills, "read").trim()}\n</skills>`;
   // Servers registered while the extension loads connect when the session
   // starts; each turn re-reads the configuration (see createMcpRegistration).
-  const mcpServers = createMcpRegistration(pi);
+  const mcpServers = createMcpRegistration(pi, undefined, () =>
+    mainSettings.mcp === "all" ? undefined : mainSettings.mcp
+  );
   await mcpServers.sync();
   let mcpProblem: string | undefined;
   const capabilityProviders = capabilityProvider(
@@ -639,6 +648,7 @@ async function registerMainExtension(pi: ExtensionAPI) {
     // discovery must finish here to exist on the first model request. A resident
     // Main also reads the search choice saved since its last turn here.
     syncWebToolLoadout();
+    mainSettings = builtinAgentSettings(loadConfig(), "main", projectDirectory);
     await capabilityTools.refresh();
     const workspace = [
       `用户选择的项目目录：${projectDirectory}。read/edit/write/bash 的相对路径从这里开始；用户说“这个项目”“工作文件夹”指的是这里。以它为准，不要因为运行了 CoworkOS 就改去它的安装目录。`,
@@ -655,7 +665,11 @@ async function registerMainExtension(pi: ExtensionAPI) {
     // freezes snippets when enable_tools changes the active loadout mid-turn.
     return {
       current_workspace: `<current_workspace>\n${workspace}\n</current_workspace>`,
-      custom_agents: agents.length ? `<custom_agents>\n${customAgentsPrompt(agents)}\n</custom_agents>` : ""
+      custom_agents: agents.length ? `<custom_agents>\n${customAgentsPrompt(agents)}\n</custom_agents>` : "",
+      // The user's extra instructions for Main add to the rules above and never replace them.
+      user_main_prompt: mainSettings.prompt
+        ? `<user_main_instructions>\n${mainSettings.prompt}\n</user_main_instructions>`
+        : ""
     };
   };
 
@@ -1195,7 +1209,10 @@ async function registerMainExtension(pi: ExtensionAPI) {
           })
         : undefined;
       const explicitLevel = accepted?.thinkingLevel;
-      const selection = resolveMainTurnModel(saved, explicitLevel ? { thinkingLevel: explicitLevel } : {});
+      const selection = resolveMainTurnModel(saved, {
+        ...(explicitLevel ? { thinkingLevel: explicitLevel } : {}),
+        projectDirectory
+      });
       if (!selection) return;
       // The launch applied the endpoint's own limits to this connection; the
       // turn must not re-resolve from the host file alone, which would drop the

@@ -3,17 +3,22 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
-import { parseHTML } from "linkedom";
 import { startDashboard } from "./dashboard-fixture.mjs";
-import { publicModelRoles, resolveModelRole, saveRoleModelBinding } from "../dist/src/runtime/role-models.js";
+import {
+  builtinAgentSettings,
+  publicModelRoles,
+  resolveDelegatedModelRole,
+  resolveModelRole,
+  saveRoleSettings
+} from "../dist/src/runtime/role-models.js";
+import { saveRoleModel } from "./role-settings.mjs";
 import { readCoworkConfig } from "../dist/src/runtime/config.js";
-import { installDesktopSettings } from "../web/assets/controllers/desktop-settings.js";
 import { profileId as connectionId, providerConfig, saveTestConnection } from "./model-provider-fixture.mjs";
 
 /**
  * Role model settings and resolution.
  *
- * The Dashboard routes and the production settings controller are the seams:
+ * The Dashboard routes and the role resolver are the seams:
  * what a person can configure, what a later restart still reads, and which
  * source a Run will use. Secrets are asserted by looking for them, not by
  * inspecting the field that should have removed them.
@@ -118,13 +123,13 @@ test("host role defaults persist, keep their source and never travel with a key"
     "router stays a later path's configuration key"
   );
 
-  const host = await request("/api/model-settings/roles", { role: "main", profileId: profileB.id });
+  const host = await saveRoleModel(request, "main", profileB.id);
   assert.equal(host.status, 200, JSON.stringify(host.body));
   assert.equal(roleMain(host.body).host.profileId, profileB.id);
   assert.equal(roleMain(host.body).effective.source, "host");
   assert.equal(roleMain(host.body).effective.connectionName, "连接 B / model-b");
   assert.equal(roleMain(host.body).effective.model, "model-b");
-  const executor = await request("/api/model-settings/roles", { role: "executor", profileId: profileA.id });
+  const executor = await saveRoleModel(request, "executor", profileA.id);
   assert.equal(executor.status, 200, JSON.stringify(executor.body));
   const executorRole = executor.body.modelRoles.roles.find((role) => role.role === "executor");
   assert.equal(executorRole.effective.source, "host");
@@ -152,23 +157,17 @@ test("host role defaults persist, keep their source and never travel with a key"
   assert.equal(roleMain(restarted.body).effective.source, "host");
   assert.equal(roleMain(restarted.body).effective.connectionName, "连接 B / model-b");
 
-  await request("/api/model-settings/roles", { role: "executor", profileId: "" });
-  const cleared = await request("/api/model-settings/roles", { role: "main", profileId: "" });
+  await saveRoleModel(request, "executor", "");
+  const cleared = await saveRoleModel(request, "main", "");
   assert.equal(roleMain(cleared.body).host, null);
   assert.equal(roleMain(cleared.body).effective.source, "active");
   const stored = JSON.parse(await readFile(configPath, "utf8"));
   assert.equal(stored.roleModels, undefined, "clearing the last binding removes the role section");
 
-  const rejectedRole = await request("/api/model-settings/roles", {
-    role: "planner",
-    profileId: profileA.id
-  });
-  assert.equal(rejectedRole.status, 400);
-  assert.match(rejectedRole.body.error, /模型角色/);
-  const rejectedProfile = await request("/api/model-settings/roles", {
-    role: "main",
-    profileId: "missing-connection"
-  });
+  const rejectedRole = await saveRoleModel(request, "planner", profileA.id);
+  assert.equal(rejectedRole.status, 404);
+  assert.match(rejectedRole.body.error, /内置 Agent/);
+  const rejectedProfile = await saveRoleModel(request, "main", "missing-connection");
   assert.equal(rejectedProfile.status, 400);
   assert.match(rejectedProfile.body.error, /不存在/);
   assert.equal(
@@ -241,7 +240,7 @@ test("resolution prefers an explicit choice, then the host and the active connec
     assert.equal(active.source, "active");
     assert.equal(active.connectionId, "a");
 
-    const hosted = saveRoleModelBinding(config, { role: "main", profileId: connectionId(b) });
+    const hosted = saveRoleSettings(config, { role: "main", settings: { profileId: connectionId(b) } });
     assert.equal(resolveModelRole(hosted).source, "host");
     assert.equal(resolveModelRole(hosted).model, "model-b");
     assert.equal(resolveModelRole(hosted).thinkingLevel, "high");
@@ -287,176 +286,76 @@ test("the local configuration rejects a malformed role section instead of ignori
   assert.throws(() => readCoworkConfig(root, { COWORK_CONFIG: path }), /版本不兼容/);
   await writeFile(
     path,
-    JSON.stringify({ roleModels: { version: 1, projects: { p: { main: { profileId: "a" } } } } })
+    JSON.stringify({ roleModels: { version: 1, projects: { "/p": { router: { profileId: "a" } } } } })
   );
-  assert.throws(() => readCoworkConfig(root, { COWORK_CONFIG: path }), /未知字段：projects/);
+  assert.throws(() => readCoworkConfig(root, { COWORK_CONFIG: path }), /未知角色：router/);
+  await writeFile(path, JSON.stringify({ roleModels: { version: 1, host: { main: { skills: "some" } } } }));
+  assert.throws(() => readCoworkConfig(root, { COWORK_CONFIG: path }), /技能设置无法读取/);
+  await writeFile(
+    path,
+    JSON.stringify({ roleModels: { version: 1, host: { executor: { thinkingLevel: "huge" } } } })
+  );
+  assert.throws(() => readCoworkConfig(root, { COWORK_CONFIG: path }), /推理强度/);
 });
 
-function settingsFixture(t, { fail } = {}) {
-  const { window, document } = parseHTML(
-    '<html><body><section data-settings-panel="models"></section><div id="profile-settings-tools"></div></body></html>'
-  );
-  const previous = { window: globalThis.window, document: globalThis.document };
-  Object.assign(globalThis, { window, document });
-  t.after(() => Object.assign(globalThis, previous));
-  window.HTMLElement.prototype.getClientRects = function () {
-    return this.closest("[hidden]") ? [] : [{ width: 1, height: 1 }];
-  };
-  window.HTMLElement.prototype.getBoundingClientRect = () => ({ left: 0, bottom: 0, top: 0, right: 0 });
-  globalThis.innerWidth = 1440;
-  globalThis.innerHeight = 900;
-  const model = (provider, id, extra = {}) => ({
-    id,
-    profileId: `${provider}#${id}`,
-    supportsImages: false,
-    reasoningEffort: "low",
-    ...extra
+test("a project's built-in settings win field by field over the host's, and effort follows the role", () => {
+  const a = connection("a", "A", "model-a", "key-a", { reasoningEffort: "low" });
+  const b = connection("b", "B", "model-b", "key-b", { reasoningEffort: "high" });
+  const project = "/work/alpha";
+  let config = providerConfig([a, b]);
+  config = saveRoleSettings(config, {
+    role: "executor",
+    settings: { profileId: connectionId(a), thinkingLevel: "medium", mcp: ["db"], prompt: "先跑测试" }
   });
-  const state = {
-    providers: [
-      {
-        id: "p-a",
-        name: "连接 A",
-        baseUrl: "https://a.example.test/v1",
-        api: "openai-completions",
-        enabled: true,
-        configured: true,
-        models: [model("p-a", "model-a")]
-      },
-      {
-        id: "p-b",
-        name: "连接 B",
-        baseUrl: "https://b.example.test/v1",
-        api: "openai-completions",
-        enabled: true,
-        configured: true,
-        models: [model("p-b", "model-b", { reasoningEffort: "high" })]
-      }
-    ],
-    host: null,
-    executor: null
-  };
-  const status = () => ({
-    providers: state.providers,
-    activeProfileId: state.host || "p-a#model-a",
-    managedByEnvironment: false,
-    modelRoles: {
-      roles: [
-        {
-          role: "main",
-          wired: true,
-          host: state.host ? { profileId: state.host } : null,
-          effective: null
-        },
-        {
-          role: "executor",
-          wired: true,
-          host: state.executor ? { profileId: state.executor } : null,
-          effective: null
-        },
-        { role: "reviewer", wired: true, host: null, effective: null },
-        { role: "router", wired: false, host: null, effective: null }
-      ]
-    }
+  config = saveRoleSettings(config, {
+    role: "executor",
+    projectDirectory: `${project}/`,
+    settings: { profileId: connectionId(b), skills: ["pg"] }
   });
-  const requests = [];
-  const toasts = [];
-  const settings = installDesktopSettings({
-    showToast: (message) => toasts.push(message),
-    host: { close: () => true, open() {}, onSection: () => () => {} },
-    identity: () => "backend-a",
-    async api(path, options) {
-      const body = options.body ? JSON.parse(options.body) : undefined;
-      requests.push({ path, method: options.method, body });
-      if (fail?.(path, body)) throw new Error(fail(path, body));
-      if (path === "/api/model-settings/roles") {
-        if (body.role === "executor") state.executor = body.profileId || null;
-        else state.host = body.profileId || null;
-        return status();
-      }
-      return status();
-    }
-  });
-  const panel = document.querySelector('[data-settings-panel="models"]');
-  const tick = async () => {
-    for (let index = 0; index < 8; index++) await new Promise((done) => setTimeout(done, 0));
-  };
-  const picker = (role) => panel.querySelector(`[data-role-picker="${role}"]`);
-  return {
-    state,
-    requests,
-    toasts,
-    panel,
-    picker,
-    roleSaves: () => requests.filter((request) => request.path === "/api/model-settings/roles"),
-    async open() {
-      settings.open();
-      await tick();
-      panel.querySelector('[data-model-tab="roles"]').click();
-    },
-    async pick(role, profileId) {
-      picker(role).click();
-      const option = document.querySelector(`.role-menu [data-menu-pick="${profileId}"]`);
-      assert.ok(option, `no option ${profileId} for ${role}`);
-      option.click();
-      await tick();
-    },
-    async effort(role, value) {
-      const select = panel.querySelector(`[data-role-effort="${role}"]`);
-      // linkedom's select has no settable value; the page reads `value` at change time.
-      Object.defineProperty(select, "value", { value, configurable: true });
-      select.dispatchEvent(new window.Event("change", { bubbles: true }));
-      await tick();
-    }
-  };
-}
 
-test("the role tab sets Main for the host and shows the choice", async (t) => {
-  const f = settingsFixture(t);
-  await f.open();
-  assert.equal(f.panel.querySelector('[data-model-view="roles"]').hidden, false);
-  assert.match(f.picker("main").textContent, /未选择/);
-  assert.match(f.picker("executor").textContent, /沿用 Main/);
+  // Elsewhere the host's values apply; the role's effort wins over the connection's.
+  const host = resolveDelegatedModelRole(config, { role: "executor" });
+  assert.equal(host.source, "host");
+  assert.equal(host.model, "model-a");
+  assert.equal(host.thinkingLevel, "medium");
+  assert.deepEqual(builtinAgentSettings(config, "executor"), {
+    skills: "all",
+    mcp: ["db"],
+    prompt: "先跑测试"
+  });
+
+  // In the project its own model wins; fields it left alone follow the host.
+  const inProject = resolveDelegatedModelRole(config, { role: "executor", projectDirectory: project });
+  assert.equal(inProject.source, "project");
+  assert.equal(inProject.model, "model-b");
+  assert.equal(inProject.thinkingLevel, "medium");
+  assert.deepEqual(builtinAgentSettings(config, "executor", project), {
+    skills: ["pg"],
+    mcp: ["db"],
+    prompt: "先跑测试"
+  });
+
+  // A custom Agent's own level wins over the role's.
   assert.equal(
-    f.requests.some((request) => request.path.includes("projectId")),
-    false
+    resolveDelegatedModelRole(config, { role: "executor", projectDirectory: project, thinkingLevel: "xhigh" })
+      .thinkingLevel,
+    "xhigh"
   );
 
-  await f.pick("main", "p-b#model-b");
-  assert.deepEqual(f.roleSaves().at(-1).body, { role: "main", profileId: "p-b#model-b" });
-  assert.match(f.picker("main").textContent, /model-b/);
-  assert.match(f.picker("main").textContent, /连接 B/);
-  assert.equal(f.panel.querySelector('[data-role-effort="main"]').value, "high", "effort follows the model");
+  // Main keeps every server and skill until told otherwise; a delegated role gets no server.
+  assert.deepEqual(builtinAgentSettings(config, "main"), { skills: "all", mcp: "all", prompt: "" });
+  assert.deepEqual(builtinAgentSettings(config, "reviewer"), { skills: "all", mcp: [], prompt: "" });
 
-  await f.pick("main", "");
-  assert.deepEqual(f.roleSaves().at(-1).body, { role: "main", profileId: "" });
-  assert.match(f.picker("main").textContent, /未选择/);
-  assert.equal(f.state.host, null);
-});
-
-test("a role change that fails is reported and the saved choice stays on the page", async (t) => {
-  const f = settingsFixture(t, {
-    fail: (path, body) =>
-      path === "/api/model-settings/roles" && body.role === "main"
-        ? "保存被拒绝：连接不可用"
-        : path === "/api/model-settings/models"
-          ? "推理强度保存失败：连接不可用"
-          : undefined
-  });
-  await f.open();
-  await f.pick("main", "p-b#model-b");
-  assert.match(f.toasts.at(-1), /保存被拒绝/);
-  assert.match(f.picker("main").textContent, /未选择/, "the refused choice is not shown as saved");
-
-  await f.pick("executor", "p-a#model-a");
-  assert.deepEqual(f.roleSaves().at(-1).body, { role: "executor", profileId: "p-a#model-a" });
-  assert.match(f.picker("executor").textContent, /model-a/);
-  await f.effort("executor", "high");
-  const effortSave = f.requests.filter((request) => request.path === "/api/model-settings/models").at(-1);
-  assert.deepEqual(effortSave.body, {
-    providerId: "p-a",
-    models: [{ id: "model-a", reasoningEffort: "high" }]
-  });
-  assert.match(f.toasts.at(-1), /推理强度保存失败/);
-  assert.equal(f.panel.querySelector('[data-role-effort="executor"]').value, "low", "the saved effort stays");
+  // An empty record follows the host again and leaves nothing behind.
+  config = saveRoleSettings(config, { role: "executor", projectDirectory: project, settings: {} });
+  assert.equal(config.roleModels.projects, undefined);
+  assert.equal(
+    resolveDelegatedModelRole(config, { role: "executor", projectDirectory: project }).model,
+    "model-a"
+  );
+  assert.throws(
+    () => saveRoleSettings(config, { role: "main", settings: { profileId: "missing" } }),
+    /模型不存在/
+  );
+  assert.throws(() => saveRoleSettings(config, { role: "router", settings: {} }), /内置 Agent/);
 });

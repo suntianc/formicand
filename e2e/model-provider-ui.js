@@ -1,8 +1,9 @@
 import { expect } from "@playwright/test";
 
 /**
- * The model page as a person uses it: settings → 模型与角色, then the add,
- * fetch and manual dialogs. Every step goes through the visible controls.
+ * The model page as a person uses it: settings → 模型, then the add, fetch
+ * and manual dialogs; a built-in Agent's model is chosen on the Agent page.
+ * Every step goes through the visible controls.
  */
 
 /** Open settings on the model page. */
@@ -65,13 +66,27 @@ export async function addProviderThroughUi(
   await expect(page.locator(`.provider-model-row[data-model-id="${model}"]`)).toBeVisible();
 }
 
-/** Choose a role's model from the role tab's picker; `label` matches the menu item. */
+/** Open the global Agent page on one built-in Agent. */
+export async function openBuiltinAgent(page, role) {
+  const panel = page.locator('[data-settings-panel="agents"]');
+  if (!(await page.locator("#settings-entry").isVisible())) await page.locator("#user-menu-button").click();
+  await page.locator('[data-settings-section="agents"]').click();
+  await expect(panel).toBeVisible();
+  await panel.locator('[data-agent-scope-value="global"]').click();
+  await panel.locator(`[data-agent-select="builtin:${role}"]`).click();
+  await expect(panel.locator("[data-agent-model]")).toBeVisible();
+  return panel;
+}
+
+/** Choose and save a built-in Agent's model on the Agent page; `label` matches the menu item. */
 export async function chooseRoleModel(page, role, label) {
-  const panel = await openModelSettings(page);
-  await panel.locator('[data-model-tab="roles"]').click();
-  await panel.locator(`[data-role-picker="${role}"]`).click();
-  await page.locator(".role-menu .role-menu-item", { hasText: label }).first().click();
-  await expect(panel.locator(`[data-role-picker="${role}"]`)).toContainText(label);
+  const panel = await openBuiltinAgent(page, role);
+  await panel.locator("[data-agent-model]").click();
+  await page.locator(".role-menu:not([hidden]) .role-menu-item", { hasText: label }).first().click();
+  await expect(panel.locator("[data-agent-model]")).toContainText(label);
+  await panel.locator("[data-agent-save]").click();
+  await expect(page.locator("#toast")).toContainText("已保存");
+  await expect(panel.locator("[data-agent-model]")).toContainText(label);
 }
 
 /** The add-provider dialog that first use opens over the model page. */
@@ -116,7 +131,6 @@ export async function checkProvider(page) {
 /** Select a provider in the list by its name. */
 export async function selectProvider(page, name) {
   const panel = await openModelSettings(page);
-  await panel.locator('[data-model-tab="providers"]').click();
   await panel.locator(".provider-item", { hasText: name }).first().click();
   await expect(panel.locator(".provider-name-input")).toHaveValue(name);
   return panel;

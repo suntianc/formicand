@@ -16,21 +16,6 @@ const API_PATHS = {
   "anthropic-messages": "/v1/messages"
 };
 const LEVELS = ["off", "low", "medium", "high", "xhigh", "max"];
-const ROLES = [
-  { role: "main", label: "Main", icon: "cpu", hint: ui("理解需求、拆分与委派，并给出最终结论") },
-  {
-    role: "executor",
-    label: "Executor",
-    icon: "wrench",
-    hint: ui("子 Agent 执行开发任务；未选择时沿用 Main 的模型")
-  },
-  {
-    role: "reviewer",
-    label: "Reviewer",
-    icon: "shield-check",
-    hint: ui("独立审查改动并给出结论；未选择时沿用 Main 的模型")
-  }
-];
 
 /** The URL requests go to, as the backend builds it (`requestBaseUrl`). */
 export function requestPreview(baseUrl, api) {
@@ -107,10 +92,11 @@ function capabilityTags(model) {
 }
 
 /**
- * Model providers and role assignment.
+ * Model providers.
  *
- * Providers hold an address, a wire format and a key, and offer models; roles
- * pick one provider model each. Keys are submitted once and never read back.
+ * Providers hold an address, a wire format and a key, and offer models. Which
+ * model Main and each Agent use is chosen on the Agent page. Keys are
+ * submitted once and never read back.
  */
 export function installModelProviders({
   panel,
@@ -122,7 +108,6 @@ export function installModelProviders({
   identity = () => ""
 }) {
   let snapshot;
-  let tab = "providers";
   let selectedId = "";
   let query = "";
   let busy = false;
@@ -136,12 +121,8 @@ export function installModelProviders({
 
   panel.innerHTML = `
     <div class="model-settings-head">
-      <h1 class="settings-page-title">${ui("模型与角色")}</h1>
-      <div class="settings-segmented model-settings-tabs" role="tablist" aria-label="${esc(ui("模型与角色"))}">
-        <button type="button" role="tab" data-model-tab="providers" aria-checked="true" aria-selected="true">${ui("供应商")}</button>
-        <button type="button" role="tab" data-model-tab="roles" aria-checked="false" aria-selected="false">${ui("角色分配")}</button>
-      </div>
-      <p class="model-settings-hint">${icon("info")}<span data-model-hint></span></p>
+      <h1 class="settings-page-title">${ui("模型")}</h1>
+      <p class="model-settings-hint">${icon("info")}<span>${ui("配置供应商并获取模型；Main 和各 Agent 用哪个模型，在「Agent」页里选")}</span></p>
     </div>
     <p class="model-settings-notice" data-model-notice role="alert" hidden></p>
     <div class="provider-layout" data-model-view="providers">
@@ -151,9 +132,6 @@ export function installModelProviders({
         <button type="button" class="provider-add" data-provider-add>${icon("plus")}<span>${ui("添加供应商")}</span></button>
       </aside>
       <div class="provider-detail" data-provider-detail></div>
-    </div>
-    <div class="model-roles" data-model-view="roles" hidden>
-      <div class="settings-rows" data-role-rows></div>
     </div>`;
   const $ = (selector) => panel.querySelector(selector);
   const notice = $("[data-model-notice]");
@@ -163,17 +141,6 @@ export function installModelProviders({
   const managed = () => snapshot?.managedByEnvironment === true;
   const providers = () => snapshot?.providers || [];
   const selected = () => providers().find((provider) => provider.id === selectedId);
-  const roleOf = (role) => snapshot?.modelRoles?.roles?.find((entry) => entry.role === role);
-  /** Roles that name a provider model, for the "used by" tags. */
-  const usage = () => {
-    const uses = new Map();
-    for (const entry of snapshot?.modelRoles?.roles || [])
-      if (entry.host?.profileId)
-        uses.set(entry.host.profileId, [...(uses.get(entry.host.profileId) || []), entry.role]);
-    return uses;
-  };
-  const roleLabel = (role) => ROLES.find((entry) => entry.role === role)?.label || role;
-
   const showNotice = () => {
     const message = managed()
       ? ui("当前模型连接由启动环境管理，请在启动配置中修改。")
@@ -240,7 +207,6 @@ export function installModelProviders({
     if (!provider) return renderEmpty();
     const api = value(provider, "api");
     const baseUrl = value(provider, "baseUrl");
-    const uses = usage();
     const state = providerState(provider);
     const stateText = {
       ok: ui("已配置"),
@@ -324,14 +290,12 @@ export function installModelProviders({
           provider.models.length
             ? provider.models
                 .map((model) => {
-                  const roles = uses.get(model.profileId) || [];
                   return `<div class="provider-model-row" data-model-id="${esc(model.id)}">
                     <span class="provider-model-text"><span class="provider-model-name">${esc(model.name || model.id)}</span>${model.name ? `<span class="provider-model-id">${esc(model.id)}</span>` : ""}</span>
                     <span class="model-tags">${capabilityTags(model)}</span>
                     <span class="settings-row-spacer"></span>
-                    ${roles.map((role) => `<span class="model-tag is-role">${esc(roleLabel(role))}</span>`).join("")}
                     <button type="button" class="settings-icon-button" data-model-settings="${esc(model.id)}" aria-label="${esc(ui`${model.id} 的参数`)}" title="${esc(ui("模型参数"))}"${locked ? " disabled" : ""}>${icon("settings")}</button>
-                    <button type="button" class="settings-icon-button" data-model-remove="${esc(model.id)}" aria-label="${esc(ui`移除 ${model.id}`)}" title="${esc(roles.length ? ui("正被角色使用，先在角色分配中改选") : ui("移除模型"))}"${locked || roles.length ? " disabled" : ""}>${icon("minus")}</button>
+                    <button type="button" class="settings-icon-button" data-model-remove="${esc(model.id)}" aria-label="${esc(ui`移除 ${model.id}`)}" title="${esc(ui("移除模型"))}"${locked ? " disabled" : ""}>${icon("minus")}</button>
                   </div>`;
                 })
                 .join("")
@@ -340,63 +304,12 @@ export function installModelProviders({
       </div>`;
   };
 
-  /* -------------------------------------------------------------------- roles */
-
-  const allModels = () =>
-    providers()
-      .filter((provider) => provider.enabled)
-      .flatMap((provider) => provider.models.map((model) => ({ provider, model })));
-  const findModel = (profileId) => allModels().find(({ model }) => model.profileId === profileId);
-  const pickerLabel = (profileId, fallback) => {
-    const found = profileId && findModel(profileId);
-    return found
-      ? `${providerLogo(found.provider, 22, found.model.id)}<span class="role-picker-text"><span>${esc(found.model.name || found.model.id)}</span><small>${esc(found.provider.name)}</small></span>`
-      : `<span class="role-picker-text is-empty"><span>${esc(fallback)}</span></span>`;
-  };
-  /** The model a role runs on: its binding, or for Main the first available model. */
-  const roleModelOf = (role) =>
-    roleOf(role)?.host?.profileId || (role === "main" ? snapshot?.activeProfileId : undefined);
-  const renderRoles = () => {
-    const rows = $("[data-role-rows]");
-    const locked = managed() || busy;
-    rows.innerHTML = ROLES.map(({ role, label, icon: name, hint }) => {
-      const entry = roleOf(role);
-      const bound = entry?.host?.profileId;
-      const used = roleModelOf(role);
-      const model = used && findModel(used)?.model;
-      const effort = model?.reasoningEffort ?? "off";
-      const levels = model?.reasoningLevels?.length ? model.reasoningLevels : LEVELS;
-      const fallback = role === "main" ? ui("未选择（使用第一个可用模型）") : ui("沿用 Main 的模型");
-      return `<div class="role-row${entry?.error ? " has-error" : ""}" data-role="${role}">
-        <span class="role-icon">${icon(name)}</span>
-        <span class="role-text"><span class="role-name">${label}</span><span class="role-hint">${esc(hint)}</span></span>
-        <button type="button" class="role-picker" data-role-picker="${role}" aria-haspopup="listbox" aria-label="${esc(ui`${label} 的模型`)}"${locked ? " disabled" : ""}>${pickerLabel(bound, fallback)}${icon("chevron-down")}</button>
-        <select class="settings-select is-effort" data-role-effort="${role}" aria-label="${esc(ui`${label} 的推理强度`)}" title="${esc(ui("推理强度属于所选的模型"))}"${locked || !model ? " disabled" : ""}>
-          ${levels.map((level) => `<option value="${level}"${level === effort ? " selected" : ""}>${esc(LEVEL_LABELS[level] || level)}</option>`).join("")}
-        </select>
-        ${entry?.error ? `<span class="role-error" role="alert">${esc(entry.error)}</span>` : ""}
-      </div>`;
-    }).join("");
-  };
-
   /* -------------------------------------------------------------- rendering */
 
   const render = () => {
-    for (const button of panel.querySelectorAll("[data-model-tab]")) {
-      const on = button.dataset.modelTab === tab;
-      button.setAttribute("aria-checked", String(on));
-      button.setAttribute("aria-selected", String(on));
-    }
-    $('[data-model-view="providers"]').hidden = tab !== "providers";
-    $('[data-model-view="roles"]').hidden = tab !== "roles";
-    $("[data-model-hint]").textContent =
-      tab === "providers"
-        ? ui("配置供应商后获取模型，再到「角色分配」为 Main、Executor、Reviewer 选模型")
-        : ui("每个角色从已启用供应商的模型中选择；推理强度属于所选模型");
     showNotice();
     renderList();
     renderDetail();
-    renderRoles();
   };
 
   const apply = (next) => {
@@ -571,7 +484,6 @@ export function installModelProviders({
       pending(false);
       apply(next);
       selectedId = providers().find((provider) => !before.has(provider.id))?.id || selectedId;
-      tab = "providers";
       render();
       addDialog.close();
       onSaved?.();
@@ -893,89 +805,10 @@ export function installModelProviders({
     }
   });
 
-  /* Role model picker: one floating list grouped by provider. */
-  const menu = document.createElement("div");
-  menu.className = "role-menu";
-  menu.hidden = true;
-  menu.setAttribute("role", "listbox");
-  document.body.append(menu);
-  let menuRole = "";
-  let menuQuery = "";
-  const closeMenu = () => {
-    menu.hidden = true;
-    menuRole = "";
-  };
-  const renderMenu = () => {
-    const current = roleOf(menuRole)?.host?.profileId;
-    const empty = menuRole === "main" ? ui("未选择（使用第一个可用模型）") : ui("沿用 Main 的模型");
-    const groups = providers()
-      .map((provider) => ({
-        provider,
-        models: provider.models.filter((model) =>
-          `${model.id} ${model.name || ""} ${provider.name}`.toLowerCase().includes(menuQuery.toLowerCase())
-        )
-      }))
-      .filter((group) => group.models.length);
-    menu.querySelector("[data-menu-items]").innerHTML =
-      `<button type="button" class="role-menu-item" role="option" data-menu-pick="" aria-selected="${!current}"><span>${esc(empty)}</span>${!current ? icon("check") : ""}</button>${groups
-        .map(({ provider, models }) => {
-          const unusable = !provider.enabled || !provider.configured;
-          return `<div class="role-menu-group${unusable ? " is-disabled" : ""}">${providerLogo(provider, 16)}<span>${esc(provider.name)}</span>${unusable ? `<small>${!provider.enabled ? ui("未启用") : ui("缺少 API Key")}</small>` : ""}</div>${models
-            .map(
-              (model) =>
-                `<button type="button" class="role-menu-item" role="option" data-menu-pick="${esc(model.profileId)}" aria-selected="${model.profileId === current}"${unusable ? " disabled" : ""}><span>${esc(model.name || model.id)}</span><span class="model-tags">${capabilityTags({ ...model, contextWindow: 0 })}</span><span class="settings-row-spacer"></span>${model.profileId === current ? icon("check") : ""}</button>`
-            )
-            .join("")}`;
-        })
-        .join("")}`;
-  };
-  menu.innerHTML = `<label class="provider-search">${icon("search")}<input type="search" data-menu-search placeholder="${esc(ui("搜索模型"))}"></label><div class="role-menu-items" data-menu-items></div>`;
-  const openMenu = (button) => {
-    menuRole = button.dataset.rolePicker;
-    menuQuery = "";
-    menu.querySelector("[data-menu-search]").value = "";
-    renderMenu();
-    const box = button.getBoundingClientRect();
-    menu.style.left = `${Math.max(8, Math.min(box.left, innerWidth - 348))}px`;
-    menu.style.top = `${Math.min(box.bottom + 6, innerHeight - 320)}px`;
-    menu.hidden = false;
-    menu.querySelector("[data-menu-search]").focus();
-  };
-  menu.addEventListener("input", (event) => {
-    if (!event.target.matches("[data-menu-search]")) return;
-    menuQuery = event.target.value;
-    renderMenu();
-  });
-  menu.addEventListener("click", (event) => {
-    const pick = event.target.closest("[data-menu-pick]");
-    if (!pick || pick.disabled) return;
-    const role = menuRole;
-    closeMenu();
-    void run(async () => {
-      await post("/api/model-settings/roles", { role, profileId: pick.dataset.menuPick });
-      return status();
-    }, ui("角色模型已更新"));
-  });
-  document.addEventListener("pointerdown", (event) => {
-    if (!menu.hidden && !menu.contains(event.target) && !event.target.closest("[data-role-picker]"))
-      closeMenu();
-  });
-  document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape" && !menu.hidden) {
-      event.preventDefault();
-      closeMenu();
-    }
-  });
-
   /* ------------------------------------------------------------------ events */
 
   panel.addEventListener("click", (event) => {
     const target = event.target;
-    const tabButton = target.closest("[data-model-tab]");
-    if (tabButton) {
-      tab = tabButton.dataset.modelTab;
-      return render();
-    }
     const item = target.closest("[data-provider-id]");
     if (item) {
       selectedId = item.dataset.providerId;
@@ -986,8 +819,6 @@ export function installModelProviders({
     const quick = target.closest("[data-preset]");
     if (quick) return openAdd(quick.dataset.preset);
     const provider = selected();
-    const picker = target.closest("[data-role-picker]");
-    if (picker) return menu.hidden || menuRole !== picker.dataset.rolePicker ? openMenu(picker) : closeMenu();
     if (!provider) return;
     if (target.closest("[data-reveal]")) {
       const input = detail.querySelector('[data-field="apiKey"]');
@@ -1083,19 +914,6 @@ export function installModelProviders({
         : "";
   });
   panel.addEventListener("change", (event) => {
-    const effort = event.target.closest("[data-role-effort]");
-    if (effort) {
-      const found = findModel(roleModelOf(effort.dataset.roleEffort));
-      if (!found) return;
-      void run(
-        () =>
-          post("/api/model-settings/models", {
-            providerId: found.provider.id,
-            models: [{ id: found.model.id, reasoningEffort: effort.value }]
-          }),
-        ui("推理强度已更新")
-      );
-    }
     const select = event.target.closest("select[data-field]");
     const provider = selected();
     if (select && provider) {
@@ -1114,7 +932,6 @@ export function installModelProviders({
     refresh,
     /** Show the panel ready for a first provider when nothing is configured. */
     openSetup: () => {
-      tab = "providers";
       void refresh().then(() => {
         if (!providers().length) openAdd();
       });

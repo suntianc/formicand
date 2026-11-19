@@ -6,6 +6,7 @@ import { setTimeout as delay } from "node:timers/promises";
 import { startDashboard } from "./dashboard-fixture.mjs";
 import { protocolStream } from "./model-protocol-fixture.mjs";
 import { providerConfig } from "./model-provider-fixture.mjs";
+import { saveRoleModel } from "./role-settings.mjs";
 
 /**
  * Which reasoning effort a real run actually sends.
@@ -137,7 +138,7 @@ test(
 
     for (const level of levels) {
       for (const role of ["main", "executor"]) {
-        const saved = await request("/api/model-settings/roles", { role, profileId: ref(`conn-${level}`) });
+        const saved = await saveRoleModel(request, role, ref(`conn-${level}`));
         assert.equal(saved.status, 200, JSON.stringify(saved.body));
       }
       const before = requests.length;
@@ -157,14 +158,8 @@ test(
     }
 
     // Two roles on different connections keep their own settings in one run.
-    assert.equal(
-      (await request("/api/model-settings/roles", { role: "main", profileId: ref("conn-max") })).status,
-      200
-    );
-    assert.equal(
-      (await request("/api/model-settings/roles", { role: "executor", profileId: ref("conn-low") })).status,
-      200
-    );
+    assert.equal((await saveRoleModel(request, "main", ref("conn-max"))).status, 200);
+    assert.equal((await saveRoleModel(request, "executor", ref("conn-low"))).status, 200);
     const before = requests.length;
     await runMain(request, dashboard, "effort-mixed");
     const main = requests.slice(before).find((entry) => entry.main);
@@ -215,10 +210,7 @@ test("/api/models reports the effort the next Main run will use", { timeout: 120
   assert.equal(first.status, 200);
   assert.equal(first.body.reasoningEffort, "max", "the composer's default comes from the Main connection");
 
-  assert.equal(
-    (await request("/api/model-settings/roles", { role: "main", profileId: ref("conn-low") })).status,
-    200
-  );
+  assert.equal((await saveRoleModel(request, "main", ref("conn-low"))).status, 200);
   const switched = await request("/api/models");
   assert.equal(switched.body.reasoningEffort, "low", "switching the Main connection moves the default");
 });

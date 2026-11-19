@@ -16,6 +16,7 @@ import { parseSkillFrontmatter } from "../dist/src/runtime/skill-frontmatter.js"
 import { createAgentService } from "../dist/src/dashboard/agent-service.js";
 import { decideProjectTrust } from "../dist/src/runtime/project-trust.js";
 import { writeMcpServers } from "../dist/src/runtime/mcp-config.js";
+import { saveRoleSettings } from "../dist/src/runtime/role-models.js";
 
 async function setup(t) {
   const root = await mkdtemp(join(tmpdir(), "cowork-agents-"));
@@ -37,7 +38,7 @@ test("a definition is read from its header and body, and written back the same",
     a: ["x", "y z"],
     b: ["p", "q"]
   });
-  const text = `---\nname: db-migrator\ndescription: "涉及表结构变更: 迁移脚本时派给它"\npermission: write\nmodel: glm-5.3\ntools: [read, bash, edit]\nskills: [pg-migration]\nmcp:\n  - postgres\n---\n先在临时库演练。\n`;
+  const text = `---\nname: db-migrator\ndescription: "涉及表结构变更: 迁移脚本时派给它"\npermission: write\nmodel: glm-5.3\nthinking: high\ntools: [read, bash, edit]\nskills: [pg-migration]\nmcp:\n  - postgres\n---\n先在临时库演练。\n`;
   const parsed = parseAgentDefinition(text, "db-migrator.md");
   assert.ok("definition" in parsed, parsed.error);
   assert.deepEqual(parsed.definition, {
@@ -45,6 +46,7 @@ test("a definition is read from its header and body, and written back the same",
     description: "涉及表结构变更: 迁移脚本时派给它",
     permission: "write",
     model: "glm-5.3",
+    thinking: "high",
     tools: ["read", "bash", "edit"],
     skills: ["pg-migration"],
     mcp: ["postgres"],
@@ -66,6 +68,10 @@ test("a definition is read from its header and body, and written back the same",
   assert.match(
     parseAgentDefinition("---\nname: a b\ndescription: d\npermission: write\n---\n").error,
     /名称/
+  );
+  assert.match(
+    parseAgentDefinition("---\nname: r\ndescription: d\npermission: write\nthinking: huge\n---\n").error,
+    /推理强度不合法/
   );
   assert.match(
     parseAgentDefinition("---\nname: a\ndescription: d\npermission: write\n---\n", "b.md").error,
@@ -154,12 +160,20 @@ test("the settings service saves, renames, switches off and deletes, and names b
     { name: "postgres", config: { command: "x" } },
     { name: "off", config: { command: "x", enabled: false } }
   ]);
+  // Built-in settings live with the host's model configuration; no provider is needed for these fields.
+  let config = {};
   const service = createAgentService({
     harnessRoot: harness,
     home,
     userHome,
     projectForId: async (id) =>
-      id === "p1" ? { projectId: "p1", projectName: "Demo", projectDirectory: project } : null
+      id === "p1" ? { projectId: "p1", projectName: "Demo", projectDirectory: project } : null,
+    builtins: {
+      config: () => config,
+      save: async (input) => {
+        config = saveRoleSettings(config, input);
+      }
+    }
   });
   const global = { scope: "global" };
   const definition = {
@@ -174,6 +188,7 @@ test("the settings service saves, renames, switches off and deletes, and names b
   await service.save(global, definition);
   await assert.rejects(service.save(global, definition), /已有同名 Agent/);
   await assert.rejects(service.save(global, { ...definition, name: "executor" }), /内置 Agent/);
+  await assert.rejects(service.save(global, { ...definition, name: "main" }), /内置 Agent/);
   await assert.rejects(
     service.save(global, { ...definition, permission: "read" }),
     /只读 Agent 不能使用 edit/
@@ -188,8 +203,13 @@ test("the settings service saves, renames, switches off and deletes, and names b
   ]);
   assert.deepEqual(
     list.agents.filter((agent) => agent.readonly).map((agent) => agent.name),
-    ["executor", "reviewer"]
+    ["main", "executor", "reviewer"]
   );
+  assert.deepEqual(list.agents.find((agent) => agent.name === "executor").builtin, {
+    role: "executor",
+    settings: {},
+    effective: { skills: "all", mcp: [], prompt: "" }
+  });
   const options = await service.options(global);
   assert.deepEqual(options.skills, ["pg-migration"]);
   assert.ok(!options.tools.read.includes("edit") && options.tools.write.includes("edit"));
@@ -207,7 +227,25 @@ test("the settings service saves, renames, switches off and deletes, and names b
     [["migrator", []]]
   );
   await service.delete(global, "migrator");
-  assert.equal((await service.list(global)).agents.length, 2);
+  assert.equal((await service.list(global)).agents.length, 3);
+
+  // A built-in keeps its definition; its skills, MCP servers, effort and prompt are saved as role settings.
+  await service.saveBuiltin(global, "reviewer", {
+    thinkingLevel: "high",
+    skills: ["pg-migration", "gone"],
+    mcp: ["postgres"],
+    prompt: "只看迁移。"
+  });
+  await assert.rejects(service.saveBuiltin(global, "planner", {}), /没有这个内置 Agent/);
+  const reviewer = (await service.list(global)).agents.find((agent) => agent.name === "reviewer");
+  assert.equal(reviewer.definition.permission, "read");
+  assert.deepEqual(reviewer.builtin.effective, {
+    skills: ["pg-migration", "gone"],
+    mcp: ["postgres"],
+    prompt: "只看迁移。",
+    thinkingLevel: "high"
+  });
+  assert.deepEqual(reviewer.problems, ["技能 gone 不存在或已从索引移除"]);
 
   // A project's Agents are edited only after it is trusted; the question lists what it would bring in.
   const projectScope = { scope: "project", projectId: "p1" };
@@ -234,12 +272,35 @@ test("the settings service saves, renames, switches off and deletes, and names b
     ]
   );
   assert.deepEqual(
-    (await service.list(projectScope)).agents.map((agent) => agent.name),
-    []
+    (await service.list(projectScope)).agents.map((agent) => [agent.name, agent.source]),
+    [
+      ["main", "builtin"],
+      ["executor", "builtin"],
+      ["reviewer", "builtin"]
+    ]
   );
   await decideProjectTrust(home, project, "trusted");
   assert.deepEqual(
     (await service.list(projectScope)).agents.map((agent) => [agent.name, agent.source]),
-    [["tester", "project"]]
+    [
+      ["main", "builtin"],
+      ["executor", "builtin"],
+      ["reviewer", "builtin"],
+      ["tester", "project"]
+    ]
+  );
+
+  // A project overrides single fields; the others keep following the global setting.
+  await service.saveBuiltin(projectScope, "reviewer", { prompt: "本项目用中文。" });
+  const projected = (await service.list(projectScope)).agents.find((agent) => agent.name === "reviewer");
+  assert.deepEqual(projected.builtin.settings, { prompt: "本项目用中文。" });
+  assert.equal(projected.builtin.global.prompt, "只看迁移。");
+  assert.equal(projected.builtin.effective.prompt, "本项目用中文。");
+  assert.deepEqual(projected.builtin.effective.mcp, ["postgres"]);
+  await service.saveBuiltin(projectScope, "reviewer", {});
+  assert.equal(
+    config.roleModels.projects,
+    undefined,
+    "following the global setting again leaves nothing behind"
   );
 });
