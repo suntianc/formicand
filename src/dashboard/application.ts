@@ -817,6 +817,7 @@ export function createDashboardApplication(
       throw new HttpError(400, "无效 Computer Use 授权");
     return computer.authorize(input.taskId, input.pid, input.windowId, input.mode);
   }
+  const modelSettings = createModelSettings(projectRoot, runtimeConfig, anyTurnActive);
   const routes: DashboardRoutePorts = {
     projectData,
     mainSessions,
@@ -832,7 +833,8 @@ export function createDashboardApplication(
       harnessRoot: projectRoot,
       home: data.home,
       userHome: homedir(),
-      projectForId: workspaces.projectForId
+      projectForId: workspaces.projectForId,
+      builtins: { config: modelSettings.config, save: modelSettings.saveRole }
     }),
     composer: createComposerService({
       harnessRoot: projectRoot,
@@ -866,7 +868,7 @@ export function createDashboardApplication(
     // turn is running": both settings services may only refuse while a turn is
     // actually producing an answer, and the next turn reads what was saved.
     webSearchSettings: createWebSearchSettings(projectRoot, runtimeConfig, anyTurnActive),
-    modelSettings: createModelSettings(projectRoot, runtimeConfig, anyTurnActive),
+    modelSettings,
     globalTaskPayload,
     locateTask,
     projectTasks: workspaces.projectTasks,

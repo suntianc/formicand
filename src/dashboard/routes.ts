@@ -667,20 +667,6 @@ export function createDashboardHandler(
         sendJson(response, 200, await ports.modelSettings.test(await readJsonBody(request)));
         return;
       }
-      if (url.pathname === "/api/model-settings/roles") {
-        if (request.method !== "POST") {
-          sendJson(response, 405, { error: "method not allowed" });
-          return;
-        }
-        const body = await readJsonBody(request);
-        if (body.projectId !== undefined) {
-          if (typeof body.projectId !== "string" || !body.projectId.trim())
-            throw new HttpError(400, "项目 ID 不合法");
-          if (!(await ports.projectForId(body.projectId.trim()))) throw new HttpError(404, "项目不存在");
-        }
-        sendJson(response, 200, await ports.modelSettings.saveRole(body));
-        return;
-      }
       if (url.pathname === "/api/model-settings") {
         if (request.method === "GET") sendJson(response, 200, ports.modelSettings.status());
         else sendJson(response, 405, { error: "method not allowed" });
@@ -715,6 +701,7 @@ export function createDashboardHandler(
               ...(provider.preset ? { preset: provider.preset } : {}),
               models: provider.models.map((model) => ({
                 id: model.id,
+                ...(model.name ? { name: model.name } : {}),
                 profileId: model.profileId,
                 reasoningEffort: model.reasoningEffort,
                 levels: model.supportsReasoningEffort

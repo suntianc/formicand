@@ -15,6 +15,7 @@ import {
 } from "./p3-storage-fixture.mjs";
 import { backendPaths, readBackendInstance } from "../dist/src/dashboard/backend-instance.js";
 import { saveTestConnection } from "./model-provider-fixture.mjs";
+import { saveRoleModel } from "./role-settings.mjs";
 
 /**
  * The whole P3 product on one real stack, on both engines.
@@ -577,10 +578,7 @@ for (const engine of PROJECT_DATA_ENGINES) {
       });
       const hostProfile = profileNamed(hostSaved, "主机默认");
       const projectProfile = profileNamed(withProject, "指定连接");
-      const hostRole = await request("/api/model-settings/roles", {
-        role: "main",
-        profileId: hostProfile.id
-      });
+      const hostRole = await saveRoleModel(request, "main", hostProfile.id);
       assert.equal(hostRole.status, 200, JSON.stringify(hostRole.body));
 
       const a = await createProject(authority, `model-${engine}-a`);

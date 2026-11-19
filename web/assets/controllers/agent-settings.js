@@ -2,22 +2,36 @@ import { icon } from "../ui/icons.js";
 import { ui } from "../ui/language.js";
 import { escapeHtml as esc } from "../ui/html.js";
 import { createModal } from "../ui/modal.js";
+import { LEVEL_LABELS } from "./model-picker.js";
+import { providerLogo } from "./model-providers.js";
 
 /**
  * Settings → Agent.
  *
- * Two scopes like Skills: the global list (the built-in Executor and Reviewer,
- * read-only, and `~/.atria/agents`) and one project's list (`.atria/agents`,
- * read only after the user trusts that project, then the global Agents that
- * project can also use). The detail pane is the editor: what Main reads to
- * choose the Agent, its permission, model, tools, skills, MCP servers and
- * extra prompt. A running work item keeps the definition it was dispatched
- * with, so an edit only affects later ones.
+ * Two scopes like Skills: the global list (the built-in Main, Executor and
+ * Reviewer, then `~/.atria/agents`) and one project's list (the built-ins
+ * again, `.atria/agents` once the user trusts that project, then the global
+ * Agents that project can also use). The detail pane is the editor: what Main
+ * reads to choose the Agent, its permission, model and effort, tools, skills,
+ * MCP servers and extra prompt. A built-in keeps its name, description,
+ * permission and tools; the rest is saved with the host's role settings, and
+ * a project can override each field. A running work item keeps what it was
+ * dispatched with, so an edit only affects later ones.
  */
 const PAGE_SIZE = 10;
 const NEW = "\0new";
 const PERMISSION_LABEL = { write: "可写", read: "只读" };
-const agentIcon = (definition) => (definition?.permission === "read" ? "scan-eye" : "wrench");
+const agentIcon = (definition) =>
+  definition?.name === "main" ? "bot" : definition?.permission === "read" ? "scan-eye" : "wrench";
+const LEVELS = ["off", "low", "medium", "high", "xhigh", "max"];
+/** What each built-in setting is called in "本项目单独设置了…". */
+const FIELD_LABEL = {
+  profileId: "模型",
+  thinkingLevel: "推理强度",
+  skills: "技能",
+  mcp: "MCP",
+  prompt: "附加提示词"
+};
 const SCOPE_NOTE = {
   global: "Main 按「使用说明」决定派给谁；同名时项目覆盖全局",
   project: "项目 Agent 存在 .atria/agents/，跟着项目走；同名时覆盖全局"
@@ -29,6 +43,7 @@ export function createAgentSettings({
   projects = () => [],
   onSection,
   showToast = () => {},
+  onBuiltinSaved = () => {},
   askMain
 }) {
   const view = {
@@ -119,15 +134,22 @@ export function createAgentSettings({
       view.options = options;
       view.models = (models.providers || []).flatMap((provider) =>
         provider.models.map((model) => ({
+          provider,
           profile: model.profileId,
           model: model.id,
-          label: `${provider.name} · ${model.id}`
+          name: model.name || model.id,
+          levels: model.levels
         }))
       );
       view.error = "";
       if (view.pending) {
         view.selected = view.pending.key;
-        view.draft = { ...view.pending.definition, mcp: [...(view.pending.definition.mcp ?? [])] };
+        const definition = view.pending.definition;
+        view.draft = {
+          ...definition,
+          ...(definition.profile ? { profileId: definition.profile } : {}),
+          mcp: [...(definition.mcp ?? [])]
+        };
         view.pending = undefined;
       } else if (view.selected !== NEW) view.draft = undefined;
     } catch (error) {
@@ -144,6 +166,31 @@ export function createAgentSettings({
 
   const keyOf = (agent) => `${agent.source}:${agent.name}`;
   const selectedAgent = () => view.data.agents.find((agent) => keyOf(agent) === view.selected);
+  const builtinOf = (role) =>
+    view.data.agents.find((agent) => agent.source === "builtin" && agent.name === role);
+  const modelEntry = (profileId) => view.models.find((entry) => entry.profile === profileId);
+  const levelLabel = (level) => (level ? ui(LEVEL_LABELS[level] || level) : "");
+
+  /** A built-in's global settings with defaults applied, to compare a project draft against. */
+  function globalValue(agent) {
+    const saved = agent.builtin.global ?? {};
+    return {
+      profileId: saved.profileId,
+      thinking: saved.thinkingLevel,
+      skills: saved.skills ?? "all",
+      mcp: saved.mcp ?? (agent.name === "main" ? "all" : []),
+      prompt: saved.prompt ?? ""
+    };
+  }
+  /** The draft's built-in fields in the same shape. */
+  const draftValue = (draft) => ({
+    profileId: draft.profileId,
+    thinking: draft.thinking,
+    skills: draft.skills ?? "all",
+    mcp: draft.mcp,
+    prompt: draft.prompt.trim()
+  });
+  const same = (a, b) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
 
   /** The rows in display order, each with the group it is shown under. */
   function rows() {
@@ -151,10 +198,11 @@ export function createAgentSettings({
     const groups =
       view.scope === "global"
         ? [
-            ["builtin", ui("内置"), ui("只读")],
+            ["builtin", ui("内置"), ""],
             ["global", ui("全局"), "~/.atria/agents"]
           ]
         : [
+            ["builtin", ui("内置"), ""],
             ["project", ui`项目 · ${view.data.project?.projectName ?? ""}`, ".atria/agents"],
             ["global", ui("此项目也能用的全局 Agent"), ""]
           ];
@@ -177,8 +225,23 @@ export function createAgentSettings({
     if (agent.shadowedBy) return ui("被项目版本覆盖");
     const definition = agent.definition;
     if (definition.enabled === false) return ui("已停用");
-    if (agent.source === "builtin")
-      return agent.name === "reviewer" ? ui("只读 · 独立审查") : ui("可写 · 实现与验证");
+    if (agent.builtin) {
+      if (view.scope === "project") {
+        const fields = Object.keys(agent.builtin.settings);
+        return fields.length
+          ? ui`本项目单独设置了${fields.map((field) => ui(FIELD_LABEL[field])).join(ui("、"))}`
+          : ui("跟随全局");
+      }
+      if (agent.name === "main") return ui("你对话的那个");
+      const effective = agent.builtin.effective;
+      return [
+        ui(PERMISSION_LABEL[definition.permission]),
+        modelEntry(effective.profileId)?.name,
+        levelLabel(effective.thinkingLevel)
+      ]
+        .filter(Boolean)
+        .join(" · ");
+    }
     const parts = [ui(PERMISSION_LABEL[definition.permission])];
     if (definition.skills) parts.push(ui`${definition.skills.length} 技能`);
     if (definition.mcp?.length) parts.push(`${definition.mcp.length} MCP`);
@@ -276,18 +339,37 @@ export function createAgentSettings({
     $('[data-agent-page="1"]').disabled = view.page >= pages;
   }
 
-  /** Whether the selected entry can be edited here: built-ins never, a global one only on the global page. */
+  /**
+   * Whether the selected entry's settings can be edited here: a built-in on
+   * either page (its fixed fields stay locked), a file Agent only on its own page.
+   */
   function editable(agent) {
     if (!agent) return view.selected === NEW;
-    if (agent.source === "builtin" || !agent.definition) return false;
+    if (agent.builtin) return true;
+    if (!agent.definition) return false;
     return agent.source === view.scope;
   }
 
   function startDraft(agent) {
+    if (agent?.builtin) {
+      const effective = agent.builtin.effective;
+      view.draft = {
+        ...agent.definition,
+        builtin: true,
+        tools: undefined,
+        profileId: effective.profileId,
+        thinking: effective.thinkingLevel,
+        skills: effective.skills === "all" ? undefined : [...effective.skills],
+        mcp: effective.mcp === "all" ? "all" : [...effective.mcp],
+        prompt: effective.prompt
+      };
+      return;
+    }
     const definition = agent?.definition;
     view.draft = definition
       ? {
           ...definition,
+          ...(definition.profile ? { profileId: definition.profile } : {}),
           tools: definition.tools ? [...definition.tools] : undefined,
           skills: definition.skills ? [...definition.skills] : undefined,
           mcp: definition.mcp ? [...definition.mcp] : []
@@ -314,73 +396,68 @@ export function createAgentSettings({
     return `<label class="agent-add">${icon("plus")}<span>${esc(ui("添加"))}</span><select data-agent-add-${kind} aria-label="${esc(label)}"><option value="">${esc(ui("添加"))}</option>${choices}</select></label>`;
   }
 
+  /** The model field's button: the chosen model with its provider's mark, or what applies without one. */
+  function modelButtonLabel(draft) {
+    const entry = draft.profileId && modelEntry(draft.profileId);
+    if (entry)
+      return `${providerLogo(entry.provider, 22, entry.model)}<span class="role-picker-text"><span>${esc(entry.name)}</span><small>${esc(entry.provider.name)}</small></span>`;
+    if (draft.model) return `<span class="role-picker-text"><span>${esc(draft.model)}</span></span>`;
+    return `<span class="role-picker-text is-empty"><span>${esc(modelFallback(draft))}</span></span>`;
+  }
+
+  /** What runs when no model is chosen. */
+  function modelFallback(draft) {
+    if (draft.builtin) {
+      if (view.scope === "project") return ui("跟随全局");
+      return draft.name === "main" ? ui("第一个可用模型") : ui("沿用 Main 的模型");
+    }
+    const role = draft.permission === "read" ? "reviewer" : "executor";
+    const name = modelEntry(builtinOf(role)?.builtin?.effective.profileId)?.name;
+    return name ? ui`沿用 ${role} 的模型（${name}）` : ui`沿用 ${role} 的模型`;
+  }
+
+  /** The levels the chosen model accepts; without one, every level. */
+  function effortLevels(draft) {
+    const role = draft.builtin ? undefined : draft.permission === "read" ? "reviewer" : "executor";
+    const profileId = draft.profileId ?? (role && builtinOf(role)?.builtin?.effective.profileId);
+    return modelEntry(profileId)?.levels ?? LEVELS;
+  }
+
+  /** On the project page, where a built-in field's value comes from. */
+  function inheritHint(agent, field) {
+    if (!agent?.builtin || view.scope !== "project") return "";
+    const global = globalValue(agent);
+    const value = draftValue(view.draft);
+    const keys = field === "model" ? ["profileId", "thinking"] : [field];
+    if (keys.every((key) => same(value[key], global[key]))) return ui("跟随全局");
+    if (field === "model")
+      return ui`全局：${[modelEntry(global.profileId)?.name ?? ui("未选择"), levelLabel(global.thinking)].filter(Boolean).join(" · ")}`;
+    return "";
+  }
+
   function renderEditor(agent) {
     const draft = view.draft;
     const locked = !editable(agent);
+    // A built-in's name, description, permission and tools are fixed.
+    const fixed = locked || Boolean(draft.builtin);
+    const main = draft.builtin && draft.name === "main";
     const options = view.options ?? { tools: { write: [], read: [] }, skills: [], mcp: [] };
     const allTools = options.tools.write;
     const allowed = new Set(options.tools[draft.permission]);
     const tools = draft.tools ?? DEFAULT_TOOLS[draft.permission];
-    const modelValue = draft.model
-      ? JSON.stringify({ profile: draft.profile ?? null, model: draft.model })
-      : "";
-    const knownModel = view.models.some(
-      (entry) => entry.model === draft.model && (entry.profile ?? null) === (draft.profile ?? null)
-    );
     const skillChoices = options.skills.filter((name) => !(draft.skills ?? []).includes(name));
-    const mcpChoices = options.mcp.filter((server) => !(draft.mcp ?? []).includes(server.name));
+    const mcpList = draft.mcp === "all" ? [] : (draft.mcp ?? []);
+    const mcpChoices = options.mcp.filter((server) => !mcpList.includes(server.name));
     const disabled = locked ? " disabled" : "";
-    return ui`<form class="agent-form" data-agent-form>
-      <div class="agent-form-columns">
-        <div class="agent-form-column">
-          <div class="mcp-field">
-            <label for="agent-name">名称</label><small>字母、数字和连字符</small>
-            <input id="agent-name" data-agent-field="name" value="${esc(draft.name)}" autocomplete="off" spellcheck="false"${disabled}>
-          </div>
-          <div class="mcp-field">
-            <label for="agent-description">给 Main 的使用说明</label><small>Main 据此决定何时派给它</small>
-            <textarea id="agent-description" data-agent-field="description" rows="3"${disabled}>${esc(draft.description)}</textarea>
-          </div>
-          <div class="mcp-field">
-            <span class="mcp-field-label">权限</span><span></span>
-            <div class="agent-permissions" role="radiogroup" aria-label="权限">
-              ${["write", "read"]
-                .map(
-                  (permission) =>
-                    `<label class="agent-permission"><input type="radio" name="agent-permission" value="${permission}" data-agent-permission${draft.permission === permission ? " checked" : ""}${disabled}><strong>${icon(permission === "write" ? "pencil" : "eye")}${esc(ui(PERMISSION_LABEL[permission]))}</strong><small>${esc(permission === "write" ? ui("在隔离现场修改代码") : ui("独立副本里检查，结论文字交回"))}</small></label>`
-                )
-                .join("")}
-            </div>
-          </div>
-          <div class="mcp-field">
-            <label for="agent-model">模型</label><small>不选则沿用角色的模型</small>
-            <select class="settings-select" id="agent-model" data-agent-model${disabled}>
-              <option value="">${esc(ui("沿用角色的模型"))}</option>
-              ${!knownModel && draft.model ? `<option value="${esc(modelValue)}" selected>${esc(draft.model)}</option>` : ""}
-              ${view.models
-                .map((entry) => {
-                  const value = JSON.stringify({ profile: entry.profile ?? null, model: entry.model });
-                  return `<option value="${esc(value)}"${value === modelValue ? " selected" : ""}>${esc(entry.label)}</option>`;
-                })
-                .join("")}
-            </select>
-          </div>
-        </div>
-        <div class="agent-form-column">
-          <div class="mcp-field">
-            <span class="mcp-field-label">工具</span><small>只读时不能选写入类工具</small>
-            <div class="agent-tools">
-              ${allTools
-                .map((tool) => {
-                  const off = !allowed.has(tool);
-                  return `<label class="agent-tool${off ? " is-off" : ""}"><input type="checkbox" value="${esc(tool)}" data-agent-tool${tools.includes(tool) && !off ? " checked" : ""}${off || locked ? " disabled" : ""}>${icon(off ? "ban" : "check")}<span>${esc(tool)}</span></label>`;
-                })
-                .join("")}
-            </div>
-            <p class="agent-hint">ask_main、send_peer_message 始终可用；Main 专用工具不可选</p>
-          </div>
-          <div class="mcp-field">
-            <span class="mcp-field-label">技能</span><span></span>
+    const fixedAttr = fixed ? " disabled" : "";
+    const hint = (field) => {
+      const text = inheritHint(agent, field);
+      return text ? `<small>${esc(text)}</small>` : "<span></span>";
+    };
+    const levels = effortLevels(draft);
+    const effortShown = draft.thinking ? levelLabel(draft.thinking) : draft.builtin ? ui("默认") : ui("沿用");
+    const skillField = ui`<div class="mcp-field">
+            <span class="mcp-field-label">技能</span>${hint("skills")}
             <div class="settings-segmented" role="radiogroup" aria-label="技能" data-agent-skill-mode>
               <button type="button" role="radio" data-agent-skill-mode-value="all" aria-checked="${!draft.skills}"${disabled}>全部可见</button>
               <button type="button" role="radio" data-agent-skill-mode-value="some" aria-checked="${Boolean(draft.skills)}"${disabled}>只用指定的</button>
@@ -388,24 +465,97 @@ export function createAgentSettings({
             ${
               draft.skills
                 ? `<div class="agent-chips">${chips(draft.skills, "skill", locked)}${locked || !skillChoices.length ? "" : addButton("skill", ui("添加技能"), skillChoices.map((name) => `<option value="${esc(name)}">${esc(name)}</option>`).join(""))}</div>`
-                : `<p class="agent-hint">${esc(ui`可见全部 ${options.skills.length} 个技能（已移除的除外）`)}</p>`
+                : ""
             }
+          </div>`;
+    const mcpChips = `<div class="agent-chips">${chips(mcpList, "mcp", locked)}${locked || !mcpChoices.length ? "" : addButton("mcp", ui("添加 MCP 服务"), mcpChoices.map((server) => `<option value="${esc(server.name)}">${esc(server.name)}${server.enabled ? "" : esc(ui("（已停用）"))}</option>`).join(""))}</div>`;
+    const mcpField = main
+      ? ui`<div class="mcp-field">
+            <span class="mcp-field-label">MCP 服务</span>${hint("mcp")}
+            <div class="settings-segmented" role="radiogroup" aria-label="MCP 服务" data-agent-mcp-mode>
+              <button type="button" role="radio" data-agent-mcp-mode-value="all" aria-checked="${draft.mcp === "all"}"${disabled}>全部可用</button>
+              <button type="button" role="radio" data-agent-mcp-mode-value="some" aria-checked="${draft.mcp !== "all"}"${disabled}>只用指定的</button>
+            </div>
+            ${draft.mcp === "all" ? "" : mcpChips}
+          </div>`
+      : ui`<div class="mcp-field">
+            <span class="mcp-field-label">MCP 服务</span>${draft.builtin ? hint("mcp") : `<small>${esc(ui("不选则不给任何服务"))}</small>`}
+            ${mcpChips}
+          </div>`;
+    const toolField = main
+      ? ui`<div class="mcp-field">
+            <span class="mcp-field-label">工具</span><span></span>
+            <p class="agent-tools-text">派活、提问、合入，读写、搜索与浏览</p>
+          </div>`
+      : ui`<div class="mcp-field">
+            <span class="mcp-field-label">工具</span>${fixed ? "<span></span>" : `<small>${esc(ui("只读时不能选写入类工具"))}</small>`}
+            <div class="agent-tools">
+              ${allTools
+                .map((tool) => {
+                  const off = !allowed.has(tool);
+                  return `<label class="agent-tool${off ? " is-off" : ""}"><input type="checkbox" value="${esc(tool)}" data-agent-tool${tools.includes(tool) && !off ? " checked" : ""}${off || fixed ? " disabled" : ""}>${icon(off ? "ban" : "check")}<span>${esc(tool)}</span></label>`;
+                })
+                .join("")}
+            </div>
+            ${fixed ? "" : `<p class="agent-hint">${esc(ui("ask_main、send_peer_message 始终可用；Main 专用工具不可选"))}</p>`}
+          </div>`;
+    return ui`<form class="agent-form" data-agent-form>
+      <div class="agent-form-columns">
+        <div class="agent-form-column">
+          <div class="mcp-field">
+            <label for="agent-name">名称</label>${fixed ? "<span></span>" : `<small>${esc(ui("字母、数字和连字符"))}</small>`}
+            <input id="agent-name" data-agent-field="name" value="${esc(draft.name)}" autocomplete="off" spellcheck="false"${fixedAttr}>
           </div>
           <div class="mcp-field">
-            <span class="mcp-field-label">MCP 服务</span><small>不选则不给任何服务</small>
-            <div class="agent-chips">${chips(draft.mcp ?? [], "mcp", locked)}${locked || !mcpChoices.length ? "" : addButton("mcp", ui("添加 MCP 服务"), mcpChoices.map((server) => `<option value="${esc(server.name)}">${esc(server.name)}${server.enabled ? "" : esc(ui("（已停用）"))}</option>`).join(""))}</div>
+            <label for="agent-description">${main ? ui("职责") : ui("给 Main 的使用说明")}</label>${fixed ? "<span></span>" : `<small>${esc(ui("Main 据此决定何时派给它"))}</small>`}
+            <textarea id="agent-description" data-agent-field="description" rows="3"${fixedAttr}>${esc(draft.description)}</textarea>
           </div>
+          ${
+            main
+              ? ""
+              : ui`<div class="mcp-field">
+            <span class="mcp-field-label">权限</span><span></span>
+            <div class="agent-permissions" role="radiogroup" aria-label="权限">
+              ${["write", "read"]
+                .map(
+                  (permission) =>
+                    `<label class="agent-permission"><input type="radio" name="agent-permission" value="${permission}" data-agent-permission${draft.permission === permission ? " checked" : ""}${fixedAttr}><strong>${icon(permission === "write" ? "pencil" : "eye")}${esc(ui(PERMISSION_LABEL[permission]))}</strong><small>${esc(permission === "write" ? ui("在隔离现场修改代码") : ui("独立副本里检查，结论文字交回"))}</small></label>`
+                )
+                .join("")}
+            </div>
+          </div>`
+          }
+          <div class="mcp-field">
+            <span class="mcp-field-label">模型与推理强度</span>${draft.builtin ? hint("model") : `<small>${esc(ui("不选则可写跟 executor、只读跟 reviewer"))}</small>`}
+            <div class="agent-model-row">
+              <button type="button" class="role-picker agent-model-picker" data-agent-model aria-haspopup="listbox" aria-label="${esc(ui("模型"))}"${disabled}>${modelButtonLabel(draft)}${icon("chevrons-up-down")}</button>
+              <label class="agent-effort${locked ? " is-disabled" : ""}">${icon("brain")}<span>${esc(effortShown)}</span>${icon("chevron-down")}<select data-agent-effort aria-label="${esc(ui("推理强度"))}"${disabled}>
+                <option value=""${draft.thinking ? "" : " selected"}>${esc(draft.builtin ? ui("默认") : ui("沿用"))}</option>
+                ${[...new Set([...levels, ...(draft.thinking ? [draft.thinking] : [])])]
+                  .map(
+                    (level) =>
+                      `<option value="${esc(level)}"${level === draft.thinking ? " selected" : ""}>${esc(levelLabel(level))}</option>`
+                  )
+                  .join("")}
+              </select></label>
+            </div>
+          </div>
+        </div>
+        <div class="agent-form-column">
+          ${toolField}
+          ${skillField}
+          ${mcpField}
         </div>
       </div>
       <div class="mcp-field">
-        <label for="agent-prompt">附加提示词</label><small>接在角色基础提示词之后，不替换安全规则</small>
-        <textarea id="agent-prompt" class="agent-prompt" data-agent-field="prompt" rows="4"${disabled}>${esc(draft.prompt)}</textarea>
+        <label for="agent-prompt">附加提示词</label>${draft.builtin ? hint("prompt") : `<small>${esc(ui("接在角色基础提示词之后，不替换安全规则"))}</small>`}
+        <textarea id="agent-prompt" class="agent-prompt" data-agent-field="prompt" rows="4" placeholder="${esc(draft.builtin ? ui("接在内置提示词之后，例如：提交信息用中文写；改动前先跑一遍现有测试。") : "")}"${disabled}>${esc(draft.prompt)}</textarea>
       </div>
       ${
         locked
           ? ""
           : ui`<div class="agent-form-foot">
-        <span class="agent-hint">${icon("info")}运行中的工作项保持派单时的定义，修改只影响之后的派单</span>
+        <span class="agent-hint">${icon("info")}${main ? ui("保存后从下一轮对话起生效") : ui("运行中的工作项保持派单时的定义，修改只影响之后的派单")}</span>
         <span class="settings-group-spacer"></span>
         <button class="app-button is-secondary" type="button" data-agent-cancel>取消</button>
         <button class="app-button is-primary" type="submit" data-agent-save${view.saving ? " disabled" : ""}>保存</button>
@@ -430,13 +580,15 @@ export function createAgentSettings({
           ? ui`项目 · ${view.data.project?.projectName ?? ""}`
           : ui("全局");
     const sourceIcon = source === "builtin" ? "lock" : source === "project" ? "folder" : "globe";
-    const canToggle = agent && editable(agent);
+    const canToggle = agent && !agent.builtin && editable(agent);
+    const overrides = agent?.builtin && view.scope === "project" ? Object.keys(agent.builtin.settings) : [];
     const head = ui`<div class="skill-detail-head">
         <span class="settings-icon-box is-large">${icon(agentIcon(view.draft))}</span>
         <span class="skill-detail-title"><h2>${esc(agent?.name ?? ui("新建 Agent"))}</h2><span class="agent-detail-meta"><span class="skill-tag has-icon">${icon(sourceIcon)}${esc(sourceLabel)}</span>${agent?.displayPath ? `<span class="agent-path" title="${esc(agent.path)}">${esc(agent.displayPath)}</span>` : ""}</span></span>
         <span class="settings-group-spacer"></span>
         ${canToggle ? `<span class="mcp-enabled"><span>${ui("启用")}</span><button type="button" class="ui-switch" role="switch" data-agent-enabled aria-checked="${agent.definition.enabled !== false}" aria-label="${esc(ui("启用"))}"></button></span>` : ""}
-        ${agent?.definition ? `<button class="app-button is-secondary" type="button" data-agent-copy>${icon("copy")}<span>${ui("复制")}</span></button>` : ""}
+        ${agent?.builtin && view.scope === "project" ? `<button class="app-button is-secondary" type="button" data-agent-reset${overrides.length ? "" : " disabled"}>${icon("rotate-ccw")}<span>${ui("全部跟随全局")}</span></button>` : ""}
+        ${agent?.definition && agent.name !== "main" && !(agent.builtin && view.scope === "project") ? `<button class="app-button is-secondary" type="button" data-agent-copy>${icon("copy")}<span>${ui("复制")}</span></button>` : ""}
         ${agent && agent.source === view.scope && agent.source !== "builtin" ? `<button class="app-button is-danger" type="button" data-agent-delete>${icon("trash")}<span>${ui("删除")}</span></button>` : ""}
       </div>`;
     const notes = [
@@ -476,17 +628,49 @@ export function createAgentSettings({
       view.draft[field.dataset.agentField] = field.value;
     const permission = form.querySelector("[data-agent-permission]:checked");
     if (permission) view.draft.permission = permission.value;
-    const tools = [...form.querySelectorAll("[data-agent-tool]:checked")].map((box) => box.value);
-    view.draft.tools = tools;
-    const model = form.querySelector("[data-agent-model]").value;
-    if (model) {
-      const chosen = JSON.parse(model);
-      view.draft.model = chosen.model;
-      if (chosen.profile) view.draft.profile = chosen.profile;
-      else delete view.draft.profile;
-    } else {
-      delete view.draft.model;
-      delete view.draft.profile;
+    if (!view.draft.builtin)
+      view.draft.tools = [...form.querySelectorAll("[data-agent-tool]:checked")].map((box) => box.value);
+    const effort = form.querySelector("[data-agent-effort]")?.value;
+    if (effort) view.draft.thinking = effort;
+    else delete view.draft.thinking;
+  }
+
+  /** What a built-in's draft saves: on the project page, only the fields that differ from the global value. */
+  function builtinSettings(agent, draft) {
+    const value = draftValue(draft);
+    const base =
+      view.scope === "project"
+        ? globalValue(agent)
+        : {
+            profileId: undefined,
+            thinking: undefined,
+            skills: "all",
+            mcp: agent.name === "main" ? "all" : [],
+            prompt: ""
+          };
+    const settings = {};
+    if (value.profileId && value.profileId !== base.profileId) settings.profileId = value.profileId;
+    if (value.thinking && value.thinking !== base.thinking) settings.thinkingLevel = value.thinking;
+    if (!same(value.skills, base.skills)) settings.skills = value.skills;
+    if (!same(value.mcp, base.mcp)) settings.mcp = value.mcp;
+    if (value.prompt !== base.prompt) settings.prompt = value.prompt;
+    return settings;
+  }
+
+  async function saveBuiltin(agent, settings, done) {
+    view.saving = true;
+    render();
+    try {
+      await post("/api/agents/builtin", { target: target(), name: agent.name, settings });
+      showToast(done);
+      onBuiltinSaved();
+      view.draft = undefined;
+      await load();
+    } catch (error) {
+      showToast(error?.message || ui("保存未完成"));
+    } finally {
+      view.saving = false;
+      render();
     }
   }
 
@@ -494,13 +678,15 @@ export function createAgentSettings({
     readForm();
     const agent = view.selected === NEW ? undefined : selectedAgent();
     const draft = view.draft;
+    if (agent?.builtin) return saveBuiltin(agent, builtinSettings(agent, draft), ui("已保存"));
     const allowed = new Set(view.options?.tools[draft.permission] ?? []);
     const definition = {
       name: draft.name.trim(),
       description: draft.description.trim(),
       permission: draft.permission,
-      ...(draft.profile ? { profile: draft.profile } : {}),
+      ...(draft.profileId ? { profile: draft.profileId } : {}),
       ...(draft.model ? { model: draft.model } : {}),
+      ...(draft.thinking ? { thinking: draft.thinking } : {}),
       tools: (draft.tools ?? []).filter((tool) => allowed.has(tool)),
       ...(draft.skills ? { skills: draft.skills } : {}),
       ...(draft.mcp?.length ? { mcp: draft.mcp } : {}),
@@ -554,6 +740,92 @@ export function createAgentSettings({
       await load();
     } catch (error) {
       showToast(error?.message || ui("操作未完成"));
+    }
+  });
+
+  /* ---------------------------------------------------------------- model menu */
+
+  /** One floating list of every usable model, grouped by provider. */
+  const menu = document.createElement("div");
+  menu.className = "role-menu";
+  menu.hidden = true;
+  menu.setAttribute("role", "listbox");
+  menu.setAttribute("aria-label", ui("模型"));
+  menu.innerHTML = `<label class="provider-search">${icon("search")}<input type="search" data-agent-menu-search placeholder="${esc(ui("搜索模型"))}" aria-label="${esc(ui("搜索模型"))}"></label><div class="role-menu-items" data-agent-menu-items></div>`;
+  document.body.append(menu);
+  let menuQuery = "";
+  const closeMenu = () => {
+    menu.hidden = true;
+  };
+  function renderMenu() {
+    const draft = view.draft;
+    if (!draft) return;
+    const current = draft.profileId ?? "";
+    const query = menuQuery.toLowerCase();
+    const groups = new Map();
+    for (const entry of view.models) {
+      if (!`${entry.name} ${entry.model} ${entry.provider.name}`.toLowerCase().includes(query)) continue;
+      if (!groups.has(entry.provider.id)) groups.set(entry.provider.id, []);
+      groups.get(entry.provider.id).push(entry);
+    }
+    menu.querySelector("[data-agent-menu-items]").innerHTML =
+      `<button type="button" class="role-menu-item" role="option" data-agent-pick="" aria-selected="${!current}"><span>${esc(modelFallback({ ...draft, profileId: undefined, model: undefined }))}</span><span class="settings-row-spacer"></span>${!current ? icon("check") : ""}</button>` +
+      [...groups.values()]
+        .map(
+          (entries) =>
+            `<div class="role-menu-group">${providerLogo(entries[0].provider, 16, entries[0].model)}<span>${esc(entries[0].provider.name)}</span></div>${entries
+              .map(
+                (entry) =>
+                  `<button type="button" class="role-menu-item" role="option" data-agent-pick="${esc(entry.profile)}" aria-selected="${entry.profile === current}"><span>${esc(entry.name)}</span><span class="settings-row-spacer"></span>${entry.profile === current ? icon("check") : ""}</button>`
+              )
+              .join("")}`
+        )
+        .join("");
+  }
+  function openMenu(button) {
+    menuQuery = "";
+    menu.querySelector("[data-agent-menu-search]").value = "";
+    renderMenu();
+    const box = button.getBoundingClientRect();
+    menu.style.left = `${Math.max(8, Math.min(box.left, innerWidth - 348))}px`;
+    menu.style.top = `${Math.min(box.bottom + 6, innerHeight - 320)}px`;
+    menu.hidden = false;
+    menu.querySelector("[data-agent-menu-search]").focus();
+  }
+  menu.addEventListener("input", (event) => {
+    if (!event.target.matches("[data-agent-menu-search]")) return;
+    menuQuery = event.target.value;
+    renderMenu();
+  });
+  menu.addEventListener("click", (event) => {
+    const pick = event.target.closest("[data-agent-pick]");
+    if (!pick || !view.draft) return;
+    closeMenu();
+    readForm();
+    const entry = modelEntry(pick.dataset.agentPick);
+    if (entry) {
+      view.draft.profileId = entry.profile;
+      if (view.draft.builtin) delete view.draft.model;
+      else view.draft.model = entry.model;
+    } else {
+      delete view.draft.profileId;
+      delete view.draft.model;
+    }
+    // A level the new model does not take falls back to the default.
+    if (view.draft.thinking && !effortLevels(view.draft).includes(view.draft.thinking))
+      delete view.draft.thinking;
+    render();
+    $("[data-agent-model]")?.focus();
+  });
+  document.addEventListener("pointerdown", (event) => {
+    if (!menu.hidden && !menu.contains(event.target) && !event.target.closest("[data-agent-model]"))
+      closeMenu();
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && !menu.hidden) {
+      event.preventDefault();
+      closeMenu();
+      $("[data-agent-model]")?.focus();
     }
   });
 
@@ -621,7 +893,15 @@ export function createAgentSettings({
       startDraft(agent);
       view.draft.name = `${agent.name}-copy`;
       delete view.draft.enabled;
-      if (agent.source === "builtin") view.draft.tools = undefined;
+      if (agent.builtin) {
+        delete view.draft.builtin;
+        view.draft.tools = undefined;
+        if (view.draft.mcp === "all") view.draft.mcp = [];
+        // A copy names the model the built-in used, so it keeps running there.
+        const entry = modelEntry(view.draft.profileId);
+        if (entry) view.draft.model = entry.model;
+        else delete view.draft.profileId;
+      }
       view.selected = NEW;
       render();
       $("#agent-name")?.focus();
@@ -654,6 +934,24 @@ export function createAgentSettings({
       render();
       return;
     }
+    if (event.target.closest("[data-agent-reset]") && agent?.builtin) {
+      await saveBuiltin(agent, {}, ui("已改为跟随全局"));
+      return;
+    }
+    const picker = event.target.closest("[data-agent-model]");
+    if (picker && !picker.disabled) {
+      if (menu.hidden) openMenu(picker);
+      else closeMenu();
+      return;
+    }
+    const mcpMode = event.target.closest("[data-agent-mcp-mode-value]");
+    if (mcpMode && view.draft) {
+      readForm();
+      view.draft.mcp =
+        mcpMode.dataset.agentMcpModeValue === "all" ? "all" : view.draft.mcp === "all" ? [] : view.draft.mcp;
+      render();
+      return;
+    }
     const mode = event.target.closest("[data-agent-skill-mode-value]");
     if (mode && view.draft) {
       readForm();
@@ -666,7 +964,7 @@ export function createAgentSettings({
       if (remove && view.draft) {
         readForm();
         const key = kind === "skill" ? "skills" : "mcp";
-        view.draft[key] = view.draft[key].filter(
+        view.draft[key] = (view.draft[key] === "all" ? [] : view.draft[key]).filter(
           (name) => name !== remove.getAttribute(`data-agent-remove-${kind}`)
         );
         render();
@@ -680,7 +978,13 @@ export function createAgentSettings({
     if (add && add.value) {
       readForm();
       const key = add.matches("[data-agent-add-skill]") ? "skills" : "mcp";
-      view.draft[key] = [...(view.draft[key] ?? []), add.value];
+      const list = view.draft[key] === "all" ? [] : (view.draft[key] ?? []);
+      view.draft[key] = [...list, add.value];
+      render();
+      return;
+    }
+    if (event.target.matches("[data-agent-effort]")) {
+      readForm();
       render();
       return;
     }

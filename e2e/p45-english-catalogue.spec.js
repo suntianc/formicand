@@ -6,6 +6,7 @@ import { providerConfig } from "../test/model-provider-fixture.mjs";
 import { configureMerge, seedArtifact, seedRequirement, seedRun } from "./p45-requirement-fixture.js";
 import { createProject, createTask, markTaskRunning } from "./p45-work-helpers.js";
 import { pulseClock, seedCapacitySlots, seedPulseLane } from "./p45-pulse-fixture.js";
+import { openBuiltinAgent } from "./model-provider-ui.js";
 
 /**
  * The English interface: the P4.5 surfaces read English, and the Chinese
@@ -155,7 +156,7 @@ test("all six settings sections and their dialogs read English", async ({ page }
     const sections = [
       ["general", "General"],
       ["nodes", "Node connections"],
-      ["models", "Models and roles"],
+      ["models", "Models"],
       ["capacity", "Runtime capacity"],
       ["members", "Members and channels"],
       ["tools", "Tools"]
@@ -230,10 +231,10 @@ test("all six settings sections and their dialogs read English", async ({ page }
     await params.locator("[data-model-cancel]").click();
     await expect(params).toBeHidden();
 
-    await models.locator('[data-model-tab="roles"]').click();
-    await models.locator('[data-role-picker="executor"]').click();
-    await expect(page.locator(".role-menu")).toBeVisible();
-    await expectEnglish(page, "the role assignment tab and its model menu");
+    const agents = await openBuiltinAgent(page, "executor");
+    await agents.locator("[data-agent-model]").click();
+    await expect(page.locator(".role-menu:not([hidden])")).toBeVisible();
+    await expectEnglish(page, "a built-in Agent's editor and its model menu");
     await page.keyboard.press("Escape");
   } finally {
     await dashboard.stop();

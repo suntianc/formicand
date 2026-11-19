@@ -1861,6 +1861,11 @@ const agentSettings = createAgentSettings({
   projects: () => projectController.visibleProjects(),
   onSection: settingsPages.onSection,
   showToast,
+  // Main's model and effort are chosen here: the composer re-reads what the next turn uses.
+  onBuiltinSaved: () => {
+    state.model = null;
+    void loadModels().then(() => refresh());
+  },
   // Main drafts the definition in a conversation and asks before it saves anything.
   askMain: () => {
     settingsPages.close();

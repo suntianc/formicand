@@ -865,7 +865,6 @@ export default {
   全部: "All",
   范围: "Scope",
   观测范围: "Observation scope",
-  模型与角色: "Models and roles",
   运行名额: "Runtime capacity",
   成员与通道: "Members and channels",
   主题: "Theme",
@@ -1326,16 +1325,9 @@ export default {
   "允许所有对话观察并操作全部应用窗口。": "Let every conversation observe and operate all app windows.",
   "此格式可下载后用系统应用打开。": "Download this format and open it with a compatible app.",
   用系统默认应用打开: "Open with the default app",
-  "理解需求、拆分与委派，并给出最终结论":
-    "Understands requests, splits and delegates work, and gives the final verdict",
-  "子 Agent 执行开发任务；未选择时沿用 Main 的模型":
-    "Sub-agent that carries out development; uses Main's model when unset",
-  "独立审查改动并给出结论；未选择时沿用 Main 的模型":
-    "Reviews changes independently; uses Main's model when unset",
   视觉: "Images",
   上下文: "context",
   供应商: "Providers",
-  角色分配: "Roles",
   搜索供应商: "Search providers",
   添加供应商: "Add provider",
   "当前模型连接由启动环境管理，请在启动配置中修改。":
@@ -1371,15 +1363,12 @@ export default {
   手动添加: "Add manually",
   " 的参数": " settings",
   模型参数: "Model settings",
-  "正被角色使用，先在角色分配中改选": "In use by a role. Choose another model under Roles first",
   移除模型: "Remove model",
   "还没有模型，点「获取模型列表」从服务商读取，或手动添加。":
     "No models yet. Use Fetch models to read them from the provider, or add one manually.",
   "填写 API Key 并保存后即可获取模型列表。": "Enter and save an API key to fetch the model list.",
-  "未选择（使用第一个可用模型）": "Not set (uses the first available model)",
   "沿用 Main 的模型": "Same as Main",
   " 的模型": " model",
-  推理强度属于所选的模型: "Reasoning effort belongs to the selected model",
   供应商已保存: "Provider saved",
   "预置供应商会自动填好 API 地址和接口格式，只需填写 API Key；其他兼容 OpenAI 或 Anthropic 接口的服务选「自定义」。":
     "Presets fill in the API address and format, so only the API key is needed. For other OpenAI- or Anthropic-compatible services, choose Custom.",
@@ -1417,7 +1406,6 @@ export default {
   图片输入: "Image input",
   恢复自动值: "Restore auto values",
   搜索模型: "Search models",
-  角色模型已更新: "Role model updated",
   已停用供应商: "Provider disabled",
   已启用供应商: "Provider enabled",
   再次点击确认删除: "Click again to delete",
@@ -1429,7 +1417,6 @@ export default {
   " 检查连接与工具调用…（会消耗少量额度）": " (connection and tool calls; uses a small amount of quota)…",
   "连接通过 · 工具调用可用 · ": "Connection OK · tool calls work · ",
   模型已移除: "Model removed",
-  推理强度已更新: "Reasoning effort updated",
   中国: "China",
   国际: "International",
   本地与自定义: "Local and custom",
@@ -1441,10 +1428,6 @@ export default {
   百度千帆: "Baidu Qianfan",
   "小米 MiMo": "Xiaomi MiMo",
   讯飞星火: "iFlytek Spark",
-  "配置供应商后获取模型，再到「角色分配」为 Main、Executor、Reviewer 选模型":
-    "Add a provider to fetch its models, then pick models for Main, Executor and Reviewer under Role assignment",
-  "每个角色从已启用供应商的模型中选择；推理强度属于所选模型":
-    "Each role picks a model from enabled providers; reasoning effort belongs to the chosen model",
   "正在读取模型列表…": "Reading the model list…",
   " 个模型。": " models.",
   本产品: "CoworkOS",
@@ -1645,7 +1628,6 @@ export default {
   "给 Main 的使用说明": "Usage note for Main",
   "Main 据此决定何时派给它": "Main uses this to decide when to delegate to it",
   权限: "Permission",
-  不选则沿用角色的模型: "Leave empty to use the role's model",
   只读时不能选写入类工具: "Read-only Agents cannot have writing tools",
   "ask_main、send_peer_message 始终可用；Main 专用工具不可选":
     "ask_main and send_peer_message are always available; Main's own tools cannot be chosen",
@@ -1694,5 +1676,28 @@ export default {
   拒绝: "Reject",
   在设置里修改: "Edit in settings",
   发送修改意见: "Send changes",
-  "我会在设置里自己修改，这次不要保存": "I'll edit it in settings myself; don't save it this time"
+  "我会在设置里自己修改，这次不要保存": "I'll edit it in settings myself; don't save it this time",
+  "配置供应商并获取模型；Main 和各 Agent 用哪个模型，在「Agent」页里选":
+    "Add providers and fetch their models; choose the model Main and each Agent use on the Agent page",
+  本项目单独设置了: "Set for this project: ",
+  跟随全局: "Follows global",
+  你对话的那个: "The one you talk to",
+  MCP: "MCP",
+  第一个可用模型: "First available model",
+  "沿用 ": "Same as ",
+  " 的模型（": "'s model (",
+  "）": ")",
+  "全局：": "Global: ",
+  未选择: "Not set",
+  沿用: "Inherit",
+  职责: "Responsibility",
+  "派活、提问、合入，读写、搜索与浏览": "Delegate, ask, merge; read, write, search and browse",
+  "不选则可写跟 executor、只读跟 reviewer":
+    "Unset: write Agents follow executor, read Agents follow reviewer",
+  "接在内置提示词之后，例如：提交信息用中文写；改动前先跑一遍现有测试。":
+    "Added after the built-in prompt, e.g. write commit messages in Chinese; run the existing tests before a change.",
+  保存后从下一轮对话起生效: "Applies from the next turn after saving",
+  全部跟随全局: "Follow global for all",
+  已改为跟随全局: "Now follows global",
+  全部可用: "All available"
 };

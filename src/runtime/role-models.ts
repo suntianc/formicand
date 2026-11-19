@@ -1,7 +1,13 @@
 import type { CoworkConfig } from "./config.js";
 import { modelConnections, type ModelConnection } from "./model-providers.js";
 import { connectionProfile, parseConnectionProfile, type ConnectionProfile } from "./model-profile.js";
-import { configuredSupportsImages, runtimeSettingsEnv, type PiThinkingLevel } from "./runtime-settings.js";
+import { resolve } from "node:path";
+import {
+  configuredSupportsImages,
+  normalizeReasoningEffort,
+  runtimeSettingsEnv,
+  type PiThinkingLevel
+} from "./runtime-settings.js";
 
 /**
  * Model roles on the execution host.
@@ -16,6 +22,9 @@ export const MODEL_ROLE_KEYS = ["main", "executor", "reviewer", "router"] as con
 export type ModelRoleKey = (typeof MODEL_ROLE_KEYS)[number];
 /** Roles an actual execution path reads today. Others are configuration only. */
 export const WIRED_MODEL_ROLES: readonly ModelRoleKey[] = ["main", "executor", "reviewer"];
+/** The built-in Agents the settings page shows; each may be set per project. */
+export const BUILTIN_ROLES = ["main", "executor", "reviewer"] as const;
+export type BuiltinRole = (typeof BUILTIN_ROLES)[number];
 /** Roles a delegated work item can run as. */
 export const DELEGATED_MODEL_ROLES = ["executor", "reviewer"] as const;
 export type DelegatedModelRole = (typeof DELEGATED_MODEL_ROLES)[number];
@@ -28,17 +37,38 @@ const ROLE_LABELS: Record<ModelRoleKey, string> = {
   router: "Router"
 };
 
-export interface RoleModelBinding {
-  profileId: string;
+/**
+ * What the user set for one built-in Agent, globally or for one project.
+ *
+ * Every field is optional: an absent one follows the level above it (a project
+ * follows the global value, the global value follows the built-in default).
+ * `"all"` is an explicit "every skill / every enabled server", so a project can
+ * widen what the global setting narrowed.
+ */
+export interface RoleSettings {
+  profileId?: string;
+  thinkingLevel?: PiThinkingLevel;
+  skills?: string[] | "all";
+  mcp?: string[] | "all";
+  prompt?: string;
 }
 
 export interface RoleModelConfig {
   version: 1;
   /** Defaults for every project on this execution host. */
-  host?: Partial<Record<ModelRoleKey, RoleModelBinding>>;
+  host?: Partial<Record<ModelRoleKey, RoleSettings>>;
+  /** Per-project values, keyed by the project's resolved directory. */
+  projects?: Record<string, Partial<Record<BuiltinRole, RoleSettings>>>;
 }
 
-export type RoleModelSource = "explicit" | "host" | "active" | "environment" | "retry";
+/** What a built-in Agent runs with once defaults are applied. */
+export interface BuiltinAgentSettings {
+  skills: string[] | "all";
+  mcp: string[] | "all";
+  prompt: string;
+}
+
+export type RoleModelSource = "explicit" | "host" | "project" | "active" | "environment" | "retry";
 
 /** A launch request may pin a connection and/or a model for one Run. */
 export interface ModelRoleRequest {
@@ -52,6 +82,8 @@ export interface ModelRoleRequest {
   /** The Task's last model, kept for legacy single-connection deployments. */
   taskModel?: string;
   thinkingLevel?: PiThinkingLevel;
+  /** The user's project; its own settings win over the host's. */
+  projectDirectory?: string;
 }
 
 /**
@@ -67,6 +99,10 @@ export interface DelegatedModelRequest {
   profileId?: string;
   /** One-off model on the connection the role resolves to. */
   model?: string;
+  /** The custom Agent's own level; it wins over the role's and over the level Main runs at. */
+  thinkingLevel?: PiThinkingLevel;
+  /** The Task's project, whose own role settings win over the host's. */
+  projectDirectory?: string;
 }
 
 export interface ResolvedModelRole {
@@ -98,13 +134,45 @@ function isRoleKey(value: unknown): value is ModelRoleKey {
   return typeof value === "string" && (MODEL_ROLE_KEYS as readonly string[]).includes(value);
 }
 
-function parseBinding(value: unknown, scope: string): RoleModelBinding {
-  if (!value || typeof value !== "object" || Array.isArray(value))
-    throw new Error(`${scope} 的模型角色配置无法读取`);
-  const profileId = (value as Record<string, unknown>).profileId;
-  if (typeof profileId !== "string" || !profileId.trim() || profileId.length > 200)
-    throw new Error(`${scope} 的模型角色配置无法读取`);
-  return { profileId };
+const SETTING_KEYS = ["profileId", "thinkingLevel", "skills", "mcp", "prompt"];
+
+function nameList(value: unknown, scope: string, field: string): string[] | "all" {
+  if (value === "all") return value;
+  if (
+    !Array.isArray(value) ||
+    value.length > 100 ||
+    value.some((name) => typeof name !== "string" || !name.trim() || name.length > 100)
+  )
+    throw new Error(`${scope} 的${field}设置无法读取`);
+  return [...new Set((value as string[]).map((name) => name.trim()))];
+}
+
+/** One settings record, checked field by field; unknown fields are refused. */
+export function parseRoleSettings(value: unknown, scope: string): RoleSettings {
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error(`${scope} 的设置无法读取`);
+  const record = value as Record<string, unknown>;
+  for (const key of Object.keys(record))
+    if (!SETTING_KEYS.includes(key)) throw new Error(`${scope} 的设置包含未知字段：${key}`);
+  const settings: RoleSettings = {};
+  if (record.profileId !== undefined) {
+    if (typeof record.profileId !== "string" || !record.profileId.trim() || record.profileId.length > 200)
+      throw new Error(`${scope} 的模型设置无法读取`);
+    settings.profileId = record.profileId.trim();
+  }
+  if (record.thinkingLevel !== undefined)
+    settings.thinkingLevel = normalizeReasoningEffort(record.thinkingLevel, `${scope} 的推理强度`);
+  if (record.skills !== undefined) settings.skills = nameList(record.skills, scope, "技能");
+  if (record.mcp !== undefined) settings.mcp = nameList(record.mcp, scope, " MCP ");
+  if (record.prompt !== undefined) {
+    if (typeof record.prompt !== "string" || record.prompt.length > 64 * 1024)
+      throw new Error(`${scope} 的附加提示词无法读取`);
+    if (record.prompt.trim()) settings.prompt = record.prompt.trim();
+  }
+  return settings;
+}
+
+function isBuiltinRole(value: unknown): value is BuiltinRole {
+  return typeof value === "string" && (BUILTIN_ROLES as readonly string[]).includes(value);
 }
 
 /** Structural validation while reading the local configuration. */
@@ -114,15 +182,75 @@ export function validateRoleModelConfig(value: unknown): void {
   const record = value as Record<string, unknown>;
   if (record.version !== 1) throw new Error("模型角色配置版本不兼容，请升级应用");
   for (const key of Object.keys(record))
-    if (!["version", "host"].includes(key)) throw new Error(`模型角色配置包含未知字段：${key}`);
+    if (!["version", "host", "projects"].includes(key)) throw new Error(`模型角色配置包含未知字段：${key}`);
   if (record.host !== undefined) {
     if (!record.host || typeof record.host !== "object" || Array.isArray(record.host))
       throw new Error("模型角色配置的主机默认无法读取");
-    for (const [role, binding] of Object.entries(record.host)) {
+    for (const [role, settings] of Object.entries(record.host)) {
       if (!isRoleKey(role)) throw new Error(`模型角色配置包含未知角色：${role}`);
-      parseBinding(binding, ROLE_LABELS[role]);
+      parseRoleSettings(settings, ROLE_LABELS[role]);
     }
   }
+  if (record.projects !== undefined) {
+    if (!record.projects || typeof record.projects !== "object" || Array.isArray(record.projects))
+      throw new Error("模型角色配置的项目设置无法读取");
+    for (const [directory, roles] of Object.entries(record.projects)) {
+      if (!roles || typeof roles !== "object" || Array.isArray(roles))
+        throw new Error(`项目 ${directory} 的角色设置无法读取`);
+      for (const [role, settings] of Object.entries(roles)) {
+        if (!isBuiltinRole(role)) throw new Error(`项目 ${directory} 的设置包含未知角色：${role}`);
+        parseRoleSettings(settings, `项目 ${directory} 的 ${ROLE_LABELS[role]}`);
+      }
+    }
+  }
+}
+
+/** A project's own settings for one role, or none. */
+export function projectRoleSettings(
+  config: CoworkConfig,
+  role: ModelRoleKey,
+  projectDirectory: string | undefined
+): RoleSettings | undefined {
+  if (!projectDirectory || !isBuiltinRole(role)) return undefined;
+  return config.roleModels?.projects?.[resolve(projectDirectory)]?.[role];
+}
+
+/** One role's settings for a place: each field from the project when it set one, else the host's. */
+export function roleSettings(
+  config: CoworkConfig,
+  role: ModelRoleKey,
+  projectDirectory?: string
+): RoleSettings {
+  return { ...config.roleModels?.host?.[role], ...projectRoleSettings(config, role, projectDirectory) };
+}
+
+/** The settings a delegated process was handed, checked before it uses them. */
+export function parseBuiltinAgentSettings(value: unknown): BuiltinAgentSettings {
+  if (!value || typeof value !== "object" || Array.isArray(value))
+    throw new Error("内置 Agent 的设置无法读取");
+  const record = value as Record<string, unknown>;
+  if (typeof record.prompt !== "string") throw new Error("内置 Agent 的附加提示词无法读取");
+  return {
+    skills: nameList(record.skills, "内置 Agent", "技能"),
+    mcp: nameList(record.mcp, "内置 Agent", " MCP "),
+    prompt: record.prompt
+  };
+}
+
+/** Skills, MCP servers and extra prompt a built-in Agent runs with in one place. */
+export function builtinAgentSettings(
+  config: CoworkConfig,
+  role: BuiltinRole,
+  projectDirectory?: string
+): BuiltinAgentSettings {
+  const settings = roleSettings(config, role, projectDirectory);
+  return {
+    skills: settings.skills ?? "all",
+    // Main keeps every enabled server unless told otherwise; a delegated role
+    // gets none until the user names some, as a custom Agent does.
+    mcp: settings.mcp ?? (role === "main" ? "all" : []),
+    prompt: settings.prompt ?? ""
+  };
 }
 
 function normalizedProfile(connection: ModelConnection): ConnectionProfile {
@@ -175,6 +303,11 @@ export function resolveModelRole(
   const retryModel = request.retryModel?.trim() || undefined;
   const sourceModel = (fallback: string) => retryModel ?? explicitModel ?? fallback;
   const sourceName = (base: RoleModelSource): RoleModelSource => (retryModel ? "retry" : base);
+  const settings = roleSettings(config, role, request.projectDirectory);
+  // An explicit level (the message or Main's call) wins over the role's own,
+  // which wins over the connection's default.
+  const level = (profile: ConnectionProfile) =>
+    request.thinkingLevel ?? settings.thinkingLevel ?? profile.reasoningEffort;
 
   const fromConnection = (source: RoleModelSource, connection: ModelConnection): ResolvedModelRole => {
     const profile = normalizedProfile(connection);
@@ -197,7 +330,7 @@ export function resolveModelRole(
       apiKey,
       model: sourceModel(connection.model),
       profile,
-      thinkingLevel: request.thinkingLevel ?? profile.reasoningEffort,
+      thinkingLevel: level(profile),
       supportsImages: connection.supportsImages === true
     };
   };
@@ -221,15 +354,18 @@ export function resolveModelRole(
           DEFAULT_MODEL
       ),
       profile,
-      thinkingLevel: request.thinkingLevel ?? profile.reasoningEffort,
+      thinkingLevel: level(profile),
       supportsImages: configuredSupportsImages(runtimeSettingsEnv(config))
     };
   }
 
-  const hostBinding = config.roleModels?.host?.[role];
-  if (hostBinding) {
-    const scope = `主机的 ${roleLabel(role)} 角色引用的模型连接`;
-    return fromConnection("host", connectionFor(registry, hostBinding.profileId, scope));
+  if (settings.profileId) {
+    const fromProject = projectRoleSettings(config, role, request.projectDirectory)?.profileId;
+    const scope = `${fromProject ? "项目" : "主机"}的 ${roleLabel(role)} 选择的模型`;
+    return fromConnection(
+      fromProject ? "project" : "host",
+      connectionFor(registry, settings.profileId, scope)
+    );
   }
 
   const active = registry.profiles.find((profile) => profile.id === registry.activeId);
@@ -243,7 +379,7 @@ export function resolveModelRole(
     apiKey: env.COWORK_API_KEY || config.apiKey || "",
     model: sourceModel(request.taskModel || env.COWORK_MODEL || config.model || DEFAULT_MODEL),
     profile,
-    thinkingLevel: request.thinkingLevel ?? profile.reasoningEffort,
+    thinkingLevel: level(profile),
     supportsImages: configuredSupportsImages(runtimeSettingsEnv(config))
   };
 }
@@ -271,12 +407,13 @@ export function isDelegatedModelRole(value: unknown): value is DelegatedModelRol
   return typeof value === "string" && (DELEGATED_MODEL_ROLES as readonly string[]).includes(value);
 }
 
-/** The binding a delegated role would read on this host. */
-export function delegatedRoleBinding(
+/** The model a delegated role names in this place, if any. */
+export function delegatedRoleProfile(
   config: CoworkConfig,
-  role: DelegatedModelRole
-): RoleModelBinding | undefined {
-  return config.roleModels?.host?.[role];
+  role: DelegatedModelRole,
+  projectDirectory?: string
+): string | undefined {
+  return roleSettings(config, role, projectDirectory).profileId;
 }
 
 /**
@@ -297,7 +434,12 @@ export function resolveDelegatedModelRole(
   if (!isDelegatedModelRole(request.role)) throw new Error(`未知的委派角色：${String(request.role)}`);
   const explicitProfileId = request.profileId?.trim() || undefined;
   const explicitModel = request.model?.trim() || undefined;
-  if (!explicitProfileId && !explicitModel && !delegatedRoleBinding(config, request.role)) return undefined;
+  if (
+    !explicitProfileId &&
+    !explicitModel &&
+    !delegatedRoleProfile(config, request.role, request.projectDirectory)
+  )
+    return undefined;
   return resolveModelRole(config, request, env);
 }
 
@@ -318,7 +460,7 @@ export function modelRoleSnapshot(selection: ResolvedModelRole): ModelRoleSnapsh
 export interface PublicModelRole {
   role: ModelRoleKey;
   wired: boolean;
-  host: RoleModelBinding | null;
+  host: RoleSettings | null;
   effective: ModelRoleSnapshot | null;
   error?: string;
 }
@@ -362,27 +504,46 @@ export function publicModelRoles(config: CoworkConfig): PublicModelRoles {
 }
 
 /**
- * Write one host role binding (or clear it with an empty `profileId`).
+ * Replace one built-in Agent's settings, globally or for one project.
  *
- * Unknown references are refused here so the UI cannot create a broken
- * configuration.
+ * The whole record is replaced: a field left out follows the level above.
+ * A model that does not exist is refused here, so the UI cannot create a
+ * broken configuration.
  */
-export function saveRoleModelBinding(config: CoworkConfig, input: Record<string, unknown>): CoworkConfig {
-  if (!isRoleKey(input.role)) throw new Error("请选择有效的模型角色");
+export function saveRoleSettings(
+  config: CoworkConfig,
+  input: { role: unknown; projectDirectory?: string; settings: unknown }
+): CoworkConfig {
+  if (!isBuiltinRole(input.role)) throw new Error("请选择有效的内置 Agent");
   const role = input.role;
-  if (input.profileId !== undefined && typeof input.profileId !== "string")
-    throw new Error("模型连接 ID 不合法");
-  const profileId = typeof input.profileId === "string" ? input.profileId.trim() : "";
-  if (profileId) {
+  // The parser keeps only fields that are set, so an empty record means "follow the level above".
+  const parsed = parseRoleSettings(input.settings, ROLE_LABELS[role]);
+  const settings = Object.keys(parsed).length ? parsed : undefined;
+  if (settings?.profileId) {
     const registry = modelConnections(config);
-    if (!registry.profiles.some((profile) => profile.id === profileId))
-      throw new Error("模型连接不存在，请刷新设置后重试");
+    if (!registry.profiles.some((profile) => profile.id === settings.profileId))
+      throw new Error("模型不存在，请刷新设置后重试");
   }
-  const host = { ...config.roleModels?.host };
-  if (profileId) host[role] = { profileId };
-  else delete host[role];
   const next: CoworkConfig = { ...config };
-  if (Object.keys(host).length) next.roleModels = { version: 1, host };
+  const roles: RoleModelConfig = { version: 1, ...config.roleModels };
+  if (input.projectDirectory) {
+    const key = resolve(input.projectDirectory);
+    const projects = { ...roles.projects };
+    const project = { ...projects[key] };
+    if (settings) project[role] = settings;
+    else delete project[role];
+    if (Object.keys(project).length) projects[key] = project;
+    else delete projects[key];
+    if (Object.keys(projects).length) roles.projects = projects;
+    else delete roles.projects;
+  } else {
+    const host = { ...roles.host };
+    if (settings) host[role] = settings;
+    else delete host[role];
+    if (Object.keys(host).length) roles.host = host;
+    else delete roles.host;
+  }
+  if (roles.host || roles.projects) next.roleModels = roles;
   else delete next.roleModels;
   return next;
 }

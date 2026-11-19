@@ -1475,8 +1475,7 @@ html[data-desktop-platform="darwin"]:not([data-desktop-fullscreen="true"]) .sett
   grid-template-columns: 260px minmax(0, 1fr);
   min-height: 0;
 }
-.provider-layout[hidden],
-.model-roles[hidden] {
+.provider-layout[hidden] {
   display: none;
 }
 .provider-list {
@@ -1871,10 +1870,6 @@ html[data-desktop-platform="darwin"]:not([data-desktop-fullscreen="true"]) .sett
   background: color-mix(in srgb, var(--ui-success) 14%, transparent);
   color: var(--ui-success);
 }
-.model-tag.is-role {
-  background: color-mix(in srgb, var(--ui-warning) 14%, transparent);
-  color: var(--ui-warning);
-}
 .provider-model-row .settings-icon-button,
 .provider-head .settings-icon-button {
   width: 26px;
@@ -1942,53 +1937,7 @@ html[data-desktop-platform="darwin"]:not([data-desktop-fullscreen="true"]) .sett
 .provider-quick-item:hover {
   border-color: var(--color-text-3);
 }
-/* Roles */
-.model-roles {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-  width: 100%;
-  max-width: 820px;
-  margin: 0 auto;
-  padding: 28px;
-  overflow-y: auto;
-}
-.role-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 14px;
-  padding: 14px 16px;
-}
-.role-icon {
-  display: grid;
-  width: 32px;
-  height: 32px;
-  flex: 0 0 auto;
-  place-items: center;
-  border-radius: 8px;
-  background: var(--color-surface-2);
-  color: var(--color-text);
-}
-.role-icon .ui-icon {
-  width: 16px;
-  height: 16px;
-}
-.role-text {
-  display: flex;
-  flex: 1 1 200px;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-.role-name {
-  color: var(--color-text);
-  font: 600 14px/1.4 var(--ui-font);
-}
-.role-hint {
-  color: var(--color-text-3);
-  font: 400 12px/1.5 var(--ui-font);
-}
+/* Model picker (the Agent page's model field) */
 .role-picker {
   display: flex;
   width: 300px;
@@ -2036,15 +1985,6 @@ html[data-desktop-platform="darwin"]:not([data-desktop-fullscreen="true"]) .sett
 .role-picker-text.is-empty span {
   color: var(--color-text-2);
   font-weight: 400;
-}
-.role-row .settings-select.is-effort {
-  min-width: 96px;
-  height: 38px;
-}
-.role-error {
-  flex: 1 0 100%;
-  color: var(--ui-danger);
-  font: 400 12px/1.5 var(--ui-font);
 }
 .role-menu {
   position: fixed;
@@ -2344,9 +2284,6 @@ html[data-desktop-platform="darwin"]:not([data-desktop-fullscreen="true"]) .sett
     flex: 1 0 100%;
     margin: 0;
     text-align: left;
-  }
-  .model-roles {
-    padding: 20px 16px;
   }
   .preset-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -3190,8 +3127,73 @@ html[data-theme] body :is(.provider-search, .provider-input) input:not([type="ch
 .agent-form .mcp-field > .agent-permissions,
 .agent-form .mcp-field > .agent-tools,
 .agent-form .mcp-field > .agent-chips,
-.agent-form .mcp-field > .agent-hint {
+.agent-form .mcp-field > .agent-hint,
+.agent-form .mcp-field > .agent-model-row,
+.agent-form .mcp-field > .agent-tools-text {
   grid-column: 1 / -1;
+}
+/* Model and effort share one row: the model picker grows, effort keeps its width. */
+.agent-model-row {
+  display: flex;
+  gap: 10px;
+  min-width: 0;
+}
+.agent-model-picker.role-picker {
+  width: auto;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.agent-model-picker.role-picker:disabled {
+  cursor: default;
+  opacity: 0.7;
+}
+.agent-effort {
+  position: relative;
+  display: flex;
+  flex: 0 0 110px;
+  align-items: center;
+  gap: 7px;
+  height: 38px;
+  box-sizing: border-box;
+  padding: 0 10px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-control);
+  background: var(--color-surface-2);
+  color: var(--color-text);
+  font: 400 13px/1.4 var(--ui-font);
+  cursor: pointer;
+}
+.agent-effort:hover:not(.is-disabled) {
+  border-color: var(--color-text-3);
+}
+.agent-effort:focus-within {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+.agent-effort.is-disabled {
+  cursor: default;
+  opacity: 0.7;
+}
+.agent-effort > span {
+  flex: 1 1 auto;
+}
+.agent-effort .ui-icon {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  color: var(--color-text-3);
+}
+.agent-effort select {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  opacity: 0;
+  cursor: inherit;
+}
+.agent-tools-text {
+  margin: 0;
+  color: var(--color-text-3);
+  font: 400 13px/1.5 var(--ui-font);
 }
 .agent-form .mcp-field > input,
 .agent-form .mcp-field > textarea,

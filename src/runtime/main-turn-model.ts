@@ -49,7 +49,7 @@ const LAUNCH_MODEL_ENV = [
  */
 export function resolveMainTurnModel(
   config: CoworkConfig,
-  input: { thinkingLevel?: PiThinkingLevel } = {},
+  input: { thinkingLevel?: PiThinkingLevel; projectDirectory?: string } = {},
   env: NodeJS.ProcessEnv = process.env
 ): ResolvedModelRole | undefined {
   if (env[MAIN_MODEL_FROM_CONFIG] !== "1") return undefined;
@@ -59,7 +59,8 @@ export function resolveMainTurnModel(
     config,
     {
       role: "main",
-      ...(input.thinkingLevel ? { thinkingLevel: input.thinkingLevel } : {})
+      ...(input.thinkingLevel ? { thinkingLevel: input.thinkingLevel } : {}),
+      ...(input.projectDirectory ? { projectDirectory: input.projectDirectory } : {})
     },
     launchFree
   );

@@ -10,7 +10,13 @@ import type {
   ResolvedModelRole
 } from "../runtime/role-models.js";
 import type { PiThinkingLevel } from "../runtime/runtime-settings.js";
-import { modelRoleSnapshot, resolveDelegatedModelRole, roleConnectionEnv } from "../runtime/role-models.js";
+import {
+  builtinAgentSettings,
+  modelRoleSnapshot,
+  resolveDelegatedModelRole,
+  roleConnectionEnv,
+  roleSettings
+} from "../runtime/role-models.js";
 import { hasUnfinishedSubagentWork } from "../runtime/subagent-work.js";
 import {
   SubagentDispatchService,
@@ -129,6 +135,8 @@ export function createSubagentBackend(ports: SubagentBackendPorts): SubagentBack
       frozenCandidate: (input) => ports.frozenCandidate(input),
       grants: (input) => ports.grants(input),
       ...(ports.agent ? { agent: (input) => ports.agent!(input) } : {}),
+      builtinAgent: ({ role, projectDirectory }) =>
+        builtinAgentSettings(ports.config(), role, projectDirectory),
       ...(ports.experiment ? { experiment: (input) => ports.experiment!(input) } : {}),
       // A settled item can be the prerequisite that unblocks another one.
       // Waiting for the next sweep would delay that start by a full cycle, so
@@ -370,12 +378,18 @@ export function delegatedEnv(input: {
   configPath?: string;
   piAgentDir?: string;
 }): { env: NodeJS.ProcessEnv; snapshot?: ModelRoleSnapshot } {
+  // The custom Agent's level, then the role's, then the bound connection's own.
   const bound = resolveDelegatedModelRole(input.config, input.delegation, {});
+  // Unbound, the item runs on Main's connection: an Agent or role level still
+  // wins over the level Main is running at.
+  const roleLevel = roleSettings(input.config, input.role, input.delegation.projectDirectory).thinkingLevel;
+  const fallbackLevel = input.delegation.thinkingLevel ?? roleLevel ?? input.thinkingLevel;
   const fallback = bound
     ? undefined
     : input.resolveMainModel({
         ...(input.delegation.model ? { model: input.delegation.model } : {}),
-        ...(input.thinkingLevel ? { thinkingLevel: input.thinkingLevel } : {})
+        ...(fallbackLevel ? { thinkingLevel: fallbackLevel } : {}),
+        ...(input.delegation.projectDirectory ? { projectDirectory: input.delegation.projectDirectory } : {})
       });
   const selection = bound ?? fallback!;
   return {

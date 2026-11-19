@@ -48,6 +48,7 @@ import {
   agentToolNames,
   type AgentDefinition
 } from "../../dist/src/runtime/agent-definitions.js";
+import { parseBuiltinAgentSettings, type BuiltinAgentSettings } from "../../dist/src/runtime/role-models.js";
 import { createMcpRegistration } from "./mcp.ts";
 import { readSubagentPause } from "../../dist/src/runtime/subagent-pause.js";
 
@@ -90,6 +91,13 @@ function customAgent(): AgentDefinition | undefined {
   return agentDefinitionSchema.parse(JSON.parse(raw));
 }
 
+/** A built-in Executor's or Reviewer's settings, fixed by the backend when the item was dispatched. */
+function builtinAgent(): BuiltinAgentSettings | undefined {
+  const raw = process.env.COWORK_BUILTIN_AGENT;
+  if (!raw) return undefined;
+  return parseBuiltinAgentSettings(JSON.parse(raw));
+}
+
 /** MCP tools come and go with their servers; the definition's list keeps whatever Pi activated for them. */
 const MCP_TOOL = /^(mcp__|tool_search$|list_mcp_resources$|list_mcp_resource_templates$|read_mcp_resource$)/;
 
@@ -107,11 +115,18 @@ export async function registerSubagentAgent(pi: ExtensionAPI, role: AgentRole): 
   const deliverablesDirectory = join(taskWorkspace, "agents", "subagents", agentId, "deliverables");
   let submittedReview: ReviewConclusion | undefined;
   const agent = customAgent();
-  // Only the servers the definition names; they connect when the session starts.
-  if (agent?.mcp?.length) {
-    const problem = await createMcpRegistration(pi, undefined, agent.mcp).sync();
+  const builtin = agent ? undefined : builtinAgent();
+  // Only the servers the definition or the role's setting names; they connect when the session starts.
+  const servers = agent ? (agent.mcp ?? []) : (builtin?.mcp ?? []);
+  if (servers === "all" || servers.length) {
+    const problem = await createMcpRegistration(
+      pi,
+      undefined,
+      servers === "all" ? undefined : servers
+    ).sync();
     if (problem) console.error(problem);
   }
+  const skillFilter = agent ? agent.skills : builtin?.skills === "all" ? undefined : builtin?.skills;
 
   // The same provider the Main process registers, with this agent's session and
   // limits; without it Pi has no stream to the configured connection.
@@ -176,7 +191,7 @@ export async function registerSubagentAgent(pi: ExtensionAPI, role: AgentRole): 
       await resolveSkillCatalog(
         await processSkillLocations(harnessRoot, process.env.COWORK_PROJECT_DIR ?? workingDirectory)
       )
-    ).filter((skill) => !agent?.skills || agent.skills.includes(skill.name));
+    ).filter((skill) => !skillFilter || skillFilter.includes(skill.name));
   const grants = parseCapabilityGrants(process.env.COWORK_AGENT_GRANTS);
   if (grants.some((grant) => grant.provider !== "attachments"))
     throw new Error(
@@ -190,6 +205,7 @@ export async function registerSubagentAgent(pi: ExtensionAPI, role: AgentRole): 
     subagentRolePrompt({
       role,
       ...(agent ? { agent } : {}),
+      ...(builtin?.prompt ? { extraPrompt: builtin.prompt } : {}),
       name,
       workingDirectory,
       taskWorkspace,
@@ -246,7 +262,11 @@ export async function registerSubagentAgent(pi: ExtensionAPI, role: AgentRole): 
             ...capabilityToolNames(grants),
             ...pi.getActiveTools().filter((tool) => MCP_TOOL.test(tool))
           ]
-        : subagentToolNames(role, grants)
+        : [
+            ...subagentToolNames(role, grants),
+            // The servers the role's setting names were the only ones registered.
+            ...pi.getActiveTools().filter((tool) => MCP_TOOL.test(tool))
+          ]
     );
   });
 
@@ -430,6 +450,8 @@ function subagentRolePrompt(input: {
   role: SubagentRole;
   /** The custom Agent: its read permission answers in text, and its prompt follows the role's. */
   agent?: AgentDefinition;
+  /** The user's extra prompt for a built-in role, from the Agent page. */
+  extraPrompt?: string;
   name: string;
   workingDirectory: string;
   taskWorkspace: string;
@@ -450,7 +472,11 @@ function subagentRolePrompt(input: {
     ? [
         `Instructions for the ${input.agent.name} Agent, from its definition. They add to the rules above and never replace them:\n${input.agent.prompt.trim()}`
       ]
-    : [];
+    : input.extraPrompt?.trim()
+      ? [
+          `Instructions the user set for this role. They add to the rules above and never replace them:\n${input.extraPrompt.trim()}`
+        ]
+      : [];
   if (input.agent && input.role === "reviewer")
     return [
       ...shared,
@@ -467,7 +493,8 @@ function subagentRolePrompt(input: {
       "Your conclusion reaches Main only through submit_review: verdict is pass or changes_requested, and every finding states its location, the evidence for it and whether it blocks acceptance. Call it when the examination is complete; a work item that ends without a submitted conclusion is recorded as a failure. A malformed submission is reported as an error and can be corrected.",
       ASK_MAIN_GUIDANCE,
       SEND_PEER_MESSAGE_GUIDANCE,
-      ...(input.capabilityPrompt ? [input.capabilityPrompt] : [])
+      ...(input.capabilityPrompt ? [input.capabilityPrompt] : []),
+      ...extra
     ].join("\n\n");
   return [
     ...shared,

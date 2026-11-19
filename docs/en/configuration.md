@@ -58,7 +58,7 @@ After all checks pass and the model connection line reads `OK  流式模型连�
 
 ## App and Web model connections
 
-Open Settings → Models and roles. The page has two tabs, Providers and Role assignment. Stop running tasks before changing providers or models; role assignment may change at any time.
+Open Settings → Models. It manages providers and models only; which model Main, Executor, Reviewer and custom Agents use is chosen under Settings → Agent. Stop running tasks before changing providers or models.
 
 1. Select Add provider and pick one from China, International or Local and custom. A preset fills in the API address and wire format, so you only enter the API key. For any other service that speaks the OpenAI or Anthropic API, choose Custom, enter a name and the API address, and pick the format (Chat Completions, Responses or Anthropic Messages).
 2. Select Add and fetch models. The App reads the provider's model list; tick the models you want and select Add models. If the provider offers no list, close the dialog and use Add manually with the model ID.
@@ -67,7 +67,9 @@ Open Settings → Models and roles. The page has two tabs, Providers and Role as
 
 A bare host address gets `/v1`; an address with a path is used as written. After changing a provider's name, address, key or format, select Save at the bottom, or Discard to revert; unsaved edits survive switching to another provider.
 
-Role assignment picks one model each for Main, Executor and Reviewer from a list grouped by provider, and Main can be overridden for the current project. Without a choice Main uses the first model of the first enabled provider, and Executor and Reviewer keep the model of the Run that started them. Reasoning effort belongs to the chosen model and is adjusted beside the role. Role changes apply to Runs started afterward; a running Run keeps the model and reasoning it was admitted with. Switching models preserves conversations; the next turn sends the history to the new service. A model or provider that a role uses cannot be removed or disabled until the role picks another.
+The Built-in group under Settings → Agent lists Main, Executor and Reviewer. Their name, description (Main's responsibility), permission and tools are fixed; model and reasoning effort, skills, MCP servers and extra prompt can be changed, and the model list is grouped by provider. Without a model, Main uses the first model of the first enabled provider and Executor and Reviewer use Main's; without an effort, the model's own default applies. Main sees every skill and every enabled MCP server by default; Executor and Reviewer see every skill and no MCP server. The Project page sets any of these for one project; a field it leaves alone follows the global value, and Follow global for all clears that project's settings.
+
+Main's settings apply from the next turn. Executor and Reviewer fix their skills, MCP servers and extra prompt when an item is dispatched and read their model when it actually starts, so a running item keeps what it had. Switching models preserves conversations; the next turn sends the history to the new service. A model or provider a built-in Agent uses cannot be removed or disabled until that Agent picks another on the Agent page.
 
 The execution host stores keys and the UI only shows whether a provider is configured. See [connection storage](configuration-reference.md#connection-storage-and-compatibility) for the location and failure handling, and [model providers](configuration-reference.md#model-providers) for the configuration shape.
 

@@ -25,7 +25,7 @@ Updating or uninstalling the npm CLI affects only the CLI/installer; it does not
 
 ## Connect a model
 
-On first launch the App opens Settings → Models and roles with the Add provider dialog. Pick your provider (a preset only needs the API key), or choose Custom, enter the API address and pick the format (Chat Completions, Responses or Anthropic Messages). Select Add and fetch models, then tick the models you want. The service must support streaming and tool calls in the selected format.
+On first launch the App opens Settings → Models with the Add provider dialog. Pick your provider (a preset only needs the API key), or choose Custom, enter the API address and pick the format (Chat Completions, Responses or Anthropic Messages). Select Add and fetch models, then tick the models you want. The service must support streaming and tool calls in the selected format.
 
 Select Check in the provider's detail to confirm the connection; a check uses a little quota. See [model settings](configuration.md) for more options.
 

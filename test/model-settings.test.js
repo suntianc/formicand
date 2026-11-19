@@ -165,21 +165,21 @@ test("models keep their own settings, and what a role uses cannot disappear", as
   assert.equal(f.config.model, "fast");
   assert.equal(f.config.baseUrl, "https://models.example.test/v1");
   assert.equal(f.settings.status().activeProfileId, `${id}#fast`);
-  const bound = await f.settings.saveRole({ role: "main", profileId: `${id}#deep` });
+  const bound = await f.settings.saveRole({ role: "main", settings: { profileId: `${id}#deep` } });
   assert.equal(bound.activeProfileId, `${id}#deep`);
   assert.equal(f.config.model, "deep");
   assert.equal(resolveModelRole(f.config).thinkingLevel, "high");
 
-  await assert.rejects(f.settings.saveModels({ providerId: id, remove: ["deep"] }), /角色使用/);
-  await assert.rejects(f.settings.deleteProvider({ id }), /角色使用/);
-  await assert.rejects(f.settings.saveProvider({ id, enabled: false }), /角色使用/);
+  await assert.rejects(f.settings.saveModels({ providerId: id, remove: ["deep"] }), /Agent 使用/);
+  await assert.rejects(f.settings.deleteProvider({ id }), /Agent 使用/);
+  await assert.rejects(f.settings.saveProvider({ id, enabled: false }), /Agent 使用/);
   await f.settings.saveModels({ providerId: id, remove: ["fast"] });
   assert.deepEqual(
     f.settings.status().providers[0].models.map((model) => model.id),
     ["deep"]
   );
 
-  await f.settings.saveRole({ role: "main", profileId: "" });
+  await f.settings.saveRole({ role: "main", settings: {} });
   await f.settings.deleteProvider({ id });
   assert.deepEqual(f.settings.status().providers, []);
   assert.equal(f.config.baseUrl, undefined, "no provider leaves no default connection");

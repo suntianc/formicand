@@ -16,7 +16,7 @@ import {
 import { NEW_CONNECTION_PROFILE } from "../runtime/model-profile.js";
 import { availableModels as catalogModels } from "../runtime/model-catalog.js";
 import { isOfficialAddress, modelLevels, officialModel } from "../runtime/model-levels.js";
-import { publicModelRoles, saveRoleModelBinding } from "../runtime/role-models.js";
+import { publicModelRoles, saveRoleSettings } from "../runtime/role-models.js";
 import {
   applyHostCredentials,
   hasHostCredentials,
@@ -221,14 +221,16 @@ export function createModelSettings(
       };
     },
     /**
-     * Save one role binding on this execution host.
+     * Save one built-in Agent's settings, globally or for one project.
      *
      * Allowed while a Run is active on purpose: the change must apply to the
-     * next Run and never rewrite the snapshot the current process was given.
+     * next turn or work item and never rewrite what a running one was given.
      */
-    async saveRole(value: Record<string, unknown>) {
-      await update((previous) => withActiveConnection(saveRoleModelBinding(previous, value)), true);
+    async saveRole(value: { role: unknown; projectDirectory?: string; settings: unknown }) {
+      await update((previous) => withActiveConnection(saveRoleSettings(previous, value)), true);
       return status();
-    }
+    },
+    /** The configuration this host runs with, for views that resolve built-in Agent settings. */
+    config: () => config
   };
 }

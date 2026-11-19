@@ -62,7 +62,7 @@ async function skill(root, name) {
   );
 }
 
-async function setup(t, handle) {
+async function setup(t, handle, ports = {}) {
   const root = await mkdtemp(join(tmpdir(), "custom-agent-"));
   const home = join(root, "home");
   const workspace = join(root, "workspace");
@@ -134,7 +134,8 @@ async function setup(t, handle) {
     harnessRoot: harness,
     pollMs: 50,
     env: () => ({ env }),
-    agent: async ({ name }) => await resolveAgent(await agentLocations(home, project), name)
+    agent: async ({ name }) => await resolveAgent(await agentLocations(home, project), name),
+    ...ports
   });
   const runRoot = join(workspace, "task", "runs", "run");
   t.after(async () => {
@@ -221,6 +222,54 @@ test(
       queue.find((entry) => entry.stepId === accepted.callId).payload.agentDefinition.permission,
       "write"
     );
+  }
+);
+
+test(
+  "a built-in Executor runs with the skills, MCP servers and prompt set for it, fixed at dispatch",
+  { timeout: 150_000 },
+  async (t) => {
+    const asked = [];
+    const { service, provider, runRoot } = await setup(t, () => ({ text: "DONE" }), {
+      builtinAgent: (input) => {
+        asked.push(input);
+        return {
+          skills: ["release-notes"],
+          mcp: ["other"],
+          prompt: "BUILTIN_PROMPT_MARK 用中文写提交信息。"
+        };
+      }
+    });
+    const accepted = await service.dispatch({
+      taskId: "task",
+      task: "改个字",
+      mode: "async",
+      role: "executor"
+    });
+    const item = await settled(runRoot, accepted.callId);
+    assert.equal(item.status, "completed", item.error);
+    assert.equal(asked.length, 1);
+    assert.equal(asked[0].role, "executor");
+    assert.match(asked[0].projectDirectory, /project$/, "settings are read for the user's project");
+    assert.deepEqual(item.payload.builtinAgent, {
+      skills: ["release-notes"],
+      mcp: ["other"],
+      prompt: "BUILTIN_PROMPT_MARK 用中文写提交信息。"
+    });
+    assert.match(item.payload.delegation.projectDirectory, /project$/);
+
+    const request = provider.requests[0];
+    const tools = toolNames(request);
+    assert.ok(tools.includes("mcp__other__echo"), tools.join(", "));
+    assert.ok(!tools.some((tool) => tool.startsWith("mcp__echoes__")), "a server it was not given stays off");
+    assert.ok(tools.includes("edit"), "the role keeps its own tools");
+    const system = systemText(request);
+    assert.match(system, /Instructions the user set for this role[^]*BUILTIN_PROMPT_MARK/);
+    assert.ok(
+      system.indexOf("You run this work item as the Executor") < system.indexOf("BUILTIN_PROMPT_MARK")
+    );
+    assert.match(system, /<name>release-notes<\/name>/);
+    assert.doesNotMatch(system, /pg-migration/);
   }
 );
 

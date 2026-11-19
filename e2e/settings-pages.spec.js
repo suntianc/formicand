@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { startConfiguredDashboard, startDashboard } from "../test/dashboard-fixture.mjs";
 import { pageRequest, saveTestConnection } from "../test/model-provider-fixture.mjs";
-import { addProviderThroughUi, chooseRoleModel } from "./model-provider-ui.js";
+import { addProviderThroughUi, chooseRoleModel, openBuiltinAgent } from "./model-provider-ui.js";
 import {
   expectContained,
   expectNoHorizontalOverflow,
@@ -30,7 +30,7 @@ test("the nine sections switch from one navigation, return to the entry and no s
 
     for (const [name, title] of [
       ["nodes", "节点连接"],
-      ["models", "模型与角色"],
+      ["models", "模型"],
       ["agents", "Agent"],
       ["skills", "技能"],
       ["mcp", "MCP 服务"],
@@ -163,7 +163,7 @@ test("general preferences take effect, survive a reload and stay in their sectio
   }
 });
 
-test("providers and the three roles are edited and saved from the settings page", async ({ page }) => {
+test("providers are edited on the model page and the built-in Agents pick from them", async ({ page }) => {
   const dashboard = await startDashboard();
   try {
     await page.goto(dashboard.base);
@@ -186,31 +186,32 @@ test("providers and the three roles are edited and saved from the settings page"
     await expect(page.locator('[data-field="apiKey"]')).toHaveValue("");
     expect(await page.locator("#settings-entry").innerText()).not.toContain("test-key-not-echoed");
 
-    // Main/Executor/Reviewer each pick a model from the role tab.
+    // The model page has no role section; Main, Executor and Reviewer pick on the Agent page.
+    await expect(section(page, "models").locator("[data-model-tab]")).toHaveCount(0);
     await chooseRoleModel(page, "executor", "acceptance-model");
     for (const role of ["main", "executor", "reviewer"])
-      await expect(page.locator(`[data-role-picker="${role}"]`)).toBeVisible();
+      await expect(page.locator(`[data-agent-select="builtin:${role}"]`)).toBeVisible();
     const status = await (await page.request.get(`${dashboard.base}/api/model-settings`)).json();
     const model = status.providers[0].models[0];
     const bound = status.modelRoles.roles.find((entry) => entry.role === "executor");
     expect(bound.host.profileId).toBe(model.profileId);
 
-    // Reopening the page reads the saved bindings back.
+    // Reopening the page reads the saved choice back.
     await page.locator("#settings-back").click();
-    await openSettings(page);
-    await navItem(page, "models").click();
-    await page.locator('[data-model-tab="roles"]').click();
-    await expect(page.locator('[data-role-picker="executor"]')).toContainText("acceptance-model");
+    const agents = await openBuiltinAgent(page, "executor");
+    await expect(agents.locator("[data-agent-model]")).toContainText("acceptance-model");
 
-    // Inference effort belongs to the model both roles use.
-    await page.locator('[data-role-effort="executor"]').selectOption("high");
-    await expect
-      .poll(async () => {
-        const value = await (await page.request.get(`${dashboard.base}/api/model-settings`)).json();
-        return value.providers[0].models[0].reasoningEffort;
-      })
-      .toBe("high");
-    await expect(page.locator('[data-role-effort="main"]')).toHaveValue("high");
+    // Effort is the Agent's own and offers only what the model accepts: this one takes no effort.
+    const effort = agents.locator("[data-agent-effort] option");
+    await expect(effort).toHaveText(["默认", "关闭"]);
+    await agents.locator("[data-agent-effort]").selectOption("off");
+    await agents.locator("[data-agent-save]").click();
+    await expect(page.locator("#toast")).toContainText("已保存");
+    const saved = await (await page.request.get(`${dashboard.base}/api/model-settings`)).json();
+    expect(saved.modelRoles.roles.find((entry) => entry.role === "executor").host).toEqual({
+      profileId: model.profileId,
+      thinkingLevel: "off"
+    });
   } finally {
     await dashboard.stop();
   }
@@ -274,11 +275,12 @@ test("a refused role change reports the reason and keeps the saved model", async
     await page.goto(dashboard.base);
     await expect(page.locator("#composer-input")).toBeVisible();
 
-    // Save one binding so the refused change has a persisted value to return to.
+    // Save one choice so the refused change has a persisted value to return to.
     await chooseRoleModel(page, "executor", model.id);
-    const picker = page.locator('[data-role-picker="executor"]');
+    const agents = page.locator('[data-settings-panel="agents"]');
+    const picker = agents.locator("[data-agent-model]");
 
-    await page.route("**/api/model-settings/roles", (route) =>
+    await page.route("**/api/agents/builtin", (route) =>
       route.fulfill({
         status: 500,
         contentType: "application/json",
@@ -286,9 +288,11 @@ test("a refused role change reports the reason and keeps the saved model", async
       })
     );
     await picker.click();
-    await page.locator(".role-menu .role-menu-item").first().click();
+    await page.locator(".role-menu:not([hidden]) .role-menu-item").first().click();
+    await agents.locator("[data-agent-save]").click();
     await expect(page.locator("#toast")).toContainText("保存被拒绝");
-    await expect(picker).toContainText(model.id);
+    // The unsaved choice stays in the form so it can be retried.
+    await expect(agents.locator("[data-agent-save]")).toBeEnabled();
     const after = await (await page.request.get(`${dashboard.base}/api/model-settings`)).json();
     expect(after.modelRoles.roles.find((entry) => entry.role === "executor").host.profileId).toBe(
       model.profileId

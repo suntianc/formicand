@@ -33,7 +33,7 @@
 
 ## 模型供应商
 
-App 与 Web 的“设置 → 模型与角色”按供应商保存模型，写在执行主机配置的 `modelProviders` 中；上表的顶层字段是 CLI 单连接写法，两者同时存在时以 `modelProviders` 为准。
+App 与 Web 的“设置 → 模型”按供应商保存模型，写在执行主机配置的 `modelProviders` 中；上表的顶层字段是 CLI 单连接写法，两者同时存在时以 `modelProviders` 为准。
 
 ```json
 {
@@ -129,22 +129,27 @@ App 使用 Electron safeStorage 加密客户端会话凭据，保存在桌面数
 
 ## 角色模型
 
-`roleModels` 只在执行主机的本地配置中保存角色绑定；模型和密钥由 `modelProviders` 与主机凭据管理。
+`roleModels` 只在执行主机的本地配置中保存内置 Agent（Main、Executor、Reviewer）的设置，由设置页「Agent」写入；模型和密钥由 `modelProviders` 与主机凭据管理。
 
 ```json
 {
   "roleModels": {
     "version": 1,
-    "host": { "main": { "profileId": "<供应商 ID>#<模型 ID>" } }
+    "host": {
+      "main": { "profileId": "<供应商 ID>#<模型 ID>", "thinkingLevel": "high", "mcp": "all" },
+      "executor": { "skills": ["pg-migration"], "mcp": ["postgres"], "prompt": "改动前先跑测试。" }
+    },
+    "projects": { "/path/to/project": { "executor": { "thinkingLevel": "medium" } } }
   }
 }
 ```
 
-- `host` 是本机所有项目的角色默认，不进入共享项目数据，其他后端不会继承。没有按项目的覆盖：某个会话要换模型，在对话面板里选择即可。
-- 解析优先级为单次/会话显式选择、主机角色默认、第一个启用供应商的第一个模型。没有配置供应商时使用 CLI 单连接字段。
+- 每项都可省略：`profileId` 是模型，`thinkingLevel` 是推理强度，`skills`、`mcp` 是名称列表或 `"all"`，`prompt` 是附加提示词。省略时 `skills` 为全部；`mcp` 对 Main 是全部已启用服务，对 Executor、Reviewer 是不用任何服务。
+- `host` 是本机所有项目的默认，`projects` 以项目目录为键逐项覆盖，没写的项跟随 `host`。两者都不进入共享项目数据，其他后端不会继承。某个会话临时换模型，在对话面板里选择即可。
+- 模型解析优先级为单次/会话显式选择、项目设置、主机设置、第一个启用供应商的第一个模型。没有配置供应商时使用 CLI 单连接字段。推理强度依次取消息里选的档位、自定义 Agent 的 `thinking`、角色设置、模型默认档位。
 - 每次 Run 在准入时固定连接、模型、消息格式与推理参数，并把非敏感来源记录为 `main.run_spawned.modelSelection`；之后修改设置只影响下一次 Run，在途 Run 和原请求重试继续使用已保存的执行归属。
 - 已保存的角色引用找不到模型时给出包含角色和模型引用的错误，并拒绝启动，不会改用其他账号。保存接口拒绝新建失效引用。
-- Main 在每次 Run 准入时读取角色；`executor`、`reviewer` 在每次委派工作项实际启动时读取（包括排队等待前置的工作项），因此修改绑定作用于尚未启动的工作项，已启动的尝试保持不变。两者都没有绑定时工作项沿用 Main 本次 Run 的连接，状态视图不报告固定生效连接。`router` 仍是后续路径的配置键，不由当前运行路径读取。
+- Main 在每次 Run 准入时读取模型，并在每轮开始时重读技能、MCP 和附加提示词；`executor`、`reviewer` 的技能、MCP 和附加提示词在派单时写进工作项，模型在工作项实际启动时读取（包括排队等待前置的工作项），已启动的尝试保持不变。两者都没有选模型时工作项沿用 Main 本次 Run 的连接，状态视图不报告固定生效连接。`router` 仍是后续路径的配置键，不由当前运行路径读取。
 
 ## 图片输入
 

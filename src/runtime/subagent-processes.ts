@@ -1,5 +1,6 @@
 import { mkdir, readFile, readdir, rm } from "node:fs/promises";
 import type { AgentDefinition } from "./agent-definitions.js";
+import type { BuiltinAgentSettings } from "./role-models.js";
 import { join, relative, resolve } from "node:path";
 import { id, now } from "../domain/types.js";
 import { atomicWrite } from "../storage/atomic-file.js";
@@ -97,6 +98,8 @@ interface WorkPayload {
   experimentRef?: DelegatedExperimentRef;
   /** The custom Agent's definition, fixed when the item was dispatched. */
   agentDefinition?: AgentDefinition;
+  /** A built-in role's skills, MCP servers and extra prompt, fixed when the item was dispatched. */
+  builtinAgent?: BuiltinAgentSettings;
 }
 
 /** The roles this service launches and settles; Main belongs to the run service. */
@@ -469,7 +472,8 @@ export class SubagentProcessService {
         ? { COWORK_AGENT_GRANTS: JSON.stringify(payload.capabilityGrants) }
         : {}),
       // The process applies the definition itself: its tools, skills, MCP servers and prompt.
-      COWORK_AGENT_DEFINITION: payload.agentDefinition ? JSON.stringify(payload.agentDefinition) : undefined
+      COWORK_AGENT_DEFINITION: payload.agentDefinition ? JSON.stringify(payload.agentDefinition) : undefined,
+      COWORK_BUILTIN_AGENT: payload.builtinAgent ? JSON.stringify(payload.builtinAgent) : undefined
     };
   }
 

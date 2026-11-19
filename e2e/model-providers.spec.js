@@ -8,6 +8,7 @@ import { startDashboard } from "../test/dashboard-fixture.mjs";
 import { modelProtocolFixture } from "../test/model-protocol-fixture.mjs";
 import { stopNativeBackend } from "../test/native-backend-fixture.mjs";
 import { pageRequest, saveTestConnection } from "../test/model-provider-fixture.mjs";
+import { saveRoleModel } from "../test/role-settings.mjs";
 import {
   activeModelOf,
   addProviderThroughUi,
@@ -351,7 +352,7 @@ test("moving Main to another model during a run leaves that turn alone and takes
     await page.locator("#send-button").click();
     await expect.poll(() => provider.requests.length, { timeout: 30_000 }).toBe(1);
     // A role binding is read when a turn starts, so it may change while one runs.
-    const switched = await request("/api/model-settings/roles", { role: "main", profileId: next.profileId });
+    const switched = await saveRoleModel(request, "main", next.profileId);
     expect(switched.status).toBe(200);
     expect(switched.body.activeProfileId).toBe(next.profileId);
     release();
@@ -369,7 +370,9 @@ test("moving Main to another model during a run leaves that turn alone and takes
 });
 
 test("the composer switches one conversation to another provider's model and back", async ({ page }) => {
-  const alpha = await modelProtocolFixture("openai-completions", (body) => ({ text: `${body.model} 来自甲` }));
+  const alpha = await modelProtocolFixture("openai-completions", (body) => ({
+    text: `${body.model} 来自甲`
+  }));
   const beta = await modelProtocolFixture("openai-completions", (body) => ({ text: `${body.model} 来自乙` }));
   const dashboard = await startDashboard();
   const request = pageRequest(page, dashboard.base);
@@ -389,7 +392,10 @@ test("the composer switches one conversation to another provider's model and bac
     });
     await page.goto(dashboard.base);
     await expect(page.locator("#model-select .model-name")).toHaveText("alpha-model");
-    await expect(page.locator("#model-select .model-logo .provider-logo")).toHaveAttribute("data-logo", "generic");
+    await expect(page.locator("#model-select .model-logo .provider-logo")).toHaveAttribute(
+      "data-logo",
+      "generic"
+    );
     await page.locator("#composer-input").fill("第一轮走 Main 的连接");
     await page.locator("#send-button").click();
     await expect(page.locator("#conversation")).toContainText("alpha-model 来自甲", { timeout: 30_000 });
@@ -401,7 +407,10 @@ test("the composer switches one conversation to another provider's model and bac
     await expect(page.locator("#model-menu .picker-group")).toHaveText(["甲供应商", "乙供应商"]);
     await page.locator(`#model-menu [data-profile="${other.profileId}"]`).click();
     await expect(page.locator("#model-select .model-name")).toHaveText("deepseek-beta");
-    await expect(page.locator("#model-select .model-logo .provider-logo")).toHaveAttribute("data-logo", "deepseek");
+    await expect(page.locator("#model-select .model-logo .provider-logo")).toHaveAttribute(
+      "data-logo",
+      "deepseek"
+    );
     await page.keyboard.press("Escape");
     await page.locator("#composer-input").fill("第二轮换到乙");
     await page.locator("#send-button").click();

@@ -11,14 +11,18 @@ import { parseSkillFrontmatter } from "./skill-frontmatter.js";
  * to use it and fixes what it may do; the body is extra prompt text placed
  * after the role's own. Global ones live in `~/.atria/agents/`, a project's in
  * its `.atria/agents/`, and a project one wins over a global one of the same
- * name. The built-in Executor and Reviewer are shown in the same shape and
- * cannot be changed.
+ * name. The built-in Executor and Reviewer are shown in the same shape; only
+ * their model, effort, skills, MCP servers and extra prompt can be set, and
+ * those live with the role settings, not in a file.
  */
 
 export const AGENT_NAME = /^[A-Za-z0-9][A-Za-z0-9-]{0,63}$/;
 export const AGENT_PERMISSIONS = ["write", "read"] as const;
 export type AgentPermission = (typeof AGENT_PERMISSIONS)[number];
 export const BUILTIN_AGENT_NAMES = ["executor", "reviewer"] as const;
+/** Names a file Agent cannot take: the built-ins, Main included. */
+export const RESERVED_AGENT_NAMES = ["main", ...BUILTIN_AGENT_NAMES] as const;
+const THINKING_LEVELS = ["off", "minimal", "low", "medium", "high", "xhigh", "max"] as const;
 
 /** Tools an Agent may be given, by permission. Main's own tools and desktop control are never here. */
 const READ_TOOLS = ["read", "bash", "grep", "find", "ls", "browse_workspace", "search", "visit"] as const;
@@ -64,6 +68,8 @@ export const agentDefinitionSchema = z
     model: z.string().trim().min(1).max(200).optional(),
     /** A model connection; omitted means the role's connection. */
     profile: z.string().trim().min(1).max(200).optional(),
+    /** Reasoning effort; omitted means the role's. */
+    thinking: z.enum(THINKING_LEVELS, { error: "推理强度不合法" }).optional(),
     tools: nameList.optional(),
     /** Omitted: every skill is visible. */
     skills: nameList.optional(),
@@ -154,6 +160,7 @@ export function serializeAgentDefinition(definition: AgentDefinition): string {
   ];
   if (definition.profile) lines.push(`profile: ${quoted(definition.profile)}`);
   if (definition.model) lines.push(`model: ${quoted(definition.model)}`);
+  if (definition.thinking) lines.push(`thinking: ${definition.thinking}`);
   for (const key of ["tools", "skills", "mcp"] as const) {
     const list = definition[key];
     if (list) lines.push(`${key}: [${list.map(quoted).join(", ")}]`);
@@ -302,6 +309,7 @@ export function agentSnapshot(entry: AgentEntry & { definition: AgentDefinition 
     name: entry.definition.name,
     source: entry.source,
     permission: entry.definition.permission,
-    modelSource: entry.definition.model || entry.definition.profile ? "agent" : "role"
+    modelSource: entry.definition.model || entry.definition.profile ? "agent" : "role",
+    ...(entry.definition.thinking ? { thinking: entry.definition.thinking } : {})
   };
 }

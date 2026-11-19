@@ -10,6 +10,7 @@ import { setTimeout as delay } from "node:timers/promises";
 import { startDashboard } from "./dashboard-fixture.mjs";
 import { protocolStream } from "./model-protocol-fixture.mjs";
 import { profileId as connectionId, providerConfig, saveTestConnection } from "./model-provider-fixture.mjs";
+import { saveRoleModel } from "./role-settings.mjs";
 
 /**
  * What a real Main process is actually asked.
@@ -210,7 +211,7 @@ test(
     assert.equal(publicText.includes(keyA) || publicText.includes(keyB), false);
 
     // Host default: the next Run switches connection, model and reasoning profile.
-    const hosted = await request("/api/model-settings/roles", { role: "main", profileId: profileB.id });
+    const hosted = await saveRoleModel(request, "main", profileB.id);
     assert.equal(hosted.status, 200, JSON.stringify(hosted.body));
     await createTask(request, projectA.projectId, "role-host");
     const hostRun = await startRun(request, "role-host");
@@ -291,7 +292,7 @@ test(
       reasoningEffort: "high"
     });
     const heldProfile = heldSaved.profiles.find((profile) => profile.name === "连接 B 挂起");
-    await request("/api/model-settings/roles", { role: "main", profileId: heldProfile.id });
+    await saveRoleModel(request, "main", heldProfile.id);
     await createTask(request, projectB.projectId, "role-in-flight");
     armed = true;
     const inFlight = await startRun(request, "role-in-flight");
@@ -301,7 +302,7 @@ test(
     );
     assert.equal(heldProvider.requests[0].body.model, "model-held");
     assert.equal(heldProvider.requests[0].body.reasoning_effort, "high");
-    const changed = await request("/api/model-settings/roles", { role: "main", profileId: profileA.id });
+    const changed = await saveRoleModel(request, "main", profileA.id);
     assert.equal(changed.status, 200, "a role change is allowed while another Run is in flight");
     release();
     await settle(request, "role-in-flight");

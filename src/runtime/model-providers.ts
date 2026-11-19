@@ -256,18 +256,21 @@ export function withActiveConnection(config: CoworkConfig): CoworkConfig {
   return { ...rest, ...connection };
 }
 
-/** Role bindings that name a connection; deleting or disabling what they use is refused. */
+/** Built-in Agents that chose a model, globally or in a project; deleting or disabling it is refused. */
 function usedBy(config: CoworkConfig, match: (profileId: string) => boolean): string[] {
   const uses: string[] = [];
   const roles = config.roleModels;
-  for (const [role, binding] of Object.entries(roles?.host ?? {}))
-    if (match(binding.profileId)) uses.push(role);
+  for (const [role, settings] of Object.entries(roles?.host ?? {}))
+    if (settings.profileId && match(settings.profileId)) uses.push(role);
+  for (const [directory, project] of Object.entries(roles?.projects ?? {}))
+    for (const [role, settings] of Object.entries(project))
+      if (settings.profileId && match(settings.profileId)) uses.push(`${role}（${directory}）`);
   return uses;
 }
 
 function assertUnused(config: CoworkConfig, match: (profileId: string) => boolean, what: string) {
   const uses = usedBy(config, match);
-  if (uses.length) throw new Error(`${what}正被角色使用：${uses.join("、")}。请先在角色分配中改选其他模型`);
+  if (uses.length) throw new Error(`${what}正被 Agent 使用：${uses.join("、")}。请先在 Agent 页改选其他模型`);
 }
 
 function withProviders(config: CoworkConfig, providers: ModelProvider[]): CoworkConfig {

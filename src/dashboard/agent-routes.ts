@@ -14,6 +14,25 @@ const saveSchema = z
   .strict();
 const entrySchema = z.object({ target: scopeSchema, name }).strict();
 const enabledSchema = z.object({ target: scopeSchema, name, enabled: z.boolean() }).strict();
+const nameChoice = z.union([z.literal("all"), z.array(z.string().trim().min(1).max(100)).max(100)]);
+const builtinSchema = z
+  .object({
+    target: scopeSchema,
+    name,
+    settings: z
+      .object({
+        profileId: z.string().trim().min(1).max(200).optional(),
+        thinkingLevel: z.enum(["off", "minimal", "low", "medium", "high", "xhigh", "max"]).optional(),
+        skills: nameChoice.optional(),
+        mcp: nameChoice.optional(),
+        prompt: z
+          .string()
+          .max(64 * 1024)
+          .optional()
+      })
+      .strict()
+  })
+  .strict();
 const trustSchema = z
   .object({ projectId: z.string().trim().min(1).max(200), trust: z.enum(["trusted", "untrusted"]) })
   .strict();
@@ -32,7 +51,7 @@ function scopeFromQuery(url: URL): AgentScope {
   );
 }
 
-/** Settings → Agent: lists, editor options, save, switch on/off, delete, and project trust. */
+/** Settings → Agent: lists, editor options, save, built-in settings, switch on/off, delete, and project trust. */
 export async function handleAgentRequest(
   request: IncomingMessage,
   response: ServerResponse,
@@ -66,6 +85,11 @@ export async function handleAgentRequest(
     case "/api/agents/save": {
       const body = parsed(saveSchema, await post());
       sendJson(response, 200, await agents.save(body.target, body.definition, body.previousName));
+      return true;
+    }
+    case "/api/agents/builtin": {
+      const body = parsed(builtinSchema, await post());
+      sendJson(response, 200, await agents.saveBuiltin(body.target, body.name, body.settings));
       return true;
     }
     case "/api/agents/enabled": {

@@ -101,3 +101,92 @@ test(
     assert.match(results[1], /echo:hello/);
   }
 );
+
+test(
+  "real Main uses the skills, MCP servers and extra prompt set for it, the project's over the host's",
+  { timeout: 60000 },
+  async (t) => {
+    const root = await mkdtemp(join(tmpdir(), "atria-main-settings-pi-"));
+    t.after(() => rm(root, { recursive: true, force: true }));
+    const home = join(root, "home"),
+      project = join(root, "project"),
+      workspace = join(root, "workspace");
+    for (const name of ["keep", "drop"]) {
+      await mkdir(join(home, "skills", name), { recursive: true });
+      await writeFile(
+        join(home, "skills", name, "SKILL.md"),
+        `---\nname: ${name}\ndescription: ${name} skill\n---\nUse it.\n`
+      );
+    }
+    await mkdir(project, { recursive: true });
+    await mkdir(workspace);
+    const server = resolve("test/fixtures/mcp-echo-server.mjs");
+    await writeFile(
+      join(home, "mcp.json"),
+      JSON.stringify({
+        mcpServers: {
+          echoes: { command: process.execPath, args: [server], exposure: "direct" },
+          other: { command: process.execPath, args: [server], exposure: "direct" }
+        }
+      })
+    );
+    const requests = [];
+    const provider = await modelProtocolFixture("openai-completions", (body) => {
+      requests.push(body);
+      return { text: "SETTINGS_VERIFIED" };
+    });
+    t.after(() => provider.close());
+    const configPath = join(root, "config.json");
+    await writeFile(
+      configPath,
+      JSON.stringify({
+        baseUrl: provider.baseUrl,
+        apiKey: "local-main-settings",
+        model: "fixture",
+        reasoningEffort: "off",
+        supportsReasoningEffort: false,
+        roleModels: {
+          version: 1,
+          host: { main: { skills: ["keep"], mcp: ["other"], prompt: "HOST_MAIN_MARK" } },
+          projects: { [project]: { main: { prompt: "PROJECT_MAIN_MARK" } } }
+        }
+      })
+    );
+    const inherited = Object.fromEntries(
+      Object.entries(process.env).filter(([name]) => !/^(COWORK_|PI_|ATRIA_)/.test(name))
+    );
+    const pending = exec(process.execPath, ["scripts/start-pi.mjs", "--print", "--mode", "json", "Hello."], {
+      cwd: resolve("."),
+      timeout: 45000,
+      maxBuffer: 16 * 1024 * 1024,
+      env: {
+        ...inherited,
+        ATRIA_HOME: home,
+        COWORK_CONFIG: configPath,
+        COWORK_PROJECT_DIR: project,
+        COWORK_WORKSPACE: workspace,
+        COWORK_TASK_ID: "settings",
+        COWORK_RUN_ID: "settings-run",
+        PI_CODING_AGENT_DIR: join(root, "pi"),
+        COWORK_DISABLE_MAIN_GUARDIAN: "1",
+        PI_OFFLINE: "1"
+      }
+    });
+    pending.child.stdin.end();
+    const { stdout, stderr } = await pending;
+    assert.ok(stdout.includes("SETTINGS_VERIFIED"), stderr);
+    const tools = requests[0].tools.map((tool) => tool.function.name);
+    assert.ok(tools.includes("mcp__other__echo"), tools.join(","));
+    assert.ok(!tools.some((name) => name.startsWith("mcp__echoes__")), tools.join(","));
+    const system = requests[0].messages
+      .filter((message) => message.role === "system")
+      .map((message) =>
+        typeof message.content === "string" ? message.content : JSON.stringify(message.content)
+      )
+      .join("\n");
+    assert.match(system, /<user_main_instructions>\s*PROJECT_MAIN_MARK/);
+    assert.doesNotMatch(system, /HOST_MAIN_MARK/);
+    assert.match(system, /<name>keep<\/name>/);
+    assert.doesNotMatch(system, /<name>drop<\/name>/);
+  }
+);

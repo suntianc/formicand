@@ -1228,7 +1228,9 @@ export function createDashboardRunService({
     // The connection a retry must still belong to. Resolving it here also refuses
     // an explicit profile id before this request is admitted.
     const roleRequestBase = {
-      ...(submission?.profileId ? { profileId: submission.profileId } : {})
+      ...(submission?.profileId ? { profileId: submission.profileId } : {}),
+      // The project's own Main settings win over the host's.
+      ...(task.projectDirectory ? { projectDirectory: task.projectDirectory } : {})
     };
     const retryRequest = continuation
       ? await requestStore.inspectPending(async (snapshot) => {

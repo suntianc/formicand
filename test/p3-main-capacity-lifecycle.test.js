@@ -16,6 +16,7 @@ import { protocolStream } from "./model-protocol-fixture.mjs";
 import { createSettingsPages } from "../web/assets/controllers/settings-pages.js";
 import { backendPaths, readBackendInstance } from "../dist/src/dashboard/backend-instance.js";
 import { saveTestConnection } from "./model-provider-fixture.mjs";
+import { saveRoleModel } from "./role-settings.mjs";
 
 const run = promisify(execFile);
 
@@ -870,7 +871,7 @@ test(
       reasoningEffort: "low",
       activate: true
     });
-    const hosted = await request("/api/model-settings/roles", { role: "main", profileId: profileA.id });
+    const hosted = await saveRoleModel(request, "main", profileA.id);
     assert.equal(hosted.status, 200, JSON.stringify(hosted.body));
 
     const projects = {};
@@ -910,10 +911,7 @@ test(
     assert.match(queuedState, /profileId/, "the explicit connection is kept with the demand");
 
     // While they wait, the host default moves to B.
-    const hostSwitch = await request("/api/model-settings/roles", {
-      role: "main",
-      profileId: profileB.id
-    });
+    const hostSwitch = await saveRoleModel(request, "main", profileB.id);
     assert.equal(hostSwitch.status, 200, JSON.stringify(hostSwitch.body));
     assert.equal(a.requests.length, 1, "the in-flight Run is untouched by the role change");
     assert.equal(b.requests.length, 0);
@@ -954,7 +952,7 @@ test(
 
     // Two config writers interleaved: both settings survive.
     const [roleSave, quotaSave] = await Promise.all([
-      request("/api/model-settings/roles", { role: "main", profileId: profileA.id }),
+      saveRoleModel(request, "main", profileA.id),
       request("/api/main-capacity", { action: "configure", resident: 2, continuation: 0 })
     ]);
     assert.equal(roleSave.status, 200, JSON.stringify(roleSave.body));
