@@ -81,6 +81,12 @@ MCP 服务只有一份全局配置 `~/.atria/mcp.json`（`mcpServers` 格式，�
 
 设置页「MCP」检查连接、列出工具与 OAuth 登录都调用 Pi 自己的 `pi mcp list --json` 与 `pi mcp login`：后端在 `~/.atria/runtime/mcp-probe/` 下为每次操作建一个只含相关服务的临时目录（用完即删），该目录在 Pi 目录的 `trust.json` 中登记为信任；登录凭据写入 Pi 目录的 `mcp-auth.json`，按服务名与地址对应，Main 连接同名同址的服务时直接使用。
 
+### 输入框 `/` 与 `@`
+
+输入框里打 `/` 列出技能、指令模板和命令，打 `@` 搜索项目文件和 MCP 资源（[菜单](../web/assets/controllers/composer-menu.js)，列表来自 [输入框服务](../src/dashboard/composer-service.ts)）。技能清单与 Main 看到的一致；指令模板是 `~/.atria/prompts/` 与项目 `.atria/prompts/` 下的 Markdown，同名时项目的优先，选中后直接展开成可再编辑的文字；文件列表在 Git 仓库里按 `.gitignore` 过滤，否则遍历目录并跳过 `node_modules` 等；MCP 资源由后端连接已启用的服务读取，`ui://` 界面资源不列，需要登录或用 `!命令` 取值的服务不列资源。
+
+选中的技能、文件与资源在消息里留下 `/名称`、`@路径`、`@服务:地址`，发送、运行中插话与修改重发时由前端识别成引用随请求发送。后端只保留能解析的引用（技能在清单里、文件在项目内且存在、服务已启用），在消息开头加上 `<atria_references>` 清单（[格式](../src/runtime/composer-references.ts)），写明技能文件路径和每类引用的用法；清单在会话里不显示，只把对应的词标成标签。
+
 ## 显式委派附件
 
 普通 `call_subagent({task,mode})` 保持有效。附件和桌面权限不会全部自动继承，需要显式共享范围：

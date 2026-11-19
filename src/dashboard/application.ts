@@ -8,6 +8,7 @@ import {
 import { createWebSearchSettings } from "./web-search-settings.js";
 import { createSkillService } from "./skill-service.js";
 import { createMcpService } from "./mcp-service.js";
+import { createComposerService } from "./composer-service.js";
 import { homedir } from "node:os";
 import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
@@ -815,6 +816,12 @@ export function createDashboardApplication(
     developments,
     projectClones,
     mcp: createMcpService({ home: data.home, piAgentDir: data.piAgentDir, harnessRoot: projectRoot }),
+    composer: createComposerService({
+      harnessRoot: projectRoot,
+      home: data.home,
+      userHome: homedir(),
+      projectForId: workspaces.projectForId
+    }),
     skills: createSkillService({
       harnessRoot: projectRoot,
       home: data.home,

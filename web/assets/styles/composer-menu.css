@@ -1,0 +1,117 @@
+/* The composer's `/` and `@` menus, and the words they leave in a message. */
+.composer-menu {
+  position: absolute;
+  left: 10px;
+  bottom: calc(100% + 6px);
+  z-index: 30;
+  display: flex;
+  width: min(480px, calc(100% - 20px));
+  max-height: min(380px, calc(100vh - 180px));
+  flex-direction: column;
+  overflow: auto;
+  padding: 6px;
+  border: 1px solid var(--popover-edge);
+  border-radius: 12px;
+  background: var(--popover-fill);
+  box-shadow: var(--popover-shadow);
+  color: var(--color-text);
+}
+.composer-menu-group {
+  padding: 8px 10px 4px;
+  color: var(--color-text-3);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+}
+.composer-menu-item {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.composer-menu-item:hover {
+  background: var(--hover-fill);
+}
+.composer-menu-item.is-active {
+  background: var(--selected-fill);
+}
+.composer-menu-item > .ui-icon {
+  flex: none;
+  width: 15px;
+  height: 15px;
+  color: var(--color-text-2);
+}
+.composer-menu-main {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: baseline;
+  gap: 10px;
+}
+.composer-menu-label {
+  flex: none;
+  max-width: 60%;
+  overflow: hidden;
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.composer-menu-label b {
+  font-weight: 600;
+}
+.composer-menu-detail {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--color-text-2);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.composer-menu-badge {
+  flex: none;
+  max-width: 120px;
+  overflow: hidden;
+  padding: 1px 6px;
+  border-radius: 5px;
+  background: var(--color-surface-3);
+  color: var(--color-text-2);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.composer-menu-empty {
+  padding: 10px;
+  color: var(--color-text-2);
+  font-size: 12px;
+}
+.composer-menu-keys {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: 4px;
+  padding: 8px 10px 4px;
+  border-top: 1px solid var(--color-line);
+  color: var(--color-text-3);
+  font-size: 11px;
+}
+.reference-chip {
+  padding: 0 4px;
+  border-radius: 4px;
+  background: var(--color-review-soft);
+  color: var(--color-review);
+}
+.reference-chip.is-skill {
+  background: var(--color-ok-soft);
+  color: var(--color-ok);
+}
+@media (max-width: 560px) {
+  .composer-menu {
+    left: 6px;
+    width: calc(100% - 12px);
+  }
+  .composer-menu-detail {
+    display: none;
+  }
+}

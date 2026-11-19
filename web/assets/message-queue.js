@@ -2,6 +2,7 @@ import { ui } from "./ui/language.js";
 import { escapeHtml as esc } from "./ui/html.js";
 import { reconcileMarkup } from "./ui/reconcile.js";
 import { splitUploadedFiles } from "./uploaded-files.js";
+import { splitReferences } from "./references.js";
 
 /** Pending input stays beside the composer until it is delivered or promoted. */
 export function renderMessageQueue(
@@ -26,7 +27,8 @@ export function renderMessageQueue(
                 ? message.content
                 : (message.content || []).map((part) => part.text || "").join("");
             const preview =
-              splitUploadedFiles(text).text.split("\n\nAttached files:")[0].trim() || ui("附件消息");
+              splitUploadedFiles(splitReferences(text).text).text.split("\n\nAttached files:")[0].trim() ||
+              ui("附件消息");
             const busy = promoting.has(`${taskId}:${message.id}`);
             const short = esc(preview.slice(0, 60));
             // While Main runs a queued message can join its next step; once the

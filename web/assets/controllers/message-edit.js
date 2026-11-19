@@ -31,6 +31,7 @@ export function createMessageEditController({
   onError,
   onChange,
   onSubmit,
+  referencesOf = async () => [],
   onAccepted
 }) {
   const submitting = new Set();
@@ -162,6 +163,8 @@ export function createMessageEditController({
       composerSession.save();
       sync();
       try {
+        // Only a draft with `/` or `@` words waits for them to be read; others send at once.
+        const references = /(^|\s)[/@]\S/.test(draft.text) ? await referencesOf(draft.text) : [];
         const run = await api(`/api/tasks/${encodeURIComponent(taskId)}/messages/edit`, {
           method: "POST",
           headers: { "content-type": "application/json" },
@@ -174,6 +177,7 @@ export function createMessageEditController({
             body: draft.text,
             attachmentIds: draft.attachments.filter((file) => file.uploadId).map((file) => file.uploadId),
             textAttachments: draft.attachments.filter((file) => !file.uploadId),
+            ...(references.length ? { references } : {}),
             model: state.model || state.defaultModel || undefined
           })
         });

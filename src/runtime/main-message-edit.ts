@@ -3,6 +3,7 @@ import {
   recordMessageEditBranch,
   rollbackMessageEditTransaction
 } from "./main-message-edit-transaction.js";
+import { stripReferencesBlock } from "./composer-references.js";
 import { createHash, randomUUID } from "node:crypto";
 import { mkdir, readFile, readdir, rename, stat, writeFile, realpath } from "node:fs/promises";
 import { join, dirname, resolve, basename } from "node:path";
@@ -401,6 +402,8 @@ export async function latestEditableMessage(root: string, taskId: string, runId?
       body = latest.body ?? inlineSource.slice(0, inlineBoundary);
     }
   }
+  // The `/` and `@` manifest is rebuilt from the edited words, not edited itself.
+  if (latest.body === undefined) body = stripReferencesBlock(body);
   const task = await new LocalWorkspaceStore(root).readTask(taskId);
   const scopeToken = createHash("sha256")
     .update(JSON.stringify(await mainRequestEnvironment(root, taskId, task.projectDirectory ?? root)))

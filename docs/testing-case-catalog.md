@@ -173,8 +173,9 @@
 | INPUT-01 | UTF-8、PDF/Office 支持类型、非法编码/损坏/超限      | 解析结果完整，预算边界正确；缺读取器准确提示，不提前发送 |
 | INPUT-03 | 跨 Task upload ID、路径越界、符号链接、显式委派附件 | 拒绝未共享内容；引用/原字节归属准确                      |
 | INPUT-04 | Main/Subagent 图像读取、模型无图像能力、重启        | 图像块送达支持的请求；不支持时说明；无 base64 文本膨胀   |
+| INPUT-05 | 输入框 `/`、`@` 选技能、模板、命令、文件与资源      | 选中的词留在消息里；只发能解析的引用，Main 收到说明      |
 
-现有锚点：`input-files.test.js`、`input-files-pi.test.js`、`input-files-http.test.js`、`composer-attachments.test.js`、`image-input-session.test.js`、`e2e/file-upload.spec.js`。
+现有锚点：`input-files.test.js`、`input-files-pi.test.js`、`input-files-http.test.js`、`composer-attachments.test.js`、`image-input-session.test.js`、`e2e/file-upload.spec.js`、`composer-service.test.js`、`e2e/composer-menus.spec.js`。
 
 ### 15 产出物交付
 
