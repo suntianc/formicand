@@ -135,7 +135,7 @@ Main 自动压缩与 `clear_context` 共用原生近期尾部；Main 与子智�
 
 ### 技能与终端入口
 
-随产品提供的技能只有 [workspace-explore](../.pi/skills/workspace-explore/SKILL.md) 与 [cua](../.pi/skills/cua/SKILL.md)，存放在 `.pi/skills/`。修改后运行 [安装资源闭包](../test/bundled-skills.test.js) 与 [CLI 实际归档](../test/cli-packaging.test.js)。连接的思考格式归 [模型声明](../src/runtime/model-profile.ts) 与 [运行参数](../src/runtime/runtime-settings.ts)，协议及持久恢复见 [GLM 测试](../test/glm-thinking.test.js)。
+随产品提供的技能只有 [cua](../.pi/skills/cua/SKILL.md)，存放在 `.pi/skills/`。修改后运行 [安装资源闭包](../test/bundled-skills.test.js) 与 [CLI 实际归档](../test/cli-packaging.test.js)。连接的思考格式归 [模型声明](../src/runtime/model-profile.ts) 与 [运行参数](../src/runtime/runtime-settings.ts)，协议及持久恢复见 [GLM 测试](../test/glm-thinking.test.js)。
 
 CoworkOS 的免依赖版本入口由 [cli-information](../scripts/cli-information.mjs) 与 [start-pi 薄入口](../scripts/start-pi.mjs) 装配；运行准备在 [start-pi-runtime](../scripts/start-pi-runtime.mjs)。命令身份与新日志路径由 [命令兼容层](../scripts/cli-shell-compatibility.mjs)、[固定策略](../scripts/cli-shell-policy.json) 和 [非交互 boot](../scripts/cli-shell-boot.mjs) 负责，回归 [真实命令/RPC](../test/cli-shell-identity.test.js) 与 [worker 隔离](../test/cli-runtime-host.test.js)。受限 SDK UI 策略、构建/加载和升级门槛见 [终端适配](cli-ui-adapter.md)，回归包含 [信息入口](../test/cli-information.test.js)、[manifest/拒绝](../test/cli-ui-compatibility.test.js)、[真实 PTY](../test/cli-ui-pty.test.js)。默认角色和压缩快照产品副本共用 [领域身份](../src/domain/agent-identity.ts)，验收 [身份/导出](../test/agent-identity.test.js) 及请求归档。
 
@@ -208,8 +208,6 @@ Main 失败请求重放由 [私有请求槽](../src/storage/main-request-store.t
 子代理进程的角色工具表由 [角色策略](../src/runtime/subagent-roles.ts) 决定：[角色工具](../.pi/runtime/tools/subagent.ts) 只注册通道与结论工具，Pi 内置的读写/命令/检索工具在 `session_start` 按角色激活，两个角色还声明与 Main 同一实现的只读 `search`/`visit`（搜索关闭时都不声明），Reviewer 因此没有写文件工具、但有在自己的候选副本里运行验证的 `bash`；该副本由 [审查现场](../src/workspace/review-site.ts) 从被审候选提交创建为 detached checkout，并在进程结束后由 [后端结算](../src/runtime/subagent-processes.ts) 清理。受保护路径由 [共用拦截](../src/tools/protected-call.ts) 在工具调用边界对 Main 与子代理执行同一条规则，[Main 扩展](../.pi/runtime/extension.ts) 与 [委派进程](../.pi/runtime/subagent-agent.ts) 都只调用它。[审查结论格式](../src/runtime/subagent-review.ts) 同时由提交工具与后端结算校验，未提交结论的 Reviewer 结束记为失败。验证 [真实角色工具表、审查结论与路径保护](../test/subagent-roles-pi.test.js)。
 
 子代理进程通过通用 [收件箱读取](../src/runtime/agent-inbox-delivery.ts) 读取自己的持久 Inbox，每个回合边界重读一次、空闲时由 [进程唤醒通知](../src/runtime/agent-wake.ts) 唤醒（[文件监听](../src/runtime/file-watch.ts) 留作补充）而不轮询；写入方在持久写入后按进程记录里登记的本地端点通知目标进程，端点落在用户临时目录、过深时改到固定短目录以保证操作系统能寻址，端点不可达时静默跳过；消息进入该进程的会话上下文后才记为已消费，因此后端重启前后都能送达且每条只读一次。验证 [真实子代理消息送达、提问与取消](../test/p46-subagent-messages-pi.test.js)、[确认与重投](../test/p46-subagent-inbox-delivery.test.js) 与 [端点路径与绑定](../test/agent-wake.test.js)。
-
-通用工作区探索由 [workspace-explore 技能](../.pi/skills/workspace-explore/SKILL.md) 和 [Main 委派引导](../.pi/prompts/cowork-main.md) 定义，沿用现有异步 `call_subagent`（含角色、依赖与需求现场参数）、等待与回调，不新增第二套调度器。[真实 Pi 探索回归](../test/workspace-explore-pi.test.js) 验证 Main/子智能体按需加载、异步执行、项目读取、回调和读取内容归档；调用倾向与探索质量需真实模型另行验收。使用与权限边界见 [运行时参考](runtime-reference.md)。
 
 运行时消息交付有 [真实子智能体消息](../test/p46-subagent-messages-pi.test.js) 和 [真实 Main Inbox 投递](../test/main-inbox-delivery.test.js) 回归。
 

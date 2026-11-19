@@ -12,7 +12,7 @@ import {
 } from "../dist/src/runtime/skill-registry.js";
 import { checkDocumentation } from "../scripts/check-docs.mjs";
 
-const names = ["workspace-explore", "cua"];
+const names = ["cua"];
 const source = resolve(".");
 const require = createRequire(import.meta.url);
 

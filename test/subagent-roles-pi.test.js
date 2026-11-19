@@ -318,7 +318,7 @@ test(
     // A delegated process does the same kind of work Main does, so it discovers
     // the same bundled catalog even though it runs outside the install root.
     assert.match(system, /<available_skills>/, "the process is given a skill catalog");
-    assert.match(system, /<name>workspace-explore<\/name>/, "a bundled skill is in that catalog");
+    assert.match(system, /<name>cua<\/name>/, "a bundled skill is in that catalog");
     assert.ok(
       system.includes(resolve(".pi", "skills")),
       "the catalog points at the install's bundled skill directory"

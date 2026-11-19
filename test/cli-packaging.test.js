@@ -301,7 +301,8 @@ test("the actual CLI packer excludes retained Mac helpers and tolerates optional
       "office-harness",
       "creative-design",
       "iterative-optimization",
-      "machine-learning-model-search"
+      "machine-learning-model-search",
+      "workspace-explore"
     ])
       assert.ok(
         !files.some((file) => file.startsWith(`package/.pi/skills/${name}/`)),
@@ -316,8 +317,7 @@ test("the actual CLI packer excludes retained Mac helpers and tolerates optional
     assert.ok(files.includes("package/dist/src/gui/driver.js"));
     assert.ok(!files.some((file) => file.startsWith("package/vendor/sciagentgym/")));
     assert.ok(!files.some((file) => file.startsWith("package/dist/src/tools/science/")));
-    for (const name of ["workspace-explore", "cua"])
-      assert.ok(files.includes(`package/.pi/skills/${name}/SKILL.md`), `CLI archive excludes ${name}`);
+    assert.ok(files.includes("package/.pi/skills/cua/SKILL.md"), "CLI archive excludes cua");
 
     assert.equal(
       files.some((path) => /atria-(?:speech-input|computer-use)(?:\.sha256)?$/.test(path)),
