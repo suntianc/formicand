@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { startDashboard } from "../test/dashboard-fixture.mjs";
 import { modelProtocolFixture } from "../test/model-protocol-fixture.mjs";
+import { waitForMarkedDelegations } from "../test/fixtures/delegation-wait.mjs";
 
 const definition = {
   name: "db-migrator",
@@ -21,19 +22,26 @@ function systemText(body) {
 /** Main proposes the Agent, then delegates to it; a delegated process answers at once. */
 function provider() {
   let mainStep = 0;
-  return modelProtocolFixture("openai-completions", (body) => {
-    if (/CoworkOS Subagent/.test(systemText(body))) return { text: "SUBAGENT_DONE" };
-    mainStep += 1;
-    if (mainStep === 1) return { name: "manage_agent", arguments: { action: "create", definition } };
-    const last = body.messages.findLast((message) => message.role === "tool");
-    const result = typeof last?.content === "string" ? last.content : JSON.stringify(last?.content ?? "");
-    if (mainStep === 2 && result.includes('"saved":true'))
-      return {
-        name: "call_subagent",
-        arguments: { task: "加一个索引", mode: "sync", agent: "db-migrator" }
-      };
-    return { text: result.includes("SUBAGENT_DONE") ? "AGENT_USED" : "NOT_SAVED" };
-  });
+  const isSubagent = (body) => /CoworkOS Subagent/.test(systemText(body));
+  return modelProtocolFixture(
+    "openai-completions",
+    waitForMarkedDelegations(
+      (body) => {
+        if (isSubagent(body)) return { text: "SUBAGENT_DONE" };
+        mainStep += 1;
+        if (mainStep === 1) return { name: "manage_agent", arguments: { action: "create", definition } };
+        const last = body.messages.findLast((message) => message.role === "tool");
+        const result = typeof last?.content === "string" ? last.content : JSON.stringify(last?.content ?? "");
+        if (mainStep === 2 && result.includes('"saved":true'))
+          return {
+            name: "call_subagent",
+            arguments: { task: "加一个索引", wait: true, agent: "db-migrator" }
+          };
+        return { text: result.includes("SUBAGENT_DONE") ? "AGENT_USED" : "NOT_SAVED" };
+      },
+      (body) => !isSubagent(body)
+    )
+  );
 }
 
 test("Main drafts an Agent, the user confirms it on the card, and Main delegates to it", async ({ page }) => {

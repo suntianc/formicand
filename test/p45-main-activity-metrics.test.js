@@ -104,7 +104,7 @@ test(
       }
       requests.main += 1;
       if (tools.length === 0)
-        return { name: "call_subagent", arguments: { task: "Check the fixture project", mode: "sync" } };
+        return { name: "call_subagent", arguments: { task: "Check the fixture project" } };
       return { text: "Main finished after the delegate." };
     });
     t.after(() => provider.close());

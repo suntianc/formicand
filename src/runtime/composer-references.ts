@@ -33,7 +33,7 @@ const CLOSE = "\n</atria_references>\n\n";
 
 const NOTE =
   "The user attached these references to the message below with / and @ in the composer. " +
-  "skill: read the SKILL.md at path before anything else and follow it for this message. " +
+  "skill: load it with load_skill by name before anything else and follow it for this message. " +
   "file: a path relative to projectDirectory, referenced rather than uploaded; read it when you need it. " +
   "agent: the user wants this work handed to that Agent; delegate it with call_subagent agent=<name>. " +
   "mcp_resource: read it with read_mcp_resource using server and uri.";
@@ -50,7 +50,10 @@ export function referencesBlock(
       version: 1,
       note: NOTE,
       ...(projectDirectory ? { projectDirectory } : {}),
-      references
+      // A skill is loaded by name; its file path would invite reading it directly.
+      references: references.map((reference) =>
+        reference.kind === "skill" ? { kind: "skill", name: reference.name } : reference
+      )
     }) +
     CLOSE
   );

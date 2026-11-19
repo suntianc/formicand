@@ -34,7 +34,7 @@ export function toolLifecycle(name, args, data, { completed, active, detail = {}
           callId &&
           event.message.details?.callId === callId
       )?.message?.details;
-    const status = agent?.status || callback?.status || data.status;
+    const status = agent?.status || callback?.status;
     if (failure.has(status)) return phase("failed", status === "timed_out" ? "协作超时" : "协作失败");
     if (status === "cancelled") return phase("interrupted", "协作已取消");
     if (success.has(status)) {
@@ -47,7 +47,7 @@ export function toolLifecycle(name, args, data, { completed, active, detail = {}
         status === "waiting" ? "waiting" : "running",
         status === "queued" ? "协作排队中" : status === "waiting" ? "协作等待中" : "协作运行中"
       );
-    if (completed && (data.accepted === true || args.mode === "async")) return phase("recorded", "已派发");
+    if (completed && data.accepted === true) return phase("recorded", "已派发");
   }
   if (name === "send_subagent_message" && completed) {
     if (["not_delivered", "too_late"].includes(data.delivered)) return phase("interrupted", "未送达");

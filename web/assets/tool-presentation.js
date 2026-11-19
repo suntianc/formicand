@@ -258,9 +258,7 @@ export function presentToolCall(call = {}, options = {}) {
       }[args.action.type] || ui("授权窗口");
   const failureReason =
     status === "failed" ? failurePreview(explainToolFailure(result, { failed: true, command })) : "";
-  const asyncWork =
-    name === "start_job" ||
-    (name === "call_subagent" && (args.mode === "async" || result.data.accepted === true));
+  const asyncWork = name === "start_job" || (name === "call_subagent" && result.data.accepted === true);
   const durationMs = asyncWork
     ? undefined
     : lifecycle && ["running", "waiting", "recorded"].includes(lifecycle.status)

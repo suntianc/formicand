@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { startDashboard } from "../test/dashboard-fixture.mjs";
 import { modelProtocolFixture } from "../test/model-protocol-fixture.mjs";
+import { waitForMarkedDelegations } from "../test/fixtures/delegation-wait.mjs";
 import {
   activeModelOf,
   addProviderThroughUi,
@@ -14,17 +15,22 @@ for (const api of ["openai-completions", "openai-responses"]) {
     page
   }) => {
     let delegatedRequests = 0;
-    const provider = await modelProtocolFixture(api, (body) => {
-      const main = body.tools?.some((tool) => (tool.name ?? tool.function?.name) === "call_subagent");
-      if (!main) {
-        delegatedRequests++;
-        return { text: "子智能体协议验证成功" };
-      }
-      const history = api === "openai-responses" ? body.input : body.messages;
-      if (!JSON.stringify(history).includes("子智能体协议验证成功"))
-        return { name: "call_subagent", arguments: { task: "返回子智能体协议验证成功", mode: "sync" } };
-      return { text: "协议会话验证成功" };
-    });
+    const isMain = (body) =>
+      body.tools?.some((tool) => (tool.name ?? tool.function?.name) === "call_subagent");
+    const provider = await modelProtocolFixture(
+      api,
+      waitForMarkedDelegations((body) => {
+        const main = isMain(body);
+        if (!main) {
+          delegatedRequests++;
+          return { text: "子智能体协议验证成功" };
+        }
+        const history = api === "openai-responses" ? body.input : body.messages;
+        if (!JSON.stringify(history).includes("子智能体协议验证成功"))
+          return { name: "call_subagent", arguments: { task: "返回子智能体协议验证成功", wait: true } };
+        return { text: "协议会话验证成功" };
+      }, isMain)
+    );
     const dashboard = await startDashboard();
     try {
       await page.goto(dashboard.base);

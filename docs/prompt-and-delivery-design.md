@@ -31,7 +31,7 @@
 | 原内容                                                           | 去向                                                        |
 | ---------------------------------------------------------------- | ----------------------------------------------------------- |
 | 需求现场、审查、冻结候选、合入流程                               | `requirement-delivery` 技能，加上开发记录工具结果里的下一步 |
-| `dependsOn`、协作者提问的回答方式、`sync`/`async`、Reviewer 用法 | `call_subagent`、`send_subagent_message` 的工具说明         |
+| `dependsOn`、协作者提问的回答方式、等待结果的方式、Reviewer 用法 | `call_subagent`、`send_subagent_message` 的工具说明         |
 | 后台作业                                                         | `start_job` 的工具说明                                      |
 | `read`/`edit`/`write`/`bash` 的选用                              | 各工具说明                                                  |
 | 附件与引用的读取方式                                             | 消息层，出现时随消息附带                                    |

@@ -6,7 +6,7 @@ import { finalAnswerIndex } from "../web/assets/conversation.js";
 
 const call = {
   name: "call_subagent",
-  arguments: { task: "核对机构", mode: "async" },
+  arguments: { task: "核对机构" },
   completed: true,
   durationMs: 20,
   rawResult: { details: { accepted: true, callId: "one", name: "Ara" } }
@@ -42,11 +42,6 @@ test("delegated work completes only after terminal evidence and callback deliver
     presentToolCall(call, { detail: { progress: { agents: [{ callId: "one", status: "timed_out" }] } } })
       .statusLabel,
     "协作超时"
-  );
-  assert.equal(
-    presentToolCall({ ...call, arguments: { mode: "sync" }, rawResult: { details: { status: "succeeded" } } })
-      .statusLabel,
-    "协作完成"
   );
 });
 

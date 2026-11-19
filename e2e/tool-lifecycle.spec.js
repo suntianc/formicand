@@ -20,7 +20,7 @@ test("returned async tools retain real work status through progress, callbacks a
         [
           "dispatch",
           "call_subagent",
-          { mode: "async", task: "独立核验曲轴、活塞和凸轮联动" },
+          { task: "独立核验曲轴、活塞和凸轮联动" },
           { accepted: true, callId: "one", name: "Ara" }
         ],
         [

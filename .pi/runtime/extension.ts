@@ -7,13 +7,7 @@ import {
 import { configuredWebTools } from "../../dist/src/runtime/web-search-config.js";
 import { builtinAgentSettings } from "../../dist/src/runtime/role-models.js";
 import { queuedUserTurn, readQueuedUserTurn } from "../../dist/src/runtime/queued-user-turn.js";
-import {
-  formatSkillsForPrompt,
-  type BeforeAgentStartEvent,
-  type ExtensionAPI,
-  type ExtensionContext,
-  type Skill
-} from "@earendil-works/pi-coding-agent";
+import type { BeforeAgentStartEvent, ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { randomUUID } from "node:crypto";
 import { mkdir } from "node:fs/promises";
 import { join, resolve } from "node:path";
@@ -81,7 +75,12 @@ import { JsonlEventStore } from "../../dist/src/storage/event-store.js";
 import { listJobs } from "../../dist/src/tools/jobs.js";
 import { LocalWorkspaceStore } from "../../dist/src/workspace/workspace-store.js";
 import { capabilityProvider } from "../../dist/src/runtime/capability-provider.js";
-import { processSkillLocations, resolveSkillCatalog } from "../../dist/src/runtime/skill-registry.js";
+import {
+  processSkillLocations,
+  resolveSkillCatalog,
+  skillCatalogPrompt,
+  type SkillMetadata
+} from "../../dist/src/runtime/skill-registry.js";
 import { piSkill } from "./skills.ts";
 import { attachmentCapabilityProvider } from "../../dist/src/workspace/attachment-capabilities.js";
 import { mainCompactionPreviousSummary, withMainCompactionContext } from "./main-compaction.ts";
@@ -183,9 +182,10 @@ async function registerMainExtension(pi: ExtensionAPI) {
     );
   };
   let currentSkillsSection: string | undefined;
-  const mainSkills = async (): Promise<Skill[]> => (await skillCatalogNow()).map(piSkill);
-  const skillsSection = (skills: Skill[]): string =>
-    `<skills>\n${formatSkillsForPrompt(skills, "read").trim()}\n</skills>`;
+  const skillsSection = (skills: SkillMetadata[]): string | undefined => {
+    const catalog = skillCatalogPrompt(skills);
+    return catalog ? `<skills>\n${catalog}\n</skills>` : undefined;
+  };
   // Servers registered while the extension loads connect when the session
   // starts; each turn re-reads the configuration (see createMcpRegistration).
   const mcpServers = createMcpRegistration(pi, undefined, () =>
@@ -675,8 +675,9 @@ async function registerMainExtension(pi: ExtensionAPI) {
     projectDefaultIdentity = !options?.customPrompt && options?.forceSystemPrompt === undefined;
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- 旧版 Pi 调用方可能只提供 event.systemPrompt，缺少该系统选项时走下面的回退分支
     if (options) {
-      options.skills = await mainSkills();
-      currentSkillsSection = skillsSection(options.skills);
+      const catalog = await skillCatalogNow();
+      options.skills = catalog.map(piSkill);
+      currentSkillsSection = skillsSection(catalog);
       Object.assign(options.sections, sections);
       return;
     }
@@ -690,7 +691,7 @@ async function registerMainExtension(pi: ExtensionAPI) {
       continuationSections = await prepareMainTurnSections();
       await requestRetry?.restore();
       const options = ctx.getSystemPromptOptions();
-      currentSkillsSection = skillsSection(await mainSkills());
+      currentSkillsSection = skillsSection(await skillCatalogNow());
       projectDefaultIdentity = !options.customPrompt && options.forceSystemPrompt === undefined;
     });
   }
@@ -756,7 +757,7 @@ async function registerMainExtension(pi: ExtensionAPI) {
       await updateRuntime({ runtimePendingDelegations: inboxDelivery.queuedCount });
       // Refresh between model requests, including changes made during a turn.
       await capabilityTools.refresh();
-      currentSkillsSection = skillsSection(await mainSkills());
+      currentSkillsSection = skillsSection(await skillCatalogNow());
     } catch (error) {
       ctx.ui.notify(`Main context snapshot failed: ${errorMessage(error)}`, "warning");
     }

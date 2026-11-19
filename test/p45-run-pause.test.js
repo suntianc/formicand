@@ -283,7 +283,7 @@ test(
           return callTool(response, {
             id: "dispatch",
             name: "call_subagent",
-            args: { task: "分两步记录进度", mode: "async" }
+            args: { task: "分两步记录进度" }
           });
         const last = JSON.stringify(body.messages.at(-1)?.content ?? "");
         if (last.includes('\\"pending\\":[]') || last.includes('"pending":[]'))

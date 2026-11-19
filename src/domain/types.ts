@@ -4,10 +4,7 @@ export type AgentRole = "main" | "coordinator" | "subagent";
 export type TaskStatus = "created" | "running" | "paused" | "waiting" | "completed" | "failed" | "cancelled";
 export type CompletionPolicy = "natural" | "explicit";
 export type CompletionSignal = "none" | "finish_task" | "natural_stop" | "interrupted";
-export type CallMode = "sync" | "async" | "auto";
-export type ResolvedCallMode = Exclude<CallMode, "auto">;
 export type Importance = "critical" | "high" | "normal" | "background";
-export type Dependency = "required" | "independent";
 export type CallState =
   | "created"
   | "accepted"
@@ -24,10 +21,7 @@ export interface Call {
   parentCallId?: string;
   callerAgentId: string;
   calleeAgentId: string;
-  mode: CallMode;
-  resolvedMode?: ResolvedCallMode;
   importance: Importance;
-  dependency: Dependency;
   deadline?: string;
   callbackPolicy: "on_complete" | "on_partial" | "on_failure";
   interruptOnCallback: boolean;
@@ -244,21 +238,4 @@ export function transitionTask(task: TaskRecord, next: TaskStatus): TaskRecord {
     lastError: next === "failed" ? task.lastError : undefined,
     version: task.version + 1
   };
-}
-
-export interface CallPolicyInput {
-  requestedMode: CallMode;
-  importance: Importance;
-  dependency: Dependency;
-  deadline?: string;
-}
-
-export function resolveCallMode(input: CallPolicyInput, currentTime = Date.now()): ResolvedCallMode {
-  if (input.requestedMode !== "auto") return input.requestedMode;
-  if (input.dependency === "required") return "sync";
-  if (input.importance === "critical" && input.deadline) {
-    const deadline = Date.parse(input.deadline);
-    if (Number.isFinite(deadline) && deadline - currentTime <= 5 * 60_000) return "sync";
-  }
-  return "async";
 }

@@ -1,7 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { readdir } from "node:fs/promises";
 import { join, resolve } from "node:path";
-import type { CallMode } from "../domain/types.js";
 import { id, now, transitionCall, type Call } from "../domain/types.js";
 import { JsonlEventStore } from "../storage/event-store.js";
 import { git } from "../workspace/development-workspace.js";
@@ -39,7 +38,6 @@ export interface SubagentDispatchRequest {
   /** The Run the item belongs to; refused when it is no longer the Task's own Run. */
   runId?: string;
   task: string;
-  mode: CallMode;
   role: "executor" | "reviewer";
   /** A custom Agent by name; its permission decides the role. */
   agent?: string;
@@ -65,7 +63,6 @@ export interface SubagentDispatchAccepted {
   role: "executor" | "reviewer";
   /** The custom Agent this item runs as. */
   agent?: string;
-  mode: CallMode;
   developmentId?: string;
   workspace?: string;
   continuedFrom?: string;
@@ -153,7 +150,6 @@ interface StoredPayload {
   continuation?: StoredContinuation;
   dependsOn?: string[];
   delegation?: DelegatedModelRequest;
-  mode?: CallMode;
   thinkingLevel?: PiThinkingLevel;
   capabilityGrants?: CapabilityGrant[];
   /** The custom Agent's definition as it was when the item was dispatched. */
@@ -206,8 +202,6 @@ export class SubagentDispatchService {
     if (!/^[A-Za-z0-9._-]+$/.test(taskId)) throw new Error("派单的任务 ID 不合法");
     const named = await this.namedAgent(taskId, request);
     const role = named.role;
-    if (request.mode !== "sync" && request.mode !== "async")
-      throw new Error("call_subagent mode must be sync or async");
     const taskWorkspace = join(this.ports.workspaceRoot, taskId);
     const task = await new LocalWorkspaceStore(this.ports.workspaceRoot).readTask(taskId);
     const runId = request.runId?.trim() || task.activeRunId;
@@ -304,10 +298,7 @@ export class SubagentDispatchService {
       callId,
       callerAgentId: "main",
       calleeAgentId: agentId,
-      mode: request.mode,
-      resolvedMode: request.mode,
       importance: "normal",
-      dependency: request.mode === "sync" ? "required" : "independent",
       callbackPolicy: "on_complete",
       interruptOnCallback: false,
       state: "created",
@@ -324,7 +315,6 @@ export class SubagentDispatchService {
       importance: "normal",
       payload: {
         task: request.task,
-        mode: request.mode,
         projectDirectory,
         ...(workItemSite ? { workItemSite } : {}),
         ...(reviewSite ? { reviewSite } : {}),
@@ -347,10 +337,7 @@ export class SubagentDispatchService {
         ...(agentDefinition ? { agentDefinition } : {}),
         ...(builtinAgent ? { builtinAgent } : {})
       },
-      maxAttempts:
-        // A synchronous call holds the requesting turn: one attempt keeps a
-        // diverged run as evidence instead of repeating it under that turn.
-        request.mode === "sync" ? 1 : resolveCapabilities(task.capabilities).maxAttempts
+      maxAttempts: resolveCapabilities(task.capabilities).maxAttempts
     });
     await events.append(
       event({ taskId, runId }, callId, "call.accepted", "coordinator", {
@@ -384,7 +371,6 @@ export class SubagentDispatchService {
       name: agentDisplayName(agentId),
       role,
       ...(agentDefinition ? { agent: agentDefinition.name } : {}),
-      mode: request.mode,
       ...(developmentId ? { developmentId } : {}),
       ...(workItemSite ? { workspace: workItemSite.directory } : {}),
       ...(request.continueCallId ? { continuedFrom: request.continueCallId } : {}),

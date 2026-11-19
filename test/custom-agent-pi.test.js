@@ -174,7 +174,6 @@ test(
     const accepted = await service.dispatch({
       taskId: "task",
       task: "加索引",
-      mode: "async",
       role: "executor",
       agent: "db-migrator"
     });
@@ -243,7 +242,6 @@ test(
     const accepted = await service.dispatch({
       taskId: "task",
       task: "改个字",
-      mode: "async",
       role: "executor"
     });
     const item = await settled(runRoot, accepted.callId);
@@ -281,7 +279,6 @@ test(
     const accepted = await service.dispatch({
       taskId: "task",
       task: "看看",
-      mode: "async",
       role: "executor",
       agent: "pr-checker"
     });
@@ -315,8 +312,7 @@ test(
 
 test("a switched-off, missing or mismatched Agent is refused with its name, never replaced", async (t) => {
   const { service } = await setup(t, () => ({ text: "unused" }));
-  const dispatch = (agent, role = "executor") =>
-    service.dispatch({ taskId: "task", task: "x", mode: "async", role, agent });
+  const dispatch = (agent, role = "executor") => service.dispatch({ taskId: "task", task: "x", role, agent });
   await assert.rejects(dispatch("retired"), /Agent retired 已停用/);
   await assert.rejects(dispatch("nobody"), /没有名为 nobody 的 Agent/);
   await assert.rejects(

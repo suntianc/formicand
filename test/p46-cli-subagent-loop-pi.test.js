@@ -7,6 +7,7 @@ import { test } from "node:test";
 import { promisify } from "node:util";
 import { modelProtocolFixture } from "./model-protocol-fixture.mjs";
 import { createSubagentClient } from "../dist/src/runtime/subagent-client.js";
+import { waitForMarkedDelegations } from "./fixtures/delegation-wait.mjs";
 
 /**
  * A CLI run with no Dashboard still delegates through a backend.
@@ -44,27 +45,33 @@ test(
     await mkdir(project, { recursive: true });
     await mkdir(workspace, { recursive: true });
     const steps = { main: 0, subagent: 0 };
-    const provider = await modelProtocolFixture("openai-completions", (body) => {
-      const role = roleOf(body);
-      const step = steps[role]++;
-      if (role === "main")
-        return step === 0
-          ? {
-              name: "call_subagent",
-              arguments: {
-                task: "CLI_SUBAGENT_MARKER：写入 marker.txt 并返回结论。",
-                mode: "sync",
-                role: "executor"
-              }
-            }
-          : { text: "CLI_MAIN_DONE" };
-      if (step === 0)
-        return {
-          name: "bash",
-          arguments: { command: 'printf "delegated\\n" > marker.txt && echo SUBAGENT_WROTE_MARKER' }
-        };
-      return { text: "CLI_SUBAGENT_DONE" };
-    });
+    const provider = await modelProtocolFixture(
+      "openai-completions",
+      waitForMarkedDelegations(
+        (body) => {
+          const role = roleOf(body);
+          const step = steps[role]++;
+          if (role === "main")
+            return step === 0
+              ? {
+                  name: "call_subagent",
+                  arguments: {
+                    task: "CLI_SUBAGENT_MARKER：写入 marker.txt 并返回结论。",
+                    wait: true,
+                    role: "executor"
+                  }
+                }
+              : { text: "CLI_MAIN_DONE" };
+          if (step === 0)
+            return {
+              name: "bash",
+              arguments: { command: 'printf "delegated\\n" > marker.txt && echo SUBAGENT_WROTE_MARKER' }
+            };
+          return { text: "CLI_SUBAGENT_DONE" };
+        },
+        (body) => roleOf(body) === "main"
+      )
+    );
     t.after(() => provider.close());
     const configPath = join(root, "config.json");
     await writeFile(

@@ -6,6 +6,7 @@ import { mkdtemp, mkdir, readFile, writeFile, stat, rm } from "node:fs/promises"
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { modelProtocolFixture } from "./model-protocol-fixture.mjs";
+import { waitForMarkedDelegations } from "./fixtures/delegation-wait.mjs";
 
 const exec = promisify(execFile);
 const entry = resolve(process.env.ATRIA_TEST_CLI_ENTRY || "scripts/atria.mjs");
@@ -136,13 +137,17 @@ test(
       )
         return {
           name: "call_subagent",
-          arguments: { task: "Calculate 2+2 independently and return the result.", mode: "sync" }
+          arguments: { task: "Calculate 2+2 independently and return the result.", wait: true }
         };
       return { text: names.includes("call_subagent") ? "验证完成：子任务结果为4。" : "子任务结果：4。" };
     };
-    const provider = await modelProtocolFixture("openai-responses", handle);
+    const isMain = (body) => namesFor(body).includes("call_subagent");
+    const provider = await modelProtocolFixture("openai-responses", waitForMarkedDelegations(handle, isMain));
     t.after(() => provider.close());
-    const legacyProvider = await modelProtocolFixture("openai-completions", handle);
+    const legacyProvider = await modelProtocolFixture(
+      "openai-completions",
+      waitForMarkedDelegations(handle, isMain)
+    );
     t.after(() => legacyProvider.close());
     await f.run(["init", "--base-url", provider.baseUrl, "--model", "fixture"]);
     const doctor = await f.run(["doctor", "--test-connection"]);

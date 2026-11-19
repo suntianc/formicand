@@ -234,7 +234,7 @@ test("Cowork provider and new delegations use the active Main effort", async (t)
       pi.setThinkingLevel(level);
       await pi.tools
         .get("call_subagent")
-        .execute(`call-${level}`, { task: "Bounded subtask", mode: "sync" }, undefined, undefined, ctx);
+        .execute(`call-${level}`, { task: "Bounded subtask" }, undefined, undefined, ctx);
       assert.equal(backend.requests.at(-1).thinkingLevel, level);
     }
     await pi.handlers.get("context")({ messages: [] }, ctx);

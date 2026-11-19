@@ -1050,8 +1050,8 @@ test("a finished round folds into 处理过程 with its counts and ends with a �
     ...[
       { id: "read", name: "read", arguments: { path: "summarize.sh" } },
       { id: "test", name: "bash", arguments: { command: "bash test/run.sh" } },
-      { id: "apus", name: "call_subagent", arguments: { name: "Apus", task: "写测试", mode: "async" } },
-      { id: "pavo", name: "call_subagent", arguments: { name: "Pavo", task: "检查参数", mode: "async" } }
+      { id: "apus", name: "call_subagent", arguments: { name: "Apus", task: "写测试" } },
+      { id: "pavo", name: "call_subagent", arguments: { name: "Pavo", task: "检查参数" } }
     ].flatMap((toolCall, index) => [
       update("toolcall_end", index + 1, { toolCall }),
       { type: "tool_execution_end", toolCallId: toolCall.id, result: { content: [] } }
@@ -1176,7 +1176,7 @@ test("an async delegation row follows real progress without changing its disclos
   const { document, state, render } = fixture("async-status", "");
   state.detail.runtimeEvents.push(
     update("toolcall_end", 1, {
-      toolCall: { id: "dispatch", name: "call_subagent", arguments: { task: "核对机构", mode: "async" } }
+      toolCall: { id: "dispatch", name: "call_subagent", arguments: { task: "核对机构" } }
     }),
     {
       type: "tool_execution_end",
@@ -1391,7 +1391,7 @@ test("a running Subagent's time counts from when it was handed out, not from the
       toolCall: {
         id: "vela",
         name: "call_subagent",
-        arguments: { name: "Vela", task: "跑一分钟", mode: "async" }
+        arguments: { name: "Vela", task: "跑一分钟" }
       }
     }),
     {
