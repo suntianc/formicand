@@ -19,9 +19,10 @@ import { atriaHome } from "../../scripts/data-home.cjs";
  * determined process out needs OS isolation, which P5 brings for outside work.
  */
 
-/** Data-home entries Agents legitimately work in. */
+/** Data-home entries Agents legitimately work in, plus the installed skills they read. */
 const WORKING_DIRECTORIES = [
   "workspace",
+  "skills",
   join("runtime", "development-workspaces"),
   join("runtime", "temporary-workspaces")
 ];
