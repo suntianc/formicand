@@ -63,17 +63,21 @@ export function createSkillSettings({ panel, api, projects = () => [], onSection
         <button type="button" role="radio" data-skill-scope-value="global" aria-checked="true">全局</button>
         <button type="button" role="radio" data-skill-scope-value="project" aria-checked="false">项目</button>
       </div>
-      <span class="settings-info" title="Main 与所有 Agent 共用；同名时项目覆盖全局；从索引移除不改动文件">${icon("info")}</span>
       <span class="settings-group-spacer"></span>
+      <span class="settings-head-note">${icon("info")}<span data-skill-note></span></span>
       <button class="app-button is-primary skill-add" type="button" data-skill-add>${icon("plus")}<span data-skill-add-label>添加技能</span></button>
-    </div>
-    <div class="skill-project-bar" data-skill-project hidden>
-      <label class="sr-only" for="skill-project-select">项目</label>
-      <select class="settings-select" id="skill-project-select" data-skill-project-select></select>
-      <span class="skill-trust" data-skill-trust></span>
     </div>
     <div class="skill-body">
       <div class="skill-list-pane">
+        <div class="settings-project" data-skill-project hidden>
+          <label class="settings-project-picker">
+            ${icon("folder")}
+            <span class="settings-project-text"><span data-skill-project-name></span><span class="is-mono" data-skill-project-dir></span></span>
+            ${icon("chevrons-up-down")}
+            <select data-skill-project-select aria-label="项目"></select>
+          </label>
+          <div class="settings-project-trust" data-skill-trust></div>
+        </div>
         <label class="skill-search">${icon("search")}<input type="search" data-skill-search placeholder="搜索技能" aria-label="搜索技能" autocomplete="off" spellcheck="false"></label>
         <div class="skill-filters" role="radiogroup" aria-label="来源" data-skill-filters></div>
         <ul class="skill-list" data-skill-list aria-label="技能列表"></ul>
@@ -150,16 +154,22 @@ export function createSkillSettings({ panel, api, projects = () => [], onSection
           .join("")
       : `<option value="">${ui("还没有项目")}</option>`;
     select.disabled = !list.length;
+    const chosen = list.find((project) => project.projectId === view.projectId);
+    $("[data-skill-project-name]").textContent = chosen
+      ? chosen.projectName || chosen.projectDirectory
+      : ui("还没有项目");
     const project = view.data.project;
+    const shown = project && project.projectId === view.projectId;
+    $("[data-skill-project-dir]").textContent = shown ? project.displayDirectory : "";
     const trust = $("[data-skill-trust]");
-    if (!project || project.projectId !== view.projectId) {
+    if (!shown) {
       trust.innerHTML = "";
       return;
     }
     trust.innerHTML =
       project.trust === "trusted"
-        ? ui`<span class="settings-dot is-ok" aria-hidden="true"></span><span>已信任</span><button class="settings-link" type="button" data-skill-trust-set="untrusted">取消信任</button>`
-        : ui`<span class="settings-dot is-alert" aria-hidden="true"></span><span>${project.trust === "untrusted" ? ui("未信任") : ui("尚未决定是否信任")}</span><button class="app-button is-secondary" type="button" data-skill-trust-set="trusted">信任此项目</button>`;
+        ? ui`<span class="is-ok">${icon("shield-check")}</span><span>已信任此项目</span><button class="settings-link" type="button" data-skill-trust-set="untrusted">撤销</button>`
+        : ui`<span class="is-alert">${icon("triangle-alert")}</span><span>${project.trust === "untrusted" ? ui("未信任") : ui("尚未决定是否信任")}</span><button class="app-button is-secondary" type="button" data-skill-trust-set="trusted">信任此项目</button>`;
   }
 
   function renderFilters() {
@@ -236,7 +246,7 @@ export function createSkillSettings({ panel, api, projects = () => [], onSection
       </div>
       <p class="skill-description">${esc(skill.description)}</p>
       <dl class="skill-facts">
-        <dt>文件位置</dt><dd class="is-mono">${esc(skill.path)}</dd>
+        <dt>文件位置</dt><dd class="is-mono" title="${esc(skill.path)}">${esc(skill.displayPath)}</dd>
         <dt>同名技能</dt><dd>${shadow ? `${ui("已被覆盖，当前不生效：")}${esc(shadow.name)} · ${esc(ui(SOURCE_LABEL[shadow.source]))}` : ui("无")}</dd>
       </dl>
       ${
@@ -251,6 +261,10 @@ export function createSkillSettings({ panel, api, projects = () => [], onSection
   function render() {
     for (const button of panel.querySelectorAll("[data-skill-scope-value]"))
       button.setAttribute("aria-checked", String(button.dataset.skillScopeValue === view.scope));
+    $("[data-skill-note]").textContent =
+      view.scope === "project"
+        ? ui("项目技能存在 .atria/skills/ 和 .agents/skills/，跟着项目走；同名时覆盖全局")
+        : ui("Main 与所有 Agent 共用；同名时项目覆盖全局；从索引移除不改动文件");
     $("[data-skill-add-label]").textContent = view.scope === "project" ? ui("添加到此项目") : ui("添加技能");
     $("[data-skill-add]").disabled = view.scope === "project" && view.data.project?.trust !== "trusted";
     renderProjectBar();
@@ -335,41 +349,49 @@ export function createSkillSettings({ panel, api, projects = () => [], onSection
   addPanel.className = "modal-backdrop app-dialog-backdrop";
   addPanel.hidden = true;
   addPanel.innerHTML = ui`<section class="modal-card app-dialog skill-add-dialog" role="dialog" aria-modal="true" aria-labelledby="skill-add-title">
-      <h2 id="skill-add-title" data-skill-add-title>添加技能</h2>
-      <div class="settings-segmented" role="radiogroup" aria-label="来源" data-skill-kind>
-        <button type="button" role="radio" data-skill-kind-value="folder" aria-checked="true">文件夹</button>
-        <button type="button" role="radio" data-skill-kind-value="archive" aria-checked="false">压缩包</button>
-        <button type="button" role="radio" data-skill-kind-value="git" aria-checked="false">Git 地址</button>
+      <div class="mcp-dialog-head">
+        <h2 id="skill-add-title" data-skill-add-title>添加技能</h2>
+        <button class="settings-icon-button" type="button" data-skill-add-close aria-label="关闭">${icon("close")}</button>
+      </div>
+      <p class="skill-add-note" data-skill-add-note></p>
+      <div class="settings-segmented mcp-kinds" role="radiogroup" aria-label="来源" data-skill-kind>
+        <button type="button" role="radio" data-skill-kind-value="git" aria-checked="true">${icon("git-branch")}Git 地址</button>
+        <button type="button" role="radio" data-skill-kind-value="folder" aria-checked="false">${icon("folder")}本地文件夹</button>
+        <button type="button" role="radio" data-skill-kind-value="archive" aria-checked="false">${icon("archive")}压缩包</button>
       </div>
       <form class="skill-add-source" data-skill-add-form>
-        <div class="skill-add-input" data-skill-kind-panel="folder">
-          <label class="sr-only" for="skill-folder">文件夹路径</label>
-          <input id="skill-folder" data-skill-folder placeholder="/path/to/skills" autocomplete="off" spellcheck="false">
-          <button class="app-button is-secondary" type="button" data-skill-choose>选择…</button>
+        <div class="skill-add-field" data-skill-kind-panel="git">
+          <label for="skill-git">仓库地址</label><small>支持子目录，如 …/tree/main/skills</small>
+          <div class="skill-add-input"><input id="skill-git" data-skill-git placeholder="https://github.com/owner/skills" autocomplete="off" spellcheck="false"></div>
         </div>
-        <div class="skill-add-input" data-skill-kind-panel="archive" hidden>
-          <label class="sr-only" for="skill-archive">zip 文件</label>
-          <input id="skill-archive" data-skill-archive type="file" accept=".zip,application/zip">
+        <div class="skill-add-field" data-skill-kind-panel="folder" hidden>
+          <label for="skill-folder">文件夹路径</label><small>可以是一个技能，或装着多个技能的文件夹</small>
+          <div class="skill-add-input"><input id="skill-folder" data-skill-folder placeholder="/path/to/skills" autocomplete="off" spellcheck="false"><button class="app-button is-secondary" type="button" data-skill-choose>选择…</button></div>
         </div>
-        <div class="skill-add-input" data-skill-kind-panel="git" hidden>
-          <label class="sr-only" for="skill-git">仓库地址</label>
-          <input id="skill-git" data-skill-git placeholder="https://github.com/owner/skills.git" autocomplete="off" spellcheck="false">
+        <div class="skill-add-field" data-skill-kind-panel="archive" hidden>
+          <label for="skill-archive">zip 文件</label><small></small>
+          <div class="skill-add-input"><input id="skill-archive" data-skill-archive type="file" accept=".zip,application/zip"></div>
         </div>
-        <button class="app-button is-secondary" type="submit" data-skill-find>查找技能</button>
+        <button class="app-button is-secondary" type="submit" data-skill-find>${icon("search")}<span>读取</span></button>
       </form>
       <div class="skill-found" data-skill-found hidden>
-        <h3 class="skill-section-title">找到的技能</h3>
+        <div class="skill-found-head"><h3 class="skill-section-title" data-skill-found-title></h3><small>勾选要安装的</small></div>
         <ul class="skill-found-list" data-skill-found-list></ul>
         <p class="skill-warning" data-skill-found-warning hidden>${icon("triangle-alert")}<span>所选技能包含脚本，模型加载后可能运行它们。只安装你信任的来源。</span></p>
       </div>
       <p class="dialog-error" data-skill-add-error role="alert" hidden></p>
       <div class="modal-actions dialog-actions">
+        <span class="skill-chosen" data-skill-chosen></span>
+        <span class="settings-group-spacer"></span>
         <button class="app-button is-secondary" type="button" data-skill-add-cancel>取消</button>
         <button class="app-button is-primary" type="button" data-skill-install disabled>安装</button>
       </div>
     </section>`;
   document.body.append(addPanel);
   const addModal = createModal(addPanel, addPanel.querySelector("[data-skill-add-cancel]"));
+  addPanel
+    .querySelector("[data-skill-add-close]")
+    .addEventListener("click", () => addPanel.querySelector("[data-skill-add-cancel]").click());
   const add = { kind: "folder", preview: undefined, target: undefined, busy: false };
   const addEl = (selector) => addPanel.querySelector(selector);
 
@@ -389,8 +411,10 @@ export function createSkillSettings({ panel, api, projects = () => [], onSection
     addEl("[data-skill-find]").disabled = add.busy;
     if (!add.preview) {
       addEl("[data-skill-install]").disabled = true;
+      addEl("[data-skill-chosen]").textContent = "";
       return;
     }
+    addEl("[data-skill-found-title]").textContent = ui`找到 ${add.preview.skills.length} 个技能`;
     const checked = new Set(
       [...addPanel.querySelectorAll("[data-skill-found-name]:checked")].map((box) => box.value)
     );
@@ -399,7 +423,7 @@ export function createSkillSettings({ panel, api, projects = () => [], onSection
         (skill) => `<li><label class="skill-found-row">
           <input type="checkbox" data-skill-found-name value="${esc(skill.name)}"${!skill.valid ? " disabled" : checked.size === 0 || checked.has(skill.name) ? " checked" : ""}>
           <span class="skill-row-text"><span class="skill-row-name">${esc(skill.name)}</span><span class="skill-row-desc">${esc(skill.description)}</span></span>
-          ${skill.scripts.length ? `<span class="skill-tag is-warn">${esc(ui`${skill.scripts.length} 个脚本`)}</span>` : ""}
+          ${skill.scripts.length ? `<span class="skill-tag is-warn">${esc(ui`含 ${skill.scripts.length} 个脚本`)}</span>` : ""}
           ${skill.exists ? `<span class="skill-tag is-warn">${esc(ui("将替换同名"))}</span>` : ""}
           ${!skill.valid ? `<span class="skill-tag">${esc(ui("名称不可用"))}</span>` : ""}
         </label></li>`
@@ -419,21 +443,26 @@ export function createSkillSettings({ panel, api, projects = () => [], onSection
     const replace = skills.some((skill) => skill.exists);
     const install = addEl("[data-skill-install]");
     install.disabled = add.busy || !skills.length;
-    install.textContent = replace ? ui`替换并安装 ${skills.length} 个` : ui`安装 ${skills.length} 个`;
+    install.textContent = replace ? ui("替换并安装") : ui("安装");
+    addEl("[data-skill-chosen]").textContent = ui`已选 ${skills.length} 个`;
   }
 
   function openAdd() {
-    add.kind = "folder";
+    add.kind = "git";
     add.preview = undefined;
     add.target = target();
     add.busy = false;
     addEl("[data-skill-add-title]").textContent =
       view.scope === "project" ? ui("添加技能到此项目") : ui("添加技能");
+    addEl("[data-skill-add-note]").textContent =
+      view.scope === "project"
+        ? ui("安装到此项目的 .atria/skills/，跟着项目走。")
+        : ui("安装到 ~/.atria/skills/，只给本产品用；不会写入通用目录 ~/.agents/skills/。");
     for (const input of addPanel.querySelectorAll("input")) input.value = "";
     addError("");
     renderAdd();
     addModal.open();
-    addEl("[data-skill-folder]").focus();
+    addEl("[data-skill-git]").focus();
   }
 
   async function findSkills() {

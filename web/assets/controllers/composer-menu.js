@@ -155,7 +155,7 @@ export function createComposerMenu({ input, container, api, getProjectId, comman
       .slice(0, GROUP_LIMIT)
       .map((skill) => ({
         group: ui("技能"),
-        icon: "sparkles",
+        icon: "book-open",
         label: `/${skill.name}`,
         detail: skill.description,
         badge: ui(SOURCE_LABELS[skill.source] ?? skill.source),
@@ -165,7 +165,7 @@ export function createComposerMenu({ input, container, api, getProjectId, comman
       .slice(0, GROUP_LIMIT)
       .map((prompt) => ({
         group: ui("指令模板"),
-        icon: "text",
+        icon: "file",
         label: `/${prompt.name}`,
         detail: prompt.description,
         badge: PROMPT_SOURCES[prompt.source],
@@ -173,7 +173,7 @@ export function createComposerMenu({ input, container, api, getProjectId, comman
       }));
     const actions = ranked(commands, (command) => command.name, query).map((command) => ({
       group: ui("命令"),
-      icon: "command",
+      icon: command.icon ?? "command",
       label: `/${command.name}`,
       detail: command.description,
       run: command.run
@@ -186,7 +186,7 @@ export function createComposerMenu({ input, container, api, getProjectId, comman
       const slash = path.lastIndexOf("/");
       return {
         group: ui("文件"),
-        icon: "file",
+        icon: "file-code",
         label: path.slice(slash + 1),
         detail: slash >= 0 ? path.slice(0, slash + 1) : "",
         insert: `@${path} `,
@@ -211,7 +211,7 @@ export function createComposerMenu({ input, container, api, getProjectId, comman
       .slice(0, GROUP_LIMIT)
       .map((agent) => ({
         group: "Agent",
-        icon: "team",
+        icon: "bot",
         label: agent.name,
         detail: agent.description,
         badge: agent.permission === "write" ? ui("可写") : ui("只读"),
@@ -231,17 +231,33 @@ export function createComposerMenu({ input, container, api, getProjectId, comman
         items = slashItems(data, current.query);
       } else {
         const projectId = getProjectId();
-        const [files, agents, resources] = await Promise.all([
+        // MCP servers can take seconds to list resources; files and Agents show first.
+        const resources = resourceData().then(
+          (value) => value.resources,
+          (error) => {
+            onError(ui`MCP 资源读取失败：${error.message}`);
+            return [];
+          }
+        );
+        let listed;
+        void resources.then((found) => (listed = found));
+        const [files, agents] = await Promise.all([
           projectId
             ? api(
                 `/api/composer/files?projectId=${encodeURIComponent(projectId)}&q=${encodeURIComponent(current.query)}`
               )
             : { files: [] },
-          agentData(projectId),
-          resourceData()
+          agentData(projectId)
         ]);
         if (ticket !== generation) return;
-        items = atItems(files.files, agents.agents, resources.resources, current.query);
+        items = atItems(files.files, agents.agents, listed ?? [], current.query);
+        if (!listed)
+          void resources.then((found) => {
+            if (ticket !== generation || !found.length) return;
+            items = atItems(files.files, agents.agents, found, current.query);
+            active = Math.min(active, Math.max(items.length - 1, 0));
+            render();
+          });
       }
       active = Math.min(active, Math.max(items.length - 1, 0));
       render();

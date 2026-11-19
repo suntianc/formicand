@@ -19,7 +19,7 @@ async function setup(t) {
     root,
     home,
     piAgentDir,
-    service: createMcpService({ home, piAgentDir, harnessRoot: resolve(".") })
+    service: createMcpService({ home, userHome: home, piAgentDir, harnessRoot: resolve(".") })
   };
 }
 

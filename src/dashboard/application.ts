@@ -822,7 +822,12 @@ export function createDashboardApplication(
     mainSessions,
     developments,
     projectClones,
-    mcp: createMcpService({ home: data.home, piAgentDir: data.piAgentDir, harnessRoot: projectRoot }),
+    mcp: createMcpService({
+      home: data.home,
+      userHome: homedir(),
+      piAgentDir: data.piAgentDir,
+      harnessRoot: projectRoot
+    }),
     agents: createAgentService({
       harnessRoot: projectRoot,
       home: data.home,

@@ -543,16 +543,60 @@ body {
 .agent-proposal .human-card-footer {
   flex-wrap: wrap;
 }
+.proposal-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--ui-border);
+}
+.proposal-mark {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--ui-hover);
+  color: var(--ui-secondary);
+}
+.proposal-mark .ui-icon {
+  width: 16px;
+  height: 16px;
+}
+.proposal-head-text {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+}
+.agent-proposal .proposal-head h3 {
+  margin: 0;
+}
 .proposal-path {
-  margin: 2px 0 10px;
   color: var(--ui-secondary);
   font: 400 var(--ui-type-caption)/1.4 var(--ui-mono);
   overflow-wrap: anywhere;
 }
+.proposal-waiting {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--ui-warning) 16%, transparent);
+  color: var(--ui-warning);
+  font-size: var(--ui-type-caption);
+}
+.proposal-waiting .ui-icon {
+  width: 13px;
+  height: 13px;
+}
 .proposal-facts {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
-  gap: 6px 14px;
+  gap: 8px 24px;
   margin: 0 0 12px;
   font-size: var(--ui-type-caption);
   line-height: 1.6;
@@ -563,17 +607,36 @@ body {
 .proposal-facts dd {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
+  align-items: center;
+  gap: 6px;
   min-width: 0;
   margin: 0;
   color: var(--ui-text);
   overflow-wrap: anywhere;
 }
-.proposal-chip {
-  padding: 0 6px;
+.proposal-chip,
+.proposal-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 7px;
   border-radius: 5px;
   background: var(--ui-hover);
+}
+.proposal-chip {
   font-family: var(--ui-mono);
+}
+.proposal-chip.is-ok {
+  background: color-mix(in srgb, var(--ui-success) 16%, transparent);
+  color: var(--ui-success);
+}
+.proposal-chip .ui-icon,
+.proposal-tag .ui-icon {
+  width: 12px;
+  height: 12px;
+}
+.proposal-aside {
+  color: var(--ui-secondary);
 }
 .proposal-prompt {
   display: -webkit-box;
@@ -583,9 +646,22 @@ body {
   white-space: pre-wrap;
 }
 .proposal-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   margin-right: auto;
   color: var(--ui-secondary);
   font-size: var(--ui-type-caption);
+}
+.proposal-note .ui-icon,
+.agent-proposal .human-card-footer button .ui-icon {
+  width: 14px;
+  height: 14px;
+}
+.agent-proposal .human-card-footer button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 .sr-only {
   position: absolute;

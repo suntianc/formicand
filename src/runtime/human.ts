@@ -28,6 +28,8 @@ export interface AgentProposal {
   scope: "global" | "project";
   /** The definition file the change writes. */
   path: string;
+  /** `path` as shown to the user: relative in the project, `~/…` under home. */
+  displayPath: string;
   definition: AgentDefinition;
 }
 

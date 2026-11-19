@@ -358,8 +358,13 @@ const composerMenu = createComposerMenu({
   api,
   getProjectId: composerProjectId,
   commands: [
-    { name: "new", description: ui("新会话"), run: () => beginNewConversation() },
-    { name: "model", description: ui("切换本会话的模型与推理强度"), run: () => void toggleModelMenu() }
+    { name: "new", icon: "square-pen", description: ui("新会话"), run: () => beginNewConversation() },
+    {
+      name: "model",
+      icon: "cpu",
+      description: ui("切换本会话的模型与推理强度"),
+      run: () => void toggleModelMenu()
+    }
   ],
   onError: showToast
 });

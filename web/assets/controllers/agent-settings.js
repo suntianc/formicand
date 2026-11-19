@@ -17,6 +17,11 @@ import { createModal } from "../ui/modal.js";
 const PAGE_SIZE = 10;
 const NEW = "\0new";
 const PERMISSION_LABEL = { write: "可写", read: "只读" };
+const agentIcon = (definition) => (definition?.permission === "read" ? "scan-eye" : "wrench");
+const SCOPE_NOTE = {
+  global: "Main 按「使用说明」决定派给谁；同名时项目覆盖全局",
+  project: "项目 Agent 存在 .atria/agents/，跟着项目走；同名时覆盖全局"
+};
 
 export function createAgentSettings({
   panel,
@@ -59,18 +64,22 @@ export function createAgentSettings({
         <button type="button" role="radio" data-agent-scope-value="global" aria-checked="true">全局</button>
         <button type="button" role="radio" data-agent-scope-value="project" aria-checked="false">项目</button>
       </div>
-      <span class="settings-info" title="Main 按「使用说明」决定派给谁；同名时项目覆盖全局">${icon("info")}</span>
       <span class="settings-group-spacer"></span>
+      <span class="settings-head-note">${icon("info")}<span data-agent-note></span></span>
       ${askMain ? `<button class="app-button is-secondary" type="button" data-agent-ask>${icon("sparkles")}<span>${ui("让 Main 帮我写")}</span></button>` : ""}
       <button class="app-button is-primary skill-add" type="button" data-agent-new>${icon("plus")}<span>新建 Agent</span></button>
     </div>
-    <div class="skill-project-bar" data-agent-project hidden>
-      <label class="sr-only" for="agent-project-select">项目</label>
-      <select class="settings-select" id="agent-project-select" data-agent-project-select></select>
-      <span class="skill-trust" data-agent-trust></span>
-    </div>
     <div class="skill-body">
       <div class="skill-list-pane">
+        <div class="settings-project" data-agent-project hidden>
+          <label class="settings-project-picker">
+            ${icon("folder")}
+            <span class="settings-project-text"><span data-agent-project-name></span><span class="is-mono" data-agent-project-dir></span></span>
+            ${icon("chevrons-up-down")}
+            <select data-agent-project-select aria-label="项目"></select>
+          </label>
+          <div class="settings-project-trust" data-agent-trust></div>
+        </div>
         <label class="skill-search">${icon("search")}<input type="search" data-agent-search placeholder="搜索 Agent" aria-label="搜索 Agent" autocomplete="off" spellcheck="false"></label>
         <ul class="skill-list" data-agent-list aria-label="Agent 列表"></ul>
         <div class="skill-pager" data-agent-pager>
@@ -172,7 +181,6 @@ export function createAgentSettings({
       return agent.name === "reviewer" ? ui("只读 · 独立审查") : ui("可写 · 实现与验证");
     const parts = [ui(PERMISSION_LABEL[definition.permission])];
     if (definition.skills) parts.push(ui`${definition.skills.length} 技能`);
-    else parts.push(ui("全部技能"));
     if (definition.mcp?.length) parts.push(`${definition.mcp.length} MCP`);
     return parts.join(" · ");
   }
@@ -194,16 +202,22 @@ export function createAgentSettings({
           .join("")
       : `<option value="">${ui("还没有项目")}</option>`;
     select.disabled = !list.length;
+    const chosen = list.find((project) => project.projectId === view.projectId);
+    $("[data-agent-project-name]").textContent = chosen
+      ? chosen.projectName || chosen.projectDirectory
+      : ui("还没有项目");
     const project = view.data.project;
+    const shown = project && project.projectId === view.projectId;
+    $("[data-agent-project-dir]").textContent = shown ? project.displayDirectory : "";
     const trust = $("[data-agent-trust]");
-    if (!project || project.projectId !== view.projectId) {
+    if (!shown) {
       trust.innerHTML = "";
       return;
     }
     trust.innerHTML =
       project.trust === "trusted"
-        ? ui`<span class="settings-dot is-ok" aria-hidden="true"></span><span>已信任此项目</span><button class="settings-link" type="button" data-agent-trust-set="untrusted">撤销</button>`
-        : ui`<span class="settings-dot is-alert" aria-hidden="true"></span><span>${project.trust === "untrusted" ? ui("未信任") : ui("尚未决定是否信任")}</span><button class="app-button is-secondary" type="button" data-agent-trust-set="trusted">信任此项目</button>`;
+        ? ui`<span class="is-ok">${icon("shield-check")}</span><span>已信任此项目</span><button class="settings-link" type="button" data-agent-trust-set="untrusted">撤销</button>`
+        : ui`<span class="is-alert">${icon("triangle-alert")}</span><span>${project.trust === "untrusted" ? ui("未信任") : ui("尚未决定是否信任")}</span><button class="app-button is-secondary" type="button" data-agent-trust-set="trusted">信任此项目</button>`;
   }
 
   function emptyText() {
@@ -238,7 +252,7 @@ export function createAgentSettings({
               agent.problems.length || agent.error
                 ? `<span class="skill-tag is-warn">${esc(ui("引用失效"))}</span>`
                 : agent.source === "builtin"
-                  ? `<span class="skill-tag">${esc(ui("内置"))}</span>`
+                  ? `<span class="skill-tag has-icon">${icon("lock")}${esc(ui("内置"))}</span>`
                   : view.scope === "project" &&
                       agent.source === "project" &&
                       view.data.agents.some(
@@ -249,7 +263,7 @@ export function createAgentSettings({
                       ? `<span class="skill-tag">${esc(ui("全局"))}</span>`
                       : "";
             return `${header}<li><button type="button" class="skill-row${off ? " is-muted" : ""}" data-agent-select="${esc(keyOf(agent))}" aria-current="${keyOf(agent) === view.selected}">
-              <span class="settings-icon-box">${icon(agent.definition?.permission === "read" ? "eye-off" : "team")}</span>
+              <span class="settings-icon-box">${icon(agentIcon(agent.definition))}</span>
               <span class="skill-row-text"><span class="skill-row-name">${esc(agent.name)}</span><span class="skill-row-desc">${esc(summary(agent))}</span></span>
               ${tag}
             </button></li>`;
@@ -290,9 +304,14 @@ export function createAgentSettings({
     return list
       .map(
         (name) =>
-          `<span class="settings-chip agent-chip">${esc(name)}${disabled ? "" : `<button type="button" data-agent-remove-${kind}="${esc(name)}" aria-label="${esc(ui`移除 ${name}`)}">${icon("close")}</button>`}</span>`
+          `<span class="agent-chip">${icon(kind === "skill" ? "book-open" : "plug")}<span>${esc(name)}</span>${disabled ? "" : `<button type="button" data-agent-remove-${kind}="${esc(name)}" aria-label="${esc(ui`移除 ${name}`)}">${icon("close")}</button>`}</span>`
       )
       .join("");
+  }
+
+  /** The 添加 button: a native select under a chip-shaped label, so keyboard and screen readers keep the list. */
+  function addButton(kind, label, choices) {
+    return `<label class="agent-add">${icon("plus")}<span>${esc(ui("添加"))}</span><select data-agent-add-${kind} aria-label="${esc(label)}"><option value="">${esc(ui("添加"))}</option>${choices}</select></label>`;
   }
 
   function renderEditor(agent) {
@@ -328,7 +347,7 @@ export function createAgentSettings({
               ${["write", "read"]
                 .map(
                   (permission) =>
-                    `<label class="agent-permission"><input type="radio" name="agent-permission" value="${permission}" data-agent-permission${draft.permission === permission ? " checked" : ""}${disabled}><span><strong>${esc(ui(PERMISSION_LABEL[permission]))}</strong><small>${esc(permission === "write" ? ui("在隔离现场修改代码") : ui("独立副本里检查，结论文字交回"))}</small></span></label>`
+                    `<label class="agent-permission"><input type="radio" name="agent-permission" value="${permission}" data-agent-permission${draft.permission === permission ? " checked" : ""}${disabled}><strong>${icon(permission === "write" ? "pencil" : "eye")}${esc(ui(PERMISSION_LABEL[permission]))}</strong><small>${esc(permission === "write" ? ui("在隔离现场修改代码") : ui("独立副本里检查，结论文字交回"))}</small></label>`
                 )
                 .join("")}
             </div>
@@ -354,7 +373,7 @@ export function createAgentSettings({
               ${allTools
                 .map((tool) => {
                   const off = !allowed.has(tool);
-                  return `<label class="agent-tool${off ? " is-off" : ""}"><input type="checkbox" value="${esc(tool)}" data-agent-tool${tools.includes(tool) && !off ? " checked" : ""}${off || locked ? " disabled" : ""}><span class="is-mono">${esc(tool)}</span></label>`;
+                  return `<label class="agent-tool${off ? " is-off" : ""}"><input type="checkbox" value="${esc(tool)}" data-agent-tool${tools.includes(tool) && !off ? " checked" : ""}${off || locked ? " disabled" : ""}>${icon(off ? "ban" : "check")}<span>${esc(tool)}</span></label>`;
                 })
                 .join("")}
             </div>
@@ -368,19 +387,19 @@ export function createAgentSettings({
             </div>
             ${
               draft.skills
-                ? `<div class="agent-chips">${chips(draft.skills, "skill", locked)}${locked || !skillChoices.length ? "" : `<select class="settings-select agent-add" data-agent-add-skill aria-label="${esc(ui("添加技能"))}"><option value="">${esc(ui("添加"))}</option>${skillChoices.map((name) => `<option value="${esc(name)}">${esc(name)}</option>`).join("")}</select>`}</div>`
+                ? `<div class="agent-chips">${chips(draft.skills, "skill", locked)}${locked || !skillChoices.length ? "" : addButton("skill", ui("添加技能"), skillChoices.map((name) => `<option value="${esc(name)}">${esc(name)}</option>`).join(""))}</div>`
                 : `<p class="agent-hint">${esc(ui`可见全部 ${options.skills.length} 个技能（已移除的除外）`)}</p>`
             }
           </div>
           <div class="mcp-field">
             <span class="mcp-field-label">MCP 服务</span><small>不选则不给任何服务</small>
-            <div class="agent-chips">${chips(draft.mcp ?? [], "mcp", locked)}${locked || !mcpChoices.length ? "" : `<select class="settings-select agent-add" data-agent-add-mcp aria-label="${esc(ui("添加 MCP 服务"))}"><option value="">${esc(ui("添加"))}</option>${mcpChoices.map((server) => `<option value="${esc(server.name)}">${esc(server.name)}${server.enabled ? "" : esc(ui("（已停用）"))}</option>`).join("")}</select>`}</div>
+            <div class="agent-chips">${chips(draft.mcp ?? [], "mcp", locked)}${locked || !mcpChoices.length ? "" : addButton("mcp", ui("添加 MCP 服务"), mcpChoices.map((server) => `<option value="${esc(server.name)}">${esc(server.name)}${server.enabled ? "" : esc(ui("（已停用）"))}</option>`).join(""))}</div>
           </div>
         </div>
       </div>
       <div class="mcp-field">
         <label for="agent-prompt">附加提示词</label><small>接在角色基础提示词之后，不替换安全规则</small>
-        <textarea id="agent-prompt" class="agent-prompt" data-agent-field="prompt" rows="6"${disabled}>${esc(draft.prompt)}</textarea>
+        <textarea id="agent-prompt" class="agent-prompt" data-agent-field="prompt" rows="4"${disabled}>${esc(draft.prompt)}</textarea>
       </div>
       ${
         locked
@@ -410,10 +429,11 @@ export function createAgentSettings({
         : source === "project"
           ? ui`项目 · ${view.data.project?.projectName ?? ""}`
           : ui("全局");
+    const sourceIcon = source === "builtin" ? "lock" : source === "project" ? "folder" : "globe";
     const canToggle = agent && editable(agent);
     const head = ui`<div class="skill-detail-head">
-        <span class="settings-icon-box is-large">${icon(view.draft?.permission === "read" ? "eye-off" : "team")}</span>
-        <span class="skill-detail-title"><h2>${esc(agent?.name ?? ui("新建 Agent"))}</h2><span class="skill-tag">${esc(sourceLabel)}</span>${agent?.path ? `<span class="agent-path is-mono">${esc(agent.path)}</span>` : ""}</span>
+        <span class="settings-icon-box is-large">${icon(agentIcon(view.draft))}</span>
+        <span class="skill-detail-title"><h2>${esc(agent?.name ?? ui("新建 Agent"))}</h2><span class="agent-detail-meta"><span class="skill-tag has-icon">${icon(sourceIcon)}${esc(sourceLabel)}</span>${agent?.displayPath ? `<span class="agent-path" title="${esc(agent.path)}">${esc(agent.displayPath)}</span>` : ""}</span></span>
         <span class="settings-group-spacer"></span>
         ${canToggle ? `<span class="mcp-enabled"><span>${ui("启用")}</span><button type="button" class="ui-switch" role="switch" data-agent-enabled aria-checked="${agent.definition.enabled !== false}" aria-label="${esc(ui("启用"))}"></button></span>` : ""}
         ${agent?.definition ? `<button class="app-button is-secondary" type="button" data-agent-copy>${icon("copy")}<span>${ui("复制")}</span></button>` : ""}
@@ -439,6 +459,7 @@ export function createAgentSettings({
   function render() {
     for (const button of panel.querySelectorAll("[data-agent-scope-value]"))
       button.setAttribute("aria-checked", String(button.dataset.agentScopeValue === view.scope));
+    $("[data-agent-note]").textContent = ui(SCOPE_NOTE[view.scope]);
     $("[data-agent-new]").disabled = view.scope === "project" && view.data.project?.trust !== "trusted";
     renderProjectBar();
     renderList();

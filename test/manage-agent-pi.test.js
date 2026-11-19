@@ -135,6 +135,8 @@ test(
       action: "create",
       scope: "global",
       path: join(home, "agents", "db-migrator.md"),
+      // HOME is the test root, so the file under it is shown with `~`.
+      displayPath: "~/home/agents/db-migrator.md",
       definition
     });
     assert.equal(JSON.parse(results[0]).saved, true);

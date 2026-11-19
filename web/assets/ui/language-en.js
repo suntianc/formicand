@@ -1505,6 +1505,20 @@ export default {
   将替换同名: "Replaces existing",
   名称不可用: "Name not usable",
   替换并安装: "Replace and install",
+  只在这个项目可用: "Only in this project",
+  所有项目可用: "Every project",
+  含: "Has",
+  找到: "Found",
+  已选: "Selected",
+  读取: "Read",
+  本地文件夹: "Local folder",
+  勾选要安装的: "Tick the ones to install",
+  "支持子目录，如 …/tree/main/skills": "A subfolder works too, e.g. …/tree/main/skills",
+  "可以是一个技能，或装着多个技能的文件夹": "One skill, or a folder holding several",
+  "安装到此项目的 .atria/skills/，跟着项目走。":
+    "Installs into this project's .atria/skills/ and travels with the project.",
+  "安装到 ~/.atria/skills/，只给本产品用；不会写入通用目录 ~/.agents/skills/。":
+    "Installs into ~/.atria/skills/ for this product only; nothing is written to the shared ~/.agents/skills/.",
   安装: "Install",
   添加技能到此项目: "Add skills to this project",
   "请选择一个 zip 文件": "Choose a zip file",
@@ -1601,6 +1615,11 @@ export default {
   指令模板: "Prompt templates",
   "MCP 资源": "MCP resources",
   "菜单加载失败：": "Menu failed to load: ",
+  "MCP 资源读取失败：": "MCP resources failed to load: ",
+  "项目 Agent 存在 .atria/agents/，跟着项目走；同名时覆盖全局":
+    "Project Agents live in .atria/agents/ and travel with the project; they replace global ones of the same name",
+  "项目技能存在 .atria/skills/ 和 .agents/skills/，跟着项目走；同名时覆盖全局":
+    "Project skills live in .atria/skills/ and .agents/skills/ and travel with the project; they replace global ones of the same name",
   "Main 按「使用说明」决定派给谁；同名时项目覆盖全局":
     "Main picks an Agent by its usage note; a project Agent replaces a global one of the same name",
   "新建 Agent": "New Agent",

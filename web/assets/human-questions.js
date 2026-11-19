@@ -1,3 +1,4 @@
+import { icon } from "./ui/icons.js";
 import { ui } from "./ui/language.js";
 const esc = (value) =>
   String(value ?? "").replace(
@@ -43,9 +44,6 @@ export function humanAnswer(request, draft = {}) {
   return choice && text ? ui`${choice}\n\n补充说明：${text}` : choice || text;
 }
 
-const PROPOSAL_SCOPE = { global: "全局", project: "项目" };
-const PROPOSAL_PERMISSION = { write: "可写", read: "只读" };
-
 /**
  * A change Main asks the user to approve: the whole Agent definition, then
  * confirm, reject, or edit it in settings. Typed changes go back to Main.
@@ -53,30 +51,44 @@ const PROPOSAL_PERMISSION = { write: "可写", read: "只读" };
 function renderAgentProposal(request, draft, { busy, error, index, total }) {
   const { proposal } = request;
   const definition = proposal.definition;
-  const chips = (list) =>
-    list.map((name) => `<span class="proposal-chip">${esc(name)}</span>`).join("") || esc(ui("无"));
+  const chips = (list, mark = "", tone = "") =>
+    list
+      .map((name) => `<span class="proposal-chip${tone}">${mark ? icon(mark) : ""}${esc(name)}</span>`)
+      .join("") || esc(ui("无"));
+  const tagged = (mark, label, note) =>
+    `<span class="proposal-tag">${icon(mark)}${esc(label)}</span><span class="proposal-aside">${esc(note)}</span>`;
   const rows = [
-    [ui("范围"), `${esc(ui(PROPOSAL_SCOPE[proposal.scope]))}`],
+    [
+      ui("范围"),
+      proposal.scope === "project"
+        ? tagged("folder", ui("项目"), ui("只在这个项目可用"))
+        : tagged("globe", ui("全局"), ui("所有项目可用"))
+    ],
     [ui("使用说明"), esc(definition.description)],
-    [ui("权限"), esc(ui(PROPOSAL_PERMISSION[definition.permission]))],
+    [
+      ui("权限"),
+      definition.permission === "read"
+        ? tagged("eye", ui("只读"), ui("独立副本里检查，结论文字交回"))
+        : tagged("pencil", ui("可写"), ui("在隔离现场修改代码"))
+    ],
     [ui("模型"), esc(definition.model || ui("沿用角色的模型"))],
     [ui("工具"), definition.tools ? chips(definition.tools) : esc(ui("按权限的默认工具"))],
-    [ui("技能"), definition.skills ? chips(definition.skills) : esc(ui("全部技能"))],
-    ["MCP", chips(definition.mcp ?? [])],
+    [ui("技能"), definition.skills ? chips(definition.skills, "book-open") : esc(ui("全部技能"))],
+    ["MCP", chips(definition.mcp ?? [], "plug", " is-ok")],
     ...(definition.prompt
       ? [[ui("附加提示词"), `<span class="proposal-prompt">${esc(definition.prompt)}</span>`]]
       : [])
   ];
   const confirm = request.options?.[0] ?? ui("确认");
-  return ui`<form class="human-question-form agent-proposal"><div class="human-card-heading"><span class="human-waiting-dot"></span><strong>等你确认</strong>${total > 1 ? ui`<div class="human-question-pages"><button type="button" data-human-page="-1" aria-label="上一个问题" ${index === 0 ? "disabled" : ""}>‹</button><span>${index + 1} / ${total}</span><button type="button" data-human-page="1" aria-label="下一个问题" ${index === total - 1 ? "disabled" : ""}>›</button></div>` : ""}</div>
-    <div class="human-card-body"><h3 id="human-question-title">${esc(request.question)}</h3><p class="proposal-path">写入 ${esc(proposal.path)}</p>
-    <dl class="proposal-facts">${rows.map(([label, value]) => `<dt>${label}</dt><dd>${value}</dd>`).join("")}</dl>
+  return ui`<form class="human-question-form agent-proposal">${total > 1 ? ui`<div class="human-card-heading"><div class="human-question-pages"><button type="button" data-human-page="-1" aria-label="上一个问题" ${index === 0 ? "disabled" : ""}>‹</button><span>${index + 1} / ${total}</span><button type="button" data-human-page="1" aria-label="下一个问题" ${index === total - 1 ? "disabled" : ""}>›</button></div></div>` : ""}
+    <div class="proposal-head"><span class="proposal-mark">${icon(definition.permission === "read" ? "scan-eye" : "wrench")}</span><span class="proposal-head-text"><h3 id="human-question-title">${esc(request.question)}</h3><span class="proposal-path">写入 ${esc(proposal.displayPath ?? proposal.path)}</span></span><span class="proposal-waiting">${icon("circle-alert")}等你确认</span></div>
+    <div class="human-card-body"><dl class="proposal-facts">${rows.map(([label, value]) => `<dt>${label}</dt><dd>${value}</dd>`).join("")}</dl>
     <fieldset ${busy ? "disabled" : ""}><legend class="sr-only">修改意见</legend><label class="human-text-label" for="human-answer-text">也可以直接写修改意见，比如「改成只读」</label><textarea id="human-answer-text" name="human-text" rows="2">${esc(draft.text || "")}</textarea></fieldset></div>
-    <div class="human-card-footer"><p class="human-error" role="status">${esc(error)}</p><span class="proposal-note">确认后下一次派单即可使用</span>
+    <div class="human-card-footer"><p class="human-error" role="status">${esc(error)}</p><span class="proposal-note">${icon("info")}确认后下一次派单即可使用</span>
     <button class="human-secondary" type="button" data-human-answer="${esc(request.options?.[1] ?? ui("拒绝"))}" ${busy ? "disabled" : ""}>拒绝</button>
-    <button class="human-secondary" type="button" data-human-edit ${busy ? "disabled" : ""}>在设置里修改</button>
+    <button class="human-secondary" type="button" data-human-edit ${busy ? "disabled" : ""}>${icon("external")}<span>在设置里修改</span></button>
     <button class="human-secondary" type="submit" ${busy || !String(draft.text || "").trim() ? "disabled" : ""}>发送修改意见</button>
-    <button class="human-submit" type="button" data-human-answer="${esc(confirm)}" ${busy ? "disabled" : ""}>${esc(confirm)}</button></div></form>`;
+    <button class="human-submit" type="button" data-human-answer="${esc(confirm)}" ${busy ? "disabled" : ""}>${icon("check")}<span>${esc(confirm)}</span></button></div></form>`;
 }
 
 export function renderHumanQuestion(

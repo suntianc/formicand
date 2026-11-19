@@ -12,7 +12,9 @@ import {
   type AgentDefinition
 } from "../../../dist/src/runtime/agent-definitions.js";
 import { readMcpServers } from "../../../dist/src/runtime/mcp-config.js";
+import { displayPath } from "../../../dist/src/runtime/display-path.js";
 import type { AgentProposal } from "../../../dist/src/runtime/human.js";
+import { homedir } from "node:os";
 import { join } from "node:path";
 import type { CoworkToolContext } from "../extension.ts";
 import type { RuntimeToolResult } from "../helpers.ts";
@@ -110,6 +112,10 @@ export function registerAgentTools(pi: ExtensionAPI, context: CoworkToolContext)
         action: params.action,
         scope,
         path: join(root, `${definition.name}.md`),
+        displayPath: displayPath(join(root, `${definition.name}.md`), {
+          userHome: homedir(),
+          projectDirectory: context.projectDirectory
+        }),
         definition
       }
     };
