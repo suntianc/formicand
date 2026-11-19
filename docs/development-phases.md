@@ -162,7 +162,7 @@
 ### 自定义 Agent
 
 - 定义为 Markdown 文件：头部写名称、给 Main 的使用说明、权限、可选模型、工具、技能和 MCP，正文为附加提示词，接在角色基础提示词之后。权限分两档：`write` 使用 Executor 的隔离现场，`read` 使用 Reviewer 的独立 checkout，结论以文本交回。全局放在 `~/.atria/agents/`，项目放在 `.atria/agents/`，同名时项目覆盖全局。内置 Executor、Reviewer 以同一格式只读展示，可复制后修改。
-- 以下规则由代码执行：只读 Agent 不能选 `write`、`edit`；任何 Agent 都不持有 Main 专用工具，不能再派子 Agent；桌面与浏览器操控不下放；`ask_main`、`send_peer_message` 始终持有。未写技能时可见全部技能，未写 MCP 时不给任何服务。
+- 以下规则由代码执行：只读 Agent 不能选 `write`、`edit`；任何 Agent 都不持有 Main 专用工具，不能再派子 Agent；桌面与浏览器操控不下放；`send_peer_message` 始终持有，`ask_main` 除同步派单外始终持有。未写技能时可见全部技能，未写 MCP 时不给任何服务。
 - 委派：`call_subagent` 增加 `agent` 参数，Main 的系统提示列出可用 Agent 的名称与说明。工作项启动时固定定义，运行中不受修改影响；引用已删除或停用的 Agent 以可定位的错误结束，不改派给其他 Agent。
 - Main 创建：新增 `manage_agent` 工具，用于列出、创建、修改、停用 Agent。每次写入前经 `askhuman` 展示完整定义，用户确认后才保存。Main 不能新增 MCP 服务，只能引用已配置的服务。
 - 管理界面：分全局 Agent 管理与项目 Agent 管理两处，项目页先选择项目；列表分页，支持增删改、启用停用和引用失效提示。侧栏子 Agent 显示自定义名称，运行记录写入非敏感的定义快照（名称、权限、模型来源）。

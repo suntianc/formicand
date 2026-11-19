@@ -169,6 +169,7 @@ async function delegatedCall(
     prepare,
     env = {},
     payload,
+    mode,
     observe,
     expectFailure = false
   }
@@ -213,6 +214,7 @@ async function delegatedCall(
       task,
       projectDirectory: site,
       delegation: { role },
+      ...(mode ? { mode } : {}),
       ...(capabilityGrants ? { capabilityGrants } : {})
     },
     maxAttempts: 1
@@ -319,11 +321,32 @@ test(
     // the same bundled catalog even though it runs outside the install root.
     assert.match(system, /<available_skills>/, "the process is given a skill catalog");
     assert.match(system, /<name>cua<\/name>/, "a bundled skill is in that catalog");
-    assert.ok(
-      system.includes(resolve(".pi", "skills")),
-      "the catalog points at the install's bundled skill directory"
-    );
+    assert.match(system, /load it with load_skill by name/, "skills are loaded one way: load_skill");
+    assert.ok(!system.includes("SKILL.md"), "the catalog names skills; load_skill returns their files");
     assert.doesNotMatch(system, /\brun_command\b/, "the catalog and role text name only tools it holds");
+  }
+);
+
+test(
+  "a sync Executor has no ask_main: Main is waiting inside its own call and cannot answer",
+  { timeout: 120_000 },
+  async (t) => {
+    const { provider, result } = await delegatedCall(t, {
+      role: "executor",
+      agentId: "subagent_sync",
+      callId: "call-role-sync",
+      mode: "sync",
+      handle: () => ({ text: "SYNC_DONE" })
+    });
+    assert.equal(result.termination, "completed");
+    const request = provider.requests[0];
+    assert.deepEqual(
+      toolNames(request),
+      EXECUTOR_TOOLS.filter((name) => name !== "ask_main")
+    );
+    const system = request.messages.find((message) => message.role === "system").content;
+    assert.match(system, /This is a synchronous delegation/);
+    assert.doesNotMatch(system, /You can reach Main with ask_main/);
   }
 );
 
@@ -407,6 +430,21 @@ test(
     assert.doesNotMatch(system, /You run this work item as the Executor/);
   }
 );
+
+test("a Reviewer with an attachment grant is told about it once", { timeout: 120_000 }, async (t) => {
+  const { provider } = await delegatedCall(t, {
+    role: "reviewer",
+    agentId: "subagent_reviewer_grant",
+    callId: "call-reviewer-grant",
+    prepare: async ({ workspace }) => {
+      const file = await receiveInput(workspace, "notes.txt", "review notes\n");
+      return { grants: [{ provider: "attachments", scope: [file.uploadId] }] };
+    },
+    handle: () => ({ text: "REVIEW_TEXT_WITHOUT_CONCLUSION" })
+  });
+  const system = provider.requests[0].messages.find((message) => message.role === "system").content;
+  assert.equal(system.split("Delegated attachment IDs:").length - 1, 1);
+});
 
 test("the prompt and skill text name only tools a Subagent actually holds", async () => {
   // `run_command` was the old second shell tool. Neither role holds one, so a

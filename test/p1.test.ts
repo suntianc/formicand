@@ -17,7 +17,11 @@ async function main(): Promise<void> {
     );
     const skills = await discoverSkills([join(root, ".pi", "skills")]);
     assert.equal(skills.length, 1);
-    assert.match(skillCatalogPrompt(skills), /demo-skill: Use for demo files/);
+    assert.match(
+      skillCatalogPrompt(skills),
+      /<name>demo-skill<\/name>\n {4}<description>Use for demo files\.<\/description>/
+    );
+    assert.equal(skillCatalogPrompt([]), "");
     const loaded = (await createLoadSkillTool(skills).execute({ name: "demo-skill" })) as {
       content: string;
       directory: string;

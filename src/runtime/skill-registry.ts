@@ -135,12 +135,28 @@ export async function discoverSkills(roots: string[]): Promise<SkillMetadata[]> 
   return found.sort((a, b) => a.name.localeCompare(b.name));
 }
 
+const escapeXml = (text: string): string =>
+  text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+/**
+ * The skill catalog every process shows its model: names and descriptions only.
+ *
+ * A skill is loaded through load_skill, which returns its instructions, real
+ * directory and bundled scripts, so the catalog carries no file path to read.
+ */
 export function skillCatalogPrompt(skills: SkillMetadata[]): string {
-  if (skills.length === 0) return "No project skills are available for this Subagent.";
+  if (skills.length === 0) return "";
   return [
-    "Project skills are available on demand. Do not load a skill unless the task matches its description.",
-    "Use the load_skill tool with the skill name before following a specialized workflow; the tool returns the full SKILL.md and its directory.",
-    ...skills.map((skill) => `- ${skill.name}: ${skill.description}`)
+    "Skills hold instructions for specific kinds of work. When a task matches a skill's description, load it with load_skill by name before starting.",
+    "",
+    "<available_skills>",
+    ...skills.flatMap((skill) => [
+      "  <skill>",
+      `    <name>${escapeXml(skill.name)}</name>`,
+      `    <description>${escapeXml(skill.description)}</description>`,
+      "  </skill>"
+    ]),
+    "</available_skills>"
   ].join("\n");
 }
 

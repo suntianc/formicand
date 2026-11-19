@@ -144,7 +144,8 @@ test("references keep what resolves and the manifest goes in front of the words"
   assert.deepEqual(await service.resolve(undefined, [{ kind: "file", path: "a.sql" }]), []);
 
   const message = referencesBlock(project, resolved.slice(0, 2)) + "用 /pg-migration 处理 @a.sql";
-  assert.match(message, /^<atria_references>\n\{"version":1,"note":"[^"]*read the SKILL\.md/);
+  assert.match(message, /^<atria_references>\n\{"version":1,"note":"[^"]*load it with load_skill by name/);
+  assert.ok(!message.includes("SKILL.md"), "Main loads the skill by name, not by its file");
   assert.equal(stripReferencesBlock(message), "用 /pg-migration 处理 @a.sql");
   assert.equal(stripReferencesBlock("没有清单"), "没有清单");
   assert.equal(referencesBlock(project, []), "");

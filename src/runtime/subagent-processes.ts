@@ -83,6 +83,8 @@ interface AgentResultRecord {
 
 interface WorkPayload {
   task?: string;
+  /** sync: Main waits inside its own tool call and cannot answer a question. */
+  mode?: "sync" | "async";
   projectDirectory?: string;
   workItemSite?: WorkItemSite;
   /** The frozen candidate a Reviewer examines, when the dispatcher knows it. */
@@ -461,6 +463,7 @@ export class SubagentProcessService {
       ...this.options.env,
       ...(this.options.envFor ? await this.options.envFor(item) : {}),
       COWORK_AGENT_ROLE: role,
+      COWORK_SUBAGENT_MODE: payload.mode === "sync" ? "sync" : "async",
       // A delegated process has no Dashboard tools; the host credential belongs
       // to the requesting Run and must not let a Subagent act as Main.
       COWORK_API_TOKEN: undefined,
