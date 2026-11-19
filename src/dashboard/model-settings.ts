@@ -49,7 +49,6 @@ const ENVIRONMENT_KEYS = [
 export function createModelSettings(
   root: string,
   config: CoworkConfig,
-  active: () => Promise<boolean>,
   options: { credentialsPath?: string } = {}
 ) {
   const path = coworkConfigPath(root);
@@ -94,9 +93,13 @@ export function createModelSettings(
     else delete config.roleModels;
     applyHostCredentials(config, credentials);
   };
-  /** Read the saved file with its keys, change it and write it back under the file lock. */
-  const update = async (change: (previous: CoworkConfig) => CoworkConfig, runSafe = false) => {
-    if (!runSafe && (await active())) throw new Error("请先停止运行中的任务，再修改模型供应商");
+  /**
+   * Read the saved file with its keys, change it and write it back under the file lock.
+   *
+   * Allowed while a turn runs: a Main turn and a work item hold the model,
+   * address and key they started with, so a change applies from the next one.
+   */
+  const update = async (change: (previous: CoworkConfig) => CoworkConfig) => {
     if (managed()) throw new Error("当前模型连接由启动环境管理，请在启动配置中修改");
     await withFileLock(path, async () => {
       store.reload();
@@ -222,12 +225,9 @@ export function createModelSettings(
     },
     /**
      * Save one built-in Agent's settings, globally or for one project.
-     *
-     * Allowed while a Run is active on purpose: the change must apply to the
-     * next turn or work item and never rewrite what a running one was given.
      */
     async saveRole(value: { role: unknown; projectDirectory?: string; settings: unknown }) {
-      await update((previous) => withActiveConnection(saveRoleSettings(previous, value)), true);
+      await update((previous) => withActiveConnection(saveRoleSettings(previous, value)));
       return status();
     },
     /** The configuration this host runs with, for views that resolve built-in Agent settings. */
