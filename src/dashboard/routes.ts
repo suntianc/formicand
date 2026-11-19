@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import { type IncomingMessage, type ServerResponse } from "node:http";
 import { basename, join } from "node:path";
 import type { ModelLevels } from "../runtime/model-levels.js";
+import { projectRoleSettings, resolveModelRole } from "../runtime/role-models.js";
 import { serveArtifact } from "./artifact-response.js";
 import { resolveTaskArtifact } from "../workspace/artifact-store.js";
 import {
@@ -678,14 +679,31 @@ export function createDashboardHandler(
         // composer can show it instead of an assumed default. Read from the same
         // role resolution the launch uses; absent when that connection is unusable.
         const mainRole = status.modelRoles.roles.find((entry) => entry.role === "main")?.effective;
-        const mainEffort = mainRole?.thinkingLevel;
+        let mainEffort = mainRole?.thinkingLevel;
+        let current = runtimeValue("COWORK_MODEL");
+        let connectionProfileId = status.activeProfileId;
         // Whose models these are, so the composer can show the provider's mark.
-        const mainProviderId = (mainRole?.connectionId || status.activeProfileId).split("#")[0];
+        let mainProviderId = (mainRole?.connectionId || status.activeProfileId).split("#")[0];
+        // A project may give Main its own model or level; the composer of a
+        // conversation in that project shows and sends those.
+        const projectDirectory = url.searchParams.get("projectDirectory")?.trim();
+        const config = ports.modelSettings.config();
+        const own = projectDirectory ? projectRoleSettings(config, "main", projectDirectory) : undefined;
+        if (own?.profileId || own?.thinkingLevel) {
+          const selection = resolveModelRole(config, { role: "main", projectDirectory });
+          mainEffort = selection.thinkingLevel;
+          const projectProfileId = own.profileId;
+          if (selection.source === "project" && projectProfileId) {
+            current = selection.model;
+            connectionProfileId = projectProfileId;
+            mainProviderId = projectProfileId.split("#")[0];
+          }
+        }
         const owner = status.providers.find((provider) => provider.id === mainProviderId);
         const models = await availableModels();
         sendJson(response, 200, {
-          current: runtimeValue("COWORK_MODEL"),
-          connectionProfileId: status.activeProfileId,
+          current,
+          connectionProfileId,
           ...(mainEffort ? { reasoningEffort: mainEffort } : {}),
           ...(owner
             ? { provider: { name: owner.name, ...(owner.preset ? { preset: owner.preset } : {}) } }

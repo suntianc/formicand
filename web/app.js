@@ -117,6 +117,15 @@ const state = {
   modelLevels: {},
   /** The Main connection's saved level, reported by the server for the label. */
   mainThinkingLevel: null,
+  /**
+   * The project directory the model list was read for ("" for none): a project
+   * may give Main its own model, so the composer reads it again on a switch.
+   */
+  modelScope: undefined,
+  /** The project the latest model read asks for, so a render does not ask twice. */
+  modelReadScope: undefined,
+  /** Main's model per project as last read, to tell a real change from a switch. */
+  mainByScope: new Map(),
   selected: null,
   detail: null,
   previewPath: null,
@@ -794,23 +803,27 @@ function defaultModelForNewConversation() {
   return state.defaultModel;
 }
 
-function syncModelConnection(model, profileId, mainEffort) {
+function syncModelConnection(model, profileId, mainEffort, scope = state.modelScope ?? "") {
   // Only the model list reports the Main connection's level; a catalog refresh
   // omits it and must not erase what the composer is showing.
   if (mainEffort !== undefined) state.mainThinkingLevel = mainEffort;
+  // The first read after start, or of another project, is not a switch: each
+  // conversation keeps the level and provider remembered for it. A real switch
+  // of a project's Main connection starts every conversation's choices over.
+  const main = `${profileId}\n${model}`;
+  const before = state.mainByScope.get(scope);
+  state.mainByScope.set(scope, main);
+  if (before !== undefined && before !== main) {
+    state.modelByTask.clear();
+    state.profileByTask.clear();
+    state.thinkingLevelByTask.clear();
+  }
   if (state.connectionProfileId !== profileId || state.defaultModel !== model) {
-    // The first read after start is not a switch: each conversation keeps the
-    // level and provider remembered for it. A real switch of the Main
-    // connection starts every conversation's choices over.
-    if (state.connectionProfileId !== undefined) {
-      state.modelByTask.clear();
-      state.profileByTask.clear();
-      state.thinkingLevelByTask.clear();
-    }
     state.connectionProfileId = profileId;
     state.profileId = state.selected ? (state.profileByTask.get(state.selected) ?? null) : null;
     // A remembered model of another provider is that provider's, not the default.
-    state.model = pickedProfile()?.model.id ?? model;
+    state.model =
+      pickedProfile()?.model.id ?? (state.selected && state.modelByTask.get(state.selected)) ?? model;
     state.thinkingLevel = state.selected ? (state.thinkingLevelByTask.get(state.selected) ?? null) : null;
   }
   state.defaultModel = model;
@@ -819,9 +832,24 @@ function syncModelConnection(model, profileId, mainEffort) {
   setThinkingLabel(state.thinkingLevel);
 }
 
+/** The directory of the project the composer sends to, or "" outside a project. */
+function composerProjectDirectory() {
+  const projectId = composerProjectId();
+  return state.projects.find((entry) => entry.projectId === projectId)?.projectDirectory || "";
+}
+
+let modelReadSequence = 0;
 async function loadModels() {
+  const scope = composerProjectDirectory();
+  const sequence = ++modelReadSequence;
+  state.modelReadScope = scope;
   try {
-    const data = await api("/api/models");
+    const data = await api(
+      scope ? `/api/models?projectDirectory=${encodeURIComponent(scope)}` : "/api/models"
+    );
+    // A later read, for another project, has the say.
+    if (sequence !== modelReadSequence) return;
+    state.modelScope = scope;
     state.modelConfigured = data.configured;
     updateSendButton();
     state.models = Array.isArray(data.models)
@@ -835,7 +863,7 @@ async function loadModels() {
     // Providers first: restoring a remembered provider looks its model up.
     state.modelProviders = Array.isArray(data.providers) ? data.providers : [];
     state.mainProviderId = typeof data.mainProviderId === "string" ? data.mainProviderId : "";
-    syncModelConnection(defaultModel, data.connectionProfileId, data.reasoningEffort ?? null);
+    syncModelConnection(defaultModel, data.connectionProfileId, data.reasoningEffort ?? null, scope);
     if (state.profileId && !pickedProfile()) state.profileId = null;
     paintModelProvider(data.provider);
     // eslint-disable-next-line no-restricted-syntax -- /api/models is unavailable while the backend restarts or is offline; the picker keeps a usable model instead of an empty list
@@ -965,9 +993,10 @@ async function applyCatalog(data, { poll = false } = {}) {
     if (!state.workspacePath) state.workspacePath = state.workspaceRoot;
     state.workspaceLabel = workspaceDisplayName(state.workspacePath);
   }
-  if (data.model) {
-    // This local response arrives before provider model discovery. Establish
-    // the active connection before historical task models can be cached.
+  // This local response arrives before provider model discovery. Establish
+  // the active connection before historical task models can be cached. It
+  // names the host's Main; inside a project the model list has the say.
+  if (data.model && !state.modelScope) {
     if (data.connectionProfileId) syncModelConnection(data.model, data.connectionProfileId);
     else {
       state.defaultModel = data.model;
@@ -1092,6 +1121,9 @@ function resetBackendView() {
   state.defaultModel = null;
   state.modelConfigured = undefined;
   state.connectionProfileId = undefined;
+  state.modelScope = undefined;
+  state.modelReadScope = undefined;
+  state.mainByScope.clear();
   state.workspacePath = null;
   state.workspaceRoot = null;
   state.workspaceLabel = null;
@@ -1363,6 +1395,9 @@ function syncIdleComposer() {
   if (firstUse.blocksSending()) $("#composer-project").hidden = true;
 }
 function paintTopbarContext() {
+  // Another project may give Main another model.
+  if (state.modelScope !== undefined && composerProjectDirectory() !== state.modelReadScope)
+    void loadModels();
   const idleTitle = firstUse.active() ? ui("开始使用") : ui("新会话");
   const name = state.selected
     ? conversationTitle(state.detail?.task || state.tasks.find((task) => task.taskId === state.selected))

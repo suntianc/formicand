@@ -45,7 +45,7 @@ import { readJsonFile, readJsonLines } from "./event-stream.js";
 import { mainIsAlive, readHeartbeat } from "../runtime/main-heartbeat.js";
 import { readSleep } from "../runtime/main-sleep.js";
 import { createModelSettings } from "./model-settings.js";
-import { resolveModelRole } from "../runtime/role-models.js";
+import { projectRoleSettings, resolveModelRole } from "../runtime/role-models.js";
 import { createDashboardHandler, type DashboardRoutePorts } from "./routes.js";
 import { createDashboardRunService } from "./run-service.js";
 import { LocalAccess } from "./local-access.js";
@@ -752,9 +752,17 @@ export function createDashboardApplication(
         model:
           active || !runtimeConfig.modelProviders
             ? task.model || runtimeValue("COWORK_MODEL")
-            : runtimeValue("COWORK_MODEL")
+            : idleMainModel(task.projectDirectory)
       }
     };
+  }
+
+  /** The model the next Main run of a Task in this project uses: the project's own, else the host's. */
+  function idleMainModel(projectDirectory: string | undefined): string | undefined {
+    const config = modelSettings.config();
+    if (!projectDirectory || !projectRoleSettings(config, "main", projectDirectory)?.profileId)
+      return runtimeValue("COWORK_MODEL");
+    return resolveModelRole(config, { role: "main", projectDirectory }).model;
   }
 
   async function computerHostRequest(value: unknown) {

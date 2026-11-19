@@ -14,6 +14,7 @@ import {
   addProviderThroughUi,
   checkProvider,
   chooseRoleModel,
+  openBuiltinAgent,
   leaveSettings,
   openModelParams,
   openModelSettings,
@@ -166,6 +167,26 @@ for (const native of [false, true]) {
       await leaveSettings(page);
       await expect(page.locator(".model-name")).toHaveText("first-model");
       expect(activeModelOf(await status()).contextWindow).toBe(64000);
+
+      // The project gives Main the other provider's model: the composer shows it and sends to it.
+      const agents = await openBuiltinAgent(page, "main");
+      await agents.locator('[data-agent-scope-value="project"]').click();
+      await agents.locator('[data-agent-select="builtin:main"]').click();
+      await agents.locator("[data-agent-model]").click();
+      await page
+        .locator(".role-menu:not([hidden]) .role-menu-item", { hasText: "second-model" })
+        .first()
+        .click();
+      await agents.locator("[data-agent-save]").click();
+      await expect(page.locator("#toast")).toContainText("已保存");
+      await leaveSettings(page);
+      await expect(page.locator(".model-name")).toHaveText("second-model");
+      const before = second.requests.length;
+      await page.locator("#composer-input").fill("项目里的主模型");
+      await page.locator("#send-button").click();
+      await expect.poll(() => second.requests.length).toBeGreaterThan(before);
+      await expect(page.locator("#stop-button")).toBeHidden({ timeout: 30_000 });
+      expect(second.requests.at(-1).body.model).toBe("second-model");
     } finally {
       await app?.close();
       await dashboard?.stop();
