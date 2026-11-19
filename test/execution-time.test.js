@@ -13,7 +13,8 @@ const boundary = (runId, type, ms) => ({
 
 test("execution duration uses matching run boundaries rather than Task age or message timestamps", () => {
   const records = runtime("current");
-  records[0].payload.timestamp = origin - 60_000;
+  // The event's own time only tells which interval it ran in; the length is the ledger's.
+  records[0].payload.timestamp = origin + 3000;
   const ledger = [
     boundary("old", "spawned", -500_000),
     boundary("old", "completed", -400_000),
@@ -27,7 +28,7 @@ test("execution duration uses matching run boundaries rather than Task age or me
     records,
     runtime("current").map((record) => ({
       ...record,
-      payload: { timestamp: origin - 60_000 }
+      payload: { timestamp: origin + 3000 }
     }))
   );
 });
@@ -171,4 +172,40 @@ test("duration formatting uses whole seconds and rejects invalid values", () => 
   for (const ms of [null, undefined, "8000", NaN, Infinity, -Infinity, -1, {}, []]) {
     assert.equal(formatExecutionDuration(ms), "");
   }
+});
+
+test("each turn of a resident Main counts its own interval, not the Run's first", () => {
+  const stamped = (runId, ...ms) =>
+    ms.map((at) => ({ type: "runtime_event", runId, payload: { message: { timestamp: origin + at } } }));
+  const ledger = [
+    boundary("resident", "spawned", 0),
+    boundary("resident", "completed", 8000),
+    {
+      eventId: "delivered",
+      runId: "resident",
+      type: "main.turn_delivered",
+      occurredAt: new Date(origin + 39_000).toISOString()
+    },
+    boundary("resident", "completed", 87_000)
+  ];
+  assert.equal(executionElapsedMs(stamped("resident", 500, 7000), ledger), 8000);
+  assert.equal(executionElapsedMs(stamped("resident", 39_200, 60_000, 86_000), ledger), 48_000);
+  // Events without times, as older logs have, count the whole Run.
+  assert.equal(executionElapsedMs(runtime("resident"), ledger), 56_000);
+  // A message queued while paused opens no interval of its own.
+  assert.equal(
+    executionElapsedMs(runtime("paused"), [
+      boundary("paused", "spawned", 0),
+      boundary("paused", "paused", 3000),
+      {
+        runId: "paused",
+        type: "main.turn_delivered",
+        occurredAt: new Date(origin + 4000).toISOString(),
+        payload: { queuedWhilePaused: true }
+      },
+      boundary("paused", "spawned", 10_000),
+      boundary("paused", "completed", 12_000)
+    ]),
+    5000
+  );
 });
