@@ -15,7 +15,6 @@ import { WatcherRuntime } from "../src/runtime/watcher.js";
 import { LocalWorkspaceStore } from "../src/workspace/workspace-store.js";
 import { HumanRequestStore } from "../src/runtime/human.js";
 import { SubagentQuestionStore } from "../src/runtime/subagent-questions.js";
-import { ExperimentProgramStore } from "../src/runtime/experiment-program-store.js";
 
 async function main(): Promise<void> {
   const root = await mkdtemp(join(tmpdir(), "cowork-p2-"));
@@ -119,36 +118,6 @@ async function main(): Promise<void> {
     assert.equal(runtimeState.runtimePhase, "waiting");
     assert.equal(runtimeState.runtimePendingDelegations, 2);
     assert.equal(runtimeState.runtimeRouting?.strategy, "parallel_research");
-
-    const experimentRoot = join(root, "experiment");
-    const experimentWorkspace = new LocalWorkspaceStore(experimentRoot);
-    await experimentWorkspace.createTask("train-task", { goal: "迭代训练模型并提升验证集指标" });
-    const experiments = new ExperimentProgramStore(experimentRoot);
-    const experiment = await experiments.createProgram({
-      taskId: "train-task",
-      objective: "分析数据配比并运行下一轮训练",
-      successCriteria: "验证集分数提升",
-      budget: { maxRuns: 3 }
-    });
-    const experimentRun = await experiments.startRun({
-      taskId: "train-task",
-      experimentId: experiment.experimentId,
-      callId: "call-train-1",
-      agentId: "subagent_1",
-      objective: "运行第一轮训练"
-    });
-    assert.equal(experimentRun.status, "running");
-    const finishedExperimentRun = await experiments.completeRun({
-      taskId: "train-task",
-      experimentId: experiment.experimentId,
-      runId: experimentRun.runId,
-      status: "partial",
-      summary: "训练已启动，等待评测",
-      artifacts: ["runs/train-1.log"]
-    });
-    assert.equal(finishedExperimentRun.status, "partial");
-    assert.equal((await experiments.readProgram("train-task", experiment.experimentId)).status, "waiting");
-    assert.equal((await experiments.listPrograms("train-task")).length, 1);
 
     const coordinatorRoot = join(root, "coordinator");
     const coordinator = new CoordinatorRuntime();

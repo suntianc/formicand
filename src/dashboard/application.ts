@@ -63,7 +63,6 @@ import { withFileLock } from "../storage/file-lock.js";
 import { ProjectDataRuntime } from "../workspace/project-data-service.js";
 import { createProjectDevelopmentService } from "./project-development-service.js";
 import { createSubagentBackend } from "./subagent-backend.js";
-import { ExperimentProgramStore } from "../runtime/experiment-program-store.js";
 import { attachmentGrants } from "../workspace/attachment-capabilities.js";
 import { ComputerUse } from "../gui/computer-use.js";
 import type { ComputerDriver } from "../gui/computer-use.js";
@@ -374,15 +373,6 @@ export function createDashboardApplication(
         await agentLocations(data.home, (await locateTask(taskId)).task.projectDirectory),
         name
       ),
-    experiment: async ({ taskId, callId, agentId, objective }) => {
-      const location = await locateTask(taskId);
-      return await new ExperimentProgramStore(location.workspaceRoot).openRun({
-        taskId,
-        callId,
-        agentId,
-        objective
-      });
-    },
     configPath: () => coworkConfigPath(projectRoot),
     piAgentDir: () => data.piAgentDir,
     ...(process.env.COWORK_SUBAGENT_POLL_MS ? { pollMs: Number(process.env.COWORK_SUBAGENT_POLL_MS) } : {})

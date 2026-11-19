@@ -1,6 +1,5 @@
 import { Type } from "typebox";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { metricSeries } from "../../../dist/src/domain/experiment.js";
 import { clearSleep, readSleep, writeSleep } from "../../../dist/src/runtime/main-sleep.js";
 import { isSteeredHumanMessage } from "../../../dist/src/runtime/main-inbox-delivery.js";
 import { readSubagentProgress } from "../../../dist/src/runtime/progress.js";
@@ -159,14 +158,13 @@ export function registerCoordinationTools(pi: ExtensionAPI, context: CoworkToolC
     name: "call_subagent",
     label: "Call Subagent",
     description:
-      "Delegate one concrete work item to a Subagent. sync waits for the result; async returns a callId and delivers the result by callback. Both modes execute the task once. role names the job (executor implements, reviewer examines an independent session); dependsOn holds the item until earlier callIds finish; developmentId runs it in that requirement's isolated checkout; continueCallId reworks a finding as the next turn of a finished Executor's own session and checkout. Task wording never registers a persistent program.",
+      "Delegate one concrete work item to a Subagent. sync waits for the result; async returns a callId and delivers the result by callback. Both modes execute the task once. role names the job (executor implements, reviewer examines an independent session); dependsOn holds the item until earlier callIds finish; developmentId runs it in that requirement's isolated checkout; continueCallId reworks a finding as the next turn of a finished Executor's own session and checkout.",
     promptSnippet: "Delegate a concrete task",
     promptGuidelines: [
       "Use call_subagent when an independent analysis, implementation or validation task is likely to improve the result.",
       "Give each delegate an independently testable objective, relevant inputs, constraints and acceptance evidence. Independent end-to-end attempts are valid when they help compare approaches; avoid a fixed research/production/review pipeline for every task.",
       "Set mode=sync to wait for the result; set mode=async to continue independent work and receive a callback. Wait for any result needed for acceptance before completing the parent task.",
       "The task must state a concrete objective and expected evidence; ask for a deliverables/ file only when the result is a substantial reusable artifact. Main may issue multiple independent calls in one turn.",
-      "A request to research a topic or run an experiment is still an ordinary task. This tool does not register or activate persistent programs.",
       "The Subagent returns a concise summary with evidence, candidate outputFiles, diagnostic paths and validation results. Candidate files remain in the Subagent's directory until Main accepts and copies selected files into the Task artifacts directory.",
       "Use role=reviewer for an independent check of a result; it starts its own session, so it must be given the candidate and evidence to examine rather than asked to trust the Executor's summary.",
       "Pass dependsOn only for work that genuinely needs an earlier item's result: a dependent item does not start until those calls finish, and does not run at all when one of them failed or was cancelled. Independent work should be dispatched without dependsOn so it can proceed at once.",
@@ -596,26 +594,7 @@ export function registerCoordinationTools(pi: ExtensionAPI, context: CoworkToolC
         includeCallDetails: false,
         resultCallIds
       });
-      // Recorded rounds reach Main by injection at context resets and
-      // callbacks, so this stays a compact index rather than the full series.
-      const experiments = await Promise.all(
-        (await context.experimentStore.listPrograms(context.taskId)).map(async (program) => {
-          const runs = await context.experimentStore
-            .listRuns(context.taskId, program.experimentId)
-            // eslint-disable-next-line no-restricted-syntax -- 运行记录读取失败时该实验按 0 次运行展示；get_task_status 是只读快照，单个实验的存储损坏不该让整份状态查询失败
-            .catch(() => []);
-          const series = metricSeries(runs);
-          return {
-            experimentId: program.experimentId,
-            objective: program.objective,
-            status: program.status,
-            runCount: program.runCount,
-            measuredRuns: series[0]?.points.length ?? 0,
-            metrics: series.map((entry) => entry.name)
-          };
-        })
-      );
-      const result = { task, coordination, experiments };
+      const result = { task, coordination };
       return { content: [{ type: "text", text: JSON.stringify(result) }], details: result };
     }
   });

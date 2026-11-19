@@ -15,7 +15,6 @@ import type { PiThinkingLevel } from "./runtime-settings.js";
 import { DurableScheduler, type WorkItem } from "./scheduler.js";
 import { SubagentProcessService, type SubagentProcessResult } from "./subagent-processes.js";
 import { resolveCapabilities } from "./task-capabilities.js";
-import { settleDelegatedExperiment, type DelegatedExperimentRef } from "./experiment-settlement.js";
 import {
   agentSnapshot,
   BUILTIN_AGENT_NAMES,
@@ -99,16 +98,6 @@ export interface SubagentDispatchPorts {
   /** Grants for the upload IDs Main named; refused here, before any work item exists. */
   grants?(input: { taskId: string; attachments: unknown }): Promise<CapabilityGrant[]>;
   /**
-   * The experiment-ledger row this delegation records, when an open program
-   * absorbs it. Opened here because only the backend knows the call id.
-   */
-  experiment?(input: {
-    taskId: string;
-    callId: string;
-    agentId: string;
-    objective: string;
-  }): Promise<DelegatedExperimentRef | undefined>;
-  /**
    * The environment one item launches with, resolved when it actually starts.
    *
    * The returned snapshot is non-sensitive and only labels the model this
@@ -167,7 +156,6 @@ interface StoredPayload {
   mode?: CallMode;
   thinkingLevel?: PiThinkingLevel;
   capabilityGrants?: CapabilityGrant[];
-  experimentRef?: DelegatedExperimentRef;
   /** The custom Agent's definition as it was when the item was dispatched. */
   agentDefinition?: AgentDefinition;
   /** A built-in Executor's or Reviewer's skills, MCP servers and extra prompt at dispatch. */
@@ -301,14 +289,6 @@ export class SubagentDispatchService {
         : undefined;
     const capabilityGrants =
       request.attachments === undefined ? [] : await this.grants(taskId, request.attachments);
-    // Ledger bookkeeping is a side record: a failure to open it must not stop
-    // the delegation, and the same rule lets a host without the ledger run.
-    const experimentRef = this.ports.experiment
-      ? await this.ports
-          .experiment({ taskId, callId, agentId, objective: request.task })
-          // eslint-disable-next-line no-restricted-syntax -- 实验台账是旁路记录，打开失败时本次派单照常进行，只是不记指标
-          .catch(() => undefined)
-      : undefined;
     // Main's one-off choice wins over the Agent's own; neither falls back silently.
     const profileId = request.profileId?.trim() || agentDefinition?.profile;
     const model = request.model?.trim() || agentDefinition?.model;
@@ -336,62 +316,42 @@ export class SubagentDispatchService {
     };
     // The item is durably visible from here on: wait/status tools and a backend
     // that adopts this Run read this row, not a notification from this process.
-    try {
-      await scheduler.enqueue({
-        stepId: callId,
-        taskId,
-        runId,
-        agentId,
-        importance: "normal",
-        payload: {
-          task: request.task,
-          mode: request.mode,
-          projectDirectory,
-          ...(workItemSite ? { workItemSite } : {}),
-          ...(reviewSite ? { reviewSite } : {}),
-          ...(developmentId ? { developmentId } : {}),
-          ...(continued
-            ? {
-                continuation: {
-                  fromCallId: request.continueCallId!,
-                  ...(request.reviewId?.trim() ? { reviewId: request.reviewId.trim() } : {}),
-                  ...(continued.sessionCallId !== request.continueCallId
-                    ? { sessionCallId: continued.sessionCallId }
-                    : {})
-                }
+    await scheduler.enqueue({
+      stepId: callId,
+      taskId,
+      runId,
+      agentId,
+      importance: "normal",
+      payload: {
+        task: request.task,
+        mode: request.mode,
+        projectDirectory,
+        ...(workItemSite ? { workItemSite } : {}),
+        ...(reviewSite ? { reviewSite } : {}),
+        ...(developmentId ? { developmentId } : {}),
+        ...(continued
+          ? {
+              continuation: {
+                fromCallId: request.continueCallId!,
+                ...(request.reviewId?.trim() ? { reviewId: request.reviewId.trim() } : {}),
+                ...(continued.sessionCallId !== request.continueCallId
+                  ? { sessionCallId: continued.sessionCallId }
+                  : {})
               }
-            : {}),
-          ...(dependsOn.length > 0 ? { dependsOn } : {}),
-          ...(request.thinkingLevel ? { thinkingLevel: request.thinkingLevel } : {}),
-          ...(experimentRef ? { experimentRef } : {}),
-          delegation,
-          capabilityGrants,
-          ...(agentDefinition ? { agentDefinition } : {}),
-          ...(builtinAgent ? { builtinAgent } : {})
-        },
-        maxAttempts:
-          // A synchronous call holds the requesting turn: one attempt keeps a
-          // diverged run as evidence instead of repeating it under that turn.
-          request.mode === "sync" ? 1 : resolveCapabilities(task.capabilities).maxAttempts
-      });
-    } catch (error) {
-      // The item never existed, so its ledger row must not stay open as a run
-      // nothing will ever settle.
-      await settleDelegatedExperiment({
-        workspaceRoot: this.ports.workspaceRoot,
-        taskId,
-        runId,
-        callId,
-        agentId,
-        ref: experimentRef,
-        status: "failed",
-        workingDirectory: projectDirectory,
-        summary: "",
-        outputFiles: [],
-        error: error instanceof Error ? error.message : String(error)
-      });
-      throw error;
-    }
+            }
+          : {}),
+        ...(dependsOn.length > 0 ? { dependsOn } : {}),
+        ...(request.thinkingLevel ? { thinkingLevel: request.thinkingLevel } : {}),
+        delegation,
+        capabilityGrants,
+        ...(agentDefinition ? { agentDefinition } : {}),
+        ...(builtinAgent ? { builtinAgent } : {})
+      },
+      maxAttempts:
+        // A synchronous call holds the requesting turn: one attempt keeps a
+        // diverged run as evidence instead of repeating it under that turn.
+        request.mode === "sync" ? 1 : resolveCapabilities(task.capabilities).maxAttempts
+    });
     await events.append(
       event({ taskId, runId }, callId, "call.accepted", "coordinator", {
         call: transitionCall(call, "accepted")

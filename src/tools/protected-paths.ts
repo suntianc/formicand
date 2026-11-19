@@ -7,9 +7,8 @@ import { containsFilePath, resolveFileTarget, resolveProtectedTarget } from "./f
  * Where this harness is installed.
  *
  * Derived from the module's own location so it holds however CoworkOS was
- * started, and used as an absolute protected root: an Agent improving a
- * pipeline must not edit the runtime that records whether the pipeline
- * improved. `dist/src/tools/` is three levels below the install root.
+ * started, and used as an absolute protected root: an Agent must not edit the
+ * runtime it runs in. `dist/src/tools/` is three levels below the install root.
  */
 export function atriaInstallRoot(): string {
   return resolve(fileURLToPath(new URL("../../../", import.meta.url)));
@@ -18,45 +17,13 @@ export function atriaInstallRoot(): string {
 /**
  * Paths an Agent must not write, even where it is otherwise allowed to.
  *
- * Self-improvement work needs an Agent that can edit the project it is
- * optimizing. That makes a boundary necessary rather than optional: an Agent
- * optimizing a score must not be able to edit the thing that produces the
- * score, and one improving this harness must not be able to edit the ledger
- * that records whether it improved anything.
- *
  * The guard is enforced in the file tools, not requested in a prompt, and it
- * applies to Main as much as to a Subagent — both are participants in the loop.
- *
- * It is NOT a sandbox. `bash` spawns real processes, and a process can
- * write wherever the OS lets it. This stops a tool call from casually editing
- * the referee; keeping a determined one out needs filesystem permissions (read
- * -only mode bits, or a directory the Agent's user cannot write).
+ * applies to Main as much as to a Subagent. It is NOT a sandbox: `bash` spawns
+ * real processes that can write wherever the OS lets them.
  */
 
-/**
- * Fallback patterns used when the user has not said where scoring lives.
- *
- * These are a guess at a conventional layout, and a guess is the weak part of
- * this guard: evaluation code named `scripts/evaluate.py` or `src/eval/` is not
- * matched by any of them, and a miss fails silently in the worst direction —
- * the agent edits the scorer, the number rises, and the ledger records it.
- * `COWORK_EVAL_PATHS` is the reliable way to say what the referee is;
- * `guessedProtection` reports when this fallback is all that is in effect.
- */
-export const DEFAULT_PROTECTED_PATHS: readonly string[] = [
-  // The scorer and its fixtures: whoever is being scored must not own them.
-  "eval/",
-  "evals/",
-  "evaluation/",
-  "benchmarks/",
-  "benchmark/",
-  "bench/",
-  // Not test/ or tests/: in ordinary development the tests are what the agent
-  // is asked to write, and locking them sent every Executor back to the user.
-  // A project whose tests are its scorer declares them in COWORK_EVAL_PATHS.
-  // Version-control metadata, so history and hooks stay outside the loop.
-  ".git/"
-];
+/** Version-control metadata, so history and hooks stay outside an Agent's edits. */
+export const DEFAULT_PROTECTED_PATHS: readonly string[] = [".git/"];
 
 export interface ProtectedPathOptions {
   /** Root the patterns are relative to. Usually the user's project directory. */
@@ -65,9 +32,7 @@ export interface ProtectedPathOptions {
   patterns?: readonly string[];
   /**
    * Absolute directories protected wherever they sit. The harness install goes
-   * here: an Agent improving a pipeline must not edit the runtime recording
-   * whether the pipeline improved, and that install is usually not inside the
-   * project at all.
+   * here, and it is usually not inside the project at all.
    */
   protectedRoots?: readonly string[];
 }
@@ -130,8 +95,7 @@ export class ProtectedPaths {
     const shown = containsFilePath(this.root, absolute) ? rel : absolute;
     throw new Error(
       `${shown} is read-only for agents (protected by "${pattern}"). ` +
-        `Evaluation code, the CoworkOS runtime and version-control metadata stay outside the optimization loop so results remain trustworthy. ` +
-        `Change the thing being measured instead, or ask the user to adjust COWORK_PROTECTED_PATHS.`
+        `The CoworkOS runtime and version-control metadata are not edited by agents; ask the user if this file must change.`
     );
   }
 
@@ -161,43 +125,24 @@ export class ProtectedPaths {
 /**
  * Read the guard from the environment.
  *
- * `COWORK_EVAL_PATHS` names the scorer and its fixtures. It is additive and is
- * the setting that actually makes this guard reliable, because only the user
- * knows where evaluation lives. `COWORK_PROTECTED_PATHS` replaces the guessed
- * fallback wholesale, and an empty value drops it; neither can unprotect a
- * declared eval path or `protectedRoots`, since the referee and the runtime
- * recording the results are never legitimate targets of the loop.
+ * `COWORK_PROTECTED_PATHS` replaces the default patterns wholesale, and an
+ * empty value drops them; it cannot unprotect `protectedRoots`.
  */
 export function configuredProtectedPaths(
   root: string,
   env: NodeJS.ProcessEnv = process.env,
-  protectedRoots: readonly string[] = [],
-  granted: readonly string[] = []
+  protectedRoots: readonly string[] = []
 ): ProtectedPaths {
-  const declared = [...granted, ...splitPatterns(env.COWORK_EVAL_PATHS)];
   const raw = env.COWORK_PROTECTED_PATHS;
-  const fallback = raw === undefined ? [...DEFAULT_PROTECTED_PATHS] : splitPatterns(raw);
-  return new ProtectedPaths({ root, patterns: [...declared, ...fallback], protectedRoots });
+  const patterns = raw === undefined ? [...DEFAULT_PROTECTED_PATHS] : splitPatterns(raw);
+  return new ProtectedPaths({ root, patterns, protectedRoots });
 }
 
-/**
- * Whether the scorer is protected only by a guess at the project's layout.
- *
- * Worth surfacing at startup: an agent optimizing a score has a reason to
- * reach for the scorer, and a guess that misses looks exactly like a guess
- * that holds until the results are already untrustworthy.
- */
-export function guessedProtection(env: NodeJS.ProcessEnv = process.env): boolean {
-  return splitPatterns(env.COWORK_EVAL_PATHS).length === 0;
-}
-
-function splitPatterns(raw: string | undefined): string[] {
-  return raw === undefined
-    ? []
-    : raw
-        .split(",")
-        .map((entry) => entry.trim())
-        .filter(Boolean);
+function splitPatterns(raw: string): string[] {
+  return raw
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter(Boolean);
 }
 
 /**

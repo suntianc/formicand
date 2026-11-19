@@ -70,13 +70,6 @@ export interface SubagentBackendPorts {
   agent?(input: { taskId: string; name: string }): Promise<AgentEntry & { definition: AgentDefinition }>;
   /** Grants for the upload IDs Main named. */
   grants(input: { taskId: string; attachments: unknown }): Promise<CapabilityGrant[]>;
-  /** The experiment-ledger row a delegation records, when an open program absorbs it. */
-  experiment?(input: {
-    taskId: string;
-    callId: string;
-    agentId: string;
-    objective: string;
-  }): Promise<{ experimentId: string; experimentRunId: string } | undefined>;
   /** Where this host keeps its configuration file and Pi profile. */
   configPath?(): string | undefined;
   piAgentDir?(): string | undefined;
@@ -137,7 +130,6 @@ export function createSubagentBackend(ports: SubagentBackendPorts): SubagentBack
       ...(ports.agent ? { agent: (input) => ports.agent!(input) } : {}),
       builtinAgent: ({ role, projectDirectory }) =>
         builtinAgentSettings(ports.config(), role, projectDirectory),
-      ...(ports.experiment ? { experiment: (input) => ports.experiment!(input) } : {}),
       // A settled item can be the prerequisite that unblocks another one.
       // Waiting for the next sweep would delay that start by a full cycle, so
       // the run is re-evaluated as soon as its queue row is terminal.

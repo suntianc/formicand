@@ -69,7 +69,6 @@ App / Web 项目索引保存在全局工作区索引同级的 `projects.json`，
     ├── sessions/main/pi/              Main 原生 Pi 会话
     ├── sessions/<agentId>/pi/<callId> 委派进程各自的 Pi 会话（与 `sessions/main/pi` 同级）
     ├── runs/<runId>/                  Run 事件、队列、Inbox、结果、main-input.json 与 agents/subagents/<id>/agent-output.log
-    ├── experiments/                   运行时实验记录
     └── .runtime/                      Task 锁与产物索引等
 ```
 
