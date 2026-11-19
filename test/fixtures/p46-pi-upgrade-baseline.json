@@ -336,13 +336,6 @@
             "type": "boolean",
             "description": "Agents may edit the user's project, not only their own directory."
           },
-          "evalPaths": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            },
-            "description": "Paths that must stay read-only, relative to the project: the scorer, its fixtures, the test data."
-          },
           "longRunning": {
             "type": "boolean",
             "description": "Jobs take minutes or hours; supervise them rather than deadline them."

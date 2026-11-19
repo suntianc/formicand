@@ -234,7 +234,7 @@ async function delegatedCall(
       COWORK_MODEL: MODEL,
       COWORK_MODEL_API: "openai-completions",
       COWORK_REASONING_EFFORT: "off",
-      COWORK_EVAL_PATHS: "eval/",
+      COWORK_PROTECTED_PATHS: "eval/",
       PI_CODING_AGENT_DIR: join(root, "pi"),
       PI_OFFLINE: "1",
       ...env
@@ -868,7 +868,7 @@ test(
     t.after(() => rm(root, { recursive: true, force: true }));
     const site = join(root, "site");
     await mkdir(join(site, "eval"), { recursive: true });
-    const guard = configuredProtectedPaths(site, { COWORK_EVAL_PATHS: "eval/" }, []);
+    const guard = configuredProtectedPaths(site, { COWORK_PROTECTED_PATHS: "eval/" }, []);
     const refusal = (path) => ({
       path,
       pattern: "eval/",
@@ -957,7 +957,7 @@ test(
       }
     });
 
-    const guard = configuredProtectedPaths(site, { COWORK_EVAL_PATHS: "eval/" }, []);
+    const guard = configuredProtectedPaths(site, { COWORK_PROTECTED_PATHS: "eval/" }, []);
     assert.deepEqual(protectedCallRefusal("bash", { command: "printf x > eval/score.py" }, guard, site), {
       path: "eval/score.py",
       pattern: "eval/",

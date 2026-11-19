@@ -16,7 +16,6 @@ export function registerJobsTools(pi: ExtensionAPI, context: CoworkToolContext) 
     promptSnippet: "Record the capabilities the user authorized for this Task",
     promptGuidelines: [
       "Ask first with askhuman, then record the answer here. Never call this on your own initiative.",
-      "evalPaths is the part that protects the result: whatever produces the score must stay read-only, or a later round can raise the number by editing the measurement. Record every path the user named, even when project writes are declined.",
       "Set projectWrite only when the work is to change the user's code. Reading a project needs no grant.",
       "Set longRunning when jobs take minutes or hours; it enables start_job/check_job/kill_job so a long command is supervised instead of deadlined, and sets maxAttempts to 1 so an expensive failure is not silently repeated.",
       "Record the reason in the user's own terms. It is what a later reader sees when asking why an Agent was allowed to do this."
@@ -24,12 +23,6 @@ export function registerJobsTools(pi: ExtensionAPI, context: CoworkToolContext) 
     parameters: Type.Object({
       projectWrite: Type.Optional(
         Type.Boolean({ description: "Agents may edit the user's project, not only their own directory." })
-      ),
-      evalPaths: Type.Optional(
-        Type.Array(Type.String(), {
-          description:
-            "Paths that must stay read-only, relative to the project: the scorer, its fixtures, the test data."
-        })
       ),
       longRunning: Type.Optional(
         Type.Boolean({ description: "Jobs take minutes or hours; supervise them rather than deadline them." })
@@ -41,16 +34,6 @@ export function registerJobsTools(pi: ExtensionAPI, context: CoworkToolContext) 
     async execute(_toolCallId, params): Promise<RuntimeToolResult> {
       const store = new LocalWorkspaceStore(context.workspaceRoot);
       const current = (await store.readTask(context.taskId)).capabilities;
-      const evalPaths = [
-        ...new Set([
-          ...(current?.evalPaths ?? []),
-          ...(Array.isArray(params.evalPaths)
-            ? params.evalPaths.filter(
-                (entry): entry is string => typeof entry === "string" && entry.trim().length > 0
-              )
-            : [])
-        ])
-      ];
       const longRunning = params.longRunning === true || current?.longRunning === true;
       const capabilities = {
         projectWrite: params.projectWrite === true || current?.projectWrite === true,
@@ -58,7 +41,6 @@ export function registerJobsTools(pi: ExtensionAPI, context: CoworkToolContext) 
         // rather than being a separate question for the user.
         shell: params.projectWrite === true || current?.projectWrite === true,
         longRunning,
-        ...(evalPaths.length ? { evalPaths } : {}),
         // Expensive work should surface a failure rather than repeat it.
         ...(longRunning ? { maxAttempts: 1 } : {}),
         grantedBy: "user" as const,
@@ -74,7 +56,7 @@ export function registerJobsTools(pi: ExtensionAPI, context: CoworkToolContext) 
             Object.entries(capabilities)
               .filter(([, value]) => value === true)
               .map(([key]) => key)
-              .join(",") || "evalPaths only"
+              .join(",") || "none"
         }
       });
       const payload = {
@@ -92,7 +74,7 @@ export function registerJobsTools(pi: ExtensionAPI, context: CoworkToolContext) 
     name: "start_job",
     label: "Start Job",
     description:
-      "Run a long command in the background and return immediately. The job gets its own process group and its output is written to a log file, so it survives this turn, a context reset and a Main restart. Use this for work measured in minutes or hours — training, large synthesis, long evaluations — instead of waiting on bash.",
+      "Run a long command in the background and return immediately. The job gets its own process group and its output is written to a log file, so it survives this turn, a context reset and a Main restart. Use this for work measured in minutes or hours — long builds, test suites, data processing — instead of waiting on bash.",
     promptSnippet: "Start a long command in the background",
     promptGuidelines: [
       "Use bash for short commands. Use this when waiting for the command would stop you from reading Subagent results or callbacks.",
@@ -172,10 +154,10 @@ export function registerJobsTools(pi: ExtensionAPI, context: CoworkToolContext) 
     name: "kill_job",
     label: "Kill Job",
     description:
-      "Stop a background job: SIGTERM so it can clean up, then SIGKILL if it ignores that. The whole process group goes, so a training run behind a wrapper script is not left orphaned.",
+      "Stop a background job: SIGTERM so it can clean up, then SIGKILL if it ignores that. The whole process group goes, so a command behind a wrapper script is not left orphaned.",
     promptSnippet: "Stop a background job",
     promptGuidelines: [
-      "A job that failed is experiment data. Record what the log shows before killing it.",
+      "Read what the log shows before killing a failed job.",
       "Kill a job you no longer need rather than leaving it running: an outstanding job holds this Task open."
     ],
     parameters: Type.Object({ jobId: Type.String({ description: "Job to stop." }) }),

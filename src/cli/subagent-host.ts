@@ -4,7 +4,6 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import type { AddressInfo } from "node:net";
 import { join } from "node:path";
 import { readHostCoworkConfig, type CoworkConfig } from "../runtime/config.js";
-import { ExperimentProgramStore } from "../runtime/experiment-program-store.js";
 import { resolveModelRole } from "../runtime/role-models.js";
 import { LocalWorkspaceStore } from "../workspace/workspace-store.js";
 import { createSubagentBackend, type SubagentBackend } from "../dashboard/subagent-backend.js";
@@ -74,16 +73,8 @@ export async function openSubagentHost(options: SubagentHostOptions): Promise<Su
     resolveMainModel: (request) => resolveModelRole(currentConfig(), request),
     // Requirements and uploads are Dashboard features; a CLI run exposes
     // neither, so a request that names one is refused instead of half-served.
-    // The experiment ledger is runtime bookkeeping, so it works the same here.
     development: async () => undefined,
     frozenCandidate: async () => undefined,
-    experiment: async ({ taskId, callId, agentId, objective }) =>
-      await new ExperimentProgramStore(options.workspaceRoot).openRun({
-        taskId,
-        callId,
-        agentId,
-        objective
-      }),
     grants: async () => {
       throw new Error("本次运行没有可用的上传服务；CLI 运行不能按附件授予能力");
     },

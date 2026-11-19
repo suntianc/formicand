@@ -10,7 +10,6 @@ import { test } from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
 import { protocolStream } from "./model-protocol-fixture.mjs";
 import { LocalWorkspaceStore } from "../dist/src/workspace/workspace-store.js";
-import { ExperimentProgramStore } from "../dist/src/runtime/experiment-program-store.js";
 import { CoordinatorRuntime } from "../dist/src/runtime/coordinator-runtime.js";
 import { DurableScheduler } from "../dist/src/runtime/scheduler.js";
 import { providerConfig } from "./model-provider-fixture.mjs";
@@ -156,14 +155,6 @@ async function clearLocks(directory) {
     }
     await clearLocks(path);
   }
-}
-
-async function experimentRuns(workspace, taskId) {
-  const store = new ExperimentProgramStore(workspace);
-  const programs = await store.listPrograms(taskId);
-  const runs = [];
-  for (const program of programs) runs.push(...(await store.listRuns(taskId, program.experimentId)));
-  return runs;
 }
 
 /**
@@ -884,7 +875,7 @@ test(
     assert.equal(reviewProvider.requests.length, 0);
 
     // The failure surfaced through the normal lifecycle: one callback, one run
-    // event, and a settled experiment row — not a silent drop.
+    // event — not a silent drop.
     const inbox = JSON.parse(
       await readFile(join(workspace, taskId, "runs", runId, "agents", "main", "inbox-store.json"), "utf8")
     );
@@ -902,14 +893,6 @@ test(
     );
     assert.ok(failureEvent, "the run records why the recovered item failed");
     assert.match(failureEvent.payload.error, /exec-review/);
-    const runs = await experimentRuns(workspace, taskId);
-    const refusedRun = runs.find((entry) => entry.callId === calls.c.callId);
-    assert.equal(refusedRun.status, "failed");
-    assert.match(refusedRun.error, /exec-review/);
-    assert.ok(
-      runs.every((entry) => entry.finishedAt !== undefined),
-      "no experiment row is left unfinished"
-    );
 
     // A third restart must not re-drive the terminal item or duplicate its callback.
     const leasesBefore = events.filter(
@@ -971,7 +954,7 @@ test(
 );
 
 test(
-  "a refused delegation leaves no name, experiment row or misleading delivery warning",
+  "a refused delegation leaves no name or misleading delivery warning",
   { timeout: 120_000 },
   async (t) => {
     const root = await mkdtemp(join(tmpdir(), "atria-p4-refusal-"));
@@ -1050,18 +1033,6 @@ test(
     const queue = await readQueue(workspace, taskId, runId);
     assert.equal(queue.length, 1, "the refused call never entered the durable queue");
     assert.equal(queue[0].status, "completed");
-    // One delegation reached the Task's experiment ledger; the refused call
-    // never opened a row. A succeeded text-only round is discarded again, so
-    // the count that matters is the program's run counter.
-    const store = new ExperimentProgramStore(workspace);
-    const programs = await store.listPrograms(taskId);
-    assert.equal(programs.length, 1, "only the accepted call created the Task ledger");
-    assert.equal(programs[0].runCount, 1, "the refused call opened no experiment row");
-    const runs = await experimentRuns(workspace, taskId);
-    assert.ok(
-      runs.every((run) => run.finishedAt !== undefined),
-      "no experiment row is left unfinished"
-    );
     assert.equal(main.output.includes("Async callback delivery deferred"), false);
   }
 );

@@ -132,9 +132,6 @@ export class LocalWorkspaceStore implements WorkspaceStore {
     await mkdir(join(path, "agents", "subagents"), { recursive: true });
     await mkdir(join(path, "sessions"), { recursive: true });
     await mkdir(join(path, "runs"), { recursive: true });
-    // Iterative training/evaluation work uses the same task-scoped control
-    // plane, even before the first Experiment ledger is created.
-    await mkdir(join(path, "experiments"), { recursive: true });
     try {
       await writeFile(join(path, "agents", "main", "context", "messages.json"), "[]\n", { flag: "wx" });
     } catch (error) {
@@ -421,11 +418,6 @@ export class LocalWorkspaceStore implements WorkspaceStore {
 function normalizeCapabilities(value: unknown): TaskCapabilities | undefined {
   if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
   const candidate = value as Partial<TaskCapabilities>;
-  const evalPaths = Array.isArray(candidate.evalPaths)
-    ? candidate.evalPaths.filter(
-        (entry): entry is string => typeof entry === "string" && entry.trim().length > 0
-      )
-    : undefined;
   const maxAttempts =
     Number.isFinite(candidate.maxAttempts) && (candidate.maxAttempts as number) > 0
       ? Math.floor(candidate.maxAttempts as number)
@@ -434,7 +426,6 @@ function normalizeCapabilities(value: unknown): TaskCapabilities | undefined {
     projectWrite: candidate.projectWrite === true,
     shell: candidate.shell === true,
     longRunning: candidate.longRunning === true,
-    ...(evalPaths?.length ? { evalPaths } : {}),
     ...(maxAttempts === undefined ? {} : { maxAttempts }),
     grantedBy: candidate.grantedBy === "operator" ? "operator" : "user",
     ...(typeof candidate.grantedAt === "string" ? { grantedAt: candidate.grantedAt } : {}),

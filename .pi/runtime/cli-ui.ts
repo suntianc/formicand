@@ -15,8 +15,6 @@ export interface CliDiagnostics {
   mainRunId: string;
   modelId: string;
   tools: string[];
-  guessedProtection: boolean;
-  protectedPaths: readonly string[];
 }
 
 function clean(value: string): string {
@@ -47,12 +45,7 @@ export function createCliPresentation(
         "CoworkOS diagnostics",
         `workspace=${diagnostics.workspaceRoot}`,
         `task=${diagnostics.taskId}; run=${diagnostics.mainRunId}; model=${diagnostics.modelId}`,
-        `active tools: ${diagnostics.tools.join(", ")}`,
-        ...(diagnostics.guessedProtection
-          ? [
-              `Evaluation paths use defaults (${diagnostics.protectedPaths.join(", ")}). Set COWORK_EVAL_PATHS for other evaluation files.`
-            ]
-          : [])
+        `active tools: ${diagnostics.tools.join(", ")}`
       ]
         .map(clean)
         .join("\n"),

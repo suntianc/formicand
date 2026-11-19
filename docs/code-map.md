@@ -14,7 +14,7 @@ README 头图由 [独立 React/SVG 工程](hero/README.md)生成：`scene.jsx` �
 scripts/install.sh         CLI 安装：公开发行版、下载校验、用户目录与 PATH
 scripts/atria.mjs          用户 CLI 启动器：init、doctor、start 等命令
 src/cli/                  可执行入口和真实模型 smoke
-src/domain/               Task、Run、Experiment 类型
+src/domain/               Task、Run 等领域类型
 src/runtime/              Pi 进程、委派、恢复、Inbox、长期运行
 src/tools/                文件、命令/jobs、Web 等运行时工具
 src/workspace/            Task 工作区、附件、产出物、项目与全局会话索引

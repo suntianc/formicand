@@ -18,8 +18,6 @@ import { randomUUID } from "node:crypto";
 import { mkdir } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { CoordinatorRuntime } from "../../dist/src/runtime/coordinator-runtime.js";
-import { experimentDigest } from "../../dist/src/runtime/experiment-digest.js";
-import { ExperimentProgramStore } from "../../dist/src/runtime/experiment-program-store.js";
 import { HumanRequestStore } from "../../dist/src/runtime/human.js";
 import {
   ensureMainContext,
@@ -81,7 +79,6 @@ import { SubagentQuestionStore } from "../../dist/src/runtime/subagent-questions
 import { assessTaskCompletion, isFinalAssistantMessage } from "../../dist/src/runtime/task-completion.js";
 import { JsonlEventStore } from "../../dist/src/storage/event-store.js";
 import { listJobs } from "../../dist/src/tools/jobs.js";
-import { DEFAULT_PROTECTED_PATHS, guessedProtection } from "../../dist/src/tools/protected-paths.js";
 import { LocalWorkspaceStore } from "../../dist/src/workspace/workspace-store.js";
 import { capabilityProvider } from "../../dist/src/runtime/capability-provider.js";
 import { processSkillLocations, resolveSkillCatalog } from "../../dist/src/runtime/skill-registry.js";
@@ -317,7 +314,6 @@ async function registerMainExtension(pi: ExtensionAPI) {
     );
   };
   const coordinator = new CoordinatorRuntime();
-  const experimentStore = new ExperimentProgramStore(workspaceRoot);
   const humanStore = new HumanRequestStore(workspaceRoot);
   const questionStore = new SubagentQuestionStore(workspaceRoot);
   const mainMaxTurns = configuredMainMaxTurns(runtimeEnv);
@@ -483,9 +479,8 @@ async function registerMainExtension(pi: ExtensionAPI) {
   /**
    * Record a refused write to a protected path.
    *
-   * An agent optimizing a score has a reason to reach for the scorer, so a
-   * refusal is worth seeing after the fact and not only in the transcript the
-   * model reads. Diagnostics must never interfere with the refusal itself.
+   * A refusal is worth seeing after the fact and not only in the transcript
+   * the model reads. Diagnostics must never interfere with the refusal itself.
    */
   const appendGuardEvent = async (path: string, pattern: string, toolName: string): Promise<void> => {
     try {
@@ -503,13 +498,9 @@ async function registerMainExtension(pi: ExtensionAPI) {
       /* diagnostics only */
     }
   };
-  // The guard covers Main as well as Subagents. Main is a participant in the
-  // optimization loop, not its referee, so it must not edit evaluation code,
-  // this harness or version-control metadata either.
-  // Rebuilt per call rather than once at startup: a grant made mid-session —
-  // the user answering which paths are the scorer — has to take effect on the
-  // next write, not on the next process.
-  const currentGuard = () => taskProtectedPaths(workspaceRoot, taskId, projectDirectory);
+  // The guard covers Main as well as Subagents: neither edits this harness or
+  // version-control metadata.
+  const guard = taskProtectedPaths(projectDirectory);
 
   // Main's own jobs, kept beside its Run rather than in the Subagent tree so
   // one Task's long commands stay separable from its delegations'.
@@ -610,7 +601,7 @@ async function registerMainExtension(pi: ExtensionAPI) {
   };
 
   pi.on("tool_call", async (event) => {
-    const refused = blockedToolCall(event.toolName, event.input, await currentGuard(), projectDirectory);
+    const refused = blockedToolCall(event.toolName, event.input, guard, projectDirectory);
     if (!refused) return undefined;
     void appendGuardEvent(refused.path, refused.pattern, event.toolName);
     return { block: true, reason: refused.reason };
@@ -720,12 +711,7 @@ async function registerMainExtension(pi: ExtensionAPI) {
           runtime,
           // Full history already carries pre-compaction work. Bring auxiliary
           // memory back only after a checkpoint has replaced that older history.
-          memory: runtime.contextEpoch > 0 ? await readMainMemory(mainContext) : "",
-          experimentDigest:
-            runtime.contextEpoch > 0
-              ? // eslint-disable-next-line no-restricted-syntax -- 实验摘要是可选上下文，读取失败时快照里只是不带这一段
-                await experimentDigest(workspaceRoot, taskId).catch(() => undefined)
-              : undefined
+          memory: runtime.contextEpoch > 0 ? await readMainMemory(mainContext) : ""
         });
       } catch (error) {
         ctx.ui.notify(`Main current context refresh failed: ${errorMessage(error)}`, "warning");
@@ -1280,9 +1266,6 @@ async function registerMainExtension(pi: ExtensionAPI) {
     get deliverCallbacks() {
       return () => deliverCallbacks();
     },
-    get experimentStore() {
-      return experimentStore;
-    },
     get harnessRoot() {
       return harnessRoot;
     },
@@ -1550,20 +1533,13 @@ async function registerMainExtension(pi: ExtensionAPI) {
           taskId,
           mainRunId,
           modelId,
-          tools: pi.getActiveTools(),
-          guessedProtection: guessedProtection(),
-          protectedPaths: DEFAULT_PROTECTED_PATHS
+          tools: pi.getActiveTools()
         })
       ) {
         ctx.ui.notify(
           `CoworkOS loaded · workspace ${workspaceRoot} · task ${taskId} · tools ${requiredTools.join(", ")}`,
           "info"
         );
-        if (guessedProtection())
-          ctx.ui.notify(
-            `Agents can edit ${projectDirectory}. Evaluation paths are only guessed (${DEFAULT_PROTECTED_PATHS.join(", ")}); a layout like scripts/evaluate.py or src/eval/ is currently writable. Set COWORK_EVAL_PATHS to protect them.`,
-            "warning"
-          );
       }
     }
   });

@@ -17,7 +17,6 @@ import { DEFAULT_MAX_ATTEMPTS } from "./runtime-settings.js";
 export interface ResolvedCapabilities {
   projectWrite: boolean;
   shell: boolean;
-  evalPaths: string[];
   longRunning: boolean;
   maxAttempts: number;
   /** Where the grant came from, for diagnostics and the audit trail. */
@@ -33,9 +32,6 @@ export function resolveCapabilities(
     return {
       projectWrite: capabilities.projectWrite === true,
       shell: capabilities.shell === true,
-      // Both sources contribute read-only paths. A grant widens what an Agent
-      // may write, so it must not narrow what is protected.
-      evalPaths: [...new Set([...(capabilities.evalPaths ?? []), ...preset.evalPaths])],
       longRunning: capabilities.longRunning === true,
       maxAttempts: capabilities.maxAttempts ?? preset.maxAttempts,
       source: "task"
@@ -45,20 +41,14 @@ export function resolveCapabilities(
 }
 
 function environmentPreset(env: NodeJS.ProcessEnv): ResolvedCapabilities {
-  const evalPaths = (env.COWORK_EVAL_PATHS ?? "")
-    .split(",")
-    .map((entry) => entry.trim())
-    .filter(Boolean);
   const projectWrite = flag(env.COWORK_PROJECT_WRITE);
-  const configured =
-    projectWrite !== undefined || env.COWORK_MAX_ATTEMPTS !== undefined || evalPaths.length > 0;
+  const configured = projectWrite !== undefined || env.COWORK_MAX_ATTEMPTS !== undefined;
   const maxAttempts = positive(env.COWORK_MAX_ATTEMPTS) ?? DEFAULT_MAX_ATTEMPTS;
   return {
     projectWrite: projectWrite === true,
     // A shell is what makes project edits usable — pipes, redirection,
     // backgrounding — so it follows the same grant rather than a separate one.
     shell: projectWrite === true,
-    evalPaths,
     longRunning: projectWrite === true,
     maxAttempts,
     source: configured ? "environment" : "default"

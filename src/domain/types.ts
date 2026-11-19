@@ -144,8 +144,6 @@ export interface TaskCapabilities {
   projectWrite?: boolean;
   /** Commands run through a shell, enabling pipes, redirection and backgrounding. */
   shell?: boolean;
-  /** Paths that stay read-only, relative to the project. The scorer belongs here. */
-  evalPaths?: string[];
   /** Long jobs are expected, so a command is supervised rather than deadlined. */
   longRunning?: boolean;
   /** Attempts per delegated call, including the first. One disables the retry. */

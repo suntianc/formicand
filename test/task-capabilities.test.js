@@ -20,44 +20,30 @@ test("the default is the sandbox: nothing is granted unless something says so", 
   );
   assert.equal(resolved.shell, false);
   assert.equal(resolved.longRunning, false);
-  assert.deepEqual(resolved.evalPaths, []);
   assert.equal(resolved.maxAttempts, 3);
   assert.equal(resolved.source, "default");
 });
 
 test("a Task grant is what widens capabilities", () => {
   const resolved = resolveCapabilities(
-    { projectWrite: true, shell: true, longRunning: true, evalPaths: ["src/eval/"], maxAttempts: 1 },
+    { projectWrite: true, shell: true, longRunning: true, maxAttempts: 1 },
     {}
   );
   assert.equal(resolved.projectWrite, true);
   assert.equal(resolved.shell, true);
   assert.equal(resolved.longRunning, true);
-  assert.deepEqual(resolved.evalPaths, ["src/eval/"]);
   assert.equal(resolved.maxAttempts, 1);
   assert.equal(resolved.source, "task");
-});
-
-test("a grant cannot narrow what the operator protected", () => {
-  // The grant widens what an agent may write, so it must not be a way to
-  // unprotect the scorer the operator named.
-  const resolved = resolveCapabilities(
-    { projectWrite: true, evalPaths: ["src/eval/"] },
-    { COWORK_EVAL_PATHS: "golden/" }
-  );
-  assert.deepEqual(resolved.evalPaths.sort(), ["golden/", "src/eval/"]);
 });
 
 test("the environment preset covers a run configured ahead of time", () => {
   const preset = resolveCapabilities(undefined, {
     COWORK_PROJECT_WRITE: "1",
-    COWORK_EVAL_PATHS: "eval/",
     COWORK_MAX_ATTEMPTS: "1"
   });
   assert.equal(preset.projectWrite, true);
   assert.equal(preset.shell, true, "a shell is what makes project edits usable");
   assert.equal(preset.longRunning, true);
-  assert.deepEqual(preset.evalPaths, ["eval/"]);
   assert.equal(preset.maxAttempts, 1);
   assert.equal(preset.source, "environment");
 });
@@ -70,12 +56,11 @@ test("a malformed grant on disk narrows to the sandbox rather than being trusted
 
   // Values that are not booleans must not read as true.
   await store.updateTask("t", {
-    capabilities: { projectWrite: "yes", shell: 1, evalPaths: "eval/", maxAttempts: -5 }
+    capabilities: { projectWrite: "yes", shell: 1, maxAttempts: -5 }
   });
   const task = await store.readTask("t");
   assert.equal(task.capabilities.projectWrite, false);
   assert.equal(task.capabilities.shell, false);
-  assert.equal(task.capabilities.evalPaths, undefined, "a string is not a list of paths");
   assert.equal(task.capabilities.maxAttempts, undefined, "a negative attempt count is not a grant");
 });
 
@@ -89,7 +74,6 @@ test("a grant survives a round trip and records who made it", async (t) => {
       projectWrite: true,
       shell: true,
       longRunning: true,
-      evalPaths: ["eval/", "data/test.jsonl"],
       maxAttempts: 1,
       grantedBy: "user",
       grantedAt: "2026-09-15T00:00:00.000Z",
@@ -98,7 +82,6 @@ test("a grant survives a round trip and records who made it", async (t) => {
   });
   const task = await store.readTask("t");
   assert.equal(task.capabilities.projectWrite, true);
-  assert.deepEqual(task.capabilities.evalPaths, ["eval/", "data/test.jsonl"]);
   assert.equal(task.capabilities.grantedBy, "user");
   assert.equal(task.capabilities.reason, "优化数据合成 pipeline");
 });

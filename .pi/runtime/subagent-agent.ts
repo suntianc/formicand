@@ -160,7 +160,7 @@ export async function registerSubagentAgent(pi: ExtensionAPI, role: AgentRole): 
   // The same protected-path rule Main enforces, with this process's checkout as
   // the project root. A shell command is a write path too, so the shared guard
   // reads it rather than trusting that the Reviewer merely lacks write/edit.
-  const currentGuard = () => taskProtectedPaths(workspaceRoot, taskId, workingDirectory);
+  const guard = taskProtectedPaths(workingDirectory);
   const guardEvents = new JsonlEventStore(join(workspaceRoot, taskId, "runs", runId, "run_events.jsonl"));
   const appendGuardEvent = async (path: string, pattern: string, toolName: string): Promise<void> => {
     try {
@@ -219,7 +219,7 @@ export async function registerSubagentAgent(pi: ExtensionAPI, role: AgentRole): 
   pi.on("cache_warming_decision", () => ({ action: "stop" }));
 
   pi.on("tool_call", async (event) => {
-    const refused = blockedToolCall(event.toolName, event.input, await currentGuard(), workingDirectory);
+    const refused = blockedToolCall(event.toolName, event.input, guard, workingDirectory);
     if (!refused) return undefined;
     void appendGuardEvent(refused.path, refused.pattern, event.toolName);
     return { block: true, reason: refused.reason };

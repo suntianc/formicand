@@ -41,7 +41,6 @@ test("Main previous checkpoint removes legacy supplements without inventing a hi
 test("Main supplemental context bounds all text, retains excerpt ends and excludes the empty memory template", () => {
   const goal = `GOAL_HEAD_ANCHOR\n${"goal-body ".repeat(2000)}GOAL_MIDDLE_OMITTED${"goal-body ".repeat(2000)}\nGOAL_TAIL_ANCHOR`;
   const memory = `# Main Agent Memory\n## Completed\nMEMORY_HEAD_ANCHOR\n${"old-fact ".repeat(3000)}\nMEMORY_TAIL_ANCHOR`;
-  const digest = `MEASUREMENT_HEAD_ANCHOR\n${"measurement ".repeat(3000)}\nMEASUREMENT_TAIL_ANCHOR`;
   const context = mainCompactionContext(
     state({
       runtime: runtime({
@@ -52,25 +51,16 @@ test("Main supplemental context bounds all text, retains excerpt ends and exclud
           updatedAt: "2026-01-01T00:00:00.000Z"
         }
       }),
-      memory,
-      experimentDigest: digest
+      memory
     })
   );
   assert.ok(context.length <= 12_000, "the complete dynamic block has a single total character budget");
-  for (const anchor of [
-    "GOAL_HEAD_ANCHOR",
-    "GOAL_TAIL_ANCHOR",
-    "MEMORY_HEAD_ANCHOR",
-    "MEMORY_TAIL_ANCHOR",
-    "MEASUREMENT_HEAD_ANCHOR",
-    "MEASUREMENT_TAIL_ANCHOR"
-  ])
+  for (const anchor of ["GOAL_HEAD_ANCHOR", "GOAL_TAIL_ANCHOR", "MEMORY_HEAD_ANCHOR", "MEMORY_TAIL_ANCHOR"])
     assert.ok(context.includes(anchor), `preserve the excerpt boundary ${anchor}`);
   assert.ok(!context.includes("GOAL_MIDDLE_OMITTED"));
   assert.match(context, /truncated/);
   assert.ok(context.includes("Task goal record (may be incomplete):"));
   assert.ok(context.includes("Auxiliary workspace memory (may be incomplete or stale):"));
-  assert.ok(context.includes("historical measurements, not proof of current verification"));
 
   const template =
     "# Main Agent Memory\n\n## Goal\n<!-- Keep the durable user goal here. -->\n\n## Completed\n- (none yet)\n\n## Next\n- (initialize after understanding the task)\n\n## Important information/constraints\n- (none yet)\n";

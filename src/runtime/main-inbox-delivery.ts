@@ -5,7 +5,6 @@ import { InboxStore } from "./scheduler.js";
 import { mainContextPaths, updateMainContextRuntime } from "./main-context.js";
 import { JsonlEventStore } from "../storage/event-store.js";
 import { withFileLock } from "../storage/file-lock.js";
-import { experimentDigest } from "./experiment-digest.js";
 import { clearSleep } from "./main-sleep.js";
 import type { InboxMessage } from "../domain/types.js";
 
@@ -303,14 +302,6 @@ export class MainInboxDelivery {
               // eslint-disable-next-line no-restricted-syntax -- 这条事件本身就是清理失败的记录，写不进事件流时投递仍必须继续
               .catch(() => {});
           });
-          // A callback that settled a measured round is the moment Main decides
-          // what to try next, so the recorded series travels with it. Main is
-          // not asked to look it up, and nothing here reads the trend for it.
-          const digest = payload.experimentRunId
-            ? await experimentDigest(this.workspaceRoot, this.taskId)
-                // eslint-disable-next-line no-restricted-syntax -- 实验趋势是附加信息，读不到时消息照常投递，只是不带趋势段落
-                .catch(() => undefined)
-            : undefined;
           // The first message of a Run starts that Run's turn as the person's
           // own request, not as an aside to work already in flight. Later
           // user messages keep the "supplement while working" framing.
@@ -339,7 +330,7 @@ export class MainInboxDelivery {
                   ? followUp
                     ? `用户排队的下一条请求（当前工作结束后处理）：\n${String(payload.message ?? "")}`
                     : `用户在你工作期间补充了一句话：\n${String(payload.message ?? "")}\n\n如果它改变了当前该做的事，就据此调整；如果只是补充信息，记下来继续。不要重新开始已经完成的部分。`
-                  : `Cowork ${isJobFinished ? "job finished" : isExternalEvent ? "external event" : isHumanAnswer ? "human answer" : isSubagentQuestion ? "subagent question" : "callback"} received from Inbox:\n${JSON.stringify(message.payload)}${digest ? `\n\n${digest}` : ""}`,
+                  : `Cowork ${isJobFinished ? "job finished" : isExternalEvent ? "external event" : isHumanAnswer ? "human answer" : isSubagentQuestion ? "subagent question" : "callback"} received from Inbox:\n${JSON.stringify(message.payload)}`,
               display: true,
               details: {
                 ...payload,

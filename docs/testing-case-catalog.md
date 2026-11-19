@@ -128,16 +128,7 @@
 
 现有锚点：`main-sleep.test.js`、`main-supervisor.test.js`、`main-inbox-delivery.test.js`。
 
-### 11 实验记录
-
-| ID     | 检查场景                                          | 通过标准                                                     |
-| ------ | ------------------------------------------------- | ------------------------------------------------------------ |
-| EXP-01 | 实验开始/partial/完成/失败、run ID 冲突、重复收据 | ledger 保存真实证据；partial 保持等待；指标/产物来源可追踪   |
-| EXP-02 | 迭代优化任务、预算耗尽、评估未提升、失败试验      | 不伪报最佳成绩；保留全部试验；达到预算停止并给出实际最佳结果 |
-
-现有锚点：`experiment-ledger.test.js`。
-
-### 12 后台 jobs
+### 11 后台 jobs
 
 | ID     | 检查场景                                               | 通过标准                                              |
 | ------ | ------------------------------------------------------ | ----------------------------------------------------- |
@@ -149,7 +140,7 @@
 
 现有锚点：`task-capabilities.test.js`、`main-jobs.test.js`、`command-agent-status.test.js`。
 
-### 13 通用工具与 Skill
+### 12 通用工具与 Skill
 
 | ID      | 检查场景                                                               | 通过标准                                                                            |
 | ------- | ---------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
@@ -162,14 +153,14 @@
 | TOOL-11 | 自定义 Agent 的定义、两级覆盖、启停、引用失效与项目信任                | 规则由代码执行；停用、缺失、坏定义报错不改派；未信任项目不读                        |
 | TOOL-12 | 派出自定义 Agent 后子进程的请求                                        | 只含所配工具、技能与 MCP 工具，附加提示词在角色提示后；只读 Agent 以文字交回        |
 | TOOL-13 | Main 经 `manage_agent` 新建、修改、停用 Agent                          | 写入前展示完整定义，只有确认才写；未配置的 MCP、未信任项目直接拒绝                  |
-| TOOL-03 | read/write/edit/bash 相对路径与 Task 绝对路径                          | cwd 契约一致；受保护路径/评估器不可写；错误包含实际目标且脱敏                       |
+| TOOL-03 | read/write/edit/bash 相对路径与 Task 绝对路径                          | cwd 契约一致；受保护路径不可写；错误包含实际目标且脱敏                              |
 | TOOL-04 | 非零退出、工具抛错、取消、structured 图片/文本                         | 生命周期 start/end 成对，结果状态真实，原生图片块可达模型                           |
 | TOOL-05 | 新增工具 schema、坏参数、未知字段、Main/Subagent 配置                  | 输入在边界校验；消费者合同一致；取消和预算传递                                      |
 | TOOL-06 | workspace 浏览、状态/用量/轨迹读取、Main 与 Subagent 路径、空/损坏日志 | 实际文件和事件可定位；日志入口不把空 trace 当完整会话；用量不重复累加，未知值不伪造 |
 
 现有锚点：`tool-capability-selection.test.js`、`tool-lifecycle.test.js`、`main-task-paths-pi.test.js`、`bundled-skills.test.js`、`skill-catalog.test.js`、`skill-service.test.js`、`mcp-service.test.js`、`mcp-runtime-pi.test.js`、`agent-definitions.test.js`、`custom-agent-pi.test.js`、`e2e/agent-settings.spec.js`、`manage-agent-pi.test.js`、`e2e/main-creates-agent.spec.js`。
 
-### 14 输入附件与视觉
+### 13 输入附件与视觉
 
 | ID       | 检查场景                                            | 通过标准                                                 |
 | -------- | --------------------------------------------------- | -------------------------------------------------------- |
@@ -180,7 +171,7 @@
 
 现有锚点：`input-files.test.js`、`input-files-pi.test.js`、`input-files-http.test.js`、`composer-attachments.test.js`、`image-input-session.test.js`、`e2e/file-upload.spec.js`、`composer-service.test.js`、`e2e/composer-menus.spec.js`。
 
-### 15 产出物交付
+### 14 产出物交付
 
 | ID          | 检查场景                                                | 通过标准                                                       |
 | ----------- | ------------------------------------------------------- | -------------------------------------------------------------- |
@@ -192,7 +183,7 @@
 
 现有锚点：`artifact-store.test.js`、`artifact-api.test.js`、`publish-artifact-pi.test.js`、`input-files-http.test.js`、`e2e/artifact-open.spec.js`。
 
-### 16 安全与故障存储
+### 15 安全与故障存储
 
 | ID     | 检查场景                                                   | 通过标准                                                                 |
 | ------ | ---------------------------------------------------------- | ------------------------------------------------------------------------ |
@@ -204,7 +195,7 @@
 
 现有锚点：`http-boundary.test.js`、`protected-paths.test.js`、`desktop-boundary.test.js`、`p4-native-execution.test.js`。这些 case 验证已定义权限边界，不代表全产品 OS 沙箱已实现。
 
-### 17 性能与长期可靠性
+### 16 性能与长期可靠性
 
 | ID      | 检查场景                                         | 通过标准                                                  |
 | ------- | ------------------------------------------------ | --------------------------------------------------------- |
@@ -215,7 +206,7 @@
 
 现有锚点：`run-statistics.test.js`、`execution-time.test.js`、`main-supervisor.test.js`；这些是指标或机制锚点，L7 连续压力与 soak 仍需专门建设。
 
-### 18 人类参与和多轮执行协议
+### 17 人类参与和多轮执行协议
 
 这里验证用户输入怎样进入执行链；终端操作和界面显示分别在第二、第三环节验证。**插入补充、修改要求、显式停止、停止后继续、完成后的下一轮、回答人工问题**分别测试，不把它们视为同一种输入。
 
@@ -238,7 +229,7 @@
 
 现有锚点：`test/main-inbox-delivery.test.js`、`test/conversation-api.test.js`、`test/conversation.test.js`、`src/dashboard/routes.ts` 的 interject 路由和 `src/runtime/main-inbox-delivery.ts`。需补端到端实际模型请求及独立文件验收，不能只测 enqueue 成功。
 
-### 19 消息排队与回合投递
+### 18 消息排队与回合投递
 
 | ID          | 检查场景                                                                        | 通过标准                                                                                                                                |
 | ----------- | ------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
@@ -452,7 +443,6 @@
 | CASE-13 | 根据合成资料生成 PDF/DOCX，指定页数/关键数字/表格            | 独立解析+渲染核验内容和布局；可打开，关键值准确；错误产物不报完成                       |
 | CASE-14 | 监测文件变化唤醒 Main，汇总两次变化；期间重启 Supervisor     | 事件归原 Task/Run；去重，不遗漏合格事件；无变化不生成额外任务                           |
 | CASE-15 | 长会话后压缩，再恢复一项先前未完成任务                       | 目标、工具结果和权限保留；只做剩余步骤，最终产物正确                                    |
-| CASE-16 | 受预算约束迭代优化合成模型/算法，含一次失败实验              | ledger 完整、指标由独立评估器计算；不伪报改善，按预算停止并交付实际最佳版本             |
 
 ### 人类持续参与的完整任务
 

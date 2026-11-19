@@ -6,7 +6,6 @@ import { limitToolContent } from "../../dist/src/runtime/tool-output.js";
 interface MainCompactionState {
   memory: string;
   runtime: MainContextState;
-  experimentDigest?: string;
   goalAlreadyVisible?: boolean;
 }
 
@@ -45,12 +44,6 @@ export function mainCompactionContext(state: MainCompactionState): string {
       : []),
     ...(memoryContent
       ? ["Auxiliary workspace memory (may be incomplete or stale):", excerpt(memory, 2_800)]
-      : []),
-    ...(state.experimentDigest
-      ? [
-          "Auxiliary experiment records (historical measurements, not proof of current verification):",
-          excerpt(state.experimentDigest, 1_800)
-        ]
       : []),
     "Full history: agents/main/context/messages.json. Retrieve only specific missing evidence when needed."
   ];

@@ -19,7 +19,6 @@ import {
 } from "./agent-process.js";
 import { enqueueMainCallback, formatSubagentSummary } from "./subagent-callback.js";
 import { parseReviewConclusion, type ReviewConclusion } from "./subagent-review.js";
-import { settleDelegatedExperiment, type DelegatedExperimentRef } from "./experiment-settlement.js";
 
 /**
  * The backend side of delegated agent processes.
@@ -94,8 +93,6 @@ interface WorkPayload {
   continuation?: { fromCallId: string; reviewId?: string; sessionCallId?: string };
   /** Capability grants this work item was dispatched with. */
   capabilityGrants?: unknown[];
-  /** The experiment-ledger row this delegation opened when it was dispatched. */
-  experimentRef?: DelegatedExperimentRef;
   /** The custom Agent's definition, fixed when the item was dispatched. */
   agentDefinition?: AgentDefinition;
   /** A built-in role's skills, MCP servers and extra prompt, fixed when the item was dispatched. */
@@ -495,21 +492,6 @@ export class SubagentProcessService {
     // A retryable failure is still in flight, so it is not an outcome Main may
     // act on; the callback follows the terminal attempt.
     const publishOutcome = async (): Promise<{ messageId: string; queued: boolean }> => {
-      // The ledger row settles at the same terminal boundary as the callback: a
-      // retryable failure is not an outcome, so the row stays open for its retry.
-      await settleDelegatedExperiment({
-        workspaceRoot: this.workspaceRoot,
-        taskId: record.taskId,
-        runId: record.runId,
-        callId: record.callId,
-        agentId: record.agentId,
-        ref: payload.experimentRef,
-        status: result.status,
-        workingDirectory: record.workingDirectory,
-        summary: result.response,
-        outputFiles: result.outputFiles,
-        ...(result.error === undefined ? {} : { error: result.error })
-      });
       return await enqueueMainCallback({
         workspaceRoot: this.workspaceRoot,
         taskId: record.taskId,
@@ -517,12 +499,7 @@ export class SubagentProcessService {
         callId: record.callId,
         agentId: record.agentId,
         status: result.status,
-        // The ledger reference rides with the callback so Main reads one
-        // shape from any delegation path.
-        callbackMetadata: {
-          ...(payload.experimentRef ?? {}),
-          ...(result.review ? { review: result.review } : {})
-        },
+        ...(result.review ? { callbackMetadata: { review: result.review } } : {}),
         response: formatSubagentSummary({
           status: result.status,
           rawResponse: result.response,
@@ -771,21 +748,6 @@ export class SubagentProcessService {
       diagnostics,
       error: message
     };
-    // A work item that never started still had a ledger row opened for it; its
-    // failure is the row's outcome.
-    await settleDelegatedExperiment({
-      workspaceRoot: this.workspaceRoot,
-      taskId: item.taskId,
-      runId: item.runId,
-      callId: item.stepId,
-      agentId: item.agentId,
-      ref: payload.experimentRef,
-      status: "failed",
-      workingDirectory: payload.projectDirectory ?? "",
-      summary: "",
-      outputFiles: [],
-      error: message
-    });
     await new JsonlEventStore(join(this.workspaceRoot, item.taskId, "runs", item.runId, "run_events.jsonl"))
       .append({
         eventId: id("event"),
@@ -813,7 +775,6 @@ export class SubagentProcessService {
       callId: item.stepId,
       agentId: item.agentId,
       status: "failed",
-      ...(payload.experimentRef ? { callbackMetadata: { ...payload.experimentRef } } : {}),
       response: formatSubagentSummary({
         status: "failed",
         rawResponse: "",

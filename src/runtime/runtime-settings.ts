@@ -255,15 +255,6 @@ export function configuredMaxAttempts(env: NodeJS.ProcessEnv = process.env): num
   return positiveCappedEnv(env, "COWORK_MAX_ATTEMPTS", DEFAULT_MAX_ATTEMPTS, 20);
 }
 
-/**
- * How many delegations one Task records in its ledger.  Zero means unlimited.
- * This is an operator-side bound on bookkeeping growth, not a limit on what
- * Main may attempt: past it, recording stops and the work still runs.
- */
-export function configuredExperimentMaxRuns(env: NodeJS.ProcessEnv = process.env): number {
-  return nonNegativeEnv(env, "COWORK_EXPERIMENT_MAX_RUNS", 0);
-}
-
 export function configuredMainMaxTurns(env: NodeJS.ProcessEnv = process.env): number {
   return positiveCappedEnv(env, "COWORK_MAIN_MAX_TURNS", DEFAULT_MAIN_MAX_TURNS, 10_000);
 }
