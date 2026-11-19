@@ -2,7 +2,7 @@ import { execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import { cp, mkdir, readdir, rm, stat, writeFile } from "node:fs/promises";
-import { join, resolve } from "node:path";
+import { isAbsolute, join, relative, resolve } from "node:path";
 import { promisify } from "node:util";
 import {
   decideProjectTrust,
@@ -276,6 +276,12 @@ export function createSkillService(options: SkillServiceOptions) {
       if (invalid)
         throw new HttpError(400, `技能名称不能用作文件夹名：${invalid.name}`, "skill_name_invalid");
       const destination = await installRoot(target);
+      const inside = chosen.find((skill) => {
+        const from = relative(destination, skill.directory);
+        return !from || (!from.startsWith("..") && !isAbsolute(from));
+      });
+      if (inside)
+        throw new HttpError(409, `${inside.name} 已经在安装位置里，无需再次添加`, "skill_already_installed");
       const clash = chosen.find((skill) => existsSync(join(destination, skill.name)));
       if (clash && !replace) throw new HttpError(409, `已存在同名技能：${clash.name}`, "skill_exists");
       await mkdir(destination, { recursive: true });

@@ -491,6 +491,22 @@
           <line x1="6" x2="6.01" y1="18" y2="18" />
         </symbol>
 
+        <symbol id="i-book-open" viewBox="0 0 24 24">
+          <path d="M12 7v14" />
+          <path
+            d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"
+          />
+        </symbol>
+        <symbol id="i-eye-off" viewBox="0 0 24 24">
+          <path
+            d="M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49"
+          />
+          <path d="M14.084 14.158a3 3 0 0 1-4.242-4.242" />
+          <path
+            d="M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143"
+          />
+          <path d="m2 2 20 20" />
+        </symbol>
         <symbol id="i-wrench" viewBox="0 0 24 24">
           <path
             d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"
@@ -1053,6 +1069,9 @@
           <button class="settings-nav-item" type="button" data-settings-section="models">
             <svg class="ui-icon" aria-hidden="true"><use href="#i-cpu" /></svg><span>模型与角色</span>
           </button>
+          <button class="settings-nav-item" type="button" data-settings-section="skills">
+            <svg class="ui-icon" aria-hidden="true"><use href="#i-book-open" /></svg><span>技能</span>
+          </button>
           <button class="settings-nav-item" type="button" data-settings-section="capacity">
             <svg class="ui-icon" aria-hidden="true"><use href="#i-gauge" /></svg><span>运行名额</span>
           </button>
@@ -1192,6 +1211,12 @@
             class="settings-panel model-settings"
             data-settings-panel="models"
             aria-label="模型与角色"
+            hidden
+          ></section>
+          <section
+            class="settings-panel skill-settings"
+            data-settings-panel="skills"
+            aria-label="技能"
             hidden
           ></section>
           <section class="settings-panel" data-settings-panel="capacity" aria-label="运行名额" hidden>

@@ -88,6 +88,11 @@ test("a folder is previewed, then the chosen skills are copied into ~/.atria/ski
   await service.install(again.stagingId, ["alpha"], global, true);
   await assert.rejects(service.install(again.stagingId, ["alpha"], global, true), /预览已过期/);
 
+  // Choosing the install folder itself must never delete what it would copy.
+  const self = await service.previewFolder(join(paths.home, "skills"), global);
+  await assert.rejects(service.install(self.stagingId, ["alpha"], global, true), /已经在安装位置里/);
+  assert.ok(existsSync(join(paths.home, "skills", "alpha", "SKILL.md")));
+
   await assert.rejects(service.previewFolder(join(paths.root, "empty-missing"), global), /文件夹不存在/);
   await mkdir(join(paths.root, "empty"));
   await assert.rejects(service.previewFolder(join(paths.root, "empty"), global), /没有找到技能/);
