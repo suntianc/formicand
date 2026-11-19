@@ -8,7 +8,6 @@ export interface SubagentProgress {
   agentId: string;
   name: string;
   task: string;
-  mode?: "sync" | "async" | "auto";
   /** Role this work item runs as; omitted for a delegation with no role request. */
   role?: "executor" | "reviewer";
   /** Model and connection the latest attempt actually selected (no endpoint or key). */
@@ -101,8 +100,6 @@ export async function readSubagentProgress(input: {
       .map(async (item): Promise<SubagentProgress> => {
         const related = events.filter((event) => event.callId === item.stepId);
         const latest = related.at(-1);
-        const call = related.find((event) => event.type === "call.accepted")?.payload as
-          { call?: { mode?: SubagentProgress["mode"] } } | undefined;
         const artifacts = taskArtifacts
           .filter((artifact) => artifact.runId === input.runId && artifact.producerAgentId === item.agentId)
           .map((artifact) => artifact.relativePath);
@@ -147,7 +144,6 @@ export async function readSubagentProgress(input: {
           agentId: item.agentId,
           name: agentDisplayName(item.agentId),
           task: item.payload?.task ?? "",
-          mode: call?.call?.mode,
           // A blocked item is waiting, not working: it must not read as running.
           status: blocked ? "queued" : normalizeStatus(item.status),
           ...(role === "executor" || role === "reviewer" ? { role } : {}),

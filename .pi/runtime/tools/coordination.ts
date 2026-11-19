@@ -6,10 +6,7 @@ import { readSubagentProgress } from "../../../dist/src/runtime/progress.js";
 import { configuredHumanAnswerTimeout } from "../../../dist/src/runtime/runtime-settings.js";
 import { assessTaskCompletion } from "../../../dist/src/runtime/task-completion.js";
 import { LocalWorkspaceStore } from "../../../dist/src/workspace/workspace-store.js";
-import { formatSubagentSummary } from "../../../dist/src/runtime/subagent-callback.js";
 import { createSubagentClient } from "../../../dist/src/runtime/subagent-client.js";
-import { readFile } from "node:fs/promises";
-import { join } from "node:path";
 import type { CoworkToolContext } from "../extension.ts";
 import type { RuntimeToolResult } from "../helpers.ts";
 
@@ -158,12 +155,12 @@ export function registerCoordinationTools(pi: ExtensionAPI, context: CoworkToolC
     name: "call_subagent",
     label: "Call Subagent",
     description:
-      "Delegate one concrete work item to a Subagent. sync waits for the result; async returns a callId and delivers the result by callback. Both modes execute the task once. role names the job (executor implements, reviewer examines an independent session); dependsOn holds the item until earlier callIds finish; developmentId runs it in that requirement's isolated checkout; continueCallId reworks a finding as the next turn of a finished Executor's own session and checkout.",
+      "Delegate one concrete work item to a Subagent. It returns a callId at once and runs the item in the background; the result arrives later as a callback. role names the job (executor implements, reviewer examines an independent session); dependsOn holds the item until earlier callIds finish; developmentId runs it in that requirement's isolated checkout; continueCallId reworks a finding as the next turn of a finished Executor's own session and checkout.",
     promptSnippet: "Delegate a concrete task",
     promptGuidelines: [
       "Use call_subagent when an independent analysis, implementation or validation task is likely to improve the result.",
       "Give each delegate an independently testable objective, relevant inputs, constraints and acceptance evidence. Independent end-to-end attempts are valid when they help compare approaches; avoid a fixed research/production/review pipeline for every task.",
-      "Set mode=sync to wait for the result; set mode=async to continue independent work and receive a callback. Wait for any result needed for acceptance before completing the parent task.",
+      "Keep working on what does not depend on the result. When nothing else is left, end your turn: the callback wakes you. Use wait_for_subagents only when you need the result inside this turn.",
       "The task must state a concrete objective and expected evidence; ask for a deliverables/ file only when the result is a substantial reusable artifact. Main may issue multiple independent calls in one turn.",
       "The Subagent returns a concise summary with evidence, candidate outputFiles, diagnostic paths and validation results. Candidate files remain in the Subagent's directory until Main accepts and copies selected files into the Task artifacts directory.",
       "Use role=reviewer for an independent check of a result; it starts its own session, so it must be given the candidate and evidence to examine rather than asked to trust the Executor's summary.",
@@ -183,10 +180,6 @@ export function registerCoordinationTools(pi: ExtensionAPI, context: CoworkToolC
             description: "Explicit upload IDs this delegate may inspect with read_attachment."
           })
         ),
-        mode: Type.Union([Type.Literal("sync"), Type.Literal("async")], {
-          description:
-            "sync waits for the Subagent result; async returns immediately and delivers a later callback. Both execute once; async does not mean persistent."
-        }),
         agent: Type.Optional(
           Type.String({
             description:
@@ -246,9 +239,6 @@ export function registerCoordinationTools(pi: ExtensionAPI, context: CoworkToolC
       // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- task 由模型以 JSON 参数传入，运行期可能缺失；空串回退后由下面的 !goal 拒绝，否则 String(undefined) 会变成 "undefined" 通过校验
       const goal = String(params.task ?? "").trim();
       if (!goal) throw new Error("call_subagent requires task");
-      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- mode 来自模型传入的工具参数 JSON，schema 只在声明层约束；显式拒绝未知值，避免把拼错的 mode 当成 sync 执行
-      if (params.mode !== "sync" && params.mode !== "async")
-        throw new Error("call_subagent mode must be sync or async");
       const role = params.role ?? "executor";
       // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- role 同样来自模型传入的工具参数，运行期可能是 schema 之外的值；这里拒绝未知 role，而不是把它当成 executor 静默执行
       if (role !== "executor" && role !== "reviewer")
@@ -272,7 +262,6 @@ export function registerCoordinationTools(pi: ExtensionAPI, context: CoworkToolC
       const agent = typeof params.agent === "string" ? params.agent.trim() : "";
       const accepted = await createSubagentClient({ taskId: context.taskId }).dispatch({
         task: goal,
-        mode: params.mode,
         role,
         ...(agent ? { agent } : {}),
         ...(dependsOn.length > 0 ? { dependsOn } : {}),
@@ -302,32 +291,12 @@ export function registerCoordinationTools(pi: ExtensionAPI, context: CoworkToolC
         ...(accepted.continuedFrom ? { continuedFrom: accepted.continuedFrom } : {}),
         ...(Array.isArray(accepted.dependsOn) ? { dependsOn: accepted.dependsOn } : {})
       };
-      if (params.mode === "async") {
-        context.updateRuntime({
-          runtimeRouting: { strategy: "async", reason: goal.slice(0, 240) },
-          runtimeLastEvent: { type: "subagent_accepted", summary: `${callId}: ${goal.slice(0, 180)}` }
-        });
-        const payload = { accepted: true, mode: "async", ...acceptedPayload };
-        return { content: [{ type: "text", text: JSON.stringify(payload) }], details: payload };
-      }
-      const settled = await waitForDispatchedCall(context, accepted);
       context.updateRuntime({
-        runtimeRouting: { strategy: "sync", reason: goal.slice(0, 240) },
-        runtimeLastEvent: { type: "subagent_completed", summary: `${callId}: ${settled.status}` }
+        runtimeRouting: { strategy: "async", reason: goal.slice(0, 240) },
+        runtimeLastEvent: { type: "subagent_accepted", summary: `${callId}: ${goal.slice(0, 180)}` }
       });
-      const payload = {
-        ...acceptedPayload,
-        status: settled.status,
-        response: settled.response,
-        artifacts: [],
-        outputFiles: settled.outputFiles,
-        diagnostics: settled.diagnostics,
-        error: settled.error
-      };
-      return {
-        content: [{ type: "text", text: JSON.stringify(payload) }],
-        details: { ...payload, _coworkInboxMessages: settled.claimedCallbacks ?? [] }
-      };
+      const payload = { accepted: true, ...acceptedPayload };
+      return { content: [{ type: "text", text: JSON.stringify(payload) }], details: payload };
     }
   });
 
@@ -512,7 +481,8 @@ export function registerCoordinationTools(pi: ExtensionAPI, context: CoworkToolC
     promptSnippet: "Wait for async Subagent work before finishing",
     promptGuidelines: [
       "Use this only when the result is needed for the current task or before calling finish_task.",
-      "A timeout returns the current structured state; inspect pending and callbackPending before deciding whether to continue waiting or proceed."
+      "A timeout returns the current structured state; inspect pending and callbackPending before deciding whether to continue waiting or proceed.",
+      "The wait also ends early when a Subagent asks a question or the user sends a message: answer it, then wait again if you still need the result."
     ],
     parameters: Type.Object({
       callIds: Type.Optional(Type.Array(Type.String({ description: "A callId returned by call_subagent." }))),
@@ -548,8 +518,11 @@ export function registerCoordinationTools(pi: ExtensionAPI, context: CoworkToolC
           (await new LocalWorkspaceStore(context.workspaceRoot)
             .readTask(context.taskId)
             .then((task) => Boolean(task.pause) || task.status === "paused")) ||
+          // A Subagent's question blocks it until Main answers, so it ends the wait too.
           (await context.inboxDelivery.pending()).some(
-            (message) => message.createdAt >= waitStarted && isSteeredHumanMessage(message)
+            (message) =>
+              message.kind === "subagent_question" ||
+              (message.createdAt >= waitStarted && isSteeredHumanMessage(message))
           )
       });
       // Unrelated callbacks remain durable for a later poll. A failed send
@@ -663,113 +636,6 @@ export function registerCoordinationTools(pi: ExtensionAPI, context: CoworkToolC
       return { content: [{ type: "text", text: JSON.stringify(result) }], details: result };
     }
   });
-}
-
-/**
- * Wait for the backend to settle one dispatched call.
- *
- * The wait reads the same durable queue, callback and result record every other
- * status tool reads, so a backend restart in the middle changes nothing about
- * this wait: the process is adopted by the next backend and settles there.
- */
-async function waitForDispatchedCall(
-  context: CoworkToolContext,
-  accepted: Record<string, unknown>
-): Promise<{
-  status: "succeeded" | "failed" | "timed_out" | "cancelled";
-  response: string;
-  outputFiles: string[];
-  diagnostics: { tracePath: string; resultPath: string };
-  error?: string;
-  claimedCallbacks?: Array<{ taskId: string; runId: string; messageId: string }>;
-}> {
-  const taskId = context.taskId;
-  const runId = String(accepted.runId ?? context.mainRunId);
-  const callId = String(accepted.callId ?? "");
-  const agentId = String(accepted.agentId ?? "");
-  const diagnostics = {
-    tracePath: `runs/${runId}/agents/subagents/${agentId}/agent-output.log`,
-    resultPath: `runs/${runId}/agents/subagents/${agentId}/result.json`
-  };
-  const terminal = (status: string | undefined) =>
-    status === "completed" || status === "failed" || status === "cancelled";
-  // Wait for the queue to reach a terminal state first; the callback is written
-  // by the settling backend and is claimed in the read that follows.
-  for (;;) {
-    const state = await context.coordinator.waitForSubagents({
-      taskId,
-      runId,
-      workspaceRoot: context.workspaceRoot,
-      callIds: [callId],
-      timeoutMs: 5_000,
-      waitForCallbackConsumption: false,
-      includeCallDetails: false
-    });
-    if (terminal(state.calls.find((call) => call.callId === callId)?.status)) break;
-    if (state.calls.length === 0 && state.pending.length === 0) break;
-  }
-  const waited = await context.coordinator.waitForSubagents({
-    taskId,
-    runId,
-    workspaceRoot: context.workspaceRoot,
-    callIds: [callId],
-    timeoutMs: 0,
-    waitForCallbackConsumption: false,
-    consumeCompletedCallbacks: true,
-    isCallbackQueued: (messageId) => context.inboxDelivery.isQueued(messageId)
-  });
-  const call = waited.calls.find((candidate) => candidate.callId === callId);
-  const status =
-    call?.status === "completed"
-      ? ("succeeded" as const)
-      : call?.status === "cancelled"
-        ? ("cancelled" as const)
-        : call?.status === "timed_out"
-          ? ("timed_out" as const)
-          : ("failed" as const);
-  const result = await readResultRecord(join(context.workspaceRoot, taskId, diagnostics.resultPath));
-  const outputFiles = call?.outputFiles ?? result?.outputFiles ?? [];
-  const error = call?.error ?? result?.error;
-  const response =
-    call?.response ??
-    formatSubagentSummary({
-      status,
-      rawResponse: result?.response ?? "",
-      outputFiles,
-      diagnostics,
-      ...(error ? { error } : {})
-    });
-  return {
-    status,
-    response,
-    outputFiles,
-    diagnostics,
-    ...(error ? { error } : {}),
-    ...(waited.claimedCallbacks ? { claimedCallbacks: waited.claimedCallbacks } : {})
-  };
-}
-
-/** The result record a delegated process writes before it exits. */
-async function readResultRecord(
-  path: string
-): Promise<{ response?: string; outputFiles?: string[]; error?: string } | undefined> {
-  try {
-    const value = JSON.parse(await readFile(path, "utf8")) as {
-      response?: unknown;
-      outputFiles?: unknown;
-      error?: unknown;
-    };
-    return {
-      response: typeof value.response === "string" ? value.response : undefined,
-      outputFiles: Array.isArray(value.outputFiles)
-        ? value.outputFiles.filter((entry): entry is string => typeof entry === "string")
-        : undefined,
-      error: typeof value.error === "string" ? value.error : undefined
-    };
-    // eslint-disable-next-line no-restricted-syntax -- 结果记录尚未写出或损坏时按没有结果处理，等待结果里的状态与错误已经是结论
-  } catch {
-    return undefined;
-  }
 }
 
 type HumanInput = Parameters<CoworkToolContext["humanStore"]["create"]>[0];

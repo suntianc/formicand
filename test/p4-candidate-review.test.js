@@ -195,7 +195,6 @@ test(
               name: "call_subagent",
               arguments: {
                 task: "执行者工作项 A：在需求现场生成 export.txt，第一行 header，第二行数据。",
-                mode: "async",
                 role: "executor",
                 developmentId
               }
@@ -280,7 +279,6 @@ test(
               name: "call_subagent",
               arguments: {
                 task: `审查者工作项 B：独立核验候选 ${reviewId1} 的导出格式与完成标准。`,
-                mode: "async",
                 role: "reviewer",
                 developmentId
               }
@@ -371,7 +369,6 @@ test(
               name: "call_subagent",
               arguments: {
                 task: "执行者工作项 A：修复审查发现，补上合计行并重新生成 export.txt。",
-                mode: "async",
                 role: "executor",
                 developmentId,
                 continueCallId: calls.a.callId,
@@ -449,7 +446,6 @@ test(
               name: "call_subagent",
               arguments: {
                 task: `审查者工作项 C：复审候选 ${reviewId2} 对原发现 ${findingId} 的修复。`,
-                mode: "async",
                 role: "reviewer",
                 developmentId
               }
@@ -585,7 +581,6 @@ test(
               name: "call_subagent",
               arguments: {
                 task: `审查者工作项 D：对组合版本 ${reviewId3} 做独立终审。`,
-                mode: "async",
                 role: "reviewer",
                 developmentId
               }

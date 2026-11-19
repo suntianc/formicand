@@ -12,11 +12,7 @@ import { atriaRoleIdentity } from "../../dist/src/domain/agent-identity.js";
 import { agentDisplayName } from "../../dist/src/runtime/agent-identity.js";
 import { delegationRoleGuidance } from "../../dist/src/runtime/delegation-model.js";
 import { projectCompactionMessages } from "../../dist/src/runtime/compaction-input.js";
-import {
-  ASK_MAIN_GUIDANCE,
-  NO_ASK_MAIN_GUIDANCE,
-  SEND_PEER_MESSAGE_GUIDANCE
-} from "../../dist/src/runtime/subagent-guidance.js";
+import { ASK_MAIN_GUIDANCE, SEND_PEER_MESSAGE_GUIDANCE } from "../../dist/src/runtime/subagent-guidance.js";
 import type { ReviewConclusion } from "../../dist/src/runtime/subagent-review.js";
 import {
   capabilityToolNames,
@@ -120,8 +116,6 @@ export async function registerSubagentAgent(pi: ExtensionAPI, role: AgentRole): 
   const taskWorkspace = join(workspaceRoot, taskId);
   const workingDirectory = resolve(process.cwd());
   const name = agentDisplayName(agentId);
-  // Main waits inside its own call_subagent for a sync item, so nothing could answer ask_main.
-  const canAskMain = process.env.COWORK_SUBAGENT_MODE !== "sync";
   const deliverablesDirectory = join(taskWorkspace, "agents", "subagents", agentId, "deliverables");
   let submittedReview: ReviewConclusion | undefined;
   const agent = customAgent();
@@ -220,7 +214,6 @@ export async function registerSubagentAgent(pi: ExtensionAPI, role: AgentRole): 
       workingDirectory,
       taskWorkspace,
       deliverablesDirectory,
-      canAskMain,
       ...(capabilityPrompt ? { capabilityPrompt } : {})
     });
 
@@ -266,7 +259,7 @@ export async function registerSubagentAgent(pi: ExtensionAPI, role: AgentRole): 
           }
         });
     }
-    const tools = (
+    pi.setActiveTools(
       agent
         ? [
             ...agentToolNames(agent),
@@ -278,8 +271,7 @@ export async function registerSubagentAgent(pi: ExtensionAPI, role: AgentRole): 
             // The servers the role's setting names were the only ones registered.
             ...pi.getActiveTools().filter((tool) => MCP_TOOL.test(tool))
           ]
-    ).filter((tool) => canAskMain || tool !== "ask_main");
-    pi.setActiveTools(tools);
+    );
   });
 
   // Role text is additive: Pi's own tool list and rules stay, and the role
@@ -471,12 +463,9 @@ function subagentRolePrompt(input: {
   workingDirectory: string;
   taskWorkspace: string;
   deliverablesDirectory: string;
-  /** False for a sync item: Main is waiting and cannot answer. */
-  canAskMain: boolean;
   /** Text the granted capabilities add, such as the upload ids this item may read. */
   capabilityPrompt?: string;
 }): string {
-  const askMain = input.canAskMain ? ASK_MAIN_GUIDANCE : NO_ASK_MAIN_GUIDANCE;
   const shared = [
     delegationRoleGuidance({ role: input.role }),
     `Your team name is ${input.name}. Main and the UI use this stable name to identify your work.`,
@@ -500,7 +489,7 @@ function subagentRolePrompt(input: {
       ...shared,
       "You work in a checkout of the project that is yours alone. You have no edit or write tool; files you create stay in that checkout and never reach the project. Run the commands that support your conclusion.",
       "Your final response is your conclusion for Main, in text: what you found, where, and the evidence for it.",
-      askMain,
+      ASK_MAIN_GUIDANCE,
       SEND_PEER_MESSAGE_GUIDANCE,
       ...extra
     ].join("\n\n");
@@ -509,7 +498,7 @@ function subagentRolePrompt(input: {
       ...shared,
       "You examine a checkout of the candidate that is yours alone: run the tests and commands that prove or reproduce what you report. You have no edit or write tool, so files you create stay in your checkout and never reach the candidate, the Executor's checkout or the project.",
       "Your conclusion reaches Main only through submit_review: verdict is pass or changes_requested, and every finding states its location, the evidence for it and whether it blocks acceptance. Call it when the examination is complete; a work item that ends without a submitted conclusion is recorded as a failure. A malformed submission is reported as an error and can be corrected.",
-      askMain,
+      ASK_MAIN_GUIDANCE,
       SEND_PEER_MESSAGE_GUIDANCE,
       ...extra
     ].join("\n\n");
@@ -517,7 +506,7 @@ function subagentRolePrompt(input: {
     ...shared,
     `Make the assigned change in ${input.workingDirectory}, run the checks that prove it, and return the evidence — command output, file paths and test results.`,
     `Put substantial reusable candidate outputs under ${input.deliverablesDirectory}; keep scratch files and intermediate logs in the work site. Do not write to Task artifacts/ — Main publishes accepted files.`,
-    askMain,
+    ASK_MAIN_GUIDANCE,
     SEND_PEER_MESSAGE_GUIDANCE,
     ...extra
   ].join("\n\n");

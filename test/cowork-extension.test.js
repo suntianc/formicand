@@ -189,7 +189,6 @@ test("call_subagent keeps task/mode required and dispatches one work item per ca
     assert.deepEqual(Object.keys(tool.parameters.properties), [
       "task",
       "attachments",
-      "mode",
       "agent",
       "role",
       "dependsOn",
@@ -199,60 +198,26 @@ test("call_subagent keeps task/mode required and dispatches one work item per ca
       "profileId",
       "model"
     ]);
-    assert.deepEqual(
-      tool.parameters.required,
-      ["task", "mode"],
-      "the role, dependency and site stay optional"
-    );
+    assert.deepEqual(tool.parameters.required, ["task"], "the role, dependency and site stay optional");
     assert.equal(tool.parameters.additionalProperties, false);
 
     const ctx = {
       sessionManager: SessionManager.inMemory(root),
       ui: { setStatus() {}, notify() {} }
     };
-    await assert.rejects(
-      () => tool.execute("missing-task", { mode: "async" }, undefined, undefined, ctx),
-      /requires task/
-    );
-    await assert.rejects(
-      () => tool.execute("bad-mode", { task: "anything", mode: "later" }, undefined, undefined, ctx),
-      /mode must be sync or async/
-    );
+    await assert.rejects(() => tool.execute("missing-task", {}, undefined, undefined, ctx), /requires task/);
 
     const keywordTask =
       "调研 Cowork harness；长期关注 research papers、monitor Virtual Agent/watch program，并执行 experiment benchmark 记录 ledger";
-    const asyncOutput = await tool.execute(
-      "tool-async",
-      { task: keywordTask, mode: "async" },
-      undefined,
-      undefined,
-      ctx
-    );
+    const asyncOutput = await tool.execute("tool-async", { task: keywordTask }, undefined, undefined, ctx);
     assert.equal(asyncOutput.details.accepted, true);
     const accepted = JSON.parse(asyncOutput.content[0].text);
-    assert.equal(accepted.mode, "async");
     assert.equal(accepted.name, "Ara");
     assert.equal(accepted.role, "executor");
-    assert.equal(backend.requests.length, 1, "async returns after registering one work item");
+    assert.equal(backend.requests.length, 1, "the call returns after registering one work item");
     assert.equal(backend.requests[0].task, keywordTask);
-    assert.equal(backend.requests[0].mode, "async");
+    assert.equal(backend.requests[0].mode, undefined, "there is no call mode to send");
     assert.equal(backend.requests[0].role, "executor");
-
-    const sync = await tool.execute(
-      "tool-sync",
-      { task: "同步执行 experiment benchmark 并研究监控结果", mode: "sync" },
-      undefined,
-      undefined,
-      ctx
-    );
-    assert.equal(sync.details.status, "succeeded");
-    assert.equal(backend.requests.length, 2);
-    assert.equal(backend.requests[1].mode, "sync");
-    assert.deepEqual(
-      backend.requests.map((call) => call.mode),
-      ["async", "sync"],
-      "one dispatch per call and none rewritten"
-    );
   } finally {
     await backend.close();
     for (const [key, value] of Object.entries(previous)) {

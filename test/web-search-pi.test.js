@@ -8,6 +8,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { LocalWorkspaceStore } from "../dist/src/workspace/workspace-store.js";
 import { modelProtocolFixture } from "./model-protocol-fixture.mjs";
+import { waitForMarkedDelegations } from "./fixtures/delegation-wait.mjs";
 
 async function searchFixture(t) {
   const calls = [];
@@ -78,45 +79,55 @@ test(
       delegateStep = 0,
       phase = "first",
       child;
-    const provider = await modelProtocolFixture("openai-completions", (body) => {
-      const main = body.tools.some((tool) => tool.function.name === "call_subagent");
-      const names = body.tools.map((tool) => tool.function.name);
-      (main ? mainRequests : delegateRequests).push(body);
-      try {
-        assert.ok(names.includes("search"), `${main ? "Main" : "delegate"} must discover default search`);
-        assert.ok(names.includes("visit"));
-        if (main) {
-          const step = mainStep++;
-          if (step === 0) return { name: "search", arguments: { query: `${phase} main public paper` } };
-          if (step === 1) {
-            const result = JSON.parse(body.messages.findLast((message) => message.role === "tool").content);
-            assert.equal(result.sources[0].url, "https://example.org/paper");
-            return { name: "visit", arguments: { url: result.sources[0].url } };
-          }
-          if (step === 2) {
-            assert.match(
-              body.messages.findLast((message) => message.role === "tool").content,
-              /Fetched source evidence/
-            );
-            return {
-              name: "call_subagent",
-              arguments: {
-                task: "Independently search and read the public paper; cite https://example.org/paper",
-                mode: "sync"
+    const provider = await modelProtocolFixture(
+      "openai-completions",
+      waitForMarkedDelegations(
+        (body) => {
+          const main = body.tools.some((tool) => tool.function.name === "call_subagent");
+          const names = body.tools.map((tool) => tool.function.name);
+          (main ? mainRequests : delegateRequests).push(body);
+          try {
+            assert.ok(names.includes("search"), `${main ? "Main" : "delegate"} must discover default search`);
+            assert.ok(names.includes("visit"));
+            if (main) {
+              const step = mainStep++;
+              if (step === 0) return { name: "search", arguments: { query: `${phase} main public paper` } };
+              if (step === 1) {
+                const result = JSON.parse(
+                  body.messages.findLast((message) => message.role === "tool").content
+                );
+                assert.equal(result.sources[0].url, "https://example.org/paper");
+                return { name: "visit", arguments: { url: result.sources[0].url } };
               }
-            };
+              if (step === 2) {
+                assert.match(
+                  body.messages.findLast((message) => message.role === "tool").content,
+                  /Fetched source evidence/
+                );
+                return {
+                  name: "call_subagent",
+                  arguments: {
+                    task: "Independently search and read the public paper; cite https://example.org/paper",
+                    wait: true
+                  }
+                };
+              }
+              return {
+                text: "Main and delegate verified source: [Public paper](https://example.org/paper)."
+              };
+            }
+            const step = delegateStep++;
+            if (step === 0) return { name: "search", arguments: { query: "delegate public paper" } };
+            if (step === 1) return { name: "visit", arguments: { url: "https://example.org/paper" } };
+            return { text: "Read source evidence: https://example.org/paper" };
+          } catch (error) {
+            failures.push(error.message);
+            return { text: `Fixture failed: ${error.message}` };
           }
-          return { text: "Main and delegate verified source: [Public paper](https://example.org/paper)." };
-        }
-        const step = delegateStep++;
-        if (step === 0) return { name: "search", arguments: { query: "delegate public paper" } };
-        if (step === 1) return { name: "visit", arguments: { url: "https://example.org/paper" } };
-        return { text: "Read source evidence: https://example.org/paper" };
-      } catch (error) {
-        failures.push(error.message);
-        return { text: `Fixture failed: ${error.message}` };
-      }
-    });
+        },
+        (body) => body.tools.some((tool) => tool.function.name === "call_subagent")
+      )
+    );
     let output = "";
     t.after(async () => {
       if (child && child.exitCode === null) {

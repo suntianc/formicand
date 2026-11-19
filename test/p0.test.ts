@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fakeEvent } from "../src/testing/fakes.js";
 import { JsonlEventStore } from "../src/storage/event-store.js";
-import { resolveCallMode, transitionCall, type Call } from "../src/domain/types.js";
+import { transitionCall, type Call } from "../src/domain/types.js";
 import { LocalWorkspaceStore } from "../src/workspace/workspace-store.js";
 import { listTaskArtifacts } from "../src/workspace/artifact-store.js";
 import {
@@ -16,14 +16,6 @@ import {
 import { assessTaskCompletion } from "../src/runtime/task-completion.js";
 
 async function main(): Promise<void> {
-  assert.equal(
-    resolveCallMode({ requestedMode: "auto", importance: "normal", dependency: "required" }),
-    "sync"
-  );
-  assert.equal(
-    resolveCallMode({ requestedMode: "auto", importance: "normal", dependency: "independent" }),
-    "async"
-  );
   assert.equal(configuredMainTimeout({ COWORK_MAIN_TIMEOUT_MS: "180000" }), 180000);
   assert.equal(configuredSubagentTimeout({ COWORK_TIMEOUT_MS: "900000" }), 900000);
   assert.equal(
@@ -80,9 +72,7 @@ async function main(): Promise<void> {
     callId: "call_1",
     callerAgentId: "main",
     calleeAgentId: "coordinator",
-    mode: "sync",
     importance: "normal",
-    dependency: "required",
     callbackPolicy: "on_complete",
     interruptOnCallback: false,
     state: "created",

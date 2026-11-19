@@ -17,6 +17,7 @@ import { killJob, listJobs } from "../dist/src/tools/jobs.js";
 import { installComputerUse } from "../web/assets/controllers/computer-use.js";
 import { modelProtocolFixture } from "./model-protocol-fixture.mjs";
 import { endAgentProcesses } from "./dashboard-fixture.mjs";
+import { waitForMarkedDelegations } from "./fixtures/delegation-wait.mjs";
 
 const hostToken = "native-host-fixture-token";
 const require = createRequire(import.meta.url);
@@ -141,27 +142,31 @@ test("a delegated process inherits no backend credential", { timeout: 60_000 }, 
     probePath,
     resultPath;
   const errors = [];
-  const model = await modelProtocolFixture("openai-completions", async (request) => {
-    try {
-      const names = request.tools.map((tool) => tool.function.name);
-      if (names.includes("call_subagent"))
-        return mainTurns++ === 0
-          ? { name: "call_subagent", arguments: { task: "Run the isolated credential probe", mode: "sync" } }
-          : { text: "Main and delegate completed." };
-      assert.ok(names.includes("bash"));
-      return delegateTurns++ === 0
-        ? {
-            name: "bash",
-            arguments: {
-              command: `${JSON.stringify(process.execPath)} ${JSON.stringify(probePath)} ${JSON.stringify(resultPath)}`
+  const isMain = (request) => request.tools.some((tool) => tool.function.name === "call_subagent");
+  const model = await modelProtocolFixture(
+    "openai-completions",
+    waitForMarkedDelegations(async (request) => {
+      try {
+        const names = request.tools.map((tool) => tool.function.name);
+        if (names.includes("call_subagent"))
+          return mainTurns++ === 0
+            ? { name: "call_subagent", arguments: { task: "Run the isolated credential probe", wait: true } }
+            : { text: "Main and delegate completed." };
+        assert.ok(names.includes("bash"));
+        return delegateTurns++ === 0
+          ? {
+              name: "bash",
+              arguments: {
+                command: `${JSON.stringify(process.execPath)} ${JSON.stringify(probePath)} ${JSON.stringify(resultPath)}`
+              }
             }
-          }
-        : { text: "Delegate completed." };
-    } catch (error) {
-      errors.push(error.message);
-      return { text: "fixture failed" };
-    }
-  });
+          : { text: "Delegate completed." };
+      } catch (error) {
+        errors.push(error.message);
+        return { text: "fixture failed" };
+      }
+    }, isMain)
+  );
   const fixture = await dashboardFixture(
     t,
     {},

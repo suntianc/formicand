@@ -439,8 +439,8 @@ for (const mode of ["wait tool", "premature answer"]) {
         if (mainRequests.length === 1)
           return reply({
             calls: [
-              ["call_subagent", { task: "Inspect component A", mode: "async" }],
-              ["call_subagent", { task: "Inspect component B", mode: "async" }]
+              ["call_subagent", { task: "Inspect component A" }],
+              ["call_subagent", { task: "Inspect component B" }]
             ]
           });
         if (mainRequests.length === 2 && mode === "wait tool")
@@ -667,7 +667,7 @@ test(
         }
         mainRequests += 1;
         if (mainRequests === 1)
-          return reply({ calls: [["call_subagent", { task: "Verify retry recovery", mode: "async" }]] });
+          return reply({ calls: [["call_subagent", { task: "Verify retry recovery" }]] });
         const hasCallback = body.messages.some(
           (message) =>
             message.role === "user" &&
@@ -720,8 +720,7 @@ test(
         return reply({ text: `按 Main 的回答完成：${answers}` });
       }
       mainRequests += 1;
-      if (mainRequests === 1)
-        return reply({ calls: [["call_subagent", { task: "核对评测脚本", mode: "async" }]] });
+      if (mainRequests === 1) return reply({ calls: [["call_subagent", { task: "核对评测脚本" }]] });
       // The question stays in Main's transcript after it is answered, so a real
       // Main answers it once and then gets on with the work.
       const question = answeredOnce
@@ -814,7 +813,7 @@ test(
               message.role === "assistant" && JSON.stringify(message.content).includes("call_subagent")
           )
         ) {
-          return reply({ calls: [["call_subagent", { task: "等待澄清", mode: "async" }]] });
+          return reply({ calls: [["call_subagent", { task: "等待澄清" }]] });
         }
         reply({ text: "等待协作者的问题被回答。" });
       },

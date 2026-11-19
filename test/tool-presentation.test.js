@@ -175,14 +175,14 @@ test("search previews explain the query rather than parameter budgets", () => {
 test("delegation names the concrete task without exposing coordination parameters in its preview", () => {
   const presentation = presentToolCall({
     name: "call_subagent",
-    arguments: { task: "核对 README 启动步骤", mode: "async" },
+    arguments: { task: "核对 README 启动步骤" },
     completed: true,
     result: envelope({ name: "Ara", callId: "synthetic-call" })
   });
   assert.equal(presentation.title, "委派任务");
   assert.equal(presentation.subject, "Ara");
   assert.equal(presentation.summary, "核对 README 启动步骤");
-  assert.match(presentation.details, /"mode": "async"/);
+  assert.match(presentation.details, /"task": "核对 README 启动步骤"/);
 });
 
 test("specific failures require actual diagnostics, including the real missing script and syntax scenarios", () => {

@@ -11,6 +11,7 @@ import { startDashboard } from "./dashboard-fixture.mjs";
 import { modelProtocolFixture } from "./model-protocol-fixture.mjs";
 import { DurableScheduler } from "../dist/src/runtime/scheduler.js";
 import { saveTestConnection } from "./model-provider-fixture.mjs";
+import { waitForMarkedDelegations } from "./fixtures/delegation-wait.mjs";
 
 /**
  * Delegation through the backend: execute, review, rework, re-review.
@@ -119,7 +120,10 @@ async function makeRepository(directory) {
 async function fixture(t, { handle, taskId = "loop-task", goal = "完成需求并独立审查" }) {
   const root = await mkdtemp(join(tmpdir(), "p46-loop-"));
   const repository = await makeRepository(join(root, "repository"));
-  const provider = await modelProtocolFixture("openai-completions", handle);
+  const provider = await modelProtocolFixture(
+    "openai-completions",
+    waitForMarkedDelegations(handle, (body) => identityOf(body) === "main")
+  );
   const dashboard = await startDashboard({
     defaultProject: false,
     env: { COWORK_PROJECT_WRITE: "1", COWORK_DISABLE_MAIN_GUARDIAN: "1" }
@@ -276,7 +280,7 @@ test(
                 name: "call_subagent",
                 arguments: {
                   task: "执行者工作项 A：在需求现场写入 impl.txt 并提交。",
-                  mode: "sync",
+                  wait: true,
                   role: "executor",
                   developmentId
                 }
@@ -354,7 +358,7 @@ test(
                 name: "call_subagent",
                 arguments: {
                   task: "审查者工作项 B：独立核验冻结候选的导出实现。",
-                  mode: "sync",
+                  wait: true,
                   role: "reviewer",
                   developmentId
                 }
@@ -370,7 +374,7 @@ test(
                 name: "call_subagent",
                 arguments: {
                   task: "执行者工作项 D：修复审查发现，写入 impl.txt 的第二版并提交。",
-                  mode: "sync",
+                  wait: true,
                   role: "executor",
                   developmentId,
                   continueCallId: calls.a.callId,
@@ -415,7 +419,7 @@ test(
                 name: "call_subagent",
                 arguments: {
                   task: "审查者工作项 C：复审返修后的候选。",
-                  mode: "sync",
+                  wait: true,
                   role: "reviewer",
                   developmentId
                 }
@@ -578,7 +582,6 @@ test(
                 name: "call_subagent",
                 arguments: {
                   task: "执行者工作项 A：先写 impl-a.txt，等待被取消。",
-                  mode: "async",
                   role: "executor",
                   developmentId
                 }
@@ -590,7 +593,6 @@ test(
                 name: "call_subagent",
                 arguments: {
                   task: "执行者工作项 B：写 impl-b.txt 并返回。",
-                  mode: "async",
                   role: "executor",
                   developmentId
                 }
@@ -602,7 +604,6 @@ test(
                 name: "call_subagent",
                 arguments: {
                   task: "执行者工作项 C：只在 A 完成后写 impl-c.txt。",
-                  mode: "async",
                   role: "executor",
                   developmentId,
                   dependsOn: [calls.a.callId]
@@ -735,7 +736,6 @@ test(
                 name: "call_subagent",
                 arguments: {
                   task: "执行者工作项 A：等待放行后写入 impl.txt。",
-                  mode: "async",
                   role: "executor",
                   developmentId
                 }
@@ -864,7 +864,6 @@ test("closing the session stops the delegated process it started", { timeout: 18
               name: "call_subagent",
               arguments: {
                 task: "执行者工作项 A：等待放行后写入 impl.txt。",
-                mode: "async",
                 role: "executor",
                 developmentId
               }
@@ -983,7 +982,6 @@ test("a dependent item the backend owns is never recovered in-process", { timeou
               name: "call_subagent",
               arguments: {
                 task: "执行者工作项 A：等待放行后写入 impl-a.txt。",
-                mode: "async",
                 role: "executor",
                 developmentId
               }
@@ -995,7 +993,6 @@ test("a dependent item the backend owns is never recovered in-process", { timeou
               name: "call_subagent",
               arguments: {
                 task: "执行者工作项 B：只在 A 完成后写入 impl-b.txt。",
-                mode: "async",
                 role: "executor",
                 developmentId,
                 dependsOn: [calls.a.callId]

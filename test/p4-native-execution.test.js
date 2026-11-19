@@ -200,7 +200,6 @@ test(
               name: "call_subagent",
               arguments: {
                 task: "执行者工作项 A：在需求现场新增 export-a.txt 与 shared.txt 并返回证据。",
-                mode: "async",
                 role: "executor",
                 developmentId
               }
@@ -215,7 +214,6 @@ test(
               name: "call_subagent",
               arguments: {
                 task: "执行者工作项 B：在需求现场新增 export-b.txt 与 shared.txt 并返回证据。",
-                mode: "async",
                 role: "executor",
                 developmentId
               }
@@ -228,7 +226,6 @@ test(
               name: "call_subagent",
               arguments: {
                 task: "执行者工作项 D：在 A 完成后新增 export-d.txt 并返回证据。",
-                mode: "async",
                 role: "executor",
                 developmentId,
                 dependsOn: [calls.a.callId]
@@ -330,7 +327,6 @@ test(
               name: "call_subagent",
               arguments: {
                 task: "审查者工作项 C：核对汇总现场中的导出产物并返回结论。",
-                mode: "async",
                 role: "reviewer",
                 developmentId
               }

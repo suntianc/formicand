@@ -491,7 +491,6 @@ Main's delegation tools reach the serving backend here; the host credential is t
 {
   "action": "dispatch",
   "task": "Implement the export entry and return evidence.",
-  "mode": "sync",
   "role": "executor",
   "dependsOn": ["call-..."],
   "developmentId": "development_...",
@@ -501,7 +500,7 @@ Main's delegation tools reach the serving backend here; the host credential is t
 }
 ```
 
-The response is `{ accepted: true, callId, runId, agentId, name, role, mode, developmentId?, workspace?, continuedFrom?, dependsOn? }`. `mode: "async"` returns as soon as the work item is durably visible; `mode: "sync"` means the tool waits for that call's settled record (its callback and result) and returns it as the tool result. Main's `wait_for_subagents`, `get_subagent_status` and `get_task_status` read the same durable queue, callback and result records; they never ask the backend for in-memory state.
+The response is `{ accepted: true, callId, runId, agentId, name, role, developmentId?, workspace?, continuedFrom?, dependsOn? }`, returned as soon as the work item is durably visible; the result arrives later as a callback. Main's `wait_for_subagents`, `get_subagent_status` and `get_task_status` read the same durable queue, callback and result records; they never ask the backend for in-memory state.
 
 Requests refused before a work item exists leave no record: an unknown dependency or continuation, a non-terminal or non-Executor continuation, a continuation with no earlier session file, a Reviewer whose requirement has no frozen candidate, a development whose checkout is not ready, an attachment outside the Task, or a Run that is no longer the Task's own. Once the item is queued, a start failure is that item's outcome, with its own callback.
 
@@ -509,7 +508,7 @@ Cancel through the same endpoint: `{ "action": "cancel", "callId": "call-...", "
 
 ### Delegated work and completion
 
-An async `call_subagent` acceptance is returned only after durable queue registration. Completion callbacks are persisted in Main's Inbox and delivered with Pi steering before the next model inference. Queuing a message is not consumption: its Inbox lease remains pending until the message appears in Main's saved context. Delivery is serialized and deduplicated, including while a slow tool is running; a restored session can acknowledge an already saved callback without sending it again.
+A `call_subagent` acceptance is returned only after durable queue registration. Completion callbacks are persisted in Main's Inbox and delivered with Pi steering before the next model inference. Queuing a message is not consumption: its Inbox lease remains pending until the message appears in Main's saved context. Delivery is serialized and deduplicated, including while a slow tool is running; a restored session can acknowledge an already saved callback without sending it again.
 
 Failed delivery releases the lease for recovery and leaves Task state unchanged. Actual `agent_start` marks Main as running; accepting an Inbox message does not reopen a settled Task or take ownership from a newer Run. Background delivery and status notifications tolerate a disposed Main context, so outstanding Subagents can finish and persist their callbacks after a provider failure.
 

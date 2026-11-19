@@ -12,7 +12,7 @@ export interface SubagentCallStatus {
   callbackState: InboxMessage["state"] | "none";
   /** A persisted callback or diagnostic exists, possibly from an earlier attempt. */
   resultAvailable: boolean;
-  /** Absent when callback delivery cannot establish receipt (e.g. a sync call). */
+  /** Absent while no callback exists to establish receipt. */
   resultDelivered?: boolean;
   diagnostics: { tracePath: string; resultPath: string };
 }
@@ -34,13 +34,13 @@ export async function subagentCallStatuses(
         tracePath: `runs/${input.runId}/agents/subagents/${item.agentId}/agent-output.log`,
         resultPath: `runs/${input.runId}/agents/subagents/${item.agentId}/result.json`
       };
-      // A synchronous call has no callback. Inspect only its canonical result
-      // path; never read or serialize the transcript just to answer status.
+      // Before its callback is written, inspect only the canonical result path;
+      // never read or serialize the transcript just to answer status.
       const resultAvailable =
         Boolean(callback) ||
         (await stat(join(input.workspaceRoot, input.taskId, diagnostics.resultPath))
           .then((result) => result.isFile())
-          // eslint-disable-next-line no-restricted-syntax -- 结果文件可能还没写出（同步调用或尚未落盘），stat 失败即表示结果不可用
+          // eslint-disable-next-line no-restricted-syntax -- 结果文件可能还没写出，stat 失败即表示结果不可用
           .catch(() => false));
       return {
         callId: item.stepId,

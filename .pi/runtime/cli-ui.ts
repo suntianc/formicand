@@ -198,7 +198,7 @@ export function delegationResultText(
 
 export function delegationRenderers(debug: () => boolean) {
   return {
-    renderCall(args: { task: string; mode: string }, theme: Theme) {
+    renderCall(args: { task: string }, theme: Theme) {
       // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- renderCall 在流式渲染时会收到尚未解析完整的参数对象（argsComplete 之前），task 此时可能还没有出现
       const task = clean(args.task ?? "")
         .replaceAll(/\s+/g, " ")

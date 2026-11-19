@@ -18,8 +18,7 @@ export async function startSubagentBackend({
   taskId,
   runId,
   agentId = "subagent_1",
-  name = agentDisplayName(agentId),
-  settleSync = true
+  name = agentDisplayName(agentId)
 }) {
   const token = randomUUID();
   const requests = [];
@@ -79,7 +78,6 @@ export async function startSubagentBackend({
         importance: "normal",
         payload: {
           task: body.task,
-          mode: body.mode,
           delegation: { role: body.role ?? "executor" },
           ...(Array.isArray(body.dependsOn) ? { dependsOn: body.dependsOn } : {})
         },
@@ -93,11 +91,9 @@ export async function startSubagentBackend({
         agentId,
         name,
         role: body.role ?? "executor",
-        mode: body.mode,
         ...(body.continueCallId ? { continuedFrom: body.continueCallId } : {}),
         ...(Array.isArray(body.dependsOn) ? { dependsOn: body.dependsOn } : {})
       };
-      if (settleSync && body.mode === "sync") await settle(callId, { response: `${name} finished` });
       reply(accepted);
       return;
     }

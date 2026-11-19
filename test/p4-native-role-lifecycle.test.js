@@ -13,6 +13,7 @@ import { LocalWorkspaceStore } from "../dist/src/workspace/workspace-store.js";
 import { CoordinatorRuntime } from "../dist/src/runtime/coordinator-runtime.js";
 import { DurableScheduler } from "../dist/src/runtime/scheduler.js";
 import { providerConfig } from "./model-provider-fixture.mjs";
+import { waitForMarkedDelegations } from "./fixtures/delegation-wait.mjs";
 
 const run = promisify(execFile);
 const messageText = (message) =>
@@ -286,9 +287,12 @@ test(
       rebound: "role-rebound-key",
       explicit: "role-explicit-key"
     };
-    const mainProvider = await provider(t, "主连接", async (entry) => {
+    const script = waitForMarkedDelegations(
+      (body, entry) => mainScript({ ...entry, body }),
+      (body) => !isSubagent(body)
+    );
+    const mainScript = async (entry) => {
       try {
-        if (isSubagent(entry.body)) return { text: "审查者完成：结论已返回。" };
         const step = mainSteps++;
         if (step === 0) return call("执行者工作项 A：主机默认角色。");
         if (step === 1) {
@@ -316,7 +320,10 @@ test(
         failures.push(error.stack ?? error.message);
         return { text: "角色模型夹具失败。" };
       }
-    });
+    };
+    const mainProvider = await provider(t, "主连接", async (entry) =>
+      isSubagent(entry.body) ? { text: "审查者完成：结论已返回。" } : script(entry.body, entry)
+    );
     const hostProvider = await provider(t, "主机执行", async () => ({ text: "执行者 A 完成。" }));
     const reboundProvider = await provider(t, "改绑执行", async (entry) => {
       // The binding changes while this request is already in flight; the next
@@ -347,7 +354,7 @@ test(
     };
     const call = (task, extra = {}) => ({
       name: "call_subagent",
-      arguments: { task, mode: "sync", role: "executor", ...extra }
+      arguments: { task, wait: true, role: "executor", ...extra }
     });
     await writeConfig("exec-host");
 
@@ -490,7 +497,7 @@ test(
         const step = mainSteps++;
         const call = (task, extra = {}) => ({
           name: "call_subagent",
-          arguments: { task, mode: "async", role: "executor", ...extra }
+          arguments: { task, role: "executor", ...extra }
         });
         if (step === 0) return call("执行者工作项 A：先运行并等待。");
         if (step === 1) {
@@ -700,7 +707,7 @@ test(
         const step = firstSteps++;
         const call = (task, extra = {}) => ({
           name: "call_subagent",
-          arguments: { task, mode: "async", role: "executor", ...extra }
+          arguments: { task, role: "executor", ...extra }
         });
         if (step === 0) return call("执行者工作项 A：被中断的工作项。");
         if (step === 1) {
@@ -980,7 +987,6 @@ test(
             name: "call_subagent",
             arguments: {
               task: "执行者工作项 A：引用了不存在的前置。",
-              mode: "async",
               role: "executor",
               dependsOn: ["call-does-not-exist"]
             }
@@ -990,12 +996,12 @@ test(
           assert.match(lastToolText(entry.body), /不存在/);
           return {
             name: "call_subagent",
-            arguments: { task: "执行者工作项 B：普通委派。", mode: "sync", role: "executor" }
+            arguments: { task: "执行者工作项 B：普通委派。", role: "executor" }
           };
         }
         if (step === 2) {
           const accepted = toolJson(entry.body);
-          assert.equal(accepted.status, "succeeded", JSON.stringify(accepted).slice(0, 500));
+          assert.equal(accepted.accepted, true, JSON.stringify(accepted).slice(0, 500));
           assert.equal(accepted.name, "Ara", "a refused call must not consume a team name");
           return { text: "拒绝路径完成。" };
         }

@@ -41,9 +41,7 @@ async function provider(t) {
       hasEffort: Object.hasOwn(body, "reasoning_effort")
     });
     const reply =
-      main && !delegated
-        ? { name: "call_subagent", arguments: { task: "确认推理强度", mode: "sync" } }
-        : { text: "done" };
+      main && !delegated ? { name: "call_subagent", arguments: { task: "确认推理强度" } } : { text: "done" };
     response.writeHead(200, { "content-type": "text/event-stream" });
     response.end(protocolStream("openai-completions", reply));
   });

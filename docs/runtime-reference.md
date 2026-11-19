@@ -85,7 +85,7 @@ MCP 服务只有一份全局配置 `~/.atria/mcp.json`（`mcpServers` 格式，�
 
 自定义 Agent 是 Markdown 文件（[定义与校验](../src/runtime/agent-definitions.ts)）：头部写 `name`、给 Main 的 `description`、`permission`（`write` 或 `read`），可选 `profile`/`model`、`thinking`（推理强度）、`tools`、`skills`、`mcp`、`enabled`，正文是附加提示词。没写模型时可写的跟 Executor、只读的跟 Reviewer。全局放在 `~/.atria/agents/`，项目放在 `.atria/agents/`（项目信任后才读），同名时项目的生效；`main`、`executor`、`reviewer` 是内置名称。
 
-代码保证的规则：`read` 不能有 `edit`、`write`；可选工具只有 `read`、`bash`、`edit`、`write`、`grep`、`find`、`ls`、`browse_workspace`、`search`、`visit`，Main 专用工具与桌面、浏览器操控都不在其中；`send_peer_message` 始终持有，`ask_main` 除同步派单外始终持有；不写 `skills` 时可见全部技能，写空列表则没有技能；不写 `mcp` 时不注册任何服务。
+代码保证的规则：`read` 不能有 `edit`、`write`；可选工具只有 `read`、`bash`、`edit`、`write`、`grep`、`find`、`ls`、`browse_workspace`、`search`、`visit`，Main 专用工具与桌面、浏览器操控都不在其中；`ask_main`、`send_peer_message` 始终持有；不写 `skills` 时可见全部技能，写空列表则没有技能；不写 `mcp` 时不注册任何服务。
 
 Main 每轮在系统提示的 `<custom_agents>` 里看到已启用、有效的 Agent，用 `call_subagent` 的 `agent` 参数派出。后端在派单时解析定义并写进工作项（之后修改不影响它），记一条 `call.agent_selected`（名称、来源、权限、模型来源）；找不到、已停用或定义有误时直接报错并写明名称，不改派。`write` 以 Executor 角色在隔离现场运行，`read` 在 Reviewer 那样的独立 checkout 里运行但不提交审查结论，结论以文字交回。子进程按定义设置工具、过滤技能清单、只注册所列 MCP 服务，并把附加提示词接在角色提示之后。侧栏和需求面板用 Agent 名称代替角色名。
 
@@ -101,12 +101,11 @@ Main 用 `manage_agent`（[工具](../.pi/runtime/tools/agents.ts)）列出、�
 
 ## 显式委派附件
 
-普通 `call_subagent({task,mode})` 保持有效。附件和桌面权限不会全部自动继承，需要显式共享范围：
+普通 `call_subagent({task})` 保持有效。附件和桌面权限不会全部自动继承，需要显式共享范围：
 
 ```javascript
 call_subagent({
   task: "核验此装配的部件与运动参数，返回证据",
-  mode: "async",
   attachments: ["明确共享的upload ID"]
 });
 ```
@@ -115,7 +114,7 @@ call_subagent({
 
 ### 派单经后端
 
-`call_subagent` 只向后端登记工作项：后端把登记写进该 Run 的持久队列（`queue.json`）并答复 `callId`，依赖满足后由后端启动独立的子代理 Pi 进程，进程结束时把结论写回队列、运行事件与 Main 的回调。`mode: "sync"` 表示派单后等待该工作项的结束记录（结果记录与回调）并作为工具结果返回；`mode: "async"` 在登记落盘后立即返回，结果经回调送达。`wait_for_subagents`、`get_subagent_status` 与 `get_task_status` 读同一份队列、回调与结果记录，不依赖后端内存。
+`call_subagent` 只向后端登记工作项：后端把登记写进该 Run 的持久队列（`queue.json`）并答复 `callId`，依赖满足后由后端启动独立的子代理 Pi 进程，进程结束时把结论写回队列、运行事件与 Main 的回调。派单只有异步一种：登记落盘后立即返回，结果经回调送达；本轮必须拿到结果时用 `wait_for_subagents` 等待，协作者提问或用户插话会让等待提前返回。`wait_for_subagents`、`get_subagent_status` 与 `get_task_status` 读同一份队列、回调与结果记录，不依赖后端内存。
 
 每个工作区根只有一个属主启动与结算委派进程：Dashboard 运行时 CLI worker 不接管（`coworkos worker` 报告属主后退出），跨重启接管、启动排队项和结算都由属主完成。属主启动时从持久记录接管仍在运行的子代理，并在停机期间结束的子代理上补发回调；结算由进程记录上的文件锁去重，所以同一工作项不会产生两份回调。中止启动的拒单在任何持久写入之前完成，不留下无人结算的工作项；已入队后启动失败按该工作项自己的失败结算。
 
@@ -135,7 +134,7 @@ call_subagent({
 
 ### 角色工具与审查结论
 
-子代理进程与 Main 加载同一个扩展，按角色声明工具表。Executor 得到 `read`、`bash`、`edit`、`write`、只读的 `browse_workspace`、`ask_main`、`send_peer_message` 与 `search`/`visit`；Reviewer 得到 `read`、`bash`、`grep`、`find`、`ls`、`browse_workspace`、同样的两个通道工具、`search`/`visit` 与 `submit_review`，没有 `write`/`edit`。`search`/`visit` 与 Main 同一实现、同一配置：未关闭搜索时注册，`COWORK_WEB_TOOLS=0` 或 `provider: "off"` 时两个角色都不声明。两个角色都能用 `load_skill`：与 Main 同一实现、同一份技能清单，只加载指令，不取得新工具或权限。清单由 [技能清单](../src/runtime/skill-registry.ts) 计算，按优先级依次读取项目 `.atria/skills/`、项目 `.agents/skills/`（自项目目录向上到仓库根）、`~/.atria/skills/`、`~/.agents/skills/` 与随产品提供的 `.pi/skills/`，同名时前者覆盖后者；项目里的两处只在用户信任该项目后读取（记录在 `~/.atria/project-trust.json`），从索引移除的技能（`~/.atria/skill-index.json`）不进入清单，文件不动。Pi 自带的技能发现以 `--no-skills` 关闭，Main 与子代理的系统提示和 `load_skill` 用同一份清单；系统提示只列技能名称与说明，不给文件路径，技能一律用 `load_skill` 加载。同步派单的子代理不声明 `ask_main`，提示里改为说明 Main 正在等待、无法回答，遇到歧义按最合理的理解继续并在总结里写明假设；子代理按原项目目录判断信任，不按自己的隔离副本。后端从被审候选的提交为 Reviewer 建一份 detach 的独立 checkout 作为它的项目目录；成功的审查保留这份现场，因为 Main 在进程结束后才绑定审查并核对候选是否漂移；没有产出结论的失败尝试立即清理，审查漂移时随漂移结论释放，需求合入后释放该需求的全部审查现场，记录本身保留 Reviewer 身份与现场路径。没有需求现场时按派单时刻的 HEAD 冻结候选并建同样的副本，项目不是 Git 仓库则在派单前拒绝。它运行的测试与写入的文件留在这份副本里，不进入候选提交、Executor 的现场或用户工作树。两个角色都没有 `call_subagent`、`send_subagent_message`、`cancel_subagent`、`get_subagent_status`、`wait_for_subagents`、`get_task_status`、`finish_task`、`askhuman`、`sleep_until`、`grant_capabilities`、`clear_context`、`enable_tools`、`project_ledger`、`project_development` 与 `publish_artifact`，因此子代理不能再派子代理或改变 Task 生命周期。角色说明沿用同一段文本；角色只决定工具，不扩大授权：电脑操控、浏览器与 CUA 等能力由 Main 的扩展注册，委派进程当前不提供。附件授权随工作项传递，只有被授权的上传 ID 才让委派进程注册 `read_attachment`。Main 与两个角色对受保护路径的 `write`、`edit` 与 `bash` 写入按同一规则拦截并返回同一段错误；`bash` 拦截跟随 `cd`、`pushd`/`popd`、`git -C` 与子 shell 的目录切换解析相对目标，目录无法确定时只要项目内存在受保护路径就保守拒绝。它尽力识别常见写法，不是沙箱：解释器内写入、引号内的命令替换、反引号、`xargs`、`find -delete`、`git clean`、目录级目标的 `git restore .` 与 `git checkout .`、`tar`/`unzip` 解包写入等仍可能绕过。Main 与两个角色的任何工具调用，只要参数里写到 CoworkOS 自己的数据目录（`ATRIA_HOME`，默认 `~/.atria`），就整条拒绝，读、列目录和写入都一样；只有任务工作区 `workspace/`、需求现场 `runtime/development-workspaces/`、临时工作区 `runtime/temporary-workspaces/` 与已安装技能 `skills/` 可以访问；已安装技能对 `write`、`edit` 和 `bash` 写入同样受保护。`backend-instance.json`、`project-data.sqlite` 等 CoworkOS 自有文件名出现在参数的任何位置也会拒绝，因此从允许目录用相对路径向上找到的文件同样被拦下。CoworkOS 自己的程序目录（源码或安装目录）同样拒绝读、列和运行，只放行随产品提供的 `.pi/skills/` 与技能引用的 `docs/`；用户的项目就是 CoworkOS 本身、在它里面或包含它时不拦。这条规则针对一次 Main 读取后端主机凭据、绕开缺失的合入配置的事件；它同样不是沙箱，运行时拼出来的路径看不到，对外工作的系统级隔离在 P5 交付。委派进程与 Main 一样对 `cache_warming_decision` 返回 `stop`，不进行提示缓存保温。委派进程的上下文压缩与 Main 相同：Pi 原生压缩、同一工具回执投影与失败冷却。
+子代理进程与 Main 加载同一个扩展，按角色声明工具表。Executor 得到 `read`、`bash`、`edit`、`write`、只读的 `browse_workspace`、`ask_main`、`send_peer_message` 与 `search`/`visit`；Reviewer 得到 `read`、`bash`、`grep`、`find`、`ls`、`browse_workspace`、同样的两个通道工具、`search`/`visit` 与 `submit_review`，没有 `write`/`edit`。`search`/`visit` 与 Main 同一实现、同一配置：未关闭搜索时注册，`COWORK_WEB_TOOLS=0` 或 `provider: "off"` 时两个角色都不声明。两个角色都能用 `load_skill`：与 Main 同一实现、同一份技能清单，只加载指令，不取得新工具或权限。清单由 [技能清单](../src/runtime/skill-registry.ts) 计算，按优先级依次读取项目 `.atria/skills/`、项目 `.agents/skills/`（自项目目录向上到仓库根）、`~/.atria/skills/`、`~/.agents/skills/` 与随产品提供的 `.pi/skills/`，同名时前者覆盖后者；项目里的两处只在用户信任该项目后读取（记录在 `~/.atria/project-trust.json`），从索引移除的技能（`~/.atria/skill-index.json`）不进入清单，文件不动。Pi 自带的技能发现以 `--no-skills` 关闭，Main 与子代理的系统提示和 `load_skill` 用同一份清单；系统提示只列技能名称与说明，不给文件路径，技能一律用 `load_skill` 加载。子代理按原项目目录判断信任，不按自己的隔离副本。后端从被审候选的提交为 Reviewer 建一份 detach 的独立 checkout 作为它的项目目录；成功的审查保留这份现场，因为 Main 在进程结束后才绑定审查并核对候选是否漂移；没有产出结论的失败尝试立即清理，审查漂移时随漂移结论释放，需求合入后释放该需求的全部审查现场，记录本身保留 Reviewer 身份与现场路径。没有需求现场时按派单时刻的 HEAD 冻结候选并建同样的副本，项目不是 Git 仓库则在派单前拒绝。它运行的测试与写入的文件留在这份副本里，不进入候选提交、Executor 的现场或用户工作树。两个角色都没有 `call_subagent`、`send_subagent_message`、`cancel_subagent`、`get_subagent_status`、`wait_for_subagents`、`get_task_status`、`finish_task`、`askhuman`、`sleep_until`、`grant_capabilities`、`clear_context`、`enable_tools`、`project_ledger`、`project_development` 与 `publish_artifact`，因此子代理不能再派子代理或改变 Task 生命周期。角色说明沿用同一段文本；角色只决定工具，不扩大授权：电脑操控、浏览器与 CUA 等能力由 Main 的扩展注册，委派进程当前不提供。附件授权随工作项传递，只有被授权的上传 ID 才让委派进程注册 `read_attachment`。Main 与两个角色对受保护路径的 `write`、`edit` 与 `bash` 写入按同一规则拦截并返回同一段错误；`bash` 拦截跟随 `cd`、`pushd`/`popd`、`git -C` 与子 shell 的目录切换解析相对目标，目录无法确定时只要项目内存在受保护路径就保守拒绝。它尽力识别常见写法，不是沙箱：解释器内写入、引号内的命令替换、反引号、`xargs`、`find -delete`、`git clean`、目录级目标的 `git restore .` 与 `git checkout .`、`tar`/`unzip` 解包写入等仍可能绕过。Main 与两个角色的任何工具调用，只要参数里写到 CoworkOS 自己的数据目录（`ATRIA_HOME`，默认 `~/.atria`），就整条拒绝，读、列目录和写入都一样；只有任务工作区 `workspace/`、需求现场 `runtime/development-workspaces/`、临时工作区 `runtime/temporary-workspaces/` 与已安装技能 `skills/` 可以访问；已安装技能对 `write`、`edit` 和 `bash` 写入同样受保护。`backend-instance.json`、`project-data.sqlite` 等 CoworkOS 自有文件名出现在参数的任何位置也会拒绝，因此从允许目录用相对路径向上找到的文件同样被拦下。CoworkOS 自己的程序目录（源码或安装目录）同样拒绝读、列和运行，只放行随产品提供的 `.pi/skills/` 与技能引用的 `docs/`；用户的项目就是 CoworkOS 本身、在它里面或包含它时不拦。这条规则针对一次 Main 读取后端主机凭据、绕开缺失的合入配置的事件；它同样不是沙箱，运行时拼出来的路径看不到，对外工作的系统级隔离在 P5 交付。委派进程与 Main 一样对 `cache_warming_decision` 返回 `stop`，不进行提示缓存保温。委派进程的上下文压缩与 Main 相同：Pi 原生压缩、同一工具回执投影与失败冷却。
 Reviewer 的结论只经 `submit_review({verdict, findings})` 提交：`verdict` 为 `pass` 或 `changes_requested`，每条 finding 含 `location`、`evidence` 与 `blocking`。`changes_requested` 至少给出一条 finding，`pass` 不能携带 blocking finding；不合法的提交作为工具错误返回，模型可改正后重试。结论写入该工作项结果记录的 `review` 字段并随回调送达 Main；Reviewer 没有提交结论就结束记为失败，后端读取结果记录时按同一格式复核。验证 [真实角色工具表与结论](../test/subagent-roles-pi.test.js)。
 
 ### 子代理的持久收件箱与追加消息
@@ -154,9 +153,9 @@ Main 发给运行中子代理的追加消息、对 `ask_main` 问题的回答与
 
 ### 查询任务与委派状态
 
-`get_task_status()` 默认只返回委派的标识、状态、回调状态和诊断路径，不重复附带子任务简报、结果正文、错误正文或产物清单。`resultAvailable` 表示已有持久回调或诊断文件，重试期间也可能指向上一轮尝试，不代表本次任务已完成或验证通过。只有回调已持久确认消费时，`resultDelivered` 才为 `true`；没有回调记录时省略该字段，`callbackState` 为 `none`（同步委派的后台实现同样写回调，只是它随同步工具结果确认消费）。
+`get_task_status()` 默认只返回委派的标识、状态、回调状态和诊断路径，不重复附带子任务简报、结果正文、错误正文或产物清单。`resultAvailable` 表示已有持久回调或诊断文件，重试期间也可能指向上一轮尝试，不代表本次任务已完成或验证通过。只有回调已持久确认消费时，`resultDelivered` 才为 `true`；没有回调记录时省略该字段，`callbackState` 为 `none`。
 
-需要找回某次异步结果时，用 `get_task_status({resultCallIds:["<callId>"]})` 显式重读指定回调保存的正文、错误和产物路径；其余委派仍返回简要状态。查询不认领或消费 Inbox 消息，待交付结果通过原有回调或 `wait_for_subagents` 接收。同步委派把同一份回调作为工具结果交付并随该工具结果确认消费，之后仍可按 `resultCallIds` 重读；诊断路径指向完整运行记录。
+需要找回某次异步结果时，用 `get_task_status({resultCallIds:["<callId>"]})` 显式重读指定回调保存的正文、错误和产物路径；其余委派仍返回简要状态。查询不认领或消费 Inbox 消息，待交付结果通过原有回调或 `wait_for_subagents` 接收。`wait_for_subagents` 把结束的回调作为工具结果交付并随该结果确认消费，之后仍可按 `resultCallIds` 重读；诊断路径指向完整运行记录。
 
 ### 子智能体中断后的部分进展
 
@@ -169,7 +168,7 @@ Main 发给运行中子代理的追加消息、对 `ask_main` 问题的回答与
 
 命令记录保留退出码和输出首尾，文件正文、补丁内容和思考记录不回灌，也不额外请求模型生成总结。摘录可能省略更早的工作，不能证明任务或测试已经完成；结果未知的操作须先检查实际影响再决定是否重做。
 
-同步委派直接返回该结果，异步委派通过现有 Inbox 交付。必要时可按诊断路径定向查看完整记录。
+该结果通过现有 Inbox 交付。必要时可按诊断路径定向查看完整记录。
 
 ## 请求重试与上下文恢复
 
