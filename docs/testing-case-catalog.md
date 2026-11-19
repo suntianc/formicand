@@ -161,12 +161,13 @@
 | TOOL-10 | Main 使用 `~/.atria/mcp.json` 的服务                                   | 先只见 `tool_search`；隐藏工具、停用服务与项目 `.pi/mcp.json` 不出现                |
 | TOOL-11 | 自定义 Agent 的定义、两级覆盖、启停、引用失效与项目信任                | 规则由代码执行；停用、缺失、坏定义报错不改派；未信任项目不读                        |
 | TOOL-12 | 派出自定义 Agent 后子进程的请求                                        | 只含所配工具、技能与 MCP 工具，附加提示词在角色提示后；只读 Agent 以文字交回        |
+| TOOL-13 | Main 经 `manage_agent` 新建、修改、停用 Agent                          | 写入前展示完整定义，只有确认才写；未配置的 MCP、未信任项目直接拒绝                  |
 | TOOL-03 | read/write/edit/bash 相对路径与 Task 绝对路径                          | cwd 契约一致；受保护路径/评估器不可写；错误包含实际目标且脱敏                       |
 | TOOL-04 | 非零退出、工具抛错、取消、structured 图片/文本                         | 生命周期 start/end 成对，结果状态真实，原生图片块可达模型                           |
 | TOOL-05 | 新增工具 schema、坏参数、未知字段、Main/Subagent 配置                  | 输入在边界校验；消费者合同一致；取消和预算传递                                      |
 | TOOL-06 | workspace 浏览、状态/用量/轨迹读取、Main 与 Subagent 路径、空/损坏日志 | 实际文件和事件可定位；日志入口不把空 trace 当完整会话；用量不重复累加，未知值不伪造 |
 
-现有锚点：`tool-capability-selection.test.js`、`tool-lifecycle.test.js`、`main-task-paths-pi.test.js`、`bundled-skills.test.js`、`skill-catalog.test.js`、`skill-service.test.js`、`mcp-service.test.js`、`mcp-runtime-pi.test.js`、`agent-definitions.test.js`、`custom-agent-pi.test.js`、`e2e/agent-settings.spec.js`。
+现有锚点：`tool-capability-selection.test.js`、`tool-lifecycle.test.js`、`main-task-paths-pi.test.js`、`bundled-skills.test.js`、`skill-catalog.test.js`、`skill-service.test.js`、`mcp-service.test.js`、`mcp-runtime-pi.test.js`、`agent-definitions.test.js`、`custom-agent-pi.test.js`、`e2e/agent-settings.spec.js`、`manage-agent-pi.test.js`、`e2e/main-creates-agent.spec.js`。
 
 ### 14 输入附件与视觉
 

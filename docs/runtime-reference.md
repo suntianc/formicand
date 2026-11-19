@@ -89,6 +89,8 @@ MCP 服务只有一份全局配置 `~/.atria/mcp.json`（`mcpServers` 格式，�
 
 Main 每轮在系统提示的 `<custom_agents>` 里看到已启用、有效的 Agent，用 `call_subagent` 的 `agent` 参数派出。后端在派单时解析定义并写进工作项（之后修改不影响它），记一条 `call.agent_selected`（名称、来源、权限、模型来源）；找不到、已停用或定义有误时直接报错并写明名称，不改派。`write` 以 Executor 角色在隔离现场运行，`read` 在 Reviewer 那样的独立 checkout 里运行但不提交审查结论，结论以文字交回。子进程按定义设置工具、过滤技能清单、只注册所列 MCP 服务，并把附加提示词接在角色提示之后。侧栏和需求面板用 Agent 名称代替角色名。
 
+Main 用 `manage_agent`（[工具](../.pi/runtime/tools/agents.ts)）列出、新建、修改、停用或启用 Agent。每次写入前，它以带 `proposal` 的提问把完整定义交给用户：会话里显示定义卡片，用户点「确认」才写文件；拒绝、写修改意见、选「在设置里修改」或超时都不写入，「在设置里修改」会打开设置页并带上这份草稿。Main 只能引用已配置的 MCP 服务，不能新增；项目未信任时不能写项目 Agent。设置页的「让 Main 帮我写」新开会话，把请求放进输入框。
+
 设置页「Agent」分全局与项目两页（[接口](../src/dashboard/agent-routes.ts)），可新建、复制、修改、启停、删除，并标出引用了不存在或已停用的技能、MCP 服务的 Agent。工作区里第一次打开带 `.atria/agents`、`.atria/skills` 或 `.agents/skills` 的项目时，会询问是否信任（[询问](../web/assets/controllers/project-trust-prompt.js)），只读取名称来提问。
 
 ### 输入框 `/` 与 `@`

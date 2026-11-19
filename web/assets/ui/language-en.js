@@ -1661,5 +1661,19 @@ export default {
   "个技能：": "skills: ",
   "（覆盖同名全局技能）": " (replacing global skills of the same name)",
   信任项目: "Trust project",
-  "已信任此项目，下一轮起生效": "Project trusted; applies from the next turn"
+  "已信任此项目，下一轮起生效": "Project trusted; applies from the next turn",
+  "帮我创建一个 Agent：": "Create an Agent for me: ",
+  "让 Main 帮我写": "Ask Main to write it",
+  使用说明: "Usage note",
+  按权限的默认工具: "Default tools for the permission",
+  确认: "Confirm",
+  等你确认: "Waiting for you to confirm",
+  写入: "Writes",
+  修改意见: "Changes",
+  "也可以直接写修改意见，比如「改成只读」": 'Or write the changes you want, such as "make it read-only"',
+  确认后下一次派单即可使用: "Usable from the next delegation once confirmed",
+  拒绝: "Reject",
+  在设置里修改: "Edit in settings",
+  发送修改意见: "Send changes",
+  "我会在设置里自己修改，这次不要保存": "I'll edit it in settings myself; don't save it this time"
 };

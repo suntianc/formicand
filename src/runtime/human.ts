@@ -4,6 +4,7 @@ import { id, now, type InboxMessage } from "../domain/types.js";
 import { atomicWrite } from "../storage/atomic-file.js";
 import { withFileLock } from "../storage/file-lock.js";
 import { InboxStore } from "./scheduler.js";
+import type { AgentDefinition } from "./agent-definitions.js";
 
 /**
  * `unanswered` is a question the model stopped waiting for.
@@ -16,6 +17,19 @@ import { InboxStore } from "./scheduler.js";
  * timed-out question pending meant the turn could never finish.
  */
 export type HumanRequestStatus = "pending" | "answered" | "cancelled" | "unanswered";
+
+/**
+ * A change Main wants to make that the user approves as a whole: the page
+ * shows the full definition and nothing is written until they confirm.
+ */
+export interface AgentProposal {
+  kind: "agent";
+  action: "create" | "update" | "disable" | "enable";
+  scope: "global" | "project";
+  /** The definition file the change writes. */
+  path: string;
+  definition: AgentDefinition;
+}
 
 export interface HumanRequest {
   requestId: string;
@@ -40,6 +54,8 @@ export interface HumanRequest {
   closedAt?: string;
   /** Records the replacement Run and the unresolved state to restore on edit rollback. */
   superseded?: { runId: string; status: "pending" | "unanswered" };
+  /** What the answer approves, when the question is a confirmation of a change. */
+  proposal?: AgentProposal;
 }
 
 /**
@@ -52,7 +68,10 @@ export class HumanRequestStore {
   constructor(private readonly workspaceRoot: string) {}
 
   async create(
-    input: Pick<HumanRequest, "taskId" | "runId" | "question" | "context" | "options" | "recommended">,
+    input: Pick<
+      HumanRequest,
+      "taskId" | "runId" | "question" | "context" | "options" | "recommended" | "proposal"
+    >,
     requestId?: string
   ): Promise<HumanRequest> {
     const choices = input.options
@@ -71,6 +90,7 @@ export class HumanRequestStore {
       // Kept only when it points at a real option, so the UI and the timeout
       // path never have to guard against an index that is not there.
       ...(recommended !== undefined && recommended >= 0 ? { recommended } : {}),
+      ...(input.proposal ? { proposal: input.proposal } : {}),
       status: "pending",
       createdAt: now()
     };

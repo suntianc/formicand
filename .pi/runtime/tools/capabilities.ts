@@ -21,6 +21,7 @@ export const CORE_TOOLS = [
   "get_task_status",
   "finish_task",
   "askhuman",
+  "manage_agent",
   "clear_context",
   "sleep_until",
   "grant_capabilities",

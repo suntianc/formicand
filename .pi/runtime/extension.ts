@@ -92,6 +92,7 @@ import { projectCompactionMessages } from "../../dist/src/runtime/compaction-inp
 import type { RuntimeToolResult } from "./helpers.ts";
 import { errorMessage, loadConfig, textFromMessage } from "./helpers.ts";
 import { registerCoordinationTools } from "./tools/coordination.ts";
+import { registerAgentTools } from "./tools/agents.ts";
 import { registerJobsTools } from "./tools/jobs.ts";
 import { registerProjectLedgerTool } from "./tools/project-ledger.ts";
 import { registerProjectDevelopmentTool } from "./tools/project-development.ts";
@@ -1342,6 +1343,7 @@ async function registerMainExtension(pi: ExtensionAPI) {
     }
   };
   registerCoordinationTools(pi, toolContext);
+  registerAgentTools(pi, toolContext);
   registerJobsTools(pi, toolContext);
   registerProjectLedgerTool(pi, toolContext);
   registerProjectDevelopmentTool(pi, toolContext);

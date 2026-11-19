@@ -18,7 +18,14 @@ const PAGE_SIZE = 10;
 const NEW = "\0new";
 const PERMISSION_LABEL = { write: "可写", read: "只读" };
 
-export function createAgentSettings({ panel, api, projects = () => [], onSection, showToast = () => {} }) {
+export function createAgentSettings({
+  panel,
+  api,
+  projects = () => [],
+  onSection,
+  showToast = () => {},
+  askMain
+}) {
   const view = {
     scope: "global",
     projectId: "",
@@ -32,6 +39,8 @@ export function createAgentSettings({ panel, api, projects = () => [], onSection
     models: [],
     /** The definition being edited: a copy of the selected one, or a new draft. */
     draft: undefined,
+    /** A definition handed over from a proposal in the conversation, opened once the list loads. */
+    pending: undefined,
     saving: false
   };
   let requestSeq = 0;
@@ -52,6 +61,7 @@ export function createAgentSettings({ panel, api, projects = () => [], onSection
       </div>
       <span class="settings-info" title="Main 按「使用说明」决定派给谁；同名时项目覆盖全局">${icon("info")}</span>
       <span class="settings-group-spacer"></span>
+      ${askMain ? `<button class="app-button is-secondary" type="button" data-agent-ask>${icon("sparkles")}<span>${ui("让 Main 帮我写")}</span></button>` : ""}
       <button class="app-button is-primary skill-add" type="button" data-agent-new>${icon("plus")}<span>新建 Agent</span></button>
     </div>
     <div class="skill-project-bar" data-agent-project hidden>
@@ -106,7 +116,11 @@ export function createAgentSettings({ panel, api, projects = () => [], onSection
         }))
       );
       view.error = "";
-      if (view.selected !== NEW) view.draft = undefined;
+      if (view.pending) {
+        view.selected = view.pending.key;
+        view.draft = { ...view.pending.definition, mcp: [...(view.pending.definition.mcp ?? [])] };
+        view.pending = undefined;
+      } else if (view.selected !== NEW) view.draft = undefined;
     } catch (error) {
       if (seq !== requestSeq) return;
       view.data = { agents: [] };
@@ -661,7 +675,25 @@ export function createAgentSettings({ panel, api, projects = () => [], onSection
     void save();
   });
 
+  $("[data-agent-ask]")?.addEventListener("click", () => askMain());
+
   onSection("agents", () => void load());
 
-  return { refresh: load };
+  return {
+    refresh: load,
+    /** Open a definition Main proposed, to finish it here instead of in the conversation. */
+    openProposal(proposal) {
+      view.scope = proposal.scope;
+      if (proposal.scope === "project") {
+        const project = projects().find((entry) => proposal.path.startsWith(`${entry.projectDirectory}/`));
+        if (project) view.projectId = project.projectId;
+      }
+      view.page = 1;
+      view.query = "";
+      view.pending = {
+        key: proposal.action === "create" ? NEW : `${proposal.scope}:${proposal.definition.name}`,
+        definition: proposal.definition
+      };
+    }
+  };
 }
