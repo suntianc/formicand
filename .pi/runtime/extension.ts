@@ -105,6 +105,7 @@ import { registerImageTools } from "./tools/images.ts";
 import { registerSubagentAgent } from "./subagent-agent.ts";
 import { blockedToolCall, taskProtectedPaths } from "./protected-call.ts";
 import { registerCoworkProvider } from "./provider.ts";
+import { createMcpRegistration } from "./mcp.ts";
 
 /**
  * One extension entry for Main and delegated agent processes.
@@ -175,6 +176,11 @@ async function registerMainExtension(pi: ExtensionAPI) {
   const mainSkills = async (): Promise<Skill[]> => (await skillCatalogNow()).map(piSkill);
   const skillsSection = (skills: Skill[]): string =>
     `<skills>\n${formatSkillsForPrompt(skills, "read").trim()}\n</skills>`;
+  // Servers registered while the extension loads connect when the session
+  // starts; each turn re-reads the configuration (see createMcpRegistration).
+  const mcpServers = createMcpRegistration(pi);
+  await mcpServers.sync();
+  let mcpProblem: string | undefined;
   const capabilityProviders = capabilityProvider(
     new Map([["attachments", attachmentCapabilityProvider(harnessRoot)]])
   );
@@ -644,8 +650,12 @@ async function registerMainExtension(pi: ExtensionAPI) {
     };
   };
 
-  pi.on("before_agent_start", async (event) => {
+  pi.on("before_agent_start", async (event, ctx) => {
     const sections = await prepareMainTurnSections();
+    const problem = await mcpServers.sync();
+    // Report a problem once, not again on every turn it persists.
+    if (problem && problem !== mcpProblem) ctx.ui.notify(problem, "warning");
+    mcpProblem = problem;
     const options = event.systemPromptOptions;
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- systemPromptOptions 在旧版 Pi 调用方可能缺失，缺省时按项目默认身份处理
     projectDefaultIdentity = !options?.customPrompt && options?.forceSystemPrompt === undefined;
