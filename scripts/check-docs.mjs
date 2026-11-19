@@ -21,7 +21,6 @@ export const maintainedDocumentation = [
   "docs/configuration.md",
   "docs/configuration-reference.md",
   "docs/runtime-reference.md",
-  "docs/creative-workflows.md",
   "docs/visual-observation.md",
   "docs/browser-use.md",
   "docs/cua-scripting.md",

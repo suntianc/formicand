@@ -135,7 +135,7 @@ test("stage selection excludes unrelated commands and keeps shared build", async
   const plan = await loadPlan(root, parseOptions(["--stage", "cases"]));
   assert.equal(plan.steps[0].id, "build");
   assert.ok(plan.steps.slice(1).every((step) => step.stage === "cases"));
-  assert.ok(plan.steps.some((step) => step.args.includes("test/machine-learning-skill-pi.test.js")));
+  assert.ok(plan.steps.some((step) => step.args.includes("test/publish-artifact-pi.test.js")));
   assert.ok(!plan.steps.some((step) => step.id === "basic-node"));
 });
 

@@ -292,7 +292,18 @@ test("the actual CLI packer excludes retained Mac helpers and tolerates optional
       ].resolved,
       fixtureDependency.resolved
     );
-    for (const name of ["cad", "blender", "pptist", "presentations", "make-a-deck", "office-harness"])
+    for (const name of [
+      "cad",
+      "blender",
+      "pptist",
+      "presentations",
+      "make-a-deck",
+      "office-harness",
+      "creative-design",
+      "iterative-optimization",
+      "machine-learning-model-search",
+      "workspace-explore"
+    ])
       assert.ok(
         !files.some((file) => file.startsWith(`package/.pi/skills/${name}/`)),
         `CLI archive includes retired ${name}`
@@ -306,20 +317,7 @@ test("the actual CLI packer excludes retained Mac helpers and tolerates optional
     assert.ok(files.includes("package/dist/src/gui/driver.js"));
     assert.ok(!files.some((file) => file.startsWith("package/vendor/sciagentgym/")));
     assert.ok(!files.some((file) => file.startsWith("package/dist/src/tools/science/")));
-    for (const name of [
-      "creative-design",
-      "frontend-design",
-      "interactive-prototype",
-      "hi-fi-design",
-      "wireframe",
-      "charts",
-      "data-report",
-      "visual-exposure",
-      "animated-video"
-    ])
-      assert.ok(files.includes(`package/.pi/skills/${name}/SKILL.md`), `CLI archive excludes ${name}`);
-    for (const file of ["frontend-design/references/design.md", "charts/references/chart-design.md"])
-      assert.ok(files.includes(`package/.pi/skills/${file}`), `CLI archive excludes ${file}`);
+    assert.ok(files.includes("package/.pi/skills/cua/SKILL.md"), "CLI archive excludes cua");
 
     assert.equal(
       files.some((path) => /atria-(?:speech-input|computer-use)(?:\.sha256)?$/.test(path)),

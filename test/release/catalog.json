@@ -21,7 +21,7 @@
   "rules": [
     {
       "stage": "cases",
-      "node": "^(machine-learning-skill-pi|publish-artifact-pi|automation-pi|main-recovery-pi|input-files-pi|image-tools-pi|live-ui)\\.test\\.js$",
+      "node": "^(publish-artifact-pi|automation-pi|main-recovery-pi|input-files-pi|image-tools-pi|live-ui)\\.test\\.js$",
       "browser": "^(human-interactions|message-delivery|conversation-integrity|request-recovery)\\.spec\\.js$"
     },
     {
