@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { createServer } from "node:http";
 import { once } from "node:events";
-import { readFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { startDashboard } from "../test/dashboard-fixture.mjs";
 import { expectNoHorizontalOverflow, openSettings } from "./settings-helper.js";
@@ -121,6 +121,32 @@ test("pasted JSON imports several servers and problems are listed with their rea
     await expect(dialog.locator("[data-mcp-editor-error]")).toContainText("已存在同名服务：echoes");
   } finally {
     locked.close();
+    await dashboard.stop();
+  }
+});
+
+test("a long tool list scrolls inside the server's details, not the whole settings page", async ({
+  page
+}) => {
+  const dashboard = await startDashboard();
+  try {
+    await writeFile(
+      join(dashboard.env.ATRIA_HOME, "mcp.json"),
+      JSON.stringify({
+        mcpServers: {
+          many: { command: process.execPath, args: [echoServer], env: { ECHO_EXTRA_TOOLS: "40" } }
+        }
+      })
+    );
+    await page.setViewportSize({ width: 1280, height: 760 });
+    await page.goto(dashboard.base);
+    const settings = await openSettings(page, "mcp");
+    const detail = settings.locator("[data-mcp-detail]");
+    await expect(detail.locator(".mcp-tool")).toHaveCount(42);
+    const overflow = (node) => node.scrollHeight - node.clientHeight;
+    expect(await detail.evaluate(overflow)).toBeGreaterThan(0);
+    expect(await page.locator(".settings-content").evaluate(overflow)).toBeLessThanOrEqual(0);
+  } finally {
     await dashboard.stop();
   }
 });

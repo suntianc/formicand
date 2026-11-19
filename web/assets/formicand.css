@@ -1660,11 +1660,9 @@ html[data-theme] .composer .model-picker {
     width var(--motion-glide, 280ms) var(--ease-glide, ease-out),
     left var(--motion-glide, 280ms) var(--ease-glide, ease-out);
 }
-/* A drag follows the pointer through a short ease, which reads as weight
-   rather than lag; letting go glides to the notch on the longer curve. */
+/* A drag keeps the knob under the pointer; letting go glides to the notch. */
 .effort-rail.is-dragging :is(.effort-fill, .effort-knob) {
-  transition-duration: 90ms;
-  transition-timing-function: ease-out;
+  transition-duration: 0s;
 }
 .effort-knob {
   transition-property: left, transform;

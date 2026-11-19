@@ -36,7 +36,7 @@ for (const slowModels of [true, false]) {
             });
           });
         }
-        await page.route("**/api/models", async (route) => {
+        await page.route(/\/api\/models(\?.*)?$/, async (route) => {
           modelsStarted = true;
           if (slowModels) await gate;
           await route.fulfill({

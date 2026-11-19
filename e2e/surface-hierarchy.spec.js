@@ -10,7 +10,7 @@ async function setup(page) {
   page.on("pageerror", (error) => errors.push(error.message));
   try {
     await page.addInitScript(() => localStorage.setItem("atria.appearance", "system"));
-    await page.route("**/api/models", (route) =>
+    await page.route(/\/api\/models(\?.*)?$/, (route) =>
       route.fulfill({
         json: { configured: true, current: "surface-fixture", models: ["surface-fixture"] }
       })
