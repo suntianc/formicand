@@ -18,7 +18,6 @@ import {
 import { ensurePiRetryDefaults } from "../dist/src/runtime/model-retry.js";
 import { resolveModelRole, roleConnectionEnv } from "../dist/src/runtime/role-models.js";
 import { modelConnections } from "../dist/src/runtime/model-providers.js";
-import { bundledSkillRoot } from "../dist/src/runtime/skill-registry.js";
 import { compactAgentOutputLine } from "../dist/src/runtime/agent-output-compaction.js";
 import { resolveCliSession } from "./cli-session.mjs";
 import { ensureCliBranding, ensureCliStartupSettings } from "./cli-branding.mjs";
@@ -380,6 +379,9 @@ export async function startPi({ uiCompatibility } = {}) {
       // Pi 1.x loads a built-in MCP client that would add mcp__* tools to Main.
       // Adopting it is a separate decision, so every CoworkOS launch keeps it off.
       "--no-mcp",
+      // Pi would also scan its own state folder and project `.pi/skills`;
+      // CoworkOS resolves one catalog itself and hands it to the prompt.
+      "--no-skills",
       ...(hasExtension ? [] : ["--extension", resolve(harnessRoot, ".pi", "extensions", "cowork.ts")]),
       ...(hasModel ? [] : ["--provider", providerId, "--model", configuredModel]),
       // Pass the level explicitly: Pi otherwise restores old session defaults,
@@ -393,7 +395,6 @@ export async function startPi({ uiCompatibility } = {}) {
       ...(publicTui && !userArgs.some((arg) => arg === "--tui-mode" || arg.startsWith("--tui-mode="))
         ? ["--tui-mode", "regular"]
         : []),
-      ...(projectDirectory !== harnessRoot ? ["--skill", bundledSkillRoot(harnessRoot)] : []),
       ...userArgs
     ];
     if (
@@ -568,10 +569,8 @@ async function startDelegatedAgent() {
     model,
     "--thinking",
     thinkingLevel,
-    // A delegated process does the same kind of work Main does, so it gets the
-    // same published skills in its system prompt; without this its catalog is
-    // missing every bundled skill because it runs outside the install root.
-    ...(process.cwd() === harnessRoot ? [] : ["--skill", bundledSkillRoot(harnessRoot)]),
+    // CoworkOS resolves the skill catalog itself (see skill-registry).
+    "--no-skills",
     ...process.argv.slice(2)
   ];
   const argv = process.argv.slice(2);

@@ -4,7 +4,7 @@ import { basename, join, resolve } from "node:path";
 import { readInputDocument } from "../../../dist/src/workspace/input-reader.js";
 import { publishTaskArtifact } from "../../../dist/src/workspace/artifact-store.js";
 import { browseWorkspace } from "../../../dist/src/tools/workspace-browse.js";
-import { discoverSkills, createLoadSkillTool } from "../../../dist/src/runtime/skill-registry.js";
+import { createLoadSkillTool, type SkillMetadata } from "../../../dist/src/runtime/skill-registry.js";
 import type { CoworkToolContext } from "../extension.ts";
 import type { RuntimeToolResult } from "../helpers.ts";
 
@@ -15,22 +15,22 @@ import type { RuntimeToolResult } from "../helpers.ts";
  * Subagent to load itself resolves the same instructions and the same bundled
  * script paths Main would get.
  */
-export function registerLoadSkillTool(pi: ExtensionAPI, skillRootsNow: () => string[]) {
+export function registerLoadSkillTool(pi: ExtensionAPI, skillCatalogNow: () => Promise<SkillMetadata[]>) {
   pi.registerTool({
     name: "load_skill",
     label: "Load Skill",
     description:
-      "Load a matching bundled/project skill by its catalog name. Returns its full instructions, actual absolute directory and existing bundled script paths.",
+      "Load a matching skill by its catalog name. Returns its full instructions, actual absolute directory and existing bundled script paths.",
     promptSnippet: "Load specialized instructions and resolve their bundled script paths",
     promptGuidelines: [
-      "Prefer load_skill for the harness's bundled skills. Use the returned directory and scripts paths verbatim; do not infer a skill location from a home directory, another machine or an old conversation.",
+      "Prefer load_skill for any skill in the catalog. Use the returned directory and scripts paths verbatim; do not infer a skill location from a home directory, another machine or an old conversation.",
       "Resolve referenced relative paths against the returned directory. If a skill command reports MODULE_NOT_FOUND or ENOENT, reload the skill and verify its returned paths before retrying."
     ],
     parameters: Type.Object({
       name: Type.String({ description: "Exact skill name from the available skill catalog." })
     }),
     async execute(_toolCallId, params): Promise<RuntimeToolResult> {
-      const tool = createLoadSkillTool(await discoverSkills(skillRootsNow()));
+      const tool = createLoadSkillTool(await skillCatalogNow());
       const result = await tool.execute(params);
       return { content: [{ type: "text", text: JSON.stringify(result) }], details: result };
     }
@@ -111,7 +111,7 @@ export function registerWorkspaceTools(pi: ExtensionAPI, context: CoworkToolCont
       return { content: [{ type: "text", text: JSON.stringify(result) }], details: result };
     }
   });
-  registerLoadSkillTool(pi, () => context.skillScopeNow().skillRoots);
+  registerLoadSkillTool(pi, context.skillCatalogNow);
   const memoryPath = join(context.taskWorkspace, "agents", "main", "context", "memory.md");
   pi.registerTool({
     name: "clear_context",

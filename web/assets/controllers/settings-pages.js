@@ -13,7 +13,7 @@ import { formatStamp } from "../ui/time-format.js";
  * and register a refresh hook, so model, tool and update settings keep their
  * existing save semantics and identity checks.
  */
-export const SETTINGS_SECTIONS = ["general", "nodes", "models", "capacity", "members", "tools"];
+export const SETTINGS_SECTIONS = ["general", "nodes", "models", "skills", "capacity", "members", "tools"];
 
 const CAPACITY_LIMIT = 32;
 const ROLE_LABEL = { internal: "对内", external: "对外" };

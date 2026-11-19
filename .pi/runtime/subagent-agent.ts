@@ -16,7 +16,8 @@ import { ASK_MAIN_GUIDANCE, SEND_PEER_MESSAGE_GUIDANCE } from "../../dist/src/ru
 import type { ReviewConclusion } from "../../dist/src/runtime/subagent-review.js";
 import { subagentToolNames, type SubagentRole } from "../../dist/src/runtime/subagent-roles.js";
 import { capabilityProvider, parseCapabilityGrants } from "../../dist/src/runtime/capability-provider.js";
-import { bundledSkillRoot } from "../../dist/src/runtime/skill-registry.js";
+import { processSkillLocations, resolveSkillCatalog } from "../../dist/src/runtime/skill-registry.js";
+import { piSkill } from "./skills.ts";
 import { configuredWebTools } from "../../dist/src/runtime/web-search-config.js";
 import { attachmentCapabilityProvider } from "../../dist/src/workspace/attachment-capabilities.js";
 import {
@@ -141,6 +142,12 @@ export function registerSubagentAgent(pi: ExtensionAPI, role: AgentRole): void {
   // capability tool at all: an ungranted reader is not registered rather than
   // registered and made to refuse every id.
   const harnessRoot = resolve(process.env.COWORK_HARNESS_ROOT ?? process.cwd());
+  // Project skills are read from the user's project, whose trust decision is
+  // recorded there, not from this process's isolated checkout.
+  const skillCatalogNow = async () =>
+    resolveSkillCatalog(
+      await processSkillLocations(harnessRoot, process.env.COWORK_PROJECT_DIR ?? workingDirectory)
+    );
   const grants = parseCapabilityGrants(process.env.COWORK_AGENT_GRANTS);
   if (grants.some((grant) => grant.provider !== "attachments"))
     throw new Error(
@@ -211,6 +218,7 @@ export function registerSubagentAgent(pi: ExtensionAPI, role: AgentRole): void {
   pi.on("before_agent_start", async (event) => {
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- 旧版 Pi 调用方可能只提供 systemPrompt，缺少结构化选项时走下面的回退分支
     if (event.systemPromptOptions) {
+      event.systemPromptOptions.skills = (await skillCatalogNow()).map(piSkill);
       event.systemPromptOptions.sections.subagent_role = rolePrompt();
       return;
     }
@@ -268,7 +276,7 @@ export function registerSubagentAgent(pi: ExtensionAPI, role: AgentRole): void {
   // The same loader over the same catalog as Main: a published skill that tells
   // a Subagent to load itself returns the instructions, directory and bundled
   // script paths Main would get, and grants nothing beyond read-only loading.
-  registerLoadSkillTool(pi, () => [bundledSkillRoot(harnessRoot), join(workingDirectory, ".pi", "skills")]);
+  registerLoadSkillTool(pi, skillCatalogNow);
   registerWebSearchTools(pi, web);
 
   // Main's guidance and a peer's message reach this process through its own

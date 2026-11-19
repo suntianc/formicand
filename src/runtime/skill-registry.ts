@@ -1,22 +1,80 @@
 import { readdir, readFile } from "node:fs/promises";
+import { homedir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
+import { atriaHome } from "../../scripts/data-home.cjs";
+import { projectAgentsSkillRoots, projectTrustDecision } from "./project-trust.js";
+import { removedSkillDirectories } from "./skill-index.js";
 import { parseSkillFrontmatter } from "./skill-frontmatter.js";
 import type { RuntimeTool } from "./tool.js";
 
-/**
- * The skill catalog bundled with this install.
- *
- * Main discovers it from its launch directory and a delegated process from the
- * harness root; both read the same directory, so the path is composed here once
- * instead of in each launcher and extension.
- */
+/** The skill catalog bundled with this install. */
 export function bundledSkillRoot(harnessRoot: string): string {
   return join(harnessRoot, ".pi", "skills");
 }
 
-/** The skill catalogs Main and a delegated process both discover. */
-export function skillRoots(harnessRoot: string, projectDirectory: string): string[] {
-  return [...new Set([bundledSkillRoot(harnessRoot), join(projectDirectory, ".pi", "skills")])];
+/** Where CoworkOS installs global skills: `~/.atria/skills`. */
+export function installedSkillRoot(home: string): string {
+  return join(home, "skills");
+}
+
+/** The installed skill folder of the data home this process uses. */
+export function installedSkillRootNow(env: NodeJS.ProcessEnv = process.env): string {
+  return installedSkillRoot(atriaHome(env));
+}
+
+/**
+ * Where a skill came from, highest priority first.
+ *
+ * `project` and `global` are CoworkOS's own `.atria/skills`; the `-agents`
+ * sources are the shared `.agents/skills` convention other tools also read,
+ * which CoworkOS never writes to.
+ */
+export const SKILL_SOURCES = ["project", "project-agents", "global", "global-agents", "bundled"] as const;
+export type SkillSource = (typeof SKILL_SOURCES)[number];
+
+export interface SkillRoot {
+  source: SkillSource;
+  root: string;
+}
+
+export interface SkillLocations {
+  harnessRoot: string;
+  /** Omitted for the global catalog. */
+  projectDirectory?: string;
+  /** CoworkOS's data home (`~/.atria`). */
+  home: string;
+  /** The user's home folder, where `~/.agents/skills` lives. */
+  userHome: string;
+  /** Project roots are read only for a project the user trusted. */
+  projectTrusted: boolean;
+}
+
+/** Every directory skills are read from, highest priority first. */
+export function skillRootsFor(locations: SkillLocations): SkillRoot[] {
+  const roots: SkillRoot[] = [];
+  const { projectDirectory } = locations;
+  if (projectDirectory && locations.projectTrusted) {
+    roots.push({ source: "project", root: join(resolve(projectDirectory), ".atria", "skills") });
+    for (const root of projectAgentsSkillRoots(projectDirectory))
+      roots.push({ source: "project-agents", root });
+  }
+  roots.push({ source: "global", root: installedSkillRoot(locations.home) });
+  roots.push({ source: "global-agents", root: join(locations.userHome, ".agents", "skills") });
+  roots.push({ source: "bundled", root: bundledSkillRoot(locations.harnessRoot) });
+  return roots;
+}
+
+/** The locations a running process reads: its data home, trust and project. */
+export async function processSkillLocations(
+  harnessRoot: string,
+  projectDirectory: string | undefined,
+  env: NodeJS.ProcessEnv = process.env
+): Promise<SkillLocations> {
+  const home = atriaHome(env);
+  const trusted = projectDirectory
+    ? (await projectTrustDecision(home, projectDirectory)) === "trusted"
+    : false;
+  return { harnessRoot, projectDirectory, home, userHome: homedir(), projectTrusted: trusted };
 }
 
 export interface SkillMetadata {
@@ -26,12 +84,50 @@ export interface SkillMetadata {
   directory: string;
 }
 
+export interface SkillEntry extends SkillMetadata {
+  source: SkillSource;
+  /** Removed from CoworkOS's index: hidden from every Agent, file untouched. */
+  removed: boolean;
+  /** The directory of the higher-priority skill with the same name, when one wins. */
+  shadowedBy?: string;
+}
+
 /**
- * Lightweight Agent Skills discovery for Cowork's custom Subagent runtime.
- * Pi coding-agent already discovers project skills for Main; this registry
- * gives a delegated agent the same progressive-disclosure contract
- * without copying full skill instructions into every prompt.
+ * Every skill under the given roots, including removed and shadowed ones, so
+ * the management screen can show and restore them.
  */
+export async function listSkillEntries(
+  roots: SkillRoot[],
+  removed: ReadonlySet<string>
+): Promise<SkillEntry[]> {
+  const entries: SkillEntry[] = [];
+  const winner = new Map<string, string>();
+  for (const { source, root } of roots) {
+    const found: SkillMetadata[] = [];
+    await scanRoot(resolve(root), found, new Set());
+    for (const skill of found) {
+      const isRemoved = removed.has(skill.directory);
+      const shadowedBy = isRemoved ? undefined : winner.get(skill.name);
+      if (!isRemoved && !shadowedBy) winner.set(skill.name, skill.directory);
+      entries.push({ ...skill, source, removed: isRemoved, ...(shadowedBy ? { shadowedBy } : {}) });
+    }
+  }
+  return entries;
+}
+
+/** The skills an Agent can see: one per name, highest source first, none removed. */
+export async function resolveSkillCatalog(locations: SkillLocations): Promise<SkillMetadata[]> {
+  const entries = await listSkillEntries(
+    skillRootsFor(locations),
+    await removedSkillDirectories(locations.home)
+  );
+  return entries
+    .filter((entry) => !entry.removed && !entry.shadowedBy)
+    .map(({ name, description, path, directory }) => ({ name, description, path, directory }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/** Plain discovery over explicit roots, first name wins. */
 export async function discoverSkills(roots: string[]): Promise<SkillMetadata[]> {
   const found: SkillMetadata[] = [];
   const seen = new Set<string>();

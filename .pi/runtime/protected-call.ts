@@ -6,13 +6,14 @@ import {
 import { protectedCallRefusal, type ProtectedCallRefusal } from "../../dist/src/tools/protected-call.js";
 import { installRefusal, privateDataRefusal } from "../../dist/src/tools/private-data.js";
 import { LocalWorkspaceStore } from "../../dist/src/workspace/workspace-store.js";
+import { installedSkillRootNow } from "../../dist/src/runtime/skill-registry.js";
 
 /**
  * The protected-path guard both process roles use at the tool-call boundary.
  *
  * Main and a delegated process run in different project directories but apply
  * the same rule: evaluation code, the CoworkOS runtime and version-control
- * metadata are never a write target. A live grant from the Task is read per
+ * metadata, and the installed skills, are never a write target. A live grant from the Task is read per
  * call, so a path the user protects mid-session takes effect on the next write.
  */
 export async function taskProtectedPaths(
@@ -25,7 +26,14 @@ export async function taskProtectedPaths(
     .then((task) => task.capabilities?.evalPaths ?? [])
     // eslint-disable-next-line no-restricted-syntax -- 任务记录读取失败时不授予任何 eval 路径，默认保护规则仍然生效
     .catch(() => [] as string[]);
-  return configuredProtectedPaths(projectDirectory, process.env, [atriaInstallRoot()], granted);
+  // Installed skills are readable (see private-data) but are the user's
+  // configuration, so a file tool never writes them.
+  return configuredProtectedPaths(
+    projectDirectory,
+    process.env,
+    [atriaInstallRoot(), installedSkillRootNow()],
+    granted
+  );
 }
 
 /**

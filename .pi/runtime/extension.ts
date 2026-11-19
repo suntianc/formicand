@@ -78,7 +78,8 @@ import { listJobs } from "../../dist/src/tools/jobs.js";
 import { DEFAULT_PROTECTED_PATHS, guessedProtection } from "../../dist/src/tools/protected-paths.js";
 import { LocalWorkspaceStore } from "../../dist/src/workspace/workspace-store.js";
 import { capabilityProvider } from "../../dist/src/runtime/capability-provider.js";
-import { discoverSkills, skillRoots } from "../../dist/src/runtime/skill-registry.js";
+import { processSkillLocations, resolveSkillCatalog } from "../../dist/src/runtime/skill-registry.js";
+import { piSkill } from "./skills.ts";
 import { attachmentCapabilityProvider } from "../../dist/src/workspace/attachment-capabilities.js";
 import { mainCompactionPreviousSummary, withMainCompactionContext } from "./main-compaction.ts";
 import { MainCompactionRetry } from "./main-compaction-retry.ts";
@@ -161,33 +162,17 @@ async function registerMainExtension(pi: ExtensionAPI) {
     ].filter((value): value is string => Boolean(value))
   });
   let projectDefaultIdentity = true;
-  const baseSkillRoots = skillRoots(harnessRoot, projectDirectory);
   /**
-   * Skill roots for this turn.
+   * The one skill catalog Main sees in its prompt and loads with load_skill.
    *
-   * A Subagent does the same kind of work Main does, so it discovers the same
-   * project and bundled skills rather than a narrower set.
+   * Pi's own discovery is switched off at launch (`--no-skills`); CoworkOS
+   * resolves the sources, the trust decision and the removed index itself, so
+   * a Subagent in the same project sees the same list.
    */
-  let sdkSkills: Skill[] | undefined;
-  const skillScopeNow = () => ({ skillRoots: baseSkillRoots });
+  const skillCatalogNow = async () =>
+    resolveSkillCatalog(await processSkillLocations(harnessRoot, projectDirectory));
   let currentSkillsSection: string | undefined;
-  /**
-   * Pi owns skill discovery once structured options are available; its selection
-   * is authoritative even when empty. Older callers without options fall back to
-   * discovering the project and bundled roots here.
-   */
-  const mainSkills = async (sdkSkillList: readonly Skill[] | undefined): Promise<Skill[]> => {
-    if (sdkSkillList) return sdkSkillList.filter((skill) => !skill.disableModelInvocation);
-    const discovered = await discoverSkills(baseSkillRoots);
-    return discovered.map((skill) => ({
-      name: skill.name,
-      description: skill.description,
-      filePath: skill.path,
-      baseDir: skill.directory,
-      sourceInfo: { path: skill.path, source: "atria", scope: "project", origin: "top-level" },
-      disableModelInvocation: false
-    }));
-  };
+  const mainSkills = async (): Promise<Skill[]> => (await skillCatalogNow()).map(piSkill);
   const skillsSection = (skills: Skill[]): string =>
     `<skills>\n${formatSkillsForPrompt(skills, "read").trim()}\n</skills>`;
   const capabilityProviders = capabilityProvider(
@@ -666,8 +651,7 @@ async function registerMainExtension(pi: ExtensionAPI) {
     projectDefaultIdentity = !options?.customPrompt && options?.forceSystemPrompt === undefined;
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- 旧版 Pi 调用方可能只提供 event.systemPrompt，缺少该系统选项时走下面的回退分支
     if (options) {
-      sdkSkills = options.skills;
-      options.skills = await mainSkills(options.skills);
+      options.skills = await mainSkills();
       currentSkillsSection = skillsSection(options.skills);
       Object.assign(options.sections, sections);
       return;
@@ -682,8 +666,7 @@ async function registerMainExtension(pi: ExtensionAPI) {
       continuationSections = await prepareMainTurnSections();
       await requestRetry?.restore();
       const options = ctx.getSystemPromptOptions();
-      sdkSkills = options.skills ?? [];
-      currentSkillsSection = skillsSection(await mainSkills(sdkSkills));
+      currentSkillsSection = skillsSection(await mainSkills());
       projectDefaultIdentity = !options.customPrompt && options.forceSystemPrompt === undefined;
     });
   }
@@ -754,7 +737,7 @@ async function registerMainExtension(pi: ExtensionAPI) {
       await updateRuntime({ runtimePendingDelegations: inboxDelivery.queuedCount });
       // Refresh between model requests, including changes made during a turn.
       await capabilityTools.refresh();
-      currentSkillsSection = skillsSection(await mainSkills(sdkSkills ?? []));
+      currentSkillsSection = skillsSection(await mainSkills());
     } catch (error) {
       ctx.ui.notify(`Main context snapshot failed: ${errorMessage(error)}`, "warning");
     }
@@ -1241,7 +1224,6 @@ async function registerMainExtension(pi: ExtensionAPI) {
   }
 
   const toolContext = {
-    baseSkillRoots,
     capabilityProvider: capabilityProviders,
     refreshCapabilities: () => capabilityTools.refresh(),
     get apiKey() {
@@ -1316,8 +1298,8 @@ async function registerMainExtension(pi: ExtensionAPI) {
     get runtimeEnv() {
       return runtimeEnv;
     },
-    get skillScopeNow() {
-      return skillScopeNow;
+    get skillCatalogNow() {
+      return skillCatalogNow;
     },
     get supportsReasoningEffort() {
       return currentSupportsReasoningEffort;
