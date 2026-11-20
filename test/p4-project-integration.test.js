@@ -156,7 +156,7 @@ for (const engine of PROJECT_DATA_ENGINES) {
         assert.equal(response.status, 201, JSON.stringify(response.body));
         return response.body.requirement;
       };
-      const develop = async (service, title, route = "direct") => {
+      const develop = async (service, title, route = "quick") => {
         const item = await requirement(title);
         const development = await service.create(project.projectId, {
           requirementId: item.requirementId,
@@ -170,7 +170,7 @@ for (const engine of PROJECT_DATA_ENGINES) {
 
       // The second backend develops an independent file and gets it through an
       // independent review, not a Main self-check.
-      const remoteDevelopment = await develop(second, "远端后端的报表", "full");
+      const remoteDevelopment = await develop(second, "远端后端的报表", "quick");
       const remoteCandidate = await commitFile(
         remoteDevelopment.workspace.directory,
         "report.txt",
@@ -330,11 +330,7 @@ for (const engine of PROJECT_DATA_ENGINES) {
       assert.equal(remoteMerged.receipt.requirementId, remoteDevelopment.requirementId);
       // The requirement landed: the Reviewer's checkout is released instead of
       // accumulating one worktree per review for the life of the project.
-      assert.equal(
-        existsSync(reviewerSite),
-        false,
-        "a merged requirement releases its Reviewer checkouts"
-      );
+      assert.equal(existsSync(reviewerSite), false, "a merged requirement releases its Reviewer checkouts");
 
       assert.equal(staleResult.state, "check_failed", JSON.stringify(staleResult));
       assert.ok(staleResult.reasons.includes("candidate_changed"), JSON.stringify(staleResult.reasons));

@@ -17,7 +17,8 @@ All steps use `project_development` unless another tool is named.
 ## Doing the work
 
 - Small changes can be made directly in the checkout; run the checks there.
-- To delegate, pass `developmentId` to `call_subagent`. Each item gets its own checkout forked from the requirement checkout, so parallel items do not overwrite each other, the integration checkout or the user's tree. When an item finishes, bring its result into the integration checkout with the ordinary file and Git tools.
+- To delegate, pass `developmentId` to `call_subagent`, and `ticketId` for a ticket: its brief is written into the task. Each item gets its own checkout forked from the requirement checkout, so parallel items never overwrite each other or the user's tree.
+- On the `direct` and `full` routes each ticket is reviewed in its own checkout (`freeze_candidate` with `ticketId`, which also checks the scope), and `integrate_ticket` brings a passed ticket in and runs the project's checks with its acceptance commands. On `quick`, bring results in with the ordinary file and Git tools.
 
 ## Review
 

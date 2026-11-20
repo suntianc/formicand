@@ -42,6 +42,7 @@ export async function handleSubagentRequest(
         ? {}
         : { continueCallId: text(body.continueCallId, "续接工作项", 200) }),
       ...(optionalText(body.reviewId) === undefined ? {} : { reviewId: text(body.reviewId, "审查 ID", 200) }),
+      ...(optionalText(body.ticketId) === undefined ? {} : { ticketId: text(body.ticketId, "票编号", 20) }),
       ...(body.attachments === undefined ? {} : { attachments: body.attachments }),
       ...(optionalText(body.profileId) === undefined
         ? {}

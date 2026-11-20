@@ -77,6 +77,8 @@ export interface MergeAcceptance {
   approvedCommit: string;
   approvedTree: string;
   reviewId?: string;
+  /** Approved as the version the program produced by bringing in every reviewed ticket. */
+  tickets?: true;
 }
 
 export interface DevelopmentMerge {
@@ -206,7 +208,8 @@ export function mergeAcceptance(value: unknown): MergeAcceptance {
     channel: reviewChannel(input.channel),
     approvedCommit: mergeCommit(input.approvedCommit, "验收提交"),
     approvedTree: mergeCommit(input.approvedTree, "验收树"),
-    ...(input.reviewId === undefined ? {} : { reviewId: ledgerIdentifier(input.reviewId, "验收审查 ID") })
+    ...(input.reviewId === undefined ? {} : { reviewId: ledgerIdentifier(input.reviewId, "验收审查 ID") }),
+    ...(input.tickets === true ? { tickets: true as const } : {})
   };
 }
 

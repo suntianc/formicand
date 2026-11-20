@@ -360,10 +360,12 @@ export function createDashboardApplication(
       const site = await developments.dispatchSiteForTask(taskId, developmentId);
       return { directory: site.directory };
     },
-    frozenCandidate: async ({ taskId, developmentId }) => {
-      const site = await developments.dispatchSiteForTask(taskId, developmentId);
-      return site.candidate;
-    },
+    frozenCandidate: async ({ taskId, developmentId, reviewId }) =>
+      await developments.frozenCandidateForTask(taskId, developmentId, reviewId),
+    ticket: async ({ taskId, developmentId, ticketId, continuation }) =>
+      await developments.ticketForDispatch(taskId, developmentId, ticketId, continuation),
+    ticketStarted: async ({ taskId, developmentId, ticketId, work }) =>
+      await developments.ticketStarted(taskId, developmentId, ticketId, work),
     grants: async ({ taskId, attachments }) => {
       const location = await locateTask(taskId);
       return await attachmentGrants(join(location.workspaceRoot, taskId), attachments);

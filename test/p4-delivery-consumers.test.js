@@ -200,7 +200,7 @@ test(
         completionCriteria: ["observable result"],
         route
       });
-    const reviewed = await develop(boardRequirementId, "独立审查交付", "full");
+    const reviewed = await develop(boardRequirementId, "独立审查交付", "quick");
     const quick = await develop(internalRequirementId, "直接开发交付", "quick");
     assert.equal(reviewed.workspace.state, "ready");
     assert.equal(quick.workspace.state, "ready");

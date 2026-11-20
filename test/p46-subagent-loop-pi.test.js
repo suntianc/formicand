@@ -269,7 +269,7 @@ test(
                   requirementId: f.requirementId,
                   goal: "报表页提供导出入口",
                   completionCriteria: ["导出文件包含实现结果"],
-                  route: "direct"
+                  route: "quick"
                 }
               };
             if (step === 1) {
@@ -573,7 +573,7 @@ test(
                   requirementId: f.requirementId,
                   goal: "报表页提供导出入口",
                   completionCriteria: ["导出文件包含实现结果"],
-                  route: "direct"
+                  route: "quick"
                 }
               };
             if (step === 1) {
@@ -727,7 +727,7 @@ test(
                   requirementId: f.requirementId,
                   goal: "报表页提供导出入口",
                   completionCriteria: ["导出文件包含实现结果"],
-                  route: "direct"
+                  route: "quick"
                 }
               };
             if (step === 1) {
@@ -855,7 +855,7 @@ test("closing the session stops the delegated process it started", { timeout: 18
                 requirementId: f.requirementId,
                 goal: "报表页提供导出入口",
                 completionCriteria: ["导出文件包含实现结果"],
-                route: "direct"
+                route: "quick"
               }
             };
           if (step === 1) {
@@ -973,7 +973,7 @@ test("a dependent item the backend owns is never recovered in-process", { timeou
                 requirementId: f.requirementId,
                 goal: "报表页提供导出入口",
                 completionCriteria: ["导出文件包含实现结果"],
-                route: "direct"
+                route: "quick"
               }
             };
           if (step === 1) {

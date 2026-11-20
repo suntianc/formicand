@@ -31,7 +31,18 @@ import {
   type DeliveryView,
   type DevelopmentDelivery
 } from "../domain/development-delivery.js";
-import { developmentNext, type TicketWrite } from "../domain/development-ticket.js";
+import {
+  developmentNext,
+  outsideScope,
+  ticketBrief,
+  ticketIdentifier,
+  ticketOfReview,
+  type DevelopmentTicket,
+  type TicketCheckResult,
+  type TicketSet,
+  type TicketWork,
+  type TicketWrite
+} from "../domain/development-ticket.js";
 import {
   DevelopmentExistsError,
   developmentIdentifier,
@@ -446,6 +457,273 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
     // A drift ends this review's verdict; its checkout can no longer support
     // any conclusion about the candidate.
     await releaseReviewerSite(review);
+    await ticketVerdict(projectId, review, false);
+  }
+
+  /** A ticket review's verdict moves its ticket: passed, or back to rework. */
+  async function ticketVerdict(projectId: string, review: DevelopmentReview, passed: boolean): Promise<void> {
+    const service = await gateway();
+    const ticket = ticketOfReview(
+      (await service.tickets(projectId, review.developmentId)).tickets,
+      review.reviewId
+    );
+    if (ticket?.state !== "in_review" || ticket.reviewIds.at(-1) !== review.reviewId) return;
+    await service.writeTickets(projectId, review.developmentId, {
+      op: "verdict",
+      ticketId: ticket.ticketId,
+      passed
+    });
+  }
+
+  /** Whether a development is split into tickets: the direct and full routes. */
+  function ticketRoute(record: DevelopmentRecord): boolean {
+    return record.route !== "quick";
+  }
+
+  async function requireTicket(
+    projectId: string,
+    developmentId: string,
+    ticketIdValue: unknown
+  ): Promise<{ set: TicketSet; ticket: DevelopmentTicket }> {
+    const ticketId = ticketIdentifier(ticketIdValue);
+    const set = await (await gateway()).tickets(projectId, developmentId);
+    const ticket = set.tickets.find((entry) => entry.ticketId === ticketId);
+    if (!ticket) throw conflict(`需求没有票 ${ticketId}`, "ticket_missing");
+    return { set, ticket };
+  }
+
+  /** A checkout's committed state, read from Git. */
+  async function inspectDirectory(directory: string) {
+    try {
+      const [commit, tree, branch, changes] = await Promise.all([
+        git(directory, ["rev-parse", "HEAD"]),
+        git(directory, ["rev-parse", "HEAD^{tree}"]),
+        git(directory, ["rev-parse", "--abbrev-ref", "HEAD"]),
+        git(directory, ["status", "--porcelain"])
+      ]);
+      return { commit, tree, branch, workspace: directory, changes };
+    } catch (error) {
+      throw conflict(
+        `无法读取现场 ${directory}：${error instanceof Error ? error.message : String(error)}`,
+        "review_site_unavailable"
+      );
+    }
+  }
+
+  /**
+   * Freeze one ticket's own checkout for review.
+   *
+   * The candidate is the Executor's committed work, not the requirement
+   * checkout, so each ticket is reviewed on its own; the files it changed since
+   * it forked must all be inside the ticket's scope.
+   */
+  async function startTicketReview(
+    projectId: string,
+    taskId: string | undefined,
+    record: DevelopmentRecord,
+    input: Record<string, unknown>
+  ): Promise<DevelopmentReview> {
+    const service = await gateway();
+    const developmentId = record.developmentId;
+    const { ticket } = await requireTicket(projectId, developmentId, input.ticketId);
+    if (!ticket.work) throw conflict(`票 ${ticket.ticketId} 还没有派给 Executor`, "ticket_not_started");
+    if (ticket.state !== "in_progress" && ticket.state !== "rework")
+      throw conflict(`票 ${ticket.ticketId} 现在不能送审`, "ticket_state_conflict");
+    const fact = await requireCall(taskId, ticket.work.callId);
+    if (fact.status !== "completed")
+      throw conflict(
+        `票 ${ticket.ticketId} 的 Executor ${fact.callId} 还没有完成（${fact.status}）`,
+        "ticket_work_running"
+      );
+    const current = await inspectDirectory(ticket.work.workspace);
+    if (current.changes)
+      throw conflict("票的现场有未提交改动；让 Executor 提交后再冻结", "review_candidate_dirty");
+    const integration = await inspectWorkspace(record);
+    const base = await git(record.workspace!.directory, ["merge-base", integration.commit, current.commit]);
+    const changed = (
+      await git(record.workspace!.directory, ["diff", "--name-only", `${base}..${current.commit}`])
+    )
+      .split("\n")
+      .filter(Boolean);
+    if (!changed.length) throw conflict(`票 ${ticket.ticketId} 的现场没有新提交`, "ticket_no_changes");
+    const outside = ticket.scope.length ? outsideScope(ticket.scope, changed) : [];
+    if (outside.length)
+      throw conflict(
+        `票 ${ticket.ticketId} 改动了范围以外的文件：${outside.slice(0, 20).join("、")}。让 Executor 撤回这些改动，或经用户确认用 revise_ticket 扩大范围`,
+        "ticket_scope_exceeded"
+      );
+    let previous: DevelopmentReview | undefined;
+    if (input.previousReviewId !== undefined) {
+      previous = await service.getReview(
+        projectId,
+        developmentIdentifier(input.previousReviewId, "上一次审查 ID")
+      );
+      if (!ticket.reviewIds.includes(previous.reviewId))
+        throw conflict("上一次审查不是这张票的审查", "review_previous_mismatch");
+      if (previous.state === "in_review")
+        throw conflict("上一次审查还没有结束，不能开始复审", "review_previous_open");
+      if (previous.candidate.commit === current.commit)
+        throw conflict("候选没有变化；复审需要新的候选提交", "review_candidate_unchanged");
+    }
+    const review = await service.createReview(projectId, developmentId, {
+      kind: "independent",
+      candidate: {
+        commit: current.commit,
+        tree: current.tree,
+        branch: current.branch,
+        workspace: current.workspace
+      },
+      author: {
+        role: "executor",
+        callId: fact.callId,
+        agentId: fact.agentId,
+        workspace: ticket.work.workspace
+      },
+      ...(previous
+        ? {
+            previousReviewId: previous.reviewId,
+            previousCandidateCommit: previous.candidate.commit,
+            changedPaths: changed.slice(0, 200)
+          }
+        : {})
+    });
+    await service.writeTickets(projectId, developmentId, {
+      op: "review",
+      ticketId: ticket.ticketId,
+      reviewId: review.reviewId
+    });
+    return review;
+  }
+
+  /**
+   * Bring a ticket's reviewed commit into the requirement checkout.
+   *
+   * The program merges it, then runs the project's checks and the ticket's
+   * acceptance commands there. A conflict or a failing check leaves the
+   * checkout as it was, so a later ticket never builds on a broken version.
+   */
+  async function integrateTicket(projectId: string, input: Record<string, unknown>) {
+    const developmentId = developmentIdentifier(input.developmentId, "开发记录 ID");
+    const record = await reviewDevelopment(projectId, developmentId);
+    const service = await gateway();
+    const { ticket } = await requireTicket(projectId, developmentId, input.ticketId);
+    if (ticket.state !== "passed")
+      throw conflict(`票 ${ticket.ticketId} 还没有通过审查`, "ticket_state_conflict");
+    const review = await service.getReview(projectId, ticket.reviewIds.at(-1)!);
+    const item = await inspectDirectory(ticket.work!.workspace);
+    if (item.commit !== review.candidate.commit || item.tree !== review.candidate.tree)
+      throw conflict(
+        `票 ${ticket.ticketId} 的现场在审查后又有变化；须对新提交重新审查`,
+        "ticket_candidate_changed"
+      );
+    const directory = record.workspace!.directory;
+    const before = await inspectWorkspace(record);
+    if (before.changes) throw conflict("需求现场有未提交改动；先提交或清理", "review_candidate_dirty");
+    const checks = [
+      ...(input.checks === undefined ? [] : mergeCheckCommands(input.checks)),
+      ...ticket.criteria.flatMap((criterion) =>
+        "command" in criterion.check
+          ? [{ name: `${ticket.ticketId} ${criterion.criterionId}`, command: criterion.check.command }]
+          : []
+      )
+    ];
+    if (!checks.length)
+      throw conflict("并进需求现场须至少有一项检查：传入项目检查命令", "merge_checks_missing");
+    try {
+      await git(directory, [
+        "merge",
+        "--no-ff",
+        "-m",
+        `Merge ticket ${ticket.ticketId}: ${ticket.title}`,
+        item.commit
+      ]);
+    } catch (error) {
+      const paths = await git(directory, ["diff", "--name-only", "--diff-filter=U"])
+        .then((listing) => listing.split("\n").filter(Boolean))
+        // eslint-disable-next-line no-restricted-syntax -- 冲突文件列表读不到时仍按合并失败处理，原始 git 错误随后报告
+        .catch(() => [] as string[]);
+      // eslint-disable-next-line no-restricted-syntax -- 合并已失败，可能没有可中止的合并；中止失败不改变下面的拒绝结果
+      await git(directory, ["merge", "--abort"]).catch(() => undefined);
+      throw conflict(
+        paths.length
+          ? `票 ${ticket.ticketId} 与需求现场冲突：${paths.join("、")}。让原 Executor 在它的现场合并需求现场的最新提交后重新审查`
+          : `票 ${ticket.ticketId} 无法并进需求现场：${error instanceof Error ? error.message : String(error)}`,
+        "ticket_integration_conflict"
+      );
+    }
+    const results = await runMergeChecks(directory, checks);
+    const failed = results.filter((check) => check.exitCode !== 0);
+    if (failed.length) {
+      // Only the merge just made is undone; the checkout was clean before it.
+      await git(directory, ["reset", "--hard", before.commit]);
+      return {
+        integrated: false,
+        ticketId: ticket.ticketId,
+        developmentId,
+        checks: results,
+        detail: `检查未通过：${failed.map((check) => check.name).join("、")}；需求现场已回到并入前`
+      };
+    }
+    const after = await inspectWorkspace(record);
+    const tickets = await service.writeTickets(projectId, developmentId, {
+      op: "integrate",
+      ticketId: ticket.ticketId,
+      integration: {
+        commit: after.commit,
+        tree: after.tree,
+        itemCommit: item.commit,
+        checks: results.map((check): TicketCheckResult => ({
+          name: check.name,
+          command: check.command,
+          exitCode: check.exitCode ?? 0,
+          output: check.output ?? "",
+          at: check.at ?? now()
+        })),
+        at: now()
+      }
+    });
+    return { integrated: true, developmentId, tickets };
+  }
+
+  /** The tickets a delegation implements: the brief the Executor reads, after its rules are checked. */
+  async function ticketForDispatch(
+    taskId: string,
+    developmentId: string,
+    ticketIdValue: unknown,
+    continuation = false
+  ) {
+    const found = await taskProject(taskId);
+    const record = await (await gateway()).getDevelopment(found.projectId, developmentId, ports.backendId);
+    if (!ticketRoute(record)) throw conflict("quick 路线没有票", "ticket_missing");
+    const { set, ticket } = await requireTicket(found.projectId, developmentId, ticketIdValue);
+    // A continuation keeps the session that already read the brief: a rework
+    // restarts the ticket, a follow-up while it is still running leaves it alone.
+    if (continuation) {
+      if (ticket.state === "rework") return { ticketId: ticket.ticketId, start: true };
+      if (ticket.state === "in_progress") return { ticketId: ticket.ticketId, start: false };
+      throw conflict(`票 ${ticket.ticketId} 现在不需要返修`, "ticket_state_conflict");
+    }
+    if (ticket.state !== "confirmed" && ticket.state !== "rework")
+      throw conflict(
+        ticket.state === "draft"
+          ? `票 ${ticket.ticketId} 还没有经用户确认`
+          : `票 ${ticket.ticketId} 已经在执行或已完成，返修用 continueCallId`,
+        "ticket_state_conflict"
+      );
+    const blocking = ticket.dependsOn.filter(
+      (id) => set.tickets.find((other) => other.ticketId === id)?.state !== "merged"
+    );
+    if (ticket.state === "confirmed" && blocking.length)
+      throw conflict(
+        `票 ${ticket.ticketId} 依赖的票 ${blocking.join("、")} 还没有合入`,
+        "ticket_dependency_pending"
+      );
+    return { ticketId: ticket.ticketId, brief: ticketBrief(ticket), start: true };
+  }
+
+  async function ticketStarted(taskId: string, developmentId: string, ticketId: string, work: TicketWork) {
+    const found = await taskProject(taskId);
+    await (await gateway()).writeTickets(found.projectId, developmentId, { op: "start", ticketId, work });
   }
 
   /**
@@ -542,6 +820,12 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
   ): Promise<DevelopmentReview> {
     const developmentId = developmentIdentifier(input.developmentId, "开发记录 ID");
     const record = await reviewDevelopment(projectId, developmentId);
+    if (input.ticketId !== undefined) return startTicketReview(projectId, taskId, record, input);
+    if (ticketRoute(record))
+      throw conflict(
+        `${record.route} 路线按票审查：freeze_candidate 须带 ticketId，审查票自己的现场`,
+        "ticket_required"
+      );
     const kind = reviewKind(input.kind);
     const service = await gateway();
     const plan = await service.reviewPlan(projectId, developmentId);
@@ -903,11 +1187,13 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
     }
     if (input.verdict === "passed" && review.previousReviewId)
       await settleLinkedFindings(projectId, review, service);
-    return service.updateReview(projectId, reviewId, {
+    const completed = await service.updateReview(projectId, reviewId, {
       expectedRevision: review.revision,
       state: input.verdict === "passed" ? "passed" : "failed",
       verdict
     });
+    await ticketVerdict(projectId, completed, input.verdict === "passed");
+    return completed;
   }
 
   async function deliveryQualification(
@@ -934,15 +1220,30 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
       reasons: []
     };
     const reasons: string[] = [];
-    if (!plan) reasons.push("review_plan_missing");
     const latest = reviews.at(-1);
-    if (plan?.channel === "self") {
+    if (ticketRoute(record)) {
+      // Each ticket was reviewed on its own checkout and brought in by the
+      // program; the version to deliver is the last one it produced.
+      const { tickets } = await service.tickets(projectId, developmentId);
+      if (!tickets.length) reasons.push("tickets_missing");
+      if (tickets.some((ticket) => ticket.state !== "merged")) reasons.push("tickets_pending");
+      const last = tickets
+        .flatMap((ticket) => (ticket.integration ? [ticket.integration] : []))
+        .sort((a, b) => a.at.localeCompare(b.at))
+        .at(-1);
+      qualification.channel = "independent";
+      qualification.independentReview = tickets.length > 0;
+      if (last && (last.commit !== current.commit || last.tree !== current.tree))
+        reasons.push("candidate_changed");
+      else if (last && !reasons.length) qualification.approved = qualification.candidate;
+    } else if (!plan) reasons.push("review_plan_missing");
+    else if (plan.channel === "self") {
       const aligned = plan.candidate.commit === current.commit && plan.candidate.tree === current.tree;
       if (!aligned) reasons.push("self_check_stale");
       if (reviews.length > 0) reasons.push("review_started");
       if (plan.checks.length === 0) reasons.push("review_checks_missing");
       if (aligned && reviews.length === 0) qualification.approved = plan.candidate;
-    } else if (plan) {
+    } else {
       if (!latest) reasons.push("review_missing");
       else {
         qualification.reviewId = latest.reviewId;
@@ -1055,6 +1356,15 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
     projectId: string,
     developmentId: string
   ): Promise<MergeCheck[]> {
+    const { tickets } = await service.tickets(projectId, developmentId);
+    if (tickets.length) {
+      // The checks that passed when each ticket was brought in, once each.
+      const seen = new Set<string>();
+      return tickets
+        .flatMap((ticket) => ticket.integration?.checks ?? [])
+        .filter((check) => !seen.has(check.command) && Boolean(seen.add(check.command)))
+        .map((check) => ({ name: check.name, command: check.command }));
+    }
     const plan = await service.reviewPlan(projectId, developmentId);
     const reviews = await service.queryReviews(projectId, developmentId);
     const commands = (checks: { name: string; command?: string }[]): MergeCheck[] =>
@@ -1079,7 +1389,20 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
     const plan = await service.reviewPlan(projectId, merge.developmentId);
     const reviews = await service.queryReviews(projectId, merge.developmentId);
     const reasons: string[] = [];
-    if (merge.acceptance.channel === "self") {
+    if (merge.acceptance.tickets) {
+      const { tickets } = await service.tickets(projectId, merge.developmentId);
+      if (!tickets.length || tickets.some((ticket) => ticket.state !== "merged"))
+        reasons.push("tickets_pending");
+      const last = tickets
+        .flatMap((ticket) => (ticket.integration ? [ticket.integration] : []))
+        .sort((a, b) => a.at.localeCompare(b.at))
+        .at(-1);
+      if (last?.commit !== merge.candidate.commit) reasons.push("candidate_changed");
+      const unresolved = reviews
+        .flatMap((entry) => entry.findings)
+        .filter((finding) => finding.state === "open" || finding.state === "fix_claimed");
+      if (unresolved.length) reasons.push("findings_open");
+    } else if (merge.acceptance.channel === "self") {
       if (!plan || plan.channel !== "self") reasons.push("review_plan_missing");
       else {
         if (plan.candidate.commit !== merge.candidate.commit || plan.candidate.tree !== merge.candidate.tree)
@@ -1135,7 +1458,8 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
       channel: qualification.channel,
       approvedCommit: qualification.approved.commit,
       approvedTree: qualification.approved.tree,
-      ...(qualification.reviewId ? { reviewId: qualification.reviewId } : {})
+      ...(qualification.reviewId ? { reviewId: qualification.reviewId } : {}),
+      ...(ticketRoute(await reviewDevelopment(projectId, developmentId)) ? { tickets: true as const } : {})
     };
     const existing = await service.queryMerges(projectId, developmentId);
     const open = existing.find(
@@ -2056,6 +2380,29 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
       };
     },
 
+    /**
+     * The candidate a Reviewer examines. Several tickets can be in review at
+     * once, so a dispatch then names the review instead of getting the latest.
+     */
+    async frozenCandidateForTask(taskId: string, developmentId: string, reviewId?: string) {
+      const site = await this.dispatchSiteForTask(taskId, developmentId);
+      const found = await taskProject(taskId);
+      const open = (await (await gateway()).queryReviews(found.projectId, developmentId)).filter(
+        (review) => review.state === "in_review"
+      );
+      if (reviewId) {
+        const named = open.find((review) => review.reviewId === reviewId);
+        if (!named) throw conflict(`审查 ${reviewId} 不是这个需求里正在进行的审查`, "review_not_frozen");
+        return { repository: site.directory, commit: named.candidate.commit };
+      }
+      if (open.length > 1)
+        throw conflict(
+          `有 ${open.length} 份候选在审查中（${open.map((review) => review.reviewId).join("、")}）；派 Reviewer 时用 reviewId 指明审查哪一份`,
+          "review_ambiguous"
+        );
+      return site.candidate;
+    },
+
     async find(
       projectId: string,
       requirementId: unknown,
@@ -2263,6 +2610,18 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
       const found = await taskProject(taskId);
       return (await gateway()).writeTickets(found.projectId, developmentId, write);
     },
+
+    async integrateTicket(projectId: string, input: Record<string, unknown>) {
+      return integrateTicket(projectId, input);
+    },
+
+    async integrateTicketForTask(taskId: string, input: Record<string, unknown>) {
+      const found = await taskProject(taskId);
+      return integrateTicket(found.projectId, input);
+    },
+
+    ticketForDispatch,
+    ticketStarted,
 
     async next(projectId: string, developmentId: string) {
       await project(projectId);
