@@ -11,7 +11,7 @@ import type { SqlDatabase } from "./database.js";
  * Date/time values are ISO text and booleans are integers so one business query
  * serves both engines.
  */
-export const PROJECT_DATA_SCHEMA_VERSION = 7;
+export const PROJECT_DATA_SCHEMA_VERSION = 8;
 
 const PROJECT_DATA_SCHEMA: readonly string[] = [
   `CREATE TABLE IF NOT EXISTS project_data_projects (
@@ -239,6 +239,20 @@ const PROJECT_DATA_SCHEMA: readonly string[] = [
      candidate_tree TEXT NOT NULL,
      candidate_branch TEXT NOT NULL,
      candidate_workspace TEXT NOT NULL,
+     revision INTEGER NOT NULL,
+     created_at TEXT NOT NULL,
+     updated_at TEXT NOT NULL,
+     PRIMARY KEY (project_id, development_id),
+     FOREIGN KEY (project_id, development_id)
+       REFERENCES project_data_developments(project_id, development_id) ON DELETE CASCADE
+   )`,
+  // A requirement's tickets as one set: one revision covers a proposal, a
+  // confirmation or a ticket revision, and the dependency graph is checked
+  // against the whole set it lives in.
+  `CREATE TABLE IF NOT EXISTS project_data_development_tickets (
+     project_id TEXT NOT NULL,
+     development_id TEXT NOT NULL,
+     tickets TEXT NOT NULL,
      revision INTEGER NOT NULL,
      created_at TEXT NOT NULL,
      updated_at TEXT NOT NULL,

@@ -33,6 +33,19 @@ export interface AgentProposal {
   definition: AgentDefinition;
 }
 
+/** Tickets Main wants frozen, or a change to a frozen ticket; see the project_development tool. */
+export interface TicketsProposal {
+  kind: "tickets";
+  action: "propose" | "revise";
+  developmentId: string;
+  requirementTitle: string;
+  tickets: Record<string, unknown>[];
+  previous?: Record<string, unknown>;
+  reason?: string;
+}
+
+export type HumanProposal = AgentProposal | TicketsProposal;
+
 export interface HumanRequest {
   requestId: string;
   taskId: string;
@@ -57,7 +70,7 @@ export interface HumanRequest {
   /** Records the replacement Run and the unresolved state to restore on edit rollback. */
   superseded?: { runId: string; status: "pending" | "unanswered" };
   /** What the answer approves, when the question is a confirmation of a change. */
-  proposal?: AgentProposal;
+  proposal?: HumanProposal;
 }
 
 /**

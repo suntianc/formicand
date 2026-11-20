@@ -1,0 +1,402 @@
+import { ProjectDataConflictError, ProjectDataInvalidError, ledgerRevision } from "./project-ledger.js";
+import type { DevelopmentRoute } from "./project-development.js";
+
+/**
+ * A requirement's tickets: the slices it is split into, each with its own
+ * scope, acceptance criteria and dependencies.
+ *
+ * Main drafts them and the user confirms them on a card; from then on the
+ * acceptance criteria are frozen, and a change is a revision that records the
+ * user's decision and Main's reason. The whole set is one record with one
+ * revision, so a proposal, a confirmation and a revision are each atomic and
+ * the dependency graph is always checked against the set it lives in.
+ */
+export type TicketState =
+  "draft" | "confirmed" | "in_progress" | "in_review" | "passed" | "merged" | "rework";
+
+export const TICKET_STATES: readonly TicketState[] = [
+  "draft",
+  "confirmed",
+  "in_progress",
+  "in_review",
+  "passed",
+  "merged",
+  "rework"
+];
+
+/** How one criterion is checked: a command, or why no command can check it. */
+export type TicketCheck = { command: string } | { manual: string };
+
+export interface TicketCriterion {
+  /** `AC1`, `AC2`… in the order written. */
+  criterionId: string;
+  text: string;
+  check: TicketCheck;
+}
+
+/** One revision of a confirmed ticket: who decided, why, and what it replaced. */
+export interface TicketChange {
+  /** The ticket revision this change produced. */
+  revision: number;
+  /** The user's answer on the confirmation card. */
+  decision: string;
+  reason: string;
+  /** The fields as they were before this change. */
+  previous: Partial<TicketContent>;
+  at: string;
+}
+
+export interface TicketContent {
+  title: string;
+  /** Paths the ticket may change; required on the direct route. */
+  scope: string[];
+  criteria: TicketCriterion[];
+  /** Nearby behaviour that must keep working. */
+  preserve: string[];
+  /** Related changes the user did not ask for. */
+  outOfScope: string[];
+  /** Tickets that must be done first. */
+  dependsOn: string[];
+}
+
+export interface DevelopmentTicket extends TicketContent {
+  ticketId: string;
+  state: TicketState;
+  revision: number;
+  changes: TicketChange[];
+  confirmedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TicketSet {
+  projectId: string;
+  developmentId: string;
+  /** 0 before the first proposal. */
+  revision: number;
+  tickets: DevelopmentTicket[];
+  updatedAt?: string;
+}
+
+/** What a write asks for; `dryRun` returns the result without storing it. */
+export type TicketWrite =
+  | { op: "propose"; tickets: unknown; dryRun?: boolean }
+  | { op: "confirm"; expectedRevision: unknown }
+  | {
+      op: "revise";
+      ticketId: unknown;
+      changes: unknown;
+      reason: unknown;
+      decision?: unknown;
+      expectedRevision: unknown;
+      dryRun?: boolean;
+    };
+
+const MAX_TICKETS = 30;
+const TICKET_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,19}$/;
+const CONTROL = /[\0-\x08\x0b\x0c\x0e-\x1f\x7f]/;
+const CONTENT_FIELDS = ["title", "scope", "criteria", "preserve", "outOfScope", "dependsOn"] as const;
+
+function text(value: unknown, label: string, max: number): string {
+  if (typeof value !== "string") throw new ProjectDataInvalidError(`${label}必须是字符串`);
+  const trimmed = value.trim();
+  if (!trimmed || trimmed.length > max || CONTROL.test(trimmed))
+    throw new ProjectDataInvalidError(`${label}须为 1–${max} 个可打印字符`);
+  return trimmed;
+}
+
+function list(value: unknown, label: string, max: number, itemMax: number): string[] {
+  if (value === undefined || value === null) return [];
+  if (!Array.isArray(value) || value.length > max)
+    throw new ProjectDataInvalidError(`${label}最多 ${max} 条`);
+  return [...new Set(value.map((item) => text(item, label, itemMax)))];
+}
+
+function record(value: unknown, label: string): Record<string, unknown> {
+  if (!value || typeof value !== "object" || Array.isArray(value))
+    throw new ProjectDataInvalidError(`${label}必须是对象`);
+  return value as Record<string, unknown>;
+}
+
+export function ticketIdentifier(value: unknown): string {
+  const id = text(value, "票编号", 20);
+  if (!TICKET_ID.test(id))
+    throw new ProjectDataInvalidError("票编号只能用字母、数字、点、下划线和连字符，如 01");
+  return id;
+}
+
+function scopePaths(value: unknown): string[] {
+  return list(value, "改动范围", 50, 300).map((path) => {
+    if (path.startsWith("/") || path.split("/").includes(".."))
+      throw new ProjectDataInvalidError(`改动范围须为项目内的相对路径：${path}`);
+    return path.replace(/^\.\//, "");
+  });
+}
+
+function criteria(value: unknown): TicketCriterion[] {
+  if (!Array.isArray(value) || value.length === 0 || value.length > 20)
+    throw new ProjectDataInvalidError("验收标准须为 1–20 条");
+  return value.map((item, index) => {
+    const input = record(item, "验收标准");
+    const command = input.command === undefined ? undefined : text(input.command, "检查命令", 4000);
+    const manual = input.manual === undefined ? undefined : text(input.manual, "无法用命令检查的原因", 1000);
+    if ((command === undefined) === (manual === undefined))
+      throw new ProjectDataInvalidError(
+        `验收标准 ${index + 1} 须写明检查方式：一条 command，或说明无法用命令检查的 manual，二选一`
+      );
+    return {
+      criterionId: `AC${index + 1}`,
+      text: text(input.text, "验收标准", 1000),
+      check: command === undefined ? { manual: manual! } : { command }
+    };
+  });
+}
+
+function content(value: unknown, base?: TicketContent): TicketContent {
+  const input = record(value, "票");
+  const has = (field: string) => input[field] !== undefined;
+  return {
+    title: has("title") || !base ? text(input.title, "票标题", 200) : base.title,
+    scope: has("scope") || !base ? scopePaths(input.scope) : base.scope,
+    criteria: has("criteria") || !base ? criteria(input.criteria) : base.criteria,
+    preserve: has("preserve") || !base ? list(input.preserve, "保留不变", 20, 1000) : base.preserve,
+    outOfScope: has("outOfScope") || !base ? list(input.outOfScope, "本次不做", 20, 1000) : base.outOfScope,
+    dependsOn:
+      has("dependsOn") || !base ? list(input.dependsOn, "依赖", 20, 20).map(ticketIdentifier) : base.dependsOn
+  };
+}
+
+/** Route, dependency and size rules that hold for every stored set. */
+export function checkTicketSet(tickets: DevelopmentTicket[], route: DevelopmentRoute): void {
+  if (route === "quick" && tickets.length)
+    throw new ProjectDataInvalidError("quick 路线不建票；需要票时先把路线改为 direct 或 full");
+  if (tickets.length > MAX_TICKETS) throw new ProjectDataInvalidError(`一个需求最多 ${MAX_TICKETS} 张票`);
+  if (route === "direct") {
+    if (tickets.length > 1) throw new ProjectDataInvalidError("direct 路线只有一张票；需要多张票时改为 full");
+    if (tickets.some((ticket) => !ticket.scope.length))
+      throw new ProjectDataInvalidError("direct 路线的票必须写明改动范围");
+  }
+  const byId = new Map(tickets.map((ticket) => [ticket.ticketId, ticket]));
+  for (const ticket of tickets)
+    for (const dependency of ticket.dependsOn) {
+      if (dependency === ticket.ticketId)
+        throw new ProjectDataInvalidError(`票 ${ticket.ticketId} 不能依赖自己`);
+      if (!byId.has(dependency))
+        throw new ProjectDataInvalidError(`票 ${ticket.ticketId} 依赖的票 ${dependency} 不存在`);
+    }
+  const visiting = new Set<string>();
+  const done = new Set<string>();
+  const visit = (id: string, path: string[]) => {
+    if (done.has(id)) return;
+    if (visiting.has(id)) throw new ProjectDataInvalidError(`票的依赖成环：${[...path, id].join(" → ")}`);
+    visiting.add(id);
+    for (const next of byId.get(id)!.dependsOn) visit(next, [...path, id]);
+    visiting.delete(id);
+    done.add(id);
+  };
+  for (const ticket of tickets) visit(ticket.ticketId, []);
+}
+
+function conflict(message: string, set: TicketSet): ProjectDataConflictError {
+  return new ProjectDataConflictError(message, set.revision, "ticket_revision_conflict");
+}
+
+/**
+ * Apply one write to a set and return the new set, or refuse it.
+ *
+ * A proposal replaces every unconfirmed draft and leaves confirmed tickets
+ * alone; a confirmation freezes exactly the drafts the user saw, which is why
+ * it names the revision the card showed; a revision changes one confirmed
+ * ticket and records what it replaced.
+ */
+export function applyTicketWrite(
+  set: TicketSet,
+  write: TicketWrite,
+  route: DevelopmentRoute,
+  at: string
+): TicketSet {
+  if (write.op === "propose") {
+    if (!Array.isArray(write.tickets) || write.tickets.length === 0)
+      throw new ProjectDataInvalidError("propose 需要至少一张票");
+    const kept = set.tickets.filter((ticket) => ticket.state !== "draft");
+    const keptIds = new Set(kept.map((ticket) => ticket.ticketId));
+    const seen = new Set<string>();
+    const drafts = write.tickets.map((item): DevelopmentTicket => {
+      const ticketId = ticketIdentifier(record(item, "票").ticketId);
+      if (keptIds.has(ticketId))
+        throw new ProjectDataInvalidError(`票 ${ticketId} 已经确认；修改已确认的票用 revise_ticket`);
+      if (seen.has(ticketId)) throw new ProjectDataInvalidError(`票编号 ${ticketId} 重复`);
+      seen.add(ticketId);
+      const previous = set.tickets.find((ticket) => ticket.ticketId === ticketId);
+      return {
+        ticketId,
+        ...content(item),
+        state: "draft",
+        revision: 1,
+        changes: [],
+        createdAt: previous?.createdAt ?? at,
+        updatedAt: at
+      };
+    });
+    const tickets = [...kept, ...drafts];
+    checkTicketSet(tickets, route);
+    return { ...set, revision: set.revision + 1, tickets, updatedAt: at };
+  }
+  const expected = ledgerRevision(write.expectedRevision);
+  if (expected !== set.revision) throw conflict("票已更新，请基于最新修订重试", set);
+  if (write.op === "confirm") {
+    if (!set.tickets.some((ticket) => ticket.state === "draft"))
+      throw new ProjectDataInvalidError("没有待确认的票");
+    checkTicketSet(set.tickets, route);
+    return {
+      ...set,
+      revision: set.revision + 1,
+      tickets: set.tickets.map((ticket) =>
+        ticket.state === "draft" ? { ...ticket, state: "confirmed", confirmedAt: at, updatedAt: at } : ticket
+      ),
+      updatedAt: at
+    };
+  }
+  const ticketId = ticketIdentifier(write.ticketId);
+  const current = set.tickets.find((ticket) => ticket.ticketId === ticketId);
+  if (!current) throw new ProjectDataInvalidError(`没有票 ${ticketId}`);
+  if (current.state === "draft")
+    throw new ProjectDataInvalidError(`票 ${ticketId} 还是草稿；直接重新 propose_tickets`);
+  if (current.state === "merged")
+    throw new ProjectDataInvalidError(`票 ${ticketId} 已合入；后续缺陷开一张新的修复票`);
+  const reason = text(write.reason, "修改理由", 2000);
+  const patch = record(write.changes, "修改内容");
+  if ("ticketId" in patch || "state" in patch)
+    throw new ProjectDataInvalidError("修改内容不能改票编号或状态");
+  const next = content(patch, current);
+  const changed = CONTENT_FIELDS.filter(
+    (field) => JSON.stringify(next[field]) !== JSON.stringify(current[field])
+  );
+  if (!changed.length) throw new ProjectDataInvalidError("修改内容与当前票相同");
+  const decision = write.dryRun ? "" : text(write.decision, "用户的决定", 2000);
+  const revised: DevelopmentTicket = {
+    ...current,
+    ...next,
+    revision: current.revision + 1,
+    changes: [
+      ...current.changes,
+      {
+        revision: current.revision + 1,
+        decision,
+        reason,
+        previous: Object.fromEntries(changed.map((field) => [field, current[field]])),
+        at
+      }
+    ],
+    updatedAt: at
+  };
+  const tickets = set.tickets.map((ticket) => (ticket.ticketId === ticketId ? revised : ticket));
+  checkTicketSet(tickets, route);
+  return { ...set, revision: set.revision + 1, tickets, updatedAt: at };
+}
+
+/** Read back a stored ticket list; a malformed row is corruption, not input. */
+export function storedTickets(value: unknown): DevelopmentTicket[] {
+  if (!Array.isArray(value)) throw new ProjectDataInvalidError("票记录已损坏");
+  return value.map((item) => {
+    const input = record(item, "票记录");
+    const state = input.state;
+    if (typeof state !== "string" || !TICKET_STATES.includes(state as TicketState))
+      throw new ProjectDataInvalidError("票记录已损坏");
+    return {
+      ticketId: ticketIdentifier(input.ticketId),
+      ...content({
+        ...input,
+        criteria: (Array.isArray(input.criteria) ? input.criteria : []).map((criterion) => {
+          const entry = record(criterion, "验收标准");
+          return { text: entry.text, ...record(entry.check, "检查方式") };
+        })
+      }),
+      state: state as TicketState,
+      revision: ledgerRevision(input.revision),
+      changes: Array.isArray(input.changes) ? (input.changes as TicketChange[]) : [],
+      ...(typeof input.confirmedAt === "string" ? { confirmedAt: input.confirmedAt } : {}),
+      createdAt: String(input.createdAt),
+      updatedAt: String(input.updatedAt)
+    };
+  });
+}
+
+/** A ticket's dependencies are all merged, so it can start. */
+export function ticketReady(ticket: DevelopmentTicket, tickets: DevelopmentTicket[]): boolean {
+  return ticket.dependsOn.every((id) => tickets.find((other) => other.ticketId === id)?.state === "merged");
+}
+
+/** A write as a request body carries it; only the fields of its operation pass. */
+export function ticketWrite(value: unknown): TicketWrite {
+  const input = record(value, "票操作");
+  const dryRun = input.dryRun === true;
+  if (input.op === "propose") return { op: "propose", tickets: input.tickets, dryRun };
+  if (input.op === "confirm") return { op: "confirm", expectedRevision: input.expectedRevision };
+  if (input.op === "revise")
+    return {
+      op: "revise",
+      ticketId: input.ticketId,
+      changes: input.changes,
+      reason: input.reason,
+      decision: input.decision,
+      expectedRevision: input.expectedRevision,
+      dryRun
+    };
+  throw new ProjectDataInvalidError("票操作须为 propose / confirm / revise");
+}
+
+/** The facts the next step is worked out from; each comes from a stored record. */
+export interface NextStepFacts {
+  route: DevelopmentRoute;
+  workspaceReady: boolean;
+  tickets: DevelopmentTicket[];
+  qualification?: { eligible: boolean; reasons: string[] };
+  review?: { reviewId: string; state: string; reviewer: boolean };
+  merge?: { mergeId: string; state: string; detail?: string; mergeCommit?: string };
+  delivery?: { state: string };
+}
+
+const ids = (tickets: DevelopmentTicket[]) => tickets.map((ticket) => ticket.ticketId).join(", ");
+
+/**
+ * What Main should do next, worked out from the records rather than taught by
+ * the prompt. Every `project_development` result carries it.
+ */
+export function developmentNext(facts: NextStepFacts): string {
+  const { merge, review, qualification, tickets } = facts;
+  if (merge?.state === "merged")
+    return facts.delivery?.state === "synced"
+      ? `Merged as ${merge.mergeCommit ?? "the recorded commit"} and delivered. Report the result to the user.`
+      : "Merged; the delivery record is syncing by itself. Report the result; delivery_status shows the sync.";
+  if (merge?.state === "waiting" || merge?.state === "applying")
+    return `Merge ${merge.mergeId} is ${merge.state}. Read merge_status; do not request it again.`;
+  if (!facts.workspaceReady) return "Run ensure_workspace to prepare the requirement checkout.";
+  if (facts.route !== "quick") {
+    if (!tickets.length)
+      return facts.route === "direct"
+        ? "Propose the ticket with propose_tickets (one ticket, with its scope) and wait for the user's confirmation."
+        : "Propose the tickets with propose_tickets and wait for the user's confirmation.";
+    const drafts = tickets.filter((ticket) => ticket.state === "draft");
+    if (drafts.length)
+      return `Tickets ${ids(drafts)} are drafts the user has not confirmed. Revise them from the user's answer and propose_tickets again.`;
+  }
+  const failed = merge && !["waiting", "applying", "merged"].includes(merge.state);
+  const mergeNote = failed
+    ? `Merge ${merge.mergeId} ended ${merge.state}${merge.detail ? `: ${merge.detail}` : ""}. `
+    : "";
+  if (qualification?.eligible) return `${mergeNote}The candidate qualifies: request_merge.`;
+  if (review?.state === "in_review")
+    return review.reviewer
+      ? `Review ${review.reviewId} is in progress: record the Reviewer's findings, rule them, then complete_review.`
+      : `Review ${review.reviewId} is frozen: delegate the Reviewer with role=reviewer, then attach_reviewer.`;
+  if (review?.state === "failed" || review?.state === "drifted")
+    return `${mergeNote}Review ${review.reviewId} ${review.state}: rule its findings, rework through the original Executor (continueCallId), then freeze_candidate with previousReviewId.`;
+  const reasons = qualification?.reasons ?? [];
+  const work =
+    facts.route === "quick"
+      ? "Make the change in the checkout, run its checks, then record review_plan channel=self."
+      : `Work on the confirmed tickets (${ids(tickets)}), bring the results into the checkout, then review_plan and freeze_candidate.`;
+  if (reasons.includes("review_plan_missing")) return `${mergeNote}${work}`;
+  return `${mergeNote}Not yet qualified (${reasons.join(", ") || "unknown"}). ${work}`;
+}

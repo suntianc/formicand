@@ -35,6 +35,7 @@ import type {
 import { DevelopmentExistsError } from "../domain/project-development.js";
 import type { DevelopmentRecord, MergeConfig } from "../domain/project-development.js";
 import type { DevelopmentReview, ReviewPlan } from "../domain/development-review.js";
+import type { TicketSet, TicketWrite } from "../domain/development-ticket.js";
 import type { DevelopmentMerge, MergeCreate } from "../domain/development-merge.js";
 import type { DevelopmentDelivery } from "../domain/development-delivery.js";
 import type { MainSessionRun } from "../domain/main-session.js";
@@ -441,6 +442,20 @@ export class RemoteProjectDataService implements ProjectDataGateway {
       body: { action: "record_workspace", developmentId, workspace }
     });
     return result.development as DevelopmentRecord;
+  }
+
+  async tickets(projectId: unknown, developmentId: unknown): Promise<TicketSet> {
+    const result = await this.request(projectPath(projectId, "/developments"), {
+      body: { action: "tickets", developmentId }
+    });
+    return result.tickets as TicketSet;
+  }
+
+  async writeTickets(projectId: unknown, developmentId: unknown, write: TicketWrite): Promise<TicketSet> {
+    const result = await this.request(projectPath(projectId, "/developments"), {
+      body: { action: "write_tickets", developmentId, ...write }
+    });
+    return result.tickets as TicketSet;
   }
 
   /**

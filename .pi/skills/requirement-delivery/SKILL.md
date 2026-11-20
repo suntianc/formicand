@@ -12,6 +12,7 @@ All steps use `project_development` unless another tool is named.
 - Look the requirement up with `find_by_requirement` first; one record exists per requirement. `create` records the goal, the completion criteria, the route (`quick`, `direct` or `full`) and the code baseline, and prepares an isolated Git checkout. The user's own working tree is never changed.
 - `ensure_workspace` continues or repairs that checkout at its recorded baseline. Retries and recovery reuse it; never delete or reset it.
 - `update` appends a revision and carries the revision you last read.
+- On the `direct` and `full` routes, `propose_tickets` records the tickets: scope, acceptance criteria with a check command each, what must keep working, what is not part of this change, and dependencies. The user confirms them on a card; after that `revise_ticket` changes one only with the user's confirmation.
 
 ## Doing the work
 
