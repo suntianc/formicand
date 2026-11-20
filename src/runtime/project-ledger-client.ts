@@ -15,20 +15,21 @@ export interface ProjectLedgerClientError extends Error {
 export interface ProjectLedgerClient {
   request(input: Record<string, unknown>): Promise<Record<string, unknown>>;
   board(input?: Record<string, unknown>, method?: "GET" | "POST"): Promise<Record<string, unknown>>;
+  memory(input?: Record<string, unknown>, method?: "GET" | "POST"): Promise<Record<string, unknown>>;
 }
 
 const TASK_ID = /^[A-Za-z0-9._-]+$/;
 const TIMEOUT_MS = 10_000;
 
-function loopback(dashboardUrl: string): string {
+function loopback(dashboardUrl: string, label: string): string {
   let url: URL;
   try {
     url = new URL(dashboardUrl);
   } catch {
-    throw new Error("项目台账工具不可用：本地服务地址无效");
+    throw new Error(`${label}不可用：本地服务地址无效`);
   }
   if (url.protocol !== "http:" || !["127.0.0.1", "localhost", "[::1]"].includes(url.hostname))
-    throw new Error("项目台账工具不可用：本地服务地址不是回环 HTTP 地址");
+    throw new Error(`${label}不可用：本地服务地址不是回环 HTTP 地址`);
   return url.origin;
 }
 
@@ -43,11 +44,14 @@ export function createProjectLedgerClient(options: {
   dashboardUrl: string;
   taskId: string;
   token?: string;
+  /** Names the tool in errors; the same Task-scoped bridge serves the ledger and memory. */
+  label?: string;
 }): ProjectLedgerClient {
-  const origin = loopback(options.dashboardUrl);
-  if (!TASK_ID.test(options.taskId)) throw new Error("项目台账工具不可用：当前会话 ID 不合法");
+  const label = options.label ?? "项目台账工具";
+  const origin = loopback(options.dashboardUrl, label);
+  if (!TASK_ID.test(options.taskId)) throw new Error(`${label}不可用：当前会话 ID 不合法`);
   const token = options.token ?? process.env.COWORK_API_TOKEN;
-  if (!token) throw new Error("项目台账工具不可用：本次运行没有本地服务凭据");
+  if (!token) throw new Error(`${label}不可用：本次运行没有本地服务凭据`);
   const taskPath = `/api/tasks/${encodeURIComponent(options.taskId)}`;
   const send = async (
     endpoint: string,
@@ -81,6 +85,7 @@ export function createProjectLedgerClient(options: {
   };
   return {
     request: (input) => send(`${origin}${taskPath}/ledger`, input, "POST"),
-    board: (input, method = "POST") => send(`${origin}${taskPath}/board`, input, method)
+    board: (input, method = "POST") => send(`${origin}${taskPath}/board`, input, method),
+    memory: (input, method = "POST") => send(`${origin}${taskPath}/memory`, input, method)
   };
 }

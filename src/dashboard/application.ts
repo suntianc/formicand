@@ -10,6 +10,7 @@ import { createSkillService } from "./skill-service.js";
 import { createMcpService } from "./mcp-service.js";
 import { createComposerService } from "./composer-service.js";
 import { createAgentService } from "./agent-service.js";
+import { createMemoryService } from "./memory-service.js";
 import { agentLocations, resolveAgent } from "../runtime/agent-definitions.js";
 import { homedir } from "node:os";
 import { spawn } from "node:child_process";
@@ -835,6 +836,11 @@ export function createDashboardApplication(
       userHome: homedir(),
       projectForId: workspaces.projectForId,
       builtins: { config: modelSettings.config, save: modelSettings.saveRole }
+    }),
+    memories: createMemoryService({
+      home: data.home,
+      projectForId: workspaces.projectForId,
+      taskProjectId: async (taskId) => (await workspaces.locateTask(taskId)).projectId
     }),
     composer: createComposerService({
       harnessRoot: projectRoot,
