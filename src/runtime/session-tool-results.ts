@@ -6,7 +6,11 @@ import { atomicWrite } from "../storage/atomic-file.js";
 
 const ARCHIVE_DIRECTORY = "tool-results";
 const ARCHIVE_REFERENCE =
-  /^\[Tool result stored at (tool-results\/[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}\.json)\]/;
+  /^Output too large \(\d+ KB\)\. Full output saved to: (tool-results\/[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}\.json)(?:\n|$)/;
+
+/** The line that stands in for a large result in the model's context. */
+export const archiveNotice = (path: string, kilobytes: number) =>
+  `Output too large (${kilobytes} KB). Full output saved to: ${path}`;
 
 export type ArchivedToolResult = Pick<
   ToolResultEvent,

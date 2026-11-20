@@ -179,8 +179,8 @@ export function buildLiveActivity(events) {
         call.result = prettyValue(source.partialResult);
       }
       if (type === "tool_execution_end") {
-        call.rawResult = source.result;
-        call.result = prettyValue(source.result);
+        call.rawResult = userFacingResult(source.result);
+        call.result = prettyValue(call.rawResult);
         call.completed = true;
         call.failed = toolExecutionFailed(source);
         call.statusLabel = call.failed ? ui("调用失败") : ui("调用完成");
@@ -255,6 +255,23 @@ function recordedToolTime(source, record) {
       if (Number.isFinite(time)) return time;
     }
   }
+}
+
+/**
+ * A large result reaches the model as a preview with where the whole output
+ * was saved; the user sees the output itself, kept beside it in the details.
+ */
+function userFacingResult(result) {
+  const archived = result?.details?.archivedOutput;
+  if (!archived) return result;
+  const { archivedOutput: _archived, ...details } = result.details;
+  const { structuredContent: _structured, details: _details, ...rest } = result;
+  return {
+    ...rest,
+    content: archived.content,
+    ...(archived.structuredContent === undefined ? {} : { structuredContent: archived.structuredContent }),
+    ...(Object.keys(details).length ? { details } : {})
+  };
 }
 
 function prettyValue(value) {

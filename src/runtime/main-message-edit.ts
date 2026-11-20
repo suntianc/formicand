@@ -1,3 +1,4 @@
+import { writeHandoffSummary, type SummaryCompletion } from "./session-summary.js";
 import {
   beginMessageEditTransaction,
   recordMessageEditBranch,
@@ -7,7 +8,13 @@ import { stripReferencesBlock } from "./composer-references.js";
 import { createHash, randomUUID } from "node:crypto";
 import { mkdir, readFile, readdir, rename, stat, writeFile, realpath } from "node:fs/promises";
 import { join, dirname, resolve, basename } from "node:path";
-import { SessionManager, estimateTokens, type SessionEntry } from "@earendil-works/pi-coding-agent";
+import {
+  SessionManager,
+  convertToLlm,
+  estimateTokens,
+  serializeConversation,
+  type SessionEntry
+} from "@earendil-works/pi-coding-agent";
 import { conversationMessages, type ConversationMessage } from "./conversation-view.js";
 import { readTaskRuntimeEvents } from "./conversation-history.js";
 import { mainContextPaths, persistMainSessionContext } from "./main-context.js";
@@ -296,7 +303,9 @@ export async function currentMainSession(root: string, taskId: string) {
 export async function compactStoredMainSession(
   session: SessionManager,
   scope: HandoffScope,
-  contextWindow: number | undefined
+  contextWindow: number | undefined,
+  /** Main's model, which writes the summary; without one the handoff is the records alone. */
+  summarize?: { complete: SummaryCompletion; contextWindow: number }
 ): Promise<boolean> {
   const entries = session.getBranch();
   const file = session.getSessionFile();
@@ -306,11 +315,19 @@ export async function compactStoredMainSession(
     !projection.messages.some((message) => message.role === "user" || message.role === "assistant")
   )
     return false;
+  const summary =
+    summarize &&
+    (await writeHandoffSummary(
+      serializeConversation(convertToLlm(projection.messages)),
+      summarize.contextWindow,
+      summarize.complete
+    ));
   const draft = await sessionHandoff({
     session,
     entries,
     scope,
     contextWindow,
+    summary: summary || undefined,
     reason: "manual",
     firstKeptEntryId: recentContextTail(projection, estimateTokens, contextWindow)
   });

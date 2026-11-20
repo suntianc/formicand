@@ -7,7 +7,11 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import { basename } from "node:path";
 import type { SessionContextUsage } from "../../dist/src/runtime/session-context-usage.js";
-import { archiveToolResult, sessionDataDirectory } from "../../dist/src/runtime/session-tool-results.js";
+import {
+  archiveNotice,
+  archiveToolResult,
+  sessionDataDirectory
+} from "../../dist/src/runtime/session-tool-results.js";
 import { truncateToolText } from "../../dist/src/runtime/tool-output.js";
 import { atomicWrite } from "../../dist/src/storage/atomic-file.js";
 
@@ -17,6 +21,8 @@ const EDIT_THRESHOLD = 0.5;
 const MINIMUM_SAVINGS = 0.1;
 const RECENT_RESULTS = 5;
 const PROTECTED_TOOLS = new Set(["load_skill", "askhuman"]);
+/** What stands in for an old result; the call that produced it stays visible. */
+const CLEARED_RESULT = "[Old tool result content cleared]";
 
 function editsForTurn(event: TurnEndEvent, ctx: ExtensionContext): ContextEditEntryDraft[] {
   const usage = ctx.getContextUsage();
@@ -36,7 +42,7 @@ function editsForTurn(event: TurnEndEvent, ctx: ExtensionContext): ContextEditEn
     const content = [
       {
         type: "text" as const,
-        text: `[${message.toolName} result ${message.toolCallId} cleared. Use read_history with entry ID ${id} to retrieve the original.]`
+        text: CLEARED_RESULT
       }
     ];
     const savings = estimateTokens(message) - estimateTokens({ ...message, content });
@@ -52,7 +58,7 @@ export function registerSessionContext(pi: ExtensionAPI, usagePath?: string): vo
   pi.on("tool_result", async (event, ctx) => {
     // Nested tool calls feed script execution. Their outer result is sized separately.
     if (event.parentToolCallId) return;
-    const { toolName, toolCallId, content, structuredContent, isError } = event;
+    const { toolName, toolCallId, content, structuredContent, isError, details } = event;
     const text = content.flatMap((block) => (block.type === "text" ? [block.text] : [])).join("\n");
     const structuredText = structuredContent === undefined ? "" : JSON.stringify(structuredContent);
     if (Math.max(text.length, structuredText.length) <= LARGE_RESULT_CHARS) return;
@@ -64,14 +70,20 @@ export function registerSessionContext(pi: ExtensionAPI, usagePath?: string): vo
       structuredContent,
       isError
     });
+    const size = Math.ceil(Buffer.byteLength(text || structuredText) / 1024);
     return {
       content: [
         {
           type: "text",
-          text: `[Tool result stored at ${path}]\nUse read_history with this path as id.\n${truncateToolText(text || structuredText, RESULT_PREVIEW_CHARS)}`
+          text: `${archiveNotice(path, size)}\n\nPreview:\n${truncateToolText(text || structuredText, RESULT_PREVIEW_CHARS)}`
         },
         ...content.filter((block) => block.type === "image")
-      ]
+      ],
+      // The conversation view shows the user the result itself; only the model sees the preview.
+      details: {
+        ...(details && typeof details === "object" ? details : {}),
+        archivedOutput: { content, structuredContent }
+      }
     };
   });
   pi.on("turn_end", (event, ctx) => {

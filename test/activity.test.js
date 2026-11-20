@@ -489,3 +489,22 @@ test("structured tool results and actual event boundaries survive display projec
   assert.equal(turn.calls[1].durationMs, undefined);
   assert.equal(turn.calls[1].startedAt, undefined);
 });
+
+test("an archived large result shows the user its original output, not the model's preview", () => {
+  const original = [{ type: "text", text: "FULL OUTPUT " + "x".repeat(30_000) }];
+  const [turn] = buildLiveActivity([
+    { type: "tool_execution_start", toolCallId: "big", toolName: "read", args: { path: "big.log" } },
+    {
+      type: "tool_execution_end",
+      toolCallId: "big",
+      toolName: "read",
+      result: {
+        content: [{ type: "text", text: "Output too large (30 KB). Full output saved to: tool-results/a.json" }],
+        details: { lines: 3, archivedOutput: { content: original } }
+      }
+    }
+  ]);
+  const [call] = turn.calls;
+  assert.deepEqual(call.rawResult, { content: original, details: { lines: 3 } });
+  assert.doesNotMatch(call.result, /Output too large|archivedOutput/);
+});

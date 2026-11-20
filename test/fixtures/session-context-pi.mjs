@@ -20,7 +20,21 @@ export const providerText = (body) =>
     )
     .join("\n");
 
-export async function sessionContextFixture(t, handle, { contextWindow = 64000, compaction } = {}) {
+/** The summary a fixture model writes when a window changes, unless a test supplies its own. */
+export const FIXTURE_SUMMARY = "FIXTURE_SUMMARY: the earlier window's work.";
+
+const isSummaryRequest = (body) =>
+  !body.tools?.length && /handoff summary for an agent/.test(JSON.stringify(body.messages[0] ?? ""));
+
+export async function sessionContextFixture(
+  t,
+  handle,
+  {
+    contextWindow = 64000,
+    compaction,
+    summarize = () => ({ text: `<analysis>notes</analysis><summary>${FIXTURE_SUMMARY}</summary>` })
+  } = {}
+) {
   const root = await mkdtemp(join(tmpdir(), "p49-context-"));
   const workspace = join(root, "workspace");
   const project = join(root, "project");
@@ -28,15 +42,22 @@ export async function sessionContextFixture(t, handle, { contextWindow = 64000, 
   const taskId = "context-task";
   const runId = "context-run";
   const requests = [];
+  const summaries = [];
   const failures = [];
   let child, childExit;
   const server = createServer(async (req, res) => {
     try {
       assert.equal(req.url, "/v1/chat/completions");
       const body = JSON.parse(await readFixtureRequestBody(req));
-      requests.push(body);
-      const sequence = requests.length;
-      const { usage = 1000, error, ...reply } = await handle(body, sequence);
+      // Summary requests are counted apart, so each test's steps are its agent's turns.
+      const summary = isSummaryRequest(body);
+      (summary ? summaries : requests).push(body);
+      const sequence = summary ? summaries.length : requests.length;
+      const {
+        usage = 1000,
+        error,
+        ...reply
+      } = summary ? await summarize(body, sequence) : await handle(body, sequence);
       if (error) {
         res.writeHead(400, { "content-type": "application/json" });
         res.end(JSON.stringify({ error }));
@@ -146,5 +167,18 @@ export async function sessionContextFixture(t, handle, { contextWindow = 64000, 
     assert.equal(code, 0, output.slice(-3000));
     return output;
   };
-  return { root, workspace, project, sessions, taskId, runId, requests, launch, history, sessionFile, store };
+  return {
+    root,
+    workspace,
+    project,
+    sessions,
+    taskId,
+    runId,
+    requests,
+    summaries,
+    launch,
+    history,
+    sessionFile,
+    store
+  };
 }

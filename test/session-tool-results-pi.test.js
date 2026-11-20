@@ -31,7 +31,8 @@ test(
         return read(`chunk-${step - 2}.txt`, step >= 8 ? 36000 : 1000);
       }
       const text = providerText({ messages: visible });
-      assert.match(text, /result call_2 cleared.*read_history/);
+      assert.match(text, /\[Old tool result content cleared\]/);
+      assert.doesNotMatch(text, /read_history/, "the placeholder does not explain the tools");
       assert.ok(!text.includes("CHUNK_0_MARKER"));
       assert.ok(!text.includes("CHUNK_1_MARKER"));
       for (const index of [2, 3, 4, 5, 6]) assert.ok(text.includes(`CHUNK_${index}_MARKER`));
@@ -50,7 +51,7 @@ test(
       results.slice(0, 3).map((entry) => entry.id)
     );
     assert.match(results[1].message.content[0].text, /CHUNK_0_MARKER/);
-    const [path] = results[0].message.content[0].text.match(/tool-results\/[^\]]+/);
+    const [path] = results[0].message.content[0].text.match(/tool-results\/\S+\.json/);
     const original = JSON.parse(await readFile(join(fixture.sessions, path), "utf8"));
     assert.equal(original.content[0].text, big);
   }

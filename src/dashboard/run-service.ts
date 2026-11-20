@@ -61,6 +61,7 @@ import { ProjectCatalogError } from "../workspace/project-catalog.js";
 import { LocalWorkspaceStore } from "../workspace/workspace-store.js";
 import { normalizeReasoningEffort, type PiThinkingLevel } from "../runtime/runtime-settings.js";
 import type { MainCapacityDecision, MainCapacityRequest } from "../domain/main-capacity.js";
+import { roleCompletion } from "../runtime/model-connection.js";
 import { modelRoleSnapshot, type ModelRoleRequest, type ResolvedModelRole } from "../runtime/role-models.js";
 
 import { now, type TaskRecord, type TaskStatus } from "../domain/types.js";
@@ -2184,6 +2185,10 @@ export function createDashboardRunService({
           null
         );
         const file = session.getSessionFile();
+        const selection = resolveMainModel({
+          ...(task.projectDirectory ? { projectDirectory: task.projectDirectory } : {}),
+          taskModel: task.model
+        });
         const compacted = await compactStoredMainSession(
           session,
           {
@@ -2193,7 +2198,8 @@ export function createDashboardRunService({
             ...(task.projectId &&
               readWindowDevelopment && { readDevelopment: () => readWindowDevelopment(taskId) })
           },
-          usage && file && usage.sessionFile === basename(file) ? usage.contextWindow : undefined
+          usage && file && usage.sessionFile === basename(file) ? usage.contextWindow : undefined,
+          { complete: roleCompletion(selection), contextWindow: selection.profile.contextWindow }
         );
         return compacted ? { queued: false } : { error: "发送第一条消息后可换窗口。" };
       })

@@ -2,6 +2,7 @@ import type { CompactionEntryDraft, ExtensionContext, SessionEntry } from "@eare
 import { join } from "node:path";
 import { historyUserText } from "./session-history.js";
 import { readSessionNotes, sessionNotesPath } from "./session-notes.js";
+import { HANDOFF_INTRO } from "./session-summary.js";
 import { truncateToolText } from "./tool-output.js";
 import { DurableScheduler } from "./scheduler.js";
 import { workItemUnsettled } from "./subagent-work.js";
@@ -10,13 +11,14 @@ import { SubagentQuestionStore } from "./subagent-questions.js";
 
 export const CONTEXT_CAPACITY_NOTICE = "cowork-context-capacity";
 export const CONTEXT_WINDOW_REQUEST = "cowork-context-window-request";
-export const MAX_HANDOFF_CHARS = 30_000;
-const MAX_NOTES_CHARS = 8_000;
+export const MAX_HANDOFF_CHARS = 60_000;
 const MAX_EMERGENCY_CHARS = 6_000;
-const RECENT_FILES = 16;
-const FILE_TOOLS = new Set(["read", "edit", "write", "apply_patch"]);
-const CONTINUE =
-  "This is a new context window. Use search_history and read_history to retrieve the original conversation. Continue the work using the records below.";
+/**
+ * The most each recorded section may take of the page. A section shorter than
+ * its share leaves the rest to the user's messages, which fill what remains.
+ */
+const SHARES = { summary: 0.4, development: 0.1, work: 0.1, notes: 0.2 };
+const MAX_NOTES_CHARS = 8_000;
 
 type SessionMessage = ReturnType<
   ExtensionContext["sessionManager"]["buildSessionProjection"]
@@ -92,9 +94,9 @@ export function conversationWindows(entries: unknown) {
   if (!Array.isArray(entries)) return [];
   return entries.flatMap((entry) => {
     if (!entry || entry.type !== "compaction" || !windowDetails(entry.details)) return [];
-    const { id, summary, timestamp } = entry;
-    if (typeof id !== "string" || typeof summary !== "string" || typeof timestamp !== "string") return [];
-    return [{ id, summary, timestamp: Date.parse(timestamp) }];
+    const { id, timestamp } = entry;
+    if (typeof id !== "string" || typeof timestamp !== "string") return [];
+    return [{ id, timestamp: Date.parse(timestamp) }];
   });
 }
 
@@ -126,47 +128,32 @@ async function pendingWork({ callId, workspaceRoot, taskId, runId }: HandoffScop
   ];
 }
 
-function recentFiles(entries: readonly SessionEntry[]): string[] {
-  const paths = new Set<string>();
-  for (let i = entries.length - 1; i >= 0; i--) {
-    const entry = entries[i];
-    if (entry.type !== "message" || entry.message.role !== "assistant") continue;
-    for (const call of [...entry.message.content].reverse()) {
-      if (call.type !== "toolCall" || !FILE_TOOLS.has(call.name)) continue;
-      const path = call.arguments.path ?? call.arguments.file_path;
-      if (typeof path === "string") paths.add(path);
-      if (paths.size >= RECENT_FILES) return [...paths];
-    }
-  }
-  return [...paths];
-}
-
+/**
+ * The user's messages, newest first and each whole, as many as fit. Older
+ * ones are counted, not cut, so the recent sequence reads intact. A newest
+ * message too long for the page is named by its entry instead.
+ */
 function userMessages(entries: readonly SessionEntry[], budget: number): string {
   const users = entries.flatMap((entry) => {
     const text = historyUserText(entry);
     return text === undefined ? [] : [{ id: entry.id, text }];
   });
   const lines: string[] = [];
-  // Leave space to list a range of older IDs if they cannot all be spelled out.
-  let remaining = budget - Math.min(100, Math.floor(budget / 2));
-  let preserveVerbatim = true;
+  let remaining = budget - 60;
+  let shown = 0;
   for (let i = users.length - 1; i >= 0; i--) {
     const { id, text } = users[i];
-    const label = `User #${i + 1} (entry ${id})`;
-    const reference = `${label}: use read_history.`;
-    if (reference.length + 2 > remaining) {
-      lines.push(`User messages #1–#${i + 1}: use search_history with role user to find entry IDs.`);
-      break;
-    }
-    // Once a message is replaced by a reference, only the newer messages
-    // remain verbatim. This keeps the recent sequence intact.
-    const quote: boolean = preserveVerbatim && text.length + label.length + 3 <= remaining;
-    preserveVerbatim = quote;
-    const line = quote ? `${label}\n${text}` : reference;
-    lines.push(line);
+    let line = `User #${i + 1}\n${text}`;
+    if (line.length + 2 > remaining && !lines.length)
+      line = `User #${i + 1} (entry ${id}, ${text.length} characters) is too long to show here.`;
+    if (line.length + 2 > remaining) break;
+    lines.unshift(line);
     remaining -= line.length + 2;
+    shown++;
   }
-  return truncateToolText(lines.reverse().join("\n\n"), Math.max(0, budget));
+  const hidden = users.length - shown;
+  if (hidden) lines.unshift(`${hidden} earlier user message${hidden === 1 ? " is" : "s are"} not shown.`);
+  return lines.join("\n\n");
 }
 
 function section(heading: string, text: string, limit: number): string {
@@ -183,8 +170,10 @@ export async function sessionHandoff(input: {
   reason: WindowDetails["reason"];
   firstKeptEntryId: string | null;
   requestId?: string;
+  /** The model's summary of the window being left; absent when none could be written. */
+  summary?: string;
 }): Promise<CompactionEntryDraft> {
-  const { session, entries, scope, reason, firstKeptEntryId, requestId } = input;
+  const { session, entries, scope, reason, firstKeptEntryId, requestId, summary } = input;
   const emergency = reason === "overflow";
   const capacity = input.contextWindow ?? MAX_HANDOFF_CHARS;
   const budget = emergency
@@ -199,7 +188,7 @@ export async function sessionHandoff(input: {
   const [notes, work, development] = await Promise.all([
     readSessionNotes(sessionNotesPath(session)).catch((error: unknown) => {
       unavailable("session notes", error);
-      return "Session notes unavailable; use session_notes to retry.";
+      return "Session notes unavailable.";
     }),
     pendingWork(scope).catch((error: unknown) => {
       unavailable("pending work", error);
@@ -220,29 +209,20 @@ export async function sessionHandoff(input: {
         ...development.tickets.map(({ ticketId, state, title }) => `- ${ticketId} [${state}] ${title}`)
       ].join("\n")
     : "";
-  const title = "# Context window handoff\n\n## User messages\n";
-  const footer = `\n\n${CONTINUE}`;
-  const available = budget - title.length - footer.length;
-  const notesBudget = Math.min(MAX_NOTES_CHARS, Math.floor(available * 0.27));
-  const notesNotice = "\nAdditional notes available in session_notes. Shorten them for the next window.";
-  const previewNotes =
-    notes.length > notesBudget
-      ? notes.slice(0, Math.max(0, notesBudget - notesNotice.length)).replace(/[\uD800-\uDBFF]$/u, "") +
-        notesNotice
-      : notes;
+  const title = `# Context window handoff\n\n${HANDOFF_INTRO}`;
+  const available = budget - title.length;
+  const share = (part: keyof typeof SHARES) => Math.floor(available * SHARES[part]);
+  const summaryText = emergency
+    ? ""
+    : (summary ??
+      "No summary could be written for this window; rely on the records below and the session history.");
   const sections = [
-    section("Development progress", progress, Math.floor(available * 0.22)),
-    section("In progress", work.join("\n"), Math.floor(available * 0.17)),
-    section("Session notes", previewNotes, notesBudget + "Session notes".length + 6),
-    section(
-      "Recent files",
-      recentFiles(entries)
-        .map((path) => `- ${path}`)
-        .join("\n"),
-      Math.floor(available * 0.08)
-    )
+    section("Summary", summaryText, share("summary")),
+    section("Development progress", progress, share("development")),
+    section("In progress", work.join("\n"), share("work")),
+    section("Session notes", notes, Math.min(MAX_NOTES_CHARS, share("notes")))
   ].join("");
-  const summary = title + userMessages(entries, available - sections.length) + sections + footer;
+  const users = section("User messages", userMessages(entries, available - sections.length), Infinity);
   const details: WindowDetails = { kind: "cowork-context-window", reason, ...(requestId && { requestId }) };
-  return { type: "compaction", summary, firstKeptEntryId, details };
+  return { type: "compaction", summary: title + sections + users, firstKeptEntryId, details };
 }

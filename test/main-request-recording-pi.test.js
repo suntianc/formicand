@@ -52,6 +52,7 @@ for (const [api, compact] of [
       const recordingPath = join(workspace, taskId, "sessions", "main", `${runId}-requests.jsonl`);
       const received = [];
       const mainReceived = [];
+      const summaries = [];
       const recordedBeforeResponse = [];
       const failures = [];
       const events = [];
@@ -72,117 +73,126 @@ for (const [api, compact] of [
         try {
           const body = JSON.parse(raw);
           received.push(body);
-          assert.ok(body.tools?.length, "compaction makes no additional provider request");
-          mainReceived.push(body);
-          assert.equal(request.method, "POST");
-          assert.equal(request.url, api === "openai-responses" ? "/v1/responses" : "/v1/chat/completions");
-          assert.equal(request.headers.authorization, `Bearer ${credential}`);
-          assert.equal(body.stream, true);
-          assert.equal(body.model, "protocol-fixture");
-
-          // The server has the actual bytes now: a missing/partial archive is a
-          // real durability failure, regardless of what is written after exit.
-          const rows = receiptRows;
-          const requests = rows.filter((row) => row.type === "model_request");
-          assert.equal(requests.length, received.length, "persist each request before sending it");
-          const saved = requests.at(-1);
-          recordedBeforeResponse.push(saved);
-          assert.equal(saved.taskId, taskId);
-          assert.equal(saved.runId, runId);
-          assert.equal(saved.agentId, "main");
-          assert.equal(saved.payload.model.api, api);
-          assert.equal(saved.payload.model.contextWindow, 64000);
-          assert.equal(body.contextWindow, undefined, "capacity stays local to the runtime");
-          assert.deepEqual(saved.payload.request, body, "preserve the entire actual provider payload");
-
-          const messages = api === "openai-responses" ? body.input : body.messages;
-          const system = messages.filter((message) => ["system", "developer"].includes(message.role));
-          assert.equal(system.length, 1);
-          assert.equal(text(system[0].content), saved.payload.systemPrompt);
-          assert.match(saved.payload.systemPrompt, /You are CoworkOS Main/);
-          assert.doesNotMatch(
-            saved.payload.systemPrompt,
-            /coding assistant running inside pi|Pi documentation \(read only/
-          );
-          if (mainReceived.length === 1)
-            assert.ok(
-              !saved.payload.systemPrompt.includes("Publish only finished deliverables requested by the user")
-            );
-          else
-            assert.ok(
-              saved.payload.systemPrompt.includes("Publish only finished deliverables requested by the user"),
-              "new tool guidelines must stay dynamic"
-            );
-          assert.ok(saved.payload.systemPrompt.length > 2_000, "archive the expanded Main policy");
-          assert.ok(saved.payload.systemPrompt.includes(project), "include the actual project context");
-          assert.ok(
-            saved.payload.systemPrompt.includes(join(workspace, taskId)),
-            "include the Task workspace"
-          );
-          assert.equal(saved.payload.systemPromptSha256, hash(saved.payload.systemPrompt));
-          assert.equal(saved.payload.toolsSha256, hash(saved.payload.tools));
-          assert.deepEqual(
-            toolDefinitions(body, api),
-            saved.payload.tools.map(({ name, description, parameters }) => ({
-              name,
-              description,
-              parameters
-            })),
-            "archive complete descriptions and nested parameter schemas for every active tool"
-          );
-          if (mainReceived.length === 4) {
-            assert.ok(compact);
-            assert.ok(
-              JSON.stringify(body).includes(checkpoint),
-              "the archived body must contain the program-generated handoff"
-            );
-            assert.ok(JSON.stringify(saved.payload.request).includes(checkpoint));
-            assert.ok(
-              messages.some(
-                (message) => message.role === "user" && text(message.content).includes(continuation)
-              )
-            );
+          if (!body.tools?.length) {
+            // The window's summary: one request without tools, answered apart from Main's turns.
+            summaries.push(body);
+            reply = { text: "<summary>RECORDED SUMMARY</summary>" };
           } else {
-            assert.ok(
-              messages.some((message) => message.role === "user" && text(message.content).includes(prompt))
-            );
-            assert.ok(JSON.stringify(saved.payload.request).includes(prompt));
-          }
+            mainReceived.push(body);
+            assert.equal(request.method, "POST");
+            assert.equal(request.url, api === "openai-responses" ? "/v1/responses" : "/v1/chat/completions");
+            assert.equal(request.headers.authorization, `Bearer ${credential}`);
+            assert.equal(body.stream, true);
+            assert.equal(body.model, "protocol-fixture");
 
-          const names = saved.payload.tools.map((tool) => tool.name);
-          if (mainReceived.length === 1) {
-            assert.ok(names.includes("enable_tools"));
-            assert.ok(!names.includes("publish_artifact"));
-            assert.ok(!names.includes("read_attachment"));
-            reply = { name: "enable_tools", arguments: { groups: ["delivery"] } };
-          } else {
-            assert.ok(
-              names.includes("publish_artifact"),
-              "the next request must include newly enabled tools"
+            // The server has the actual bytes now: a missing/partial archive is a
+            // real durability failure, regardless of what is written after exit.
+            const rows = receiptRows;
+            const requests = rows.filter((row) => row.type === "model_request");
+            assert.equal(requests.length, received.length, "persist each request before sending it");
+            const saved = requests.at(-1);
+            recordedBeforeResponse.push(saved);
+            assert.equal(saved.taskId, taskId);
+            assert.equal(saved.runId, runId);
+            assert.equal(saved.agentId, "main");
+            assert.equal(saved.payload.model.api, api);
+            assert.equal(saved.payload.model.contextWindow, 64000);
+            assert.equal(body.contextWindow, undefined, "capacity stays local to the runtime");
+            assert.deepEqual(saved.payload.request, body, "preserve the entire actual provider payload");
+
+            const messages = api === "openai-responses" ? body.input : body.messages;
+            const system = messages.filter((message) => ["system", "developer"].includes(message.role));
+            assert.equal(system.length, 1);
+            assert.equal(text(system[0].content), saved.payload.systemPrompt);
+            assert.match(saved.payload.systemPrompt, /You are CoworkOS Main/);
+            assert.doesNotMatch(
+              saved.payload.systemPrompt,
+              /coding assistant running inside pi|Pi documentation \(read only/
             );
-            assert.notEqual(saved.payload.toolsSha256, requests[0].payload.toolsSha256);
-            assert.ok(JSON.stringify(body).includes("delivery"));
-            if (mainReceived.length === 2) {
+            if (mainReceived.length === 1)
               assert.ok(
-                JSON.stringify(body).includes("call_main_1"),
-                "retain the previous tool call and receipt"
+                !saved.payload.systemPrompt.includes(
+                  "Publish only finished deliverables requested by the user"
+                )
               );
-              reply = { name: "publish_artifact", arguments: { sourcePath: "report.md" } };
+            else
+              assert.ok(
+                saved.payload.systemPrompt.includes(
+                  "Publish only finished deliverables requested by the user"
+                ),
+                "new tool guidelines must stay dynamic"
+              );
+            assert.ok(saved.payload.systemPrompt.length > 2_000, "archive the expanded Main policy");
+            assert.ok(saved.payload.systemPrompt.includes(project), "include the actual project context");
+            assert.ok(
+              saved.payload.systemPrompt.includes(join(workspace, taskId)),
+              "include the Task workspace"
+            );
+            assert.equal(saved.payload.systemPromptSha256, hash(saved.payload.systemPrompt));
+            assert.equal(saved.payload.toolsSha256, hash(saved.payload.tools));
+            assert.deepEqual(
+              toolDefinitions(body, api),
+              saved.payload.tools.map(({ name, description, parameters }) => ({
+                name,
+                description,
+                parameters
+              })),
+              "archive complete descriptions and nested parameter schemas for every active tool"
+            );
+            if (mainReceived.length === 4) {
+              assert.ok(compact);
+              assert.ok(
+                JSON.stringify(body).includes(checkpoint),
+                "the archived body must contain the program-generated handoff"
+              );
+              assert.ok(JSON.stringify(saved.payload.request).includes(checkpoint));
+              assert.ok(
+                messages.some(
+                  (message) => message.role === "user" && text(message.content).includes(continuation)
+                )
+              );
             } else {
-              assert.ok(mainReceived.length === 3 || (compact && mainReceived.length === 4));
-              if (mainReceived.length === 3)
-                assert.ok(
-                  JSON.stringify(body).includes("report.md"),
-                  "retain the real published artifact result"
-                );
-              reply = { text: finalText };
+              assert.ok(
+                messages.some((message) => message.role === "user" && text(message.content).includes(prompt))
+              );
+              assert.ok(JSON.stringify(saved.payload.request).includes(prompt));
             }
+
+            const names = saved.payload.tools.map((tool) => tool.name);
+            if (mainReceived.length === 1) {
+              assert.ok(names.includes("enable_tools"));
+              assert.ok(!names.includes("publish_artifact"));
+              assert.ok(!names.includes("read_attachment"));
+              reply = { name: "enable_tools", arguments: { groups: ["delivery"] } };
+            } else {
+              assert.ok(
+                names.includes("publish_artifact"),
+                "the next request must include newly enabled tools"
+              );
+              assert.notEqual(saved.payload.toolsSha256, requests[0].payload.toolsSha256);
+              assert.ok(JSON.stringify(body).includes("delivery"));
+              if (mainReceived.length === 2) {
+                assert.ok(
+                  JSON.stringify(body).includes("call_main_1"),
+                  "retain the previous tool call and receipt"
+                );
+                reply = { name: "publish_artifact", arguments: { sourcePath: "report.md" } };
+              } else {
+                assert.ok(mainReceived.length === 3 || (compact && mainReceived.length === 4));
+                if (mainReceived.length === 3)
+                  assert.ok(
+                    JSON.stringify(body).includes("report.md"),
+                    "retain the real published artifact result"
+                  );
+                reply = { text: finalText };
+              }
+            }
+            assert.equal(
+              rows.filter((row) => row.type === "model_response").length,
+              received.length - 1,
+              "a settled response must be durable before the next request"
+            );
           }
-          assert.equal(
-            rows.filter((row) => row.type === "model_response").length,
-            received.length - 1,
-            "a settled response must be durable before the next request"
-          );
         } catch (error) {
           failures.push(error.stack ?? error.message);
         }
@@ -315,7 +325,7 @@ for (const [api, compact] of [
       assert.equal(code, 0, output);
       assert.deepEqual(failures, [], output);
       assert.equal(mainReceived.length, 3);
-      assert.equal(recordedBeforeResponse.length, received.length);
+      assert.equal(recordedBeforeResponse.length, mainReceived.length);
       const firstProcessRows = await readRows(recordingPath);
       assert.deepEqual(
         firstProcessRows.map((row) => row.sequence),
@@ -337,13 +347,15 @@ for (const [api, compact] of [
         assert.equal(compaction.aborted, false);
         assert.ok(compaction.result.summary.includes(checkpoint));
         assert.ok(compaction.result.summary.includes(prompt));
+        assert.ok(compaction.result.summary.includes("RECORDED SUMMARY"));
+        assert.equal(summaries.length, 1, "the window change asks for one summary");
         const files = (await readdir(join(root, "sessions"))).filter((file) => file.endsWith(".jsonl"));
         assert.equal(files.length, 1);
         const [continuedCode] = await launch(["--session", join(root, "sessions", files[0]), continuation]);
         assert.equal(continuedCode, 0, output);
         assert.deepEqual(failures, [], output);
         assert.equal(mainReceived.length, 4);
-        assert.equal(recordedBeforeResponse.length, received.length);
+        assert.equal(recordedBeforeResponse.length, mainReceived.length);
       }
       assert.deepEqual(
         events

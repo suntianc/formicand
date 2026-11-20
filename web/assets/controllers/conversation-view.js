@@ -479,7 +479,7 @@ export function createConversationView({
     );
     const currentExchangeIndex = exchanges.findLastIndex((exchange) => !exchange.awaitingDelivery);
     const windows = state.detail?.contextWindows ?? [];
-    const windowDividers = contextWindowDividers(windows, exchanges, task.taskId, markdown);
+    const windowDividers = contextWindowDividers(windows, exchanges);
     const failure = stoppedRequestFailure(
       task,
       state.detail,

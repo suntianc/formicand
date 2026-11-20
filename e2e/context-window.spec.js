@@ -24,10 +24,10 @@ test("the composer switches windows and the conversation shows usage and the han
     const divider = page.locator(".context-window-divider");
     await expect(divider.getByText("新的上下文窗口")).toBeVisible({ timeout: 20000 });
     await expect(usage).toHaveAttribute("title", /上下文窗口 2 · /);
-    await divider.locator("summary").click();
-    await expect(divider.locator(".markdown-body")).toContainText("请确认上下文用量。");
+    await expect(divider.locator("details")).toHaveCount(0);
     await expect(page.locator("#composer-input")).toHaveValue("");
-    expect(provider.requests).toHaveLength(count);
+    // The window change asks the model for one summary and starts no turn.
+    expect(provider.requests).toHaveLength(count + 1);
     await page.locator("#new-conversation").click();
     await expect(usage).toBeHidden();
   } finally {

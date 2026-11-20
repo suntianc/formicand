@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { test } from "node:test";
 import { HumanRequestStore } from "../dist/src/runtime/human.js";
 import { DurableScheduler } from "../dist/src/runtime/scheduler.js";
-import { providerText, sessionContextFixture } from "./fixtures/session-context-pi.mjs";
+import { FIXTURE_SUMMARY, providerText, sessionContextFixture } from "./fixtures/session-context-pi.mjs";
 
 const settings = { enabled: true, reserveTokens: 8000, keepRecentTokens: 1 };
 const tool = (name, args, usage) => ({ name, arguments: args, usage });
@@ -61,13 +61,14 @@ test(
           "UNANSWERED:",
           "delegated-check",
           "Check the fixture without edits.",
-          "recent.txt",
+          FIXTURE_SUMMARY,
           "search_history",
           "read_history"
         ]) {
           assert.ok(visible.includes(marker), marker);
         }
         assert.doesNotMatch(visible, /OLDER_TOOL_ORIGINAL/);
+        assert.doesNotMatch(visible, /<analysis>/, "the summary's analysis is discarded");
         assert.ok(!visible.includes(notice));
         return { text: "Kept the original constraints." };
       },
@@ -84,7 +85,11 @@ test(
     assert.equal(windows.length, 1);
     assert.equal(windows[0].details.reason, "threshold");
     assert.equal(windows[0].fromHook, true);
-    assert.ok(windows[0].summary.length <= 30_000);
+    assert.ok(windows[0].summary.length <= 60_000);
+    // The model summarized the window it was leaving, from its conversation, without tools.
+    assert.equal(fixture.summaries.length, 1);
+    assert.equal(fixture.summaries[0].tools, undefined);
+    assert.match(providerText(fixture.summaries[0]), /PRESERVE_VERBATIM/);
     assert.equal(entries.filter((entry) => entry.customType === "cowork-context-capacity").length, 1);
     assert.ok(entries.some((entry) => entry.message?.content?.some?.((block) => block.text === olderOutput)));
     await fixture.launch("Continue using the previous window.", { resume: true });
@@ -157,7 +162,8 @@ for (const hugeFirst of [true, false]) {
           if (step === failAt + 1) {
             assert.ok(!visible.includes(marker));
             assert.ok(visible.length < 30_000, "the retry fits the fixture's provider limit");
-            if (hugeFirst) assert.match(visible, /User #1 \(entry [a-f0-9]+\): use read_history/);
+            if (hugeFirst)
+              assert.match(visible, /User #1 \(entry [a-f0-9]+, \d+ characters\) is too long to show here/);
             else assert.ok(visible.includes(original));
             return tool("search_history", { query: marker, role: hugeFirst ? "user" : "toolResult" });
           }
@@ -182,6 +188,7 @@ for (const hugeFirst of [true, false]) {
       assert.equal(window.details.reason, "overflow");
       assert.equal(window.firstKeptEntryId, window.id, "emergency has no retained original tail");
       assert.ok(window.summary.length <= 6_000);
+      assert.equal(fixture.summaries.length, 0, "an overflow handoff asks for no summary");
       assert.ok(entries.some((entry) => entry.id === historyId));
       assert.equal(fixture.requests.length, hugeFirst ? 4 : 5);
     }
