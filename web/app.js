@@ -371,6 +371,7 @@ const composerMenu = createComposerMenu({
     { name: "new", icon: "square-pen", description: ui("新会话"), run: () => beginNewConversation() },
     {
       name: "compact",
+      icon: "refresh",
       description: ui("换一个上下文窗口"),
       run: () => void compactConversation()
     },
@@ -1424,9 +1425,9 @@ function paintTopbarContext() {
     const numbers = new Intl.NumberFormat(document.documentElement.lang);
     const used = numbers.format(usage.tokens);
     const limit = numbers.format(usage.contextWindow);
-    usageLabel.title = ui`上下文已用 ${used} / ${limit} tokens`;
-    usageLabel.textContent = ui`窗口 ${usage.window} · ${Math.round((100 * usage.tokens) / usage.contextWindow)}%`;
-    usageLabel.setAttribute("aria-label", `${usageLabel.textContent} · ${usageLabel.title}`);
+    usageLabel.title = ui`上下文窗口 ${usage.window} · 已用 ${used} / ${limit} tokens`;
+    usageLabel.textContent = ui`上下文 ${Math.round((100 * usage.tokens) / usage.contextWindow)}%`;
+    usageLabel.setAttribute("aria-label", usageLabel.title);
   }
   // The title row names where the conversation lives and what it is working on.
   const task = state.selected

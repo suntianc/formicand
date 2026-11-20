@@ -16,16 +16,16 @@ test("the composer switches windows and the conversation shows usage and the han
     await expect(page.locator('[data-answer-kind="final"]')).toContainText("上下文测试完成。", {
       timeout: 30000
     });
-    await expect(usage).toHaveText(/窗口 1 · \d+%/);
-    await expect(usage).toHaveAttribute("title", /上下文已用 [\d,]+ \/ [\d,]+ tokens/);
+    await expect(usage).toHaveText(/^上下文 \d+%$/);
+    await expect(usage).toHaveAttribute("title", /上下文窗口 1 · 已用 [\d,]+ \/ [\d,]+ tokens/);
     const count = provider.requests.length;
     await page.locator("#composer-input").fill("/compact");
     await page.locator("#send-button").click();
     const divider = page.locator(".context-window-divider");
-    await expect(divider.getByText("已换新窗口")).toBeVisible({ timeout: 20000 });
-    await expect(usage).toHaveText(/窗口 2 · \d+%/);
+    await expect(divider.getByText("新的上下文窗口")).toBeVisible({ timeout: 20000 });
+    await expect(usage).toHaveAttribute("title", /上下文窗口 2 · /);
     await divider.locator("summary").click();
-    await expect(divider.locator("pre")).toContainText("请确认上下文用量。");
+    await expect(divider.locator(".markdown-body")).toContainText("请确认上下文用量。");
     await expect(page.locator("#composer-input")).toHaveValue("");
     expect(provider.requests).toHaveLength(count);
     await page.locator("#new-conversation").click();
