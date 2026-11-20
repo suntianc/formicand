@@ -1676,6 +1676,17 @@ export default {
   拒绝: "Reject",
   在设置里修改: "Edit in settings",
   发送修改意见: "Send changes",
+  改动范围: "Scope",
+  验收标准: "Acceptance criteria",
+  保留不变: "Keep working",
+  本次不做: "Not in this change",
+  先完成: "After",
+  已修改: "Changed",
+  "人工检查：": "Checked by hand: ",
+  "修改理由：": "Reason: ",
+  "也可以直接写修改意见，比如「验收标准 2 要在 Windows 上也检查」":
+    'Or write the changes you want, such as "check criterion 2 on Windows too"',
+  "确认后验收标准不再改动，要改须再经你确认": "Once confirmed, the criteria change only with your approval",
   "我会在设置里自己修改，这次不要保存": "I'll edit it in settings myself; don't save it this time",
   "配置供应商并获取模型；Main 和各 Agent 用哪个模型，在「Agent」页里选":
     "Add providers and fetch their models; choose the model Main and each Agent use on the Agent page",

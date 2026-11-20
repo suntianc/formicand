@@ -212,7 +212,7 @@ SQLite 的默认文件是数据根下的 `project-data.sqlite`（`ATRIA_HOME/run
 
 ### 备份与恢复
 
-服务启动时只创建当前 schema。`GET /api/project-data` 报告当前引擎、服务端版本和 schema 版本；`target` 是文件路径或 `postgresql://host:port/database`，不含凭据。当前 schema 为 v7，包含看板、主会话、需求开发、审查、合入操作与交付记录。打开记录为其他版本的数据库会被拒绝，错误指明文件（或 `postgresql://host:port/database`）与版本，文件不被改写；此时请从备份恢复或使用对应版本打开。备份与恢复使用同一服务，按当前引擎读取和写入：
+服务启动时只创建当前 schema。`GET /api/project-data` 报告当前引擎、服务端版本和 schema 版本；`target` 是文件路径或 `postgresql://host:port/database`，不含凭据。当前 schema 为 v8，包含看板、主会话、需求开发、票、审查、合入操作与交付记录。打开记录为其他版本的数据库会被拒绝，错误指明文件（或 `postgresql://host:port/database`）与版本，文件不被改写；此时请从备份恢复或使用对应版本打开。备份与恢复使用同一服务，按当前引擎读取和写入：
 
 ```sh
 coworkos data backup --to ~/backups/project-data.json

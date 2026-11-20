@@ -194,7 +194,7 @@ Choosing an engine is not a data migration: switching engines does not move the 
 
 ### Backup and restore
 
-The service creates only the current schema at startup. `GET /api/project-data` reports the current engine, server version and schema version; `target` is a file path or `postgresql://host:port/database` and carries no credential. The current schema is v7, covering the board, Main sessions, developments, reviews, merge operations and delivery records. A database recorded at another version is refused with its file path (or `postgresql://host:port/database`) and version, and is not rewritten; restore it from a backup or open it with the version that wrote it. Backup and restore use the same service against the current engine:
+The service creates only the current schema at startup. `GET /api/project-data` reports the current engine, server version and schema version; `target` is a file path or `postgresql://host:port/database` and carries no credential. The current schema is v8, covering the board, Main sessions, developments, tickets, reviews, merge operations and delivery records. A database recorded at another version is refused with its file path (or `postgresql://host:port/database`) and version, and is not rewritten; restore it from a backup or open it with the version that wrote it. Backup and restore use the same service against the current engine:
 
 ```sh
 coworkos data backup --to ~/backups/project-data.json

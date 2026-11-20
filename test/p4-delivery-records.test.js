@@ -418,7 +418,7 @@ for (const engine of PROJECT_DATA_ENGINES) {
       assert.equal(backup.counts.project_data_deliveries, 2);
       assert.equal(backup.counts.project_data_board_entries, 1);
       const snapshot = JSON.parse(await readFile(backupPath, "utf8"));
-      assert.equal(snapshot.version, 6);
+      assert.equal(snapshot.version, 7);
       assert.equal(snapshot.tables.project_data_board_entries[0].delivery_commit, boardMerge.mergeCommit);
       const restored = await authority.gateway.restoreFrom(backupPath);
       assert.equal(restored.counts.project_data_deliveries, 2);

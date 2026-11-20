@@ -31,6 +31,7 @@ import {
   type DeliveryView,
   type DevelopmentDelivery
 } from "../domain/development-delivery.js";
+import { developmentNext, type TicketWrite } from "../domain/development-ticket.js";
 import {
   DevelopmentExistsError,
   developmentIdentifier,
@@ -964,6 +965,42 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
     qualification.reasons = [...new Set(reasons)];
     qualification.eligible = qualification.reasons.length === 0;
     return qualification;
+  }
+
+  /** The next step for one development, worked out from its stored records. */
+  async function nextStep(projectId: string, developmentIdValue: unknown): Promise<string> {
+    const developmentId = developmentIdentifier(developmentIdValue, "开发记录 ID");
+    const service = await gateway();
+    const record = await service.getDevelopment(projectId, developmentId, ports.backendId);
+    const workspaceReady = record.workspace?.state === "ready";
+    const [tickets, reviews, merges, deliveries] = await Promise.all([
+      service.tickets(projectId, developmentId),
+      service.queryReviews(projectId, developmentId),
+      service.queryMerges(projectId, developmentId),
+      service.queryDeliveries(projectId, developmentId)
+    ]);
+    const review = reviews.at(-1);
+    const merge = merges.at(-1);
+    return developmentNext({
+      route: record.route,
+      workspaceReady,
+      tickets: tickets.tickets,
+      ...(workspaceReady ? { qualification: await deliveryQualification(projectId, developmentId) } : {}),
+      ...(review
+        ? { review: { reviewId: review.reviewId, state: review.state, reviewer: Boolean(review.reviewer) } }
+        : {}),
+      ...(merge
+        ? {
+            merge: {
+              mergeId: merge.mergeId,
+              state: merge.state,
+              ...(merge.detail ? { detail: merge.detail } : {}),
+              ...(merge.mergeCommit ? { mergeCommit: merge.mergeCommit } : {})
+            }
+          }
+        : {}),
+      ...(deliveries.length ? { delivery: { state: deliveries.at(-1)!.state } } : {})
+    });
   }
 
   // ---- project merge entry ---------------------------------------------------
@@ -2204,6 +2241,37 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
     async ensureWorkspaceForTask(taskId: string, developmentId: string) {
       const found = await taskProject(taskId);
       return ensureWorkspace(found.projectId, developmentId);
+    },
+
+    // ---- tickets ---------------------------------------------------------------
+    async tickets(projectId: string, developmentId: string) {
+      await project(projectId);
+      return (await gateway()).tickets(projectId, developmentId);
+    },
+
+    async ticketsForTask(taskId: string, developmentId: string) {
+      const found = await taskProject(taskId);
+      return (await gateway()).tickets(found.projectId, developmentId);
+    },
+
+    async writeTickets(projectId: string, developmentId: string, write: TicketWrite) {
+      await project(projectId);
+      return (await gateway()).writeTickets(projectId, developmentId, write);
+    },
+
+    async writeTicketsForTask(taskId: string, developmentId: string, write: TicketWrite) {
+      const found = await taskProject(taskId);
+      return (await gateway()).writeTickets(found.projectId, developmentId, write);
+    },
+
+    async next(projectId: string, developmentId: string) {
+      await project(projectId);
+      return nextStep(projectId, developmentId);
+    },
+
+    async nextForTask(taskId: string, developmentId: string) {
+      const found = await taskProject(taskId);
+      return nextStep(found.projectId, developmentId);
     },
 
     // ---- review actions --------------------------------------------------------

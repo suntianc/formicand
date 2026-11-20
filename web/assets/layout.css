@@ -663,6 +663,39 @@ body {
   align-items: center;
   gap: 6px;
 }
+.ticket-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 50vh;
+  margin-bottom: 12px;
+  overflow-y: auto;
+}
+.ticket-card h4 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 8px;
+  font: 600 var(--ui-type-control)/1.4 var(--ui-font);
+}
+.ticket-card .proposal-facts {
+  margin: 0;
+}
+.ticket-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding-left: 18px;
+}
+.ticket-check {
+  display: block;
+  color: var(--ui-secondary);
+}
+.ticket-check code {
+  font: 400 var(--ui-type-caption)/1.4 var(--ui-mono);
+  overflow-wrap: anywhere;
+}
 .sr-only {
   position: absolute;
   width: 1px;

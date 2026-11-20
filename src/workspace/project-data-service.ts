@@ -71,6 +71,13 @@ import {
   type MergeCreate
 } from "../domain/development-merge.js";
 import {
+  applyTicketWrite,
+  checkTicketSet,
+  storedTickets,
+  type TicketSet,
+  type TicketWrite
+} from "../domain/development-ticket.js";
+import {
   deliveryReceipt,
   type DeliveryReceipt,
   type DevelopmentDelivery
@@ -218,6 +225,14 @@ interface MergeConfigRow {
   repository: string;
   target_branch: string;
   execution_backend_id: string;
+  created_at: string;
+  updated_at: string;
+}
+interface TicketSetRow {
+  project_id: string;
+  development_id: string;
+  tickets: string;
+  revision: number;
   created_at: string;
   updated_at: string;
 }
@@ -438,6 +453,9 @@ export interface ProjectDataGateway {
     developmentId: unknown,
     workspace: unknown
   ): Promise<DevelopmentRecord>;
+  // A requirement's tickets: one set per development, written as a whole.
+  tickets(projectId: unknown, developmentId: unknown): Promise<TicketSet>;
+  writeTickets(projectId: unknown, developmentId: unknown, write: TicketWrite): Promise<TicketSet>;
   // Review plans and fixed-candidate reviews are shared delivery facts too.
   reviewPlan(projectId: unknown, developmentId: unknown): Promise<ReviewPlan | undefined>;
   setReviewPlan(projectId: unknown, developmentId: unknown, input: unknown): Promise<ReviewPlan>;
@@ -478,7 +496,7 @@ export interface ProjectDataGateway {
   close(): Promise<void>;
 }
 
-const SNAPSHOT_VERSION = 6;
+const SNAPSHOT_VERSION = 7;
 const TABLES = [
   "project_data_projects",
   "project_data_bindings",
@@ -492,6 +510,7 @@ const TABLES = [
   "project_data_main_session_runs",
   "project_data_developments",
   "project_data_development_workspaces",
+  "project_data_development_tickets",
   "project_data_development_review_plans",
   "project_data_development_reviews",
   "project_data_development_merges",
@@ -633,6 +652,14 @@ const TABLE_COLUMNS: Record<SnapshotTable, readonly string[]> = {
     "repository",
     "target_branch",
     "execution_backend_id",
+    "created_at",
+    "updated_at"
+  ],
+  project_data_development_tickets: [
+    "project_id",
+    "development_id",
+    "tickets",
+    "revision",
     "created_at",
     "updated_at"
   ],
@@ -1549,6 +1576,8 @@ export class ProjectDataRepository {
         ? criteriaOf(current.completion_criteria)
         : developmentCompletionCriteria(input.completionCriteria);
     const route = input.route === undefined ? developmentRoute(current.route) : developmentRoute(input.route);
+    if (route !== current.route)
+      checkTicketSet((await this.tickets(projectId, developmentId)).tickets, route);
     const revision = expectedRevision + 1;
     const timestamp = now();
     const changed = await this.transaction.execute(
@@ -1672,6 +1701,62 @@ export class ProjectDataRepository {
         ]
       );
     return this.getDevelopment(projectId, developmentId, workspace.backendId);
+  }
+
+  async tickets(projectIdValue: unknown, developmentIdValue: unknown): Promise<TicketSet> {
+    const projectId = ledgerProjectId(projectIdValue);
+    const developmentId = developmentIdentifier(developmentIdValue, "开发记录 ID");
+    await this.requireDevelopment(projectId, developmentId);
+    const rows = await this.transaction.query<TicketSetRow>(
+      `SELECT * FROM project_data_development_tickets WHERE project_id = ? AND development_id = ?`,
+      [projectId, developmentId]
+    );
+    const row = rows.at(0);
+    if (!row) return { projectId, developmentId, revision: 0, tickets: [] };
+    return {
+      projectId,
+      developmentId,
+      revision: Number(row.revision),
+      tickets: storedTickets(storedJson(row.tickets, "票记录")),
+      updatedAt: row.updated_at
+    };
+  }
+
+  /** Apply one ticket write against the development's current route; a dry run stores nothing. */
+  async writeTickets(
+    projectIdValue: unknown,
+    developmentIdValue: unknown,
+    write: TicketWrite
+  ): Promise<TicketSet> {
+    const projectId = ledgerProjectId(projectIdValue);
+    const developmentId = developmentIdentifier(developmentIdValue, "开发记录 ID");
+    const development = await this.requireDevelopment(projectId, developmentId);
+    const current = await this.tickets(projectId, developmentId);
+    const timestamp = now();
+    const next = applyTicketWrite(current, write, developmentRoute(development.route), timestamp);
+    if ("dryRun" in write && write.dryRun) return next;
+    const tickets = JSON.stringify(next.tickets);
+    if (current.revision === 0)
+      await this.transaction.execute(
+        `INSERT INTO project_data_development_tickets
+           (project_id, development_id, tickets, revision, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [projectId, developmentId, tickets, next.revision, timestamp, timestamp]
+      );
+    else {
+      const changed = await this.transaction.execute(
+        `UPDATE project_data_development_tickets SET tickets = ?, revision = ?, updated_at = ?
+          WHERE project_id = ? AND development_id = ? AND revision = ?`,
+        [tickets, next.revision, timestamp, projectId, developmentId, current.revision]
+      );
+      if (changed !== 1)
+        throw new ProjectDataConflictError(
+          "票已被另一写入更新，请重新读取",
+          undefined,
+          "ticket_revision_conflict"
+        );
+    }
+    return this.tickets(projectId, developmentId);
   }
 
   async reviewPlan(projectIdValue: unknown, developmentIdValue: unknown): Promise<ReviewPlan | undefined> {
@@ -2500,6 +2585,12 @@ export class ProjectDataService implements ProjectDataGateway {
     return this.transaction((repository) =>
       repository.recordDevelopmentWorkspace(projectId, developmentId, workspace)
     );
+  }
+  tickets(projectId: unknown, developmentId: unknown) {
+    return this.transaction((repository) => repository.tickets(projectId, developmentId));
+  }
+  writeTickets(projectId: unknown, developmentId: unknown, write: TicketWrite) {
+    return this.transaction((repository) => repository.writeTickets(projectId, developmentId, write));
   }
   reviewPlan(projectId: unknown, developmentId: unknown) {
     return this.transaction((repository) => repository.reviewPlan(projectId, developmentId));

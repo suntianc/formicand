@@ -91,6 +91,65 @@ function renderAgentProposal(request, draft, { busy, error, index, total }) {
     <button class="human-submit" type="button" data-human-answer="${esc(confirm)}" ${busy ? "disabled" : ""}>${icon("check")}<span>${esc(confirm)}</span></button></div></form>`;
 }
 
+/**
+ * Tickets Main asks the user to confirm before their acceptance criteria are
+ * frozen, or one change to a frozen ticket with the reason for it. Typed
+ * changes go back to Main; nothing is frozen until the user confirms.
+ */
+function renderTicketProposal(request, draft, { busy, error, index, total }) {
+  const { proposal } = request;
+  const previous = proposal.previous;
+  const none = esc(ui("无"));
+  const lines = (items) =>
+    items?.length
+      ? `<ul class="ticket-lines">${items.map((item) => `<li>${esc(item)}</li>`).join("")}</ul>`
+      : none;
+  const chips = (items) =>
+    items?.length ? items.map((item) => `<span class="proposal-chip">${esc(item)}</span>`).join("") : none;
+  const criteria = (items) =>
+    `<ol class="ticket-lines">${(items ?? [])
+      .map(
+        (item) =>
+          `<li>${esc(item.text)}<span class="ticket-check">${
+            item.check?.command
+              ? `<code>${esc(item.check.command)}</code>`
+              : esc(ui`人工检查：${item.check?.manual ?? ""}`)
+          }</span></li>`
+      )
+      .join("")}</ol>`;
+  const changed = (field) =>
+    previous && JSON.stringify(previous[field]) !== JSON.stringify(proposal.tickets[0]?.[field]);
+  const row = (field, label, value) => {
+    const mark = changed(field) ? ` <span class="proposal-tag">${esc(ui("已修改"))}</span>` : "";
+    return `<dt>${label}${mark}</dt><dd>${value}</dd>`;
+  };
+  const ticket = (
+    entry
+  ) => `<section class="ticket-card"><h4><span class="proposal-chip">${esc(entry.ticketId)}</span>${esc(entry.title)}</h4>
+    <dl class="proposal-facts">${[
+      row("scope", ui("改动范围"), chips(entry.scope)),
+      row("criteria", ui("验收标准"), criteria(entry.criteria)),
+      row("preserve", ui("保留不变"), lines(entry.preserve)),
+      row("outOfScope", ui("本次不做"), lines(entry.outOfScope)),
+      ...(entry.dependsOn?.length || changed("dependsOn")
+        ? [row("dependsOn", ui("先完成"), chips(entry.dependsOn))]
+        : [])
+    ].join("")}</dl></section>`;
+  const confirm = request.options?.[0] ?? ui("确认");
+  const pages =
+    total > 1
+      ? ui`<div class="human-card-heading"><div class="human-question-pages"><button type="button" data-human-page="-1" aria-label="上一个问题" ${index === 0 ? "disabled" : ""}>‹</button><span>${index + 1} / ${total}</span><button type="button" data-human-page="1" aria-label="下一个问题" ${index === total - 1 ? "disabled" : ""}>›</button></div></div>`
+      : "";
+  return ui`<form class="human-question-form agent-proposal ticket-proposal">${pages}
+    <div class="proposal-head"><span class="proposal-mark">${icon("list-checks")}</span><span class="proposal-head-text"><h3 id="human-question-title">${esc(request.question)}</h3></span><span class="proposal-waiting">${icon("circle-alert")}等你确认</span></div>
+    <div class="human-card-body">${proposal.reason ? `<p class="human-question-context">${esc(ui`修改理由：${proposal.reason}`)}</p>` : ""}<div class="ticket-list">${proposal.tickets.map(ticket).join("")}</div>
+    <fieldset ${busy ? "disabled" : ""}><legend class="sr-only">修改意见</legend><label class="human-text-label" for="human-answer-text">也可以直接写修改意见，比如「验收标准 2 要在 Windows 上也检查」</label><textarea id="human-answer-text" name="human-text" rows="2">${esc(draft.text || "")}</textarea></fieldset></div>
+    <div class="human-card-footer"><p class="human-error" role="status">${esc(error)}</p><span class="proposal-note">${icon("info")}确认后验收标准不再改动，要改须再经你确认</span>
+    <button class="human-secondary" type="button" data-human-answer="${esc(request.options?.[1] ?? ui("拒绝"))}" ${busy ? "disabled" : ""}>拒绝</button>
+    <button class="human-secondary" type="submit" ${busy || !String(draft.text || "").trim() ? "disabled" : ""}>发送修改意见</button>
+    <button class="human-submit" type="button" data-human-answer="${esc(confirm)}" ${busy ? "disabled" : ""}>${icon("check")}<span>${esc(confirm)}</span></button></div></form>`;
+}
+
 export function renderHumanQuestion(
   request,
   draft = {},
@@ -98,6 +157,8 @@ export function renderHumanQuestion(
 ) {
   if (request.proposal?.kind === "agent")
     return renderAgentProposal(request, draft, { busy, error, index, total });
+  if (request.proposal?.kind === "tickets")
+    return renderTicketProposal(request, draft, { busy, error, index, total });
   return ui`<form class="human-question-form"><div class="human-card-heading"><span class="human-waiting-dot"></span><strong>需要你的回复</strong>${total > 1 ? ui`<div class="human-question-pages"><button type="button" data-human-page="-1" aria-label="上一个问题" ${index === 0 ? "disabled" : ""}>‹</button><span>${index + 1} / ${total}</span><button type="button" data-human-page="1" aria-label="下一个问题" ${index === total - 1 ? "disabled" : ""}>›</button></div>` : ""}</div>
     <div class="human-card-body"><h3 id="human-question-title">${esc(request.question)}</h3>${request.context ? `<p class="human-question-context">${esc(request.context)}</p>` : ""}
     <fieldset ${busy ? "disabled" : ""}><legend class="sr-only">你的回答</legend>${request.options?.length ? ui`<div class="human-options" role="radiogroup" aria-label="回答选项">${request.options.map((option, index) => `<label class="human-option${index === request.recommended ? " is-recommended" : ""}"><input type="radio" name="human-choice" value="${index}" ${draft.choice === index ? "checked" : ""}/><span>${esc(option)}</span>${index === request.recommended ? ui('<em class="human-option-mark" title="没有回复时 Formicand 会按这个继续">推荐</em>') : ""}</label>`).join("")}</div>` : ""}

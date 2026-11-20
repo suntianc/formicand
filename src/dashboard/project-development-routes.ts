@@ -1,6 +1,7 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { HttpError, readJsonBody, sendJson } from "./http.js";
 import { DevelopmentExistsError, developmentWorkspace } from "../domain/project-development.js";
+import { ticketWrite } from "../domain/development-ticket.js";
 import type { ProjectDevelopmentService } from "./project-development-service.js";
 
 export interface DevelopmentProject {
@@ -562,6 +563,32 @@ export async function handleDevelopmentRequest(
           : await ports.service.find(projectId, body.requirementId, backendId, { readOnly });
         if (!development) throw new HttpError(404, "该需求还没有开发记录", "not_found");
         return reply(response, 200, { development });
+      }
+      case "tickets": {
+        if (typeof body.developmentId !== "string") throw new HttpError(400, "tickets 需要 developmentId");
+        return reply(response, 200, {
+          tickets: taskId
+            ? await ports.service.ticketsForTask(taskId, body.developmentId)
+            : await ports.service.tickets(projectId, body.developmentId)
+        });
+      }
+      case "write_tickets": {
+        if (typeof body.developmentId !== "string")
+          throw new HttpError(400, "write_tickets 需要 developmentId");
+        const write = ticketWrite(body);
+        return reply(response, 200, {
+          tickets: taskId
+            ? await ports.service.writeTicketsForTask(taskId, body.developmentId, write)
+            : await ports.service.writeTickets(projectId, body.developmentId, write)
+        });
+      }
+      case "next": {
+        if (typeof body.developmentId !== "string") throw new HttpError(400, "next 需要 developmentId");
+        return reply(response, 200, {
+          next: taskId
+            ? await ports.service.nextForTask(taskId, body.developmentId)
+            : await ports.service.next(projectId, body.developmentId)
+        });
       }
       case "record_workspace": {
         if (taskId !== undefined) throw new HttpError(400, "record_workspace 只能按项目记录");
