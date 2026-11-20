@@ -18,7 +18,6 @@ import {
   mainContextPaths,
   persistMainContext,
   readMainContextState,
-  readMainMemory,
   updateMainContextRuntime
 } from "../../dist/src/runtime/main-context.js";
 import { HEARTBEAT_STALE_MS, writeHeartbeat } from "../../dist/src/runtime/main-heartbeat.js";
@@ -646,7 +645,6 @@ async function registerMainExtension(pi: ExtensionAPI) {
       `Task workspace: ${taskWorkspace}`,
       `work/: ${join(taskWorkspace, "agents", "main", "work")}`,
       `artifacts/: ${join(taskWorkspace, "artifacts")}`,
-      `Memory file: ${join(taskWorkspace, "agents", "main", "context", "memory.md")}`,
       "read, edit, write and bash resolve relative paths from the project directory; browse_workspace and a collaborator's outputFiles resolve them from the Task workspace, so use absolute paths for Task files. An older path in the history may predate a change of project directory: the directory above is current."
     ].join("\n");
     // The user's own Agents, read again every turn so a new or changed one applies to the next turn.
@@ -708,12 +706,7 @@ async function registerMainExtension(pi: ExtensionAPI) {
       try {
         await runtimeWrites;
         const runtime = await readMainContextState(mainContext);
-        messages = withMainCompactionContext(messages, {
-          runtime,
-          // Full history already carries pre-compaction work. Bring auxiliary
-          // memory back only after a checkpoint has replaced that older history.
-          memory: runtime.contextEpoch > 0 ? await readMainMemory(mainContext) : ""
-        });
+        messages = withMainCompactionContext(messages, { runtime });
       } catch (error) {
         ctx.ui.notify(`Main current context refresh failed: ${errorMessage(error)}`, "warning");
       }
@@ -777,7 +770,7 @@ async function registerMainExtension(pi: ExtensionAPI) {
     await persistMainContext(mainContext, ctx.sessionManager.getBranch());
     // Pi passes this prepared object to its native compactor after the hook.
     // Keep the native auth/retry/abort path, history and split-turn summaries,
-    // file tracking and safe recent tail. A memory template must never replace
+    // file tracking and safe recent tail. A template must never replace
     // those summaries, including when clear_context explicitly requests one.
     event.preparation.previousSummary = mainCompactionPreviousSummary(event.preparation.previousSummary);
     event.preparation.messagesToSummarize = projectCompactionMessages(event.preparation.messagesToSummarize);

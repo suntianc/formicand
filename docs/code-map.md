@@ -91,7 +91,7 @@ CLI 一条命令安装由 [install.sh](../scripts/install.sh) 负责，使用公
 
 ### 项目上下文
 
-Main 的项目上下文只来自需求台账：项目与需求、完成标准和交付记录由 [项目数据服务](../src/workspace/project-data-service.ts) 与 [Main 工具](../.pi/runtime/tools/project-ledger.ts) 提供，工具的装配在 [Pi 扩展](../.pi/runtime/extension.ts)。每个 Task 的 Main 上下文目录（[main-context](../src/runtime/main-context.ts)）只保存这个 Task 自己的 `memory.md` 与运行快照，不是跨 Task 的用户记忆。
+Main 的项目上下文只来自需求台账：项目与需求、完成标准和交付记录由 [项目数据服务](../src/workspace/project-data-service.ts) 与 [Main 工具](../.pi/runtime/tools/project-ledger.ts) 提供，工具的装配在 [Pi 扩展](../.pi/runtime/extension.ts)。每个 Task 的 Main 上下文目录（[main-context](../src/runtime/main-context.ts)）只保存这个 Task 的消息副本与运行快照，不是跨 Task 的用户记忆；Main 暂停或重启后接续原 Pi 会话，进度由会话本身和开发记录提供。
 
 用户记忆、自动学习与项目经验已在 P4.6 剔除：源码、HTTP 接口、Pi 工具、界面入口与专门测试均已删除，系统提示不再包含这些段落，磁盘上的残留文件不再读取。剔除项统一记录在[剔除守卫](../test/removed-capabilities.test.js)。
 
@@ -117,7 +117,7 @@ HTTP 代理环境与会话级连接生命周期由 [HTTP transport](../src/runti
 
 Pi 会话的上下文窗口、采样与有界输出续接由 [模型声明](../src/runtime/model-profile.ts) 与 [Pi 扩展](../.pi/runtime/extension.ts) 通过 Pi 原生选项管理；[Main 压缩](../test/main-compaction-pi.test.js)、[真实 Main 恢复](../test/main-recovery-pi.test.js) 和 [真实请求归档](../test/main-request-recording-pi.test.js) 覆盖完整历史、取消、参数传递及诊断落盘。连接的思考格式沿用同一模型声明和运行设置，验证 [GLM 格式](../test/glm-thinking.test.js) 及 [设置界面](../e2e/model-providers.spec.js)。
 
-Main 的历史压缩由 [Pi 扩展](../.pi/runtime/extension.ts) 接回 Pi 原生总结；[Main 压缩上下文](../.pi/runtime/main-compaction.ts) 将真正的旧摘要与有界动态状态分开，当前阶段、委派和辅助记忆不滚入旧摘要。[工具结果投影](../src/runtime/compaction-input.ts) 为 Main 普通历史、split-turn 前缀提供最多 2,000 字符的调用归属、已知状态及头尾副本；对本次范围内未见结果的调用另附有界身份信息，不将其等同于当前仍在运行。不改原历史和命令执行预算。
+Main 的历史压缩由 [Pi 扩展](../.pi/runtime/extension.ts) 接回 Pi 原生总结；[Main 压缩上下文](../.pi/runtime/main-compaction.ts) 将真正的旧摘要与有界动态状态分开，当前阶段和委派不滚入旧摘要。[工具结果投影](../src/runtime/compaction-input.ts) 为 Main 普通历史、split-turn 前缀提供最多 2,000 字符的调用归属、已知状态及头尾副本；对本次范围内未见结果的调用另附有界身份信息，不将其等同于当前仍在运行。不改原历史和命令执行预算。
 
 [摘要请求策略](../src/runtime/compaction-summary-policy.ts) 分别识别原生 history/update 与 turn-prefix 请求，沿用各自 Markdown 栏目，合并有效事实并区分计划、尝试、已确认与已验证，保留证据范围；分支和未知请求透传。[摘要响应保护](../src/runtime/compaction-summary-guard.ts) 继续在 Main 原生提交前拒绝空正文、纯空白及 thinking-only 摘要，位于归档装饰器外层以保留原始响应和用量。Main 原生校验与子智能体提交保护也拒绝包含工具调用的摘要。Main 与 Subagent provider 分别接入共享策略；升级 Pi 时验证 [请求分类与证据策略](../test/compaction-summary-policy.test.js) 和 [原生摘要协议](../test/compaction-summary-guard.test.js)。
 
@@ -227,7 +227,7 @@ Browser Use 的语义参数在 [合同](../src/gui/browser-contracts.ts)，隔�
 
 脚本由 [QuickJS controller](../src/tools/cua-script.ts) 和 [guest SDK](../src/tools/cua-script-guest.js) 执行，通过 [受限工具派发](../.pi/runtime/tools/cua-dispatch.ts) 复用已启用工具，[Pi 工具](../.pi/runtime/tools/cua-script.ts) 和扩展仅装配当前 ctx 与生命周期。复核 [VM/连续操作](../test/cua-script.test.js)、[派发边界](../test/cua-dispatch.test.js)、[原生真实 Pi](../test/cua-script-pi.test.js) 与 [浏览器/skill 组合 Pi](../test/cua-browser-skill-pi.test.js)。维护 [脚本指南](cua-scripting.md) 和 [CUA skill](../.pi/skills/cua/SKILL.md)，恢复工具选择不会恢复原浏览器或 VM state。
 
-CUA 业务确认复用 Main memory/会话压缩和恢复机制，由 [CUA skill](../.pi/skills/cua/SKILL.md) 规定证据与 confirmed/unknown 约定；[恢复回归](../test/cua-progress-recovery-pi.test.js) 使用真实 Chromium、提交计数和文件 hash 验证压缩与进程重启不重放已发输入。脚本失败传播与条件停止见 [SDK 回归](../test/cua-script-guarantees.test.js)，浏览器 scope/frame/坐标/按需观察见 [复杂页面回归](../test/browser-advanced.test.js)。维护 [结果与恢复](cua-progress.md)。
+CUA 业务确认复用 Main 会话的压缩和接续，由 [CUA skill](../.pi/skills/cua/SKILL.md) 规定恢复后先只读查看最后一次已发操作的结果；[恢复回归](../test/cua-progress-recovery-pi.test.js) 使用真实 Chromium、提交计数和文件 hash 验证压缩与进程重启不重放已发输入。脚本失败传播与条件停止见 [SDK 回归](../test/cua-script-guarantees.test.js)，浏览器 scope/frame/坐标/按需观察见 [复杂页面回归](../test/browser-advanced.test.js)。维护 [结果与恢复](cua-progress.md)。
 
 真实模型 Browser 验收用 [opt-in runner](../scripts/validate-cua-live.mjs) 和 [随机像素页面](../test/cua-live-fixture.mjs)，通过生产 settings/keychain/backend 读取当前默认多模态连接，仅运行独立 Task；命令与证据边界见 [实测指南](cua-live-validation.md)。
 

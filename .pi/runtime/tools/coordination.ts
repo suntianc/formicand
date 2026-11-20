@@ -97,7 +97,6 @@ export function registerCoordinationTools(pi: ExtensionAPI, context: CoworkToolC
     promptSnippet: "Park this Task until a stated interval wakes it",
     promptGuidelines: [
       "Use this when the objective is ongoing but nothing can advance it right now: this round's result is written, and the next useful action waits on time passing or on external news that will arrive through the Inbox.",
-      "Update agents/main/context/memory.md before parking. After a wake the model context may be new; what is not in memory is not carried over.",
       "Set wakeInSeconds when the next action is periodic, such as refreshing a report or checking a long-running job again.",
       "A park with no wakeInSeconds is refused: nothing could wake it."
     ],

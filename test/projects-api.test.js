@@ -51,8 +51,8 @@ test("project API persists empty projects and conversation membership across res
     assert.equal(created.body.projectDirectory, a);
     assert.equal(created.body.storageRoot, f.workspaceRoot);
   }
-  const memory = join(f.workspaceRoot, "first", "agents", "main", "context", "memory.md");
-  await writeFile(memory, "Retained conversation history\n");
+  const history = join(f.workspaceRoot, "first", "agents", "main", "context", "messages.json");
+  await writeFile(history, "Retained conversation history\n");
   const renamed = await f.request(
     `/api/projects/${encodeURIComponent(first.projectId)}`,
     { projectName: "Renamed", projectDirectory: c },
@@ -79,7 +79,7 @@ test("project API persists empty projects and conversation membership across res
     reopened.body.projects.find((project) => project.projectId === second.projectId).tasks,
     []
   );
-  assert.equal(await readFile(memory, "utf8"), "Retained conversation history\n");
+  assert.equal(await readFile(history, "utf8"), "Retained conversation history\n");
   const storageCatalog = JSON.parse(await readFile(join(f.root, "global.json"), "utf8"));
   assert.deepEqual(
     storageCatalog.workspaces.map((entry) => entry.workspaceRoot),

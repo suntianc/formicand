@@ -65,7 +65,7 @@ test("project edits inherit across conversations without moving their history or
   const project = await f.directory.createProject({ projectName: "Original", projectDirectory: f.first });
   await f.directory.createProjectTask("one", project.projectId, { goal: "First conversation" });
   await f.directory.createProjectTask("two", project.projectId, { goal: "Second conversation" });
-  const history = join(f.storageRoot, "one", "agents", "main", "context", "memory.md");
+  const history = join(f.storageRoot, "one", "agents", "main", "context", "messages.json");
   await writeFile(history, "Retained training history\n");
   const grouped = await f.directory.globalTaskPayload();
   assert.equal(grouped.tasks.length, 2);

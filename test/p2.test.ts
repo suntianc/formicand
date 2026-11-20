@@ -102,12 +102,10 @@ async function main(): Promise<void> {
 
     const mainContext = mainContextPaths(root, "task");
     await ensureMainContext(mainContext);
-    assert.match(await readFile(mainContext.memory, "utf8"), /## Goal/);
-    await writeFile(mainContext.memory, "## Goal\nKeep going\n", "utf8");
     const state = await persistMainContext(mainContext, [{ type: "user", content: "hello" }]);
-    assert.equal(state.memoryVersion, 1);
+    assert.ok(state.messagesSavedAt);
     assert.equal(JSON.parse(await readFile(mainContext.messages, "utf8"))[0].content, "hello");
-    assert.equal((await readMainContextState(mainContext)).memoryVersion, 1);
+    assert.equal((await readMainContextState(mainContext)).messagesSavedAt, state.messagesSavedAt);
     await updateMainContextRuntime(mainContext, {
       runtimeGoal: "Keep going",
       runtimePhase: "waiting",

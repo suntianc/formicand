@@ -67,7 +67,6 @@ function snapshotPaths(root: string, taskId: string) {
     join(root, taskId, "task.json"),
     join(root, taskId, "sessions", "main", "versions.json"),
     context.messages,
-    context.memory,
     context.state,
     mainRequestPath(root, taskId)
   ];

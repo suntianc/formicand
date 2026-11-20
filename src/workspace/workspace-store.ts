@@ -138,14 +138,9 @@ export class LocalWorkspaceStore implements WorkspaceStore {
       if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
     }
     try {
-      await writeFile(join(path, "agents", "main", "context", "memory.md"), "", { flag: "wx" });
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
-    }
-    try {
       await writeFile(
         join(path, "agents", "main", "context", "state.json"),
-        `${JSON.stringify({ version: 1, contextEpoch: 0, memoryVersion: 0, memorySha256: "" }, null, 2)}\n`,
+        `${JSON.stringify({ version: 1, contextEpoch: 0 }, null, 2)}\n`,
         { flag: "wx" }
       );
     } catch (error) {
