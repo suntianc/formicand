@@ -123,6 +123,7 @@ COWORK_UI_PORT=3881 npm run ui
 │   ├── workspaces.json     全局工作区索引
 │   └── projects.json       项目名称、稳定 ID、工作文件夹及更新恢复意图
 ├── pi/                     App 与 CLI 的 Pi 可变状态
+├── memory/                 Main 的记忆：user/ 与 projects/<projectId>/，每条一个 .md
 ├── config.json             CLI / Web 模型配置，权限 0600
 ├── model-config.json       模型配置列表与启用项
 ├── credentials.json        执行主机的模型与搜索密钥，权限 0600

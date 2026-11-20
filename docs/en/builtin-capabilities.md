@@ -6,7 +6,7 @@ This branch retains the complete CoworkOS orchestration chain: Main, Coordinator
 
 Removed capabilities:
 
-- User memory (including manual memory), automatic learning and project experience: storage, HTTP routes, Pi tools, UI entries and dedicated tests are gone, and the requirement ledger now supplies project context.
+- The original user memory (including manual memory), automatic learning and project experience: storage, HTTP routes, Pi tools, UI entries and dedicated tests are gone, and the requirement ledger now supplies project context. P4.9 brought memory back in a new form: Main writes it itself with the `memory` tool, in a user scope and a per-project scope, and Settings → Memory lists, edits and deletes it; there is no background learning. See the [design](../memory-and-compaction-design.md#四记忆) (Chinese).
 - The dedicated vision model: the separate image-analysis connection role (`modelConnections.visionId`, the `COWORK_VISION_*` environment variables, the image-analysis purpose in settings) and the path that handed images to it are gone; images are read only through a connection that itself accepts image input.
 - Long-term goals and monitoring: long-term goals, goal decisions and delegation, monitoring rules and scheduled wakes, with their Pi tools, HTTP routes, UI entries and dedicated tests; the run service's guardian now owns Main recovery.
 - Applications and the workbench: application registry, instances, shared resources and the revision protocol, application binding, adapters, MCP hosting, the text and Markdown editor, workbench tabs and their UI entries.
