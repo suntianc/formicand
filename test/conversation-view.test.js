@@ -58,7 +58,7 @@ test("a context divider preserves its chronological position and open handoff ac
   assert.ok(divider);
   assert.match(divider.previousElementSibling.textContent, /First reply/);
   assert.match(divider.nextElementSibling.textContent, /Continue the work/);
-  assert.equal(divider.querySelector("pre").textContent, "Constraint: <img src=example>");
+  assert.equal(divider.querySelector(".markdown-body").textContent.trim(), "Constraint: <img src=example>");
   assert.equal(divider.querySelector("img"), null);
   divider.open = true;
   state.detail.contextUsage = { tokens: 1000, contextWindow: 64_000, window: 2 };
