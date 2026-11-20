@@ -112,15 +112,14 @@ export function registerWorkspaceTools(pi: ExtensionAPI, context: CoworkToolCont
     }
   });
   registerLoadSkillTool(pi, context.skillCatalogNow);
-  const memoryPath = join(context.taskWorkspace, "agents", "main", "context", "memory.md");
   pi.registerTool({
     name: "clear_context",
     label: "Clear Main Context",
-    description: `Compact the Main Agent's model-visible conversation after the current turn into a generated history summary and a safe recent tail. The complete message log and ${memoryPath} are preserved; workspace memory supplements the summary rather than replacing it. Use browse_workspace with mode=read, path=agents/main/context/messages.json for specific missing evidence if needed.`,
+    description:
+      "Compact the conversation after the current turn into a summary of the actual history plus the recent messages. The full message log stays at agents/main/context/messages.json; read specific missing evidence from it with browse_workspace.",
     promptSnippet: "Compact the Main context into a continuation checkpoint",
     promptGuidelines: [
-      `Use clear_context only at a phase boundary or when the current context is no longer useful; update ${memoryPath} first with the existing file-edit tools. Use that absolute Task path because read/edit/write resolve relative paths from the user's project directory.`,
-      "clear_context preserves the full message log and workspace files; it ends the current tool batch, summarizes actual history and retains recent messages needed to continue safely. If summarization fails, the original session context remains active."
+      "Use clear_context only at a phase boundary or when the earlier context no longer helps; the context is also compacted automatically when it fills up. If summarizing fails, the current context stays."
     ],
     parameters: Type.Object({
       reason: Type.Optional(Type.String({ description: "Short explanation for this context reset." }))

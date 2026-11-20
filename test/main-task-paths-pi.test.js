@@ -113,19 +113,20 @@ const footer = "draft";
             .filter((message) => message.role === "system")
             .map((message) => message.content)
             .join("\n");
-          assert.ok(system.includes(`用户选择的项目目录：${project}`));
-          assert.ok(system.includes(`本次任务工作区：${taskRoot}`));
-          assert.ok(system.includes("read/edit/write/bash 的相对路径从这里开始"));
+          assert.ok(system.includes(`Project directory: ${project}`));
+          assert.ok(system.includes(`Task workspace: ${taskRoot}`));
+          assert.ok(
+            system.includes("read, edit, write and bash resolve relative paths from the project directory")
+          );
           assert.ok(system.includes(scriptPath.slice(0, -scriptName.length - 1)));
           assert.equal(
             (await stat(dirname(scriptPath))).isDirectory(),
             true,
             "Main's advertised work directory must exist before its first model request"
           );
-          const clear = body.tools.find((tool) => tool.function.name === "clear_context");
-          if (!clear.function.description.includes(memoryPath))
+          if (!system.includes(memoryPath))
             instructionFailures.push(
-              "clear_context must name its Task memory by absolute path, because edit/write use project CWD"
+              "the workspace section must name the Task memory by absolute path, because edit/write use project CWD"
             );
         }
         const index = requests.length - 1;

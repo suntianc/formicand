@@ -642,25 +642,23 @@ async function registerMainExtension(pi: ExtensionAPI) {
     mainSettings = builtinAgentSettings(loadConfig(), "main", projectDirectory);
     await capabilityTools.refresh();
     const workspace = [
-      `用户选择的项目目录：${projectDirectory}。read/edit/write/bash 的相对路径从这里开始；用户说“这个项目”“工作文件夹”指的是这里。以它为准，不要因为运行了 CoworkOS 就改去它的安装目录。`,
-      "会话可能切换过项目目录，历史消息中的旧路径不会自动改写；当前操作以本段目录为准，继续操作旧路径前先核对用户意图。",
-      `本次任务工作区：${taskWorkspace}。browse_workspace 和 Subagent 的 outputFiles 的相对路径都从这里开始。`,
-      `你的 work 目录：${join(taskWorkspace, "agents", "main", "work")}`,
-      `任务的 artifacts 目录：${join(taskWorkspace, "artifacts")}`,
-      `长期记忆文件：${join(taskWorkspace, "agents", "main", "context", "memory.md")}`,
-      "对任务文件优先使用上面的绝对路径，避免 read/bash 与 browse_workspace 的相对路径混淆。"
+      `Project directory: ${projectDirectory}`,
+      `Task workspace: ${taskWorkspace}`,
+      `work/: ${join(taskWorkspace, "agents", "main", "work")}`,
+      `artifacts/: ${join(taskWorkspace, "artifacts")}`,
+      `Memory file: ${join(taskWorkspace, "agents", "main", "context", "memory.md")}`,
+      "read, edit, write and bash resolve relative paths from the project directory; browse_workspace and a collaborator's outputFiles resolve them from the Task workspace, so use absolute paths for Task files. An older path in the history may predate a change of project directory: the directory above is current."
     ].join("\n");
     // The user's own Agents, read again every turn so a new or changed one applies to the next turn.
     const agents = await availableAgents(await processAgentLocations(projectDirectory));
     // Keep SDK-owned tools and rules dynamic. Returning a forced prompt here
     // freezes snippets when enable_tools changes the active loadout mid-turn.
     return {
-      current_workspace: `<current_workspace>\n${workspace}\n</current_workspace>`,
-      custom_agents: agents.length ? `<custom_agents>\n${customAgentsPrompt(agents)}\n</custom_agents>` : "",
+      // Pi wraps each section in a tag of its own name.
+      current_workspace: workspace,
+      custom_agents: agents.length ? customAgentsPrompt(agents) : "",
       // The user's extra instructions for Main add to the rules above and never replace them.
-      user_main_prompt: mainSettings.prompt
-        ? `<user_main_instructions>\n${mainSettings.prompt}\n</user_main_instructions>`
-        : ""
+      user_main_instructions: mainSettings.prompt
     };
   };
 
@@ -682,7 +680,9 @@ async function registerMainExtension(pi: ExtensionAPI) {
       return;
     }
     // Compatibility with older extension callers lacking structured options.
-    return { systemPrompt: `${event.systemPrompt}\n${sections.current_workspace}` };
+    return {
+      systemPrompt: `${event.systemPrompt}\n<current_workspace>\n${sections.current_workspace}\n</current_workspace>`
+    };
   });
 
   let continuationSections: Awaited<ReturnType<typeof prepareMainTurnSections>> | undefined;

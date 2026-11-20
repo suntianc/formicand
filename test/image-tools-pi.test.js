@@ -103,7 +103,7 @@ for (const api of ["openai-completions", "openai-responses"])
       const imageTool = tools.find((tool) => tool.name === "read_image");
       assert.ok(imageTool, "register read_image before the first Main request");
       assert.match(imageTool.parameters.properties.path.description, /one|single/i);
-      assert.match(imageTool.description, /Prefer paths:/);
+      assert.match(imageTool.description, /Use paths:/);
       assert.match(imageTool.parameters.properties.paths.description, /relative image paths/i);
       for (let index = 0; index < imageCalls.length; index++) {
         const request = main.requests[index + 1].body;
