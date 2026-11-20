@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { atomicWrite } from "../../../dist/src/storage/atomic-file.js";
 import { LocalWorkspaceStore } from "../../../dist/src/workspace/workspace-store.js";
 import { resolveCapabilities } from "../../../dist/src/runtime/task-capabilities.js";
+import { SESSION_HISTORY_TOOLS } from "./session-history.ts";
 
 export const CORE_TOOLS = [
   "load_skill",
@@ -23,6 +24,7 @@ export const CORE_TOOLS = [
   "askhuman",
   "manage_agent",
   "clear_context",
+  ...SESSION_HISTORY_TOOLS,
   "sleep_until",
   "grant_capabilities",
   "enable_tools"
@@ -193,9 +195,7 @@ export function registerCapabilityTools(
     description:
       "Discover and enable optional tool groups for the current task. Omit groups to list availability. Attachments, delivery, jobs, computer, browser and cua are loaded only when needed; desktop, browser and CUA tools require a model connection that accepts image input. Enabling is not authorization: job grants and desktop grants remain enforced. Scripts need their underlying browser/computer tools enabled. CLI and App share all non-host-specific groups.",
     parameters: Type.Object({
-      groups: Type.Optional(
-        Type.Array(Type.Union(Object.keys(groups).map((name) => Type.Literal(name))))
-      )
+      groups: Type.Optional(Type.Array(Type.Union(Object.keys(groups).map((name) => Type.Literal(name)))))
     }),
     async execute(_id, params) {
       for (const name of params.groups ?? []) {

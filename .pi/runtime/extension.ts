@@ -110,6 +110,7 @@ import { blockedToolCall, taskProtectedPaths } from "./protected-call.ts";
 import { registerCoworkProvider } from "./provider.ts";
 import { createMcpRegistration } from "./mcp.ts";
 import { registerSessionContext } from "./session-context.ts";
+import { registerSessionHistoryTools } from "./tools/session-history.ts";
 import { mainContextUsagePath } from "../../dist/src/runtime/session-context-usage.js";
 
 /**
@@ -120,6 +121,7 @@ import { mainContextUsagePath } from "../../dist/src/runtime/session-context-usa
  * than a second extension that would drift from Main's.
  */
 export default async function registerCoworkExtension(pi: ExtensionAPI) {
+  registerSessionHistoryTools(pi);
   const role = process.env.COWORK_AGENT_ROLE;
   if (role === "executor" || role === "reviewer") {
     await registerSubagentAgent(pi, role);

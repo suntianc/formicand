@@ -42,6 +42,7 @@ import { loadConfig } from "./helpers.ts";
 import { registerCoworkProvider } from "./provider.ts";
 import { MainCompactionRetry } from "./main-compaction-retry.ts";
 import { registerSessionContext } from "./session-context.ts";
+import { SESSION_HISTORY_TOOLS } from "./tools/session-history.ts";
 import { registerSubagentInbox } from "./subagent-inbox.ts";
 import { blockedToolCall, taskProtectedPaths } from "./protected-call.ts";
 import { registerSubagentTools } from "./tools/subagent.ts";
@@ -264,11 +265,13 @@ export async function registerSubagentAgent(pi: ExtensionAPI, role: AgentRole): 
       agent
         ? [
             ...agentToolNames(agent),
+            ...SESSION_HISTORY_TOOLS,
             ...capabilityToolNames(grants),
             ...pi.getActiveTools().filter((tool) => MCP_TOOL.test(tool))
           ]
         : [
             ...subagentToolNames(role, grants),
+            ...SESSION_HISTORY_TOOLS,
             // The servers the role's setting names were the only ones registered.
             ...pi.getActiveTools().filter((tool) => MCP_TOOL.test(tool))
           ]

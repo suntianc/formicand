@@ -1,6 +1,6 @@
 import type { SessionEntry, SessionManager, ToolResultEvent } from "@earendil-works/pi-coding-agent";
 import { randomUUID } from "node:crypto";
-import { copyFile, mkdir } from "node:fs/promises";
+import { copyFile, mkdir, readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { atomicWrite } from "../storage/atomic-file.js";
 
@@ -30,6 +30,19 @@ export function archivedToolResultPath(entry: SessionEntry): string | undefined 
   if (entry.type !== "message" || entry.message.role !== "toolResult") return;
   const first = entry.message.content.at(0);
   if (first?.type === "text") return ARCHIVE_REFERENCE.exec(first.text)?.[1];
+}
+
+export async function readArchivedToolResult(
+  directory: string,
+  entry: SessionEntry
+): Promise<ArchivedToolResult | undefined> {
+  if (entry.type !== "message" || entry.message.role !== "toolResult") return;
+  const path = archivedToolResultPath(entry);
+  if (!path) return;
+  const result = JSON.parse(await readFile(join(directory, path), "utf8")) as ArchivedToolResult;
+  if (result.toolName !== entry.message.toolName || result.toolCallId !== entry.message.toolCallId)
+    throw new Error(`Tool result archive does not match history entry ${entry.id}.`);
+  return result;
 }
 
 /** A conversation fork carries only archives referred to by its copied entries. */

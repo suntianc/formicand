@@ -119,6 +119,8 @@ Pi 会话的上下文窗口、采样与有界输出续接由 [模型声明](../s
 
 [共用上下文模块](../.pi/runtime/session-context.ts) 在 Main 与子代理的工具结果和回合边界处理落盘与旧结果替换。[结果归档](../src/runtime/session-tool-results.ts) 保留原始内容；[用量快照](../src/runtime/session-context-usage.ts) 由任务详情 API 交给对话标题栏。验证见 [真实 Pi 工具结果](../test/session-tool-results-pi.test.js) 与 [窗口用量界面](../e2e/context-window.spec.js)。
 
+[会话历史工具](../.pi/runtime/tools/session-history.ts) 在两类代理中注册 `session_notes`、`search_history` 与 `read_history`，分别使用[笔记文件](../src/runtime/session-notes.ts)和[原始条目读取](../src/runtime/session-history.ts)。[真实 Pi 测试](../test/session-history-pi.test.js) 验证原文检索及暂停、重启后恢复笔记。
+
 Main 的历史压缩由 [Pi 扩展](../.pi/runtime/extension.ts) 接回 Pi 原生总结；[Main 压缩上下文](../.pi/runtime/main-compaction.ts) 将真正的旧摘要与有界动态状态分开，当前阶段和委派不滚入旧摘要。[工具结果投影](../src/runtime/compaction-input.ts) 为 Main 普通历史、split-turn 前缀提供最多 2,000 字符的调用归属、已知状态及头尾副本；对本次范围内未见结果的调用另附有界身份信息，不将其等同于当前仍在运行。不改原历史和命令执行预算。
 
 [摘要请求策略](../src/runtime/compaction-summary-policy.ts) 分别识别原生 history/update 与 turn-prefix 请求，沿用各自 Markdown 栏目，合并有效事实并区分计划、尝试、已确认与已验证，保留证据范围；分支和未知请求透传。[摘要响应保护](../src/runtime/compaction-summary-guard.ts) 继续在 Main 原生提交前拒绝空正文、纯空白及 thinking-only 摘要，位于归档装饰器外层以保留原始响应和用量。Main 原生校验与子智能体提交保护也拒绝包含工具调用的摘要。Main 与 Subagent provider 分别接入共享策略；升级 Pi 时验证 [请求分类与证据策略](../test/compaction-summary-policy.test.js) 和 [原生摘要协议](../test/compaction-summary-guard.test.js)。
