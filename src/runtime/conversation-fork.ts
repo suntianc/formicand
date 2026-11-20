@@ -3,7 +3,7 @@ import { mkdir, rename, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { SessionManager } from "@earendil-works/pi-coding-agent";
 import { currentMainSession } from "./main-message-edit.js";
-import { mainContextPaths, persistMainContext } from "./main-context.js";
+import { mainContextPaths, persistMainSessionContext } from "./main-context.js";
 import { copyToolResultArchives, sessionDataDirectory } from "./session-tool-results.js";
 
 /**
@@ -43,7 +43,7 @@ export async function copyMainConversation(
     { mode: 0o600, flag: "wx" }
   );
   await rename(temporary, sessionFile);
-  await persistMainContext(
+  await persistMainSessionContext(
     mainContextPaths(target.root, target.taskId),
     SessionManager.open(sessionFile, directory).getBranch()
   );

@@ -20,6 +20,7 @@ import { mkdir, rename, stat, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { basename, dirname, isAbsolute, join, resolve } from "node:path";
 import { mainContextUsagePath, type SessionContextUsage } from "../runtime/session-context-usage.js";
+import { conversationWindows } from "../runtime/session-handoff.js";
 import { id, now } from "../domain/types.js";
 import { coworkConfigPath, readCoworkConfig, readHostCoworkConfig } from "../runtime/config.js";
 import { normalizeReasoningEffort } from "../runtime/runtime-settings.js";
@@ -405,6 +406,7 @@ export function createDashboardApplication(
     coordinator,
     subagents,
     locateTask,
+    readWindowDevelopment: developments.contextHandoffForTask,
     mainSessions: {
       resolve: (location, input) => mainSessions.resolve(location, input)
     },
@@ -654,12 +656,11 @@ export function createDashboardApplication(
       messageVersions
     );
     const artifacts = await listTaskArtifacts({ workspaceRoot: taskWorkspace, taskId, runId });
-    const messages = messagesWithRuntimeHistory(
-      conversationMessages(
-        await readJsonFile(join(taskWorkspace, taskId, "agents", "main", "context", "messages.json"), [])
-      ),
-      runtimeEvents
+    const sessionEntries = await readJsonFile(
+      join(taskWorkspace, taskId, "agents", "main", "context", "messages.json"),
+      []
     );
+    const messages = messagesWithRuntimeHistory(conversationMessages(sessionEntries), runtimeEvents);
     const progress = runId
       ? // eslint-disable-next-line no-restricted-syntax -- 进度只是详情里的可选项，读取失败按无进度返回
         await readSubagentProgress({ taskId, runId, workspaceRoot: taskWorkspace }).catch(() => null)
@@ -724,6 +725,7 @@ export function createDashboardApplication(
       runtimeEvents: settledRuntimeEvents(runtimeEvents).map(viewRuntimeEvent),
       artifacts,
       messages,
+      contextWindows: conversationWindows(sessionEntries),
       editableMessage,
       ...(editableMessageError ? { editableMessageError } : {}),
       conversationVersions: messageVersionSummaries(messageVersions),
@@ -913,6 +915,7 @@ export function createDashboardApplication(
     runtimeValue,
     startMainRun,
     pauseTask: runs.pauseTask,
+    compactMainContext: runs.compactMainContext,
     stopTask: runs.stopTask,
     editMainMessage: runs.editMainMessage,
     forkConversation,

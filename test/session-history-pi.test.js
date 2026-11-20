@@ -16,7 +16,7 @@ test(
     const prefix = "x".repeat(11_000);
     const original = prefix + marker + "y".repeat(11_000);
     const edited = "CLEARED_RECEIPT_MARKER";
-    let fixture, archivedId, clearedId;
+    let fixture, archivedId, clearedId, archivePath;
     const call = (name, args, usage) => ({ name, arguments: args, usage });
     fixture = await sessionContextFixture(t, async (body, step) => {
       assert.ok(body.tools.length);
@@ -25,6 +25,8 @@ test(
         return call("session_notes", { action: "rewrite", text: "Keep exact fixture constraints." });
       if (step === 3) return call("session_notes", { action: "append", text: "暂停后保留这行。" });
       if (step === 4) return call("read", { path: "long.txt" });
+      if (step === 5)
+        archivePath = /Tool result stored at (tool-results\/[^\]]+)/.exec(providerText(body))?.[1];
       if (step < 12) return call("read", { path: `receipt-${step}.txt` }, step === 11 ? 36000 : 1000);
       if (step === 12) {
         assert.doesNotMatch(providerText(body), /CLEARED_RECEIPT_MARKER/);
@@ -65,9 +67,18 @@ test(
         assert.equal(lastToolText(body).split("\n").at(-1), edited);
         return call("search_history", { query: "earlier instruction", role: "user" });
       }
-      const [match] = JSON.parse(lastToolText(body));
-      assert.equal(match.role, "user");
-      assert.match(match.snippet, /Earlier instruction/);
+      if (step === 19) {
+        const [match] = JSON.parse(lastToolText(body));
+        assert.equal(match.role, "user");
+        assert.match(match.snippet, /Earlier instruction/);
+        assert.ok(archivePath);
+        return call("read_history", {
+          id: archivePath,
+          start: prefix.length,
+          end: prefix.length + marker.length
+        });
+      }
+      assert.equal(lastToolText(body).split("\n").at(-1), marker);
       return { text: "Restored notes and read both original receipts." };
     });
     await writeFile(join(fixture.project, "long.txt"), original);
@@ -86,6 +97,6 @@ test(
     await fixture.launch("Continue after pause.", { resume: true });
     const entries = await fixture.history();
     assert.ok(entries.some((entry) => entry.type === "context_edit" && entry.targetId === clearedId));
-    assert.equal(fixture.requests.length, 19);
+    assert.equal(fixture.requests.length, 20);
   }
 );

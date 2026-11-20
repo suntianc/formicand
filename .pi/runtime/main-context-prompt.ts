@@ -3,7 +3,7 @@ import { getCurrentSystemMessage } from "@earendil-works/pi-ai";
 import type { MainContextState } from "../../dist/src/runtime/main-context.js";
 import { limitToolContent } from "../../dist/src/runtime/tool-output.js";
 
-interface MainCompactionState {
+interface MainPromptState {
   runtime: MainContextState;
   goalAlreadyVisible?: boolean;
 }
@@ -11,17 +11,8 @@ interface MainCompactionState {
 const MAX_MAIN_CONTEXT_CHARS = 12_000;
 const CURRENT_STATE_BLOCK = /<atria_main_context>[\s\S]*?<\/atria_main_context>/g;
 
-/** Older checkpoints may carry the previous implementation's runtime supplement. */
-export function mainCompactionPreviousSummary(previousSummary: string | undefined): string | undefined {
-  return (
-    previousSummary
-      ?.replace(/<atria_main_compaction_state>[\s\S]*?<\/atria_main_compaction_state>/g, "")
-      .trim() || undefined
-  );
-}
-
 /** Current machine state is refreshed separately from the historical checkpoint. */
-export function mainCompactionContext(state: MainCompactionState): string {
+export function mainRuntimeContext(state: MainPromptState): string {
   const runtime = state.runtime;
   const parts = [
     "Current persisted Task context. This snapshot does not establish that work or verification completed. Later user messages and explicit execution evidence update historical records.",
@@ -34,7 +25,7 @@ export function mainCompactionContext(state: MainCompactionState): string {
           `Last runtime event: ${excerpt(runtime.runtimeLastEvent.type, 80)}${runtime.runtimeLastEvent.summary ? ` — ${excerpt(runtime.runtimeLastEvent.summary, 240)}` : ""}`
         ]
       : []),
-    "Full history: agents/main/context/messages.json. Retrieve only specific missing evidence when needed."
+    "Use search_history and read_history for original conversation evidence."
   ];
   const open = "<atria_main_context>\n";
   const close = "\n</atria_main_context>";
@@ -42,9 +33,9 @@ export function mainCompactionContext(state: MainCompactionState): string {
 }
 
 /** Replace one dynamic system section; never append snapshot messages to history. */
-export function withMainCompactionContext<T extends AgentMessage>(
+export function withMainRuntimeContext<T extends AgentMessage>(
   messages: readonly T[],
-  state: MainCompactionState
+  state: MainPromptState
 ): T[] {
   const lastSystem = messages.findLastIndex((message) => message.role === "system");
   if (lastSystem < 0) return [...messages];
@@ -55,17 +46,18 @@ export function withMainCompactionContext<T extends AgentMessage>(
     goal &&
     messages.some(
       (message) =>
-        message.role === "user" &&
-        (typeof message.content === "string"
-          ? message.content
-          : message.content
-              .filter((block) => block.type === "text")
-              .map((block) => block.text)
-              .join("\n")
-        ).includes(goal)
+        message.role === "compactionSummary" ||
+        (message.role === "user" &&
+          (typeof message.content === "string"
+            ? message.content
+            : message.content
+                .filter((block) => block.type === "text")
+                .map((block) => block.text)
+                .join("\n")
+          ).includes(goal))
     )
   );
-  const context = mainCompactionContext({ ...state, goalAlreadyVisible });
+  const context = mainRuntimeContext({ ...state, goalAlreadyVisible });
   return messages.map((message, index) => {
     if (message.role !== "system") return message;
     const current = message.sections?.current_workspace;

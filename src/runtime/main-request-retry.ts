@@ -86,7 +86,7 @@ export class MainRequestRetry {
   }
 
   async prepare(model: Model<Api>, context: TranscriptContext) {
-    // Pi summary calls carry no tools. Never replay a chat response as a compaction result.
+    // Tool-less internal requests do not consume a user-turn replay.
     const main = getCurrentTools(context.messages).length > 0;
     if (!main) return { model, context, main };
     this.execution?.beginTurn();

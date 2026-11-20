@@ -3,12 +3,12 @@ import type { ImageContent } from "@earendil-works/pi-ai";
 import { readQueuedUserTurn } from "./queued-user-turn.js";
 import { readArchivedToolResult, type ArchivedToolResult } from "./session-tool-results.js";
 
-export const HISTORY_ROLES = ["user", "assistant", "toolResult", "custom"] as const;
+const HISTORY_ROLES = ["user", "assistant", "toolResult", "custom"] as const;
 export type HistoryRole = (typeof HISTORY_ROLES)[number];
 export const HISTORY_PAGE_CHARS = 16_000;
 
 export function historyRole(entry: SessionEntry): HistoryRole | undefined {
-  if (entry.type === "custom_message") return entry.customType === "cowork-user-message" ? "user" : "custom";
+  if (entry.type === "custom_message") return historyUserText(entry) === undefined ? "custom" : "user";
   if (entry.type !== "message") return;
   switch (entry.message.role) {
     case "user":
@@ -20,9 +20,15 @@ export function historyRole(entry: SessionEntry): HistoryRole | undefined {
 }
 
 export function historyUserText(entry: SessionEntry): string | undefined {
-  if (entry.type === "custom_message" && entry.customType === "cowork-user-message") {
-    const details = entry.details as { message?: unknown } | undefined;
-    if (typeof details?.message === "string") return details.message;
+  if (entry.type === "custom_message") {
+    const details = entry.details as { message?: unknown; answer?: unknown } | undefined;
+    if (entry.customType === "cowork-human-answer" && typeof details?.answer === "string")
+      return details.answer;
+    if (
+      (entry.customType === "cowork-user-message" || entry.customType === "cowork-user-turn") &&
+      typeof details?.message === "string"
+    )
+      return details.message;
   }
   if (entry.type !== "message" || entry.message.role !== "user") return;
   const { content } = entry.message;

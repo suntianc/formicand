@@ -58,7 +58,7 @@ export class ModelRequestRecorder {
   private writes = Promise.resolve();
   private sequence = 0;
   private readonly producer = recordingProducer();
-  /** The last few requests, so an interleaved summary call does not break Main's chain. */
+  /** The last few requests, so an interleaved request can reuse its own history prefix. */
   private bases: ArchiveBase[] = [];
 
   constructor(
@@ -107,9 +107,7 @@ export class ModelRequestRecorder {
     if (!isRecord(payload)) return payload;
     const { systemPromptSha256, toolsSha256 } = payload;
     const request = payload.request;
-    const field = isRecord(request)
-      ? HISTORY_FIELDS.find((name) => Array.isArray(request[name]))
-      : undefined;
+    const field = isRecord(request) ? HISTORY_FIELDS.find((name) => Array.isArray(request[name])) : undefined;
     if (!isRecord(request) || !field) return payload;
     const history = request[field] as unknown[];
     const items = history.map((item) => JSON.stringify(item));
@@ -182,11 +180,14 @@ export function parseModelRequestArchive(text: string): Array<Record<string, unk
       let rebuilt: Record<string, unknown> = payload;
       if (base) {
         const earlier = full.get(key(base.sequence));
-        if (!earlier) throw new Error(`request archive row ${String(row.sequence)} refers to a missing request`);
+        if (!earlier)
+          throw new Error(`request archive row ${String(row.sequence)} refers to a missing request`);
         const earlierRequest = earlier.request as Record<string, unknown>;
         const reused = (earlierRequest[base.field] as unknown[]).slice(0, base.reused);
         if (recordingHash(reused) !== base.reusedSha256)
-          throw new Error(`request archive row ${String(row.sequence)} does not match the request it extends`);
+          throw new Error(
+            `request archive row ${String(row.sequence)} does not match the request it extends`
+          );
         const { requestBase: _base, ...rest } = payload;
         const request = payload.request as Record<string, unknown>;
         rebuilt = {

@@ -23,6 +23,7 @@ import { reconcileParts } from "../ui/reconcile.js";
 import { animate } from "../ui/motion.js";
 import { antMarkSvg } from "../ui/thinking-mark.js";
 import { completeMarkdown, createStreamReveal } from "../ui/stream-reveal.js";
+import { contextWindowDividers } from "../ui/context-window.js";
 
 const reducedMotion = () => {
   const preference = globalThis.window?.atriaPreferences?.motion?.();
@@ -477,6 +478,8 @@ export function createConversationView({
       state.detail?.conversationVersion
     );
     const currentExchangeIndex = exchanges.findLastIndex((exchange) => !exchange.awaitingDelivery);
+    const windows = state.detail?.contextWindows ?? [];
+    const windowDividers = contextWindowDividers(windows, exchanges, task.taskId);
     const failure = stoppedRequestFailure(
       task,
       state.detail,
@@ -521,6 +524,7 @@ export function createConversationView({
       state.detail?.coordination,
       state.detail?.progress,
       state.detail?.jobs,
+      windows.map((window) => window.id),
       state.detail?.runtimeEvents?.filter(
         (record) =>
           (record.type === "runtime_event" ? record.payload : record)?.message?.customType ===
@@ -607,6 +611,7 @@ export function createConversationView({
             if (index !== finalIndex) return "";
             return `${index === workflowIndex ? workflow : ""}<article class="chat-message main" data-answer-kind="final"${message.id ? ` data-message-id="${esc(message.id)}"` : ""}><div class="message-copy"><div class="markdown-body">${markdown(text)}</div>${active ? "" : replyActions(message, isCurrent)}</div></article>${index === workflowIndex ? endLine : ""}`;
           })
+          .map((markup, index) => markup + (windowDividers.get(exchange.messages[index]) ?? ""))
           .join("") +
         (workflowIndex < 0
           ? active || exchange.continued
@@ -625,6 +630,7 @@ export function createConversationView({
       return rendered;
     });
     historyMarkup = nextHistoryMarkup;
+    if (windowDividers.has(undefined)) parts.unshift(windowDividers.get(undefined));
     // A restored edit can outlive its message after another window branches
     // the conversation. Keep its draft reachable for cancellation or recovery.
     const restoredEditor = inlineEditorRendered

@@ -47,12 +47,11 @@ for (const [api, compact] of [
       const credential = "isolated-main-recording-credential";
       const prompt = "先启用交付工具，然后发布一份产物并完成核对。";
       const finalText = "已启用交付工具并核对产物。";
-      const checkpoint = "已完成交付工具启用和产物核对。继续只读确认，保留此前工具结果。";
+      const checkpoint = "Context window handoff";
       const continuation = "根据已有进度继续核对，不要重复工具调用。";
       const recordingPath = join(workspace, taskId, "sessions", "main", `${runId}-requests.jsonl`);
       const received = [];
       const mainReceived = [];
-      const summaries = [];
       const recordedBeforeResponse = [];
       const failures = [];
       const events = [];
@@ -73,8 +72,8 @@ for (const [api, compact] of [
         try {
           const body = JSON.parse(raw);
           received.push(body);
-          const isSummary = !body.tools?.length;
-          (isSummary ? summaries : mainReceived).push(body);
+          assert.ok(body.tools?.length, "compaction makes no additional provider request");
+          mainReceived.push(body);
           assert.equal(request.method, "POST");
           assert.equal(request.url, api === "openai-responses" ? "/v1/responses" : "/v1/chat/completions");
           assert.equal(request.headers.authorization, `Bearer ${credential}`);
@@ -96,97 +95,87 @@ for (const [api, compact] of [
           assert.equal(body.contextWindow, undefined, "capacity stays local to the runtime");
           assert.deepEqual(saved.payload.request, body, "preserve the entire actual provider payload");
 
-          if (isSummary) {
-            assert.ok(compact, "only the compaction variants request a summary");
-            assert.ok(JSON.stringify(body).includes(prompt), "summarize the actual user request");
-            reply = { text: `# Task checkpoint\n${prompt}\n${checkpoint}` };
-          } else {
-            const messages = api === "openai-responses" ? body.input : body.messages;
-            const system = messages.filter((message) => ["system", "developer"].includes(message.role));
-            assert.equal(system.length, 1);
-            assert.equal(text(system[0].content), saved.payload.systemPrompt);
-            assert.match(saved.payload.systemPrompt, /You are CoworkOS Main/);
-            assert.doesNotMatch(
-              saved.payload.systemPrompt,
-              /coding assistant running inside pi|Pi documentation \(read only/
-            );
-            if (mainReceived.length === 1)
-              assert.ok(
-                !saved.payload.systemPrompt.includes(
-                  "Publish only finished deliverables requested by the user"
-                )
-              );
-            else
-              assert.ok(
-                saved.payload.systemPrompt.includes(
-                  "Publish only finished deliverables requested by the user"
-                ),
-                "new tool guidelines must stay dynamic"
-              );
-            assert.ok(saved.payload.systemPrompt.length > 2_000, "archive the expanded Main policy");
-            assert.ok(saved.payload.systemPrompt.includes(project), "include the actual project context");
+          const messages = api === "openai-responses" ? body.input : body.messages;
+          const system = messages.filter((message) => ["system", "developer"].includes(message.role));
+          assert.equal(system.length, 1);
+          assert.equal(text(system[0].content), saved.payload.systemPrompt);
+          assert.match(saved.payload.systemPrompt, /You are CoworkOS Main/);
+          assert.doesNotMatch(
+            saved.payload.systemPrompt,
+            /coding assistant running inside pi|Pi documentation \(read only/
+          );
+          if (mainReceived.length === 1)
             assert.ok(
-              saved.payload.systemPrompt.includes(join(workspace, taskId)),
-              "include the Task workspace"
+              !saved.payload.systemPrompt.includes("Publish only finished deliverables requested by the user")
             );
-            assert.equal(saved.payload.systemPromptSha256, hash(saved.payload.systemPrompt));
-            assert.equal(saved.payload.toolsSha256, hash(saved.payload.tools));
-            assert.deepEqual(
-              toolDefinitions(body, api),
-              saved.payload.tools.map(({ name, description, parameters }) => ({
-                name,
-                description,
-                parameters
-              })),
-              "archive complete descriptions and nested parameter schemas for every active tool"
+          else
+            assert.ok(
+              saved.payload.systemPrompt.includes("Publish only finished deliverables requested by the user"),
+              "new tool guidelines must stay dynamic"
             );
-            if (mainReceived.length === 4) {
-              assert.ok(compact);
-              assert.ok(
-                JSON.stringify(body).includes(checkpoint),
-                "the archived body must contain the actual compaction summary"
-              );
-              assert.ok(JSON.stringify(saved.payload.request).includes(checkpoint));
-              assert.ok(
-                messages.some(
-                  (message) => message.role === "user" && text(message.content).includes(continuation)
-                )
-              );
-            } else {
-              assert.ok(
-                messages.some((message) => message.role === "user" && text(message.content).includes(prompt))
-              );
-              assert.ok(JSON.stringify(saved.payload.request).includes(prompt));
-            }
+          assert.ok(saved.payload.systemPrompt.length > 2_000, "archive the expanded Main policy");
+          assert.ok(saved.payload.systemPrompt.includes(project), "include the actual project context");
+          assert.ok(
+            saved.payload.systemPrompt.includes(join(workspace, taskId)),
+            "include the Task workspace"
+          );
+          assert.equal(saved.payload.systemPromptSha256, hash(saved.payload.systemPrompt));
+          assert.equal(saved.payload.toolsSha256, hash(saved.payload.tools));
+          assert.deepEqual(
+            toolDefinitions(body, api),
+            saved.payload.tools.map(({ name, description, parameters }) => ({
+              name,
+              description,
+              parameters
+            })),
+            "archive complete descriptions and nested parameter schemas for every active tool"
+          );
+          if (mainReceived.length === 4) {
+            assert.ok(compact);
+            assert.ok(
+              JSON.stringify(body).includes(checkpoint),
+              "the archived body must contain the program-generated handoff"
+            );
+            assert.ok(JSON.stringify(saved.payload.request).includes(checkpoint));
+            assert.ok(
+              messages.some(
+                (message) => message.role === "user" && text(message.content).includes(continuation)
+              )
+            );
+          } else {
+            assert.ok(
+              messages.some((message) => message.role === "user" && text(message.content).includes(prompt))
+            );
+            assert.ok(JSON.stringify(saved.payload.request).includes(prompt));
+          }
 
-            const names = saved.payload.tools.map((tool) => tool.name);
-            if (mainReceived.length === 1) {
-              assert.ok(names.includes("enable_tools"));
-              assert.ok(!names.includes("publish_artifact"));
-              assert.ok(!names.includes("read_attachment"));
-              reply = { name: "enable_tools", arguments: { groups: ["delivery"] } };
-            } else {
+          const names = saved.payload.tools.map((tool) => tool.name);
+          if (mainReceived.length === 1) {
+            assert.ok(names.includes("enable_tools"));
+            assert.ok(!names.includes("publish_artifact"));
+            assert.ok(!names.includes("read_attachment"));
+            reply = { name: "enable_tools", arguments: { groups: ["delivery"] } };
+          } else {
+            assert.ok(
+              names.includes("publish_artifact"),
+              "the next request must include newly enabled tools"
+            );
+            assert.notEqual(saved.payload.toolsSha256, requests[0].payload.toolsSha256);
+            assert.ok(JSON.stringify(body).includes("delivery"));
+            if (mainReceived.length === 2) {
               assert.ok(
-                names.includes("publish_artifact"),
-                "the next request must include newly enabled tools"
+                JSON.stringify(body).includes("call_main_1"),
+                "retain the previous tool call and receipt"
               );
-              assert.notEqual(saved.payload.toolsSha256, requests[0].payload.toolsSha256);
-              assert.ok(JSON.stringify(body).includes("delivery"));
-              if (mainReceived.length === 2) {
+              reply = { name: "publish_artifact", arguments: { sourcePath: "report.md" } };
+            } else {
+              assert.ok(mainReceived.length === 3 || (compact && mainReceived.length === 4));
+              if (mainReceived.length === 3)
                 assert.ok(
-                  JSON.stringify(body).includes("call_main_1"),
-                  "retain the previous tool call and receipt"
+                  JSON.stringify(body).includes("report.md"),
+                  "retain the real published artifact result"
                 );
-                reply = { name: "publish_artifact", arguments: { sourcePath: "report.md" } };
-              } else {
-                assert.ok(mainReceived.length === 3 || (compact && mainReceived.length === 4));
-                if (mainReceived.length === 3)
-                  assert.ok(
-                    JSON.stringify(body).includes("report.md"),
-                    "retain the real published artifact result"
-                  );
-                reply = { text: finalText };
-              }
+              reply = { text: finalText };
             }
           }
           assert.equal(
@@ -204,7 +193,7 @@ for (const [api, compact] of [
           .replaceAll("resp_protocol", `resp_main_${received.length}`);
         if (compact && mainReceived.length === 3 && reply.text === finalText) {
           // Simulate a provider usage report crossing Pi's native threshold
-          // without needing a huge fixture body. Main supplies the summary.
+          // without needing a huge fixture body. The extension supplies the handoff.
           if (api === "openai-responses") {
             stream = stream.replace(
               '"input_tokens":10,"output_tokens":10,"total_tokens":20',
@@ -347,7 +336,7 @@ for (const [api, compact] of [
         assert.equal(compaction.reason, "threshold");
         assert.equal(compaction.aborted, false);
         assert.ok(compaction.result.summary.includes(checkpoint));
-        assert.ok(summaries.length > 0, "automatic compaction must summarize the real history");
+        assert.ok(compaction.result.summary.includes(prompt));
         const files = (await readdir(join(root, "sessions"))).filter((file) => file.endsWith(".jsonl"));
         assert.equal(files.length, 1);
         const [continuedCode] = await launch(["--session", join(root, "sessions", files[0]), continuation]);

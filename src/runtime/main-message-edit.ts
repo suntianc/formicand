@@ -7,10 +7,12 @@ import { stripReferencesBlock } from "./composer-references.js";
 import { createHash, randomUUID } from "node:crypto";
 import { mkdir, readFile, readdir, rename, stat, writeFile, realpath } from "node:fs/promises";
 import { join, dirname, resolve, basename } from "node:path";
-import { SessionManager, type SessionEntry } from "@earendil-works/pi-coding-agent";
+import { SessionManager, estimateTokens, type SessionEntry } from "@earendil-works/pi-coding-agent";
 import { conversationMessages, type ConversationMessage } from "./conversation-view.js";
 import { readTaskRuntimeEvents } from "./conversation-history.js";
-import { mainContextPaths, persistMainContext } from "./main-context.js";
+import { mainContextPaths, persistMainSessionContext } from "./main-context.js";
+import { mainContextUsagePath, type SessionContextUsage } from "./session-context-usage.js";
+import { recentContextTail, sessionHandoff, type HandoffScope } from "./session-handoff.js";
 import { readMainInput, mainInputPath, type MainInput } from "./main-continuation.js";
 import { readTaskInput, type InputFile } from "../workspace/input-store.js";
 import { LocalWorkspaceStore } from "../workspace/workspace-store.js";
@@ -18,6 +20,7 @@ import { mainRequestEnvironment } from "./main-request-retry.js";
 import { mainRequestPath } from "../storage/main-request-store.js";
 import { readQueuedUserTurn } from "./queued-user-turn.js";
 import { HumanRequestStore } from "./human.js";
+import { atomicWrite } from "../storage/atomic-file.js";
 
 export class MainMessageEditConflict extends Error {
   readonly status = 409;
@@ -287,6 +290,55 @@ export async function currentMainSession(root: string, taskId: string) {
   );
   const file = versions?.sessionFile ?? recent.sort((a, b) => b.modified - a.modified)[0]?.path;
   return { versions, session: file ? SessionManager.open(file, directory) : undefined };
+}
+
+/** The Dashboard may write the session while no Main process owns it. */
+export async function compactStoredMainSession(
+  session: SessionManager,
+  scope: HandoffScope,
+  contextWindow: number | undefined
+): Promise<boolean> {
+  const entries = session.getBranch();
+  const file = session.getSessionFile();
+  const projection = session.buildSessionProjection();
+  if (
+    !file ||
+    !projection.messages.some((message) => message.role === "user" || message.role === "assistant")
+  )
+    return false;
+  const draft = await sessionHandoff({
+    session,
+    entries,
+    scope,
+    contextWindow,
+    reason: "manual",
+    firstKeptEntryId: recentContextTail(projection, estimateTokens, contextWindow)
+  });
+  const tokens = (messages: typeof projection.messages) =>
+    messages.reduce((total, message) => total + estimateTokens(message), 0);
+  session.appendCompaction(
+    draft.summary,
+    draft.firstKeptEntryId,
+    tokens(projection.messages),
+    draft.details,
+    true
+  );
+  const state = await persistMainSessionContext(
+    mainContextPaths(scope.workspaceRoot, scope.taskId),
+    session.getBranch()
+  );
+  if (contextWindow) {
+    const snapshot: SessionContextUsage = {
+      contextWindow,
+      tokens: tokens(session.buildSessionProjection().messages),
+      sessionFile: basename(file),
+      window: 1 + state.contextEpoch
+    };
+    await atomicWrite(mainContextUsagePath(scope.workspaceRoot, scope.taskId), JSON.stringify(snapshot), {
+      mode: 0o600
+    });
+  }
+  return true;
 }
 /** Editable identities are accepted composer inputs or persisted Inbox submissions, never arbitrary Pi user messages. */
 export async function latestEditableMessage(root: string, taskId: string, runId?: string) {
@@ -592,7 +644,7 @@ export async function prepareMessageEdit(
       }
     };
     try {
-      await persistMainContext(
+      await persistMainSessionContext(
         mainContextPaths(root, taskId),
         branch,
         goalForTask ? { runtimeGoal: goalForTask } : {}

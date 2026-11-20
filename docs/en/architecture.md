@@ -36,11 +36,10 @@ Importing `createDashboardApplication()` opens no port and installs no signal ha
 
 ## Pi dependency boundary
 
-A runtime import of a Pi package (`@earendil-works/pi-*`, not `import type`) is allowed only in the areas that own a Pi process: `.pi/` (extensions and tools), `scripts/` (launcher), model configuration, Main session file read/write, and context compaction; every other module may only use type imports. The areas are the explicit file list of the [ESLint rule](../../eslint.config.mjs) (`cowork/pi-import-boundary`); the [boundary regression](../../test/architecture-boundaries.test.js) keeps that list identical to this section.
+A runtime import of a Pi package (`@earendil-works/pi-*`, not `import type`) is allowed only in the areas that own a Pi process: `.pi/` (extensions and tools), `scripts/` (launcher), model configuration, and Main session file read/write; every other module may only use type imports. The areas are the explicit file list of the [ESLint rule](../../eslint.config.mjs) (`cowork/pi-import-boundary`); the [boundary regression](../../test/architecture-boundaries.test.js) keeps that list identical to this section.
 
 - Model configuration (connection probing, thinking levels, model parameters and request recording): [main-request-retry](../../src/runtime/main-request-retry.ts), [model-cache](../../src/runtime/model-cache.ts), [model-connection](../../src/runtime/model-connection.ts), [model-levels](../../src/runtime/model-levels.ts), [model-profile](../../src/runtime/model-profile.ts), [model-provider](../../src/runtime/model-provider.ts), [model-request-recording](../../src/runtime/model-request-recording.ts).
-- Main session file read/write (the backend rewrites Pi session files while Main is not running, that is message editing and forks): [conversation-fork](../../src/runtime/conversation-fork.ts), [main-message-edit](../../src/runtime/main-message-edit.ts).
-- Context compaction: [compaction-summary-guard](../../src/runtime/compaction-summary-guard.ts), [compaction-summary-policy](../../src/runtime/compaction-summary-policy.ts). This is a temporary exception, withdrawn when compaction is redesigned; remove it from the rule list then.
+- Main session file read/write (the backend rewrites Pi session files while Main is not running, including editing, forking and offline window changes): [conversation-fork](../../src/runtime/conversation-fork.ts), [main-message-edit](../../src/runtime/main-message-edit.ts).
 
 Runtime imports of package-internal subpaths (such as `@earendil-works/pi-ai/api/...`) are allowed only in model configuration, because a Pi upgrade most easily invalidates those internal paths. The boundary narrows a Pi upgrade to a check of the listed modules instead of the whole tree.
 
@@ -48,7 +47,7 @@ Runtime imports of package-internal subpaths (such as `@earendil-works/pi-ai/api
 
 A browser request flows through HTTP routes → Dashboard Run → AgentProcessHost → Pi launcher → Pi extension → Coordinator. CLI can use runtime services directly. These entrypoints share business semantics.
 
-The shared Pi extension owns tool result archiving and context projection for Main and subagents. The session preserves original content, and task detail exposes Main’s usage snapshot.
+The shared Pi extension owns tool archiving, context projection and model-free window changes for both roles. Pi persists the append-only session and handoff cursor. Task detail exposes Main’s usage and window changes.
 
 Pi session IDs scope notes, and history tools read original session entries and result archives.
 

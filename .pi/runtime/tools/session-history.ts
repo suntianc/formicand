@@ -10,7 +10,10 @@ import {
   sessionNotesPath,
   writeSessionNotes
 } from "../../../dist/src/runtime/session-notes.js";
-import { sessionDataDirectory } from "../../../dist/src/runtime/session-tool-results.js";
+import {
+  archivedToolResultPath,
+  sessionDataDirectory
+} from "../../../dist/src/runtime/session-tool-results.js";
 
 export const SESSION_HISTORY_TOOLS = ["session_notes", "search_history", "read_history"] as const;
 
@@ -112,7 +115,7 @@ export function registerSessionHistoryTools(pi: ExtensionAPI): void {
     name: "read_history",
     label: "Read session history",
     description:
-      "Read the original text or structured result by session entry ID. Ranges use zero-based character offsets. Select an image by its one-based number.",
+      "Read original history by entry ID or a tool result's displayed archive path. Ranges use zero-based character offsets. Select an image by its one-based number.",
     parameters: Type.Object({
       id: Type.String({ minLength: 1 }),
       start,
@@ -121,7 +124,9 @@ export function registerSessionHistoryTools(pi: ExtensionAPI): void {
       image: Type.Optional(Type.Integer({ minimum: 1 }))
     }),
     async execute(_id, params, _signal, _update, ctx) {
-      const entry = ctx.sessionManager.getEntry(params.id);
+      const entry =
+        ctx.sessionManager.getEntry(params.id) ??
+        ctx.sessionManager.getEntries().find((candidate) => archivedToolResultPath(candidate) === params.id);
       if (!entry || !historyRole(entry))
         throw new Error("No conversation entry with that ID in this session.");
       const original = await historyContentForEntry(sessionDataDirectory(ctx.sessionManager), entry);

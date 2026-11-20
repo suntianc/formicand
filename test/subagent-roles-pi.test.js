@@ -52,7 +52,6 @@ const MAIN_ONLY_TOOLS = [
   "askhuman",
   "sleep_until",
   "grant_capabilities",
-  "clear_context",
   "enable_tools",
   "project_ledger",
   "project_development",
@@ -60,7 +59,10 @@ const MAIN_ONLY_TOOLS = [
   "publish_artifact"
 ];
 
+const CONTEXT_TOOLS = ["clear_context", "read_history", "search_history", "session_notes"];
+
 const EXECUTOR_TOOLS = [
+  ...CONTEXT_TOOLS,
   "ask_main",
   "bash",
   "browse_workspace",
@@ -71,9 +73,10 @@ const EXECUTOR_TOOLS = [
   "send_peer_message",
   "visit",
   "write"
-];
+].sort();
 
 const REVIEWER_TOOLS = [
+  ...CONTEXT_TOOLS,
   "ask_main",
   "bash",
   "browse_workspace",
@@ -86,7 +89,7 @@ const REVIEWER_TOOLS = [
   "send_peer_message",
   "submit_review",
   "visit"
-];
+].sort();
 
 async function git(directory, args) {
   return (await execFileAsync("git", ["-C", directory, ...args], { windowsHide: true })).stdout.trim();

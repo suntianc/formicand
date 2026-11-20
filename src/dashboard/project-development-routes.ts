@@ -518,6 +518,10 @@ export async function handleDevelopmentRequest(
   const body = await readJsonBody(request);
   try {
     switch (body.action) {
+      case "context_handoff": {
+        if (!taskId) throw new HttpError(400, "交接页需要会话 ID");
+        return reply(response, 200, { development: await ports.service.contextHandoffForTask(taskId) });
+      }
       case "query":
         return reply(response, 200, await listing());
       case "get": {

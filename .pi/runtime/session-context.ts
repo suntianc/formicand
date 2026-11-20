@@ -56,6 +56,7 @@ export function registerSessionContext(pi: ExtensionAPI, usagePath?: string): vo
     const text = content.flatMap((block) => (block.type === "text" ? [block.text] : [])).join("\n");
     const structuredText = structuredContent === undefined ? "" : JSON.stringify(structuredContent);
     if (Math.max(text.length, structuredText.length) <= LARGE_RESULT_CHARS) return;
+    if (!ctx.sessionManager.getSessionFile()) return;
     const path = await archiveToolResult(sessionDataDirectory(ctx.sessionManager), {
       toolName,
       toolCallId,
@@ -67,7 +68,7 @@ export function registerSessionContext(pi: ExtensionAPI, usagePath?: string): vo
       content: [
         {
           type: "text",
-          text: `[Tool result stored at ${path}]\n${truncateToolText(text || structuredText, RESULT_PREVIEW_CHARS)}`
+          text: `[Tool result stored at ${path}]\nUse read_history with this path as id.\n${truncateToolText(text || structuredText, RESULT_PREVIEW_CHARS)}`
         },
         ...content.filter((block) => block.type === "image")
       ]

@@ -62,7 +62,11 @@ export async function sessionContextFixture(t, handle, { contextWindow = 64000, 
   });
   t.after(async () => {
     if (child && child.exitCode === null && child.signalCode === null) {
-      child.kill("SIGKILL");
+      try {
+        process.kill(-child.pid, "SIGKILL");
+      } catch (error) {
+        if (error.code !== "ESRCH") throw error;
+      }
       await childExit;
     }
     server.closeAllConnections();
@@ -129,7 +133,7 @@ export async function sessionContextFixture(t, handle, { contextWindow = 64000, 
         ...args,
         prompt
       ],
-      { env: { ...env, ...launchEnv }, stdio: ["ignore", "pipe", "pipe"] }
+      { env: { ...env, ...launchEnv }, detached: true, stdio: ["ignore", "pipe", "pipe"] }
     );
     childExit = once(child, "exit");
     let output = "";

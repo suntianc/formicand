@@ -8,6 +8,7 @@ import { configuredWebTools } from "../../dist/src/runtime/web-search-config.js"
 import { builtinAgentSettings } from "../../dist/src/runtime/role-models.js";
 import { queuedUserTurn, readQueuedUserTurn } from "../../dist/src/runtime/queued-user-turn.js";
 import type { BeforeAgentStartEvent, ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { isContextOverflow } from "@earendil-works/pi-ai";
 import { randomUUID } from "node:crypto";
 import { mkdir } from "node:fs/promises";
 import { join, resolve } from "node:path";
@@ -16,7 +17,7 @@ import { HumanRequestStore } from "../../dist/src/runtime/human.js";
 import {
   ensureMainContext,
   mainContextPaths,
-  persistMainContext,
+  persistMainSessionContext,
   readMainContextState,
   updateMainContextRuntime
 } from "../../dist/src/runtime/main-context.js";
@@ -82,9 +83,7 @@ import {
 } from "../../dist/src/runtime/skill-registry.js";
 import { piSkill } from "./skills.ts";
 import { attachmentCapabilityProvider } from "../../dist/src/workspace/attachment-capabilities.js";
-import { mainCompactionPreviousSummary, withMainCompactionContext } from "./main-compaction.ts";
-import { MainCompactionRetry } from "./main-compaction-retry.ts";
-import { projectCompactionMessages } from "../../dist/src/runtime/compaction-input.js";
+import { withMainRuntimeContext } from "./main-context-prompt.ts";
 import type { RuntimeToolResult } from "./helpers.ts";
 import { errorMessage, loadConfig, textFromMessage } from "./helpers.ts";
 import { registerCoordinationTools } from "./tools/coordination.ts";
@@ -110,6 +109,9 @@ import { blockedToolCall, taskProtectedPaths } from "./protected-call.ts";
 import { registerCoworkProvider } from "./provider.ts";
 import { createMcpRegistration } from "./mcp.ts";
 import { registerSessionContext } from "./session-context.ts";
+import { registerContextWindows } from "./context-windows.ts";
+import { createProjectDevelopmentClient } from "../../dist/src/runtime/project-development-client.js";
+import type { WindowDevelopment } from "../../dist/src/runtime/session-handoff.js";
 import { registerSessionHistoryTools } from "./tools/session-history.ts";
 import { mainContextUsagePath } from "../../dist/src/runtime/session-context-usage.js";
 
@@ -152,6 +154,23 @@ async function registerMainExtension(pi: ExtensionAPI) {
   // A stable task id gives the Main Run a stable Inbox across Pi restarts.
   // Override either value when deliberately starting a fresh run.
   const mainRunId = process.env.COWORK_RUN_ID ?? `main-${taskId}`;
+  const dashboardUrl = process.env.COWORK_DASHBOARD_URL;
+  const windows = registerContextWindows(pi, {
+    workspaceRoot,
+    taskId,
+    runId: mainRunId,
+    ...(dashboardUrl && process.env.COWORK_API_TOKEN
+      ? {
+          readDevelopment: async (signal) => {
+            const response = await createProjectDevelopmentClient({ dashboardUrl, taskId })(
+              { action: "context_handoff" },
+              signal
+            );
+            return response.development as WindowDevelopment | undefined;
+          }
+        }
+      : {})
+  });
   const taskWorkspace = resolve(workspaceRoot, taskId);
   const projectDirectory = resolve(process.env.COWORK_PROJECT_DIR ?? process.cwd());
   const harnessRoot = process.env.COWORK_HARNESS_ROOT ?? process.cwd();
@@ -315,7 +334,7 @@ async function registerMainExtension(pi: ExtensionAPI) {
         // Only the startup read before the first turn needs the batch: after
         // that, each message is steered into the turn already in flight.
         batchStart: !firstTurnStarted && (sessionContext?.isIdle() ?? true),
-        onControl: (type) => handleMainControl(type)
+        onControl: (type, message) => handleMainControl(type, message.messageId)
       }
     );
   };
@@ -327,8 +346,6 @@ async function registerMainExtension(pi: ExtensionAPI) {
   let mainTurns = 0;
   let recentContext: unknown[] = [];
   let mainContext: ReturnType<typeof mainContextPaths> | undefined;
-  const compactionRetry = new MainCompactionRetry();
-  let pendingContextClear: { reason: string } | undefined;
   let inboxDeliveryActive = false;
   // Every wake counts, so one that arrives while a delivery pass is running
   // repeats that pass instead of being dropped.
@@ -409,7 +426,16 @@ async function registerMainExtension(pi: ExtensionAPI) {
     });
   };
 
-  const handleMainControl = async (type: MainControlType): Promise<boolean> => {
+  const handleMainControl = async (type: MainControlType, messageId: string): Promise<boolean> => {
+    if (type === "main.compact") {
+      if (!sessionContext) return false;
+      try {
+        await windows.fromComposer(sessionContext, messageId);
+      } catch (error) {
+        sessionContext.ui.notify(`Could not open a new context window: ${errorMessage(error)}`, "warning");
+      }
+      return true;
+    }
     if (type === "main.pause") {
       // A pause asked for while Main has no turn (it waits for its Subagents
       // between turns) is taken here, at once; a turn in flight takes it at
@@ -730,7 +756,7 @@ async function registerMainExtension(pi: ExtensionAPI) {
       try {
         await runtimeWrites;
         const runtime = await readMainContextState(mainContext);
-        messages = withMainCompactionContext(messages, { runtime });
+        messages = withMainRuntimeContext(messages, { runtime });
       } catch (error) {
         ctx.ui.notify(`Main current context refresh failed: ${errorMessage(error)}`, "warning");
       }
@@ -766,7 +792,7 @@ async function registerMainExtension(pi: ExtensionAPI) {
       });
     }
     try {
-      if (mainContext) await persistMainContext(mainContext, ctx.sessionManager.getBranch());
+      if (mainContext) await persistMainSessionContext(mainContext, ctx.sessionManager.getBranch());
       if (!requestRetry?.isReplaying) {
         await inboxDelivery.acknowledge(messages);
         if (process.env.COWORK_MAIN_RETRY_REQUEST_ID) freshRetryContext = true;
@@ -786,53 +812,8 @@ async function registerMainExtension(pi: ExtensionAPI) {
     };
   });
 
-  pi.on("session_before_compact", async (event, ctx) => {
-    if (!mainContext) return;
-    const skipped = compactionRetry.before(event, ctx.sessionManager.getSessionId(), ctx.model);
-    if (skipped) return skipped;
-    await runtimeWrites;
-    await persistMainContext(mainContext, ctx.sessionManager.getBranch());
-    // Pi passes this prepared object to its native compactor after the hook.
-    // Keep the native auth/retry/abort path, history and split-turn summaries,
-    // file tracking and safe recent tail. A template must never replace
-    // those summaries, including when clear_context explicitly requests one.
-    event.preparation.previousSummary = mainCompactionPreviousSummary(event.preparation.previousSummary);
-    event.preparation.messagesToSummarize = projectCompactionMessages(event.preparation.messagesToSummarize);
-    event.preparation.turnPrefixMessages = projectCompactionMessages(event.preparation.turnPrefixMessages);
-  });
-
-  pi.on("session_compact", async (event, ctx) => {
-    // The native checkpoint is already committed, even if the auxiliary snapshot fails.
-    compactionRetry.succeeded();
-    if (!mainContext) return;
-    try {
-      const state = await readMainContextState(mainContext);
-      await persistMainContext(mainContext, ctx.sessionManager.getBranch(), {
-        contextEpoch: state.contextEpoch + 1,
-        lastClearReason: pendingContextClear?.reason ?? `automatic:${event.reason}`,
-        lastClearAt: new Date().toISOString()
-      });
-    } catch (error) {
-      // Pi has already committed the compaction. A secondary snapshot failure
-      // must not be reported as if the original context were still active.
-      ctx.ui.notify(
-        `Main compaction succeeded, but its context snapshot failed: ${errorMessage(error)}`,
-        "warning"
-      );
-    } finally {
-      pendingContextClear = undefined;
-    }
-  });
-
-  pi.on("session_compact_failed", (event, ctx) => {
-    if (compactionRetry.failed(event)) return;
-    if (pendingContextClear) {
-      ctx.ui.notify(
-        "Main compaction did not complete; the original session history is preserved.",
-        "warning"
-      );
-      pendingContextClear = undefined;
-    }
+  pi.on("session_compact", async (_event, ctx) => {
+    if (mainContext) await persistMainSessionContext(mainContext, ctx.sessionManager.getBranch());
   });
 
   /**
@@ -872,7 +853,7 @@ async function registerMainExtension(pi: ExtensionAPI) {
       const failedTurn = lastMainMessage as { role?: string; stopReason?: string } | undefined;
       turnActive = failedTurn?.role === "assistant" && failedTurn.stopReason === "error";
       touchMainActivity();
-      if (mainContext) await persistMainContext(mainContext, ctx.sessionManager.getBranch());
+      if (mainContext) await persistMainSessionContext(mainContext, ctx.sessionManager.getBranch());
       const replayOnly = Boolean(process.env.COWORK_MAIN_RETRY_REQUEST_ID) && !freshRetryContext;
       await inboxDelivery.settle(replayOnly ? [] : ctx.sessionManager.getEntries());
       try {
@@ -892,12 +873,10 @@ async function registerMainExtension(pi: ExtensionAPI) {
         // service settles that Run from the exit, so this boundary records
         // nothing. A one-turn host has no backend to project that exit: its
         // failed turn is still settled here, as it always was.
-        if (
-          resident &&
-          lastMainMessage &&
-          (lastMainMessage as { stopReason?: string }).stopReason === "error"
-        )
+        if (resident && failedTurn?.role === "assistant" && failedTurn.stopReason === "error") {
+          ctx.shutdown();
           return;
+        }
         if (task.pause && task.status === "running") {
           await recordPause(task.pause);
         } else if (task.status === "running" && !task.pause) {
@@ -915,7 +894,7 @@ async function registerMainExtension(pi: ExtensionAPI) {
             pendingSubagentQuestions: (await questionStore.list(taskId, "pending")).length,
             // eslint-disable-next-line no-restricted-syntax -- 没有 sleep 记录或记录损坏时按未 park 处理，完成判定走正常路径
             parkedForWake: Boolean(await readSleep(workspaceRoot, taskId).catch(() => undefined)),
-            hasFinalAnswer: isFinalAssistantMessage(lastMainMessage) && !pendingContextClear
+            hasFinalAnswer: isFinalAssistantMessage(lastMainMessage)
           });
           if (!assessment.ready) {
             await taskStore.transitionTask(taskId, "waiting", {
@@ -960,19 +939,6 @@ async function registerMainExtension(pi: ExtensionAPI) {
       } catch (error) {
         ctx.ui.notify(`Task lifecycle update failed: ${errorMessage(error)}`, "warning");
       }
-      if (!pendingContextClear) return;
-      const reason = pendingContextClear.reason;
-      // compact() schedules asynchronous work. Keep the settled hook alive
-      // until it finishes so a print/worker host cannot dispose the session
-      // while the native summarizer is still generating its checkpoint.
-      await new Promise<void>((resolve) => {
-        ctx.compact({
-          customInstructions: `Create a continuation checkpoint from the actual conversation and supplemental persisted state. Preserve the user's current requirements, completed changes, verification, unresolved work and next action. Workspace memory is supplementary and may be stale. Reason: ${reason}`,
-          onComplete: () => resolve(),
-          // session_compact_failed reports the error with a current context.
-          onError: () => resolve()
-        });
-      });
     } catch (error) {
       ctx.ui.notify(`Task settlement hook failed: ${errorMessage(error)}`, "warning");
     } finally {
@@ -1039,7 +1005,7 @@ async function registerMainExtension(pi: ExtensionAPI) {
       sessionContext = ctx;
       const last = event.messages.findLast((message) => message.role === "assistant");
       lastMainMessage = last;
-      if (resident && last?.stopReason === "error") {
+      if (resident && last?.stopReason === "error" && !isContextOverflow(last)) {
         // A failed model request is not a resting state: the session cannot
         // continue past it, and the backend settles the Run (and frees the
         // retry slot) from this exit. A person's retry starts the archived
@@ -1050,7 +1016,7 @@ async function registerMainExtension(pi: ExtensionAPI) {
         ctx.shutdown();
         return;
       }
-      if (!last || ["error", "aborted", "length"].includes(last.stopReason) || pendingContextClear) return;
+      if (!last || ["error", "aborted", "length"].includes(last.stopReason)) return;
       // Pi awaits this hook before settling --print. Keep the Main session
       // alive for outstanding one-shot work and let queued callbacks trigger
       // another turn before a final answer is accepted.
@@ -1307,12 +1273,6 @@ async function registerMainExtension(pi: ExtensionAPI) {
     },
     get observedJobs() {
       return observedJobs;
-    },
-    get pendingContextClear() {
-      return pendingContextClear;
-    },
-    set pendingContextClear(value) {
-      pendingContextClear = value;
     },
     get pollJobs() {
       return pollJobs;

@@ -493,6 +493,22 @@ html[data-theme] .turn-endline {
   font-size: 12px;
   font-variant-numeric: tabular-nums;
 }
+
+.context-window-divider {
+  color: var(--muted);
+  font-size: 12px;
+  margin-block: 12px;
+}
+.context-window-divider summary {
+  text-align: center;
+  cursor: pointer;
+}
+.context-window-divider .tool-copy {
+  margin-top: 8px;
+  padding: 12px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
 html[data-theme] .turn-endline::before,
 html[data-theme] .turn-endline::after {
   content: "";

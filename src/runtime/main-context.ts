@@ -2,6 +2,8 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { atomicWrite } from "../storage/atomic-file.js";
 import { withFileLock } from "../storage/file-lock.js";
+import type { SessionEntry } from "@earendil-works/pi-coding-agent";
+import { latestWindow, windowDetails } from "./session-handoff.js";
 
 export interface MainContextState {
   version: 1;
@@ -128,6 +130,20 @@ export async function persistMainContext(
     await atomicWrite(paths.messages, `${JSON.stringify(entries, null, 2)}\n`);
     await atomicWrite(paths.state, `${JSON.stringify(next, null, 2)}\n`);
     return next;
+  });
+}
+
+export function persistMainSessionContext(
+  paths: MainContextPaths,
+  entries: SessionEntry[],
+  patch: Partial<MainContextState> = {}
+) {
+  const latest = latestWindow(entries);
+  return persistMainContext(paths, entries, {
+    ...patch,
+    contextEpoch: entries.filter((entry) => entry.type === "compaction").length,
+    lastClearAt: latest?.timestamp,
+    lastClearReason: windowDetails(latest?.details)?.reason
   });
 }
 

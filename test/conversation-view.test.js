@@ -39,6 +39,34 @@ test("a submitted human reply uses a compact disclosure and preserves its open s
   assert.equal(disclosure.open, true);
 });
 
+test("a context divider preserves its chronological position and open handoff across updates", () => {
+  const { document, state, render } = fixture("context-window-divider", "");
+  const reply = {
+    id: "before-window",
+    role: "assistant",
+    content: "First reply.",
+    timestamp: 2,
+    stopReason: "stop"
+  };
+  const followUp = { id: "after-window", role: "user", content: "Continue the work.", timestamp: 4 };
+  state.detail.runtimeEvents = [];
+  state.detail.runtime.active = false;
+  state.detail.task.status = "completed";
+  state.detail.contextWindows = [{ id: "window-2", timestamp: 3, summary: "Constraint: <img src=example>" }];
+  render([user, reply, followUp]);
+  const divider = document.querySelector(".context-window-divider");
+  assert.ok(divider);
+  assert.match(divider.previousElementSibling.textContent, /First reply/);
+  assert.match(divider.nextElementSibling.textContent, /Continue the work/);
+  assert.equal(divider.querySelector("pre").textContent, "Constraint: <img src=example>");
+  assert.equal(divider.querySelector("img"), null);
+  divider.open = true;
+  state.detail.contextUsage = { tokens: 1000, contextWindow: 64_000, window: 2 };
+  render([user, reply, followUp]);
+  assert.equal(document.querySelector(".context-window-divider"), divider);
+  assert.equal(divider.open, true);
+});
+
 test("a mid-run instruction separates earlier activity from the continuing response", () => {
   const { document, state, render } = fixture("steering-order", "补充前的第六步。");
   state.detail.runtimeEvents.push(update("thinking_end", 0, { content: "补充前的第六步。" }));

@@ -13,6 +13,8 @@ import {
   prepareMessageEdit,
   readMessageVersions,
   alignMessageVersionSession,
+  compactStoredMainSession,
+  currentMainSession,
   MainMessageEditConflict,
   type MessageEditRequest,
   type EditTextFile
@@ -25,7 +27,9 @@ import { mainContextPaths } from "../runtime/main-context.js";
 import { mainInputPath, readMainInput, saveMainInput, type MainInput } from "../runtime/main-continuation.js";
 import { appendFile, readdir, realpath } from "node:fs/promises";
 import { listJobs } from "../tools/jobs.js";
-import { join, resolve } from "node:path";
+import { basename, join, resolve } from "node:path";
+import { mainContextUsagePath, type SessionContextUsage } from "../runtime/session-context-usage.js";
+import type { WindowDevelopment } from "../runtime/session-handoff.js";
 import { mainRunEnv } from "./main-run-env.js";
 import { MainRequestConflictError, mainRequestEnvironment } from "../runtime/main-request-retry.js";
 import {
@@ -122,6 +126,7 @@ export interface RunServicePorts {
     unfinishedWork?(input: { taskId: string; runId: string }): Promise<boolean>;
   };
   locateTask(taskId: string): Promise<TaskLocation>;
+  readWindowDevelopment?(taskId: string): Promise<WindowDevelopment | undefined>;
   /**
    * Resolve the execution host's connection for one admitted Run.
    *
@@ -210,6 +215,7 @@ export function createDashboardRunService({
   coordinator,
   subagents,
   locateTask,
+  readWindowDevelopment,
   resolveMainModel,
   endpointLimits = async () => undefined,
   onRunSettled = () => {},
@@ -2145,6 +2151,55 @@ export function createDashboardRunService({
     return lockTasks(0);
   }
 
+  function compactMainContext(taskId: string) {
+    return withTaskProjectLock(taskId, () =>
+      serialize(taskId, async () => {
+        await taskFinalizations.get(taskId);
+        const location = await locateTask(taskId);
+        const { task, workspaceRoot } = location;
+        const resident = await adoptResidentMain(taskId, location);
+        if (resident) {
+          const { runId } = resident;
+          const messageId = `compact-${randomUUID()}`;
+          await new InboxStore(
+            join(workspaceRoot, taskId, "runs", runId, "agents", "main", "inbox-store.json")
+          ).enqueue({
+            messageId,
+            recipientAgentId: "main",
+            kind: "human_command",
+            eventId: messageId,
+            priority: 130,
+            state: "ready",
+            payload: { type: "main.compact" },
+            createdAt: now()
+          });
+          return { queued: true };
+        }
+        if (activeRuns.has(taskId) || mainIsAlive(await readHeartbeat(workspaceRoot, taskId)))
+          return { error: "会话由另一个 Main 进程持有，请在该进程中换窗口。" };
+        const { session } = await currentMainSession(workspaceRoot, taskId);
+        if (!session) return { error: "发送第一条消息后可换窗口。" };
+        const usage = await readJsonFile<SessionContextUsage | null>(
+          mainContextUsagePath(workspaceRoot, taskId),
+          null
+        );
+        const file = session.getSessionFile();
+        const compacted = await compactStoredMainSession(
+          session,
+          {
+            workspaceRoot,
+            taskId,
+            runId: task.activeRunId,
+            ...(task.projectId &&
+              readWindowDevelopment && { readDevelopment: () => readWindowDevelopment(taskId) })
+          },
+          usage && file && usage.sessionFile === basename(file) ? usage.contextWindow : undefined
+        );
+        return compacted ? { queued: false } : { error: "发送第一条消息后可换窗口。" };
+      })
+    );
+  }
+
   /**
    * Ask Main to pause: its Subagents first, then itself.
    *
@@ -2546,6 +2601,7 @@ export function createDashboardRunService({
     isBusy: () => activeRuns.size > 0 || taskOperations.size > 0 || finalizations.size > 0,
     startMainRun,
     pauseTask,
+    compactMainContext,
     stopTask,
     editMainMessage,
     interjectionTarget,
