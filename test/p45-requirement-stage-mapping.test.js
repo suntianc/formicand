@@ -7,7 +7,8 @@ import {
   requirementStage,
   requirementSteps,
   requirementTab,
-  requirementTabCounts
+  requirementTabCounts,
+  requirementTickets
 } from "../web/assets/requirement-stages.js";
 
 const commit = (value) => value.repeat(40).slice(0, 40);
@@ -375,4 +376,36 @@ test("the tabs are the design's six, in order", () => {
       ["delivered", "已交付"]
     ]
   );
+});
+
+test("with tickets the phase and criteria follow the tickets, not the last review", () => {
+  const ticket = (ticketId, state) => ({ ticketId, title: `票 ${ticketId}`, state, dependsOn: [] });
+  // Ticket 01's review passed, but ticket 02 is still being written.
+  const working = {
+    development: development(),
+    reviews: [review("passed")],
+    tickets: [ticket("01", "merged"), ticket("02", "in_progress")]
+  };
+  assert.equal(requirementStage(working).stage, "development");
+  const progress = requirementProgress(working);
+  assert.deepEqual(
+    progress.criteria.map((entry) => entry.checked),
+    [false, false]
+  );
+  assert.equal(progress.steps.find((step) => step.id === "review").state, "pending");
+  assert.equal(
+    requirementStage({ ...working, tickets: [ticket("01", "merged"), ticket("02", "in_review")] }).stage,
+    "review"
+  );
+  assert.equal(
+    requirementStage({ ...working, tickets: [ticket("01", "rework"), ticket("02", "in_review")] }).stage,
+    "rework"
+  );
+  const allIn = { ...working, tickets: [ticket("01", "merged"), ticket("02", "merged")] };
+  assert.equal(requirementStage(allIn).stage, "merge");
+  assert.deepEqual(
+    requirementProgress(allIn).criteria.map((entry) => entry.checked),
+    [true, true]
+  );
+  assert.deepEqual(requirementTickets(allIn.tickets).merged, 2);
 });

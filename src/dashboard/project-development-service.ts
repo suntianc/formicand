@@ -2238,6 +2238,7 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
     const qualification = await deliveryQualification(projectId, record.developmentId).catch(() => undefined);
     const diff = await deliveryDiff(record, delivery, merges, plan, reviews);
     const roles = await deliveryRoles(record, reviews);
+    const { tickets } = await (await gateway()).tickets(projectId, record.developmentId);
     // eslint-disable-next-line no-restricted-syntax -- 本地 outbox 读失败时视为没有待同步条目，条目仍在盘上等下次重放
     const pending = [...(await deliveryOutbox.list(projectId).catch(() => []))]
       .reverse()
@@ -2263,6 +2264,7 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
       ...(board ? { board } : {}),
       ...(diff ? { diff } : {}),
       roles,
+      tickets,
       ...(waitingSync ? { pendingSync: waitingSync } : {})
     };
   }
@@ -2594,6 +2596,21 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
     async tickets(projectId: string, developmentId: string) {
       await project(projectId);
       return (await gateway()).tickets(projectId, developmentId);
+    },
+
+    /** Every development's tickets in one project, flat, for the overview's phase columns. */
+    async ticketSummaries(projectId: string, developmentIds: string[]) {
+      const service = await gateway();
+      const sets = await Promise.all(developmentIds.map((id) => service.tickets(projectId, id)));
+      return sets.flatMap((set) =>
+        set.tickets.map((ticket) => ({
+          developmentId: set.developmentId,
+          ticketId: ticket.ticketId,
+          title: ticket.title,
+          state: ticket.state,
+          dependsOn: ticket.dependsOn
+        }))
+      );
     },
 
     async ticketsForTask(taskId: string, developmentId: string) {

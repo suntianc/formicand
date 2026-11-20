@@ -3,6 +3,7 @@ import {
   REQUIREMENT_TABS,
   requirementProgress,
   requirementTab,
+  requirementTickets,
   requirementTabCounts
 } from "../requirement-stages.js";
 import { icon } from "../ui/icons.js";
@@ -247,6 +248,7 @@ export function createObserveRequirements({
           merges: view?.merges,
           delivery: view?.delivery,
           roles: view?.roles,
+          tickets: view?.tickets,
           waitingForReply: Boolean(session?.taskId && tasks.get(session.taskId)?.pendingQuestion)
         };
         const progress = requirementProgress(facts);
@@ -426,6 +428,25 @@ export function createObserveRequirements({
       .join("")}</ul></section>`;
   }
 
+  function ticketSection(row) {
+    const { rows, merged } = requirementTickets(row.facts.tickets);
+    if (!rows.length) return "";
+    return `<section class="or-section" data-or-section="tickets"><h3 class="or-label">${esc(
+      ui`票 ${merged}/${rows.length} 已并入`
+    )}</h3><ul class="or-tickets">${rows
+      .map(
+        (ticket) =>
+          `<li data-ticket-state="${esc(ticket.state)}"><span class="or-ticket-id">${esc(
+            ticket.ticketId
+          )}</span><span class="or-ticket-title">${esc(ticket.title)}</span><span class="or-spacer"></span>${
+            ticket.dependsOn.length
+              ? `<span class="or-ticket-after">${esc(ui`在 ${ticket.dependsOn.join("、")} 之后`)}</span>`
+              : ""
+          }<span class="or-ticket-state">${esc(ui(ticket.label))}</span></li>`
+      )
+      .join("")}</ul></section>`;
+  }
+
   function reviewSection(row) {
     const review = [...(row.facts.reviews ?? [])].at(-1);
     if (!review) return "";
@@ -507,6 +528,7 @@ export function createObserveRequirements({
           ${factRow("台账", `v${row.revision} · ${ui(LEDGER_STATUS[row.status] ?? row.status ?? "")}`)}
         </div>
         ${criteriaSection(row)}
+        ${ticketSection(row)}
         ${reviewSection(row)}
         ${changeSection(row)}
       </div>`;
