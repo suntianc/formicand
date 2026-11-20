@@ -196,6 +196,7 @@ test("call_subagent keeps task/mode required and dispatches one work item per ca
       "role",
       "dependsOn",
       "developmentId",
+      "ticketId",
       "continueCallId",
       "reviewId",
       "profileId",

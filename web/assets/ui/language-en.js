@@ -1719,5 +1719,29 @@ export default {
   保存后从下一轮对话起生效: "Applies from the next turn after saving",
   全部跟随全局: "Follow global for all",
   已改为跟随全局: "Now follows global",
-  全部可用: "All available"
+  全部可用: "All available",
+  // Settings → Memory
+  记忆: "Memory",
+  用户: "User",
+  新建记忆: "New memory",
+  "Main 使用这个项目的记忆": "Main uses this project's memory",
+  记忆列表: "Memories",
+  记忆读取失败: "Could not read memory",
+  还没有记忆: "No memories yet",
+  "小写字母、数字和连字符": "Lowercase letters, digits and hyphens",
+  类型: "Type",
+  一句话说明: "One-line summary",
+  "出现在 Main 每次看到的索引里": "Shown in the index Main reads every turn",
+  正文: "Body",
+  "Main 用到时才读": "Main reads it when needed",
+  新记忆: "New memory",
+  "只在这个项目里用；关闭后 Main 看不到也写不了":
+    "Used in this project only; when off, Main can neither see nor write it",
+  "跟着你走，所有项目的 Main 都会用到": "Follows you; Main uses it in every project",
+  "删除后 Main 不再记得这一条，无法撤销。": "Main will no longer remember this. This cannot be undone.",
+  "Main 会使用这个项目的记忆": "Main will use this project's memory",
+  "Main 不再使用这个项目的记忆": "Main will no longer use this project's memory",
+  纠正与认可: "Corrections and confirmations",
+  项目情况: "Project facts",
+  外部资料: "References"
 };

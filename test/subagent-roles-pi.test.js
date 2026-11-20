@@ -56,6 +56,7 @@ const MAIN_ONLY_TOOLS = [
   "enable_tools",
   "project_ledger",
   "project_development",
+  "memory",
   "publish_artifact"
 ];
 

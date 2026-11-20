@@ -92,6 +92,7 @@ import { registerAgentTools } from "./tools/agents.ts";
 import { registerJobsTools } from "./tools/jobs.ts";
 import { registerProjectLedgerTool } from "./tools/project-ledger.ts";
 import { registerProjectDevelopmentTool } from "./tools/project-development.ts";
+import { registerMemoryTool } from "./tools/memory.ts";
 import { registerWorkspaceTools } from "./tools/workspace.ts";
 import { registerComputerTools } from "./tools/computer-use.ts";
 import { registerBrowserTools } from "./tools/browser-use.ts";
@@ -140,6 +141,7 @@ async function registerMainExtension(pi: ExtensionAPI) {
   // this process's next turn rather than wait for a new process; the turn
   // boundary below re-reads it and keeps `search`/`visit` in step.
   let web = configuredWebTools(config);
+  let memoryTool: ReturnType<typeof registerMemoryTool>;
   const workspaceRoot = configuredWorkspaceRoot(config);
   const taskId = process.env.COWORK_TASK_ID ?? config.taskId ?? `task-${randomUUID()}`;
   // A stable task id gives the Main Run a stable Inbox across Pi restarts.
@@ -633,6 +635,21 @@ async function registerMainExtension(pi: ExtensionAPI) {
     pi.setActiveTools([...new Set([...active, "search", "visit"])]);
   };
 
+  /**
+   * The memory index, read again every turn so a memory saved or edited in
+   * settings applies to the next turn. Memory adds to the conversation and
+   * never gates it: a failed read is stated in the section instead.
+   */
+  const memoryIndexSection = async (): Promise<string> => {
+    if (!memoryTool) return "";
+    try {
+      return await memoryTool.index();
+    } catch (error) {
+      // Memory only adds context, so a failed read is reported in its section rather than failing the turn.
+      return `The memory index could not be read this turn: ${errorMessage(error)}`;
+    }
+  };
+
   const prepareMainTurnSections = async () => {
     // Real Pi assembles this hook before the per-request context hook, so tool
     // discovery must finish here to exist on the first model request. A resident
@@ -649,12 +666,14 @@ async function registerMainExtension(pi: ExtensionAPI) {
     ].join("\n");
     // The user's own Agents, read again every turn so a new or changed one applies to the next turn.
     const agents = await availableAgents(await processAgentLocations(projectDirectory));
+    const memory = await memoryIndexSection();
     // Keep SDK-owned tools and rules dynamic. Returning a forced prompt here
     // freezes snippets when enable_tools changes the active loadout mid-turn.
     return {
       // Pi wraps each section in a tag of its own name.
       current_workspace: workspace,
       custom_agents: agents.length ? customAgentsPrompt(agents) : "",
+      memory,
       // The user's extra instructions for Main add to the rules above and never replace them.
       user_main_instructions: mainSettings.prompt
     };
@@ -1341,6 +1360,7 @@ async function registerMainExtension(pi: ExtensionAPI) {
   registerJobsTools(pi, toolContext);
   registerProjectLedgerTool(pi, toolContext);
   registerProjectDevelopmentTool(pi, toolContext);
+  memoryTool = registerMemoryTool(pi, toolContext);
   registerWorkspaceTools(pi, toolContext);
   const cuaBridge = createCuaDispatcher(pi);
   registerImageTools(cuaBridge.capturePi, toolContext);

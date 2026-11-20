@@ -13,7 +13,7 @@ import {
 const section = (page, name) => page.locator(`[data-settings-panel="${name}"]`);
 const navItem = (page, name) => page.locator(`[data-settings-section="${name}"]`);
 
-test("the nine sections switch from one navigation, return to the entry and no settings dialog remains", async ({
+test("the ten sections switch from one navigation, return to the entry and no settings dialog remains", async ({
   page
 }) => {
   const dashboard = await startDashboard();
@@ -23,7 +23,7 @@ test("the nine sections switch from one navigation, return to the entry and no s
     await openSettings(page);
 
     await expect(page.locator("#app-layout")).toBeHidden();
-    await expect(page.locator("#settings-entry .settings-nav-item")).toHaveCount(9);
+    await expect(page.locator("#settings-entry .settings-nav-item")).toHaveCount(10);
     await expect(navItem(page, "general")).toHaveAttribute("aria-current", "page");
     await expect(section(page, "general")).toBeVisible();
     await expect(section(page, "general").getByRole("heading", { level: 1 })).toHaveText("通用");
@@ -34,6 +34,7 @@ test("the nine sections switch from one navigation, return to the entry and no s
       ["agents", "Agent"],
       ["skills", "技能"],
       ["mcp", "MCP 服务"],
+      ["memory", "记忆"],
       ["capacity", "运行名额"],
       ["members", "成员与通道"],
       ["tools", "工具"]

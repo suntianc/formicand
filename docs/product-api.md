@@ -415,6 +415,14 @@ Every write carries a `requestId`: repeating the same request returns the commit
 
 A secondary backend with `projectData.authority` reads and writes this same surface through its authenticated client. Its `POST /api/project-data/bindings` stores that backend's own local folder binding, and an authenticated remote request never resolves a shared path as a local execution directory. An unreachable authority returns `503 storage_unavailable`; a revoked session returns `401 shared_auth_failed`. Neither reports a successful claim nor transfers ownership.
 
+## Memory
+
+Main's memory, one Markdown file per memory under `ATRIA_HOME/memory/user/` and `ATRIA_HOME/memory/projects/<projectId>/`. The index Main reads is derived from the files. Design: [记忆与上下文压缩设计](memory-and-compaction-design.md#四记忆).
+
+- Settings: `GET /api/memory?scope=user|project[&projectId=]` lists memories (newest first) and, for a project, `enabled`; `GET /api/memory/read?…&name=` returns one; `POST /api/memory/save` takes `{ target: { scope, projectId? }, memory: { name, type, description, body }, previousName? }` and renames when `previousName` differs; `POST /api/memory/delete` takes `{ target, name }`; `POST /api/memory/enabled` takes `{ projectId, enabled }`.
+- Main: `GET /api/tasks/:taskId/memory` returns the user memories, the project's when it is on, and the `index`; `POST` takes `{ action: "list" | "read" | "write" | "delete", scope, name?, memory? }`. The project always comes from the Task. A switched-off project answers `403 memory_project_disabled`; a Task without a project can use only `user`. Delegated processes carry no run credential, so Subagents have no memory.
+- `type` is `user`, `feedback`, `project` or `reference`; `name` is lowercase letters, digits and hyphens (up to 64); `description` up to 150 characters; `body` up to 4,000; up to 80 memories per scope. Invalid input is `400` with a `memory_*` code.
+
 ## Task APIs
 
 ```text
