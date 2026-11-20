@@ -74,7 +74,7 @@ function settled(detail) {
 
 /** Drive one Task until it settles, answering questions and nudging a stalled turn once. */
 async function drive(base, taskId, prompt, check) {
-  const counts = { questions: [], nudges: 0 };
+  const counts = { questions: [], confirmations: 0, nudges: 0 };
   await api(base, `/api/tasks/${taskId}/run`, { prompt });
   const until = Date.now() + TIMEOUT_MS;
   let calm = 0;
@@ -82,8 +82,14 @@ async function drive(base, taskId, prompt, check) {
     await delay(5_000);
     const detail = await api(base, `/api/tasks/${taskId}`);
     for (const request of detail.humanRequests.filter((entry) => entry.status === "pending")) {
-      counts.questions.push(request.question);
-      await api(base, `/api/tasks/${taskId}/human/${request.requestId}/answer`, { answer: ANSWER });
+      // A confirmation card (tickets, an Agent) is approved as proposed, the
+      // way a user who agrees with the plan answers it; it is not a question.
+      const approve = request.proposal !== undefined;
+      if (approve) counts.confirmations++;
+      else counts.questions.push(request.question);
+      await api(base, `/api/tasks/${taskId}/human/${request.requestId}/answer`, {
+        answer: approve ? request.options[0] : ANSWER
+      });
     }
     if (!settled(detail)) {
       calm = 0;
@@ -172,6 +178,19 @@ async function runTask(dashboard, task, attempt, out) {
 
   const developments = await api(dashboard.base, `/api/tasks/${taskId}/developments`);
   const records = developments.developments;
+  const ticketSets = await Promise.all(
+    records.map(
+      async (record) =>
+        (
+          await api(dashboard.base, `/api/tasks/${taskId}/developments`, {
+            action: "tickets",
+            developmentId: record.developmentId
+          })
+        ).tickets
+    )
+  );
+  const owned = new Set(ticketSets.flatMap((set) => set.tickets.flatMap((ticket) => ticket.reviewIds ?? [])));
+  const reviews = (await api(dashboard.base, `/api/tasks/${taskId}/reviews`)).reviews;
   const changed = (await git(repo, "status", "--porcelain")).split("\n").filter(Boolean);
   const committed = (await git(repo, "diff", "--name-only", base, "HEAD")).split("\n").filter(Boolean);
   const tools = {};
@@ -201,8 +220,26 @@ async function runTask(dashboard, task, attempt, out) {
     leftovers: task.expect.noLeftover ? await leftovers(repo, task.expect.noLeftover) : undefined,
     delegations: calls.map((call) => ({ name: call.name, role: call.role, status: call.status })),
     questions: counts.questions,
+    confirmations: counts.confirmations,
     nudges: counts.nudges,
     developments: records.map((record) => ({ route: record.route, criteria: record.completionCriteria })),
+    tickets: ticketSets.flatMap((set) =>
+      set.tickets.map((ticket) => ({
+        ticketId: ticket.ticketId,
+        title: ticket.title,
+        state: ticket.state,
+        scope: ticket.scope,
+        dependsOn: ticket.dependsOn
+      }))
+    ),
+    // A review no ticket owns is the full route's final review.
+    reviews: reviews.map((review) => ({
+      reviewId: review.reviewId,
+      final: !owned.has(review.reviewId),
+      state: review.state,
+      previousReviewId: review.previousReviewId,
+      findings: review.findings.length
+    })),
     tools,
     finalReply: textOf(final ?? {})
   };
@@ -226,6 +263,8 @@ function verdicts(task, result) {
   if (expect.maxChangedFiles !== undefined && result.changedFiles.length > expect.maxChangedFiles)
     notes.push(`改了 ${result.changedFiles.length} 个文件`);
   if (expect.development && !result.developments.length) notes.push("没走开发记录");
+  if (expect.tickets && !result.tickets.length) notes.push("没拆票");
+  if (expect.review && !result.delegations.some((call) => call.role === "reviewer")) notes.push("没派审查");
   if (result.leftovers?.length) notes.push(`残留 ${result.leftovers.join(" ")}`);
   return notes.length ? notes.join("；") : "通过";
 }
@@ -266,12 +305,12 @@ function report(rows, model) {
   const lines = [
     `模型：${model?.connectionName ?? "?"} / ${model?.model ?? "?"}`,
     "",
-    "| 任务 | 次 | 结果 | 分钟 | tokens | 派单 | 提问 | 改动文件 |",
-    "| --- | --- | --- | --- | --- | --- | --- | --- |"
+    "| 任务 | 次 | 结果 | 分钟 | tokens | 派单 | 提问 | 票 | 审查 | 改动文件 |",
+    "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |"
   ];
   for (const { task, result, verdict } of rows)
     lines.push(
-      `| ${task.title} | ${result.attempt} | ${verdict} | ${result.minutes} | ${result.tokens ?? "—"} | ${result.delegations.length} | ${result.questions.length} | ${result.changedFiles.length} |`
+      `| ${task.title} | ${result.attempt} | ${verdict} | ${result.minutes} | ${result.tokens ?? "—"} | ${result.delegations.length} | ${result.questions.length} | ${result.tickets.length} | ${result.reviews.length} | ${result.changedFiles.length} |`
     );
   lines.push("", "## 最终汇报", "");
   for (const { task, result } of rows)
