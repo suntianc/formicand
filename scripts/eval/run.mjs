@@ -1,0 +1,282 @@
+#!/usr/bin/env node
+/**
+ * Run the prompt eval task set against a real model.
+ *
+ *   node scripts/eval/run.mjs [--tasks fix,due] [--repeat 2] [--out DIR] [--label NAME]
+ *
+ * Needs `npm run build` first. Each run starts its own Dashboard in a temporary
+ * data home, with copies of the desktop's model settings and keys
+ * (`~/.atria/model-config.json`, `credentials.json`, or `EVAL_MODEL_CONFIG` and
+ * `EVAL_CREDENTIALS`); the user's own data home and running app are not touched.
+ * The copies are removed when the run ends. This calls a paid model.
+ */
+import { execFile } from "node:child_process";
+import { copyFile, cp, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { homedir, tmpdir } from "node:os";
+import { join, resolve } from "node:path";
+import { promisify } from "node:util";
+import { setTimeout as delay } from "node:timers/promises";
+import { startDashboard } from "../../test/dashboard-fixture.mjs";
+import { tasks } from "./tasks.mjs";
+
+const run = promisify(execFile);
+const here = resolve(new URL(".", import.meta.url).pathname);
+const ANSWER = "你按自己的判断决定就好，不用再问我，继续做完。";
+const NUDGE = "继续。";
+const TIMEOUT_MS = 45 * 60_000;
+
+function options(argv) {
+  const values = { repeat: "1", label: new Date().toISOString().slice(0, 16).replace(/[:T]/g, "-") };
+  for (let i = 0; i < argv.length; i += 2) values[argv[i].replace(/^--/, "")] = argv[i + 1];
+  const selected = values.tasks ? values.tasks.split(",") : tasks.map((task) => task.id);
+  const unknown = selected.filter((id) => !tasks.some((task) => task.id === id));
+  if (unknown.length) throw new Error(`unknown task: ${unknown.join(", ")}`);
+  return {
+    tasks: tasks.filter((task) => selected.includes(task.id)),
+    repeat: Number(values.repeat),
+    out: resolve(values.out ?? join(here, "results", values.label))
+  };
+}
+
+async function git(cwd, ...args) {
+  return (await run("git", args, { cwd })).stdout;
+}
+
+async function api(base, path, body) {
+  const response = await fetch(`${base}${path}`, {
+    method: body === undefined ? "GET" : "POST",
+    headers: { "content-type": "application/json" },
+    body: body === undefined ? undefined : JSON.stringify(body)
+  });
+  const text = await response.text();
+  if (!response.ok) throw new Error(`${path} ${response.status}: ${text.slice(0, 300)}`);
+  return JSON.parse(text);
+}
+
+const textOf = (message) =>
+  typeof message.content === "string"
+    ? message.content
+    : (message.content ?? [])
+        .filter((part) => part.type === "text")
+        .map((part) => part.text)
+        .join("");
+
+/** Settled: the turn ended and no delegated work or callback is outstanding. */
+function settled(detail) {
+  const { task, runtime, coordination } = detail;
+  return (
+    ["completed", "failed", "cancelled"].includes(task.status) &&
+    !runtime.active &&
+    !coordination.pending?.length &&
+    !coordination.callbackPending?.length
+  );
+}
+
+/** Drive one Task until it settles, answering questions and nudging a stalled turn once. */
+async function drive(base, taskId, prompt, check) {
+  const counts = { questions: [], nudges: 0 };
+  await api(base, `/api/tasks/${taskId}/run`, { prompt });
+  const until = Date.now() + TIMEOUT_MS;
+  let calm = 0;
+  while (Date.now() < until) {
+    await delay(5_000);
+    const detail = await api(base, `/api/tasks/${taskId}`);
+    for (const request of detail.humanRequests.filter((entry) => entry.status === "pending")) {
+      counts.questions.push(request.question);
+      await api(base, `/api/tasks/${taskId}/human/${request.requestId}/answer`, { answer: ANSWER });
+    }
+    if (!settled(detail)) {
+      calm = 0;
+      continue;
+    }
+    if (++calm < 2) continue;
+    // A turn that ended before the work passed its check and with the user
+    // asked something is a stop; one plain "continue" tells a stop from a failure.
+    const last = detail.messages.findLast((message) => message.role === "assistant");
+    if (counts.nudges === 0 && /[?？]\s*$/.test(textOf(last ?? {}).trim()) && !(await check()).passed) {
+      counts.nudges++;
+      calm = 0;
+      await api(base, `/api/tasks/${taskId}/run`, { prompt: NUDGE });
+      continue;
+    }
+    return { detail, counts, timedOut: false };
+  }
+  await api(base, `/api/tasks/${taskId}/action`, { action: "cancel" });
+  return { detail: await api(base, `/api/tasks/${taskId}`), counts, timedOut: true };
+}
+
+async function hiddenCheck(task, repo) {
+  if (!task.hidden) return { passed: true, output: "" };
+  try {
+    const { stdout } = await run("node", ["--test", join(here, "hidden", task.hidden)], {
+      cwd: here,
+      env: { ...process.env, EVAL_REPO: repo },
+      timeout: 120_000
+    });
+    return { passed: true, output: summary(stdout) };
+  } catch (error) {
+    return { passed: false, output: summary(`${error.stdout ?? ""}${error.stderr ?? ""}`) };
+  }
+}
+
+const summary = (tap) =>
+  tap
+    .split("\n")
+    .filter((line) => /^(not ok|# (pass|fail))/.test(line.trim()))
+    .join("\n");
+
+async function ownTests(repo) {
+  try {
+    await run("npm", ["test"], { cwd: repo, timeout: 120_000 });
+    return true;
+    // eslint-disable-next-line no-restricted-syntax -- a failing test run is the result being recorded
+  } catch {
+    return false;
+  }
+}
+
+async function leftovers(repo, word) {
+  const { stdout } = await run("git", ["grep", "-c", word, "--", "src", ":!src/store.js"], {
+    cwd: repo
+  }).catch((error) => {
+    // git grep exits 1 when nothing matches.
+    if (error.code === 1) return { stdout: "" };
+    throw error;
+  });
+  return stdout.trim().split("\n").filter(Boolean);
+}
+
+async function runTask(dashboard, task, attempt, out) {
+  const dir = await mkdtemp(join(tmpdir(), `atria-eval-${task.id}-`));
+  const repo = join(dir, "todo-cli");
+  await cp(join(here, "repo"), repo, { recursive: true });
+  await task.setup?.(repo);
+  await git(repo, "init", "-q", "-b", "main");
+  await git(repo, "add", "-A");
+  await git(repo, "-c", "user.name=eval", "-c", "user.email=eval@localhost", "commit", "-qm", "start");
+  const base = (await git(repo, "rev-parse", "HEAD")).trim();
+
+  const { project } = await api(dashboard.base, "/api/projects", {
+    projectName: `${task.id}-${attempt}`,
+    projectDirectory: repo
+  });
+  const created = await api(dashboard.base, "/api/tasks", {
+    goal: task.prompt,
+    projectId: project.projectId
+  });
+  const taskId = created.task?.taskId ?? created.taskId;
+  const started = Date.now();
+  const { detail, counts, timedOut } = await drive(dashboard.base, taskId, task.prompt, () =>
+    hiddenCheck(task, repo)
+  );
+
+  const developments = await api(dashboard.base, `/api/tasks/${taskId}/developments`);
+  const records = developments.developments;
+  const changed = (await git(repo, "status", "--porcelain")).split("\n").filter(Boolean);
+  const committed = (await git(repo, "diff", "--name-only", base, "HEAD")).split("\n").filter(Boolean);
+  const tools = {};
+  for (const event of detail.runtimeEvents ?? []) {
+    const payload = event.payload ?? event;
+    if (payload.type === "tool_execution_start") tools[payload.toolName] = (tools[payload.toolName] ?? 0) + 1;
+  }
+  const calls = detail.coordination.calls ?? [];
+  const final = detail.messages.findLast((message) => message.role === "assistant");
+  const result = {
+    task: task.id,
+    attempt,
+    status: detail.task.status,
+    timedOut,
+    minutes: Math.round((Date.now() - started) / 6_000) / 10,
+    tokens: detail.statistics?.usage?.totalTokens ?? null,
+    hidden: await hiddenCheck(task, repo),
+    // Work left in a requirement checkout that was never merged back.
+    hiddenInCheckout: await Promise.all(
+      records
+        .map((record) => record.workspace?.directory)
+        .filter(Boolean)
+        .map((directory) => hiddenCheck(task, directory))
+    ),
+    ownTests: await ownTests(repo),
+    changedFiles: [...new Set([...changed.map((line) => line.slice(3)), ...committed])],
+    leftovers: task.expect.noLeftover ? await leftovers(repo, task.expect.noLeftover) : undefined,
+    delegations: calls.map((call) => ({ name: call.name, role: call.role, status: call.status })),
+    questions: counts.questions,
+    nudges: counts.nudges,
+    developments: records.map((record) => ({ route: record.route, criteria: record.completionCriteria })),
+    tools,
+    finalReply: textOf(final ?? {})
+  };
+  await writeFile(join(out, `${task.id}-${attempt}.json`), JSON.stringify(result, null, 2));
+  await writeFile(join(out, `${task.id}-${attempt}.detail.json`), JSON.stringify(detail, null, 2));
+  await rm(dir, { recursive: true, force: true });
+  return result;
+}
+
+function verdicts(task, result) {
+  const notes = [];
+  if (!result.hidden.passed)
+    notes.push(result.hiddenInCheckout.some((check) => check.passed) ? "做完但没合入" : "检查未过");
+  if (!result.ownTests) notes.push("项目测试未过");
+  if (result.timedOut) notes.push("超时");
+  if (result.nudges) notes.push("中途停下");
+  if (result.questions.length) notes.push(`问用户 ${result.questions.length} 次`);
+  const { expect } = task;
+  if (expect.delegations === 0 && result.delegations.length)
+    notes.push(`派了 ${result.delegations.length} 次`);
+  if (expect.maxChangedFiles !== undefined && result.changedFiles.length > expect.maxChangedFiles)
+    notes.push(`改了 ${result.changedFiles.length} 个文件`);
+  if (expect.development && !result.developments.length) notes.push("没走开发记录");
+  if (result.leftovers?.length) notes.push(`残留 ${result.leftovers.join(" ")}`);
+  return notes.length ? notes.join("；") : "通过";
+}
+
+async function main() {
+  const { tasks: selected, repeat, out } = options(process.argv.slice(2));
+  await mkdir(out, { recursive: true });
+  const secrets = await mkdtemp(join(tmpdir(), "atria-eval-config-"));
+  const config = join(secrets, "model-config.json");
+  const credentials = join(secrets, "credentials.json");
+  await copyFile(process.env.EVAL_MODEL_CONFIG ?? join(homedir(), ".atria", "model-config.json"), config);
+  await copyFile(process.env.EVAL_CREDENTIALS ?? join(homedir(), ".atria", "credentials.json"), credentials);
+  const dashboard = await startDashboard({
+    defaultProject: false,
+    env: { COWORK_CONFIG: config, COWORK_CREDENTIALS: credentials }
+  });
+  const rows = [];
+  try {
+    const models = await api(dashboard.base, "/api/model-settings");
+    const main = models.modelRoles?.roles?.find((role) => role.role === "main")?.effective;
+    console.log(`model: ${main?.connectionName ?? "?"} / ${main?.model ?? "?"}  out: ${out}`);
+    for (const task of selected)
+      for (let attempt = 1; attempt <= repeat; attempt++) {
+        console.log(`▶ ${task.id} #${attempt}`);
+        const result = await runTask(dashboard, task, attempt, out);
+        const verdict = verdicts(task, result);
+        rows.push({ task, result, verdict });
+        console.log(`  ${verdict}  (${result.minutes} 分钟, ${result.tokens ?? "?"} tokens)`);
+      }
+    await writeFile(join(out, "summary.md"), report(rows, main));
+  } finally {
+    await dashboard.stop();
+    await rm(secrets, { recursive: true, force: true });
+  }
+}
+
+function report(rows, model) {
+  const lines = [
+    `模型：${model?.connectionName ?? "?"} / ${model?.model ?? "?"}`,
+    "",
+    "| 任务 | 次 | 结果 | 分钟 | tokens | 派单 | 提问 | 改动文件 |",
+    "| --- | --- | --- | --- | --- | --- | --- | --- |"
+  ];
+  for (const { task, result, verdict } of rows)
+    lines.push(
+      `| ${task.title} | ${result.attempt} | ${verdict} | ${result.minutes} | ${result.tokens ?? "—"} | ${result.delegations.length} | ${result.questions.length} | ${result.changedFiles.length} |`
+    );
+  lines.push("", "## 最终汇报", "");
+  for (const { task, result } of rows)
+    lines.push(`### ${task.title} #${result.attempt}`, "", result.finalReply, "");
+  return lines.join("\n");
+}
+
+await main();
