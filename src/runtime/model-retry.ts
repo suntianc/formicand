@@ -7,7 +7,7 @@ import { withFileLock } from "../storage/file-lock.js";
 export const DEFAULT_MODEL_ERROR_RETRIES = 5;
 
 /** Seed Main's native Pi retry budget while retaining explicit user/project settings. */
-export async function ensurePiRetryDefaults(agentDir: string): Promise<void> {
+export async function ensurePiRetryDefaults(agentDir: string, keepRecentTokens?: number): Promise<void> {
   const path = join(agentDir, "settings.json");
   await withFileLock(path, async () => {
     let settings: Record<string, unknown> = {};
@@ -22,8 +22,22 @@ export async function ensurePiRetryDefaults(agentDir: string): Promise<void> {
     const retry = settings.retry;
     if (retry !== undefined && (!retry || typeof retry !== "object" || Array.isArray(retry)))
       throw new Error(`CoworkOS 的 Agent 重试设置无效（${path}），已保留原文件`);
-    if ((retry as Record<string, unknown> | undefined)?.maxRetries !== undefined) return;
-    const next = { ...settings, retry: { ...(retry ?? {}), maxRetries: DEFAULT_MODEL_ERROR_RETRIES } };
+    const retrySettings = retry as Record<string, unknown> | undefined;
+    const rawCompaction = settings.compaction;
+    if (
+      keepRecentTokens !== undefined &&
+      rawCompaction !== undefined &&
+      (!rawCompaction || typeof rawCompaction !== "object" || Array.isArray(rawCompaction))
+    )
+      throw new Error(`CoworkOS 的 Agent 压缩设置无效（${path}），已保留原文件`);
+    const compaction = rawCompaction as Record<string, unknown> | undefined;
+    const seedCompaction = keepRecentTokens !== undefined && compaction?.keepRecentTokens === undefined;
+    if (retrySettings?.maxRetries !== undefined && !seedCompaction) return;
+    const next = {
+      ...settings,
+      retry: { maxRetries: DEFAULT_MODEL_ERROR_RETRIES, ...retrySettings },
+      ...(seedCompaction && { compaction: { ...compaction, keepRecentTokens } })
+    };
     const temporary = `${path}.tmp-${randomUUID()}`;
     await writeFile(temporary, JSON.stringify(next, null, 2) + "\n", { mode: 0o600 });
     await rename(temporary, path);

@@ -113,36 +113,6 @@ export function registerWorkspaceTools(pi: ExtensionAPI, context: CoworkToolCont
   });
   registerLoadSkillTool(pi, context.skillCatalogNow);
   pi.registerTool({
-    name: "clear_context",
-    label: "Clear Main Context",
-    description:
-      "Compact the conversation after the current turn into a summary of the actual history plus the recent messages. The full message log stays at agents/main/context/messages.json; read specific missing evidence from it with browse_workspace.",
-    promptSnippet: "Compact the Main context into a continuation checkpoint",
-    promptGuidelines: [
-      "Use clear_context only at a phase boundary or when the earlier context no longer helps; the context is also compacted automatically when it fills up. If summarizing fails, the current context stays."
-    ],
-    parameters: Type.Object({
-      reason: Type.Optional(Type.String({ description: "Short explanation for this context reset." }))
-    }),
-    async execute(_toolCallId, params): Promise<RuntimeToolResult> {
-      context.pendingContextClear = { reason: String(params.reason ?? "Main requested a context reset") };
-      context.updateRuntime({
-        runtimeLastEvent: { type: "context_reset_scheduled", summary: context.pendingContextClear.reason }
-      });
-      return {
-        content: [
-          {
-            type: "text",
-            text: "Context compaction scheduled after this turn. A history summary and recent messages will preserve continuation state; the full message log and workspace memory remain on disk."
-          }
-        ],
-        details: { scheduled: true, reason: context.pendingContextClear.reason },
-        terminate: true
-      };
-    }
-  });
-
-  pi.registerTool({
     name: "browse_workspace",
     label: "Browse Workspace",
     description:

@@ -10,7 +10,7 @@ import { ModelRequestRecorder, recordingHash } from "../storage/model-request-re
 import type { MainRequestModel } from "../storage/main-request-store.js";
 import type { MainRequestRetry } from "./main-request-retry.js";
 
-/** Capture at the provider boundary, including compaction calls and provider payload hooks. */
+/** Capture at the provider boundary, including provider payload hooks. */
 export function recordModelRequests(
   streams: ProviderStreams,
   recorder: ModelRequestRecorder,

@@ -39,7 +39,7 @@ interface ContextMessage {
  * live here because the backend must not depend on this process's stdin or on
  * a second control channel.
  */
-export const MAIN_CONTROL_TYPES = ["main.interrupt", "main.resume", "main.pause"] as const;
+export const MAIN_CONTROL_TYPES = ["main.interrupt", "main.resume", "main.pause", "main.compact"] as const;
 export type MainControlType = (typeof MAIN_CONTROL_TYPES)[number];
 
 /** The callback of a Subagent call that was cancelled (by a stop or a close). */
@@ -518,7 +518,7 @@ function startupTrigger(messages: readonly InboxMessage[]): InboxMessage | undef
   if (userTurn) return userTurn;
   const control = [...messages].reverse().find((message) => {
     const payload = message.payload as { type?: unknown } | undefined;
-    return isMainControlType(payload?.type);
+    return isMainControlType(payload?.type) && payload.type !== "main.compact";
   });
   return control ?? [...messages].reverse().find((message) => !isCancelledCallback(message));
 }

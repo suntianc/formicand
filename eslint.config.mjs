@@ -23,9 +23,7 @@ export const piDependencyBoundary = {
       "src/runtime/model-request-recording.ts"
     ],
     // Main 会话文件读写：后端在 Main 未运行时改写 Pi 会话文件。
-    mainSessionFiles: ["src/runtime/conversation-fork.ts", "src/runtime/main-message-edit.ts"],
-    // 临时例外：上下文压缩重新设计后收回，届时删除本列表。
-    contextCompaction: ["src/runtime/compaction-summary-guard.ts", "src/runtime/compaction-summary-policy.ts"]
+    mainSessionFiles: ["src/runtime/conversation-fork.ts", "src/runtime/main-message-edit.ts"]
   }
 };
 
@@ -42,7 +40,7 @@ const piImportBoundary = {
     schema: [],
     messages: {
       runtimeImport:
-        "Pi runtime imports are only allowed in .pi/, scripts/, the model configuration modules, the Main session file write modules and the context compaction modules. Use `import type` or move this import into an allowed module.",
+        "Pi runtime imports are only allowed in .pi/, scripts/, the model configuration modules, and the Main session file write modules. Use `import type` or move this import into an allowed module.",
       deepImport:
         "Pi package subpaths may only be imported by model configuration modules. Import from the package entry point instead."
     }

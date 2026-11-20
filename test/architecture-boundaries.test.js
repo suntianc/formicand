@@ -158,6 +158,14 @@ test("Pi runtime imports stay allowed in the boundary areas", async () => {
   }
 });
 
+test("session handoffs need no runtime import exception", async () => {
+  const source = 'import { estimateTokens } from "@earendil-works/pi-coding-agent";';
+  const denied = await boundaryReports("src/runtime/session-handoff.ts", source);
+  assert.equal(denied.length, 1);
+  const allowed = await boundaryReports(".pi/runtime/context-windows.ts", source);
+  assert.deepEqual(allowed, []);
+});
+
 test("the allowlist matches the architecture documentation", async () => {
   const documents = ["docs/architecture.md", "docs/en/architecture.md"];
   for (const document of documents) {

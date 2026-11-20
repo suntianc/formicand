@@ -36,17 +36,20 @@ Pi 启动器 ─→ .pi/extensions/ ─→ .pi/runtime/ ─→ runtime / tools
 
 ## Pi 依赖边界
 
-Pi 包的运行时导入（`@earendil-works/pi-*`，非 `import type`）只允许出现在持有 Pi 进程的区域：`.pi/`（扩展与工具）、`scripts/`（启动器）、模型配置、Main 会话文件读写与上下文压缩；其余模块只能用类型导入。允许区域是 [ESLint 规则](../eslint.config.mjs) 中的明确文件清单（`cowork/pi-import-boundary`），[依赖边界回归](../test/architecture-boundaries.test.js) 校验清单与本节的路径一致。
+Pi 包的运行时导入（`@earendil-works/pi-*`，非 `import type`）只允许出现在持有 Pi 进程的区域：`.pi/`（扩展与工具）、`scripts/`（启动器）、模型配置与 Main 会话文件读写；其余模块只能用类型导入。允许区域是 [ESLint 规则](../eslint.config.mjs) 中的明确文件清单（`cowork/pi-import-boundary`），[依赖边界回归](../test/architecture-boundaries.test.js) 校验清单与本节的路径一致。
 
 - 模型配置（连接探测、思考档位、模型参数与请求记录）：[main-request-retry](../src/runtime/main-request-retry.ts)、[model-cache](../src/runtime/model-cache.ts)、[model-connection](../src/runtime/model-connection.ts)、[model-levels](../src/runtime/model-levels.ts)、[model-profile](../src/runtime/model-profile.ts)、[model-provider](../src/runtime/model-provider.ts)、[model-request-recording](../src/runtime/model-request-recording.ts)。
-- Main 会话文件读写（后端在 Main 未运行时改写 Pi 会话文件，即会话消息编辑与分叉）：[conversation-fork](../src/runtime/conversation-fork.ts)、[main-message-edit](../src/runtime/main-message-edit.ts)。
-- 上下文压缩：[compaction-summary-guard](../src/runtime/compaction-summary-guard.ts)、[compaction-summary-policy](../src/runtime/compaction-summary-policy.ts)。这是临时例外，压缩重新设计后收回，届时从规则清单删除。
+- Main 会话文件读写（后端在 Main 未运行时改写 Pi 会话文件，包括编辑、分叉和离线换窗）：[conversation-fork](../src/runtime/conversation-fork.ts)、[main-message-edit](../src/runtime/main-message-edit.ts)。
 
 包内深路径的运行时导入（如 `@earendil-works/pi-ai/api/...`）只允许出现在模型配置内：升级 Pi 时这些内部路径最容易失效。边界把一次 Pi 升级的排查范围收敛到清单内的模块，而不是全仓。
 
 ## Task、Run 和进程生命周期
 
 浏览器请求 → HTTP 路由 → Dashboard Run → AgentProcessHost → Pi 启动器 → Pi 扩展 → Coordinator。CLI 可以直接使用运行时服务；两种入口不各写一套业务状态机。
+
+Main 与子代理的共用 Pi 扩展负责工具结果归档、上下文投影和无模型换窗。Pi 保存追加式会话记录与交接页切点，任务详情提供 Main 用量和换窗记录。
+
+会话笔记按 Pi 会话 ID 隔离会话，历史查询使用该会话的原始条目和工具结果归档。
 
 Dashboard Run 管理 Main 进程和同 Task 的启动/停止串行化；运行时服务管理 Main 进程的 Task/Run、事件与恢复状态，会话与压缩由 Pi 自己保存。状态和输出落盘后才宣布完成；不能以最后一条文本代替完成判定。
 

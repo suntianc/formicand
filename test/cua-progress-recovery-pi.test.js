@@ -40,7 +40,6 @@ for (const progress of ["confirmed", "unknown", "intent"])
       const business = await cuaProgressFixture(root, operation);
       const failures = [];
       const requests = [];
-      const summaryRequests = [];
       const events = [];
       const stages = [];
       let child, childExit;
@@ -51,8 +50,8 @@ for (const progress of ["confirmed", "unknown", "intent"])
       let hardCrash = false;
       let output = "";
 
-      // The summarizer writes the progress the history shows; there is no separate note.
-      const progressSummary = (state, checked) => `## Goal
+      // The agent records the last verified CUA state before the next window.
+      const progressNotes = (state, checked) => `## Goal
 Save ${operation} exactly once and verify the saved receipt.
 Expected outcome: a saved receipt for ${operation}, containing receipt-1.
 
@@ -79,6 +78,7 @@ ${state === "confirmed" ? `- confirmed: ${operation} saved; evidence ${download.
         if (!last) return;
         const content = text(last.content);
         const result = content.startsWith("{") ? JSON.parse(content) : undefined;
+        assert.notEqual(result?.errorCode, "browser_failed", "the browser fixture could not open its page");
         if (result?.pageId) pageId = result.pageId;
         if (result?.observation?.imageRef) imageRef = result.observation.imageRef;
         else if (result?.imageRef) imageRef = result.imageRef;
@@ -119,68 +119,61 @@ ${state === "confirmed" ? `- confirmed: ${operation} saved; evidence ${download.
         checkDownload
       ];
       if (progress === "confirmed") initialSteps.push(...verifySteps);
+      if (progress !== "intent")
+        initialSteps.push(() => {
+          checkpoint = progressNotes(progress, progress === "confirmed").trim();
+          oldPageId = pageId;
+          return tool("session_notes", { action: "append", text: checkpoint });
+        });
       const recoverySteps = [...(progress === "confirmed" ? [checkDownload] : []), ...verifySteps];
       const provider = createServer(async (request, response) => {
         let reply;
         try {
           const body = JSON.parse(await readFixtureRequestBody(request));
           requests.push({ phase, body });
-          if (!body.tools?.length) {
-            summaryRequests.push(body);
-            assert.notEqual(progress, "intent", "the hard-crash fixture never reaches compaction");
-            assert.ok(JSON.stringify(body.messages).includes(prompt));
-            checkpoint = progressSummary(progress, progress === "confirmed");
+          assert.ok(body.tools?.length, "window changes do not send a summary request");
+          observeResult(body);
+          if (progress === "intent" && phase === "initial" && phaseRequest === 4) {
+            // The real action result has reached the model boundary, but the
+            // provider has not emitted any check or next action.
+            const action = JSON.parse(
+              text(body.messages.findLast((message) => message.role === "tool").content)
+            );
+            assert.equal(action.dispatchStatus, "sent");
+            assert.equal(action.effectVerified, false);
+            assert.equal((await business.receipts()).length, 1);
             oldPageId = pageId;
-            reply = { text: `# Verified task checkpoint\n${prompt}\n${checkpoint}` };
-          } else {
-            observeResult(body);
-            if (progress === "intent" && phase === "initial" && phaseRequest === 4) {
-              // The real action result has reached the model boundary, but the
-              // provider has not emitted any check or next action.
-              const action = JSON.parse(
-                text(body.messages.findLast((message) => message.role === "tool").content)
-              );
-              assert.equal(action.dispatchStatus, "sent");
-              assert.equal(action.effectVerified, false);
-              assert.equal((await business.receipts()).length, 1);
-              oldPageId = pageId;
-              hardCrash = true;
-              process.kill(-child.pid, "SIGKILL");
-              response.destroy();
-              return;
-            }
-            const steps = phase === "initial" ? initialSteps : recoverySteps;
-            if (phase === "recovery" && phaseRequest === 0 && progress !== "intent") {
-              assert.ok(body.messages.some((message) => text(message.content).includes(checkpoint.trim())));
-              assert.equal(
-                body.messages.some((message) => message.role === "tool"),
-                false,
-                "the compacted context carries the summary, not the old tool receipts"
-              );
-              assert.equal(JSON.stringify(body.messages).includes("/atria-internal-continue"), false);
-            }
-            if (phase === "recovery" && phaseRequest === 0 && progress === "intent") {
-              assert.equal(
-                body.messages.filter(
-                  (message) => message.role === "user" && text(message.content).includes(prompt)
-                ).length,
-                1,
-                "restoring the accepted input after SIGKILL must not submit a second user turn"
-              );
-              // The continued session still holds the sent click, so the model
-              // sees an action with no checked outcome and looks before acting.
-              const sent = body.messages.filter(
-                (message) =>
-                  message.role === "tool" && text(message.content).includes('"dispatchStatus":"sent"')
-              );
-              assert.equal(sent.length, 1, "the continued session carries the sent action's result");
-              assert.equal(JSON.stringify(body.messages).includes("/atria-internal-continue"), false);
-            }
-            if (phaseRequest < steps.length) {
-              reply = steps[phaseRequest++]();
-              stages.push({ phase, name: reply.name, args: reply.arguments });
-            } else reply = { text: phase === "initial" ? "CHECKPOINT_READY" : "RECOVERED_WITH_RECEIPT" };
+            hardCrash = true;
+            process.kill(-child.pid, "SIGKILL");
+            response.destroy();
+            return;
           }
+          const steps = phase === "initial" ? initialSteps : recoverySteps;
+          if (phase === "recovery" && phaseRequest === 0 && progress !== "intent") {
+            assert.ok(body.messages.some((message) => text(message.content).includes(checkpoint.trim())));
+            assert.equal(JSON.stringify(body.messages).includes("/atria-internal-continue"), false);
+          }
+          if (phase === "recovery" && phaseRequest === 0 && progress === "intent") {
+            assert.equal(
+              body.messages.filter(
+                (message) => message.role === "user" && text(message.content).includes(prompt)
+              ).length,
+              1,
+              "restoring the accepted input after SIGKILL must not submit a second user turn"
+            );
+            // The continued session still holds the sent click, so the model
+            // sees an action with no checked outcome and looks before acting.
+            const sent = body.messages.filter(
+              (message) =>
+                message.role === "tool" && text(message.content).includes('"dispatchStatus":"sent"')
+            );
+            assert.equal(sent.length, 1, "the continued session carries the sent action's result");
+            assert.equal(JSON.stringify(body.messages).includes("/atria-internal-continue"), false);
+          }
+          if (phaseRequest < steps.length) {
+            reply = steps[phaseRequest++]();
+            stages.push({ phase, name: reply.name, args: reply.arguments });
+          } else reply = { text: phase === "initial" ? "CHECKPOINT_READY" : "RECOVERED_WITH_RECEIPT" };
         } catch (error) {
           failures.push(error.stack ?? error.message);
           reply = { text: "Progress fixture assertion failed" };
@@ -210,11 +203,14 @@ ${state === "confirmed" ? `- confirmed: ${operation} saved; evidence ${download.
         }
         // A SIGKILL reaches only Pi's process group; the browser it launched
         // lives in its own and outlives the crash, so stop what is left here.
-        await stopBackendsUnder(root);
-        provider.closeAllConnections();
-        await new Promise((done) => provider.close(done));
-        await business.close();
-        await rm(root, { recursive: true, force: true });
+        try {
+          await stopBackendsUnder(root);
+        } finally {
+          provider.closeAllConnections();
+          await new Promise((done) => provider.close(done));
+          await business.close();
+          await rm(root, { recursive: true, force: true });
+        }
       });
       await mkdir(project);
       await mkdir(join(root, "pi"));
@@ -328,7 +324,6 @@ ${state === "confirmed" ? `- confirmed: ${operation} saved; evidence ${download.
           "no outcome check was issued before the hard crash"
         );
       } else {
-        assert.ok(summaryRequests.length > 0, "production compaction must summarize the real progress");
         assert.ok(beforeState.contextEpoch > 0, "production compaction hook must update context epoch");
         assert.ok(
           events.some(

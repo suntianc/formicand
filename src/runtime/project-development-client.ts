@@ -14,7 +14,7 @@ export interface ProjectDevelopmentClientError extends Error {
 }
 
 export interface ProjectDevelopmentClient {
-  (input: Record<string, unknown>): Promise<Record<string, unknown>>;
+  (input: Record<string, unknown>, signal?: AbortSignal): Promise<Record<string, unknown>>;
   /** Fixed-candidate review facts for the same Task. */
   reviews(input: Record<string, unknown>): Promise<Record<string, unknown>>;
   /** The project merge entry for the same Task. */
@@ -58,14 +58,17 @@ export function createProjectDevelopmentClient(options: {
 
   const send = async (
     path: "developments" | "reviews" | "merges" | "deliveries",
-    input: Record<string, unknown>
+    input: Record<string, unknown>,
+    signal?: AbortSignal
   ): Promise<Record<string, unknown>> => {
     const response = await fetch(`${base}/${path}`, {
       method: "POST",
       redirect: "error",
       headers: { "content-type": "application/json", "x-atria-token": token },
       body: JSON.stringify(input),
-      signal: AbortSignal.timeout(TIMEOUT_MS)
+      signal: signal
+        ? AbortSignal.any([signal, AbortSignal.timeout(TIMEOUT_MS)])
+        : AbortSignal.timeout(TIMEOUT_MS)
     });
     // eslint-disable-next-line no-restricted-syntax -- 失败响应可能不是 JSON（代理或网关返回 HTML），解析失败用空对象兜底，错误文案退回 HTTP 状态码
     const body = (await response.json().catch(() => ({}))) as Record<string, unknown>;
@@ -84,8 +87,8 @@ export function createProjectDevelopmentClient(options: {
     return body;
   };
 
-  const request = ((input: Record<string, unknown>) =>
-    send("developments", input)) as ProjectDevelopmentClient;
+  const request = ((input: Record<string, unknown>, signal?: AbortSignal) =>
+    send("developments", input, signal)) as ProjectDevelopmentClient;
   request.reviews = (input) => send("reviews", input);
   request.merges = (input) => send("merges", input);
   request.deliveries = (input) => send("deliveries", input);

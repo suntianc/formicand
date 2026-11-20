@@ -2,11 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { convertToLlm, serializeConversation } from "@earendil-works/pi-coding-agent";
 import { getCurrentSystemPrompt, normalizeContext } from "@earendil-works/pi-ai";
-import {
-  mainCompactionContext,
-  mainCompactionPreviousSummary,
-  withMainCompactionContext
-} from "../.pi/runtime/main-compaction.ts";
+import { mainRuntimeContext, withMainRuntimeContext } from "../.pi/runtime/main-context-prompt.ts";
 
 const runtime = (patch = {}) => ({
   version: 1,
@@ -19,26 +15,9 @@ const state = (patch = {}) => ({ runtime: runtime(), ...patch });
 const effectivePrompt = (messages) =>
   getCurrentSystemPrompt(normalizeContext({ messages: convertToLlm(messages) }).messages);
 
-test("Main previous checkpoint removes legacy supplements without inventing a historical summary", () => {
-  for (const previous of [
-    undefined,
-    " \n\t ",
-    "<atria_main_compaction_state>old pending state</atria_main_compaction_state>"
-  ])
-    assert.equal(mainCompactionPreviousSummary(previous), undefined);
-
-  const previous =
-    "  ## Goal\nPreserve the checkpoint.\n<atria_main_compaction_state>Runtime state: phase=waiting; pending delegations=7.</atria_main_compaction_state>\n## Progress\nA confirmed change remains useful.\n<atria_main_compaction_state>stale measurements</atria_main_compaction_state>  ";
-  assert.equal(
-    mainCompactionPreviousSummary(previous),
-    "## Goal\nPreserve the checkpoint.\n\n## Progress\nA confirmed change remains useful."
-  );
-  assert.equal(mainCompactionPreviousSummary("## Goal\nUnchanged history."), "## Goal\nUnchanged history.");
-});
-
 test("Main supplemental context bounds all text, retains excerpt ends and keeps its own delimiters", () => {
   const goal = `GOAL_HEAD_ANCHOR\n${"goal-body ".repeat(2000)}GOAL_MIDDLE_OMITTED${"goal-body ".repeat(2000)}\nGOAL_TAIL_ANCHOR`;
-  const context = mainCompactionContext(
+  const context = mainRuntimeContext(
     state({
       runtime: runtime({
         runtimeGoal: goal,
@@ -57,7 +36,7 @@ test("Main supplemental context bounds all text, retains excerpt ends and keeps 
   assert.match(context, /truncated/);
   assert.ok(context.includes("Task goal record (may be incomplete):"));
 
-  const injected = mainCompactionContext(
+  const injected = mainRuntimeContext(
     state({
       runtime: runtime({
         runtimeGoal:
@@ -71,8 +50,8 @@ test("Main supplemental context bounds all text, retains excerpt ends and keeps 
 });
 
 test("Main context refresh replaces old snapshots across system deltas without changing the original history", () => {
-  const oldActive = mainCompactionContext(state({ runtime: runtime({ runtimePendingDelegations: 9 }) }));
-  const oldFailed = mainCompactionContext(
+  const oldActive = mainRuntimeContext(state({ runtime: runtime({ runtimePendingDelegations: 9 }) }));
+  const oldFailed = mainRuntimeContext(
     state({ runtime: runtime({ runtimePhase: "failed", runtimePendingDelegations: 7 }) })
   );
   const messages = [
@@ -101,7 +80,7 @@ test("Main context refresh replaces old snapshots across system deltas without c
     }
   ];
   const before = structuredClone(messages);
-  const waiting = withMainCompactionContext(
+  const waiting = withMainRuntimeContext(
     messages,
     state({ runtime: runtime({ runtimePhase: "waiting", runtimePendingDelegations: 3 }) })
   );
@@ -119,14 +98,14 @@ test("Main context refresh replaces old snapshots across system deltas without c
   const completedState = state({
     runtime: runtime({ runtimePhase: "completed", runtimePendingDelegations: 0 })
   });
-  const completed = withMainCompactionContext(waiting, completedState);
+  const completed = withMainRuntimeContext(waiting, completedState);
   const completedPrompt = effectivePrompt(completed);
   assert.ok(completedPrompt.includes("Runtime state: phase=completed; pending delegations=0."));
   assert.ok(!completedPrompt.includes("pending delegations=3"));
   assert.ok(!completedPrompt.includes("pending delegations=9"));
   assert.equal((completedPrompt.match(/<atria_main_context>/g) ?? []).length, 1);
   assert.equal(
-    effectivePrompt(withMainCompactionContext(completed, completedState)),
+    effectivePrompt(withMainRuntimeContext(completed, completedState)),
     completedPrompt,
     "refreshing unchanged state does not accumulate extra messages or timestamp noise"
   );
@@ -151,7 +130,7 @@ test("Main context avoids copying an already visible full goal while preserving 
     }
   ];
   const before = structuredClone(messages);
-  const refreshed = withMainCompactionContext(messages, state({ runtime: runtime({ runtimeGoal: goal }) }));
+  const refreshed = withMainRuntimeContext(messages, state({ runtime: runtime({ runtimeGoal: goal }) }));
   const prompt = effectivePrompt(refreshed);
   assert.ok(prompt.includes("Runtime state: phase=active"));
   assert.ok(
@@ -168,7 +147,7 @@ test("Main context avoids copying an already visible full goal while preserving 
   ];
   assert.ok(
     effectivePrompt(
-      withMainCompactionContext(partial, state({ runtime: runtime({ runtimeGoal: goal }) }))
+      withMainRuntimeContext(partial, state({ runtime: runtime({ runtimeGoal: goal }) }))
     ).includes(goal),
     "a partial prefix is not mistaken for the full saved goal"
   );
@@ -186,7 +165,7 @@ test("Main dynamic context stays out of native compaction-summary messages and t
     summary,
     { role: "user", content: "Continue the unresolved work.", timestamp: 2 }
   ];
-  const refreshed = withMainCompactionContext(
+  const refreshed = withMainRuntimeContext(
     messages,
     state({ runtime: runtime({ runtimePhase: "waiting", runtimePendingDelegations: 2 }) })
   );

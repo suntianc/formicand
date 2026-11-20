@@ -11,7 +11,6 @@ import { createCoworkModel } from "../../dist/src/runtime/model-profile.js";
 import { atriaRoleIdentity } from "../../dist/src/domain/agent-identity.js";
 import { agentDisplayName } from "../../dist/src/runtime/agent-identity.js";
 import { delegationRoleGuidance } from "../../dist/src/runtime/delegation-model.js";
-import { projectCompactionMessages } from "../../dist/src/runtime/compaction-input.js";
 import { ASK_MAIN_GUIDANCE, SEND_PEER_MESSAGE_GUIDANCE } from "../../dist/src/runtime/subagent-guidance.js";
 import type { ReviewConclusion } from "../../dist/src/runtime/subagent-review.js";
 import {
@@ -40,7 +39,9 @@ import {
 } from "../../dist/src/runtime/runtime-settings.js";
 import { loadConfig } from "./helpers.ts";
 import { registerCoworkProvider } from "./provider.ts";
-import { MainCompactionRetry } from "./main-compaction-retry.ts";
+import { registerContextWindows } from "./context-windows.ts";
+import { registerSessionContext } from "./session-context.ts";
+import { SESSION_HISTORY_TOOLS } from "./tools/session-history.ts";
 import { registerSubagentInbox } from "./subagent-inbox.ts";
 import { blockedToolCall, taskProtectedPaths } from "./protected-call.ts";
 import { registerSubagentTools } from "./tools/subagent.ts";
@@ -263,11 +264,15 @@ export async function registerSubagentAgent(pi: ExtensionAPI, role: AgentRole): 
       agent
         ? [
             ...agentToolNames(agent),
+            ...SESSION_HISTORY_TOOLS,
+            "clear_context",
             ...capabilityToolNames(grants),
             ...pi.getActiveTools().filter((tool) => MCP_TOOL.test(tool))
           ]
         : [
             ...subagentToolNames(role, grants),
+            ...SESSION_HISTORY_TOOLS,
+            "clear_context",
             // The servers the role's setting names were the only ones registered.
             ...pi.getActiveTools().filter((tool) => MCP_TOOL.test(tool))
           ]
@@ -307,23 +312,8 @@ export async function registerSubagentAgent(pi: ExtensionAPI, role: AgentRole): 
     )
   }));
 
-  // Delegated sessions compact the way Main does: Pi's native checkpoint, the
-  // same projection of tool receipts into the summary input, and the same
-  // cooldown after a failed automatic attempt.
-  const compactionRetry = new MainCompactionRetry();
-  pi.on("session_before_compact", (event, ctx) => {
-    const skipped = compactionRetry.before(event, ctx.sessionManager.getSessionId(), ctx.model);
-    if (skipped) return skipped;
-    event.preparation.messagesToSummarize = projectCompactionMessages(event.preparation.messagesToSummarize);
-    event.preparation.turnPrefixMessages = projectCompactionMessages(event.preparation.turnPrefixMessages);
-    return undefined;
-  });
-  pi.on("session_compact", () => {
-    compactionRetry.succeeded();
-  });
-  pi.on("session_compact_failed", (event) => {
-    compactionRetry.failed(event);
-  });
+  registerSessionContext(pi);
+  registerContextWindows(pi, { workspaceRoot, taskId, runId, callId });
 
   registerSubagentTools(pi, {
     role,

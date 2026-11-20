@@ -1,4 +1,5 @@
 import { dirname, join, resolve } from "node:path";
+import type { WindowDevelopment } from "../runtime/session-handoff.js";
 import {
   dismissalCategory,
   reviewBasis,
@@ -1350,13 +1351,18 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
   }
 
   /** The next step for one development, worked out from its stored records. */
-  async function nextStep(projectId: string, developmentIdValue: unknown): Promise<string> {
+  async function nextStep(
+    projectId: string,
+    developmentIdValue: unknown,
+    snapshot?: { record: DevelopmentRecord; tickets: TicketSet }
+  ): Promise<string> {
     const developmentId = developmentIdentifier(developmentIdValue, "开发记录 ID");
     const service = await gateway();
-    const record = await service.getDevelopment(projectId, developmentId, ports.backendId);
+    const record =
+      snapshot?.record ?? (await service.getDevelopment(projectId, developmentId, ports.backendId));
     const workspaceReady = record.workspace?.state === "ready";
     const [tickets, reviews, merges, deliveries] = await Promise.all([
-      service.tickets(projectId, developmentId),
+      snapshot?.tickets ?? service.tickets(projectId, developmentId),
       service.queryReviews(projectId, developmentId),
       service.queryMerges(projectId, developmentId),
       service.queryDeliveries(projectId, developmentId)
@@ -2753,6 +2759,29 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
     async nextForTask(taskId: string, developmentId: string) {
       const found = await taskProject(taskId);
       return nextStep(found.projectId, developmentId);
+    },
+
+    async contextHandoffForTask(taskId: string): Promise<WindowDevelopment | undefined> {
+      const { projectId } = await taskProject(taskId);
+      const service = await gateway();
+      const main = await service.findMainSessionByTask(projectId, ports.backendId, taskId);
+      const records = await service.queryDevelopments(projectId, ports.backendId);
+      const requirement = main?.session.currentRequirementId;
+      const current = requirement
+        ? records.find((record) => record.requirementId === requirement)
+        : records.find((record) => record.taskId === taskId);
+      if (!current) return;
+      const { developmentId, route, goal, completionCriteria } = current;
+      const tickets = await service.tickets(projectId, developmentId);
+      const next = await nextStep(projectId, developmentId, { record: current, tickets });
+      return {
+        developmentId,
+        route,
+        goal,
+        completionCriteria,
+        next,
+        tickets: tickets.tickets.map(({ ticketId, title, state }) => ({ ticketId, title, state }))
+      };
     },
 
     // ---- review actions --------------------------------------------------------

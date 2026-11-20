@@ -370,6 +370,11 @@ const composerMenu = createComposerMenu({
   commands: [
     { name: "new", icon: "square-pen", description: ui("新会话"), run: () => beginNewConversation() },
     {
+      name: "compact",
+      description: ui("换一个上下文窗口"),
+      run: () => void compactConversation()
+    },
+    {
       name: "model",
       icon: "cpu",
       description: ui("切换本会话的模型与推理强度"),
@@ -1198,12 +1203,19 @@ function applyCatalogEvent(record) {
 // compared by their length and last entries: serializing a long conversation
 // on every poll cost more than drawing it.
 function detailViewSignature(detail) {
-  const { statistics: allStatistics, messages = [], runtimeEvents = [], ...rest } = detail;
+  const {
+    statistics: allStatistics,
+    messages = [],
+    runtimeEvents = [],
+    contextWindows = [],
+    ...rest
+  } = detail;
   const { elapsedMs: _elapsed, observedAt: _observed, ...statistics } = allStatistics || {};
   return JSON.stringify({
     ...rest,
     statistics,
     messages: [messages.length, messages.slice(-2)],
+    contextWindows: contextWindows.map((window) => window.id),
     runtimeEvents: [runtimeEvents.length, runtimeEvents.slice(-3).map(streamRecordKey)]
   });
 }
@@ -1405,6 +1417,17 @@ function paintTopbarContext() {
     : idleTitle;
   $("#topbar-task").textContent = truncate(name, 44);
   $("#topbar-task").title = name;
+  const usageLabel = $("#context-usage");
+  const usage = state.selected === state.detail?.task?.taskId ? state.detail?.contextUsage : null;
+  usageLabel.hidden = usage?.tokens == null;
+  if (usage?.tokens != null) {
+    const numbers = new Intl.NumberFormat(document.documentElement.lang);
+    const used = numbers.format(usage.tokens);
+    const limit = numbers.format(usage.contextWindow);
+    usageLabel.title = ui`上下文已用 ${used} / ${limit} tokens`;
+    usageLabel.textContent = ui`窗口 ${usage.window} · ${Math.round((100 * usage.tokens) / usage.contextWindow)}%`;
+    usageLabel.setAttribute("aria-label", `${usageLabel.textContent} · ${usageLabel.title}`);
+  }
   // The title row names where the conversation lives and what it is working on.
   const task = state.selected
     ? state.detail?.task || state.tasks.find((entry) => entry.taskId === state.selected)
@@ -2542,6 +2565,38 @@ async function submitMessageEdit() {
 }
 
 let resolvingReferences = false;
+async function compactConversation() {
+  const taskId = state.selected;
+  if (!taskId) return showToast(ui("发送第一条消息后可换窗口。"));
+  if (currentSubmission() || !state.online || isTaskStopping()) return;
+  const draft = submissionDraft();
+  const submission = beginSubmission();
+  updateSendButton();
+  try {
+    await api(`/api/tasks/${encodeURIComponent(taskId)}/action`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ action: "compact" })
+    });
+    const input = $("#composer-input");
+    if (
+      state.selected === taskId &&
+      composerSession.currentToken === draft.token &&
+      input.value === draft.input &&
+      draft.input.trim() === "/compact"
+    ) {
+      input.value = "";
+      composerSession.save();
+    }
+    await loadDetail(taskId);
+  } catch (error) {
+    showToast(requestErrorMessage(error));
+  } finally {
+    finishSubmission(submission);
+    updateSendButton();
+  }
+}
+
 async function sendMessage({ queue = false } = {}) {
   if (!$("#human-questions").hidden) return;
   if (firstUse.blocksSending()) return;
@@ -2553,6 +2608,10 @@ async function sendMessage({ queue = false } = {}) {
   if (isTaskStopping()) return;
   if (composerSession.editing) {
     return showToast(ui("请先保存或取消正在编辑的消息，底部草稿会保留。"));
+  }
+  if (text === "/compact") {
+    composerMenu.close();
+    return compactConversation();
   }
   if (state.modelConfigured === false) return void modelSettings.open();
   composerMenu.close();

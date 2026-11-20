@@ -149,7 +149,9 @@ export async function startPi({ uiCompatibility } = {}) {
     let configuredModel = process.env.COWORK_MODEL ?? launchConfig.model ?? "glm-5.3";
     const agentDir = data.piAgentDir;
     mkdirSync(agentDir, { recursive: true });
-    await ensurePiRetryDefaults(agentDir);
+    // Pi must prepare a cut before it calls the hook, even for /compact.
+    // The extension independently selects and budgets the actual retained tail.
+    await ensurePiRetryDefaults(agentDir, 1);
     await installSearchToolAdapters(agentDir);
     const explicitTaskId = process.env.COWORK_TASK_ID;
     const { LocalWorkspaceStore } = await import("../dist/src/workspace/workspace-store.js");

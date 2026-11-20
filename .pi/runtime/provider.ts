@@ -2,7 +2,6 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import type { ProviderStreams } from "@earendil-works/pi-ai";
 import { createCoworkModel } from "../../dist/src/runtime/model-profile.js";
 import { createModelStreams } from "../../dist/src/runtime/model-provider.js";
-import { guardCompactionSummaries } from "../../dist/src/runtime/compaction-summary-guard.js";
 
 /**
  * Register the CoworkOS model provider for whichever agent process loaded this
@@ -33,7 +32,7 @@ export function registerCoworkProvider(
     baseUrl: input.model.baseUrl,
     apiKey: input.apiKey,
     api: input.model.api,
-    streamSimple: guardCompactionSummaries(wrapped).streamSimple,
+    streamSimple: wrapped.streamSimple,
     models: [input.model]
   });
 }

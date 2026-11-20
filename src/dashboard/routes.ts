@@ -150,6 +150,7 @@ export interface DashboardRoutePorts {
   runtimeValue(name: "COWORK_API_BASE" | "COWORK_API_KEY" | "COWORK_MODEL"): string | undefined;
   startMainRun: RunService["startMainRun"];
   pauseTask: RunService["pauseTask"];
+  compactMainContext: RunService["compactMainContext"];
   stopTask: RunService["stopTask"];
   launchMainRun: MainRunLauncher;
   editMainMessage: RunService["editMainMessage"];
@@ -1250,6 +1251,11 @@ export function createDashboardHandler(
       if (request.method === "POST" && url.pathname.endsWith("/action")) {
         const body = await readJsonBody(request);
         const action = body.action;
+        if (action === "compact") {
+          const result = await ports.compactMainContext(taskId);
+          sendJson(response, result.error ? 409 : result.queued ? 202 : 200, result);
+          return;
+        }
         if (
           action !== "pause" &&
           action !== "stop" &&
