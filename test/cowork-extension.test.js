@@ -139,7 +139,8 @@ test("call_subagent keeps task/mode required and dispatches one work item per ca
     COWORK_TASK_ID: process.env.COWORK_TASK_ID,
     COWORK_RUN_ID: process.env.COWORK_RUN_ID,
     COWORK_SUBAGENT_BACKEND_URL: process.env.COWORK_SUBAGENT_BACKEND_URL,
-    COWORK_SUBAGENT_BACKEND_TOKEN: process.env.COWORK_SUBAGENT_BACKEND_TOKEN
+    COWORK_SUBAGENT_BACKEND_TOKEN: process.env.COWORK_SUBAGENT_BACKEND_TOKEN,
+    ATRIA_HOME: process.env.ATRIA_HOME
   };
   const taskId = "extension-task";
   const runId = "main-extension";
@@ -147,6 +148,8 @@ test("call_subagent keeps task/mode required and dispatches one work item per ca
   try {
     process.env.COWORK_API_BASE = "https://example.test";
     process.env.COWORK_API_KEY = "test-key";
+    // The user's own data home (its MCP servers, skills and Agents) stays out of the test.
+    process.env.ATRIA_HOME = join(root, "home");
     process.env.COWORK_CONFIG = join(root, "config.json");
     await writeFile(process.env.COWORK_CONFIG, "{}\n");
     process.env.COWORK_WORKSPACE = root;
@@ -180,8 +183,8 @@ test("call_subagent keeps task/mode required and dispatches one work item per ca
     const injected = await pi.handlers.get("before_agent_start")({ systemPrompt: "Original system rules" });
     assert.ok(injected.systemPrompt.startsWith("Original system rules"));
     assert.ok(injected.systemPrompt.includes(join(root, taskId, "artifacts")));
-    assert.ok(injected.systemPrompt.includes("用户选择的项目目录"));
-    assert.ok(injected.systemPrompt.includes("read/edit/write/bash"));
+    assert.ok(injected.systemPrompt.includes("Project directory"));
+    assert.ok(injected.systemPrompt.includes("read, edit, write and bash"));
     assert.ok(injected.systemPrompt.includes(join(root, taskId, "agents", "main", "work")));
     assert.ok(injected.systemPrompt.includes("outputFiles"));
     const tool = pi.tools.get("call_subagent");
@@ -396,6 +399,7 @@ test("a turn takes the level of the message that opened it, not of a newer accep
   const taskId = "turn-level-task";
   const runId = "main-turn-level";
   Object.assign(process.env, {
+    ATRIA_HOME: join(root, "home"),
     COWORK_API_BASE: provider.baseUrl,
     COWORK_API_KEY: "{{SECRET_kdvqcozt}}",
     COWORK_MODEL: "turn-model",

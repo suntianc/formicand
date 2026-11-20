@@ -183,7 +183,7 @@ test(
         JSON.parse(requests[index].messages.findLast((message) => message.role === "tool").content);
       const loaded = payload(1);
       assert.ok(
-        JSON.stringify(loaded).includes("Script state and output"),
+        JSON.stringify(loaded).includes("## Scripts"),
         "real Pi must resolve and load the bundled CUA skill"
       );
       const first = payload(3),

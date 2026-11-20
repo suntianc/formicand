@@ -161,7 +161,7 @@ test(
         .filter((message) => message.role === "system")
         .map((message) => message.content)
         .join("\n");
-      assert.ok(system.includes(`用户选择的项目目录：${workspaceRoot}`));
+      assert.ok(system.includes(`Project directory: ${workspaceRoot}`));
       assert.ok(system.includes(join(workspaceRoot, "conversation", "agents", "main", "work")));
       assert.ok(system.includes(join(workspaceRoot, "conversation", "artifacts")));
       assert.ok(

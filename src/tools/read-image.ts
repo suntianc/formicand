@@ -238,7 +238,7 @@ export function createImageTools(options: ImageReaderOptions) {
   return {
     read_image: {
       executionMode: "parallel" as const,
-      description: `Inspect local PNG, JPEG, GIF or WebP files, or reread a historical Task imageRef. Prefer paths:["image.png"] for one image or an ordered comparison of 1–4 images (20 MiB total). path is a single-image alias; matching path and paths:[path] read it once. Specify exactly one non-empty path/paths selection or imageRef; omit unused sources or set path/imageRef to null/"". ${direct} The legacy goal and review arguments are accepted; review=true still requires a single image. Paths are relative to scope=${workScope} or the shared Task (scope=task); absolute paths inside the selected root are also accepted. Historical pixels do not authorize Computer Use actions.`,
+      description: `Inspect local PNG, JPEG, GIF or WebP files, or reread a historical Task imageRef. Use paths:[...] for one image or an ordered comparison of up to four (20 MiB total), or imageRef alone. ${direct} Paths are relative to scope=${workScope} or the shared Task (scope=task). Historical pixels do not authorize Computer Use actions.`,
       parameters: {
         ...sourceSchema,
         properties: {

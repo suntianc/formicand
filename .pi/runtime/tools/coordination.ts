@@ -155,18 +155,13 @@ export function registerCoordinationTools(pi: ExtensionAPI, context: CoworkToolC
     name: "call_subagent",
     label: "Call Subagent",
     description:
-      "Delegate one concrete work item to a Subagent. It returns a callId at once and runs the item in the background; the result arrives later as a callback. role names the job (executor implements, reviewer examines an independent session); dependsOn holds the item until earlier callIds finish; developmentId runs it in that requirement's isolated checkout; continueCallId reworks a finding as the next turn of a finished Executor's own session and checkout.",
+      "Delegate one work item to a collaborator. It returns a callId at once; the item runs in the background and its result arrives later as a callback message.",
     promptSnippet: "Delegate a concrete task",
     promptGuidelines: [
-      "Use call_subagent when an independent analysis, implementation or validation task is likely to improve the result.",
-      "Give each delegate an independently testable objective, relevant inputs, constraints and acceptance evidence. Independent end-to-end attempts are valid when they help compare approaches; avoid a fixed research/production/review pipeline for every task.",
+      "Send independent items together in one turn; use dependsOn only when an item needs an earlier one's result.",
       "Keep working on what does not depend on the result. When nothing else is left, end your turn: the callback wakes you. Use wait_for_subagents only when you need the result inside this turn.",
-      "The task must state a concrete objective and expected evidence; ask for a deliverables/ file only when the result is a substantial reusable artifact. Main may issue multiple independent calls in one turn.",
-      "The Subagent returns a concise summary with evidence, candidate outputFiles, diagnostic paths and validation results. Candidate files remain in the Subagent's directory until Main accepts and copies selected files into the Task artifacts directory.",
-      "Use role=reviewer for an independent check of a result; it starts its own session, so it must be given the candidate and evidence to examine rather than asked to trust the Executor's summary.",
-      "Pass dependsOn only for work that genuinely needs an earlier item's result: a dependent item does not start until those calls finish, and does not run at all when one of them failed or was cancelled. Independent work should be dispatched without dependsOn so it can proceed at once.",
-      "Pass developmentId when the work belongs to a requirement with an isolated checkout. ensure_workspace first; the checkout — not the user's working tree — is then the delegate's project directory.",
-      "To rework a review finding in the original context, pass continueCallId with the finished Executor callId (and reviewId). It appends one turn to that agent's own session and checkout; do not dispatch a fresh Agent and paste a summary of the first attempt."
+      "Candidate outputFiles stay in the collaborator's directory until you copy what you accept into artifacts/.",
+      "role=reviewer starts its own session for an independent check: hand it the candidate and the evidence to examine, not the Executor's summary."
     ],
     parameters: Type.Object(
       {
