@@ -18,7 +18,8 @@ import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import { mkdir, rename, stat, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
-import { dirname, isAbsolute, join, resolve } from "node:path";
+import { basename, dirname, isAbsolute, join, resolve } from "node:path";
+import { mainContextUsagePath, type SessionContextUsage } from "../runtime/session-context-usage.js";
 import { id, now } from "../domain/types.js";
 import { coworkConfigPath, readCoworkConfig, readHostCoworkConfig } from "../runtime/config.js";
 import { normalizeReasoningEffort } from "../runtime/runtime-settings.js";
@@ -644,6 +645,10 @@ export function createDashboardApplication(
       ? await readJsonLines(join(taskWorkspace, taskId, "runs", runId, "run_events.jsonl"), 30)
       : [];
     const messageVersions = await readMessageVersions(taskWorkspace, taskId);
+    const contextUsage = await readJsonFile<SessionContextUsage | null>(
+      mainContextUsagePath(taskWorkspace, taskId),
+      null
+    );
     const runtimeEvents = versionRuntimeEvents(
       await readTaskRuntimeEvents(taskWorkspace, taskId),
       messageVersions
@@ -723,6 +728,14 @@ export function createDashboardApplication(
       ...(editableMessageError ? { editableMessageError } : {}),
       conversationVersions: messageVersionSummaries(messageVersions),
       conversationVersion: messageVersions?.versionId,
+      contextUsage:
+        !messageVersions || contextUsage?.sessionFile === basename(messageVersions.sessionFile)
+          ? contextUsage && {
+              tokens: contextUsage.tokens,
+              contextWindow: contextUsage.contextWindow,
+              window: contextUsage.window
+            }
+          : null,
       retryRequest,
       ...(retryRequestUnavailable ? { retryRequestUnavailable: true } : {}),
       progress,

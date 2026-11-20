@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { SessionManager } from "@earendil-works/pi-coding-agent";
 import { currentMainSession } from "./main-message-edit.js";
 import { mainContextPaths, persistMainContext } from "./main-context.js";
+import { copyToolResultArchives, sessionDataDirectory } from "./session-tool-results.js";
 
 /**
  * Copy one conversation's history, up to and including one reply, into
@@ -33,6 +34,7 @@ export async function copyMainConversation(
   await mkdir(directory, { recursive: true, mode: 0o700 });
   const fork = SessionManager.open(session.getSessionFile()!, directory);
   const sessionFile = fork.createBranchedSession(reply.id)!;
+  await copyToolResultArchives(sessionDataDirectory(session), directory, fork.getEntries());
   // The SDK writes a branch lazily; flush it so the first Run there resumes it.
   const temporary = `${sessionFile}.${randomUUID()}.tmp`;
   await writeFile(

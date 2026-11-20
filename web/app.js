@@ -1405,6 +1405,17 @@ function paintTopbarContext() {
     : idleTitle;
   $("#topbar-task").textContent = truncate(name, 44);
   $("#topbar-task").title = name;
+  const usageLabel = $("#context-usage");
+  const usage = state.selected === state.detail?.task?.taskId ? state.detail?.contextUsage : null;
+  usageLabel.hidden = usage?.tokens == null;
+  if (usage?.tokens != null) {
+    const numbers = new Intl.NumberFormat(document.documentElement.lang);
+    const used = numbers.format(usage.tokens);
+    const limit = numbers.format(usage.contextWindow);
+    usageLabel.title = ui`上下文已用 ${used} / ${limit} tokens`;
+    usageLabel.textContent = ui`窗口 ${usage.window} · ${Math.round((100 * usage.tokens) / usage.contextWindow)}%`;
+    usageLabel.setAttribute("aria-label", `${usageLabel.textContent} · ${usageLabel.title}`);
+  }
   // The title row names where the conversation lives and what it is working on.
   const task = state.selected
     ? state.detail?.task || state.tasks.find((entry) => entry.taskId === state.selected)

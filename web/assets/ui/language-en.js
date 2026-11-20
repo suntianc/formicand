@@ -1193,6 +1193,7 @@ export default {
   "。 ": ". ",
   窗口访问已暂停: "Window access is paused",
   窗口: "Window",
+  上下文已用: "Context used",
   " · 接管 ": " · Takeover ",
   "连接中断，可使用人工接管或关闭窗口访问": "Connection lost. Take over manually or turn off window access.",
   "连接中断，无法读取执行主机权限": "Connection lost. Executor host permissions cannot be read.",

@@ -41,6 +41,7 @@ import {
 import { loadConfig } from "./helpers.ts";
 import { registerCoworkProvider } from "./provider.ts";
 import { MainCompactionRetry } from "./main-compaction-retry.ts";
+import { registerSessionContext } from "./session-context.ts";
 import { registerSubagentInbox } from "./subagent-inbox.ts";
 import { blockedToolCall, taskProtectedPaths } from "./protected-call.ts";
 import { registerSubagentTools } from "./tools/subagent.ts";
@@ -310,6 +311,7 @@ export async function registerSubagentAgent(pi: ExtensionAPI, role: AgentRole): 
   // Delegated sessions compact the way Main does: Pi's native checkpoint, the
   // same projection of tool receipts into the summary input, and the same
   // cooldown after a failed automatic attempt.
+  registerSessionContext(pi);
   const compactionRetry = new MainCompactionRetry();
   pi.on("session_before_compact", (event, ctx) => {
     const skipped = compactionRetry.before(event, ctx.sessionManager.getSessionId(), ctx.model);

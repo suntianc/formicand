@@ -831,6 +831,12 @@ html[data-desktop-platform="darwin"]:not([data-desktop-fullscreen="true"]) .titl
   gap: 4px;
   margin-left: auto;
 }
+.context-usage {
+  color: var(--muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
 html[data-theme] .app-layout > :not(.app-titlebar, .sidebar-divider) {
   grid-row: 2;
 }

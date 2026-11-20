@@ -109,6 +109,8 @@ import { registerSubagentAgent } from "./subagent-agent.ts";
 import { blockedToolCall, taskProtectedPaths } from "./protected-call.ts";
 import { registerCoworkProvider } from "./provider.ts";
 import { createMcpRegistration } from "./mcp.ts";
+import { registerSessionContext } from "./session-context.ts";
+import { mainContextUsagePath } from "../../dist/src/runtime/session-context-usage.js";
 
 /**
  * One extension entry for Main and delegated agent processes.
@@ -144,6 +146,7 @@ async function registerMainExtension(pi: ExtensionAPI) {
   let memoryTool: ReturnType<typeof registerMemoryTool>;
   const workspaceRoot = configuredWorkspaceRoot(config);
   const taskId = process.env.COWORK_TASK_ID ?? config.taskId ?? `task-${randomUUID()}`;
+  registerSessionContext(pi, mainContextUsagePath(workspaceRoot, taskId));
   // A stable task id gives the Main Run a stable Inbox across Pi restarts.
   // Override either value when deliberately starting a fresh run.
   const mainRunId = process.env.COWORK_RUN_ID ?? `main-${taskId}`;
