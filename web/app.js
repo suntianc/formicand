@@ -52,6 +52,7 @@ import { mergeRuntimeEvents, streamRecordKey } from "./assets/conversation.js";
 import { createEntryController } from "./assets/controllers/entry-controller.js";
 import { createSettingsPages } from "./assets/controllers/settings-pages.js";
 import { createSkillSettings } from "./assets/controllers/skill-settings.js";
+import { createMemorySettings } from "./assets/controllers/memory-settings.js";
 import { createAgentSettings } from "./assets/controllers/agent-settings.js";
 import { createProjectTrustPrompt } from "./assets/controllers/project-trust-prompt.js";
 import { createMcpSettings } from "./assets/controllers/mcp-settings.js";
@@ -1927,6 +1928,13 @@ createSkillSettings({
 createMcpSettings({
   panel: $('[data-settings-panel="mcp"]'),
   api,
+  onSection: settingsPages.onSection,
+  showToast
+});
+createMemorySettings({
+  panel: $('[data-settings-panel="memory"]'),
+  api,
+  projects: () => projectController.visibleProjects(),
   onSection: settingsPages.onSection,
   showToast
 });

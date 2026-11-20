@@ -3504,3 +3504,18 @@ html[data-theme] body :is(.provider-search, .provider-input) input:not([type="ch
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* Settings → Memory: the editor fills the detail pane; the project switch sits under the picker. */
+.memory-form .mcp-field > select {
+  grid-column: 1 / -1;
+}
+.memory-form textarea {
+  font-family: var(--ui-font);
+  resize: vertical;
+}
+.memory-enabled {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  cursor: pointer;
+}

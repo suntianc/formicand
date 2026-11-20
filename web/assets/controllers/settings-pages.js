@@ -20,6 +20,7 @@ export const SETTINGS_SECTIONS = [
   "agents",
   "skills",
   "mcp",
+  "memory",
   "capacity",
   "members",
   "tools"
