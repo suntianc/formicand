@@ -107,3 +107,22 @@ test("Main's workspace state section stays within its limit", { timeout: 60_000 
     .replace(/<root>\/[^\s]+/g, "<path>");
   assert.ok(bytes(words) <= STATE, `current_workspace is ${bytes(words)} bytes without paths, over ${STATE}`);
 });
+
+test("the Executor's and the Reviewer's role prompts stay within the base limit", async () => {
+  const requirePi = createRequire(import.meta.resolve("@earendil-works/pi-coding-agent"));
+  const { createJiti } = await import(requirePi.resolve("jiti"));
+  const path = resolve(".pi/runtime/subagent-agent.ts");
+  const { subagentRolePrompt } = await createJiti(pathToFileURL(path).href).import(path);
+  for (const role of ["executor", "reviewer"]) {
+    const prompt = subagentRolePrompt({
+      role,
+      name: "worker",
+      workingDirectory: "/w",
+      taskWorkspace: "/t",
+      deliverablesDirectory: "/d"
+    });
+    assert.ok(bytes(prompt) <= BASE, `the ${role} prompt is ${bytes(prompt)} bytes, over ${BASE}`);
+    // Every role hands back the same three parts.
+    assert.match(prompt, /Result: [^]*Evidence: [^]*Tried and dropped: /);
+  }
+});

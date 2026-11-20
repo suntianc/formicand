@@ -183,7 +183,7 @@ export function createProjectDevelopmentTool(options: ProjectDevelopmentToolOpti
           minLength: 1,
           maxLength: 20,
           description:
-            "revise_ticket/integrate_ticket target. freeze_candidate: review this ticket's own checkout (direct and full routes)."
+            "revise_ticket/integrate_ticket target. freeze_candidate: review this ticket's own checkout (direct and full routes); on full, without it once every ticket is in, the final review of the whole requirement."
         },
         changes: {
           type: "object",

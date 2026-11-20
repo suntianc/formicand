@@ -73,7 +73,7 @@ export interface SubagentBackendPorts {
     taskId: string;
     developmentId: string;
     reviewId?: string;
-  }): Promise<{ repository: string; commit: string } | undefined>;
+  }): Promise<{ repository: string; commit: string; brief?: string } | undefined>;
   /** The custom Agent a delegation names, resolved for the Task's project. */
   agent?(input: { taskId: string; name: string }): Promise<AgentEntry & { definition: AgentDefinition }>;
   /** Grants for the upload IDs Main named. */

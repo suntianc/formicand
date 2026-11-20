@@ -13,7 +13,7 @@ Start with `find_by_requirement`: one record exists per requirement, so continue
 
 - `quick`: a small, clear change you can make and check yourself in a few files. No tickets and no independent review; your own checks gate the merge. Most fixes and small features belong here.
 - `direct`: one coherent change worth an independent Executor and Reviewer, for example because it touches behaviour other people rely on or you cannot fully check it yourself.
-- `full`: several parts that can be built and accepted separately, or an approach that needs agreeing first. Write the plan, then split it into tickets.
+- `full`: several parts that can be built and accepted separately, or an approach that needs agreeing first. Write the plan, then split it into tickets; once every ticket is in, an independent final review looks at the whole requirement.
 
 Pick the smallest route that keeps the result trustworthy. A route is cheaper to raise later than to carry unused. Questions, investigations and one-off scripts are not requirements: do them without a record.
 
