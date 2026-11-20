@@ -499,7 +499,9 @@ test("an archived large result shows the user its original output, not the model
       toolCallId: "big",
       toolName: "read",
       result: {
-        content: [{ type: "text", text: "Output too large (30 KB). Full output saved to: tool-results/a.json" }],
+        content: [
+          { type: "text", text: "Output too large (30 KB). Full output saved to: tool-results/a.json" }
+        ],
         details: { lines: 3, archivedOutput: { content: original } }
       }
     }
