@@ -47,8 +47,8 @@ for (const [api, compact] of [
       const credential = "isolated-main-recording-credential";
       const prompt = "先启用交付工具，然后发布一份产物并完成核对。";
       const finalText = "已启用交付工具并核对产物。";
-      const memory = "已完成交付工具启用和产物核对。继续只读确认，保留此前工具结果。";
-      const continuation = "根据已有记忆继续核对，不要重复工具调用。";
+      const checkpoint = "已完成交付工具启用和产物核对。继续只读确认，保留此前工具结果。";
+      const continuation = "根据已有进度继续核对，不要重复工具调用。";
       const recordingPath = join(workspace, taskId, "sessions", "main", `${runId}-requests.jsonl`);
       const received = [];
       const mainReceived = [];
@@ -99,7 +99,7 @@ for (const [api, compact] of [
           if (isSummary) {
             assert.ok(compact, "only the compaction variants request a summary");
             assert.ok(JSON.stringify(body).includes(prompt), "summarize the actual user request");
-            reply = { text: `# Task checkpoint\n${prompt}\n${memory}` };
+            reply = { text: `# Task checkpoint\n${prompt}\n${checkpoint}` };
           } else {
             const messages = api === "openai-responses" ? body.input : body.messages;
             const system = messages.filter((message) => ["system", "developer"].includes(message.role));
@@ -143,10 +143,10 @@ for (const [api, compact] of [
             if (mainReceived.length === 4) {
               assert.ok(compact);
               assert.ok(
-                JSON.stringify(body).includes(memory),
-                "the archived body must contain the actual durable-memory compaction"
+                JSON.stringify(body).includes(checkpoint),
+                "the archived body must contain the actual compaction summary"
               );
-              assert.ok(JSON.stringify(saved.payload.request).includes(memory));
+              assert.ok(JSON.stringify(saved.payload.request).includes(checkpoint));
               assert.ok(
                 messages.some(
                   (message) => message.role === "user" && text(message.content).includes(continuation)
@@ -246,9 +246,6 @@ for (const [api, compact] of [
       await store.createTask(taskId, { goal: prompt });
       await store.createRun(taskId, runId);
       if (compact) {
-        const contextDirectory = join(workspace, taskId, "agents", "main", "context");
-        await mkdir(contextDirectory, { recursive: true });
-        await writeFile(join(contextDirectory, "memory.md"), memory);
         await mkdir(join(root, "pi"));
         await writeFile(
           join(root, "pi", "settings.json"),
@@ -349,7 +346,7 @@ for (const [api, compact] of [
         );
         assert.equal(compaction.reason, "threshold");
         assert.equal(compaction.aborted, false);
-        assert.ok(compaction.result.summary.includes(memory));
+        assert.ok(compaction.result.summary.includes(checkpoint));
         assert.ok(summaries.length > 0, "automatic compaction must summarize the real history");
         const files = (await readdir(join(root, "sessions"))).filter((file) => file.endsWith(".jsonl"));
         assert.equal(files.length, 1);

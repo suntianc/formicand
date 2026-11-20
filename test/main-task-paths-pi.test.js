@@ -26,7 +26,6 @@ test(
     const workspace = join(root, "Task Workspace");
     const taskId = "path-task";
     const taskRoot = join(workspace, taskId);
-    const memoryPath = join(taskRoot, "agents", "main", "context", "memory.md");
     const pythonProbe = spawnSync("python3", ["--version"], { encoding: "utf8", timeout: 5000 });
     const python = pythonProbe.status === 0;
     const executable = python ? "python3" : process.execPath;
@@ -91,7 +90,6 @@ const footer = "draft";
     );
     const requests = [];
     const results = [];
-    const instructionFailures = [];
     const failures = [];
     let child;
     let output = "";
@@ -124,10 +122,6 @@ const footer = "draft";
             true,
             "Main's advertised work directory must exist before its first model request"
           );
-          if (!system.includes(memoryPath))
-            instructionFailures.push(
-              "the workspace section must name the Task memory by absolute path, because edit/write use project CWD"
-            );
         }
         const index = requests.length - 1;
         if (index === recoveryStart + 2) {
@@ -302,9 +296,8 @@ const footer = "draft";
       await mkdir(dirname(receiptPath), { recursive: true });
       await writeFile(
         receiptPath,
-        `${JSON.stringify({ observedAt: new Date().toISOString(), scope: "isolated production launcher/extension/Pi tools, local model fixture only; no real model, user task, config or artifact changed", projectDirectory: project, taskWorkspace: taskRoot, interpreter: executable, pythonVersion: python ? pythonProbe.stdout.trim() : null, requests: requests.length, expectedMissingRelativeTaskPrefix: { callId: "path-case-8", isError: results[8].isError, output: resultText(results[8].result) }, absoluteTaskScriptRecovered: resultText(results[9].result).trim(), projectRelativeScriptSucceeded: resultText(results[13].result).trim(), artifact: { content: await readFile(artifactPath, "utf8"), generatedPpt: false }, clearContextAbsoluteMemoryInstruction: instructionFailures.length === 0, toolResults: results.map((event) => ({ toolCallId: event.toolCallId, tool: event.toolName, isError: event.isError })) }, null, 2)}\n`
+        `${JSON.stringify({ observedAt: new Date().toISOString(), scope: "isolated production launcher/extension/Pi tools, local model fixture only; no real model, user task, config or artifact changed", projectDirectory: project, taskWorkspace: taskRoot, interpreter: executable, pythonVersion: python ? pythonProbe.stdout.trim() : null, requests: requests.length, expectedMissingRelativeTaskPrefix: { callId: "path-case-8", isError: results[8].isError, output: resultText(results[8].result) }, absoluteTaskScriptRecovered: resultText(results[9].result).trim(), projectRelativeScriptSucceeded: resultText(results[13].result).trim(), artifact: { content: await readFile(artifactPath, "utf8"), generatedPpt: false }, toolResults: results.map((event) => ({ toolCallId: event.toolCallId, tool: event.toolName, isError: event.isError })) }, null, 2)}\n`
       );
     }
-    assert.deepEqual(instructionFailures, []);
   }
 );

@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import { parseModelRequestArchive } from "../dist/src/storage/model-request-recorder.js";
 import { spawn } from "node:child_process";
-import { createHash } from "node:crypto";
 import { once } from "node:events";
 import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
@@ -27,7 +26,7 @@ const readArchive = async (path) => parseModelRequestArchive(await readFile(path
 
 for (const progress of ["confirmed", "unknown", "intent"])
   test(
-    `real Main resumes ${progress} CUA progress from durable memory after ${progress === "intent" ? "a hard crash before recording the outcome" : "compaction and process restart"} without resubmitting`,
+    `real Main resumes ${progress} CUA progress from its continued session after ${progress === "intent" ? "a hard crash before recording the outcome" : "compaction and process restart"} without resubmitting`,
     { ...browserTestOptions, timeout: 90_000 },
     async (t) => {
       const root = await mkdtemp(join(tmpdir(), "atria-cua-progress-"));
@@ -36,7 +35,6 @@ for (const progress of ["confirmed", "unknown", "intent"])
       const taskId = `progress-${progress}`;
       const runId = "progress-run";
       const taskRoot = join(workspace, taskId);
-      const memoryPath = join(taskRoot, "agents/main/context/memory.md");
       const operation = `report-${progress}`;
       const prompt = `Submit ${operation} once, verify its receipt and preserve recoverable progress.`;
       const business = await cuaProgressFixture(root, operation);
@@ -49,31 +47,12 @@ for (const progress of ["confirmed", "unknown", "intent"])
       let phase = "initial";
       let phaseRequest = 0;
       let pageId, oldPageId, imageRef, download, verifiedFile;
-      let checkpointMemory;
+      let checkpoint;
       let hardCrash = false;
       let output = "";
-      const intentMemory = `# Main Agent Memory
 
-## Goal
-Save ${operation} exactly once.
-Expected outcome: a saved receipt for ${operation}.
-
-## Completed
-- (no confirmed business milestone yet)
-
-## Important information/constraints
-- Intent: click Submit report once for operation ${operation}; Progress: unknown.
-- Dispatch status: not yet known; a crash may occur after input is sent and before the outcome is recorded.
-- Recovery check: ${business.url}/status and its saved receipt identify this operation.
-- Do not repeat Submit report after restart; first query the live read-only status and reread its receipt.
-
-## Next
-- Submit once, then verify the saved receipt. After any interruption, resolve this unknown intent with read-only checks before another submission.
-`;
-
-      const memory = (state, checked) => `# Main Agent Memory
-
-## Goal
+      // The summarizer writes the progress the history shows; there is no separate note.
+      const progressSummary = (state, checked) => `## Goal
 Save ${operation} exactly once and verify the saved receipt.
 Expected outcome: a saved receipt for ${operation}, containing receipt-1.
 
@@ -109,11 +88,6 @@ ${state === "confirmed" ? `- confirmed: ${operation} saved; evidence ${download.
       const initialSteps = [
         () => tool("load_skill", { name: "cua" }),
         () => tool("enable_tools", { groups: ["browser"] }),
-        () =>
-          tool("write", {
-            path: memoryPath,
-            content: intentMemory
-          }),
         () => tool("browser_open", { url: business.url }),
         () =>
           tool("browser_act", {
@@ -145,19 +119,7 @@ ${state === "confirmed" ? `- confirmed: ${operation} saved; evidence ${download.
         checkDownload
       ];
       if (progress === "confirmed") initialSteps.push(...verifySteps);
-      if (progress === "intent") checkpointMemory = intentMemory;
-      else
-        initialSteps.push(() => {
-          checkpointMemory = memory(progress, progress === "confirmed");
-          oldPageId = pageId;
-          return tool("write", { path: memoryPath, content: checkpointMemory });
-        });
-      const recoverySteps = [
-        () => tool("read", { path: memoryPath }),
-        ...(progress === "confirmed" ? [checkDownload] : []),
-        ...verifySteps,
-        () => tool("write", { path: memoryPath, content: memory("confirmed", true) })
-      ];
+      const recoverySteps = [...(progress === "confirmed" ? [checkDownload] : []), ...verifySteps];
       const provider = createServer(async (request, response) => {
         let reply;
         try {
@@ -167,19 +129,20 @@ ${state === "confirmed" ? `- confirmed: ${operation} saved; evidence ${download.
             summaryRequests.push(body);
             assert.notEqual(progress, "intent", "the hard-crash fixture never reaches compaction");
             assert.ok(JSON.stringify(body.messages).includes(prompt));
-            reply = { text: `# Verified task checkpoint\n${prompt}\n${checkpointMemory}` };
+            checkpoint = progressSummary(progress, progress === "confirmed");
+            oldPageId = pageId;
+            reply = { text: `# Verified task checkpoint\n${prompt}\n${checkpoint}` };
           } else {
             observeResult(body);
-            if (progress === "intent" && phase === "initial" && phaseRequest === 5) {
+            if (progress === "intent" && phase === "initial" && phaseRequest === 4) {
               // The real action result has reached the model boundary, but the
-              // provider has not emitted any outcome-memory write or next action.
+              // provider has not emitted any check or next action.
               const action = JSON.parse(
                 text(body.messages.findLast((message) => message.role === "tool").content)
               );
               assert.equal(action.dispatchStatus, "sent");
               assert.equal(action.effectVerified, false);
               assert.equal((await business.receipts()).length, 1);
-              assert.equal(await readFile(memoryPath, "utf8"), intentMemory);
               oldPageId = pageId;
               hardCrash = true;
               process.kill(-child.pid, "SIGKILL");
@@ -188,13 +151,11 @@ ${state === "confirmed" ? `- confirmed: ${operation} saved; evidence ${download.
             }
             const steps = phase === "initial" ? initialSteps : recoverySteps;
             if (phase === "recovery" && phaseRequest === 0 && progress !== "intent") {
-              assert.ok(
-                body.messages.some((message) => text(message.content).includes(checkpointMemory.trim()))
-              );
+              assert.ok(body.messages.some((message) => text(message.content).includes(checkpoint.trim())));
               assert.equal(
                 body.messages.some((message) => message.role === "tool"),
                 false,
-                "the compacted context must use memory, not the old tool receipts"
+                "the compacted context carries the summary, not the old tool receipts"
               );
               assert.equal(JSON.stringify(body.messages).includes("/atria-internal-continue"), false);
             }
@@ -206,15 +167,15 @@ ${state === "confirmed" ? `- confirmed: ${operation} saved; evidence ${download.
                 1,
                 "restoring the accepted input after SIGKILL must not submit a second user turn"
               );
+              // The continued session still holds the sent click, so the model
+              // sees an action with no checked outcome and looks before acting.
+              const sent = body.messages.filter(
+                (message) =>
+                  message.role === "tool" && text(message.content).includes('"dispatchStatus":"sent"')
+              );
+              assert.equal(sent.length, 1, "the continued session carries the sent action's result");
               assert.equal(JSON.stringify(body.messages).includes("/atria-internal-continue"), false);
             }
-            if (phase === "recovery" && phaseRequest === 1)
-              assert.ok(
-                text(body.messages.findLast((message) => message.role === "tool").content).includes(
-                  checkpointMemory.trim()
-                ),
-                "the production read tool must reread the durable progress before any recovery browser action"
-              );
             if (phaseRequest < steps.length) {
               reply = steps[phaseRequest++]();
               stages.push({ phase, name: reply.name, args: reply.arguments });
@@ -346,17 +307,15 @@ ${state === "confirmed" ? `- confirmed: ${operation} saved; evidence ${download.
         1,
         "the real browser must perform the submission before restart"
       );
-      assert.equal(await readFile(memoryPath, "utf8"), checkpointMemory);
       if (progress !== "confirmed") {
         assert.equal(download, undefined, "unknown checkpoint must not invent a checked receipt");
         assert.equal(verifiedFile, undefined);
-        assert.match(checkpointMemory, /Progress: unknown/);
       }
+      if (progress === "unknown") assert.match(checkpoint, /Progress: unknown/);
       const checkpointImageRef = imageRef;
       const beforeState = JSON.parse(
         await readFile(join(taskRoot, "agents/main/context/state.json"), "utf8")
       );
-      assert.equal(beforeState.memorySha256, createHash("sha256").update(checkpointMemory).digest("hex"));
       if (progress === "intent") {
         assert.equal(beforeState.contextEpoch, 0, "the crash happens before compaction or orderly shutdown");
         assert.equal(
@@ -364,19 +323,18 @@ ${state === "confirmed" ? `- confirmed: ${operation} saved; evidence ${download.
           false
         );
         assert.equal(
-          stages.filter((stage) => stage.name === "write").length,
-          1,
-          "no outcome-memory write was issued before the hard crash"
+          stages.some((stage) => stage.name === "bash"),
+          false,
+          "no outcome check was issued before the hard crash"
         );
       } else {
         assert.ok(summaryRequests.length > 0, "production compaction must summarize the real progress");
         assert.ok(beforeState.contextEpoch > 0, "production compaction hook must update context epoch");
         assert.ok(
           events.some(
-            (event) => event.type === "compaction_end" && event.result?.summary.includes(checkpointMemory)
+            (event) => event.type === "compaction_end" && event.result?.summary.includes(checkpoint)
           )
         );
-        assert.ok(beforeState.memoryVersion >= 2, "both pre-action intent and outcome memory were persisted");
       }
       const sessions = (await readdir(join(root, "sessions"))).filter((path) => path.endsWith(".jsonl"));
       assert.equal(sessions.length, 1);
@@ -419,7 +377,6 @@ ${state === "confirmed" ? `- confirmed: ${operation} saved; evidence ${download.
         sha256: expected.sha256
       });
       assert.equal(download.sha256, expected.sha256);
-      assert.match(await readFile(memoryPath, "utf8"), /Progress: confirmed/);
       const archived = await createImageArchive({ taskDirectory: taskRoot }).read(imageRef);
       assert.equal(archived.record.source.kind, "browser");
       assert.equal(

@@ -4,7 +4,6 @@ import type { MainContextState } from "../../dist/src/runtime/main-context.js";
 import { limitToolContent } from "../../dist/src/runtime/tool-output.js";
 
 interface MainCompactionState {
-  memory: string;
   runtime: MainContextState;
   goalAlreadyVisible?: boolean;
 }
@@ -24,13 +23,6 @@ export function mainCompactionPreviousSummary(previousSummary: string | undefine
 /** Current machine state is refreshed separately from the historical checkpoint. */
 export function mainCompactionContext(state: MainCompactionState): string {
   const runtime = state.runtime;
-  const memory = state.memory.trim();
-  const memoryContent = memory
-    .replace(/<!--[\s\S]*?-->/g, "")
-    .replace(/^# Main Agent Memory\s*$/gm, "")
-    .replace(/^## (Goal|Completed|Next|Important information\/constraints)\s*$/gm, "")
-    .replace(/^\s*- \((none yet|initialize after understanding the task)\)\s*$/gm, "")
-    .trim();
   const parts = [
     "Current persisted Task context. This snapshot does not establish that work or verification completed. Later user messages and explicit execution evidence update historical records.",
     `Runtime state: phase=${runtime.runtimePhase ?? "unknown"}; pending delegations=${runtime.runtimePendingDelegations ?? 0}.`,
@@ -41,9 +33,6 @@ export function mainCompactionContext(state: MainCompactionState): string {
       ? [
           `Last runtime event: ${excerpt(runtime.runtimeLastEvent.type, 80)}${runtime.runtimeLastEvent.summary ? ` — ${excerpt(runtime.runtimeLastEvent.summary, 240)}` : ""}`
         ]
-      : []),
-    ...(memoryContent
-      ? ["Auxiliary workspace memory (may be incomplete or stale):", excerpt(memory, 2_800)]
       : []),
     "Full history: agents/main/context/messages.json. Retrieve only specific missing evidence when needed."
   ];
@@ -95,7 +84,7 @@ export function withMainCompactionContext<T extends AgentMessage>(
 }
 
 function excerpt(text: string, budget: number): string {
-  // Keep delimiters inside user-owned memory/goal text from becoming snapshot boundaries.
+  // Keep delimiters inside user-owned goal text from becoming snapshot boundaries.
   const safe = text.replace(/<\/?atria_main_context>/g, (tag) =>
     tag.replace("<", "&lt;").replace(">", "&gt;")
   );

@@ -145,8 +145,8 @@ test(
   { timeout: 10000 },
   async (t) => {
     const f = await fixture(t);
-    const memory = join(f.storageRoot, "one", "agents", "main", "context", "memory.md");
-    await writeFile(memory, "Retain original history\n");
+    const history = join(f.storageRoot, "one", "agents", "main", "context", "messages.json");
+    await writeFile(history, "Retain original history\n");
     const child = await f.hold(true);
     const staged = await readFile(join(f.storageRoot, "one", "task.json"), "utf8");
     assert.equal((await f.store.readTask("one")).projectDirectory, f.first);
@@ -159,7 +159,7 @@ test(
     assert.equal((await f.store.readTask("two")).projectDirectory, f.second);
     assert.equal(await readFile(join(f.storageRoot, "one", "task.json"), "utf8"), staged);
     assert.equal(JSON.parse(await readFile(f.catalog.filePath, "utf8")).pending, undefined);
-    assert.equal(await readFile(memory, "utf8"), "Retain original history\n");
+    assert.equal(await readFile(history, "utf8"), "Retain original history\n");
   }
 );
 
@@ -194,8 +194,8 @@ test(
   async (t) => {
     const f = await fixture(t);
     await f.store.updateTask("two", { goal: "Keep the goal", title: "Keep the title" });
-    const memory = join(f.storageRoot, "two", "agents", "main", "context", "memory.md");
-    await writeFile(memory, "Keep this conversation history\n");
+    const history = join(f.storageRoot, "two", "agents", "main", "context", "messages.json");
+    await writeFile(history, "Keep this conversation history\n");
     const attachment = join(f.storageRoot, "one", "artifacts", "retained.bin");
     const contents = Buffer.from([0, 1, 127, 255]);
     await writeFile(attachment, contents);
@@ -235,7 +235,7 @@ test(
     assert.equal(recovered.goal, "Keep the goal");
     assert.equal(recovered.title, "Keep the title");
     assert.equal((await readFile(eventsPath, "utf8")).startsWith(events), true);
-    assert.equal(await readFile(memory, "utf8"), "Keep this conversation history\n");
+    assert.equal(await readFile(history, "utf8"), "Keep this conversation history\n");
     assert.deepEqual(await readFile(attachment), contents);
     assert.equal(JSON.parse(await readFile(f.catalog.filePath, "utf8")).pending, undefined);
     await assert.rejects(readFile(ownerPath), { code: "ENOENT" });

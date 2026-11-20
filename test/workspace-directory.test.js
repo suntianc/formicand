@@ -18,8 +18,8 @@ test("empty storage roots are omitted and project edits keep conversations in th
   assert.deepEqual((await directory.globalTaskPayload()).projects, []);
   const project = await directory.createProject({ projectName: "保留我的历史", projectDirectory: b });
   await directory.createProjectTask("session", project.projectId, { goal: "保留我的历史" });
-  const memory = join(a, "session", "agents", "main", "context", "memory.md");
-  await writeFile(memory, "不能丢失的历史");
+  const history = join(a, "session", "agents", "main", "context", "messages.json");
+  await writeFile(history, "不能丢失的历史");
   directory = createWorkspaceDirectory(a, index, () => "fixture");
   const payload = await directory.globalTaskPayload();
   assert.equal(payload.projects.length, 1);
@@ -30,7 +30,7 @@ test("empty storage roots are omitted and project edits keep conversations in th
   assert.equal(location.workspaceRoot, a);
   assert.equal(location.projectId, project.projectId);
   assert.equal((await directory.taskListItem(location)).workspaceRoot, b);
-  assert.equal(await readFile(memory, "utf8"), "不能丢失的历史");
+  assert.equal(await readFile(history, "utf8"), "不能丢失的历史");
   await directory.updateProject(project.projectId, { projectDirectory: a }, (_taskIds, action) => action());
   assert.equal((await directory.globalTaskPayload()).projects[0].workspaceRoot, a);
 });

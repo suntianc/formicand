@@ -37,7 +37,7 @@ test("the directories Agents work in stay reachable", () => {
     undefined
   );
   assert.equal(
-    refused({ path: "/Users/example/.atria/workspace/task-1/agents/main/context/memory.md" }),
+    refused({ path: "/Users/example/.atria/workspace/task-1/agents/main/context/messages.json" }),
     undefined
   );
   assert.equal(refused({ command: "ls ~/.atria/runtime/temporary-workspaces/t1" }), undefined);

@@ -21,13 +21,13 @@ test("starting an existing Task keeps its saved state and does not reopen its la
   const { root, store } = await fixture(t);
   await store.createTask("task", { goal: "keep the original goal" });
   const taskRoot = join(root, "task");
-  const memory = join(taskRoot, "agents", "main", "context", "memory.md");
+  const history = join(taskRoot, "agents", "main", "context", "messages.json");
   const artifact = join(taskRoot, "artifacts", "result.txt");
-  await writeFile(memory, "SAVED_MEMORY");
+  await writeFile(history, "SAVED_HISTORY");
   await writeFile(artifact, "SAVED_ARTIFACT");
   await store.createRun("task", "resumed-run");
   assert.equal((await store.readTask("task")).goal, "keep the original goal");
-  assert.equal(await readFile(memory, "utf8"), "SAVED_MEMORY");
+  assert.equal(await readFile(history, "utf8"), "SAVED_HISTORY");
   assert.equal(await readFile(artifact, "utf8"), "SAVED_ARTIFACT");
   await writeFile(join(taskRoot, "agents", "main", "work", "draft.txt"), "SAVED_DRAFT");
   await store.createTask("task");

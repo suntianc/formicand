@@ -5,31 +5,41 @@ description: Develop a requirement in the user's Git project through an isolated
 
 # Requirement delivery
 
-All steps use `project_development` unless another tool is named.
+`project_development` keeps the record, the tickets, the reviews and the merge, and every result carries `next`: the step the program expects from the current state. Follow it. This skill covers the judgments the program cannot make.
 
-## Record and checkout
+Start with `find_by_requirement`: one record exists per requirement, so continue an existing one instead of creating another. The user's own working tree is never changed; work happens in the record's checkout.
 
-- Look the requirement up with `find_by_requirement` first; one record exists per requirement. `create` records the goal, the completion criteria, the route (`quick`, `direct` or `full`) and the code baseline, and prepares an isolated Git checkout. The user's own working tree is never changed.
-- `ensure_workspace` continues or repairs that checkout at its recorded baseline. Retries and recovery reuse it; never delete or reset it.
-- `update` appends a revision and carries the revision you last read.
-- On the `direct` and `full` routes, `propose_tickets` records the tickets: scope, acceptance criteria with a check command each, what must keep working, what is not part of this change, and dependencies. The user confirms them on a card; after that `revise_ticket` changes one only with the user's confirmation.
+## Choosing the route
 
-## Doing the work
+- `quick`: a small, clear change you can make and check yourself in a few files. No tickets and no independent review; your own checks gate the merge. Most fixes and small features belong here.
+- `direct`: one coherent change worth an independent Executor and Reviewer, for example because it touches behaviour other people rely on or you cannot fully check it yourself.
+- `full`: several parts that can be built and accepted separately, or an approach that needs agreeing first. Write the plan, then split it into tickets.
 
-- Small changes can be made directly in the checkout; run the checks there.
-- To delegate, pass `developmentId` to `call_subagent`, and `ticketId` for a ticket: its brief is written into the task. Each item gets its own checkout forked from the requirement checkout, so parallel items never overwrite each other or the user's tree.
-- On the `direct` and `full` routes each ticket is reviewed in its own checkout (`freeze_candidate` with `ticketId`, which also checks the scope), and `integrate_ticket` brings a passed ticket in and runs the project's checks with its acceptance commands. On `quick`, bring results in with the ordinary file and Git tools.
+Pick the smallest route that keeps the result trustworthy. A route is cheaper to raise later than to carry unused. Questions, investigations and one-off scripts are not requirements: do them without a record.
 
-## Review
+## Splitting into tickets
 
-1. `review_plan` records the review channel and your self-checks. A `self` check is bound to the commit it ran on: after the checkout moves, record it again on the new version.
-2. `freeze_candidate` freezes the integration checkout's current commit (record a non-`self` channel first; for a combined review set the channel to `combined`). Then delegate with `role=reviewer`.
-3. `attach_reviewer` binds that Reviewer call; then `record_finding` and `rule_finding`. A review belongs to its first Reviewer: a different Reviewer needs a new review. Dismissed findings and out-of-scope suggestions still get a category and a reason. A change to the agreed requirement, criteria or trade-offs goes to the user first.
-4. To fix a finding, call `call_subagent` with `continueCallId` (the finished Executor's callId) and `reviewId`: it continues that Executor's own session and checkout. Do not start a fresh Agent with a summary of the first attempt. After bringing the fix in, review the new candidate with `previousReviewId`; a passed re-review settles the fixes along the chain. Findings of a failed or drifted review can still be ruled or reworked.
-5. `delivery_check` gives the current candidate, its qualification and the reasons. A review stops counting once the candidate changes.
+- Split by vertical slices that can each be checked on their own, not by layer: "the summary shows the total" rather than "parser" then "renderer".
+- Each ticket's scope lists the paths it may change. Keep scopes apart where you can, so tickets can run in parallel and the scope check means something.
+- Put a dependency only where a ticket really needs another's result; dependencies serialize the work.
+- Prefer two to five tickets. More than that usually means the requirement should be split into several requirements.
+- "Keep working" names nearby behaviour that must survive. "Not in this change" names related work the user did not ask for, so the Executor does not drift into it.
 
-## Merge
+## Writing acceptance criteria
 
-- When the candidate qualifies, `request_merge` submits it to the project's shared entry. The execution location updates the target branch in order and reruns the checks you gave on the combined version if the target moved meanwhile.
-- After an interruption or a conflict, `merge_status` reads the operation and the actual merged SHA; `apply_merge` makes the execution backend reconcile the Git facts. Do not use a lock inside the requirement instead of the shared entry, and never report an unmerged candidate as done.
-- After a real merge the program records the delivery: an external board item becomes ready to release with its owner and merged commit; an internal one is written to the ledger. `delivery_status` reads the phase, collaborator progress, diff, checks and the sync receipt. A pending sync retries by itself: do not develop, merge or record the delivery again.
+- Say what is observed, under which condition and where: "running `summarize.sh scores.csv` prints `total: 42`", not "totals are correct".
+- Give each criterion a check command when one exists. When none can, say why and how it is checked instead (a screenshot, a manual step the user confirms).
+- Avoid unbounded words such as "all", "never" or "any input": name the inputs and platforms that matter.
+- Criteria the user confirmed are fixed. A change needs the user's decision, recorded with `revise_ticket`.
+
+## Ruling review findings
+
+- `fix` when the finding breaks a criterion, a kept behaviour or the project's checks, or is a real defect inside the ticket's scope.
+- `dismiss` when it is wrong, out of scope or a preference; give the reason.
+- A finding outside the ticket that still matters becomes a new ticket or a note to the user, not an expansion of this one.
+- Anything that would change the agreed goal, criteria or trade-offs goes to the user first.
+- Fix a finding through the Executor that made the change (`continueCallId`), so its session and checkout carry over. Do not start a fresh Agent with a summary.
+
+## Reporting
+
+A requirement is done only when it is merged. Report what changed, the evidence (checks, review, merge commit) and anything left open. Never report an unmerged candidate as delivered.

@@ -13,21 +13,20 @@ import { readFixtureRequestBody } from "./http-request-body-fixture.mjs";
 import { protocolStream } from "./model-protocol-fixture.mjs";
 
 const api = "openai-completions";
-for (const [mode, memoryKind, summaryFailure] of [
-  ["automatic", "default", false],
-  ["automatic", "stale", false],
-  ["explicit", "default", false],
-  ["automatic", "default", "http"],
-  ["explicit", "default", "http"],
+for (const [mode, summaryFailure] of [
+  ["automatic", false],
+  ["explicit", false],
+  ["automatic", "http"],
+  ["explicit", "http"],
   ...["empty", "whitespace", "thinking"].flatMap((failure) => [
-    ["automatic", "default", failure],
-    ["explicit", "default", failure]
+    ["automatic", failure],
+    ["explicit", failure]
   ])
 ])
   test(
     summaryFailure
       ? `Main ${summaryFailure} ${mode} summary preserves the task history and a resumable context cursor`
-      : `Main ${mode} compaction summarizes real task history with ${memoryKind} memory and survives restart`,
+      : `Main ${mode} compaction summarizes real task history and survives restart`,
     { timeout: 60_000 },
     async (t) => {
       const root = await mkdtemp(join(tmpdir(), "atria-main-compaction-"));
@@ -202,13 +201,6 @@ for (const [mode, memoryKind, summaryFailure] of [
       await store.createTask(taskId, { goal: `${goal}\n${originalGuard}` });
       await store.createRun(taskId, runId);
       const paths = mainContextPaths(workspace, taskId);
-      if (memoryKind === "stale") {
-        await mkdir(paths.directory, { recursive: true });
-        await writeFile(
-          paths.memory,
-          "# Main Agent Memory\n\n## Goal\nAn older, incomplete plan.\n\n## Completed\n- No implementation or verification yet.\n"
-        );
-      }
       server.listen(0, "127.0.0.1");
       await once(server, "listening");
       const inherited = Object.fromEntries(
@@ -277,10 +269,7 @@ for (const [mode, memoryKind, summaryFailure] of [
       const [code] = await launch(["--session-id", runId, `${goal}\n${next}`]);
       assert.deepEqual(failures, [], output.slice(-2000));
       assert.equal(code, 0, output.slice(-3000));
-      assert.ok(
-        summaryRequests.length > 0,
-        "Main must summarize actual history even when memory is absent or stale"
-      );
+      assert.ok(summaryRequests.length > 0, "Main must summarize the actual history");
       const compacted = events.find((event) => event.type === "compaction_end" && event.result);
       if (summaryFailure) {
         assert.equal(compacted, undefined, "a failed summary must not commit a compaction");
