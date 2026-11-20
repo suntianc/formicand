@@ -73,6 +73,26 @@ export function createMemoryService(options: {
     return { scope, projectId: bound.projectId };
   }
 
+  async function readMemoryAt(taskId: string, scope: MemoryScope, name: string) {
+    const memory = await readMemory(home, await taskTarget(taskId, scope), name);
+    return memory && { ...memory, scope };
+  }
+
+  /** A read without a scope: this project's memory first, then the user's. */
+  async function readAnywhere(taskId: string, name: string) {
+    const bound = await taskScope(taskId);
+    if (bound?.enabled) {
+      const memory = await guard(() => readMemoryAt(taskId, "project", name));
+      if (memory) return memory;
+    }
+    return guard(() => readMemoryAt(taskId, "user", name));
+  }
+
+  function found<T>(memory: T | undefined, name: string) {
+    if (!memory) throw new HttpError(404, `没有名为 ${name} 的记忆`, "memory_missing");
+    return { memory };
+  }
+
   return {
     async list(scope: MemoryScope, projectId?: string) {
       if (scope === "project" && projectId) await project(projectId);
@@ -126,18 +146,21 @@ export function createMemoryService(options: {
     async taskAction(
       taskId: string,
       action:
-        | { action: "read"; scope: MemoryScope; name: string }
+        | { action: "read"; scope?: MemoryScope; name: string }
         | { action: "write"; scope: MemoryScope; memory: MemoryInput }
         | { action: "delete"; scope: MemoryScope; name: string }
     ) {
+      if (action.action === "read") {
+        const { scope, name } = action;
+        return found(
+          scope ? await guard(() => readMemoryAt(taskId, scope, name)) : await readAnywhere(taskId, name),
+          name
+        );
+      }
       const memoryTarget = await taskTarget(taskId, action.scope);
       if (action.action === "write")
         return { memory: await guard(() => writeMemory(home, memoryTarget, action.memory)) };
-      if (action.action === "delete")
-        return { deleted: await guard(() => deleteMemory(home, memoryTarget, action.name)) };
-      const memory = await guard(() => readMemory(home, memoryTarget, action.name));
-      if (!memory) throw new HttpError(404, `没有名为 ${action.name} 的记忆`, "memory_missing");
-      return { memory };
+      return { deleted: await guard(() => deleteMemory(home, memoryTarget, action.name)) };
     }
   };
 }

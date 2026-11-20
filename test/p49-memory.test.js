@@ -182,6 +182,15 @@ test("settings and Main read one store; Main reaches only its own project and on
     toolA.execute({ action: "read", scope: "project", name: "b-only" }),
     /没有名为 b-only/
   );
+  // A read without a scope finds the memory in either scope, project first.
+  const anywhere = await toolA.execute({ action: "read", name: "ticket-split" });
+  assert.equal(anywhere.memory.scope, "project");
+  assert.equal((await toolA.execute({ action: "read", name: "reply-in-chinese" })).memory.scope, "user");
+  await assert.rejects(toolA.execute({ action: "read", name: "b-only" }), /没有名为 b-only/);
+  await assert.rejects(
+    toolA.execute({ action: "write", name: "no-scope", type: "user", description: "x", body: "x" }),
+    /记忆请求参数不合法：scope: /
+  );
 
   // Switching a project's memory off hides it from Main and refuses writes; settings still reads it.
   assert.equal(

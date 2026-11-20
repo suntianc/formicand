@@ -64,6 +64,43 @@ export const tasks = [
     expect: { development: true, tickets: true, review: true }
   },
   {
+    // One long conversation: the rules come once, in the first message, and
+    // every later request must still keep them after the window has changed.
+    // Run with a small --context-window so it changes several times.
+    id: "long",
+    kind: "压缩",
+    title: "长会话",
+    prompt: [
+      "接下来我会一条一条给这个 todo 工具加命令。整个过程都要守住三条：",
+      "1. 不要改 src/store.js，一个字都不改；需要的新逻辑放到别的文件里。",
+      "2. 新命令遇到不存在的编号时报错退出（退出码非 0），错误信息是 error: no item <编号>。",
+      "3. 每做完一个命令，在仓库根目录的 CHANGELOG.md 末尾记一行：- <命令名>: <一句话说明>。",
+      "第一个：count 命令，输出 total: N, done: M。补上测试。"
+    ].join("\n"),
+    followUps: [
+      "下一个：undo <编号>，把已完成的条目改回未完成，输出 undone: <编号>。补上测试。",
+      "下一个：rm <编号>，删掉这个条目，输出 removed: <编号>，其他条目的编号不变。补上测试。",
+      "下一个：tag <编号> <标签>，给条目加一个标签，已有同名标签时不重复加，输出 tagged: <编号>。补上测试。",
+      "最后一个：stats，按标签统计条目数，每行一个 <标签>: <数量>，按标签名排序；没有标签的条目不计。补上测试，README 写明这五个命令的用法。"
+    ],
+    hidden: "long.test.js",
+    expect: {}
+  },
+  {
+    // A correction in one conversation must hold in the next, which starts
+    // with nothing but what Main chose to remember.
+    id: "memory",
+    kind: "记忆",
+    title: "跨会话记忆",
+    prompt: "加一个 count 命令，输出 total: N, done: M。补上测试。",
+    followUps: [
+      "另外以后都这样：这个项目每加一个命令，都要在仓库根目录的 CHANGELOG.md 末尾记一行 - <命令名>: <一句话说明>。这次的 count 也补上。"
+    ],
+    sessions: ["加一个 rm <编号> 命令，删掉这个条目，输出 removed: <编号>。补上测试。"],
+    hidden: "memory.test.js",
+    expect: {}
+  },
+  {
     id: "ask",
     kind: "行为",
     title: "简单提问",

@@ -22,7 +22,8 @@ const entrySchema = z.object({ target, name }).strict();
 const enabledSchema = z.object({ projectId, enabled: z.boolean() }).strict();
 const taskSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("list") }).strict(),
-  z.object({ action: z.literal("read"), scope, name }).strict(),
+  // Read may leave out the scope: the project memory is looked up first, then the user one.
+  z.object({ action: z.literal("read"), scope: scope.optional(), name }).strict(),
   z.object({ action: z.literal("write"), scope, memory }).strict(),
   z.object({ action: z.literal("delete"), scope, name }).strict()
 ]);
@@ -34,7 +35,9 @@ function parsed<T>(schema: z.ZodType<T>, value: unknown): T {
   if (!result.success)
     throw new HttpError(
       400,
-      `记忆请求参数不合法：${result.error.issues.map((issue) => issue.message).join("；")}`,
+      `记忆请求参数不合法：${result.error.issues
+        .map((issue) => (issue.path.length ? `${issue.path.join(".")}: ${issue.message}` : issue.message))
+        .join("；")}`,
       "memory_input_invalid"
     );
   return result.data;
