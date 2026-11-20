@@ -25,7 +25,11 @@ export function createMemoryTool(options: MemoryToolOptions) {
       type: "object",
       properties: {
         action: { type: "string", enum: ["list", "read", "write", "delete"] },
-        scope: { type: "string", enum: ["user", "project"] },
+        scope: {
+          type: "string",
+          enum: ["user", "project"],
+          description: "Needed to write and delete. A read without it looks in project, then user."
+        },
         name: {
           type: "string",
           maxLength: 64,

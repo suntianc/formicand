@@ -3,6 +3,7 @@
  * Run the prompt eval task set against a real model.
  *
  *   node scripts/eval/run.mjs [--tasks fix,due] [--repeat 2] [--out DIR] [--label NAME]
+ *                             [--context-window TOKENS]
  *
  * Needs `npm run build` first. Each run starts its own Dashboard in a temporary
  * data home, with copies of the desktop's model settings and keys
@@ -11,7 +12,8 @@
  * The copies are removed when the run ends. This calls a paid model.
  */
 import { execFile } from "node:child_process";
-import { copyFile, cp, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
+import { copyFile, cp, mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { promisify } from "node:util";
@@ -34,6 +36,7 @@ function options(argv) {
   return {
     tasks: tasks.filter((task) => selected.includes(task.id)),
     repeat: Number(values.repeat),
+    contextWindow: values["context-window"] ? Number(values["context-window"]) : undefined,
     out: resolve(values.out ?? join(here, "results", values.label))
   };
 }
@@ -73,8 +76,8 @@ function settled(detail) {
 }
 
 /** Drive one Task until it settles, answering questions and nudging a stalled turn once. */
-async function drive(base, taskId, prompt, check) {
-  const counts = { questions: [], confirmations: 0, nudges: 0 };
+async function drive(base, taskId, prompt, check, counts = { questions: [], confirmations: 0, nudges: 0 }) {
+  const nudged = counts.nudges;
   await api(base, `/api/tasks/${taskId}/run`, { prompt });
   const until = Date.now() + TIMEOUT_MS;
   let calm = 0;
@@ -99,7 +102,7 @@ async function drive(base, taskId, prompt, check) {
     // A turn that ended before the work passed its check and with the user
     // asked something is a stop; one plain "continue" tells a stop from a failure.
     const last = detail.messages.findLast((message) => message.role === "assistant");
-    if (counts.nudges === 0 && /[?？]\s*$/.test(textOf(last ?? {}).trim()) && !(await check()).passed) {
+    if (counts.nudges === nudged && /[?？]\s*$/.test(textOf(last ?? {}).trim()) && !(await check()).passed) {
       counts.nudges++;
       calm = 0;
       await api(base, `/api/tasks/${taskId}/run`, { prompt: NUDGE });
@@ -166,15 +169,32 @@ async function runTask(dashboard, task, attempt, out) {
     projectName: `${task.id}-${attempt}`,
     projectDirectory: repo
   });
-  const created = await api(dashboard.base, "/api/tasks", {
-    goal: task.prompt,
-    projectId: project.projectId
-  });
-  const taskId = created.task?.taskId ?? created.taskId;
-  const started = Date.now();
-  const { detail, counts, timedOut } = await drive(dashboard.base, taskId, task.prompt, () =>
-    hiddenCheck(task, repo)
+  // The first conversation takes the prompt and its follow-ups; each later
+  // session is a new conversation in the same project.
+  const conversations = [{ prompt: task.prompt, followUps: task.followUps ?? [] }].concat(
+    (task.sessions ?? []).map((prompt) => ({ prompt, followUps: [] }))
   );
+  const started = Date.now();
+  const counts = { questions: [], confirmations: 0, nudges: 0 };
+  const taskIds = [];
+  let detail;
+  let timedOut = false;
+  for (const conversation of conversations) {
+    const created = await api(dashboard.base, "/api/tasks", {
+      goal: conversation.prompt,
+      projectId: project.projectId
+    });
+    const id = created.task?.taskId ?? created.taskId;
+    taskIds.push(id);
+    for (const prompt of [conversation.prompt, ...conversation.followUps]) {
+      const driven = await drive(dashboard.base, id, prompt, () => hiddenCheck(task, repo), counts);
+      detail = driven.detail;
+      timedOut ||= driven.timedOut;
+      if (timedOut) break;
+    }
+    if (timedOut) break;
+  }
+  const taskId = taskIds.at(-1);
 
   const developments = await api(dashboard.base, `/api/tasks/${taskId}/developments`);
   const records = developments.developments;
@@ -245,12 +265,40 @@ async function runTask(dashboard, task, attempt, out) {
       findings: review.findings.length
     })),
     tools,
+    // Compaction entries in the Main sessions, counted the same way for the
+    // summary compaction before P4.9 and the handoff after it.
+    windows: await windowChanges(dashboard.env.COWORK_WORKSPACE, taskIds),
+    contextWindow: detail.contextUsage?.contextWindow ?? null,
+    memories: await savedMemories(dashboard.env.ATRIA_HOME),
     finalReply: textOf(final ?? {})
   };
   await writeFile(join(out, `${task.id}-${attempt}.json`), JSON.stringify(result, null, 2));
   await writeFile(join(out, `${task.id}-${attempt}.detail.json`), JSON.stringify(detail, null, 2));
   await rm(dir, { recursive: true, force: true });
   return result;
+}
+
+async function filesUnder(directory) {
+  if (!existsSync(directory)) return [];
+  const entries = await readdir(directory, { recursive: true, withFileTypes: true });
+  return entries.filter((entry) => entry.isFile()).map((entry) => join(entry.parentPath, entry.name));
+}
+
+async function windowChanges(workspace, taskIds) {
+  let count = 0;
+  for (const file of await filesUnder(workspace)) {
+    if (!file.endsWith(".jsonl") || !taskIds.some((id) => file.includes(id))) continue;
+    count += (await readFile(file, "utf8"))
+      .split("\n")
+      .filter((line) => line.includes('"type":"compaction"')).length;
+  }
+  return count;
+}
+
+async function savedMemories(home) {
+  return (await filesUnder(join(home, "memory")))
+    .filter((file) => file.endsWith(".md"))
+    .map((file) => file.slice(home.length + 1));
 }
 
 function verdicts(task, result) {
@@ -275,13 +323,14 @@ function verdicts(task, result) {
 }
 
 async function main() {
-  const { tasks: selected, repeat, out } = options(process.argv.slice(2));
+  const { tasks: selected, repeat, out, contextWindow } = options(process.argv.slice(2));
   await mkdir(out, { recursive: true });
   const secrets = await mkdtemp(join(tmpdir(), "atria-eval-config-"));
   const config = join(secrets, "model-config.json");
   const credentials = join(secrets, "credentials.json");
   await copyFile(process.env.EVAL_MODEL_CONFIG ?? join(homedir(), ".atria", "model-config.json"), config);
   await copyFile(process.env.EVAL_CREDENTIALS ?? join(homedir(), ".atria", "credentials.json"), credentials);
+  if (contextWindow) await shrinkContextWindow(config, contextWindow);
   const dashboard = await startDashboard({
     defaultProject: false,
     env: { COWORK_CONFIG: config, COWORK_CREDENTIALS: credentials }
@@ -290,7 +339,9 @@ async function main() {
   try {
     const models = await api(dashboard.base, "/api/model-settings");
     const main = models.modelRoles?.roles?.find((role) => role.role === "main")?.effective;
-    console.log(`model: ${main?.connectionName ?? "?"} / ${main?.model ?? "?"}  out: ${out}`);
+    console.log(
+      `model: ${main?.connectionName ?? "?"} / ${main?.model ?? "?"}  window: ${main?.contextWindow ?? "?"}  out: ${out}`
+    );
     for (const task of selected)
       for (let attempt = 1; attempt <= repeat; attempt++) {
         console.log(`▶ ${task.id} #${attempt}`);
@@ -306,16 +357,52 @@ async function main() {
   }
 }
 
+/**
+ * Give every connection and model in the copied settings a small window that
+ * the endpoint's own limit does not replace, so a long task changes windows.
+ * Only the temporary copy is changed.
+ */
+async function shrinkContextWindow(file, tokens) {
+  const visit = (value) => {
+    if (Array.isArray(value)) return value.forEach(visit);
+    if (!value || typeof value !== "object") return;
+    if (
+      "contextWindow" in value ||
+      "autoLimits" in value ||
+      "baseUrl" in value ||
+      "supportsImages" in value
+    ) {
+      value.contextWindow = tokens;
+      value.autoLimits = (value.autoLimits ?? ["maxTokens", "images"]).filter(
+        (field) => field !== "contextWindow"
+      );
+    }
+    Object.values(value).forEach(visit);
+  };
+  const config = JSON.parse(await readFile(file, "utf8"));
+  visit(config);
+  await writeFile(file, JSON.stringify(config));
+}
+
+/** Where a rule meant to outlast the conversation was kept: Main's memory, the repository's AGENTS.md, or both. */
+const remembered = (result) =>
+  [
+    result.memories.length ? `记忆 ${result.memories.length}` : "",
+    result.changedFiles.includes("AGENTS.md") ? "AGENTS.md" : ""
+  ]
+    .filter(Boolean)
+    .join("、") || "—";
+
 function report(rows, model) {
   const lines = [
-    `模型：${model?.connectionName ?? "?"} / ${model?.model ?? "?"}`,
+    `模型：${model?.connectionName ?? "?"} / ${model?.model ?? "?"}，上下文窗口 ${model?.contextWindow ?? "?"}`,
     "",
-    "| 任务 | 次 | 结果 | 分钟 | tokens | 不含缓存 | 派单 | 提问 | 票 | 审查 | 改动文件 |",
-    "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |"
+    "| 任务 | 次 | 结果 | 分钟 | tokens | 不含缓存 | 换窗 | 记在 | 派单 | 提问 | 票 | 审查 | 改动文件 |",
+    "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |"
   ];
   for (const { task, result, verdict } of rows)
     lines.push(
-      `| ${task.title} | ${result.attempt} | ${verdict} | ${result.minutes} | ${result.tokens ?? "—"} | ${result.freshTokens ?? "—"} | ${result.delegations.length} | ${result.questions.length} | ${result.tickets.length} | ${result.reviews.length} | ${result.changedFiles.length} |`
+      `| ${task.title} | ${result.attempt} | ${verdict} | ${result.minutes} | ${result.tokens ?? "—"} | ${result.freshTokens ?? "—"} | ${result.windows} | ${remembered(result)} | ${result.delegations.length} | ${result.questions.length} | ${result.tickets.length} | ${result.reviews.length} | ${result.changedFiles.length} |`
     );
   lines.push("", "## 最终汇报", "");
   for (const { task, result } of rows)
