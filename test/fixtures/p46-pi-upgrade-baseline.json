@@ -155,7 +155,7 @@
       "name": "call_subagent",
       "parameters": {
         "type": "object",
-        "required": ["task", "mode"],
+        "required": ["task"],
         "properties": {
           "task": {
             "type": "string",
@@ -169,18 +169,9 @@
             "maxItems": 10,
             "description": "Explicit upload IDs this delegate may inspect with read_attachment."
           },
-          "mode": {
-            "anyOf": [
-              {
-                "type": "string",
-                "const": "sync"
-              },
-              {
-                "type": "string",
-                "const": "async"
-              }
-            ],
-            "description": "sync waits for the Subagent result; async returns immediately and delivers a later callback. Both execute once; async does not mean persistent."
+          "agent": {
+            "type": "string",
+            "description": "A user-defined Agent from <custom_agents>, by name. Its permission decides the role and its definition fixes tools, skills, MCP servers and extra instructions for this item. A missing or switched-off Agent is an error, never a fallback."
           },
           "role": {
             "anyOf": [
@@ -325,6 +316,146 @@
             "description": "Short human-readable completion summary."
           }
         }
+      }
+    },
+    {
+      "name": "manage_agent",
+      "parameters": {
+        "type": "object",
+        "required": ["action"],
+        "properties": {
+          "action": {
+            "anyOf": [
+              {
+                "type": "string",
+                "const": "list"
+              },
+              {
+                "type": "string",
+                "const": "create"
+              },
+              {
+                "type": "string",
+                "const": "update"
+              },
+              {
+                "type": "string",
+                "const": "disable"
+              },
+              {
+                "type": "string",
+                "const": "enable"
+              }
+            ]
+          },
+          "scope": {
+            "anyOf": [
+              {
+                "type": "string",
+                "const": "global"
+              },
+              {
+                "type": "string",
+                "const": "project"
+              }
+            ],
+            "description": "global (~/.atria/agents, every project) or project (this project's .atria/agents). Default global."
+          },
+          "name": {
+            "type": "string",
+            "description": "The Agent to switch off or on."
+          },
+          "definition": {
+            "type": "object",
+            "required": ["name", "description", "permission"],
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "Letters, digits and hyphens."
+              },
+              "description": {
+                "type": "string",
+                "description": "When Main should delegate to this Agent."
+              },
+              "permission": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "const": "write"
+                  },
+                  {
+                    "type": "string",
+                    "const": "read"
+                  }
+                ]
+              },
+              "model": {
+                "type": "string",
+                "description": "Omit to use the role's model."
+              },
+              "thinking": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "const": "off"
+                  },
+                  {
+                    "type": "string",
+                    "const": "minimal"
+                  },
+                  {
+                    "type": "string",
+                    "const": "low"
+                  },
+                  {
+                    "type": "string",
+                    "const": "medium"
+                  },
+                  {
+                    "type": "string",
+                    "const": "high"
+                  },
+                  {
+                    "type": "string",
+                    "const": "xhigh"
+                  },
+                  {
+                    "type": "string",
+                    "const": "max"
+                  }
+                ],
+                "description": "Reasoning effort. Omit to use the role's."
+              },
+              "tools": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "From read, bash, edit, write, grep, find, ls, browse_workspace, search, visit; read Agents cannot have edit or write."
+              },
+              "skills": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "Omit to see every skill."
+              },
+              "mcp": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "Configured MCP server names."
+              },
+              "prompt": {
+                "type": "string",
+                "description": "Extra instructions after the role's prompt."
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
       }
     },
     {
@@ -516,7 +647,7 @@
           "basis": {
             "type": "string",
             "maxLength": 2000,
-            "description": "review_plan/rule_finding: why this channel or ruling is justified."
+            "description": "review_plan: why this channel is justified. rule_finding: required for fix and dismiss alike."
           },
           "checks": {
             "type": "array",
@@ -606,7 +737,7 @@
           "decision": {
             "type": "string",
             "enum": ["fix", "dismiss"],
-            "description": "rule_finding: fix it, or dismiss it with a recorded basis. Findings of failed or drifted reviews stay rulable; a passed review is closed."
+            "description": "rule_finding: fix it or dismiss it; every ruling needs basis — for fix, how it is or will be fixed; for dismiss, why it is not a defect. Findings of failed or drifted reviews stay rulable; a passed review is closed."
           },
           "category": {
             "type": "string",
@@ -933,7 +1064,7 @@
           },
           "glob": {
             "type": "string",
-            "description": "Filter files by glob pattern, e.g. '*.ts' or '**/*.spec.ts'"
+            "description": "Filter files by glob pattern, relative to path, e.g. '*.ts', 'src/**/*.ts' or '**/*.spec.ts'. A pattern without '/' matches file names at any depth"
           },
           "ignoreCase": {
             "type": "boolean",
@@ -1034,28 +1165,11 @@
       "</rules>",
       "<addendum>",
       "# CoworkOS Main Agent",
-      "<identity>",
-      "</identity>",
-      "<mission>",
-      "</mission>",
-      "<authority>",
-      "</authority>",
-      "<execution>",
-      "</execution>",
-      "<capabilities>",
-      "</capabilities>",
-      "<delegation>",
-      "</delegation>",
-      "<workspace>",
-      "</workspace>",
-      "<long_running>",
-      "</long_running>",
-      "<state>",
-      "</state>",
-      "<safety>",
-      "</safety>",
-      "<delivery>",
-      "</delivery>",
+      "## Doing the work",
+      "## Collaborators",
+      "## Files",
+      "## When to ask the user",
+      "## Talking to the user",
       "</addendum>",
       "<skills>",
       "<available_skills>",
@@ -1064,8 +1178,6 @@
       "<cwd>",
       "</cwd>",
       "<current_workspace>",
-      "<current_workspace>",
-      "</current_workspace>",
       "</current_workspace>",
       "<atria_main_context>",
       "</atria_main_context>"

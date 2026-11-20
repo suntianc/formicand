@@ -2,6 +2,7 @@ import { once } from "node:events";
 import { mkdir, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 import { setTimeout as delay } from "node:timers/promises";
 import { startDashboard } from "./dashboard-fixture.mjs";
 import { protocolStream } from "./model-protocol-fixture.mjs";
@@ -15,9 +16,11 @@ export const CAPTURE_MODEL = "p46-upgrade-fixture";
  * Run one standard Main turn against a recorded local provider and return the
  * model request the real Pi process produced.
  *
- * Captured once on the pre-upgrade SDK and stored as
- * `test/fixtures/p46-pi-upgrade-baseline.json`; the upgrade test then compares
- * the current runtime against that stored baseline instead of re-deriving it.
+ * Its summary is stored as `test/fixtures/p46-pi-upgrade-baseline.json`; the
+ * comparison test then checks the current runtime against that stored baseline
+ * instead of re-deriving it. After a reviewed, intended change to the tool
+ * table or the prompt's sections, record it again with
+ * `node test/p46-pi-upgrade-capture.mjs --record` (build first).
  */
 export async function captureStandardMainRun({ api = "openai-completions", cleanup = [] } = {}) {
   const requests = [];
@@ -113,4 +116,17 @@ function systemPromptStructure(prompt) {
     .split("\n")
     .filter((line) => /^<\/?[a-z_]+>$/.test(line) || /^#{1,3} \S/.test(line))
     .map((line) => line.trim());
+}
+
+if (process.argv[2] === "--record" && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  const cleanup = [];
+  try {
+    const summary = summarizeRequest(await captureStandardMainRun({ cleanup }));
+    await writeFile(
+      new URL("./fixtures/p46-pi-upgrade-baseline.json", import.meta.url),
+      `${JSON.stringify(summary, null, 2)}\n`
+    );
+  } finally {
+    for (const step of cleanup) await step();
+  }
 }
