@@ -47,6 +47,23 @@ export const tasks = [
     expect: { development: true }
   },
   {
+    // Nothing in the prompt names tickets or a review: the shared data, the
+    // finance script and three separable parts are the reasons Main should
+    // find for itself.
+    id: "team",
+    kind: "能力",
+    title: "多人在用的需求",
+    prompt: [
+      "这个 todo 工具组里好几个人在用：数据文件放在共享盘上大家一起读写，导出的 CSV 每周会被财务的脚本按列的位置读进去。这次要加三样东西：",
+      "1. 优先级：add 支持 --priority high|normal|low，不给时是 normal，给了别的值报错退出（退出码非 0），不写入；list 里 high 的条目行末显示 [high]，low 的显示 [low]，normal 不显示；新增 list --sort priority，按 high、normal、low 排，同级按 id。",
+      "2. 导入：新增 import <文件>，读入 export 导出的那种 CSV，追加到现有条目后面并接着编号，输出 imported: N；标题里有逗号、引号的也要原样读回；表头不对时报错退出，一条也不写入。",
+      "3. 导出：export 加上 priority 列。",
+      "大家手上的旧数据文件要照常能用，财务的脚本也不能因为这次改动读错。补上测试，README 写明用法。"
+    ].join("\n"),
+    hidden: "team.test.js",
+    expect: { development: true, tickets: true, review: true }
+  },
+  {
     id: "ask",
     kind: "行为",
     title: "简单提问",
