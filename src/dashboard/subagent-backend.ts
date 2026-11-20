@@ -23,7 +23,10 @@ import {
   type SubagentCancelAccepted,
   type SubagentCancelRequest,
   type SubagentDispatchAccepted,
-  type SubagentDispatchRequest
+  type SubagentDispatchRequest,
+  type TicketDispatch,
+  type TicketDispatchInput,
+  type TicketStartInput
 } from "../runtime/subagent-dispatch.js";
 import {
   claimSubagentOwnership,
@@ -61,10 +64,15 @@ export interface SubagentBackendPorts {
   resolveMainModel(request: ModelRoleRequest): ResolvedModelRole;
   /** The requirement checkout a bound work item forks from. */
   development(input: { taskId: string; developmentId: string }): Promise<{ directory: string } | undefined>;
+  /** The ticket a delegation implements: its brief, after its rules are checked. */
+  ticket?(input: TicketDispatchInput): Promise<TicketDispatch>;
+  /** Record that the ticket's Executor was dispatched. */
+  ticketStarted?(input: TicketStartInput): Promise<void>;
   /** The candidate frozen for the requirement's open review. */
   frozenCandidate(input: {
     taskId: string;
     developmentId: string;
+    reviewId?: string;
   }): Promise<{ repository: string; commit: string } | undefined>;
   /** The custom Agent a delegation names, resolved for the Task's project. */
   agent?(input: { taskId: string; name: string }): Promise<AgentEntry & { definition: AgentDefinition }>;
@@ -126,6 +134,8 @@ export function createSubagentBackend(ports: SubagentBackendPorts): SubagentBack
       ...(ports.leaseMs === undefined ? {} : { leaseMs: ports.leaseMs }),
       development: (input) => ports.development(input),
       frozenCandidate: (input) => ports.frozenCandidate(input),
+      ...(ports.ticket ? { ticket: ports.ticket } : {}),
+      ...(ports.ticketStarted ? { ticketStarted: ports.ticketStarted } : {}),
       grants: (input) => ports.grants(input),
       ...(ports.agent ? { agent: (input) => ports.agent!(input) } : {}),
       builtinAgent: ({ role, projectDirectory }) =>

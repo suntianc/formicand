@@ -182,7 +182,7 @@ test(
                 requirementId,
                 goal: "导出文件包含 header、数据行与合计行",
                 completionCriteria: ["第一行为 header", "最后一行为 total"],
-                route: "direct"
+                route: "quick"
               }
             };
           }
@@ -860,7 +860,7 @@ for (const engine of PROJECT_DATA_ENGINES) {
       requirementId: requirement.requirementId,
       goal: "导出包含合计行",
       completionCriteria: ["最后一行为 total"],
-      route: "direct"
+      route: "quick"
     });
     const integration = development.workspace.directory;
     await writeFile(join(integration, "export.txt"), "header\nbody\n");
@@ -1062,7 +1062,7 @@ test("a remote backend writes review facts through the authority and reads them 
     requirementId: requirement.requirementId,
     goal: "远端候选审查",
     completionCriteria: ["导出包含数据行"],
-    route: "direct"
+    route: "quick"
   });
   assert.equal(development.workspace.state, "ready");
   const integration = development.workspace.directory;
@@ -1204,7 +1204,7 @@ async function makeLifecycleHarness({ root, runtime, backendId = "backend-lifecy
       requirementId: requirement.requirementId,
       goal: label,
       completionCriteria: ["observable result"],
-      route: "direct"
+      route: "quick"
     });
   }
   async function commit(development, name, content) {

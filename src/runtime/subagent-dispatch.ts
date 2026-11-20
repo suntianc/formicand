@@ -45,6 +45,8 @@ export interface SubagentDispatchRequest {
   developmentId?: string;
   continueCallId?: string;
   reviewId?: string;
+  /** The confirmed ticket this Executor implements; its brief is written into the task. */
+  ticketId?: string;
   /** Explicit upload IDs this work item may inspect. */
   attachments?: unknown;
   /** One-off connection choice, resolved on this host when the item starts. */
@@ -64,9 +66,33 @@ export interface SubagentDispatchAccepted {
   /** The custom Agent this item runs as. */
   agent?: string;
   developmentId?: string;
+  ticketId?: string;
   workspace?: string;
   continuedFrom?: string;
   dependsOn?: string[];
+}
+
+export interface TicketDispatchInput {
+  taskId: string;
+  developmentId: string;
+  ticketId: string;
+  /** A rework continues the Executor that already has the brief. */
+  continuation: boolean;
+}
+
+export interface TicketDispatch {
+  ticketId: string;
+  /** Written ahead of Main's task; absent on a continuation. */
+  brief?: string;
+  /** Whether this dispatch starts the ticket (or its rework). */
+  start: boolean;
+}
+
+export interface TicketStartInput {
+  taskId: string;
+  developmentId: string;
+  ticketId: string;
+  work: { callId: string; agentId: string; workspace: string };
 }
 
 export interface SubagentDispatchPorts {
@@ -87,7 +113,12 @@ export interface SubagentDispatchPorts {
   frozenCandidate?(input: {
     taskId: string;
     developmentId: string;
+    /** The review to examine; required when several are frozen at once. */
+    reviewId?: string;
   }): Promise<{ repository: string; commit: string } | undefined>;
+  /** The ticket a delegation implements; refused when it is not ready to start. */
+  ticket?(input: TicketDispatchInput): Promise<TicketDispatch>;
+  ticketStarted?(input: TicketStartInput): Promise<void>;
   /** The custom Agent a delegation names, fixed for the item; an error names a missing one. */
   agent?(input: { taskId: string; name: string }): Promise<AgentEntry & { definition: AgentDefinition }>;
   /** What the user set for a built-in role in this project, read when the item is dispatched. */
@@ -147,6 +178,7 @@ interface StoredPayload {
   workItemSite?: WorkItemSite;
   reviewSite?: { repository: string; commit: string; directory: string };
   developmentId?: string;
+  ticketId?: string;
   continuation?: StoredContinuation;
   dependsOn?: string[];
   delegation?: DelegatedModelRequest;
@@ -253,6 +285,22 @@ export class SubagentDispatchService {
     const development = developmentId ? await this.ports.development?.({ taskId, developmentId }) : undefined;
     if (developmentId && !development?.directory)
       throw new Error(`需求 ${developmentId} 没有本机就绪的现场；先 ensure_workspace 再派单`);
+    const requestedTicket = request.ticketId?.trim() || undefined;
+    if (continued && requestedTicket && continued.ticketId !== requestedTicket)
+      throw new Error(`工作项 ${request.continueCallId} 不是票 ${requestedTicket} 的 Executor`);
+    const ticketId = continued?.ticketId ?? requestedTicket;
+    if (ticketId && role !== "executor")
+      throw new Error("票只派给 Executor；审查用 freeze_candidate 后派 Reviewer");
+    if (ticketId && !developmentId) throw new Error("带票派单须同时给 developmentId");
+    if (ticketId && !this.ports.ticket) throw new Error("当前服务不能读取需求的票");
+    const ticket = ticketId
+      ? await this.ports.ticket!({
+          taskId,
+          developmentId: developmentId!,
+          ticketId,
+          continuation: Boolean(continued)
+        })
+      : undefined;
     const callId = `call-${randomUUID()}`;
     const boundWorkspace = development
       ? {
@@ -278,7 +326,8 @@ export class SubagentDispatchService {
             developmentId,
             development,
             workItemSite,
-            projectDirectory
+            projectDirectory,
+            ...(request.reviewId?.trim() ? { reviewId: request.reviewId.trim() } : {})
           })
         : undefined;
     const capabilityGrants =
@@ -294,6 +343,14 @@ export class SubagentDispatchService {
       // The user's project, not the item's checkout: its role settings are keyed by it.
       ...(task.projectDirectory ? { projectDirectory: task.projectDirectory } : {})
     };
+    // The ticket moves before the item exists, so a refused start leaves no work item behind.
+    if (ticket?.start)
+      await this.ports.ticketStarted?.({
+        taskId,
+        developmentId: developmentId!,
+        ticketId: ticket.ticketId,
+        work: { callId, agentId, workspace: workItemSite!.directory }
+      });
     const call: Call = {
       callId,
       callerAgentId: "main",
@@ -314,11 +371,12 @@ export class SubagentDispatchService {
       agentId,
       importance: "normal",
       payload: {
-        task: request.task,
+        task: ticket?.brief ? `${ticket.brief}\n\n${request.task}` : request.task,
         projectDirectory,
         ...(workItemSite ? { workItemSite } : {}),
         ...(reviewSite ? { reviewSite } : {}),
         ...(developmentId ? { developmentId } : {}),
+        ...(ticketId ? { ticketId } : {}),
         ...(continued
           ? {
               continuation: {
@@ -372,6 +430,7 @@ export class SubagentDispatchService {
       role,
       ...(agentDefinition ? { agent: agentDefinition.name } : {}),
       ...(developmentId ? { developmentId } : {}),
+      ...(ticketId ? { ticketId } : {}),
       ...(workItemSite ? { workspace: workItemSite.directory } : {}),
       ...(request.continueCallId ? { continuedFrom: request.continueCallId } : {}),
       ...(dependsOn.length > 0 ? { dependsOn } : {})
@@ -439,6 +498,7 @@ export class SubagentDispatchService {
     agentId: string;
     workItemSite: WorkItemSite;
     developmentId: string;
+    ticketId?: string;
     sessionCallId: string;
     agentDefinition?: AgentDefinition;
     builtinAgent?: BuiltinAgentSettings;
@@ -469,6 +529,7 @@ export class SubagentDispatchService {
       agentId: original.agentId,
       workItemSite: payload.workItemSite,
       developmentId: payload.developmentId,
+      ...(payload.ticketId ? { ticketId: payload.ticketId } : {}),
       sessionCallId,
       ...(payload.agentDefinition ? { agentDefinition: payload.agentDefinition } : {}),
       ...(payload.builtinAgent ? { builtinAgent: payload.builtinAgent } : {})
@@ -490,11 +551,13 @@ export class SubagentDispatchService {
     development?: { directory: string };
     workItemSite?: WorkItemSite;
     projectDirectory: string;
+    reviewId?: string;
   }): Promise<{ repository: string; commit: string; directory: string }> {
     if (input.developmentId && input.development) {
       const frozen = await this.ports.frozenCandidate?.({
         taskId: input.taskId,
-        developmentId: input.developmentId
+        developmentId: input.developmentId,
+        ...(input.reviewId ? { reviewId: input.reviewId } : {})
       });
       // A frozen review names the commit exactly. Without one the candidate is
       // still pinned here, at dispatch, so the Reviewer's site cannot follow a

@@ -575,12 +575,27 @@ export async function handleDevelopmentRequest(
       case "write_tickets": {
         if (typeof body.developmentId !== "string")
           throw new HttpError(400, "write_tickets 需要 developmentId");
-        const write = ticketWrite(body);
+        // Execution progress is the program's own record; only an
+        // authenticated backend relays it to the authority.
+        const write = ticketWrite(body, { progress: Boolean(declared) });
         return reply(response, 200, {
           tickets: taskId
             ? await ports.service.writeTicketsForTask(taskId, body.developmentId, write)
             : await ports.service.writeTickets(projectId, body.developmentId, write)
         });
+      }
+      case "integrate_ticket": {
+        if (declared)
+          throw new HttpError(403, "票只能在需求现场所在后端并入", "development_workspace_owner_only");
+        if (typeof body.developmentId !== "string")
+          throw new HttpError(400, "integrate_ticket 需要 developmentId");
+        return reply(
+          response,
+          200,
+          taskId
+            ? await ports.service.integrateTicketForTask(taskId, body)
+            : await ports.service.integrateTicket(projectId, body)
+        );
       }
       case "next": {
         if (typeof body.developmentId !== "string") throw new HttpError(400, "next 需要 developmentId");

@@ -59,12 +59,44 @@ export interface TicketContent {
   dependsOn: string[];
 }
 
+/** The Executor work item that implements a ticket, in its own checkout. */
+export interface TicketWork {
+  callId: string;
+  agentId: string;
+  workspace: string;
+}
+
+/** One check the program ran when it brought a ticket into the requirement checkout. */
+export interface TicketCheckResult {
+  name: string;
+  command: string;
+  exitCode: number;
+  output: string;
+  at: string;
+}
+
+/** The ticket's reviewed commit merged into the requirement checkout, with the checks that passed there. */
+export interface TicketIntegration {
+  /** The requirement checkout's commit after the merge. */
+  commit: string;
+  tree: string;
+  /** The reviewed commit of the ticket's own checkout. */
+  itemCommit: string;
+  checks: TicketCheckResult[];
+  at: string;
+}
+
 export interface DevelopmentTicket extends TicketContent {
   ticketId: string;
   state: TicketState;
   revision: number;
   changes: TicketChange[];
   confirmedAt?: string;
+  /** The Executor call currently implementing it; a rework replaces it with the continuation. */
+  work?: TicketWork;
+  /** Reviews of this ticket's checkout, oldest first. */
+  reviewIds: string[];
+  integration?: TicketIntegration;
   createdAt: string;
   updatedAt: string;
 }
@@ -90,7 +122,21 @@ export type TicketWrite =
       decision?: unknown;
       expectedRevision: unknown;
       dryRun?: boolean;
-    };
+    }
+  | TicketProgress;
+
+/**
+ * A step the program records as the work goes: never sent by Main. The
+ * Executor starts, a review is frozen, a verdict lands, the reviewed commit is
+ * brought into the requirement checkout.
+ */
+export type TicketProgress =
+  | { op: "start"; ticketId: string; work: TicketWork }
+  | { op: "review"; ticketId: string; reviewId: string }
+  | { op: "verdict"; ticketId: string; passed: boolean }
+  | { op: "integrate"; ticketId: string; integration: TicketIntegration };
+
+export const TICKET_PROGRESS_OPS: readonly string[] = ["start", "review", "verdict", "integrate"];
 
 const MAX_TICKETS = 30;
 const TICKET_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,19}$/;
@@ -234,6 +280,7 @@ export function applyTicketWrite(
         state: "draft",
         revision: 1,
         changes: [],
+        reviewIds: [],
         createdAt: previous?.createdAt ?? at,
         updatedAt: at
       };
@@ -242,9 +289,11 @@ export function applyTicketWrite(
     checkTicketSet(tickets, route);
     return { ...set, revision: set.revision + 1, tickets, updatedAt: at };
   }
-  const expected = ledgerRevision(write.expectedRevision);
+  if (TICKET_PROGRESS_OPS.includes(write.op)) return applyProgress(set, write as TicketProgress, at);
+  const change = write as Exclude<TicketWrite, TicketProgress | { op: "propose" }>;
+  const expected = ledgerRevision(change.expectedRevision);
   if (expected !== set.revision) throw conflict("票已更新，请基于最新修订重试", set);
-  if (write.op === "confirm") {
+  if (change.op === "confirm") {
     if (!set.tickets.some((ticket) => ticket.state === "draft"))
       throw new ProjectDataInvalidError("没有待确认的票");
     checkTicketSet(set.tickets, route);
@@ -257,15 +306,15 @@ export function applyTicketWrite(
       updatedAt: at
     };
   }
-  const ticketId = ticketIdentifier(write.ticketId);
+  const ticketId = ticketIdentifier(change.ticketId);
   const current = set.tickets.find((ticket) => ticket.ticketId === ticketId);
   if (!current) throw new ProjectDataInvalidError(`没有票 ${ticketId}`);
   if (current.state === "draft")
     throw new ProjectDataInvalidError(`票 ${ticketId} 还是草稿；直接重新 propose_tickets`);
   if (current.state === "merged")
     throw new ProjectDataInvalidError(`票 ${ticketId} 已合入；后续缺陷开一张新的修复票`);
-  const reason = text(write.reason, "修改理由", 2000);
-  const patch = record(write.changes, "修改内容");
+  const reason = text(change.reason, "修改理由", 2000);
+  const patch = record(change.changes, "修改内容");
   if ("ticketId" in patch || "state" in patch)
     throw new ProjectDataInvalidError("修改内容不能改票编号或状态");
   const next = content(patch, current);
@@ -273,7 +322,7 @@ export function applyTicketWrite(
     (field) => JSON.stringify(next[field]) !== JSON.stringify(current[field])
   );
   if (!changed.length) throw new ProjectDataInvalidError("修改内容与当前票相同");
-  const decision = write.dryRun ? "" : text(write.decision, "用户的决定", 2000);
+  const decision = change.dryRun ? "" : text(change.decision, "用户的决定", 2000);
   const revised: DevelopmentTicket = {
     ...current,
     ...next,
@@ -316,10 +365,108 @@ export function storedTickets(value: unknown): DevelopmentTicket[] {
       revision: ledgerRevision(input.revision),
       changes: Array.isArray(input.changes) ? (input.changes as TicketChange[]) : [],
       ...(typeof input.confirmedAt === "string" ? { confirmedAt: input.confirmedAt } : {}),
+      ...(input.work ? { work: input.work as TicketWork } : {}),
+      reviewIds: Array.isArray(input.reviewIds) ? input.reviewIds.map(String) : [],
+      ...(input.integration ? { integration: input.integration as TicketIntegration } : {}),
       createdAt: String(input.createdAt),
       updatedAt: String(input.updatedAt)
     };
   });
+}
+
+const PROGRESS_FROM: Record<TicketProgress["op"], readonly TicketState[]> = {
+  start: ["confirmed", "rework"],
+  review: ["in_progress", "rework"],
+  verdict: ["in_review"],
+  integrate: ["passed"]
+};
+
+const STATE_NAMES: Record<TicketState, string> = {
+  draft: "草稿",
+  confirmed: "已确认",
+  in_progress: "执行中",
+  in_review: "审查中",
+  passed: "已通过",
+  merged: "已合入",
+  rework: "返修"
+};
+
+function applyProgress(set: TicketSet, progress: TicketProgress, at: string): TicketSet {
+  const current = set.tickets.find((ticket) => ticket.ticketId === progress.ticketId);
+  if (!current) throw new ProjectDataInvalidError(`没有票 ${progress.ticketId}`);
+  if (!PROGRESS_FROM[progress.op].includes(current.state))
+    throw new ProjectDataConflictError(
+      `票 ${current.ticketId} 现在是${STATE_NAMES[current.state]}，不能${
+        { start: "开始执行", review: "送审", verdict: "记录审查结论", integrate: "并进需求现场" }[progress.op]
+      }`,
+      set.revision,
+      "ticket_state_conflict"
+    );
+  if (progress.op === "start" && current.state === "confirmed" && !ticketReady(current, set.tickets))
+    throw new ProjectDataConflictError(
+      `票 ${current.ticketId} 依赖的票 ${current.dependsOn
+        .filter((id) => set.tickets.find((other) => other.ticketId === id)?.state !== "merged")
+        .join("、")} 还没有合入`,
+      set.revision,
+      "ticket_dependency_pending"
+    );
+  const next: DevelopmentTicket =
+    progress.op === "start"
+      ? { ...current, state: "in_progress", work: progress.work }
+      : progress.op === "review"
+        ? { ...current, state: "in_review", reviewIds: [...current.reviewIds, progress.reviewId] }
+        : progress.op === "verdict"
+          ? { ...current, state: progress.passed ? "passed" : "rework" }
+          : { ...current, state: "merged", integration: progress.integration };
+  return {
+    ...set,
+    revision: set.revision + 1,
+    tickets: set.tickets.map((ticket) => (ticket === current ? { ...next, updatedAt: at } : ticket)),
+    updatedAt: at
+  };
+}
+
+/** The ticket a review belongs to, if it was a ticket review. */
+export function ticketOfReview(
+  tickets: DevelopmentTicket[],
+  reviewId: string
+): DevelopmentTicket | undefined {
+  return tickets.find((ticket) => ticket.reviewIds.includes(reviewId));
+}
+
+/** Files outside the ticket's scope; a scope entry is a file or a directory. */
+export function outsideScope(scope: string[], files: string[]): string[] {
+  const entries = scope.map((entry) => entry.replace(/\/+$/, ""));
+  return files.filter(
+    (file) => !entries.some((entry) => entry === "." || file === entry || file.startsWith(`${entry}/`))
+  );
+}
+
+/**
+ * What the Executor is told about its ticket, written by the program so Main
+ * only adds the background. English, like every other model-facing text.
+ */
+export function ticketBrief(ticket: DevelopmentTicket): string {
+  const list = (items: string[]) => items.map((item) => `- ${item}`).join("\n");
+  return [
+    `Ticket ${ticket.ticketId}: ${ticket.title}`,
+    ticket.scope.length
+      ? `Change only these paths:\n${list(ticket.scope)}`
+      : "No scope was recorded; keep the change to what the ticket needs.",
+    `Acceptance criteria:\n${ticket.criteria
+      .map(
+        (criterion) =>
+          `- ${criterion.criterionId} ${criterion.text} (${
+            "command" in criterion.check
+              ? `check: ${criterion.check.command}`
+              : `checked by hand: ${criterion.check.manual}`
+          })`
+      )
+      .join("\n")}`,
+    ...(ticket.preserve.length ? [`Keep working:\n${list(ticket.preserve)}`] : []),
+    ...(ticket.outOfScope.length ? [`Not part of this ticket:\n${list(ticket.outOfScope)}`] : []),
+    "Commit the finished work in your checkout and run the check commands there before you hand back."
+  ].join("\n\n");
 }
 
 /** A ticket's dependencies are all merged, so it can start. */
@@ -328,8 +475,12 @@ export function ticketReady(ticket: DevelopmentTicket, tickets: DevelopmentTicke
 }
 
 /** A write as a request body carries it; only the fields of its operation pass. */
-export function ticketWrite(value: unknown): TicketWrite {
+export function ticketWrite(value: unknown, { progress = false } = {}): TicketWrite {
   const input = record(value, "票操作");
+  if (typeof input.op === "string" && TICKET_PROGRESS_OPS.includes(input.op)) {
+    if (!progress) throw new ProjectDataInvalidError("票的执行进度由程序记录，不能直接写入");
+    return input as unknown as TicketProgress;
+  }
   const dryRun = input.dryRun === true;
   if (input.op === "propose") return { op: "propose", tickets: input.tickets, dryRun };
   if (input.op === "confirm") return { op: "confirm", expectedRevision: input.expectedRevision };
@@ -386,17 +537,56 @@ export function developmentNext(facts: NextStepFacts): string {
     ? `Merge ${merge.mergeId} ended ${merge.state}${merge.detail ? `: ${merge.detail}` : ""}. `
     : "";
   if (qualification?.eligible) return `${mergeNote}The candidate qualifies: request_merge.`;
-  if (review?.state === "in_review")
-    return review.reviewer
-      ? `Review ${review.reviewId} is in progress: record the Reviewer's findings, rule them, then complete_review.`
-      : `Review ${review.reviewId} is frozen: delegate the Reviewer with role=reviewer, then attach_reviewer.`;
+  if (facts.route !== "quick") return mergeNote + ticketSteps(facts);
+  if (review?.state === "in_review") return reviewStep(review);
   if (review?.state === "failed" || review?.state === "drifted")
     return `${mergeNote}Review ${review.reviewId} ${review.state}: rule its findings, rework through the original Executor (continueCallId), then freeze_candidate with previousReviewId.`;
   const reasons = qualification?.reasons ?? [];
-  const work =
-    facts.route === "quick"
-      ? "Make the change in the checkout, run its checks, then record review_plan channel=self."
-      : `Work on the confirmed tickets (${ids(tickets)}), bring the results into the checkout, then review_plan and freeze_candidate.`;
+  const work = "Make the change in the checkout, run its checks, then record review_plan channel=self.";
   if (reasons.includes("review_plan_missing")) return `${mergeNote}${work}`;
   return `${mergeNote}Not yet qualified (${reasons.join(", ") || "unknown"}). ${work}`;
+}
+
+function reviewStep(review: { reviewId: string; reviewer: boolean }): string {
+  return review.reviewer
+    ? `Review ${review.reviewId} is in progress: record the Reviewer's findings, rule them, then complete_review.`
+    : `Review ${review.reviewId} is frozen: delegate the Reviewer with role=reviewer, then attach_reviewer.`;
+}
+
+/** One sentence per group of tickets that has something to do, in the order the work goes. */
+function ticketSteps(facts: NextStepFacts): string {
+  const { tickets, review } = facts;
+  const by = (state: TicketState) => tickets.filter((ticket) => ticket.state === state);
+  const steps: string[] = [];
+  for (const ticket of by("in_review")) {
+    const open = review && ticket.reviewIds.at(-1) === review.reviewId && review.state === "in_review";
+    steps.push(
+      open ? `Ticket ${ticket.ticketId}: ${reviewStep(review)}` : `Ticket ${ticket.ticketId} is in review.`
+    );
+  }
+  const passed = by("passed");
+  if (passed.length)
+    steps.push(
+      `Tickets ${ids(passed)} passed review: integrate_ticket brings each into the requirement checkout and runs the project's checks and its acceptance commands.`
+    );
+  const rework = by("rework");
+  if (rework.length)
+    steps.push(
+      `Tickets ${ids(rework)} need rework: rule the findings, continue the original Executor with continueCallId and reviewId, then freeze_candidate with ticketId and previousReviewId.`
+    );
+  const working = by("in_progress");
+  if (working.length)
+    steps.push(
+      `Tickets ${ids(working)} are being implemented: when the Executor finishes, freeze_candidate with ticketId and authorCallId.`
+    );
+  const confirmed = by("confirmed");
+  const ready = confirmed.filter((ticket) => ticketReady(ticket, tickets));
+  if (ready.length)
+    steps.push(`Tickets ${ids(ready)} can start: call_subagent with developmentId and ticketId.`);
+  const waiting = confirmed.filter((ticket) => !ready.includes(ticket));
+  if (waiting.length && !steps.length)
+    steps.push(`Tickets ${ids(waiting)} wait for their dependencies to be merged.`);
+  if (steps.length) return steps.join(" ");
+  const reasons = facts.qualification?.reasons ?? [];
+  return `Every ticket is in the requirement checkout, but it does not qualify yet (${reasons.join(", ") || "unknown"}).`;
 }

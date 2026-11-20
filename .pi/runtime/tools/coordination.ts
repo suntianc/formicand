@@ -200,6 +200,12 @@ export function registerCoordinationTools(pi: ExtensionAPI, context: CoworkToolC
               "Run this work item in its own checkout forked from the recorded requirement checkout. Its directory, not the user's working tree, becomes the delegate's project directory; ensure_workspace must have made it ready."
           })
         ),
+        ticketId: Type.Optional(
+          Type.String({
+            description:
+              "With developmentId: the confirmed ticket this Executor implements. Its scope, acceptance criteria, what must keep working and what is out of scope are written into the task; add only the background. A continuation keeps the original's ticket."
+          })
+        ),
         continueCallId: Type.Optional(
           Type.String({
             description:
@@ -209,7 +215,7 @@ export function registerCoordinationTools(pi: ExtensionAPI, context: CoworkToolC
         reviewId: Type.Optional(
           Type.String({
             description:
-              "With continueCallId: the review whose finding this rework answers, recorded on the new call."
+              "role=reviewer: the frozen review this Reviewer examines; needed when several are frozen. With continueCallId: the review whose finding this rework answers, recorded on the new call."
           })
         ),
         profileId: Type.Optional(
@@ -249,8 +255,8 @@ export function registerCoordinationTools(pi: ExtensionAPI, context: CoworkToolC
         : [];
       const continueCallId = typeof params.continueCallId === "string" ? params.continueCallId.trim() : "";
       const requestedReview = typeof params.reviewId === "string" ? params.reviewId.trim() : "";
-      if (requestedReview && !continueCallId)
-        throw new Error("reviewId 只能与 continueCallId 一起使用：发现由返修续接回答");
+      if (requestedReview && !continueCallId && role !== "reviewer")
+        throw new Error("reviewId 只能用于 Reviewer（审查哪一份冻结候选）或与 continueCallId 一起用于返修");
       // Main asks for a work item and the backend owns the process:
       // registration, dependencies, checkout, role connection and settlement
       // all happen there.
@@ -265,6 +271,9 @@ export function registerCoordinationTools(pi: ExtensionAPI, context: CoworkToolC
           : {}),
         ...(continueCallId ? { continueCallId } : {}),
         ...(requestedReview ? { reviewId: requestedReview } : {}),
+        ...(typeof params.ticketId === "string" && params.ticketId.trim()
+          ? { ticketId: params.ticketId.trim() }
+          : {}),
         ...(params.attachments === undefined ? {} : { attachments: [...new Set(params.attachments)] }),
         ...(typeof params.profileId === "string" && params.profileId.trim()
           ? { profileId: params.profileId.trim() }
@@ -283,6 +292,7 @@ export function registerCoordinationTools(pi: ExtensionAPI, context: CoworkToolC
         ...(accepted.developmentId
           ? { developmentId: accepted.developmentId, workspace: accepted.workspace }
           : {}),
+        ...(accepted.ticketId ? { ticketId: accepted.ticketId } : {}),
         ...(accepted.continuedFrom ? { continuedFrom: accepted.continuedFrom } : {}),
         ...(Array.isArray(accepted.dependsOn) ? { dependsOn: accepted.dependsOn } : {})
       };

@@ -178,14 +178,45 @@ test("the next step follows the records", () => {
   assert.match(developmentNext({ ...base, workspaceReady: false }), /ensure_workspace/);
   assert.match(developmentNext(base), /propose_tickets \(one ticket/);
   assert.match(developmentNext({ ...base, tickets: [{ ticketId: "01", state: "draft" }] }), /01 are drafts/);
-  const confirmed = { ...base, tickets: [{ ticketId: "01", state: "confirmed" }] };
+  const at = (state, extra = {}) => ({ ticketId: "01", state, dependsOn: [], reviewIds: [], ...extra });
+  const confirmed = { ...base, tickets: [at("confirmed")] };
   assert.match(
-    developmentNext({ ...confirmed, qualification: { eligible: false, reasons: ["review_plan_missing"] } }),
-    /confirmed tickets \(01\).*freeze_candidate/
+    developmentNext(confirmed),
+    /Tickets 01 can start: call_subagent with developmentId and ticketId/
   );
   assert.match(
-    developmentNext({ ...confirmed, review: { reviewId: "r1", state: "in_review", reviewer: false } }),
-    /role=reviewer/
+    developmentNext({
+      route: "full",
+      workspaceReady: true,
+      tickets: [at("in_progress"), at("confirmed", { ticketId: "02", dependsOn: ["01"] })]
+    }),
+    /^Tickets 01 are being implemented: when the Executor finishes, freeze_candidate with ticketId/
+  );
+  assert.match(
+    developmentNext({
+      route: "full",
+      workspaceReady: true,
+      tickets: [at("merged"), at("confirmed", { ticketId: "02", dependsOn: ["01"] })]
+    }),
+    /Tickets 02 can start/
+  );
+  assert.match(
+    developmentNext({
+      ...base,
+      tickets: [at("in_review", { reviewIds: ["r1"] })],
+      review: { reviewId: "r1", state: "in_review", reviewer: false }
+    }),
+    /Ticket 01: Review r1 is frozen: delegate the Reviewer with role=reviewer/
+  );
+  assert.match(developmentNext({ ...base, tickets: [at("passed")] }), /01 passed review: integrate_ticket/);
+  assert.match(developmentNext({ ...base, tickets: [at("rework")] }), /01 need rework: .*continueCallId/);
+  assert.match(
+    developmentNext({
+      ...base,
+      tickets: [at("merged")],
+      qualification: { eligible: false, reasons: ["candidate_changed"] }
+    }),
+    /Every ticket is in the requirement checkout, but it does not qualify yet \(candidate_changed\)/
   );
   assert.match(
     developmentNext({ ...confirmed, qualification: { eligible: true, reasons: [] } }),
@@ -324,7 +355,7 @@ test(
     );
     assert.equal(confirmed.confirmed, true);
     assert.equal(confirmed.tickets.tickets[0].state, "confirmed");
-    assert.match(confirmed.next, /confirmed tickets \(01\)/);
+    assert.match(confirmed.next, /Tickets 01 can start/);
 
     // No one to ask, no change; a timeout changes nothing either.
     const revise = {
@@ -498,6 +529,6 @@ test(
     for (let attempt = 0; attempt < 600 && results.length < 2; attempt++) await delay(100);
     assert.equal(results[1].confirmed, true, JSON.stringify(results[1]));
     assert.equal(results[1].tickets.tickets[0].state, "confirmed");
-    assert.match(results[1].next, /confirmed tickets \(01\)/);
+    assert.match(results[1].next, /Tickets 01 can start/);
   }
 );

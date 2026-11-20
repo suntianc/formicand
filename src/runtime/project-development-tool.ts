@@ -134,6 +134,7 @@ export function createProjectDevelopmentTool(options: ProjectDevelopmentToolOpti
             "tickets",
             "propose_tickets",
             "revise_ticket",
+            "integrate_ticket",
             ...REVIEW_ACTIONS,
             ...MERGE_ACTIONS,
             "delivery_status"
@@ -177,7 +178,13 @@ export function createProjectDevelopmentTool(options: ProjectDevelopmentToolOpti
           description:
             "propose_tickets: the drafts, ids like 01, 02. They replace earlier unconfirmed drafts; confirmed tickets stay. The user confirms them on a card."
         },
-        ticketId: { type: "string", minLength: 1, maxLength: 20, description: "revise_ticket target." },
+        ticketId: {
+          type: "string",
+          minLength: 1,
+          maxLength: 20,
+          description:
+            "revise_ticket/integrate_ticket target. freeze_candidate: review this ticket's own checkout (direct and full routes)."
+        },
         changes: {
           type: "object",
           properties: TICKET_FIELDS,
@@ -281,7 +288,7 @@ export function createProjectDevelopmentTool(options: ProjectDevelopmentToolOpti
             additionalProperties: false
           },
           description:
-            "request_merge: commands to run on the target-plus-candidate version. Omit to reuse the recorded self checks or the passed review's checks."
+            "request_merge: commands to run on the target-plus-candidate version; omit to reuse the recorded checks. integrate_ticket: the project's checks, run with the ticket's acceptance commands."
         },
         verdict: {
           type: "string",
@@ -417,6 +424,13 @@ export function createProjectDevelopmentTool(options: ProjectDevelopmentToolOpti
     if (action === "tickets") return request({ action, developmentId: input.developmentId });
     if (action === "propose_tickets") return proposeTickets(request, input, confirm);
     if (action === "revise_ticket") return reviseTicket(request, input, confirm);
+    if (action === "integrate_ticket")
+      return request({
+        action,
+        developmentId: input.developmentId,
+        ticketId: input.ticketId,
+        ...(input.mergeChecks === undefined ? {} : { checks: input.mergeChecks })
+      });
 
     const review = request.reviews;
     if (action === "review_plan")
@@ -431,7 +445,8 @@ export function createProjectDevelopmentTool(options: ProjectDevelopmentToolOpti
       return review({
         action: "start",
         developmentId: input.developmentId,
-        kind: input.kind,
+        ...(input.kind === undefined ? {} : { kind: input.kind }),
+        ...(input.ticketId === undefined ? {} : { ticketId: input.ticketId }),
         ...(input.previousReviewId === undefined ? {} : { previousReviewId: input.previousReviewId }),
         ...(input.authorCallId === undefined ? {} : { authorCallId: input.authorCallId })
       });
