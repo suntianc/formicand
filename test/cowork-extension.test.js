@@ -172,7 +172,7 @@ test("call_subagent keeps task/mode required and dispatches one work item per ca
     };
     const context = await pi.handlers.get("context")(
       { messages: [request, callback] },
-      { sessionManager: SessionManager.inMemory(root) }
+      { sessionManager: SessionManager.inMemory(root), getContextUsage: () => undefined }
     );
     assert.deepEqual(context.messages, [request, callback], "existing evidence is replayed unchanged");
     assert.equal(
