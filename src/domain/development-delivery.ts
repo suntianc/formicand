@@ -1,3 +1,4 @@
+import type { DevelopmentTicket } from "./development-ticket.js";
 import type { DevelopmentMerge, MergeReceipt } from "./development-merge.js";
 import { developmentBranch } from "./project-development.js";
 import type { DevelopmentReview, ReviewPlan, ReviewQualification } from "./development-review.js";
@@ -128,6 +129,8 @@ export interface DeliveryView {
   board?: BoardEntry;
   diff?: DeliveryDiff;
   roles: DeliveryRoleProgress[];
+  /** The requirement's tickets, in the order they were proposed. */
+  tickets: DevelopmentTicket[];
   /** A local fact this host published but the shared delivery has not accepted yet. */
   pendingSync?: { mergeId: string; error?: string };
 }

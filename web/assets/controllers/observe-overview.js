@@ -141,9 +141,10 @@ export function createObserveOverview({ root, data, onOpenView = () => {}, now =
       listsByProject,
       `${origin}|${projectId}`,
       async () => {
-        const read = async (suffix, key) => {
+        const read = async (suffix, key, also) => {
           try {
             const result = await data.read(origin, projectPath(projectId, suffix), { cache: "no-store" });
+            if (also) also(result);
             return Array.isArray(result?.[key]) ? result[key] : [];
             // eslint-disable-next-line no-restricted-syntax -- 读不到一份记录集只少这一项，项目的其余记录仍要显示
           } catch {
@@ -152,15 +153,19 @@ export function createObserveOverview({ root, data, onOpenView = () => {}, now =
             return [];
           }
         };
+        let tickets = [];
         const [board, sessions, developments, reviews, merges, deliveries] = await Promise.all([
           read("/board", "entries"),
           read("/main-sessions", "sessions"),
-          read("/developments", "developments"),
+          // The development list carries every development's tickets too.
+          read("/developments", "developments", (result) => {
+            tickets = Array.isArray(result?.tickets) ? result.tickets : [];
+          }),
           read("/reviews", "reviews"),
           read("/merges", "merges"),
           read("/deliveries", "deliveries")
         ]);
-        return { board, sessions, developments, reviews, merges, deliveries };
+        return { board, sessions, developments, reviews, merges, deliveries, tickets };
       },
       READ_MS
     );
@@ -247,7 +252,8 @@ export function createObserveOverview({ root, data, onOpenView = () => {}, now =
       plan: plan ?? undefined,
       reviews,
       merges,
-      delivery
+      delivery,
+      tickets: (lists.tickets ?? []).filter((entry) => entry.developmentId === development.developmentId)
     };
   }
 

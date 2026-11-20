@@ -490,6 +490,21 @@ export async function handleDevelopmentRequest(
     });
   }
 
+  // The list carries each development's tickets, so a page that groups
+  // requirements by phase reads them in the same request.
+  const listing = async () => {
+    const developments = taskId
+      ? await ports.service.listForTask(taskId, backendId, { readOnly })
+      : await ports.service.list(projectId, backendId, { readOnly });
+    return {
+      projectId,
+      developments,
+      tickets: await ports.service.ticketSummaries(
+        projectId,
+        developments.map((development) => development.developmentId)
+      )
+    };
+  };
   if (request.method === "GET") {
     if (itemId !== undefined)
       return reply(response, 200, {
@@ -497,24 +512,14 @@ export async function handleDevelopmentRequest(
           ? await ports.service.getForTask(taskId, itemId, backendId, { readOnly })
           : await ports.service.get(projectId, itemId, backendId, { readOnly })
       });
-    return reply(response, 200, {
-      projectId,
-      developments: taskId
-        ? await ports.service.listForTask(taskId, backendId, { readOnly })
-        : await ports.service.list(projectId, backendId, { readOnly })
-    });
+    return reply(response, 200, await listing());
   }
   if (request.method !== "POST") throw new HttpError(405, "method not allowed");
   const body = await readJsonBody(request);
   try {
     switch (body.action) {
       case "query":
-        return reply(response, 200, {
-          projectId,
-          developments: taskId
-            ? await ports.service.listForTask(taskId, backendId, { readOnly })
-            : await ports.service.list(projectId, backendId, { readOnly })
-        });
+        return reply(response, 200, await listing());
       case "get": {
         if (typeof body.developmentId !== "string") throw new HttpError(400, "get 需要 developmentId");
         return reply(response, 200, {

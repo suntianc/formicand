@@ -387,7 +387,7 @@ const STATE_NAMES: Record<TicketState, string> = {
   in_progress: "执行中",
   in_review: "审查中",
   passed: "已通过",
-  merged: "已合入",
+  merged: "已并入",
   rework: "返修"
 };
 

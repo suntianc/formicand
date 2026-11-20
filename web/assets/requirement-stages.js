@@ -55,6 +55,36 @@ const STEPS = [
 
 const MERGED = new Set(["merged"]);
 
+/** A ticket's state as the page names it. */
+export const TICKET_STATE_LABELS = {
+  draft: "草稿",
+  confirmed: "已确认",
+  in_progress: "执行中",
+  in_review: "审查中",
+  passed: "已通过",
+  merged: "已并入",
+  rework: "返修"
+};
+
+const ticketList = (tickets) => (Array.isArray(tickets) ? tickets : []);
+const allTicketsIn = (tickets) =>
+  ticketList(tickets).length > 0 && ticketList(tickets).every((ticket) => ticket?.state === "merged");
+
+/**
+ * A requirement's tickets for display: id, title, state and what it waits for,
+ * plus how many are already in the requirement checkout.
+ */
+export function requirementTickets(tickets) {
+  const rows = ticketList(tickets).map((ticket) => ({
+    ticketId: ticket.ticketId,
+    title: ticket.title,
+    state: ticket.state,
+    label: TICKET_STATE_LABELS[ticket.state] ?? ticket.state,
+    dependsOn: Array.isArray(ticket.dependsOn) ? ticket.dependsOn : []
+  }));
+  return { rows, merged: rows.filter((row) => row.state === "merged").length };
+}
+
 function lastReview(reviews) {
   return Array.isArray(reviews) && reviews.length ? reviews.at(-1) : undefined;
 }
@@ -70,8 +100,11 @@ function mergedOperation(merges) {
  * a merge only happens after that acceptance. Checks are commands such as
  * `npm test` that do not map onto individual criteria, so they never tick one.
  */
-function criteriaMet({ reviews, merges }) {
-  return Boolean(mergedOperation(merges)) || lastReview(reviews)?.state === "passed";
+function criteriaMet({ reviews, merges, tickets }) {
+  if (mergedOperation(merges)) return true;
+  // A ticket's passed review covers that ticket, not the whole requirement.
+  if (ticketList(tickets).length) return allTicketsIn(tickets);
+  return lastReview(reviews)?.state === "passed";
 }
 
 /** Every criterion takes the overall answer: all met, or none confirmed yet. */
@@ -92,6 +125,14 @@ function stageOf(input) {
     return board?.state === "pending_release" ? "release" : "merged";
   if (Array.isArray(merges) && merges.some((entry) => ["waiting", "applying"].includes(entry?.state)))
     return "merge";
+  const tickets = ticketList(input.tickets);
+  if (tickets.length) {
+    // Several tickets move at once; the phase is the one that needs attention first.
+    if (tickets.some((ticket) => ticket?.state === "rework")) return "rework";
+    if (tickets.some((ticket) => ticket?.state === "in_review")) return "review";
+    if (allTicketsIn(tickets)) return "merge";
+    return "development";
+  }
   if (review?.state === "failed") return "rework";
   if (review?.state === "in_review") return "review";
   // A self-checked channel records the plan instead of an independent review.
@@ -175,7 +216,7 @@ export function requirementSteps(input = {}) {
   const review = lastReview(input.reviews);
   const merged = mergedOperation(input.merges);
   const reviewed =
-    review?.state === "passed" ||
+    (ticketList(input.tickets).length ? allTicketsIn(input.tickets) : review?.state === "passed") ||
     input.plan?.channel === "self" ||
     Boolean(merged) ||
     input.delivery?.state === "synced" ||

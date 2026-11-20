@@ -1,6 +1,6 @@
 import { agentDisplayName } from "../agent-names.js";
 import { artifactRequestUrls, artifactVersion } from "../artifacts.js";
-import { requirementProgress } from "../requirement-stages.js";
+import { requirementProgress, requirementTickets } from "../requirement-stages.js";
 import { formatRunDuration, runElapsed } from "../run-overview.js";
 import { icon } from "../ui/icons.js";
 import { ui } from "../ui/language.js";
@@ -202,6 +202,7 @@ export function createRequirementPanel({
       merges: view?.merges,
       delivery: view?.delivery,
       roles: view?.roles,
+      tickets: view?.tickets,
       waitingForReply: (state.detail?.humanRequests || []).some((request) => request.status === "pending")
     });
   }
@@ -246,6 +247,21 @@ export function createRequirementPanel({
       .map(
         (entry) =>
           `<li class="rp-check" data-checked="${entry.checked}">${icon("circle-check")}<span>${esc(entry.text)}</span></li>`
+      )
+      .join("")}</ul></section>`;
+  }
+
+  function renderTickets(view) {
+    const { rows, merged } = requirementTickets(view?.tickets);
+    if (!rows.length) return "";
+    return `<section class="rp-section"><h3 class="rp-label">${ui`票 ${merged}/${rows.length} 已并入`}</h3><ul class="rp-tickets">${rows
+      .map(
+        (ticket) =>
+          `<li class="rp-ticket" data-ticket-state="${esc(ticket.state)}"><span class="rp-ticket-id">${esc(
+            ticket.ticketId
+          )}</span><span class="rp-ticket-title" title="${esc(ticket.title)}">${esc(
+            ticket.title
+          )}</span><span class="rp-spacer"></span><span class="rp-ticket-state">${esc(ui(ticket.label))}</span></li>`
       )
       .join("")}</ul></section>`;
   }
@@ -347,7 +363,7 @@ export function createRequirementPanel({
       values.length
         ? `<div class="rp-tags">${values.map((value) => `<span class="rp-tag">${esc(value)}</span>`).join("")}</div>`
         : ""
-    }</div>${renderStepper(progress)}${renderCriteria(progress.criteria)}${renderChanges(loaded.view)}${attachments}`;
+    }</div>${renderStepper(progress)}${renderCriteria(progress.criteria)}${renderTickets(loaded.view)}${renderChanges(loaded.view)}${attachments}`;
   }
 
   function modelName() {
@@ -556,6 +572,7 @@ export function createRequirementPanel({
             loaded.view.reviews,
             loaded.view.merges,
             loaded.view.roles,
+            loaded.view.tickets,
             loaded.view.development?.route,
             loaded.view.board?.assignment
           ]

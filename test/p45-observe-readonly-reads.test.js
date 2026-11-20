@@ -69,6 +69,7 @@ async function fixture(t) {
     queryMerges: async () => [merge],
     queryDeliveries: async () => [...deliveries],
     queryReviews: async () => [],
+    tickets: async (projectId, developmentId) => ({ projectId, developmentId, revision: 0, tickets: [] }),
     reviewPlan: async () => undefined,
     boardEntries: async () => [],
     syncDelivery: async (_projectId, receipt) => {
