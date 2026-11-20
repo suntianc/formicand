@@ -207,6 +207,10 @@ async function runTask(dashboard, task, attempt, out) {
     timedOut,
     minutes: Math.round((Date.now() - started) / 6_000) / 10,
     tokens: detail.statistics?.usage?.totalTokens ?? null,
+    // Most of the total is the cached context read again on every response.
+    freshTokens: detail.statistics?.usage
+      ? detail.statistics.usage.input + detail.statistics.usage.output
+      : null,
     hidden: await hiddenCheck(task, repo),
     // Work left in a requirement checkout that was never merged back.
     hiddenInCheckout: await Promise.all(
@@ -264,7 +268,8 @@ function verdicts(task, result) {
     notes.push(`改了 ${result.changedFiles.length} 个文件`);
   if (expect.development && !result.developments.length) notes.push("没走开发记录");
   if (expect.tickets && !result.tickets.length) notes.push("没拆票");
-  if (expect.review && !result.delegations.some((call) => call.role === "reviewer")) notes.push("没派审查");
+  // A call record carries no role; an independent review leaves a review record.
+  if (expect.review && !result.reviews.length) notes.push("没派审查");
   if (result.leftovers?.length) notes.push(`残留 ${result.leftovers.join(" ")}`);
   return notes.length ? notes.join("；") : "通过";
 }
@@ -305,12 +310,12 @@ function report(rows, model) {
   const lines = [
     `模型：${model?.connectionName ?? "?"} / ${model?.model ?? "?"}`,
     "",
-    "| 任务 | 次 | 结果 | 分钟 | tokens | 派单 | 提问 | 票 | 审查 | 改动文件 |",
-    "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |"
+    "| 任务 | 次 | 结果 | 分钟 | tokens | 不含缓存 | 派单 | 提问 | 票 | 审查 | 改动文件 |",
+    "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |"
   ];
   for (const { task, result, verdict } of rows)
     lines.push(
-      `| ${task.title} | ${result.attempt} | ${verdict} | ${result.minutes} | ${result.tokens ?? "—"} | ${result.delegations.length} | ${result.questions.length} | ${result.tickets.length} | ${result.reviews.length} | ${result.changedFiles.length} |`
+      `| ${task.title} | ${result.attempt} | ${verdict} | ${result.minutes} | ${result.tokens ?? "—"} | ${result.freshTokens ?? "—"} | ${result.delegations.length} | ${result.questions.length} | ${result.tickets.length} | ${result.reviews.length} | ${result.changedFiles.length} |`
     );
   lines.push("", "## 最终汇报", "");
   for (const { task, result } of rows)
