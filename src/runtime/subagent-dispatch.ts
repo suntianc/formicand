@@ -115,7 +115,8 @@ export interface SubagentDispatchPorts {
     developmentId: string;
     /** The review to examine; required when several are frozen at once. */
     reviewId?: string;
-  }): Promise<{ repository: string; commit: string } | undefined>;
+    /** What the Reviewer examines, written from the records: a ticket, the whole requirement or a quick change. */
+  }): Promise<{ repository: string; commit: string; brief?: string } | undefined>;
   /** The ticket a delegation implements; refused when it is not ready to start. */
   ticket?(input: TicketDispatchInput): Promise<TicketDispatch>;
   ticketStarted?(input: TicketStartInput): Promise<void>;
@@ -317,7 +318,7 @@ export class SubagentDispatchService {
     const { agentId } = continued
       ? { agentId: continued.agentId }
       : await reserveSubagentIdentity(taskWorkspace);
-    const reviewSite =
+    const reviewed =
       role === "reviewer"
         ? await this.reviewSite({
             taskId,
@@ -330,6 +331,11 @@ export class SubagentDispatchService {
             ...(request.reviewId?.trim() ? { reviewId: request.reviewId.trim() } : {})
           })
         : undefined;
+    const reviewSite = reviewed && {
+      repository: reviewed.repository,
+      commit: reviewed.commit,
+      directory: reviewed.directory
+    };
     const capabilityGrants =
       request.attachments === undefined ? [] : await this.grants(taskId, request.attachments);
     // Main's one-off choice wins over the Agent's own; neither falls back silently.
@@ -371,7 +377,7 @@ export class SubagentDispatchService {
       agentId,
       importance: "normal",
       payload: {
-        task: ticket?.brief ? `${ticket.brief}\n\n${request.task}` : request.task,
+        task: [ticket?.brief ?? reviewed?.brief, request.task].filter(Boolean).join("\n\n"),
         projectDirectory,
         ...(workItemSite ? { workItemSite } : {}),
         ...(reviewSite ? { reviewSite } : {}),
@@ -552,7 +558,7 @@ export class SubagentDispatchService {
     workItemSite?: WorkItemSite;
     projectDirectory: string;
     reviewId?: string;
-  }): Promise<{ repository: string; commit: string; directory: string }> {
+  }): Promise<{ repository: string; commit: string; directory: string; brief?: string }> {
     if (input.developmentId && input.development) {
       const frozen = await this.ports.frozenCandidate?.({
         taskId: input.taskId,
@@ -565,6 +571,7 @@ export class SubagentDispatchService {
       return {
         repository: resolve(frozen?.repository ?? input.development.directory),
         commit: frozen?.commit ?? (await headCommit(input.development.directory)),
+        ...(frozen?.brief ? { brief: frozen.brief } : {}),
         directory: input.workItemSite
           ? resolve(input.workItemSite.directory)
           : join(

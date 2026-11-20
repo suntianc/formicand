@@ -18,7 +18,8 @@ import { DurableScheduler } from "../dist/src/runtime/scheduler.js";
  * A ticket's whole way: dispatched with its brief, implemented in its own
  * checkout, frozen there with a scope check, reviewed, sent back for rework,
  * reviewed again, brought into the requirement checkout by the program with
- * its checks, and finally merged as part of the requirement.
+ * its checks; then the full route's final review of the whole requirement,
+ * whose defect becomes a fix ticket, and the merge.
  *
  * The Git checkouts, the database and the merge are real; the Executor and
  * Reviewer are stood in for by commits in their own checkouts and the call
@@ -169,8 +170,8 @@ test(
     assert.equal((await service.tickets(projectId, developmentId)).tickets[0].state, "in_progress");
     await assert.rejects(
       service.startReview(projectId, "task-flow", { developmentId, kind: "independent" }),
-      /按票审查/,
-      "the full route reviews tickets, not the requirement checkout"
+      /还没有并进需求现场；整体终审在全部票并入之后/,
+      "before every ticket is in, the full route reviews tickets, not the requirement checkout"
     );
     await assert.rejects(
       service.startReview(projectId, "task-flow", { developmentId, ticketId: "01" }),
@@ -290,15 +291,114 @@ test(
     assert.ok(qualification.reasons.includes("candidate_changed"));
     await git(integration, ["reset", "-q", "--hard", "HEAD~1"]);
 
+    // Every ticket is in: the full route still needs one review of the whole requirement.
+    qualification = await service.delivery(projectId, developmentId);
+    assert.deepEqual(qualification.reasons, ["final_review_missing"]);
+    assert.match(await service.next(projectId, developmentId), /Freeze it for the final review/);
+    let final = await service.startReview(projectId, "task-flow", { developmentId });
+    assert.equal(final.candidate.workspace, integration, "the final review freezes the requirement checkout");
+    assert.equal(final.candidate.commit, await git(integration, ["rev-parse", "HEAD"]));
+    await assert.rejects(
+      service.startReview(projectId, "task-flow", { developmentId }),
+      /已有一份进行中的整体终审/
+    );
+    // The Reviewer is told what it examines, from the records.
+    const frozenFinal = await service.frozenCandidateForTask("task-flow", developmentId, final.reviewId);
+    assert.match(frozenFinal.brief, /^You give the final review of the whole requirement/);
+    assert.match(frozenFinal.brief, /Requirement: 两个文件/);
+    assert.match(frozenFinal.brief, /Completion criteria:\n- 两个文件都在/);
+    assert.match(frozenFinal.brief, /- 02 写 src\/b\.txt: src\/b\.txt 存在/);
+    assert.match(
+      (
+        await service
+          .frozenCandidateForTask("task-flow", developmentId, review.reviewId)
+          .catch((error) => error)
+      ).message,
+      /不是这个需求里正在进行的审查/
+    );
+    final = await reviewer(final, "call-rf1");
+    assert.match(await service.next(projectId, developmentId), /Final review: Review .* is in progress/);
+    final = await service.recordFinding(projectId, {
+      reviewId: final.reviewId,
+      title: "缺少总说明",
+      detail: "三个文件之间没有说明",
+      checks: []
+    });
+    final = await service.completeReview(projectId, {
+      reviewId: final.reviewId,
+      verdict: "failed",
+      summary: "缺少总说明",
+      checks: []
+    });
+    await service.ruleFinding(projectId, {
+      reviewId: final.reviewId,
+      findingId: final.findings[0].findingId,
+      decision: "fix",
+      basis: "完成标准要求整体可用"
+    });
+    assert.match(await service.next(projectId, developmentId), /becomes a new fix ticket/);
+    qualification = await service.delivery(projectId, developmentId);
+    assert.ok(qualification.reasons.includes("review_failed"), JSON.stringify(qualification.reasons));
+
+    // The defect becomes a fix ticket, confirmed and brought in like the others.
+    set = await service.writeTickets(projectId, developmentId, {
+      op: "propose",
+      tickets: [ticket("04", "src/README.txt")]
+    });
+    set = await service.writeTickets(projectId, developmentId, {
+      op: "confirm",
+      expectedRevision: set.revision
+    });
+    await service.ticketForDispatch("task-flow", developmentId, "04");
+    await executor("call-e4", "04", { "src/README.txt": "a, b, c\n" });
+    let fix = await service.startReview(projectId, "task-flow", { developmentId, ticketId: "04" });
+    fix = await reviewer(fix, "call-r5");
+    await service.completeReview(projectId, {
+      reviewId: fix.reviewId,
+      verdict: "passed",
+      summary: "可以",
+      checks: passing
+    });
+    await service.integrateTicket(projectId, {
+      developmentId,
+      ticketId: "04",
+      checks: [{ name: "项目检查", command: "test -f src/cli.js" }]
+    });
+    // The re-review follows the failed one, and its pass settles the ruled finding.
+    let again = await service.startReview(projectId, "task-flow", {
+      developmentId,
+      previousReviewId: final.reviewId
+    });
+    assert.deepEqual(again.changedPaths, ["src/README.txt"]);
+    again = await reviewer(again, "call-rf2");
+    await service.completeReview(projectId, {
+      reviewId: again.reviewId,
+      verdict: "passed",
+      summary: "整体可以",
+      checks: passing
+    });
+    const settled = (await gateway.queryReviews(projectId, developmentId)).find(
+      (entry) => entry.reviewId === final.reviewId
+    );
+    assert.equal(settled.findings[0].state, "fixed");
+
     qualification = await service.delivery(projectId, developmentId);
     assert.equal(qualification.eligible, true, JSON.stringify(qualification.reasons));
+    assert.equal(qualification.reviewId, again.reviewId);
     assert.match(await service.next(projectId, developmentId), /qualifies: request_merge/);
     const merge = await service.requestMerge(projectId, { developmentId });
     assert.equal(merge.state, "merged", JSON.stringify(merge));
     assert.equal(merge.acceptance.tickets, true);
+    assert.equal(merge.acceptance.reviewId, again.reviewId, "the final review the merge was accepted on");
     assert.deepEqual(
       merge.checks.map((check) => check.command),
-      ["test -f src/cli.js", "test -f src/a.txt", "test -f src/b.txt", "test -f src/c.txt"],
+      [
+        "test -f src/cli.js",
+        "test -f src/a.txt",
+        "test -f src/b.txt",
+        "test -f src/c.txt",
+        "test -f src/README.txt"
+      ],
       "the checks each ticket passed run again on the combined version"
     );
     assert.equal(await git(repo, ["show", "main:src/b.txt"]), "b");

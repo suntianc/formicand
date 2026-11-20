@@ -447,13 +447,17 @@ export async function registerSubagentAgent(pi: ExtensionAPI, role: AgentRole): 
   });
 }
 
+/** How every delegated role ends its work, so Main reads one shape. */
+const HAND_BACK =
+  "End with a hand-back in three short parts. Result: what you changed or found, and whether the task is done. Evidence: the commands you ran with what they showed, and the files and commits involved. Tried and dropped: approaches that did not work and why, so nobody repeats them (write none if there were none). Claim only work you did, and state any assumption you made.";
+
 /**
  * The role half of a delegated process's system prompt.
  *
  * Only the workspace facts and the tool set the role actually holds are added
  * here; the role text itself is shared with the delegation tools.
  */
-function subagentRolePrompt(input: {
+export function subagentRolePrompt(input: {
   role: SubagentRole;
   /** The custom Agent: its read permission answers in text, and its prompt follows the role's. */
   agent?: AgentDefinition;
@@ -471,8 +475,8 @@ function subagentRolePrompt(input: {
     `Your team name is ${input.name}. Main and the UI use this stable name to identify your work.`,
     `Your working directory: ${input.workingDirectory}. File and command tools resolve relative paths from there.`,
     `Shared Task workspace (browse_workspace paths start here): ${input.taskWorkspace}.`,
-    "Read the specific brief or source files named by Main. Use browse_workspace to inspect shared Task state, other Agents' progress and published artifacts when the task depends on them.",
-    "The final response must be the complete conclusion, not progress narration. Do not claim work you did not perform. State any assumption you made and why.",
+    "Read the brief and the files Main names. browse_workspace shows shared Task state, other Agents' progress and published artifacts when the task depends on them.",
+    HAND_BACK,
     ...(input.capabilityPrompt ? [input.capabilityPrompt] : [])
   ];
   const extra = input.agent?.prompt.trim()
@@ -488,7 +492,6 @@ function subagentRolePrompt(input: {
     return [
       ...shared,
       "You work in a checkout of the project that is yours alone. You have no edit or write tool; files you create stay in that checkout and never reach the project. Run the commands that support your conclusion.",
-      "Your final response is your conclusion for Main, in text: what you found, where, and the evidence for it.",
       ASK_MAIN_GUIDANCE,
       SEND_PEER_MESSAGE_GUIDANCE,
       ...extra
@@ -497,14 +500,15 @@ function subagentRolePrompt(input: {
     return [
       ...shared,
       "You examine a checkout of the candidate that is yours alone: run the tests and commands that prove or reproduce what you report. You have no edit or write tool, so files you create stay in your checkout and never reach the candidate, the Executor's checkout or the project.",
-      "Your conclusion reaches Main only through submit_review: verdict is pass or changes_requested, and every finding states its location, the evidence for it and whether it blocks acceptance. Call it when the examination is complete; a work item that ends without a submitted conclusion is recorded as a failure. A malformed submission is reported as an error and can be corrected.",
+      "Check each acceptance criterion in the brief, then look for what it does not cover: kept behaviour that broke, changes outside the stated scope, missing tests.",
+      "Your verdict reaches Main only through submit_review: pass or changes_requested, and every finding states its location, its evidence and whether it blocks acceptance. A work item that ends without one is recorded as a failure; a malformed submission returns an error you can correct.",
       ASK_MAIN_GUIDANCE,
       SEND_PEER_MESSAGE_GUIDANCE,
       ...extra
     ].join("\n\n");
   return [
     ...shared,
-    `Make the assigned change in ${input.workingDirectory}, run the checks that prove it, and return the evidence — command output, file paths and test results.`,
+    "Stay inside the brief: when the task needs a change it does not cover, ask Main rather than widening it yourself.",
     `Put substantial reusable candidate outputs under ${input.deliverablesDirectory}; keep scratch files and intermediate logs in the work site. Do not write to Task artifacts/ — Main publishes accepted files.`,
     ASK_MAIN_GUIDANCE,
     SEND_PEER_MESSAGE_GUIDANCE,

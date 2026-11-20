@@ -427,6 +427,18 @@ function applyProgress(set: TicketSet, progress: TicketProgress, at: string): Ti
 }
 
 /** The ticket a review belongs to, if it was a ticket review. */
+/**
+ * The reviews of the whole requirement on the full route: the ones no ticket
+ * owns, frozen on the requirement checkout after every ticket was brought in.
+ */
+export function finalReviews<T extends { reviewId: string }>(
+  tickets: DevelopmentTicket[],
+  reviews: T[]
+): T[] {
+  const owned = new Set(tickets.flatMap((ticket) => ticket.reviewIds));
+  return reviews.filter((review) => !owned.has(review.reviewId));
+}
+
 export function ticketOfReview(
   tickets: DevelopmentTicket[],
   reviewId: string
@@ -447,9 +459,17 @@ export function outsideScope(scope: string[], files: string[]): string[] {
  * only adds the background. English, like every other model-facing text.
  */
 export function ticketBrief(ticket: DevelopmentTicket): string {
-  const list = (items: string[]) => items.map((item) => `- ${item}`).join("\n");
   return [
     `Ticket ${ticket.ticketId}: ${ticket.title}`,
+    ...ticketDetails(ticket),
+    "Commit the finished work in your checkout and run the check commands there before you hand back."
+  ].join("\n\n");
+}
+
+/** A ticket's scope, criteria and boundaries, as both the Executor and its Reviewer read them. */
+function ticketDetails(ticket: DevelopmentTicket): string[] {
+  const list = (items: string[]) => items.map((item) => `- ${item}`).join("\n");
+  return [
     ticket.scope.length
       ? `Change only these paths:\n${list(ticket.scope)}`
       : "No scope was recorded; keep the change to what the ticket needs.",
@@ -464,8 +484,41 @@ export function ticketBrief(ticket: DevelopmentTicket): string {
       )
       .join("\n")}`,
     ...(ticket.preserve.length ? [`Keep working:\n${list(ticket.preserve)}`] : []),
-    ...(ticket.outOfScope.length ? [`Not part of this ticket:\n${list(ticket.outOfScope)}`] : []),
-    "Commit the finished work in your checkout and run the check commands there before you hand back."
+    ...(ticket.outOfScope.length ? [`Not part of this ticket:\n${list(ticket.outOfScope)}`] : [])
+  ];
+}
+
+/**
+ * What a Reviewer is told it examines, written by the program from the records
+ * so Main does not retype the criteria: one ticket, the whole requirement after
+ * every ticket is in (the full route's final review), or a quick change.
+ */
+export function reviewBrief(input: {
+  goal: string;
+  criteria: string[];
+  tickets: DevelopmentTicket[];
+  ticket?: DevelopmentTicket;
+}): string {
+  const list = (items: string[]) => items.map((item) => `- ${item}`).join("\n");
+  if (input.ticket)
+    return [
+      `You review ticket ${input.ticket.ticketId}: ${input.ticket.title}. Part of the requirement: ${input.goal}`,
+      ...ticketDetails(input.ticket)
+    ].join("\n\n");
+  const requirement = [
+    `Requirement: ${input.goal}`,
+    ...(input.criteria.length ? [`Completion criteria:\n${list(input.criteria)}`] : [])
+  ];
+  if (!input.tickets.length) return [`You review this change.`, ...requirement].join("\n\n");
+  return [
+    "You give the final review of the whole requirement. Every ticket below was reviewed on its own and brought in; check that together they meet the requirement, and look at what single-ticket reviews could miss: how the parts fit, behaviour across them, the completion criteria as a whole.",
+    ...requirement,
+    `Tickets:\n${input.tickets
+      .map(
+        (ticket) =>
+          `- ${ticket.ticketId} ${ticket.title}: ${ticket.criteria.map((criterion) => criterion.text).join("; ")}`
+      )
+      .join("\n")}`
   ].join("\n\n");
 }
 
@@ -504,6 +557,8 @@ export interface NextStepFacts {
   tickets: DevelopmentTicket[];
   qualification?: { eligible: boolean; reasons: string[] };
   review?: { reviewId: string; state: string; reviewer: boolean };
+  /** The latest review of the whole requirement, on the full route. */
+  finalReview?: { reviewId: string; state: string; reviewer: boolean };
   merge?: { mergeId: string; state: string; detail?: string; mergeCommit?: string };
   delivery?: { state: string };
 }
@@ -587,6 +642,14 @@ function ticketSteps(facts: NextStepFacts): string {
   if (waiting.length && !steps.length)
     steps.push(`Tickets ${ids(waiting)} wait for their dependencies to be merged.`);
   if (steps.length) return steps.join(" ");
+  if (facts.route === "full") {
+    const final = facts.finalReview;
+    if (!final)
+      return "Every ticket is in the requirement checkout. Freeze it for the final review of the whole requirement: freeze_candidate without ticketId, then delegate role=reviewer with that reviewId.";
+    if (final.state === "in_review") return `Final review: ${reviewStep(final)}`;
+    if (final.state === "failed" || final.state === "drifted")
+      return `Final review ${final.reviewId} ${final.state}: rule its findings. A defect becomes a new fix ticket (propose_tickets); once it is integrated, freeze_candidate again with previousReviewId.`;
+  }
   const reasons = facts.qualification?.reasons ?? [];
   return `Every ticket is in the requirement checkout, but it does not qualify yet (${reasons.join(", ") || "unknown"}).`;
 }

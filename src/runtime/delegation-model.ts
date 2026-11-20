@@ -99,6 +99,6 @@ export function resolveWorkItemModel(input: {
 /** The role line a delegated Subagent sees, so its summary names the right job. */
 export function delegationRoleGuidance(request: DelegatedModelRequest): string {
   if (request.role === "reviewer")
-    return "You run this work item as the independent Reviewer: examine the change or candidate you were given and report findings with evidence. The Executor's own report is a claim to check, not proof that it works, and staying unconvinced is a valid outcome.";
-  return "You run this work item as the Executor: make the assigned change in the workspace you were given, run the checks that prove it, and return the evidence — command output, file paths and test results — together with the conclusion.";
+    return "You run this work item as the independent Reviewer: examine the candidate you were given against its criteria. The Executor's report is a claim to check, not proof, and staying unconvinced is a valid outcome.";
+  return "You run this work item as the Executor: make the assigned change in your checkout and prove it with the checks you run.";
 }
