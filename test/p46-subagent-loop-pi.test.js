@@ -449,9 +449,11 @@ test(
                   verdict: "changes_requested",
                   findings: [
                     {
+                      title: "只有第一版实现",
                       location: "impl.txt",
                       evidence: "impl.txt 只有第一版实现，需要返修后复审。",
-                      blocking: true
+                      blocking: true,
+                      basis: "regression"
                     }
                   ]
                 }

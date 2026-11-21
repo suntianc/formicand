@@ -9,7 +9,12 @@ import {
 } from "../../../dist/src/runtime/runtime-settings.js";
 import { askMain } from "../../../dist/src/runtime/subagent-questions.js";
 import { readFile } from "node:fs/promises";
-import { parseReviewConclusion, type ReviewConclusion } from "../../../dist/src/runtime/subagent-review.js";
+import {
+  FLOOR_CLASSES,
+  parseReviewConclusion,
+  type ReviewConclusion,
+  type ReviewScope
+} from "../../../dist/src/runtime/subagent-review.js";
 import { sendPeerMessage, type PeerMessageResult } from "../../../dist/src/runtime/subagent-peer-message.js";
 import { JsonlEventStore } from "../../../dist/src/storage/event-store.js";
 import {
@@ -39,6 +44,8 @@ export interface SubagentToolContext {
   callId: string;
   agentId: string;
   taskWorkspace: string;
+  /** What this review may cite, fixed when its candidate was frozen; absent outside a requirement. */
+  reviewScope?: ReviewScope;
   /** Record a well-formed conclusion; the result record writes it on exit. */
   submitReview(review: ReviewConclusion): void;
 }
@@ -230,12 +237,13 @@ export function registerSubagentTools(pi: ExtensionAPI, context: SubagentToolCon
     name: "submit_review",
     label: "Submit Review",
     description:
-      "Submit the review conclusion Main acts on. Call it once the examination is complete: verdict is pass or changes_requested, and every finding states where it is, what supports it and whether it blocks acceptance. A work item that ends without a submitted conclusion is recorded as a failure. A malformed submission is reported as an error and can be retried.",
+      "Submit the review conclusion Main acts on. Call it once the examination is complete: verdict is pass or changes_requested; a blocking finding names its basis, the acceptance criterion it violates or a floor class; anything else is a non-blocking suggestion. A re-review answers every finding of the previous round in previousFindings. A work item that ends without a submitted conclusion is recorded as a failure. A malformed submission is reported as an error and can be retried.",
     promptSnippet: "Submit the review verdict and findings",
     promptGuidelines: [
       "Call submit_review once the examination is complete: it is how Main receives your verdict.",
-      "Use verdict=changes_requested only with at least one finding, and set blocking=true for findings that must be fixed before acceptance.",
-      "A pass may still carry non-blocking findings; it must not carry a blocking one.",
+      `A finding blocks only with a basis: the id of the acceptance criterion it violates, or a floor class — ${FLOOR_CLASSES.join(", ")} (breaking the project's own stated rules, such as its AGENTS.md). Anything else is blocking=false: a suggestion that blocks nothing.`,
+      "changes_requested needs a blocking finding or a previous finding that is not fixed; pass carries neither.",
+      "On a re-review, previousFindings answers every finding listed in the brief by its id, fixed or not with evidence; new findings must block, citing a criterion or a floor problem in a file this round changed.",
       "Location is a file path or path:line, evidence names what you actually observed (command output, code, test result), and findings must be checkable by the Executor."
     ],
     parameters: Type.Object({
@@ -243,6 +251,7 @@ export function registerSubagentTools(pi: ExtensionAPI, context: SubagentToolCon
       findings: Type.Array(
         Type.Object(
           {
+            title: Type.String({ description: "A short name for the finding." }),
             location: Type.String({ description: "File path, path:line, or the named area examined." }),
             evidence: Type.String({
               description:
@@ -250,15 +259,33 @@ export function registerSubagentTools(pi: ExtensionAPI, context: SubagentToolCon
             }),
             blocking: Type.Boolean({
               description: "Whether this finding must be resolved before the result is accepted."
-            })
+            }),
+            basis: Type.Optional(
+              Type.String({
+                description: `Required when blocking: the criterion id it violates (as the brief lists it), or one of ${FLOOR_CLASSES.join(", ")}.`
+              })
+            )
           },
           { additionalProperties: false }
         ),
-        { maxItems: 100 }
+        { maxItems: 50 }
+      ),
+      previousFindings: Type.Optional(
+        Type.Array(
+          Type.Object(
+            {
+              findingId: Type.String({ description: "The id of a finding listed under the previous round." }),
+              fixed: Type.Boolean(),
+              evidence: Type.String({ description: "The command, test or code that shows it." })
+            },
+            { additionalProperties: false }
+          ),
+          { description: "Re-review only: one answer per finding of the previous round." }
+        )
       )
     }),
     async execute(_toolCallId, params): Promise<RuntimeToolResult> {
-      const parsed = parseReviewConclusion(params);
+      const parsed = parseReviewConclusion(params, context.reviewScope);
       if (!parsed.ok) {
         const payload = { submitted: false, errors: parsed.errors };
         return {

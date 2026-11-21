@@ -18,7 +18,7 @@ import {
   type AgentProcessStatus
 } from "./agent-process.js";
 import { enqueueMainCallback, formatSubagentSummary } from "./subagent-callback.js";
-import { parseReviewConclusion, type ReviewConclusion } from "./subagent-review.js";
+import { parseReviewConclusion, type ReviewConclusion, type ReviewScope } from "./subagent-review.js";
 
 /**
  * The backend side of delegated agent processes.
@@ -97,6 +97,8 @@ interface WorkPayload {
   agentDefinition?: AgentDefinition;
   /** A built-in role's skills, MCP servers and extra prompt, fixed when the item was dispatched. */
   builtinAgent?: BuiltinAgentSettings;
+  /** What a Reviewer's findings may cite, fixed when its candidate was frozen. */
+  reviewScope?: ReviewScope;
 }
 
 /** The roles this service launches and settles; Main belongs to the run service. */
@@ -470,7 +472,9 @@ export class SubagentProcessService {
         : {}),
       // The process applies the definition itself: its tools, skills, MCP servers and prompt.
       COWORK_AGENT_DEFINITION: payload.agentDefinition ? JSON.stringify(payload.agentDefinition) : undefined,
-      COWORK_BUILTIN_AGENT: payload.builtinAgent ? JSON.stringify(payload.builtinAgent) : undefined
+      COWORK_BUILTIN_AGENT: payload.builtinAgent ? JSON.stringify(payload.builtinAgent) : undefined,
+      COWORK_REVIEW_SCOPE:
+        role === "reviewer" && payload.reviewScope ? JSON.stringify(payload.reviewScope) : undefined
     };
   }
 

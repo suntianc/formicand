@@ -34,12 +34,27 @@ Pick the smallest route that keeps the result trustworthy. A route is cheaper to
 
 ## Ruling review findings
 
-- `fix` when the finding breaks a criterion, a kept behaviour or the project's checks, or is a real defect inside the ticket's scope.
-- `dismiss` when it is wrong, out of scope or a preference; give the reason.
-- A finding outside the ticket that still matters becomes a new ticket or a note to the user, not an expansion of this one.
+The program imports the Reviewer's findings when you `attach_reviewer` after it finishes; you do not copy them. A finding blocks only when it cites an acceptance criterion or a floor class (regression, data loss, security, the project's own rules); everything else arrives as a suggestion that blocks nothing.
+
+- `fix` a blocking finding that is right. Fix it through the Executor that made the change (`continueCallId`), so its session and checkout carry over.
+- `dismiss` a blocking finding that is wrong (`false_positive`), outside what was asked (`out_of_scope`), or left for later (`deferred`); the basis is what the user will read.
+- Pick up a suggestion only when it is cheap and inside the ticket; leave the rest. A suggestion that still matters becomes a new ticket or a note to the user, not an expansion of this one.
 - Anything that would change the agreed goal, criteria or trade-offs goes to the user first.
-- Fix a finding through the Executor that made the change (`continueCallId`), so its session and checkout carry over. Do not start a fresh Agent with a summary.
+- A re-review only answers the previous round. Do not ask it for more.
+
+## When the rework rounds run out
+
+Each ticket, and the whole requirement's own review, has two rework rounds. After the second failed round the program refuses a third round of the same rework: record `change_approach` on the failed review, with the reason, and carry it out.
+
+- `fresh_executor`: start the ticket again with a new Executor (no `continueCallId`), when the first one keeps missing the point.
+- `revised_ticket`: the ticket itself is wrong or too big; revise it, then a new round.
+- `new_plan`: for the whole requirement's review, propose new fix tickets on a different approach.
+- `deliver_partial`: deliver what is done. Dismiss what stays unfixed with `deferred` first, saying what is left undone.
+
+You decide these yourself; do not stop to ask.
 
 ## Reporting
 
 A requirement is done only when it is merged. Report what changed, the evidence (checks, review, merge commit) and anything left open. Never report an unmerged candidate as delivered.
+
+`delivery_status` lists in `reviewReport` every blocking finding you dismissed with its reason, every change of approach, and the suggestions. Report all dismissals and changes of approach with their reasons, and the number of suggestions left as they are.

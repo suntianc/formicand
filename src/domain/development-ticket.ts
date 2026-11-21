@@ -377,7 +377,8 @@ export function storedTickets(value: unknown): DevelopmentTicket[] {
 const PROGRESS_FROM: Record<TicketProgress["op"], readonly TicketState[]> = {
   start: ["confirmed", "rework"],
   review: ["in_progress", "rework"],
-  verdict: ["in_review"],
+  // A rework ticket passes only when Main delivers it as it is after its rounds ran out.
+  verdict: ["in_review", "rework"],
   integrate: ["passed"]
 };
 
@@ -488,37 +489,70 @@ function ticketDetails(ticket: DevelopmentTicket): string[] {
   ];
 }
 
+/** The ids a review of the whole requirement cites its completion criteria by: `CC1`, `CC2`… */
+export function completionCriterionIds(criteria: string[]): string[] {
+  return criteria.map((_, index) => `CC${index + 1}`);
+}
+
+/** The previous round a re-review answers: the findings Main ruled to fix, and what changed since. */
+export interface RereviewBrief {
+  previous: { findingId: string; title: string; location?: string; detail: string }[];
+  changedPaths: string[];
+}
+
 /**
  * What a Reviewer is told it examines, written by the program from the records
  * so Main does not retype the criteria: one ticket, the whole requirement after
- * every ticket is in (the full route's final review), or a quick change.
+ * every ticket is in (the full route's final review), or a quick change. A
+ * re-review is told the previous round's findings and the files changed since,
+ * and that it answers those and nothing more.
  */
 export function reviewBrief(input: {
   goal: string;
   criteria: string[];
   tickets: DevelopmentTicket[];
   ticket?: DevelopmentTicket;
+  rereview?: RereviewBrief;
 }): string {
   const list = (items: string[]) => items.map((item) => `- ${item}`).join("\n");
-  if (input.ticket)
-    return [
-      `You review ticket ${input.ticket.ticketId}: ${input.ticket.title}. Part of the requirement: ${input.goal}`,
-      ...ticketDetails(input.ticket)
-    ].join("\n\n");
+  const ids = completionCriterionIds(input.criteria);
   const requirement = [
     `Requirement: ${input.goal}`,
-    ...(input.criteria.length ? [`Completion criteria:\n${list(input.criteria)}`] : [])
+    ...(input.criteria.length
+      ? [`Completion criteria:\n${list(input.criteria.map((text, index) => `${ids[index]} ${text}`))}`]
+      : [])
   ];
-  if (!input.tickets.length) return [`You review this change.`, ...requirement].join("\n\n");
+  const body = input.ticket
+    ? [
+        `You review ticket ${input.ticket.ticketId}: ${input.ticket.title}. Part of the requirement: ${input.goal}`,
+        ...ticketDetails(input.ticket)
+      ]
+    : !input.tickets.length
+      ? [`You review this change.`, ...requirement]
+      : [
+          "You give the final review of the whole requirement. Every ticket below was reviewed on its own and brought in; check that together they meet the requirement, and look at what single-ticket reviews could miss: how the parts fit, behaviour across them, the completion criteria as a whole.",
+          ...requirement,
+          `Tickets:\n${input.tickets
+            .map(
+              (ticket) =>
+                `- ${ticket.ticketId} ${ticket.title}: ${ticket.criteria.map((criterion) => criterion.text).join("; ")}`
+            )
+            .join("\n")}`
+        ];
+  if (!input.rereview) return body.join("\n\n");
+  const { previous, changedPaths } = input.rereview;
   return [
-    "You give the final review of the whole requirement. Every ticket below was reviewed on its own and brought in; check that together they meet the requirement, and look at what single-ticket reviews could miss: how the parts fit, behaviour across them, the completion criteria as a whole.",
-    ...requirement,
-    `Tickets:\n${input.tickets
-      .map(
-        (ticket) =>
-          `- ${ticket.ticketId} ${ticket.title}: ${ticket.criteria.map((criterion) => criterion.text).join("; ")}`
-      )
-      .join("\n")}`
+    ...body,
+    "This is a re-review after a fix. Do only three things: answer every finding below in previousFindings, fixed or not, with the command, test or code that shows it; re-run every acceptance command; and look for regression, data loss, security or project-rule problems in the files changed this round. Raise nothing else.",
+    previous.length
+      ? `Findings of the previous round:\n${list(
+          previous.map(
+            (finding) =>
+              `${finding.findingId} ${finding.title}${finding.location ? ` (${finding.location})` : ""}: ${finding.detail}`
+          )
+        )}`
+      : "The previous round left no finding to fix.",
+    changedPaths.length ? `Files changed this round:\n${list(changedPaths)}` : "No file changed this round."
   ].join("\n\n");
 }
 
@@ -556,14 +590,27 @@ export interface NextStepFacts {
   workspaceReady: boolean;
   tickets: DevelopmentTicket[];
   qualification?: { eligible: boolean; reasons: string[] };
-  review?: { reviewId: string; state: string; reviewer: boolean };
+  review?: ReviewFact;
   /** The latest review of the whole requirement, on the full route. */
-  finalReview?: { reviewId: string; state: string; reviewer: boolean };
+  finalReview?: ReviewFact;
+  /** Tickets whose review chain used its rework rounds, with the failed review to change approach on. */
+  ticketsAtLimit?: { ticketId: string; reviewId: string }[];
   merge?: { mergeId: string; state: string; detail?: string; mergeCommit?: string };
   delivery?: { state: string };
 }
 
+/** A review as the next step reads it; `atLimit` means its chain used its rework rounds. */
+export interface ReviewFact {
+  reviewId: string;
+  state: string;
+  reviewer: boolean;
+  atLimit?: boolean;
+}
+
 const ids = (tickets: DevelopmentTicket[]) => tickets.map((ticket) => ticket.ticketId).join(", ");
+
+const LIMIT =
+  "used its rework rounds: do not rework it the same way again. Record a change of approach with change_approach and its basis:";
 
 /**
  * What Main should do next, worked out from the records rather than taught by
@@ -594,8 +641,10 @@ export function developmentNext(facts: NextStepFacts): string {
   if (qualification?.eligible) return `${mergeNote}The candidate qualifies: request_merge.`;
   if (facts.route !== "quick") return mergeNote + ticketSteps(facts);
   if (review?.state === "in_review") return reviewStep(review);
+  if (review?.state === "failed" && review.atLimit)
+    return `${mergeNote}Review ${review.reviewId} ${LIMIT} new_plan (rework with a different approach), or deliver_partial (dismiss what stays unfixed with category=deferred first).`;
   if (review?.state === "failed" || review?.state === "drifted")
-    return `${mergeNote}Review ${review.reviewId} ${review.state}: rule its findings, rework through the original Executor (continueCallId), then freeze_candidate with previousReviewId.`;
+    return `${mergeNote}Review ${review.reviewId} ${review.state}: rule its blocking findings (fix, or dismiss with a basis), rework through the original Executor (continueCallId), then freeze_candidate with previousReviewId.`;
   const reasons = qualification?.reasons ?? [];
   const work = "Make the change in the checkout, run its checks, then record review_plan channel=self.";
   if (reasons.includes("review_plan_missing")) return `${mergeNote}${work}`;
@@ -604,8 +653,8 @@ export function developmentNext(facts: NextStepFacts): string {
 
 function reviewStep(review: { reviewId: string; reviewer: boolean }): string {
   return review.reviewer
-    ? `Review ${review.reviewId} is in progress: record the Reviewer's findings, rule them, then complete_review.`
-    : `Review ${review.reviewId} is frozen: delegate the Reviewer with role=reviewer, then attach_reviewer.`;
+    ? `Review ${review.reviewId} is in progress: once the Reviewer has finished, attach_reviewer again imports its findings; rule the blocking ones (fix, or dismiss with a basis), then complete_review.`
+    : `Review ${review.reviewId} is frozen: delegate the Reviewer with role=reviewer and this reviewId; when it finishes, attach_reviewer imports its findings.`;
 }
 
 /** One sentence per group of tickets that has something to do, in the order the work goes. */
@@ -624,10 +673,17 @@ function ticketSteps(facts: NextStepFacts): string {
     steps.push(
       `Tickets ${ids(passed)} passed review: integrate_ticket brings each into the requirement checkout and runs the project's checks and its acceptance commands.`
     );
-  const rework = by("rework");
+  const atLimit = facts.ticketsAtLimit ?? [];
+  for (const { ticketId, reviewId } of atLimit)
+    steps.push(
+      `Ticket ${ticketId} ${LIMIT} fresh_executor (start it again with a new Executor, without continueCallId), revised_ticket (revise_ticket, then a new round), or deliver_partial (dismiss what stays unfixed with category=deferred first) — on review ${reviewId}.`
+    );
+  const rework = by("rework").filter(
+    (ticket) => !atLimit.some((entry) => entry.ticketId === ticket.ticketId)
+  );
   if (rework.length)
     steps.push(
-      `Tickets ${ids(rework)} need rework: rule the findings, continue the original Executor with continueCallId and reviewId, then freeze_candidate with ticketId and previousReviewId.`
+      `Tickets ${ids(rework)} need rework: rule the blocking findings (fix, or dismiss with a basis), continue the original Executor with continueCallId and reviewId, then freeze_candidate with ticketId and previousReviewId.`
     );
   const working = by("in_progress");
   if (working.length)
@@ -647,8 +703,10 @@ function ticketSteps(facts: NextStepFacts): string {
     if (!final)
       return "Every ticket is in the requirement checkout. Freeze it for the final review of the whole requirement: freeze_candidate without ticketId, then delegate role=reviewer with that reviewId.";
     if (final.state === "in_review") return `Final review: ${reviewStep(final)}`;
+    if (final.state === "failed" && final.atLimit)
+      return `Final review ${final.reviewId} ${LIMIT} new_plan (propose new fix tickets on a different approach), or deliver_partial (dismiss what stays unfixed with category=deferred first).`;
     if (final.state === "failed" || final.state === "drifted")
-      return `Final review ${final.reviewId} ${final.state}: rule its findings. A defect becomes a new fix ticket (propose_tickets); once it is integrated, freeze_candidate again with previousReviewId.`;
+      return `Final review ${final.reviewId} ${final.state}: rule its blocking findings. A defect becomes a new fix ticket (propose_tickets); once it is integrated, freeze_candidate again with previousReviewId.`;
   }
   const reasons = facts.qualification?.reasons ?? [];
   return `Every ticket is in the requirement checkout, but it does not qualify yet (${reasons.join(", ") || "unknown"}).`;

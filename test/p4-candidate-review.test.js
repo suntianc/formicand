@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
 import { after, before, test } from "node:test";
 import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
@@ -307,6 +307,12 @@ test(
             assert.equal(review.reviewer.callId, calls.b.callId);
             assert.equal(review.reviewer.agentId, calls.b.agentId);
             assert.equal(review.reviewer.workspace, calls.b.workspace);
+            // The program imported the Reviewer's submitted finding; Main copies nothing.
+            assert.equal(review.reviewer.conclusion.verdict, "changes_requested");
+            assert.equal(review.findings.length, 1);
+            assert.equal(review.findings[0].state, "open");
+            assert.equal(review.findings[0].basis, "CC2");
+            assert.equal(review.findings[0].location, "export.txt:3");
             return {
               name: "bash",
               arguments: { command: `cat "${calls.b.workspace}/evidence/failure.log"` }
@@ -316,22 +322,7 @@ test(
             assert.match(lastToolText(body), /expected: total/);
             return {
               name: "project_development",
-              arguments: {
-                action: "record_finding",
-                reviewId: reviewId1,
-                title: "导出缺少合计行",
-                detail: "完成标准要求最后一行为 total，实际最后一行为 body。",
-                location: "export.txt",
-                checks: [
-                  {
-                    name: "复审：合计行",
-                    command: 'test "$(tail -1 export.txt)" = total',
-                    exitCode: 1,
-                    output: "actual: body\nexpected: total"
-                  }
-                ],
-                rawFailure: readFileSync(join(calls.b.workspace, "evidence", "failure.log"), "utf8")
-              }
+              arguments: { action: "get_review", reviewId: reviewId1 }
             };
           }
           if (step === 12) {
@@ -509,11 +500,8 @@ test(
             assert.equal(finding.state, "fixed");
             assert.equal(finding.fixedCommit, candidate2);
             assert.equal(finding.candidateCommit, candidate1);
-            assert.equal(finding.checks[0].exitCode, 1);
-            assert.equal(
-              finding.rawFailure,
-              readFileSync(join(calls.b.workspace, "evidence", "failure.log"), "utf8")
-            );
+            assert.equal(finding.verifiedByReviewId, reviewId2, "the re-review verified the fix");
+            assert.match(finding.detail, /tail -1 export.txt/);
             assert.equal(finding.ruling.decision, "fix");
             assert.match(finding.ruling.basis, /完成标准/);
             return {
@@ -681,9 +669,11 @@ test(
                 verdict: "changes_requested",
                 findings: [
                   {
+                    title: "导出缺少合计行",
                     location: "export.txt:3",
                     evidence: "tail -1 export.txt 输出 body；完成标准要求最后一行为 total。",
-                    blocking: true
+                    blocking: true,
+                    basis: "CC2"
                   }
                 ]
               }
@@ -701,7 +691,11 @@ test(
           if (step === 1)
             return {
               name: "submit_review",
-              arguments: { verdict: "pass", findings: [] }
+              arguments: {
+                verdict: "pass",
+                findings: [],
+                previousFindings: [{ findingId, fixed: true, evidence: "tail -1 export.txt 输出 total" }]
+              }
             };
           return { text: "复审通过：export.txt 末行为 total，原发现已修复。" };
         }
@@ -914,6 +908,8 @@ for (const engine of PROJECT_DATA_ENGINES) {
     });
     review = await service.recordFindingForTask("task-review", {
       reviewId: review.reviewId,
+      blocking: true,
+      basis: "CC1",
       title: "缺少合计行",
       detail: "最后一行为 body",
       checks: [{ name: "检查", command: "tail -1 export.txt", exitCode: 1, output: "body" }],
@@ -1103,6 +1099,8 @@ test("a remote backend writes review facts through the authority and reads them 
   assert.equal(review.reviewer.agentId, "subagent-remote-reviewer");
   review = await service.recordFinding(project.projectId, {
     reviewId: review.reviewId,
+    blocking: true,
+    basis: "regression",
     title: "远端建议",
     detail: "建议增加 CSV BOM",
     checks: []
@@ -1274,7 +1272,14 @@ async function makeLifecycleHarness({ root, runtime, backendId = "backend-lifecy
   const attach = (review, callId) =>
     service.attachReviewer(projectId, "task-lifecycle", { reviewId: review.reviewId, callId });
   const finding = (review, title) =>
-    service.recordFinding(projectId, { reviewId: review.reviewId, title, detail: title, checks: [] });
+    service.recordFinding(projectId, {
+      reviewId: review.reviewId,
+      blocking: true,
+      basis: "regression",
+      title,
+      detail: title,
+      checks: []
+    });
   const rule = (review, findingId, decision, extra = {}) =>
     service.ruleFinding(projectId, {
       reviewId: review.reviewId,
@@ -1327,6 +1332,8 @@ async function makeLifecycleHarness({ root, runtime, backendId = "backend-lifecy
     rule,
     complete,
     rework,
+    changeApproach: (review, approach, basis = "recorded approach basis") =>
+      service.changeApproach(projectId, { reviewId: review.reviewId, approach, basis }),
     delivery: (development) => service.delivery(projectId, development.developmentId),
     getReview: (reviewId) => service.getReview(projectId, reviewId)
   };
@@ -1590,6 +1597,22 @@ for (const engine of PROJECT_DATA_ENGINES) {
     const secondContinuation = h.continueExecutor(firstContinuation);
     await h.rework(second, secondFinding, firstContinuation, secondContinuation);
     const thirdCandidate = await h.commit(chain, "chain.txt", "three\n");
+    // Two failed rounds use the chain's budget: a third round of the same
+    // rework is refused until Main records a change of approach.
+    await assert.rejects(
+      h.start(chain, { previousReviewId: second.reviewId }),
+      (error) => error.code === "review_round_limit"
+    );
+    await assert.rejects(
+      h.changeApproach(second, "fresh_executor"),
+      (error) => error.code === "review_approach_invalid"
+    );
+    const changed = await h.changeApproach(second, "new_plan", "split the rework differently");
+    assert.equal(changed.verdict.approach.kind, "new_plan");
+    await assert.rejects(
+      h.changeApproach(second, "deliver_partial"),
+      (error) => error.code === "review_approach_recorded"
+    );
     let third = await h.start(chain, { previousReviewId: second.reviewId });
     third = await h.attach(third, (await h.addReviewer(chain)).callId);
     third = await h.complete(third, "passed");
@@ -1604,8 +1627,8 @@ for (const engine of PROJECT_DATA_ENGINES) {
     const chainQualification = await h.delivery(chain);
     assert.equal(chainQualification.eligible, true, JSON.stringify(chainQualification));
 
-    // A pass does not clear an open finding outside its chain; ruling that
-    // finding on the closed review is what unblocks delivery.
+    // A re-review answers the previous round, so a finding left unruled there
+    // refuses it; ruling that finding on the closed review is what lets it go on.
     const open = await h.makeDevelopment("unrelated open finding");
     await h.commit(open, "open.txt", "one\n");
     await h.plan(open);
@@ -1616,21 +1639,167 @@ for (const engine of PROJECT_DATA_ENGINES) {
     const openFinding = openReview.findings[0].findingId;
     openReview = await h.complete(openReview, "failed", []);
     await h.commit(open, "open.txt", "two\n");
-    let openSuccessor = await h.start(open, { previousReviewId: openReview.reviewId });
-    openSuccessor = await h.attach(openSuccessor, (await h.addReviewer(open)).callId);
-    openSuccessor = await h.complete(openSuccessor, "passed");
-    const openReviewAfter = await h.getReview(openReview.reviewId);
-    assert.equal(
-      openReviewAfter.findings[0].state,
-      "open",
-      "a pass only settles fix-claimed findings on its linked chain"
+    await assert.rejects(
+      h.start(open, { previousReviewId: openReview.reviewId }),
+      (error) => error.code === "review_previous_unruled"
     );
     const blocked = await h.delivery(open);
     assert.equal(blocked.eligible, false);
     assert.ok(blocked.reasons.includes("findings_open"));
-    const openRuled = await h.rule(openReviewAfter, openFinding, "dismiss", { category: "out_of_scope" });
+    const openRuled = await h.rule(openReview, openFinding, "dismiss", { category: "out_of_scope" });
     assert.equal(openRuled.findings[0].state, "dismissed");
+    let openSuccessor = await h.start(open, { previousReviewId: openReview.reviewId });
+    openSuccessor = await h.attach(openSuccessor, (await h.addReviewer(open)).callId);
+    openSuccessor = await h.complete(openSuccessor, "passed");
     const unblocked = await h.delivery(open);
     assert.equal(unblocked.eligible, true, JSON.stringify(unblocked));
   });
 }
+
+test("the program imports the Reviewer's conclusion, narrows the re-review and stops a third round", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "atria-p4-rules-"));
+  const runtime = new ProjectDataRuntime({
+    config: { sqlite: { path: join(root, "project-data.sqlite") } },
+    configPath: join(root, "config.json"),
+    dataRoot: root,
+    env: {}
+  });
+  t.after(async () => {
+    await runtime.close().catch(() => undefined);
+    await rm(root, { recursive: true, force: true });
+  });
+  const h = await makeLifecycleHarness({ root, runtime, backendId: "backend-rules" });
+  const reviewer = async (development, review) => {
+    const fact = await h.addReviewer(development);
+    fact.review = review;
+    return fact;
+  };
+  const blocking = (extra = {}) => ({
+    title: "result missing",
+    location: "rules.txt:1",
+    evidence: "cat rules.txt prints one",
+    blocking: true,
+    basis: "CC1",
+    ...extra
+  });
+
+  const development = await h.makeDevelopment("review rules");
+  await h.commit(development, "rules.txt", "one\n");
+  await h.plan(development);
+  const author = await h.writeExecutor(development);
+  let first = await h.start(development, { authorCallId: author.callId });
+
+  // A conclusion that blocks on something outside this review's criteria is refused, not imported.
+  const stray = await reviewer(development, {
+    verdict: "changes_requested",
+    findings: [blocking({ basis: "AC9" })]
+  });
+  await assert.rejects(h.attach(first, stray.callId), (error) => error.code === "review_conclusion_invalid");
+  assert.equal((await h.getReview(first.reviewId)).reviewer, undefined, "the refused Reviewer is not bound");
+
+  const valid = await reviewer(development, {
+    verdict: "changes_requested",
+    findings: [
+      blocking(),
+      { title: "naming", location: "rules.txt", evidence: "one is vague", blocking: false }
+    ]
+  });
+  first = await h.attach(first, valid.callId);
+  assert.equal(first.reviewer.conclusion.verdict, "changes_requested");
+  assert.deepEqual(
+    first.findings.map((entry) => [entry.title, entry.state, entry.blocking, entry.basis]),
+    [
+      ["result missing", "open", true, "CC1"],
+      ["naming", "suggestion", false, undefined]
+    ]
+  );
+  await assert.rejects(h.finding(first, "copied"), (error) => error.code === "review_conclusion_imported");
+  const [missing, naming] = first.findings.map((entry) => entry.findingId);
+  await assert.rejects(
+    h.rule(first, naming, "dismiss", { category: "out_of_scope" }),
+    (error) => error.code === "review_finding_ruled"
+  );
+  // A re-review answers a ruled previous round only.
+  first = await h.complete(first, "failed", []);
+  await h.commit(development, "rules.txt", "two\n");
+  await assert.rejects(
+    h.start(development, { previousReviewId: first.reviewId }),
+    (error) => error.code === "review_previous_unruled"
+  );
+  first = await h.rule(first, missing, "fix");
+  await h.rework(first, missing, author, h.continueExecutor(author));
+  let second = await h.start(development, { previousReviewId: first.reviewId });
+  assert.deepEqual(second.changedPaths, ["rules.txt"]);
+
+  // The re-review must answer the previous finding; one it says is not fixed
+  // is carried under the same id and the claimed fix is reopened.
+  const silent = await reviewer(development, { verdict: "pass", findings: [] });
+  await assert.rejects(
+    h.attach(second, silent.callId),
+    (error) => error.code === "review_conclusion_invalid"
+  );
+  const answering = await reviewer(development, {
+    verdict: "changes_requested",
+    findings: [],
+    previousFindings: [{ findingId: missing, fixed: false, evidence: "cat rules.txt prints two" }]
+  });
+  second = await h.attach(second, answering.callId);
+  assert.deepEqual(
+    second.findings.map((entry) => [entry.findingId, entry.state, entry.detail]),
+    [[missing, "open", "cat rules.txt prints two"]]
+  );
+  assert.equal(
+    (await h.getReview(first.reviewId)).findings.find((entry) => entry.findingId === missing).state,
+    "reopened"
+  );
+  second = await h.rule(second, missing, "fix");
+  second = await h.complete(second, "failed", []);
+  await h.commit(development, "rules.txt", "three\n");
+
+  // Two failed rounds: the same rework again is refused until Main changes approach.
+  await assert.rejects(
+    h.start(development, { previousReviewId: second.reviewId }),
+    (error) => error.code === "review_round_limit"
+  );
+  assert.match(await h.service.next(h.projectId, development.developmentId), /used its rework rounds/);
+  await assert.rejects(
+    h.changeApproach(first, "deliver_partial"),
+    (error) => error.code === "review_not_latest"
+  );
+  await assert.rejects(
+    h.changeApproach(second, "deliver_partial"),
+    (error) => error.code === "review_findings_open",
+    "a claimed fix still waits"
+  );
+  second = await h.rule(second, missing, "dismiss", {
+    category: "deferred",
+    basis: "left for the next requirement"
+  });
+  second = await h.changeApproach(
+    second,
+    "deliver_partial",
+    "deliver what is done; the result row is left undone"
+  );
+  assert.equal(second.state, "failed", "the review stays as it was");
+  assert.equal(second.verdict.approach.kind, "deliver_partial");
+  // The candidate to deliver is the reviewed one, not the later attempt.
+  const reset = await h.service.get(h.projectId, development.developmentId);
+  await git(reset.workspace.directory, ["reset", "--hard", second.candidate.commit]);
+  const qualification = await h.delivery(development);
+  assert.equal(qualification.eligible, true, JSON.stringify(qualification));
+  assert.equal(qualification.reviewId, second.reviewId);
+
+  const view = await h.service.deliveryView(h.projectId, { developmentId: development.developmentId });
+  assert.deepEqual(
+    view.reviewReport.dismissed.map((entry) => [entry.findingId, entry.category, entry.basis]),
+    [[missing, "deferred", "left for the next requirement"]]
+  );
+  assert.deepEqual(
+    view.reviewReport.approaches.map((entry) => [entry.reviewId, entry.kind]),
+    [[second.reviewId, "deliver_partial"]]
+  );
+  assert.deepEqual(
+    view.reviewReport.suggestions.map((entry) => [entry.title, entry.picked]),
+    [["naming", false]]
+  );
+});

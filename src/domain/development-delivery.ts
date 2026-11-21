@@ -1,7 +1,12 @@
 import type { DevelopmentTicket } from "./development-ticket.js";
 import type { DevelopmentMerge, MergeReceipt } from "./development-merge.js";
 import { developmentBranch } from "./project-development.js";
-import type { DevelopmentReview, ReviewPlan, ReviewQualification } from "./development-review.js";
+import type {
+  DevelopmentReview,
+  ReviewPlan,
+  ReviewQualification,
+  ReviewReport
+} from "./development-review.js";
 import { ProjectDataInvalidError, ledgerIdentifier } from "./project-ledger.js";
 import type { BoardEntry } from "./project-board.js";
 import type { DevelopmentRecord } from "./project-development.js";
@@ -133,6 +138,8 @@ export interface DeliveryView {
   tickets: DevelopmentTicket[];
   /** A local fact this host published but the shared delivery has not accepted yet. */
   pendingSync?: { mergeId: string; error?: string };
+  /** What the reviews let through and how: reported to the user or the project owner. */
+  reviewReport: ReviewReport;
 }
 
 const CONTROL = /[\0-\x08\x0b\x0c\x0e-\x1f\x7f]/;

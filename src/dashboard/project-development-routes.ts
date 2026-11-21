@@ -179,6 +179,13 @@ async function handleReviewRequest(
       const review = await service.recordReworkForTask(requireTask(), body);
       return reply(response, 200, { review });
     }
+    case "change_approach": {
+      if (scope.declared) throw new HttpError(403, "审查须在执行后端进行", "review_owner_only");
+      const review = task
+        ? await service.changeApproachForTask(task, body)
+        : await service.changeApproach(scope.projectId, body);
+      return reply(response, 200, { review });
+    }
     case "complete": {
       if (scope.declared) throw new HttpError(403, "审查须在执行后端进行", "review_owner_only");
       const review = task

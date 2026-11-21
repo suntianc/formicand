@@ -14,16 +14,47 @@ import { now } from "./types.js";
 export type ReviewChannel = "self" | "independent" | "combined";
 export type ReviewKind = "independent" | "combined";
 export type ReviewState = "in_review" | "passed" | "failed" | "drifted";
-export type FindingState = "open" | "fix_claimed" | "fixed" | "dismissed";
+/**
+ * `open` blocks until Main rules it; `suggestion` is a non-blocking finding Main
+ * may still choose to fix; `reopened` is a claimed fix the re-review found not
+ * fixed, carried into that re-review under the same id.
+ */
+export type FindingState = "open" | "suggestion" | "fix_claimed" | "fixed" | "reopened" | "dismissed";
 export type RulingDecision = "fix" | "dismiss";
-export type DismissalCategory = "false_positive" | "out_of_scope" | "other";
+export type DismissalCategory = "false_positive" | "out_of_scope" | "deferred" | "other";
+/**
+ * What Main does once a review chain has used its rework rounds: re-split or
+ * revise the ticket, hand it to a fresh Executor, make a new plan for the whole
+ * requirement, or deliver what is done and record what is not.
+ */
+export type ApproachKind = "fresh_executor" | "revised_ticket" | "new_plan" | "deliver_partial";
 
 export const REVIEW_CHANNELS: readonly ReviewChannel[] = ["self", "independent", "combined"];
 export const REVIEW_KINDS: readonly ReviewKind[] = ["independent", "combined"];
 export const REVIEW_STATES: readonly ReviewState[] = ["in_review", "passed", "failed", "drifted"];
-export const FINDING_STATES: readonly FindingState[] = ["open", "fix_claimed", "fixed", "dismissed"];
+export const FINDING_STATES: readonly FindingState[] = [
+  "open",
+  "suggestion",
+  "fix_claimed",
+  "fixed",
+  "reopened",
+  "dismissed"
+];
 export const RULING_DECISIONS: readonly RulingDecision[] = ["fix", "dismiss"];
-export const DISMISSAL_CATEGORIES: readonly DismissalCategory[] = ["false_positive", "out_of_scope", "other"];
+export const DISMISSAL_CATEGORIES: readonly DismissalCategory[] = [
+  "false_positive",
+  "out_of_scope",
+  "deferred",
+  "other"
+];
+export const APPROACH_KINDS: readonly ApproachKind[] = [
+  "fresh_executor",
+  "revised_ticket",
+  "new_plan",
+  "deliver_partial"
+];
+/** Failed reviews a chain may have before Main must change approach. */
+export const REWORK_ROUNDS = 2;
 
 /** One recorded check: the command that ran, its exit code and its captured output. */
 export interface ReviewCheck {
@@ -49,6 +80,10 @@ export interface ReviewFinding {
   title: string;
   detail: string;
   location?: string;
+  /** Whether it blocks acceptance; a non-blocking one is a suggestion. */
+  blocking: boolean;
+  /** For a blocking finding: the criterion it violates, or a floor class. */
+  basis?: string;
   /** The candidate that was under review when this was found. */
   candidateCommit: string;
   state: FindingState;
@@ -87,6 +122,23 @@ export interface ReviewReviewer {
   callId: string;
   agentId: string;
   workspace: string;
+  /** The conclusion it submitted, once the program imported it into this review. */
+  conclusion?: ReviewerConclusion;
+}
+
+/** What the Reviewer itself concluded, kept beside Main's rulings. */
+export interface ReviewerConclusion {
+  verdict: "pass" | "changes_requested";
+  /** On a re-review: whether each finding of the previous round is fixed. */
+  previousFindings?: { findingId: string; fixed: boolean; evidence: string }[];
+  at: string;
+}
+
+/** Main's change of approach on a failed review that used the chain's rounds. */
+export interface ReviewApproach {
+  kind: ApproachKind;
+  basis: string;
+  at: string;
 }
 
 /** The call that produced the candidate, when it came from a delegated Executor. */
@@ -118,6 +170,8 @@ export interface ReviewVerdict {
   summary: string;
   checks: ReviewCheck[];
   at: string;
+  /** Set on a failed review when its chain hit the round limit. */
+  approach?: ReviewApproach;
 }
 
 export interface DevelopmentReview {
@@ -241,6 +295,82 @@ export function reviewCallId(value: unknown, label = "工作项 callId"): string
   return ledgerIdentifier(value, label);
 }
 
+export function approachKind(value: unknown): ApproachKind {
+  if (typeof value !== "string" || !APPROACH_KINDS.includes(value as ApproachKind))
+    throw new ProjectDataInvalidError(`换办法须为 ${APPROACH_KINDS.join(" / ")}`);
+  return value as ApproachKind;
+}
+
+/** A failed review Main accepted as it is, delivering what was done. */
+export function acceptedPartially(review: DevelopmentReview): boolean {
+  return review.state === "failed" && review.verdict?.approach?.kind === "deliver_partial";
+}
+
+/** A review whose candidate may go on: passed, or accepted as partial delivery. */
+export function reviewApproved(review: DevelopmentReview): boolean {
+  return review.state === "passed" || acceptedPartially(review);
+}
+
+/**
+ * What a requirement's reviews let through, for the completion report.
+ *
+ * Main decides each of these alone, so each is listed with its reason: the
+ * blocking findings it dismissed, the chains where it changed approach after
+ * the rework rounds ran out, and every suggestion — the ones it picked up and
+ * the ones left as they are.
+ */
+export interface ReviewReport {
+  dismissed: {
+    reviewId: string;
+    ticketId?: string;
+    findingId: string;
+    title: string;
+    category: DismissalCategory;
+    basis: string;
+  }[];
+  approaches: { reviewId: string; ticketId?: string; kind: ApproachKind; basis: string; at: string }[];
+  suggestions: {
+    reviewId: string;
+    ticketId?: string;
+    findingId: string;
+    title: string;
+    location?: string;
+    picked: boolean;
+  }[];
+}
+
+export function reviewReport(
+  reviews: DevelopmentReview[],
+  ticketOf: (reviewId: string) => string | undefined
+): ReviewReport {
+  const report: ReviewReport = { dismissed: [], approaches: [], suggestions: [] };
+  for (const review of reviews) {
+    const ticketId = ticketOf(review.reviewId);
+    const where = { reviewId: review.reviewId, ...(ticketId ? { ticketId } : {}) };
+    for (const finding of review.findings) {
+      if (!finding.blocking)
+        report.suggestions.push({
+          ...where,
+          findingId: finding.findingId,
+          title: finding.title,
+          ...(finding.location ? { location: finding.location } : {}),
+          picked: finding.state !== "suggestion"
+        });
+      else if (finding.state === "dismissed" && finding.ruling?.category)
+        report.dismissed.push({
+          ...where,
+          findingId: finding.findingId,
+          title: finding.title,
+          category: finding.ruling.category,
+          basis: finding.ruling.basis
+        });
+    }
+    const approach = review.verdict?.approach;
+    if (approach) report.approaches.push({ ...where, ...approach });
+  }
+  return report;
+}
+
 export function reviewBasis(value: unknown): string {
   return bounded(value, "裁定依据", 2000);
 }
@@ -317,7 +447,48 @@ export function reviewReviewer(value: unknown): ReviewReviewer {
     taskId: ledgerIdentifier(input.taskId, "审查任务"),
     callId: reviewCallId(input.callId, "审查工作项 callId"),
     agentId: reviewCallId(input.agentId, "审查工作项身份"),
-    workspace: ledgerProjectDirectory(input.workspace)
+    workspace: ledgerProjectDirectory(input.workspace),
+    ...(input.conclusion === undefined ? {} : { conclusion: reviewerConclusion(input.conclusion) })
+  };
+}
+
+function reviewerConclusion(value: unknown): ReviewerConclusion {
+  if (!value || typeof value !== "object" || Array.isArray(value))
+    throw new ProjectDataInvalidError("审查者结论必须是对象");
+  const input = value as Record<string, unknown>;
+  if (input.verdict !== "pass" && input.verdict !== "changes_requested")
+    throw new ProjectDataInvalidError("审查者结论须为 pass / changes_requested");
+  let previousFindings: ReviewerConclusion["previousFindings"];
+  if (input.previousFindings !== undefined) {
+    if (!Array.isArray(input.previousFindings) || input.previousFindings.length > 50)
+      throw new ProjectDataInvalidError("上一轮发现的答复须为不超过 50 条");
+    previousFindings = input.previousFindings.map((entry) => {
+      if (!entry || typeof entry !== "object" || Array.isArray(entry))
+        throw new ProjectDataInvalidError("上一轮发现的答复必须是对象");
+      const answer = entry as Record<string, unknown>;
+      if (typeof answer.fixed !== "boolean") throw new ProjectDataInvalidError("答复须写明是否修好");
+      return {
+        findingId: ledgerIdentifier(answer.findingId, "答复的发现 ID"),
+        fixed: answer.fixed,
+        evidence: bounded(answer.evidence, "答复证据", 4000)
+      };
+    });
+  }
+  return {
+    verdict: input.verdict,
+    ...(previousFindings ? { previousFindings } : {}),
+    at: bounded(input.at, "审查者结论时间", 100)
+  };
+}
+
+function reviewApproach(value: unknown): ReviewApproach {
+  if (!value || typeof value !== "object" || Array.isArray(value))
+    throw new ProjectDataInvalidError("换办法记录必须是对象");
+  const input = value as Record<string, unknown>;
+  return {
+    kind: approachKind(input.kind),
+    basis: bounded(input.basis, "换办法理由", 2000),
+    at: bounded(input.at, "换办法时间", 100)
   };
 }
 
@@ -378,6 +549,10 @@ export function reviewFinding(value: unknown): ReviewFinding {
     ...(optionalBounded(input.location, "发现位置", 1000)
       ? { location: optionalBounded(input.location, "发现位置", 1000)! }
       : {}),
+    blocking: input.blocking !== false,
+    ...(optionalBounded(input.basis, "发现依据", 40)
+      ? { basis: optionalBounded(input.basis, "发现依据", 40)! }
+      : {}),
     candidateCommit: reviewCommit(input.candidateCommit, "发现时候选提交"),
     state: findingState(input.state),
     checks: reviewChecks(input.checks, "发现检查记录"),
@@ -399,6 +574,8 @@ export function reviewFindingInput(value: unknown): {
   title: string;
   detail: string;
   location?: string;
+  blocking: boolean;
+  basis?: string;
   checks: ReviewCheck[];
   rawFailure?: string;
 } {
@@ -407,10 +584,15 @@ export function reviewFindingInput(value: unknown): {
   const input = value as Record<string, unknown>;
   const location = optionalBounded(input.location, "发现位置", 1000);
   const rawFailure = optionalBounded(input.rawFailure, "失败原件", 8000);
+  const basis = optionalBounded(input.basis, "发现依据", 40);
+  if (typeof input.blocking !== "boolean")
+    throw new ProjectDataInvalidError("发现须写明是否拦截（blocking）");
   return {
     title: bounded(input.title, "发现标题", 300),
     detail: bounded(input.detail, "发现说明", 4000),
     ...(location ? { location } : {}),
+    blocking: input.blocking,
+    ...(basis ? { basis } : {}),
     checks: reviewChecks(input.checks, "发现检查记录"),
     ...(rawFailure ? { rawFailure } : {})
   };
@@ -423,7 +605,8 @@ export function reviewVerdict(value: unknown): ReviewVerdict {
   return {
     summary: bounded(input.summary, "审查结论", 2000),
     checks: reviewChecks(input.checks, "复审检查记录"),
-    at: input.at === undefined ? now() : bounded(input.at, "结论时间", 100)
+    at: input.at === undefined ? now() : bounded(input.at, "结论时间", 100),
+    ...(input.approach === undefined ? {} : { approach: reviewApproach(input.approach) })
   };
 }
 
