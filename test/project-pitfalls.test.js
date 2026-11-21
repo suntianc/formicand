@@ -10,6 +10,7 @@ import { startDashboard } from "./dashboard-fixture.mjs";
 import { backendPaths, readBackendInstance } from "../dist/src/dashboard/backend-instance.js";
 import { createProjectDevelopmentTool } from "../dist/src/runtime/project-development-tool.js";
 import { PITFALLS_INDEX, pitfallsHint } from "../dist/src/runtime/project-pitfalls.js";
+import { pitfallAnchor, pitfallProblems } from "../dist/src/domain/pitfall-entries.js";
 
 const run = promisify(execFile);
 const git = (cwd, args) => run("git", args, { cwd });
@@ -47,6 +48,45 @@ test("the pitfalls hint names the index only when the checkout keeps one", async
   await rm(join(root, PITFALLS_INDEX), { recursive: true });
   await writeFile(join(root, PITFALLS_INDEX), "# Pitfalls\n");
   assert.match(await pitfallsHint(root), /docs\/pitfalls\/README\.md[^]*the code is right/);
+});
+
+const entry = (fields = {}) =>
+  [
+    "## 合入检查在组合版本上运行",
+    "",
+    `- **Trigger:** ${fields.trigger ?? "合入检查读取候选里才有的文件。"}`,
+    "- **What happens:** 目标分支与候选组合后文件不同，检查失败。",
+    "- **Confirm:** 在组合版本上运行同一检查命令。",
+    "- **Avoid：** 检查只读组合版本里的文件。",
+    `- **Sources:** ${fields.sources ?? "分页修复，2026-11-22"}`,
+    ""
+  ].join("\n");
+const indexFor = (anchor) =>
+  `# Pitfalls\n\n| Trigger | Entry |\n| --- | --- |\n| 合入检查 | [组合版本](merge.md#${anchor}) |\n`;
+
+test("pitfall entries keep five short fields, no run details, and a row in the index", () => {
+  const anchor = pitfallAnchor("合入检查在组合版本上运行");
+  assert.deepEqual(pitfallProblems({ "merge.md": entry() }, indexFor(anchor)), []);
+  assert.deepEqual(
+    pitfallProblems({ "merge.md": entry() }, indexFor(encodeURIComponent(anchor))),
+    [],
+    "an encoded anchor is the same link"
+  );
+  const one = (page, index = indexFor(anchor)) => pitfallProblems({ "merge.md": page }, index).join("\n");
+  assert.match(
+    one(entry().replace("- **Confirm:** 在组合版本上运行同一检查命令。\n", "")),
+    /须且只能依次写五项/
+  );
+  assert.match(one(entry({ trigger: "提交 1a2b3c4d 之后失败。" })), /Trigger 含 commit SHA/);
+  assert.match(one(entry({ trigger: "读取 /opt/app/list.txt 的文件。" })), /Trigger 含 absolute path/);
+  assert.match(one(entry({ trigger: "返修 3 轮后才发现。" })), /Trigger 含 round or test count/);
+  assert.match(one(entry({ trigger: "第一句。第二句。第三句。" })), /Trigger 超过两句话/);
+  assert.match(one(entry({ sources: "分页修复" })), /Sources 须写需求标题和日期/);
+  assert.match(one(entry({ sources: "[复盘](x.md) 2026-11-22" })), /Sources 只写需求标题和日期/);
+  assert.match(one(entry(), "# Pitfalls\n"), /索引缺少 merge\.md「合入检查在组合版本上运行」/);
+  assert.match(one("# Merge\n", indexFor(anchor)), /在页面里没有对应条目/);
+  assert.match(pitfallProblems({ "merge.md": undefined }, indexFor(anchor)).join(), /已删除的 merge\.md/);
+  assert.deepEqual(pitfallProblems({ "merge.md": entry() }, undefined), ["缺少索引 README.md"]);
 });
 
 test(
@@ -187,9 +227,27 @@ test(
 
     // The retro writes its pitfalls on top of the approved version; only that directory may change.
     await mkdir(join(noisy.checkout, "docs", "pitfalls"), { recursive: true });
-    await writeFile(join(noisy.checkout, PITFALLS_INDEX), "# Pitfalls\n\n| Trigger | Entry |\n");
+    await writeFile(join(noisy.checkout, "docs", "pitfalls", "merge.md"), entry({ sources: "第二项" }));
+    await writeFile(
+      join(noisy.checkout, PITFALLS_INDEX),
+      indexFor(pitfallAnchor("合入检查在组合版本上运行"))
+    );
     await git(noisy.checkout, ["add", "."]);
     await git(noisy.checkout, ["commit", "-m", "docs(pitfalls): merge checks"]);
+    await assert.rejects(
+      tool.execute({
+        action: "request_merge",
+        developmentId: noisy.developmentId,
+        mergeChecks,
+        retro: { pitfalls: "新增一条：合入检查命令在组合版本上运行" }
+      }),
+      /坑点格式不符[^]*Sources 须写需求标题和日期/
+    );
+    await writeFile(
+      join(noisy.checkout, "docs", "pitfalls", "merge.md"),
+      entry({ sources: "第二项，2026-11-22" })
+    );
+    await git(noisy.checkout, ["commit", "-am", "docs(pitfalls): date the source"]);
     await assert.rejects(
       tool.execute({
         action: "request_merge",

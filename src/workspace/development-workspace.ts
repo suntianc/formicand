@@ -55,6 +55,34 @@ export async function onlyChangesUnder(
   return files.length > 0 && files.every((file) => file.startsWith(directory));
 }
 
+/**
+ * The top-level files under `directory` that changed between two commits, by
+ * file name, with their text at `to` (undefined when removed there).
+ */
+export async function changedPagesUnder(
+  repository: string,
+  from: string,
+  to: string,
+  directory: string
+): Promise<Record<string, string | undefined>> {
+  const names = (
+    await git(repository, ["diff", "--name-only", "--no-renames", `${from}..${to}`, "--", directory])
+  )
+    .split("\n")
+    .filter((file) => file && !file.slice(directory.length).includes("/"));
+  return Object.fromEntries(
+    await Promise.all(
+      names.map(async (file) => [file.slice(directory.length), await fileAt(repository, to, file)] as const)
+    )
+  );
+}
+
+/** A file's text at a commit, or undefined when the commit does not have it. */
+export async function fileAt(repository: string, commit: string, path: string): Promise<string | undefined> {
+  const present = await git(repository, ["ls-tree", "--name-only", commit, "--", path]);
+  return present ? git(repository, ["show", `${commit}:${path}`]) : undefined;
+}
+
 function invalid(message: string): ProjectDataInvalidError {
   return new ProjectDataInvalidError(message);
 }

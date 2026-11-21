@@ -40,6 +40,7 @@ import {
   type MergeCheck,
   type MergeRetro
 } from "../domain/development-merge.js";
+import { PITFALLS_INDEX_PAGE, pitfallProblems } from "../domain/pitfall-entries.js";
 import {
   deliveryFromMerge,
   deliveryReceipt,
@@ -89,6 +90,8 @@ import {
   developmentWorkspaceIsIntact,
   git,
   onlyChangesUnder,
+  changedPagesUnder,
+  fileAt,
   prepareDevelopmentWorkspace,
   resolveDevelopmentBaseline
 } from "../workspace/development-workspace.js";
@@ -1979,7 +1982,8 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
     projectId: string,
     record: DevelopmentRecord,
     value: unknown,
-    pitfallsCommitted: boolean
+    /** The approved version and the candidate on top of it, when only the pitfalls changed in between. */
+    pitfallsCommitted: { approved: string; candidate: string } | undefined
   ): Promise<{ retro: MergeRetro; improvements: RetroInput["improvements"] }> {
     const service = await gateway();
     const [reviews, merges] = await Promise.all([
@@ -2015,6 +2019,20 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
         `retro.pitfalls 说写了坑点，但候选在验收版本之上没有只改 ${PITFALLS_DIRECTORY} 的提交`,
         "retro_mismatch"
       );
+    if (pitfallsCommitted) {
+      const directory = record.workspace!.directory;
+      const problems = pitfallProblems(
+        await changedPagesUnder(
+          directory,
+          pitfallsCommitted.approved,
+          pitfallsCommitted.candidate,
+          PITFALLS_DIRECTORY
+        ),
+        await fileAt(directory, pitfallsCommitted.candidate, `${PITFALLS_DIRECTORY}${PITFALLS_INDEX_PAGE}`)
+      );
+      if (problems.length)
+        throw conflict(`坑点格式不符，改好后重新提交：${problems.join("；")}`, "pitfalls_malformed");
+    }
     const improvements = given?.improvements ?? [];
     // An improvement a retro registered does not register further improvements:
     // its own retro keeps pitfalls only, so retros cannot feed each other.
@@ -2079,7 +2097,12 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
       throw conflict("验收版本与当前候选不一致；请在当前版本验收后再申请合入", "merge_not_qualified");
     const supplied = input.checks === undefined ? undefined : mergeCheckCommands(input.checks);
     const service = await gateway();
-    const { retro, improvements } = await requirementRetro(projectId, record, input.retro, extended);
+    const { retro, improvements } = await requirementRetro(
+      projectId,
+      record,
+      input.retro,
+      extended ? { approved: qualification.approved.commit, candidate: candidate.commit } : undefined
+    );
     const checks = supplied ?? (await recordedMergeChecks(service, projectId, developmentId));
     if (!checks.length) throw conflict("合入须记录在组合版本上运行的检查命令", "merge_checks_missing");
     const acceptance: MergeAcceptance = {
