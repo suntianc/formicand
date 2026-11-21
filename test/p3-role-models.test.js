@@ -319,7 +319,15 @@ test("a project's built-in settings win field by field over the host's, and effo
   assert.equal(host.model, "model-a");
   assert.equal(host.thinkingLevel, "medium");
   assert.deepEqual(builtinAgentSettings(config, "executor"), {
-    skills: "all",
+    skills: [
+      "implement",
+      "tdd",
+      "diagnosing-bugs",
+      "code-review",
+      "domain-modeling",
+      "codebase-design",
+      "cua"
+    ],
     mcp: ["db"],
     prompt: "先跑测试"
   });
@@ -342,9 +350,14 @@ test("a project's built-in settings win field by field over the host's, and effo
     "xhigh"
   );
 
-  // Main keeps every server and skill until told otherwise; a delegated role gets no server.
+  // Main keeps every server and skill until told otherwise; a delegated role gets
+  // no server and only the bundled skills its work uses.
   assert.deepEqual(builtinAgentSettings(config, "main"), { skills: "all", mcp: "all", prompt: "" });
-  assert.deepEqual(builtinAgentSettings(config, "reviewer"), { skills: "all", mcp: [], prompt: "" });
+  assert.deepEqual(builtinAgentSettings(config, "reviewer"), {
+    skills: ["code-review", "domain-modeling", "codebase-design", "cua"],
+    mcp: [],
+    prompt: ""
+  });
 
   // An empty record follows the host again and leaves nothing behind.
   config = saveRoleSettings(config, { role: "executor", projectDirectory: project, settings: {} });

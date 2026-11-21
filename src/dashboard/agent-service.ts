@@ -28,6 +28,7 @@ import { displayPath } from "../runtime/display-path.js";
 import type { CoworkConfig } from "../runtime/config.js";
 import {
   BUILTIN_ROLES,
+  builtinAgentDefaults,
   builtinAgentSettings,
   projectRoleSettings,
   type BuiltinAgentSettings,
@@ -62,6 +63,8 @@ export interface BuiltinView {
   settings: RoleSettings;
   /** On the project page, the global settings a field follows when the project leaves it. */
   global?: RoleSettings;
+  /** What the role runs with when nothing is saved at any level. */
+  defaults: BuiltinAgentSettings;
   effective: BuiltinAgentSettings & Pick<RoleSettings, "profileId" | "thinkingLevel">;
 }
 
@@ -203,7 +206,8 @@ export function createAgentService(options: AgentServiceOptions) {
       readonly: true,
       problems: problems(
         {
-          ...(effective.skills === "all" ? {} : { skills: effective.skills }),
+          // Only names the user picked; the default list is the bundle's own.
+          ...(merged.skills && merged.skills !== "all" ? { skills: merged.skills } : {}),
           ...(effective.mcp === "all" ? {} : { mcp: effective.mcp })
         },
         known
@@ -212,6 +216,7 @@ export function createAgentService(options: AgentServiceOptions) {
         role,
         settings: own,
         ...(projectDirectory ? { global } : {}),
+        defaults: builtinAgentDefaults(role),
         effective: {
           ...effective,
           ...(merged.profileId ? { profileId: merged.profileId } : {}),

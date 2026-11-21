@@ -174,11 +174,12 @@ export function createAgentSettings({
   /** A built-in's global settings with defaults applied, to compare a project draft against. */
   function globalValue(agent) {
     const saved = agent.builtin.global ?? {};
+    const defaults = agent.builtin.defaults;
     return {
       profileId: saved.profileId,
       thinking: saved.thinkingLevel,
-      skills: saved.skills ?? "all",
-      mcp: saved.mcp ?? (agent.name === "main" ? "all" : []),
+      skills: saved.skills ?? defaults.skills,
+      mcp: saved.mcp ?? defaults.mcp,
       prompt: saved.prompt ?? ""
     };
   }
@@ -644,8 +645,8 @@ export function createAgentSettings({
         : {
             profileId: undefined,
             thinking: undefined,
-            skills: "all",
-            mcp: agent.name === "main" ? "all" : [],
+            skills: agent.builtin.defaults.skills,
+            mcp: agent.builtin.defaults.mcp,
             prompt: ""
           };
     const settings = {};

@@ -11,6 +11,7 @@ import {
   skillCatalogPrompt
 } from "../dist/src/runtime/skill-registry.js";
 import { checkDocumentation } from "../scripts/check-docs.mjs";
+import { builtinAgentDefaults } from "../dist/src/runtime/role-models.js";
 
 const names = [
   "cua",
@@ -42,6 +43,14 @@ async function markdownFiles(root) {
   for (const name of names) await visit(`.pi/skills/${name}`);
   return files;
 }
+
+test("the delegated roles' default skills are all bundled", () => {
+  for (const role of ["executor", "reviewer"]) {
+    const { skills } = builtinAgentDefaults(role);
+    assert.ok(Array.isArray(skills) && skills.length, role);
+    for (const name of skills) assert.ok(names.includes(name), `${role}: ${name}`);
+  }
+});
 
 test("bundled skills load on demand and every local resource survives installed desktop selection", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "atria-creative-skills-package-"));

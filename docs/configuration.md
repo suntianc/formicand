@@ -67,7 +67,7 @@ coworkos doctor --test-connection
 
 API 地址只填域名时自动补 `/v1`，带路径的地址原样使用。供应商详情里改了名称、地址、密钥或接口格式后，点击底部的“保存”生效，或点“放弃”还原；未保存的修改在切换供应商时保留。
 
-“设置 → Agent”的“内置”分组列出 Main、Executor、Reviewer。它们的名称、使用说明（Main 是职责）、权限和工具固定；模型与推理强度、技能、MCP 服务和附加提示词可以改，模型下拉按供应商分组。未选模型时 Main 使用第一个启用供应商的第一个模型，Executor、Reviewer 沿用 Main 的模型；未选推理强度时用模型自己的默认档位。Main 默认可见全部技能和全部已启用的 MCP 服务，Executor、Reviewer 默认可见全部技能、不用任何 MCP 服务。“项目”页可为某个项目单独设置这些项，没单独设置的项跟随全局，“全部跟随全局”清掉该项目的单独设置。
+“设置 → Agent”的“内置”分组列出 Main、Executor、Reviewer。它们的名称、使用说明（Main 是职责）、权限和工具固定；模型与推理强度、技能、MCP 服务和附加提示词可以改，模型下拉按供应商分组。未选模型时 Main 使用第一个启用供应商的第一个模型，Executor、Reviewer 沿用 Main 的模型；未选推理强度时用模型自己的默认档位。Main 默认可见全部技能和全部已启用的 MCP 服务，Executor 默认只用 `implement`、`tdd`、`diagnosing-bugs`、`code-review`、`domain-modeling`、`codebase-design`、`cua` 这几个随附技能，Reviewer 默认只用 `code-review`、`domain-modeling`、`codebase-design`、`cua`，两者都不用任何 MCP 服务；要用别的技能，在这里改为“全部可见”或添加。“项目”页可为某个项目单独设置这些项，没单独设置的项跟随全局，“全部跟随全局”清掉该项目的单独设置。
 
 Main 的设置从下一轮对话起生效；Executor、Reviewer 的技能、MCP 和附加提示词在派单时固定，模型在工作项实际启动时读取，运行中的工作项不受之后修改的影响。切换模型会保留会话，下一轮会将历史发送给新服务。正被内置 Agent 使用的模型或供应商不能移除或停用，先在 Agent 页改选。
 

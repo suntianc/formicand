@@ -208,7 +208,32 @@ test("the settings service saves, renames, switches off and deletes, and names b
   assert.deepEqual(list.agents.find((agent) => agent.name === "executor").builtin, {
     role: "executor",
     settings: {},
-    effective: { skills: "all", mcp: [], prompt: "" }
+    defaults: {
+      skills: [
+        "implement",
+        "tdd",
+        "diagnosing-bugs",
+        "code-review",
+        "domain-modeling",
+        "codebase-design",
+        "cua"
+      ],
+      mcp: [],
+      prompt: ""
+    },
+    effective: {
+      skills: [
+        "implement",
+        "tdd",
+        "diagnosing-bugs",
+        "code-review",
+        "domain-modeling",
+        "codebase-design",
+        "cua"
+      ],
+      mcp: [],
+      prompt: ""
+    }
   });
   const options = await service.options(global);
   assert.deepEqual(options.skills, ["pg-migration"]);

@@ -237,6 +237,37 @@ export function parseBuiltinAgentSettings(value: unknown): BuiltinAgentSettings 
   };
 }
 
+/**
+ * The bundled skills a delegated role sees until the user picks its skills.
+ * Main's own method skills (routing, the record, interviews, specs, tickets)
+ * need tools only Main has, so they are left out.
+ */
+const DEFAULT_ROLE_SKILLS: Record<BuiltinRole, string[] | "all"> = {
+  main: "all",
+  executor: [
+    "implement",
+    "tdd",
+    "diagnosing-bugs",
+    "code-review",
+    "domain-modeling",
+    "codebase-design",
+    "cua"
+  ],
+  reviewer: ["code-review", "domain-modeling", "codebase-design", "cua"]
+};
+
+/** What a built-in Agent runs with when the user has set nothing. */
+export function builtinAgentDefaults(role: BuiltinRole): BuiltinAgentSettings {
+  const skills = DEFAULT_ROLE_SKILLS[role];
+  return {
+    skills: skills === "all" ? skills : [...skills],
+    // Main keeps every enabled server unless told otherwise; a delegated role
+    // gets none until the user names some, as a custom Agent does.
+    mcp: role === "main" ? "all" : [],
+    prompt: ""
+  };
+}
+
 /** Skills, MCP servers and extra prompt a built-in Agent runs with in one place. */
 export function builtinAgentSettings(
   config: CoworkConfig,
@@ -244,12 +275,11 @@ export function builtinAgentSettings(
   projectDirectory?: string
 ): BuiltinAgentSettings {
   const settings = roleSettings(config, role, projectDirectory);
+  const defaults = builtinAgentDefaults(role);
   return {
-    skills: settings.skills ?? "all",
-    // Main keeps every enabled server unless told otherwise; a delegated role
-    // gets none until the user names some, as a custom Agent does.
-    mcp: settings.mcp ?? (role === "main" ? "all" : []),
-    prompt: settings.prompt ?? ""
+    skills: settings.skills ?? defaults.skills,
+    mcp: settings.mcp ?? defaults.mcp,
+    prompt: settings.prompt ?? defaults.prompt
   };
 }
 
