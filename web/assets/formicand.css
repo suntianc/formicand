@@ -1907,7 +1907,7 @@ html[data-theme] .select-menu .select-menu-option[aria-disabled="true"] {
 /* Text fields and selects match :focus-visible on a click too, so they take a
    quiet edge and halo instead of the 2 px keyboard ring buttons use. */
 html[data-theme]
-  :is(.settings-entry, .settings-card, .app-dialog)
+  :is(.settings-entry, .settings-card, .app-dialog, .provider-dialog)
   :is(input:not([type="checkbox"], [type="radio"]), select, textarea):focus-visible {
   border-color: var(--field-focus-edge);
   outline: none;
@@ -1918,7 +1918,7 @@ html[data-theme] .app-dialog .project-directory-field:has(input:focus-visible) {
   box-shadow: 0 0 0 3px var(--field-focus-ring);
 }
 html[data-theme]
-  :is(.settings-entry, .settings-card, .app-dialog)
+  :is(.settings-entry, .settings-card, .app-dialog, .provider-dialog)
   :is(input, select, textarea)[aria-invalid="true"]:focus-visible {
   border-color: var(--ui-danger);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--ui-danger) 18%, transparent);
