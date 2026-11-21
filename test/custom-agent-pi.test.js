@@ -187,12 +187,16 @@ test(
     assert.deepEqual(toolNames(request), [
       "ask_main",
       "bash",
+      "clear_context",
       "edit",
       "load_skill",
       "mcp__echoes__echo",
       "mcp__echoes__erase",
       "read",
-      "send_peer_message"
+      "read_history",
+      "search_history",
+      "send_peer_message",
+      "session_notes"
     ]);
     const system = systemText(request);
     assert.match(system, /Instructions for the db-migrator Agent[^]*AGENT_PROMPT_MARK/);
@@ -290,12 +294,16 @@ test(
       "ask_main",
       "bash",
       "browse_workspace",
+      "clear_context",
       "find",
       "grep",
       "ls",
       "read",
+      "read_history",
       "search",
+      "search_history",
       "send_peer_message",
+      "session_notes",
       "visit"
     ]);
     const system = systemText(request);

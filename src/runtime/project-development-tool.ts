@@ -2,6 +2,7 @@ import {
   createProjectDevelopmentClient,
   type ProjectDevelopmentClient
 } from "./project-development-client.js";
+import { pitfallsHint } from "./project-pitfalls.js";
 
 /** What the user is asked to confirm before tickets are frozen or a frozen ticket changes. */
 export interface TicketProposal {
@@ -423,14 +424,20 @@ export function createProjectDevelopmentTool(options: ProjectDevelopmentToolOpti
     confirm?: ConfirmTickets
   ): Promise<Record<string, unknown>> {
     const action = typeof input.action === "string" ? input.action : "";
-    if (action === "create")
-      return request({
+    if (action === "create") {
+      const created = await request({
         action,
         requirementId: input.requirementId,
         goal: input.goal,
         completionCriteria: input.completionCriteria,
         route: input.route
       });
+      // Main is told once, when the requirement's checkout opens, to read its pitfalls.
+      const directory = (created.development as { workspace?: { directory?: string } } | undefined)?.workspace
+        ?.directory;
+      const pitfalls = directory ? await pitfallsHint(directory) : undefined;
+      return pitfalls ? { ...created, pitfalls } : created;
+    }
     if (action === "get") return request({ action, developmentId: input.developmentId });
     if (action === "query") return request({ action });
     if (action === "find_by_requirement") return request({ action, requirementId: input.requirementId });

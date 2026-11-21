@@ -19,6 +19,7 @@ import {
 } from "./agent-process.js";
 import { enqueueMainCallback, formatSubagentSummary } from "./subagent-callback.js";
 import { parseReviewConclusion, type ReviewConclusion, type ReviewScope } from "./subagent-review.js";
+import { pitfallsHint } from "./project-pitfalls.js";
 
 /**
  * The backend side of delegated agent processes.
@@ -368,6 +369,9 @@ export class SubagentProcessService {
         throw error;
       }
     }
+    // A first turn is told about the checkout's pitfalls; a continuation was told already.
+    const hint = payload.continuation ? undefined : await pitfallsHint(site.directory);
+    const prompt = delegatedPrompt(payload.task ?? "Continue the delegated task.", hint);
     try {
       await this.host.launch({
         taskId: item.taskId,
@@ -379,12 +383,12 @@ export class SubagentProcessService {
         workingDirectory: site.directory,
         // A resumed session takes the rework brief as its prompt argument: the
         // transcript it opened already owns stdin's role for the first turn.
-        prompt: sessionFile ? "" : delegatedPrompt(payload.task ?? "Continue the delegated task."),
+        prompt: sessionFile ? "" : prompt,
         sessionDirectory,
         ...(sessionFile
           ? {
               sessionArgs: ["--session", sessionFile],
-              args: ["--", delegatedPrompt(payload.task ?? "Continue the delegated task.")]
+              args: ["--", prompt]
             }
           : {}),
         resultPath: join(directory, "result.json"),
@@ -926,9 +930,10 @@ async function readReviewSiteMarker(path: string): Promise<ReviewSite | undefine
   }
 }
 
-function delegatedPrompt(task: string): string {
+function delegatedPrompt(task: string, pitfalls?: string): string {
   return [
     `Main 分配的任务：${task}`,
+    ...(pitfalls ? [pitfalls] : []),
     "完成后请返回完整结论；如果创建了 deliverables/ 文件，请列出路径。证据直接写在总结中；不要返回‘正在处理’之类的过程叙述，也不要声称没有执行过的操作。"
   ].join("\n");
 }
