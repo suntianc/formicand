@@ -317,7 +317,10 @@ test(
       /不是这个需求里正在进行的审查/
     );
     final = await reviewer(final, "call-rf1");
-    assert.match(await service.next(projectId, developmentId), /Final review: Review .* is in progress/);
+    assert.match(
+      await service.next(projectId, developmentId),
+      /Final review: Review .* has its Reviewer's findings/
+    );
     final = await service.recordFinding(projectId, {
       reviewId: final.reviewId,
       blocking: true,

@@ -653,8 +653,8 @@ export function developmentNext(facts: NextStepFacts): string {
 
 function reviewStep(review: { reviewId: string; reviewer: boolean }): string {
   return review.reviewer
-    ? `Review ${review.reviewId} is in progress: once the Reviewer has finished, attach_reviewer again imports its findings; rule the blocking ones (fix, or dismiss with a basis), then complete_review.`
-    : `Review ${review.reviewId} is frozen: delegate the Reviewer with role=reviewer and this reviewId; when it finishes, attach_reviewer imports its findings.`;
+    ? `Review ${review.reviewId} has its Reviewer's findings: rule the blocking ones (fix, or dismiss with a basis), then complete_review.`
+    : `Review ${review.reviewId} is frozen: delegate the Reviewer with role=reviewer and this reviewId; once it has finished, attach_reviewer binds it and imports its findings.`;
 }
 
 /** One sentence per group of tickets that has something to do, in the order the work goes. */

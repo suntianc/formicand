@@ -248,7 +248,7 @@ export function createProjectDevelopmentTool(options: ProjectDevelopmentToolOpti
         callId: {
           ...ID,
           description:
-            "attach_reviewer: the Reviewer work item returned by call_subagent. The first Reviewer owns the review; retrying the same call is safe and another call is refused. Once the Reviewer has finished, attaching (or attaching again) imports its submitted findings into the review."
+            "attach_reviewer, once the Reviewer work item returned by call_subagent has finished: binds it to the review and imports its submitted findings. A running Reviewer is refused; a conclusion that breaks the review's rules is refused and leaves the review free for another Reviewer. The bound Reviewer owns the review; retrying the same call is safe."
         },
         title: {
           type: "string",

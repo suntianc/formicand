@@ -34,7 +34,7 @@ Pick the smallest route that keeps the result trustworthy. A route is cheaper to
 
 ## Ruling review findings
 
-The program imports the Reviewer's findings when you `attach_reviewer` after it finishes; you do not copy them. A finding blocks only when it cites an acceptance criterion or a floor class (regression, data loss, security, the project's own rules); everything else arrives as a suggestion that blocks nothing.
+Once the Reviewer has finished, `attach_reviewer` binds it and the program imports its findings; you do not copy them. A finding blocks only when it cites an acceptance criterion or a floor class (regression, data loss, security, the project's own rules); everything else arrives as a suggestion that blocks nothing.
 
 - `fix` a blocking finding that is right. Fix it through the Executor that made the change (`continueCallId`), so its session and checkout carry over.
 - `dismiss` a blocking finding that is wrong (`false_positive`), outside what was asked (`out_of_scope`), or left for later (`deferred`); the basis is what the user will read.

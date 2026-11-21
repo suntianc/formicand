@@ -719,17 +719,6 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
     return { parsed, previous };
   }
 
-  /** Import the bound Reviewer's conclusion once its call has finished with one. */
-  async function importWhenFinished(
-    projectId: string,
-    review: DevelopmentReview
-  ): Promise<DevelopmentReview> {
-    if (!review.reviewer || review.reviewer.conclusion || !ports.call) return review;
-    const fact = await ports.call(review.reviewer.taskId, review.reviewer.callId);
-    if (fact?.status === "completed" && fact.review) return importConclusion(projectId, review, fact.review);
-    return review;
-  }
-
   /**
    * Change approach on a failed review whose chain used its rounds.
    *
@@ -1334,10 +1323,16 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
       throw conflict("该工作项不是 Reviewer，不能记为独立审查", "review_reviewer_role");
     if (fact.developmentId !== review.developmentId)
       throw conflict("审查工作项不属于这个需求的现场", "review_development_mismatch");
-    if (fact.status === "queued")
-      throw conflict("审查工作项还没有开始，现场不可核对", "review_reviewer_not_started");
     if (fact.status === "failed" || fact.status === "cancelled")
       throw conflict(`审查工作项已 ${fact.status}，没有有效结论`, "review_reviewer_terminal");
+    // A Reviewer is bound only once it has finished, together with its
+    // conclusion: one that breaks the review's rules is never bound, so another
+    // Reviewer can still take the review.
+    if (fact.status !== "completed")
+      throw conflict(
+        `Reviewer ${fact.callId} 还没有结束（${fact.status}）；等它交回结论再绑定`,
+        "review_reviewer_running"
+      );
     if (!fact.workspace) throw conflict("审查工作项没有独立现场", "review_site_missing");
     const development = await service.getDevelopment(projectId, review.developmentId, ports.backendId);
     if (!development.workspace)
@@ -1351,10 +1346,7 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
       // A review belongs to the session that was bound first. The same call is
       // a safe retry; another Reviewer must use its own review record instead of
       // silently inheriting the findings and evidence already recorded here.
-      if (review.reviewer.callId === fact.callId)
-        return fact.status === "completed" && fact.review && !review.reviewer.conclusion
-          ? importConclusion(projectId, review, fact.review)
-          : review;
+      if (review.reviewer.callId === fact.callId) return review;
       throw conflict(
         `审查已绑定 Reviewer ${review.reviewer.callId}；新的 Reviewer 须使用独立审查记录`,
         "review_reviewer_bound"
@@ -1362,11 +1354,8 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
     }
     if (review.author && (review.author.callId === fact.callId || review.author.agentId === fact.agentId))
       throw conflict("审查会话与执行身份相同，不能记为独立审查", "review_not_independent");
-    // A leased work item may not have created its checkout yet. That is a
-    // retryable state, not unauthorized drift; only readable, changed content
-    // invalidates the review.
     const site = await readReviewSite(fact.workspace);
-    if (!site) throw conflict("审查工作项现场尚未准备完成；稍后重试绑定", "review_site_unavailable");
+    if (!site) throw conflict("审查工作项现场不可读", "review_site_unavailable");
     const reason = driftReason(site, review.candidate);
     if (reason) {
       // The review cannot bind this checkout, so it is not evidence for any
@@ -1375,9 +1364,7 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
       await releaseSite(review, derived);
       throw conflict(reason, "review_drifted");
     }
-    // A finished Reviewer whose conclusion breaks this review's rules is not
-    // bound, so another Reviewer can still take the review.
-    if (fact.status === "completed" && fact.review) await checkedConclusion(projectId, review, fact.review);
+    if (fact.review) await checkedConclusion(projectId, review, fact.review);
     const bound = await service.updateReview(projectId, reviewId, {
       expectedRevision: review.revision,
       reviewer: {
@@ -1388,9 +1375,7 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
         workspace: derived
       }
     });
-    return fact.status === "completed" && fact.review
-      ? importConclusion(projectId, bound, fact.review)
-      : bound;
+    return fact.review ? importConclusion(projectId, bound, fact.review) : bound;
   }
 
   async function recordFinding(
@@ -1630,20 +1615,10 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
   ): Promise<DevelopmentReview> {
     const service = await gateway();
     const reviewId = developmentIdentifier(input.reviewId, "审查 ID");
-    const stored = await service.getReview(projectId, reviewId);
-    if (stored.state !== "in_review") throw conflict("审查已经结束", "review_closed");
-    if (!stored.reviewer) throw conflict("还没有绑定独立审查会话", "review_reviewer_missing");
-    // The verdict rests on what the Reviewer found: a finished conclusion is
-    // imported first, and a Reviewer still at work cannot be overtaken.
-    const review = await importWhenFinished(projectId, stored);
-    const reviewer = review.reviewer!;
-    const fact =
-      !reviewer.conclusion && ports.call ? await ports.call(reviewer.taskId, reviewer.callId) : undefined;
-    if (fact && fact.status !== "completed")
-      throw conflict(
-        `Reviewer ${fact.callId} 还没有结束（${fact.status}）；等它交回结论`,
-        "review_reviewer_running"
-      );
+    const review = await service.getReview(projectId, reviewId);
+    if (review.state !== "in_review") throw conflict("审查已经结束", "review_closed");
+    if (!review.reviewer) throw conflict("还没有绑定独立审查会话", "review_reviewer_missing");
+    const reviewer = review.reviewer;
     const verdict = reviewVerdict({ summary: input.summary, checks: input.checks });
     if (input.verdict !== "passed" && input.verdict !== "failed")
       throw conflict("审查结论须为 passed / failed", "review_verdict_invalid");

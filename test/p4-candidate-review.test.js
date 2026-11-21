@@ -1467,8 +1467,8 @@ test("a closed or drifted review keeps its findings rulable and one reviewer own
   assert.equal(originalStill.reviewer.callId, reviewerOne.callId);
   assert.equal(originalStill.findings[0].source.callId, reviewerOne.callId);
 
-  // A leased Reviewer whose own checkout is not prepared yet is retryable, not
-  // a drift that permanently invalidates the review.
+  // A Reviewer still at work is not bound: binding waits for its conclusion,
+  // and the review stays open for it.
   const pending = await h.makeDevelopment("reviewer site not ready");
   await h.commit(pending, "export.txt", "header\n");
   await h.plan(pending);
@@ -1486,9 +1486,10 @@ test("a closed or drifted review keeps its findings rulable and one reviewer own
   };
   await assert.rejects(
     h.attach(pendingReview, pendingCall),
-    (error) => error.code === "review_site_unavailable"
+    (error) => error.code === "review_reviewer_running"
   );
-  assert.equal((await h.getReview(pendingReview.reviewId)).state, "in_review");
+  assert.equal((await h.getReview(pendingReview.reviewId)).reviewer, undefined);
+  h.calls[pendingCall].status = "completed";
   await prepareWorkItemSite({
     developmentDirectory: pending.workspace.directory,
     directory: pendingDirectory,
