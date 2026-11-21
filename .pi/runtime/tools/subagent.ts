@@ -22,6 +22,7 @@ import {
   SEND_PEER_MESSAGE_TOOL_DESCRIPTION
 } from "../../../dist/src/runtime/subagent-guidance.js";
 import { browseWorkspace } from "../../../dist/src/tools/workspace-browse.js";
+import { parseExecutorReport, type ExecutorReport } from "../../../dist/src/runtime/executor-report.js";
 import { loadConfig } from "../helpers.ts";
 import type { RuntimeToolResult } from "../helpers.ts";
 import type { SubagentRole } from "../../../dist/src/runtime/subagent-roles.js";
@@ -48,6 +49,10 @@ export interface SubagentToolContext {
   reviewScope?: ReviewScope;
   /** Record a well-formed conclusion; the result record writes it on exit. */
   submitReview(review: ReviewConclusion): void;
+  /** A ticket Executor's criterion ids; absent for any other work item. */
+  ticketCriteria?: string[];
+  /** Record a well-formed ticket report; the result record writes it on exit. */
+  submitReport(report: ExecutorReport): void;
 }
 
 export function registerSubagentTools(pi: ExtensionAPI, context: SubagentToolContext): void {
@@ -232,6 +237,7 @@ export function registerSubagentTools(pi: ExtensionAPI, context: SubagentToolCon
     }
   });
 
+  if (context.ticketCriteria) registerSubmitReport(pi, context, context.ticketCriteria);
   if (context.role !== "reviewer" || context.customAgent) return;
   pi.registerTool({
     name: "submit_review",
@@ -300,6 +306,53 @@ export function registerSubagentTools(pi: ExtensionAPI, context: SubagentToolCon
         verdict: parsed.review.verdict,
         findings: parsed.review.findings.length,
         blocking: parsed.review.findings.filter((finding) => finding.blocking).length
+      };
+      return { content: [{ type: "text", text: JSON.stringify(payload) }], details: payload };
+    }
+  });
+}
+
+/** A ticket Executor's report: one answer per acceptance criterion, with its evidence. */
+function registerSubmitReport(pi: ExtensionAPI, context: SubagentToolContext, criteria: string[]): void {
+  pi.registerTool({
+    name: "submit_report",
+    label: "Submit Report",
+    description: `Report on the ticket's acceptance criteria (${criteria.join(", ")}): one entry each, met or not, with the evidence. Call it after the work is committed and checked, before your hand-back. A ticket work item that ends without one is recorded as a failure; a malformed report is an error you can correct.`,
+    promptSnippet: "Report each acceptance criterion of the ticket",
+    promptGuidelines: [
+      "Call submit_report once the work is committed and its checks have run: one entry per acceptance criterion of the ticket.",
+      "Evidence is the command you ran and what it showed, or what you checked by hand; report a criterion you could not meet as met=false and say why."
+    ],
+    parameters: Type.Object({
+      criteria: Type.Array(
+        Type.Object(
+          {
+            criterionId: Type.String({ description: `One of ${criteria.join(", ")}.` }),
+            met: Type.Boolean(),
+            evidence: Type.String({
+              description: "The command and what it showed, or what was checked by hand."
+            })
+          },
+          { additionalProperties: false }
+        ),
+        { maxItems: 50 }
+      )
+    }),
+    async execute(_toolCallId, params): Promise<RuntimeToolResult> {
+      const parsed = parseExecutorReport(params, criteria);
+      if (!parsed.ok) {
+        const payload = { submitted: false, errors: parsed.errors };
+        return {
+          content: [{ type: "text", text: JSON.stringify(payload) }],
+          details: payload,
+          isError: true
+        };
+      }
+      context.submitReport(parsed.report);
+      const payload = {
+        submitted: true,
+        met: parsed.report.criteria.filter((item) => item.met).length,
+        notMet: parsed.report.criteria.filter((item) => !item.met).length
       };
       return { content: [{ type: "text", text: JSON.stringify(payload) }], details: payload };
     }

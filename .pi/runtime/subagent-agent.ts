@@ -44,6 +44,8 @@ import { registerSessionContext } from "./session-context.ts";
 import { SESSION_HISTORY_TOOLS } from "./tools/session-history.ts";
 import { registerSubagentInbox } from "./subagent-inbox.ts";
 import { blockedToolCall, taskProtectedPaths } from "./protected-call.ts";
+import { processKillRefusal } from "../../dist/src/tools/process-kill.js";
+import { parseTicketCriteria, type ExecutorReport } from "../../dist/src/runtime/executor-report.js";
 import { registerSubagentTools } from "./tools/subagent.ts";
 import { registerLoadSkillTool } from "./tools/workspace.ts";
 import { registerWebSearchTools } from "./tools/web-search.ts";
@@ -119,6 +121,11 @@ export async function registerSubagentAgent(pi: ExtensionAPI, role: AgentRole): 
   const name = agentDisplayName(agentId);
   const deliverablesDirectory = join(taskWorkspace, "agents", "subagents", agentId, "deliverables");
   let submittedReview: ReviewConclusion | undefined;
+  let submittedReport: ExecutorReport | undefined;
+  // A ticket Executor answers each of the ticket's criteria through submit_report.
+  const ticketCriteria =
+    role === "executor" ? parseTicketCriteria(process.env.COWORK_TICKET_CRITERIA) : undefined;
+  const reportTool = ticketCriteria ? ["submit_report"] : [];
   const agent = customAgent();
   const builtin = agent ? undefined : builtinAgent();
   // Only the servers the definition or the role's setting names; they connect when the session starts.
@@ -224,7 +231,9 @@ export async function registerSubagentAgent(pi: ExtensionAPI, role: AgentRole): 
   pi.on("cache_warming_decision", () => ({ action: "stop" }));
 
   pi.on("tool_call", async (event) => {
-    const refused = blockedToolCall(event.toolName, event.input, guard, workingDirectory);
+    const refused =
+      processKillRefusal(event.toolName, event.input) ??
+      blockedToolCall(event.toolName, event.input, guard, workingDirectory);
     if (!refused) return undefined;
     void appendGuardEvent(refused.path, refused.pattern, event.toolName);
     return { block: true, reason: refused.reason };
@@ -264,6 +273,7 @@ export async function registerSubagentAgent(pi: ExtensionAPI, role: AgentRole): 
       agent
         ? [
             ...agentToolNames(agent),
+            ...reportTool,
             ...SESSION_HISTORY_TOOLS,
             "clear_context",
             ...capabilityToolNames(grants),
@@ -271,6 +281,7 @@ export async function registerSubagentAgent(pi: ExtensionAPI, role: AgentRole): 
           ]
         : [
             ...subagentToolNames(role, grants),
+            ...reportTool,
             ...SESSION_HISTORY_TOOLS,
             "clear_context",
             // The servers the role's setting names were the only ones registered.
@@ -327,8 +338,12 @@ export async function registerSubagentAgent(pi: ExtensionAPI, role: AgentRole): 
     ...(role === "reviewer" && process.env.COWORK_REVIEW_SCOPE
       ? { reviewScope: parseReviewScope(process.env.COWORK_REVIEW_SCOPE) }
       : {}),
+    ...(ticketCriteria ? { ticketCriteria } : {}),
     submitReview: (review) => {
       submittedReview = review;
+    },
+    submitReport: (report) => {
+      submittedReport = report;
     }
   });
 
@@ -407,7 +422,9 @@ export async function registerSubagentAgent(pi: ExtensionAPI, role: AgentRole): 
     const error = completed
       ? role === "reviewer" && !agent && !submittedReview
         ? "Reviewer ended without submitting a review conclusion; call submit_review with a verdict and findings."
-        : undefined
+        : ticketCriteria && !submittedReport
+          ? "Executor ended without a ticket report; call submit_report with each acceptance criterion."
+          : undefined
       : (last?.errorMessage ?? `Subagent turn ended with stop reason ${last?.stopReason ?? "missing"}`);
     const termination = completed && !error && response ? "completed" : "failed";
     await atomicWrite(
@@ -426,6 +443,7 @@ export async function registerSubagentAgent(pi: ExtensionAPI, role: AgentRole): 
           response,
           outputFiles,
           ...(submittedReview ? { review: submittedReview } : {}),
+          ...(submittedReport ? { report: submittedReport } : {}),
           diagnostics: {
             tracePath: relative(taskWorkspace, join(taskWorkspace, "sessions", agentId, "pi", callId)),
             resultPath: relative(taskWorkspace, resultPath)

@@ -85,6 +85,8 @@ export interface TicketDispatch {
   ticketId: string;
   /** Written ahead of Main's task; absent on a continuation. */
   brief?: string;
+  /** The ticket's criterion ids, each answered in the Executor's report. */
+  criteria: string[];
   /** Whether this dispatch starts the ticket (or its rework). */
   start: boolean;
 }
@@ -386,6 +388,7 @@ export class SubagentDispatchService {
         ...(reviewSite ? { reviewSite } : {}),
         ...(developmentId ? { developmentId } : {}),
         ...(ticketId ? { ticketId } : {}),
+        ...(ticket ? { ticketCriteria: ticket.criteria } : {}),
         ...(continued
           ? {
               continuation: {
