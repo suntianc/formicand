@@ -1,15 +1,35 @@
 ---
 name: task-routing
-description: Tell a requirement from other tasks, and how to delegate work to collaborators. Load at the start of every task, before reading code or editing files.
+description: Which flow and which skills fit a task, and how to delegate work to collaborators. Load at the start of every task, before reading code or editing files.
 ---
 
 # Task routing
 
-## Which kind of task
+Before stating what a skill does or skipping one of its steps, load it: the summaries here are for orientation only.
 
-- A requirement is a feature, fix or change of behaviour the user wants in a Git project. Load the `requirement-delivery` skill and work through a development record, even for a small change: its `quick` route is you editing and checking alone, and the program records and merges. Never change the user's working tree for a requirement.
-- Everything else, such as questions, investigations, documents, one-off scripts and file handling, needs no record. Do it yourself, delegating as below when it pays.
-- When unsure, a change to code or behaviour the user will keep is a requirement.
+## A requirement: the main flow
+
+A requirement is a feature, fix or change of behaviour the user wants in a Git project. Load `requirement-delivery`: the program carries the work in a development record, even for a small change (its `quick` route is you editing and checking alone, and the program records and merges). Never change the user's working tree for a requirement.
+
+The method runs along these skills, each naming the next:
+
+1. **`grill-with-docs`** settles the open questions on the goal, scope and acceptance by interview, and records the project's terms and decisions. Skip it when the request already settles them.
+2. On the `full` route, **`to-spec`** turns the outcome into a spec, then **`to-tickets`** splits it into tickets.
+3. **`implement`** builds each ticket, driving **`tdd`** and closing with a self-review by **`code-review`**. An Executor runs it on a ticket; you run it yourself on the `quick` route.
+4. On the `direct` and `full` routes, an independent Reviewer reviews with **`code-review`**.
+
+## Something is broken
+
+A bug report, a failing test or wrong behaviour: load **`diagnosing-bugs`** before theorising. It builds a loop that goes red on this bug first, then fixes with a regression test. Diagnosing alone is an investigation; once the fix changes the code, it is a requirement, usually on the `quick` route.
+
+## The words underneath
+
+- **`domain-modeling`**: the project's terms (`GLOSSARY.md`) and decisions (ADRs), when a word is fuzzy or a decision is hard to reverse.
+- **`codebase-design`**: the vocabulary for a module's shape (interface, depth, seam), when an interface is being designed.
+
+## Everything else
+
+Questions, investigations, documents, one-off scripts and file handling need no record. Do them yourself, delegating as below when it pays. When unsure, a change to code or behaviour the user will keep is a requirement.
 
 ## Delegating
 
