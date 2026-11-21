@@ -121,14 +121,18 @@ test(
     t.after(() => rm(root, { recursive: true, force: true }));
     const directory = await repository(root, { "list.txt": "1\n" });
     const { project } = await post("/api/projects", { projectName: "复盘", projectDirectory: directory });
-    const requirement = async (title) =>
-      (
+    const requirementIds = new Map();
+    const requirement = async (title) => {
+      const { requirementId } = (
         await post(`/api/projects/${encodeURIComponent(project.projectId)}/ledger`, {
           action: "create",
           title,
           content: title
         })
-      ).requirement.requirementId;
+      ).requirement;
+      requirementIds.set(title, requirementId);
+      return requirementId;
+    };
     const { taskId } = await post("/api/tasks", { goal: "复盘", projectId: project.projectId });
     const tool = createProjectDevelopmentTool({ dashboardUrl: dashboard.base, taskId, token });
     const selfChecked = async (title, change) => {
@@ -195,11 +199,12 @@ test(
       }),
       /用 retro\.pitfalls 说明写了哪些坑点/
     );
+    const improvement = { title: "合入检查加环境预检", content: "第一条合入检查先确认依赖已装。" };
     const merged = await tool.execute({
       action: "request_merge",
       developmentId: noisy.developmentId,
       mergeChecks,
-      retro: { pitfalls: "新增一条：合入检查命令在组合版本上运行" }
+      retro: { pitfalls: "新增一条：合入检查命令在组合版本上运行", improvements: [improvement] }
     });
     assert.equal(merged.merge.state, "merged", JSON.stringify(merged.merge));
     assert.equal(merged.merge.acceptance.retro.signals.failedMerges, 1);
@@ -207,6 +212,53 @@ test(
     assert.match(await git(directory, ["show", `main:${PITFALLS_INDEX}`]).then((r) => r.stdout), /Pitfalls/);
     const { view } = await tool.execute({ action: "delivery_status", developmentId: noisy.developmentId });
     assert.equal(view.retro.outcome, "pitfalls", "the delivery shows the retro");
+
+    // The retro's environment improvement is a new requirement, and the next step after the merge.
+    const [registered] = merged.merge.acceptance.retro.improvements;
+    assert.equal(registered.title, improvement.title);
+    const { requirement: created } = await post(
+      `/api/projects/${encodeURIComponent(project.projectId)}/ledger`,
+      {
+        action: "get",
+        requirementId: registered.requirementId
+      }
+    );
+    assert.deepEqual(created.source, {
+      kind: "internal",
+      reference: `retro:${requirementIds.get("第二项")}`
+    });
+    const after = await tool.execute({ action: "get", developmentId: noisy.developmentId });
+    assert.match(
+      after.next,
+      new RegExp(`develop the environment improvements[^]*${registered.requirementId}`)
+    );
+
+    // An improvement's own retro keeps pitfalls only.
+    const { development: nested } = await tool.execute({
+      action: "create",
+      requirementId: registered.requirementId,
+      goal: improvement.title,
+      completionCriteria: [improvement.title],
+      route: "quick"
+    });
+    await writeFile(join(nested.workspace.directory, "list.txt"), "precheck\n");
+    await git(nested.workspace.directory, ["commit", "-am", "precheck"]);
+    await tool.execute({
+      action: "review_plan",
+      developmentId: nested.developmentId,
+      channel: "self",
+      basis: "小改动自检",
+      checks: [{ name: "list", command: "cat list.txt", exitCode: 0, output: "precheck" }]
+    });
+    await assert.rejects(
+      tool.execute({
+        action: "request_merge",
+        developmentId: nested.developmentId,
+        mergeChecks,
+        retro: { nothing: "没有坑", improvements: [{ title: "再改", content: "再改" }] }
+      }),
+      /复盘登记的环境改进[^]*不能再登记改进/
+    );
 
     // Anything outside the pitfalls after approval still voids it.
     const third = await selfChecked("第三项", "1\n2\n3\n4\n");

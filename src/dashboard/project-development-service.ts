@@ -32,6 +32,9 @@ import {
   mergeCheckCommands,
   retroInput,
   retroSignals,
+  retroSourceReference,
+  type RetroImprovement,
+  type RetroInput,
   type DevelopmentMerge,
   type MergeAcceptance,
   type MergeCheck,
@@ -1816,7 +1819,8 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
       ...(deliveries.length ? { delivery: { state: deliveries.at(-1)!.state } } : {}),
       retro: {
         signals: retroSignals(reviews, merges),
-        recorded: merges.some((entry) => entry.acceptance.retro && !entry.acceptance.retro.auto)
+        recorded: merges.some((entry) => entry.acceptance.retro && !entry.acceptance.retro.auto),
+        improvements: merges.flatMap((entry) => entry.acceptance.retro?.improvements ?? [])
       }
     });
   }
@@ -1967,20 +1971,20 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
 
   /**
    * The requirement's retro, done once before its last merge. Main hands in the
-   * pitfalls it wrote or why there are none; with every signal at zero the
-   * program records "nothing" itself. A retro Main did on an earlier attempt is
-   * kept, so a retried merge does not ask again.
+   * pitfalls it wrote or why there are none, and any environment improvements;
+   * with every signal at zero the program records "nothing" itself. A retro
+   * Main did on an earlier attempt is kept, so a retried merge does not ask again.
    */
   async function requirementRetro(
     projectId: string,
-    developmentId: string,
+    record: DevelopmentRecord,
     value: unknown,
     pitfallsCommitted: boolean
-  ): Promise<MergeRetro> {
+  ): Promise<{ retro: MergeRetro; improvements: RetroInput["improvements"] }> {
     const service = await gateway();
     const [reviews, merges] = await Promise.all([
-      service.queryReviews(projectId, developmentId),
-      service.queryMerges(projectId, developmentId)
+      service.queryReviews(projectId, record.developmentId),
+      service.queryMerges(projectId, record.developmentId)
     ]);
     const signals = retroSignals(reviews, merges);
     const given = retroInput(value);
@@ -1990,7 +1994,7 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
       .reverse()
       .find((merge) => merge.acceptance.retro && !merge.acceptance.retro.auto)?.acceptance.retro;
     const retro: MergeRetro | undefined = given
-      ? { ...given, signals, at: now() }
+      ? { outcome: given.outcome, summary: given.summary, signals, at: now() }
       : earlier
         ? earlier
         : hasRetroSignals(signals)
@@ -2011,13 +2015,49 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
         `retro.pitfalls 说写了坑点，但候选在验收版本之上没有只改 ${PITFALLS_DIRECTORY} 的提交`,
         "retro_mismatch"
       );
-    return retro;
+    const improvements = given?.improvements ?? [];
+    // An improvement a retro registered does not register further improvements:
+    // its own retro keeps pitfalls only, so retros cannot feed each other.
+    if (
+      improvements.length &&
+      (await service.getRequirement(projectId, record.requirementId)).source.reference?.startsWith(
+        retroSourceReference("")
+      )
+    )
+      throw conflict(
+        "这个需求本身是复盘登记的环境改进，它的复盘不能再登记改进；去掉 retro.improvements",
+        "retro_improvement_nested"
+      );
+    // Titles an earlier attempt of this requirement already registered stay registered once.
+    const registered = new Set(
+      merges.flatMap((merge) => merge.acceptance.retro?.improvements ?? []).map((item) => item.title)
+    );
+    return { retro, improvements: improvements.filter((item) => !registered.has(item.title)) };
+  }
+
+  /** Register a retro's environment improvements as ledger requirements. */
+  async function registerImprovements(
+    projectId: string,
+    requirementId: string,
+    improvements: RetroInput["improvements"]
+  ): Promise<RetroImprovement[]> {
+    const service = await gateway();
+    const registered: RetroImprovement[] = [];
+    for (const item of improvements) {
+      const requirement = await service.createRequirement(projectId, {
+        title: item.title,
+        content: item.content,
+        source: { kind: "internal", reference: retroSourceReference(requirementId) }
+      });
+      registered.push({ requirementId: requirement.requirementId, title: requirement.title });
+    }
+    return registered;
   }
 
   async function requestMerge(projectId: string, input: Record<string, unknown>): Promise<DevelopmentMerge> {
     await project(projectId);
     const developmentId = developmentIdentifier(input.developmentId, "开发记录 ID");
-    await reviewDevelopment(projectId, developmentId);
+    const record = await reviewDevelopment(projectId, developmentId);
     const config = await requiredMergeConfig(projectId);
     const qualification = await deliveryQualification(projectId, developmentId);
     if (
@@ -2039,7 +2079,7 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
       throw conflict("验收版本与当前候选不一致；请在当前版本验收后再申请合入", "merge_not_qualified");
     const supplied = input.checks === undefined ? undefined : mergeCheckCommands(input.checks);
     const service = await gateway();
-    const retro = await requirementRetro(projectId, developmentId, input.retro, extended);
+    const { retro, improvements } = await requirementRetro(projectId, record, input.retro, extended);
     const checks = supplied ?? (await recordedMergeChecks(service, projectId, developmentId));
     if (!checks.length) throw conflict("合入须记录在组合版本上运行的检查命令", "merge_checks_missing");
     const acceptance: MergeAcceptance = {
@@ -2047,7 +2087,7 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
       approvedCommit: qualification.approved.commit,
       approvedTree: qualification.approved.tree,
       ...(qualification.reviewId ? { reviewId: qualification.reviewId } : {}),
-      ...(ticketRoute(await reviewDevelopment(projectId, developmentId)) ? { tickets: true as const } : {}),
+      ...(ticketRoute(record) ? { tickets: true as const } : {}),
       retro
     };
     const existing = await service.queryMerges(projectId, developmentId);
@@ -2063,6 +2103,13 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
       .reverse()
       .find((entry) => entry.state === "merged" && entry.candidate.commit === candidate.commit);
     if (merged) return merged;
+    // Registered only once the merge is about to be recorded, so a refused
+    // request leaves no requirement behind.
+    if (improvements.length)
+      acceptance.retro = {
+        ...retro,
+        improvements: await registerImprovements(projectId, record.requirementId, improvements)
+      };
     const created = await service.createMerge(projectId, developmentId, {
       candidate,
       acceptance,

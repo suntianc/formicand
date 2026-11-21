@@ -1139,10 +1139,31 @@
                 "type": "string",
                 "minLength": 1,
                 "maxLength": 2000
+              },
+              "improvements": {
+                "type": "array",
+                "maxItems": 5,
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "title": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200
+                    },
+                    "content": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 4000
+                    }
+                  },
+                  "required": ["title", "content"],
+                  "additionalProperties": false
+                }
               }
             },
             "additionalProperties": false,
-            "description": "request_merge: the requirement's retro, once before its last merge. pitfalls: which entries in docs/pitfalls/ were added, merged or removed (committed on top of the approved version, touching only that directory); nothing: why there is nothing to keep. Omit it when next does not ask for a retro."
+            "description": "request_merge: the requirement's retro, once before its last merge. pitfalls: which entries in docs/pitfalls/ were added, merged or removed (committed on top of the approved version, touching only that directory); nothing: why there is nothing to keep. improvements: changes to the agents' environment (code structure, checks, tests, instructions, tools) that would stop a trap better than a pitfall; each becomes a ledger requirement to develop after this merge. Omit retro when next does not ask for one."
           },
           "verdict": {
             "type": "string",

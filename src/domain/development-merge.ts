@@ -110,10 +110,28 @@ export interface MergeRetro {
   outcome: "pitfalls" | "nothing";
   summary: string;
   signals: RetroSignals;
+  /**
+   * Changes to the agents' environment (code structure, checks, tests,
+   * instructions, tools) that would stop the trap better than a pitfall. Each
+   * is registered as a ledger requirement whose source is `retro:<requirementId>`.
+   */
+  improvements?: RetroImprovement[];
   /** Recorded by the program because every signal was zero. */
   auto?: true;
   at: string;
 }
+
+/** One environment improvement a retro registered as a requirement. */
+export interface RetroImprovement {
+  requirementId: string;
+  title: string;
+}
+
+/** The ledger source reference of a requirement a retro registered. */
+export const retroSourceReference = (requirementId: string) => `retro:${requirementId}`;
+
+/** A retro registers at most this many improvements. */
+export const RETRO_IMPROVEMENTS_LIMIT = 5;
 
 /** Where a project keeps its pitfalls; a retro's commit may touch nothing else. */
 export const PITFALLS_DIRECTORY = "docs/pitfalls/";
@@ -135,19 +153,57 @@ export function hasRetroSignals(signals: RetroSignals): boolean {
   return Object.values(signals).some((count) => count > 0);
 }
 
-/** The retro Main hands in with request_merge: the pitfalls it wrote, or why there are none. */
-export function retroInput(value: unknown): { outcome: MergeRetro["outcome"]; summary: string } | undefined {
+/** The retro Main hands in with request_merge. */
+export interface RetroInput {
+  outcome: MergeRetro["outcome"];
+  summary: string;
+  /** Environment improvements to register as requirements, not yet registered. */
+  improvements: { title: string; content: string }[];
+}
+
+/** The retro Main hands in: the pitfalls it wrote or why there are none, and any environment improvements. */
+export function retroInput(value: unknown): RetroInput | undefined {
   if (value === undefined || value === null) return undefined;
   if (typeof value !== "object" || Array.isArray(value))
-    throw new ProjectDataInvalidError("复盘须为对象：{ pitfalls } 或 { nothing }");
+    throw new ProjectDataInvalidError("复盘须为对象：{ pitfalls } 或 { nothing }，可另带 improvements");
   const input = value as Record<string, unknown>;
   if ((input.pitfalls === undefined) === (input.nothing === undefined))
     throw new ProjectDataInvalidError(
       "复盘须且只能写一项：pitfalls（写了哪些坑点）或 nothing（为什么没有要记的）"
     );
-  return input.pitfalls !== undefined
-    ? { outcome: "pitfalls", summary: bounded(input.pitfalls, "复盘的坑点说明", 2000) }
-    : { outcome: "nothing", summary: bounded(input.nothing, "复盘没有要记的理由", 2000) };
+  const improvements = input.improvements ?? [];
+  if (!Array.isArray(improvements) || improvements.length > RETRO_IMPROVEMENTS_LIMIT)
+    throw new ProjectDataInvalidError(`复盘的环境改进须为数组，最多 ${RETRO_IMPROVEMENTS_LIMIT} 条`);
+  const parsed = improvements.map((item: unknown) => {
+    if (!item || typeof item !== "object" || Array.isArray(item))
+      throw new ProjectDataInvalidError("每条环境改进须为 { title, content }");
+    const { title, content } = item as Record<string, unknown>;
+    return {
+      title: bounded(title, "环境改进的标题", 200),
+      content: bounded(content, "环境改进的内容", 4000)
+    };
+  });
+  if (new Set(parsed.map((item) => item.title)).size !== parsed.length)
+    throw new ProjectDataInvalidError("环境改进的标题不能重复");
+  return {
+    ...(input.pitfalls !== undefined
+      ? { outcome: "pitfalls" as const, summary: bounded(input.pitfalls, "复盘的坑点说明", 2000) }
+      : { outcome: "nothing" as const, summary: bounded(input.nothing, "复盘没有要记的理由", 2000) }),
+    improvements: parsed
+  };
+}
+
+function retroImprovements(value: unknown): RetroImprovement[] | undefined {
+  if (value === undefined || value === null) return undefined;
+  if (!Array.isArray(value) || value.length > RETRO_IMPROVEMENTS_LIMIT)
+    throw new ProjectDataInvalidError("复盘登记的改进须为数组");
+  return value.map((item: unknown) => {
+    const { requirementId, title } = (item ?? {}) as Record<string, unknown>;
+    return {
+      requirementId: bounded(requirementId, "改进需求 ID", 200),
+      title: bounded(title, "改进需求标题", 200)
+    };
+  });
 }
 
 function mergeRetro(value: unknown): MergeRetro {
@@ -163,6 +219,7 @@ function mergeRetro(value: unknown): MergeRetro {
       throw new ProjectDataInvalidError(`复盘信号 ${key} 须为非负整数`);
     return number;
   };
+  const improvements = retroImprovements(input.improvements);
   return {
     outcome: input.outcome,
     summary: bounded(input.summary, "复盘说明", 2000),
@@ -172,6 +229,7 @@ function mergeRetro(value: unknown): MergeRetro {
       dismissedBlocking: count("dismissedBlocking"),
       failedMerges: count("failedMerges")
     },
+    ...(improvements?.length ? { improvements } : {}),
     ...(input.auto === true ? { auto: true as const } : {}),
     at: bounded(input.at, "复盘时间", 100)
   };

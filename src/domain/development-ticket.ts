@@ -1,6 +1,11 @@
 import { ProjectDataConflictError, ProjectDataInvalidError, ledgerRevision } from "./project-ledger.js";
 import type { DevelopmentRoute } from "./project-development.js";
-import { PITFALLS_DIRECTORY, hasRetroSignals, type RetroSignals } from "./development-merge.js";
+import {
+  PITFALLS_DIRECTORY,
+  hasRetroSignals,
+  type RetroImprovement,
+  type RetroSignals
+} from "./development-merge.js";
 
 /**
  * A requirement's tickets: the slices it is split into, each with its own
@@ -599,7 +604,7 @@ export interface NextStepFacts {
   merge?: { mergeId: string; state: string; detail?: string; mergeCommit?: string };
   delivery?: { state: string };
   /** The requirement's retro: what its records signal, and whether one is recorded. */
-  retro?: { signals: RetroSignals; recorded: boolean };
+  retro?: { signals: RetroSignals; recorded: boolean; improvements?: RetroImprovement[] };
 }
 
 /** A review as the next step reads it; `atLimit` means its chain used its rework rounds. */
@@ -622,9 +627,12 @@ const LIMIT =
 export function developmentNext(facts: NextStepFacts): string {
   const { merge, review, qualification, tickets } = facts;
   if (merge?.state === "merged")
-    return facts.delivery?.state === "synced"
-      ? `Merged as ${merge.mergeCommit ?? "the recorded commit"} and delivered. Report the result to the user.`
-      : "Merged; the delivery record is syncing by itself. Report the result; delivery_status shows the sync.";
+    return (
+      (facts.delivery?.state === "synced"
+        ? `Merged as ${merge.mergeCommit ?? "the recorded commit"} and delivered. Report the result to the user.`
+        : "Merged; the delivery record is syncing by itself. Report the result; delivery_status shows the sync.") +
+      improvementStep(facts.retro?.improvements)
+    );
   if (merge?.state === "waiting" || merge?.state === "applying")
     return `Merge ${merge.mergeId} is ${merge.state}. Read merge_status; do not request it again.`;
   if (!facts.workspaceReady) return "Run ensure_workspace to prepare the requirement checkout.";
@@ -654,12 +662,19 @@ export function developmentNext(facts: NextStepFacts): string {
   return `${mergeNote}Not yet qualified (${reasons.join(", ") || "unknown"}). ${work}`;
 }
 
+/** After the merge: the environment improvements the retro registered are the next requirements. */
+function improvementStep(improvements: RetroImprovement[] = []): string {
+  if (!improvements.length) return "";
+  const list = improvements.map((item) => `${item.requirementId} (${item.title})`).join(", ");
+  return ` Then develop the environment improvements the retro registered, one requirement at a time: ${list}.`;
+}
+
 /** Before the last merge: the requirement's retro, unless the records give it nothing to look at. */
 function retroStep(retro: NextStepFacts["retro"]): string {
   if (!retro || retro.recorded || !hasRetroSignals(retro.signals))
     return "The candidate qualifies: request_merge.";
   const { reworkRounds, changedApproach, dismissedBlocking, failedMerges } = retro.signals;
-  return `The candidate qualifies. Before request_merge, load the retro skill and do the requirement's retro (${reworkRounds} rework rounds, ${changedApproach} changes of approach, ${dismissedBlocking} blocking findings let through, ${failedMerges} failed merges): keep the repository's traps in ${PITFALLS_DIRECTORY} in a commit that touches only that directory, then request_merge with retro.pitfalls saying what changed, or retro.nothing saying why there is nothing to keep.`;
+  return `The candidate qualifies. Before request_merge, load the retro skill and do the requirement's retro (${reworkRounds} rework rounds, ${changedApproach} changes of approach, ${dismissedBlocking} blocking findings let through, ${failedMerges} failed merges): keep the repository's traps in ${PITFALLS_DIRECTORY} in a commit that touches only that directory, then request_merge with retro.pitfalls saying what changed, or retro.nothing saying why there is nothing to keep; a change to the environment that would stop a trap goes in retro.improvements.`;
 }
 
 function reviewStep(review: { reviewId: string; reviewer: boolean }): string {
