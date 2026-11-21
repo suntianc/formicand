@@ -160,16 +160,43 @@ function oldContent(feature) {
   return `${feature.summary}\n\n历史：\n${feature.history.map((line) => `- ${line}`).join("\n")}`;
 }
 
-/** Write the history into a project's ledger through the product API. */
+/**
+ * Write the history into a project's ledger through the product API, in the
+ * shape the running build has: a ledger of long-lived features takes the
+ * summary and each history line, an older one takes everything as content.
+ */
 export async function seedLedger(post, entries = history) {
+  const features = (await post({ action: "query" })).requirements.some((entry) => entry.kind === "misc");
   for (const entry of entries) {
-    const { requirement } = await post({ action: "create", title: entry.title, content: oldContent(entry) });
-    await post({
-      action: "update",
-      requirementId: requirement.requirementId,
-      expectedRevision: requirement.revision,
-      status: entry.status === "retired" ? "withdrawn" : "delivered"
-    });
+    if (!features) {
+      const { requirement } = await post({
+        action: "create",
+        title: entry.title,
+        content: oldContent(entry)
+      });
+      await post({
+        action: "update",
+        requirementId: requirement.requirementId,
+        expectedRevision: requirement.revision,
+        status: entry.status === "retired" ? "withdrawn" : "delivered"
+      });
+      continue;
+    }
+    let { requirement } = await post({ action: "create", title: entry.title, summary: entry.summary });
+    for (const line of entry.history)
+      ({ requirement } = await post({
+        action: "update",
+        requirementId: requirement.requirementId,
+        expectedRevision: requirement.revision,
+        history: line
+      }));
+    if (entry.status === "retired")
+      await post({
+        action: "update",
+        requirementId: requirement.requirementId,
+        expectedRevision: requirement.revision,
+        status: "retired"
+      });
   }
 }
 
