@@ -17,6 +17,7 @@ The method runs along these skills, each naming the next:
 2. On the `full` route, **`to-spec`** turns the outcome into a spec, then **`to-tickets`** splits it into tickets.
 3. **`implement`** builds each ticket, driving **`tdd`** and closing with a self-review by **`code-review`**. An Executor runs it on a ticket; you run it yourself on the `quick` route.
 4. On the `direct` and `full` routes, an independent Reviewer reviews with **`code-review`**.
+5. Before the last merge, **`retro`** turns what the requirement taught into environment improvements and pitfalls.
 
 ## Something is broken
 

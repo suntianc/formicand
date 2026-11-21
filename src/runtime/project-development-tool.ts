@@ -2,6 +2,7 @@ import {
   createProjectDevelopmentClient,
   type ProjectDevelopmentClient
 } from "./project-development-client.js";
+import { pitfallsHint } from "./project-pitfalls.js";
 
 /** What the user is asked to confirm before tickets are frozen or a frozen ticket changes. */
 export interface TicketProposal {
@@ -313,6 +314,29 @@ export function createProjectDevelopmentTool(options: ProjectDevelopmentToolOpti
           description:
             "request_merge: commands to run on the target-plus-candidate version; omit to reuse the recorded checks. integrate_ticket: the project's checks, run with the ticket's acceptance commands."
         },
+        retro: {
+          type: "object",
+          properties: {
+            pitfalls: { type: "string", minLength: 1, maxLength: 2000 },
+            nothing: { type: "string", minLength: 1, maxLength: 2000 },
+            improvements: {
+              type: "array",
+              maxItems: 5,
+              items: {
+                type: "object",
+                properties: {
+                  title: { type: "string", minLength: 1, maxLength: 200 },
+                  content: { type: "string", minLength: 1, maxLength: 4000 }
+                },
+                required: ["title", "content"],
+                additionalProperties: false
+              }
+            }
+          },
+          additionalProperties: false,
+          description:
+            "request_merge: the requirement's retro, once before its last merge. pitfalls: which entries in docs/pitfalls/ were added, merged or removed (committed on top of the approved version, touching only that directory); nothing: why there is nothing to keep. improvements: changes to the agents' environment (code structure, checks, tests, instructions, tools) that would stop a trap better than a pitfall; each becomes a ledger requirement to develop after this merge. Omit retro when next does not ask for one."
+        },
         verdict: {
           type: "string",
           enum: ["passed", "failed"],
@@ -423,14 +447,20 @@ export function createProjectDevelopmentTool(options: ProjectDevelopmentToolOpti
     confirm?: ConfirmTickets
   ): Promise<Record<string, unknown>> {
     const action = typeof input.action === "string" ? input.action : "";
-    if (action === "create")
-      return request({
+    if (action === "create") {
+      const created = await request({
         action,
         requirementId: input.requirementId,
         goal: input.goal,
         completionCriteria: input.completionCriteria,
         route: input.route
       });
+      // Main is told once, when the requirement's checkout opens, to read its pitfalls.
+      const directory = (created.development as { workspace?: { directory?: string } } | undefined)?.workspace
+        ?.directory;
+      const pitfalls = directory ? await pitfallsHint(directory) : undefined;
+      return pitfalls ? { ...created, pitfalls } : created;
+    }
     if (action === "get") return request({ action, developmentId: input.developmentId });
     if (action === "query") return request({ action });
     if (action === "find_by_requirement") return request({ action, requirementId: input.requirementId });
@@ -533,7 +563,8 @@ export function createProjectDevelopmentTool(options: ProjectDevelopmentToolOpti
       return merges({
         action: "request",
         developmentId: input.developmentId,
-        ...(input.mergeChecks === undefined ? {} : { checks: input.mergeChecks })
+        ...(input.mergeChecks === undefined ? {} : { checks: input.mergeChecks }),
+        ...(input.retro === undefined ? {} : { retro: input.retro })
       });
     if (action === "apply_merge") return merges({ action: "apply" });
     if (action === "merge_status")

@@ -229,6 +229,8 @@ export interface ReviewQualification {
   reviewId?: string;
   kind?: ReviewKind;
   independentReview: boolean;
+  /** The candidate is the approved version plus a retro commit that touches only the pitfalls. */
+  pitfallsAfterApproval?: true;
   reasons: string[];
 }
 

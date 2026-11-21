@@ -161,6 +161,16 @@ async function readJsonRecords(runRoot) {
  * directory, review site, role); the others run in a committed work site of
  * their own with the role in the payload.
  */
+/** The text of the first user message a request carries. */
+function firstUserText(request) {
+  const message = request.messages.find((entry) => entry.role === "user");
+  return typeof message.content === "string"
+    ? message.content
+    : message.content.map((part) => part.text ?? "").join("");
+}
+
+const PITFALL_ROW = "| Running tests in a fresh checkout | [Ignored env file missing](testing.md#env) |";
+
 async function delegatedCall(
   t,
   {
@@ -188,6 +198,9 @@ async function delegatedCall(
     site = join(root, "work-site");
     await mkdir(site, { recursive: true });
     await writeFile(join(site, "SITE_MARKER.txt"), "delegated work site\n");
+    // A committed pitfalls index: both roles are told to read it.
+    await mkdir(join(site, "docs", "pitfalls"), { recursive: true });
+    await writeFile(join(site, "docs", "pitfalls", "README.md"), `# Pitfalls\n\n${PITFALL_ROW}\n`);
     await git(site, ["init", "-b", "main"]);
     await git(site, ["config", "user.email", "p46@example.test"]);
     await git(site, ["config", "user.name", "P46"]);
@@ -310,6 +323,12 @@ test(
 
     const system = request.messages.find((message) => message.role === "system").content;
     assert.match(system, /You are a CoworkOS Subagent/, "the process identifies itself as a Subagent");
+    assert.ok(!system.includes(PITFALL_ROW), "the index itself stays in the project, not the prompt");
+    assert.match(
+      firstUserText(request),
+      /docs\/pitfalls\/README\.md, indexed by trigger/,
+      "the Executor's task tells it to read the checkout's pitfalls"
+    );
     assert.match(
       system,
       /You run this work item as the Executor/,
@@ -395,6 +414,11 @@ test(
 
     const system = request.messages.find((message) => message.role === "system").content;
     assert.match(system, /independent Reviewer/, "the role line is the in-process Reviewer line");
+    assert.match(
+      firstUserText(request),
+      /docs\/pitfalls\/README\.md, indexed by trigger/,
+      "the Reviewer's task points at the frozen checkout's pitfalls"
+    );
     assert.match(system, /submit_review/, "the process is told how its conclusion reaches Main");
     assert.match(
       system,

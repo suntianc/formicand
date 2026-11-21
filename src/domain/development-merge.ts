@@ -1,4 +1,9 @@
-import { reviewCandidate, reviewChannel, type ReviewCandidate } from "./development-review.js";
+import {
+  reviewCandidate,
+  reviewChannel,
+  type DevelopmentReview,
+  type ReviewCandidate
+} from "./development-review.js";
 import { developmentBranch } from "./project-development.js";
 import { ProjectDataInvalidError, ledgerIdentifier } from "./project-ledger.js";
 import { now } from "./types.js";
@@ -79,6 +84,155 @@ export interface MergeAcceptance {
   reviewId?: string;
   /** Approved as the version the program produced by bringing in every reviewed ticket. */
   tickets?: true;
+  /** The requirement's retro, done once before its last merge. */
+  retro?: MergeRetro;
+}
+
+/**
+ * What in a requirement's records points at a trap worth a pitfall entry:
+ * rework rounds, changes of approach, blocking findings let through and
+ * merges that did not land. All zero means there is nothing to look back on.
+ */
+export interface RetroSignals {
+  reworkRounds: number;
+  changedApproach: number;
+  dismissedBlocking: number;
+  failedMerges: number;
+}
+
+/**
+ * A requirement's retro. It exists to keep the repository's pitfalls: the
+ * outcome is either the pitfall entries it added, merged or removed (in a
+ * commit on top of the approved version that touches only `docs/pitfalls/`),
+ * or nothing to record, with why.
+ */
+export interface MergeRetro {
+  outcome: "pitfalls" | "nothing";
+  summary: string;
+  signals: RetroSignals;
+  /**
+   * Changes to the agents' environment (code structure, checks, tests,
+   * instructions, tools) that would stop the trap better than a pitfall. Each
+   * is registered as a ledger requirement whose source is `retro:<requirementId>`.
+   */
+  improvements?: RetroImprovement[];
+  /** Recorded by the program because every signal was zero. */
+  auto?: true;
+  at: string;
+}
+
+/** One environment improvement a retro registered as a requirement. */
+export interface RetroImprovement {
+  requirementId: string;
+  title: string;
+}
+
+/** The ledger source reference of a requirement a retro registered. */
+export const retroSourceReference = (requirementId: string) => `retro:${requirementId}`;
+
+/** A retro registers at most this many improvements. */
+export const RETRO_IMPROVEMENTS_LIMIT = 5;
+
+/** Where a project keeps its pitfalls; a retro's commit may touch nothing else. */
+export const PITFALLS_DIRECTORY = "docs/pitfalls/";
+
+export function retroSignals(reviews: DevelopmentReview[], merges: DevelopmentMerge[]): RetroSignals {
+  const findings = reviews.flatMap((review) => review.findings);
+  return {
+    reworkRounds: reviews.reduce((sum, review) => sum + review.reworks.length, 0),
+    changedApproach: reviews.filter((review) => review.verdict?.approach).length,
+    dismissedBlocking: findings.filter(
+      (finding) => finding.blocking && finding.ruling?.decision === "dismiss"
+    ).length,
+    failedMerges: merges.filter((merge) => ["conflict", "check_failed", "failed"].includes(merge.state))
+      .length
+  };
+}
+
+export function hasRetroSignals(signals: RetroSignals): boolean {
+  return Object.values(signals).some((count) => count > 0);
+}
+
+/** The retro Main hands in with request_merge. */
+export interface RetroInput {
+  outcome: MergeRetro["outcome"];
+  summary: string;
+  /** Environment improvements to register as requirements, not yet registered. */
+  improvements: { title: string; content: string }[];
+}
+
+/** The retro Main hands in: the pitfalls it wrote or why there are none, and any environment improvements. */
+export function retroInput(value: unknown): RetroInput | undefined {
+  if (value === undefined || value === null) return undefined;
+  if (typeof value !== "object" || Array.isArray(value))
+    throw new ProjectDataInvalidError("复盘须为对象：{ pitfalls } 或 { nothing }，可另带 improvements");
+  const input = value as Record<string, unknown>;
+  if ((input.pitfalls === undefined) === (input.nothing === undefined))
+    throw new ProjectDataInvalidError(
+      "复盘须且只能写一项：pitfalls（写了哪些坑点）或 nothing（为什么没有要记的）"
+    );
+  const improvements = input.improvements ?? [];
+  if (!Array.isArray(improvements) || improvements.length > RETRO_IMPROVEMENTS_LIMIT)
+    throw new ProjectDataInvalidError(`复盘的环境改进须为数组，最多 ${RETRO_IMPROVEMENTS_LIMIT} 条`);
+  const parsed = improvements.map((item: unknown) => {
+    if (!item || typeof item !== "object" || Array.isArray(item))
+      throw new ProjectDataInvalidError("每条环境改进须为 { title, content }");
+    const { title, content } = item as Record<string, unknown>;
+    return {
+      title: bounded(title, "环境改进的标题", 200),
+      content: bounded(content, "环境改进的内容", 4000)
+    };
+  });
+  if (new Set(parsed.map((item) => item.title)).size !== parsed.length)
+    throw new ProjectDataInvalidError("环境改进的标题不能重复");
+  return {
+    ...(input.pitfalls !== undefined
+      ? { outcome: "pitfalls" as const, summary: bounded(input.pitfalls, "复盘的坑点说明", 2000) }
+      : { outcome: "nothing" as const, summary: bounded(input.nothing, "复盘没有要记的理由", 2000) }),
+    improvements: parsed
+  };
+}
+
+function retroImprovements(value: unknown): RetroImprovement[] | undefined {
+  if (value === undefined || value === null) return undefined;
+  if (!Array.isArray(value) || value.length > RETRO_IMPROVEMENTS_LIMIT)
+    throw new ProjectDataInvalidError("复盘登记的改进须为数组");
+  return value.map((item: unknown) => {
+    const { requirementId, title } = (item ?? {}) as Record<string, unknown>;
+    return {
+      requirementId: bounded(requirementId, "改进需求 ID", 200),
+      title: bounded(title, "改进需求标题", 200)
+    };
+  });
+}
+
+function mergeRetro(value: unknown): MergeRetro {
+  if (!value || typeof value !== "object" || Array.isArray(value))
+    throw new ProjectDataInvalidError("复盘记录必须是对象");
+  const input = value as Record<string, unknown>;
+  if (input.outcome !== "pitfalls" && input.outcome !== "nothing")
+    throw new ProjectDataInvalidError("复盘结果须为 pitfalls / nothing");
+  const signals = (input.signals ?? {}) as Record<string, unknown>;
+  const count = (key: keyof RetroSignals) => {
+    const number = Number(signals[key]);
+    if (!Number.isInteger(number) || number < 0)
+      throw new ProjectDataInvalidError(`复盘信号 ${key} 须为非负整数`);
+    return number;
+  };
+  const improvements = retroImprovements(input.improvements);
+  return {
+    outcome: input.outcome,
+    summary: bounded(input.summary, "复盘说明", 2000),
+    signals: {
+      reworkRounds: count("reworkRounds"),
+      changedApproach: count("changedApproach"),
+      dismissedBlocking: count("dismissedBlocking"),
+      failedMerges: count("failedMerges")
+    },
+    ...(improvements?.length ? { improvements } : {}),
+    ...(input.auto === true ? { auto: true as const } : {}),
+    at: bounded(input.at, "复盘时间", 100)
+  };
 }
 
 export interface DevelopmentMerge {
@@ -209,7 +363,8 @@ export function mergeAcceptance(value: unknown): MergeAcceptance {
     approvedCommit: mergeCommit(input.approvedCommit, "验收提交"),
     approvedTree: mergeCommit(input.approvedTree, "验收树"),
     ...(input.reviewId === undefined ? {} : { reviewId: ledgerIdentifier(input.reviewId, "验收审查 ID") }),
-    ...(input.tickets === true ? { tickets: true as const } : {})
+    ...(input.tickets === true ? { tickets: true as const } : {}),
+    ...(input.retro === undefined ? {} : { retro: mergeRetro(input.retro) })
   };
 }
 

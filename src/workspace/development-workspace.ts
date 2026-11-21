@@ -35,6 +35,54 @@ export async function git(repository: string, args: string[]): Promise<string> {
   }
 }
 
+/**
+ * Whether `to` is `from` plus commits that change only files under `directory`:
+ * a requirement's retro writes its pitfalls on top of the approved version, and
+ * that is the one change the approval carries over. The same commit is not a
+ * delta; `from` must be an ancestor of `to`.
+ */
+export async function onlyChangesUnder(
+  repository: string,
+  from: string,
+  to: string,
+  directory: string
+): Promise<boolean> {
+  if (from === to) return false;
+  if ((await git(repository, ["merge-base", from, to])) !== from) return false;
+  const files = (await git(repository, ["diff", "--name-only", "--no-renames", `${from}..${to}`]))
+    .split("\n")
+    .filter(Boolean);
+  return files.length > 0 && files.every((file) => file.startsWith(directory));
+}
+
+/**
+ * The top-level files under `directory` that changed between two commits, by
+ * file name, with their text at `to` (undefined when removed there).
+ */
+export async function changedPagesUnder(
+  repository: string,
+  from: string,
+  to: string,
+  directory: string
+): Promise<Record<string, string | undefined>> {
+  const names = (
+    await git(repository, ["diff", "--name-only", "--no-renames", `${from}..${to}`, "--", directory])
+  )
+    .split("\n")
+    .filter((file) => file && !file.slice(directory.length).includes("/"));
+  return Object.fromEntries(
+    await Promise.all(
+      names.map(async (file) => [file.slice(directory.length), await fileAt(repository, to, file)] as const)
+    )
+  );
+}
+
+/** A file's text at a commit, or undefined when the commit does not have it. */
+export async function fileAt(repository: string, commit: string, path: string): Promise<string | undefined> {
+  const present = await git(repository, ["ls-tree", "--name-only", commit, "--", path]);
+  return present ? git(repository, ["show", `${commit}:${path}`]) : undefined;
+}
+
 function invalid(message: string): ProjectDataInvalidError {
   return new ProjectDataInvalidError(message);
 }

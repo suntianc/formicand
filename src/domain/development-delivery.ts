@@ -1,5 +1,5 @@
 import type { DevelopmentTicket } from "./development-ticket.js";
-import type { DevelopmentMerge, MergeReceipt } from "./development-merge.js";
+import type { DevelopmentMerge, MergeReceipt, MergeRetro } from "./development-merge.js";
 import { developmentBranch } from "./project-development.js";
 import type {
   DevelopmentReview,
@@ -140,6 +140,8 @@ export interface DeliveryView {
   pendingSync?: { mergeId: string; error?: string };
   /** What the reviews let through and how: reported to the user or the project owner. */
   reviewReport: ReviewReport;
+  /** The requirement's retro: the pitfalls it kept, or why there were none. */
+  retro?: MergeRetro;
 }
 
 const CONTROL = /[\0-\x08\x0b\x0c\x0e-\x1f\x7f]/;

@@ -87,6 +87,8 @@ MCP 服务只有一份全局配置 `~/.atria/mcp.json`（`mcpServers` 格式，�
 
 代码保证的规则：`read` 不能有 `edit`、`write`；可选工具只有 `read`、`bash`、`edit`、`write`、`grep`、`find`、`ls`、`browse_workspace`、`search`、`visit`，Main 专用工具与桌面、浏览器操控都不在其中；`ask_main`、`send_peer_message` 始终持有；不写 `skills` 时可见全部技能，写空列表则没有技能；不写 `mcp` 时不注册任何服务。
 
+用户项目有坑点索引 `docs/pitfalls/README.md` 时，程序在工作开始时提示去读一次，不把索引放进系统提示：Main 在 `project_development create` 打开需求检出时，结果多一个 `pitfalls` 字段；Executor、Reviewer 在首条任务消息里，按各自检出判断（返修续接不再重复）。提示要求只打开触发情形与手头工作相关的条目，条目与代码不符时以代码为准。见 [代码](../src/runtime/project-pitfalls.ts)。
+
 Main 每轮在系统提示的 `<custom_agents>` 里看到已启用、有效的 Agent，用 `call_subagent` 的 `agent` 参数派出。后端在派单时解析定义并写进工作项（之后修改不影响它），记一条 `call.agent_selected`（名称、来源、权限、模型来源）；找不到、已停用或定义有误时直接报错并写明名称，不改派。`write` 以 Executor 角色在隔离现场运行，`read` 在 Reviewer 那样的独立 checkout 里运行但不提交审查结论，结论以文字交回。子进程按定义设置工具、过滤技能清单、只注册所列 MCP 服务，并把附加提示词接在角色提示之后。侧栏和需求面板用 Agent 名称代替角色名。
 
 Main 用 `manage_agent`（[工具](../.pi/runtime/tools/agents.ts)）列出、新建、修改、停用或启用 Agent。每次写入前，它以带 `proposal` 的提问把完整定义交给用户：会话里显示定义卡片，用户点「确认」才写文件；拒绝、写修改意见、选「在设置里修改」或超时都不写入，「在设置里修改」会打开设置页并带上这份草稿。Main 只能引用已配置的 MCP 服务，不能新增；项目未信任时不能写项目 Agent。设置页的「让 Main 帮我写」新开会话，把请求放进输入框。
