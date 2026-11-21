@@ -278,9 +278,11 @@ test(
       checks: [{ name: "复审检查", command: "test -f report.txt", exitCode: 0, output: "" }]
     });
     assert.equal(review.state, "passed");
+    // A blocking finding was let through, so the last merge carries the requirement's retro.
     const reviewedMerge = await execution.requestMerge(project.projectId, {
       developmentId: reviewed.developmentId,
-      checks: [{ name: "组合检查", command: "test -f report.txt" }]
+      checks: [{ name: "组合检查", command: "test -f report.txt" }],
+      retro: { nothing: "放行的发现是需求范围外的建议，没有仓库的坑" }
     });
     assert.equal(reviewedMerge.state, "merged", JSON.stringify(reviewedMerge));
     // Local work after the merge must not rewrite the delivered diff.

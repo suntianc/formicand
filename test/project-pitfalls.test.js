@@ -99,3 +99,122 @@ test(
     assert.equal("pitfalls" in none, false);
   }
 );
+
+test(
+  "a requirement's last merge waits for its retro, and the retro's pitfalls commit merges with it",
+  { timeout: 180_000 },
+  async (t) => {
+    const dashboard = await startDashboard({ defaultProject: false });
+    t.after(() => dashboard.stop());
+    const token = await servingToken(dashboard.root);
+    const post = async (path, body) => {
+      const response = await fetch(`${dashboard.base}${path}`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(body)
+      });
+      const json = await response.json();
+      assert.ok(response.ok, `${path} ${response.status} ${JSON.stringify(json)}`);
+      return json;
+    };
+    const root = await mkdtemp(join(tmpdir(), "retro-project-"));
+    t.after(() => rm(root, { recursive: true, force: true }));
+    const directory = await repository(root, { "list.txt": "1\n" });
+    const { project } = await post("/api/projects", { projectName: "复盘", projectDirectory: directory });
+    const requirement = async (title) =>
+      (
+        await post(`/api/projects/${encodeURIComponent(project.projectId)}/ledger`, {
+          action: "create",
+          title,
+          content: title
+        })
+      ).requirement.requirementId;
+    const { taskId } = await post("/api/tasks", { goal: "复盘", projectId: project.projectId });
+    const tool = createProjectDevelopmentTool({ dashboardUrl: dashboard.base, taskId, token });
+    const selfChecked = async (title, change) => {
+      const { development } = await tool.execute({
+        action: "create",
+        requirementId: await requirement(title),
+        goal: title,
+        completionCriteria: [title],
+        route: "quick"
+      });
+      const checkout = development.workspace.directory;
+      await writeFile(join(checkout, "list.txt"), change);
+      await git(checkout, ["commit", "-am", title]);
+      await tool.execute({
+        action: "review_plan",
+        developmentId: development.developmentId,
+        channel: "self",
+        basis: "小改动自检",
+        checks: [{ name: "list", command: "cat list.txt", exitCode: 0, output: change }]
+      });
+      return { developmentId: development.developmentId, checkout };
+    };
+    const mergeChecks = [{ name: "list", command: "test -f list.txt" }];
+
+    // Nothing in the records to look back on: the program records the retro itself.
+    const quiet = await selfChecked("第一项", "1\n2\n");
+    const plain = await tool.execute({
+      action: "request_merge",
+      developmentId: quiet.developmentId,
+      mergeChecks
+    });
+    assert.equal(plain.merge.state, "merged", JSON.stringify(plain.merge));
+    assert.deepEqual(
+      { outcome: plain.merge.acceptance.retro.outcome, auto: plain.merge.acceptance.retro.auto },
+      { outcome: "nothing", auto: true }
+    );
+
+    // A failed merge is a signal: the next request needs the requirement's retro.
+    const noisy = await selfChecked("第二项", "1\n2\n3\n");
+    const failed = await tool.execute({
+      action: "request_merge",
+      developmentId: noisy.developmentId,
+      mergeChecks: [{ name: "fails", command: "false" }]
+    });
+    assert.equal(failed.merge.state, "check_failed");
+    const { next } = await tool.execute({ action: "get", developmentId: noisy.developmentId });
+    assert.match(next, /load the retro skill[^]*1 failed merges/);
+    await assert.rejects(
+      tool.execute({ action: "request_merge", developmentId: noisy.developmentId, mergeChecks }),
+      /合入前先复盘这个需求[^]*合入失败 1 次/
+    );
+
+    // The retro writes its pitfalls on top of the approved version; only that directory may change.
+    await mkdir(join(noisy.checkout, "docs", "pitfalls"), { recursive: true });
+    await writeFile(join(noisy.checkout, PITFALLS_INDEX), "# Pitfalls\n\n| Trigger | Entry |\n");
+    await git(noisy.checkout, ["add", "."]);
+    await git(noisy.checkout, ["commit", "-m", "docs(pitfalls): merge checks"]);
+    await assert.rejects(
+      tool.execute({
+        action: "request_merge",
+        developmentId: noisy.developmentId,
+        mergeChecks,
+        retro: { nothing: "没有要记的" }
+      }),
+      /用 retro\.pitfalls 说明写了哪些坑点/
+    );
+    const merged = await tool.execute({
+      action: "request_merge",
+      developmentId: noisy.developmentId,
+      mergeChecks,
+      retro: { pitfalls: "新增一条：合入检查命令在组合版本上运行" }
+    });
+    assert.equal(merged.merge.state, "merged", JSON.stringify(merged.merge));
+    assert.equal(merged.merge.acceptance.retro.signals.failedMerges, 1);
+    assert.notEqual(merged.merge.acceptance.approvedCommit, merged.merge.candidate.commit);
+    assert.match(await git(directory, ["show", `main:${PITFALLS_INDEX}`]).then((r) => r.stdout), /Pitfalls/);
+    const { view } = await tool.execute({ action: "delivery_status", developmentId: noisy.developmentId });
+    assert.equal(view.retro.outcome, "pitfalls", "the delivery shows the retro");
+
+    // Anything outside the pitfalls after approval still voids it.
+    const third = await selfChecked("第三项", "1\n2\n3\n4\n");
+    await writeFile(join(third.checkout, "list.txt"), "changed after the self-check\n");
+    await git(third.checkout, ["commit", "-am", "late change"]);
+    await assert.rejects(
+      tool.execute({ action: "request_merge", developmentId: third.developmentId, mergeChecks }),
+      /self_check_stale/
+    );
+  }
+);

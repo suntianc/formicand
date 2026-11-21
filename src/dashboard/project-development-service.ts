@@ -26,11 +26,16 @@ import {
   type ReviewQualification
 } from "../domain/development-review.js";
 import {
+  PITFALLS_DIRECTORY,
+  hasRetroSignals,
   mergeAcceptance,
   mergeCheckCommands,
+  retroInput,
+  retroSignals,
   type DevelopmentMerge,
   type MergeAcceptance,
-  type MergeCheck
+  type MergeCheck,
+  type MergeRetro
 } from "../domain/development-merge.js";
 import {
   deliveryFromMerge,
@@ -80,6 +85,7 @@ import {
   checkedOutBranch,
   developmentWorkspaceIsIntact,
   git,
+  onlyChangesUnder,
   prepareDevelopmentWorkspace,
   resolveDevelopmentBaseline
 } from "../workspace/development-workspace.js";
@@ -1680,6 +1686,25 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
     };
     const reasons: string[] = [];
     const latest = reviews.at(-1);
+    // The approved version still stands when the checkout is that version, or
+    // that version plus the retro's commit that touches only the pitfalls.
+    const carries = async (approved: { commit: string; tree: string }) => {
+      if (approved.commit === current.commit && approved.tree === current.tree) return true;
+      if (current.changes) return false;
+      const extended = await onlyChangesUnder(
+        record.workspace!.directory,
+        approved.commit,
+        current.commit,
+        PITFALLS_DIRECTORY
+      );
+      if (extended) qualification.pitfallsAfterApproval = true;
+      return extended;
+    };
+    const approvedAs = (approved: { commit: string; tree: string }): ReviewCandidate => ({
+      ...qualification.candidate!,
+      commit: approved.commit,
+      tree: approved.tree
+    });
     if (ticketRoute(record)) {
       // Each ticket was reviewed on its own checkout and brought in by the
       // program; the version to deliver is the last one it produced.
@@ -1689,8 +1714,7 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
       const last = lastIntegration(tickets);
       qualification.channel = "independent";
       qualification.independentReview = tickets.length > 0;
-      if (last && (last.commit !== current.commit || last.tree !== current.tree))
-        reasons.push("candidate_changed");
+      if (last && !(await carries(last))) reasons.push("candidate_changed");
       // The full route also needs a passed review of the whole requirement on this version.
       if (record.route === "full" && !reasons.length) {
         const final = finalReviews(tickets, reviews).at(-1);
@@ -1699,14 +1723,13 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
           qualification.reviewId = final.reviewId;
           qualification.independentReview = Boolean(final.reviewer);
           if (!reviewApproved(final)) reasons.push(`review_${final.state}`);
-          else if (final.candidate.commit !== current.commit || final.candidate.tree !== current.tree)
-            reasons.push("candidate_changed");
+          else if (!(await carries(final.candidate))) reasons.push("candidate_changed");
         }
       }
-      if (last && !reasons.length) qualification.approved = qualification.candidate;
+      if (last && !reasons.length) qualification.approved = approvedAs(last);
     } else if (!plan) reasons.push("review_plan_missing");
     else if (plan.channel === "self") {
-      const aligned = plan.candidate.commit === current.commit && plan.candidate.tree === current.tree;
+      const aligned = await carries(plan.candidate);
       if (!aligned) reasons.push("self_check_stale");
       if (reviews.length > 0) reasons.push("review_started");
       if (plan.checks.length === 0) reasons.push("review_checks_missing");
@@ -1721,8 +1744,7 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
         else {
           qualification.approved = latest.candidate;
           if (plan.channel === "combined" && latest.kind !== "combined") reasons.push("review_kind_mismatch");
-          if (latest.candidate.commit !== current.commit || latest.candidate.tree !== current.tree)
-            reasons.push("candidate_changed");
+          if (!(await carries(latest.candidate))) reasons.push("candidate_changed");
         }
       }
     }
@@ -1791,7 +1813,11 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
             }
           }
         : {}),
-      ...(deliveries.length ? { delivery: { state: deliveries.at(-1)!.state } } : {})
+      ...(deliveries.length ? { delivery: { state: deliveries.at(-1)!.state } } : {}),
+      retro: {
+        signals: retroSignals(reviews, merges),
+        recorded: merges.some((entry) => entry.acceptance.retro && !entry.acceptance.retro.auto)
+      }
     });
   }
 
@@ -1880,12 +1906,13 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
     const plan = await service.reviewPlan(projectId, merge.developmentId);
     const reviews = await service.queryReviews(projectId, merge.developmentId);
     const reasons: string[] = [];
+    const approved = { commit: merge.acceptance.approvedCommit, tree: merge.acceptance.approvedTree };
     if (merge.acceptance.tickets) {
       const { tickets } = await service.tickets(projectId, merge.developmentId);
       if (!tickets.length || tickets.some((ticket) => ticket.state !== "merged"))
         reasons.push("tickets_pending");
       const last = lastIntegration(tickets);
-      if (last?.commit !== merge.candidate.commit) reasons.push("candidate_changed");
+      if (last?.commit !== approved.commit) reasons.push("candidate_changed");
       const record = await service.getDevelopment(projectId, merge.developmentId, ports.backendId);
       if (record.route === "full") {
         const final = finalReviews(tickets, reviews).find(
@@ -1894,7 +1921,7 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
         if (!final) reasons.push("final_review_missing");
         else {
           if (!reviewApproved(final)) reasons.push(`review_${final.state}`);
-          if (final.candidate.commit !== merge.candidate.commit) reasons.push("candidate_changed");
+          if (final.candidate.commit !== approved.commit) reasons.push("candidate_changed");
         }
       }
       const unresolved = reviews
@@ -1904,7 +1931,7 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
     } else if (merge.acceptance.channel === "self") {
       if (!plan || plan.channel !== "self") reasons.push("review_plan_missing");
       else {
-        if (plan.candidate.commit !== merge.candidate.commit || plan.candidate.tree !== merge.candidate.tree)
+        if (plan.candidate.commit !== approved.commit || plan.candidate.tree !== approved.tree)
           reasons.push("candidate_changed");
         if (!plan.checks.length) reasons.push("review_checks_missing");
       }
@@ -1916,7 +1943,7 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
       if (!review) reasons.push("review_missing");
       else {
         if (!reviewApproved(review)) reasons.push(`review_${review.state}`);
-        if (review.candidate.commit !== merge.candidate.commit) reasons.push("candidate_changed");
+        if (review.candidate.commit !== approved.commit) reasons.push("candidate_changed");
         if (merge.acceptance.channel === "combined" && review.kind !== "combined")
           reasons.push("review_kind_mismatch");
       }
@@ -1925,9 +1952,66 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
         .filter((finding) => finding.state === "open" || finding.state === "fix_claimed");
       if (unresolved.length) reasons.push("findings_open");
     }
-    if (merge.acceptance.approvedCommit !== merge.candidate.commit) reasons.push("candidate_changed");
-    if (merge.acceptance.approvedTree !== merge.candidate.tree) reasons.push("candidate_changed");
+    // The candidate is the approved version, or that version plus the retro's
+    // commit that touches only the pitfalls.
+    if (approved.commit !== merge.candidate.commit || approved.tree !== merge.candidate.tree) {
+      const { repository } = await requiredMergeConfig(projectId);
+      const extended =
+        merge.acceptance.retro?.outcome === "pitfalls" &&
+        (await onlyChangesUnder(repository, approved.commit, merge.candidate.commit, PITFALLS_DIRECTORY));
+      if (!extended) reasons.push("candidate_changed");
+    }
+    if (!merge.acceptance.retro) reasons.push("retro_missing");
     return [...new Set(reasons)];
+  }
+
+  /**
+   * The requirement's retro, done once before its last merge. Main hands in the
+   * pitfalls it wrote or why there are none; with every signal at zero the
+   * program records "nothing" itself. A retro Main did on an earlier attempt is
+   * kept, so a retried merge does not ask again.
+   */
+  async function requirementRetro(
+    projectId: string,
+    developmentId: string,
+    value: unknown,
+    pitfallsCommitted: boolean
+  ): Promise<MergeRetro> {
+    const service = await gateway();
+    const [reviews, merges] = await Promise.all([
+      service.queryReviews(projectId, developmentId),
+      service.queryMerges(projectId, developmentId)
+    ]);
+    const signals = retroSignals(reviews, merges);
+    const given = retroInput(value);
+    // Only a retro Main did carries over; the program's own "nothing" is judged again,
+    // because a merge that then failed is itself a signal.
+    const earlier = [...merges]
+      .reverse()
+      .find((merge) => merge.acceptance.retro && !merge.acceptance.retro.auto)?.acceptance.retro;
+    const retro: MergeRetro | undefined = given
+      ? { ...given, signals, at: now() }
+      : earlier
+        ? earlier
+        : hasRetroSignals(signals)
+          ? undefined
+          : { outcome: "nothing", summary: "没有信号", signals, auto: true, at: now() };
+    if (!retro)
+      throw conflict(
+        `合入前先复盘这个需求：返修 ${signals.reworkRounds} 轮、换办法 ${signals.changedApproach} 次、放行拦截发现 ${signals.dismissedBlocking} 条、合入失败 ${signals.failedMerges} 次。把这个仓库的坑写进 ${PITFALLS_DIRECTORY}（提交在验收版本之上，只改这个目录），再用 retro.pitfalls 说明写了哪些；没有要记的，用 retro.nothing 说明为什么`,
+        "retro_missing"
+      );
+    if (pitfallsCommitted && retro.outcome !== "pitfalls")
+      throw conflict(
+        `候选在验收版本之上改了 ${PITFALLS_DIRECTORY}；用 retro.pitfalls 说明写了哪些坑点`,
+        "retro_mismatch"
+      );
+    if (!pitfallsCommitted && retro.outcome === "pitfalls")
+      throw conflict(
+        `retro.pitfalls 说写了坑点，但候选在验收版本之上没有只改 ${PITFALLS_DIRECTORY} 的提交`,
+        "retro_mismatch"
+      );
+    return retro;
   }
 
   async function requestMerge(projectId: string, input: Record<string, unknown>): Promise<DevelopmentMerge> {
@@ -1947,10 +2031,15 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
         "merge_not_qualified"
       );
     const candidate = qualification.candidate;
-    if (qualification.approved.commit !== candidate.commit || qualification.approved.tree !== candidate.tree)
+    const extended = qualification.pitfallsAfterApproval === true;
+    if (
+      !extended &&
+      (qualification.approved.commit !== candidate.commit || qualification.approved.tree !== candidate.tree)
+    )
       throw conflict("验收版本与当前候选不一致；请在当前版本验收后再申请合入", "merge_not_qualified");
     const supplied = input.checks === undefined ? undefined : mergeCheckCommands(input.checks);
     const service = await gateway();
+    const retro = await requirementRetro(projectId, developmentId, input.retro, extended);
     const checks = supplied ?? (await recordedMergeChecks(service, projectId, developmentId));
     if (!checks.length) throw conflict("合入须记录在组合版本上运行的检查命令", "merge_checks_missing");
     const acceptance: MergeAcceptance = {
@@ -1958,7 +2047,8 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
       approvedCommit: qualification.approved.commit,
       approvedTree: qualification.approved.tree,
       ...(qualification.reviewId ? { reviewId: qualification.reviewId } : {}),
-      ...(ticketRoute(await reviewDevelopment(projectId, developmentId)) ? { tickets: true as const } : {})
+      ...(ticketRoute(await reviewDevelopment(projectId, developmentId)) ? { tickets: true as const } : {}),
+      retro
     };
     const existing = await service.queryMerges(projectId, developmentId);
     const open = existing.find(
@@ -2743,6 +2833,7 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
       .reverse()
       .find((intent) => intent.developmentId === record.developmentId);
     const latestMerged = [...merges].reverse().find((merge) => merge.state === "merged");
+    const retro = [...merges].reverse().find((merge) => merge.acceptance.retro)?.acceptance.retro;
     const waitingSync = pending
       ? {
           mergeId: pending.mergeId,
@@ -2765,7 +2856,8 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
       roles,
       tickets,
       ...(waitingSync ? { pendingSync: waitingSync } : {}),
-      reviewReport: reviewReport(reviews, (reviewId) => ticketOfReview(tickets, reviewId)?.ticketId)
+      reviewReport: reviewReport(reviews, (reviewId) => ticketOfReview(tickets, reviewId)?.ticketId),
+      ...(retro ? { retro } : {})
     };
   }
 

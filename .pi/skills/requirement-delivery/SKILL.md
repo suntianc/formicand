@@ -50,6 +50,6 @@ Decide these yourself.
 
 ## Reporting
 
-A requirement is done only when merged. Report what changed, the evidence (checks, review, merge commit) and what is left open.
+A requirement is done only when merged. Report what changed, the evidence (checks, review, merge commit), the retro's pitfall changes and what is left open.
 
 From `delivery_status`'s `reviewReport`, report every dismissal and change of approach with its reason, and how many suggestions were left.

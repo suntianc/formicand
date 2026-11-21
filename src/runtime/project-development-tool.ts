@@ -314,6 +314,16 @@ export function createProjectDevelopmentTool(options: ProjectDevelopmentToolOpti
           description:
             "request_merge: commands to run on the target-plus-candidate version; omit to reuse the recorded checks. integrate_ticket: the project's checks, run with the ticket's acceptance commands."
         },
+        retro: {
+          type: "object",
+          properties: {
+            pitfalls: { type: "string", minLength: 1, maxLength: 2000 },
+            nothing: { type: "string", minLength: 1, maxLength: 2000 }
+          },
+          additionalProperties: false,
+          description:
+            "request_merge: the requirement's retro, once before its last merge. pitfalls: which entries in docs/pitfalls/ were added, merged or removed (committed on top of the approved version, touching only that directory); nothing: why there is nothing to keep. Omit it when next does not ask for a retro."
+        },
         verdict: {
           type: "string",
           enum: ["passed", "failed"],
@@ -540,7 +550,8 @@ export function createProjectDevelopmentTool(options: ProjectDevelopmentToolOpti
       return merges({
         action: "request",
         developmentId: input.developmentId,
-        ...(input.mergeChecks === undefined ? {} : { checks: input.mergeChecks })
+        ...(input.mergeChecks === undefined ? {} : { checks: input.mergeChecks }),
+        ...(input.retro === undefined ? {} : { retro: input.retro })
       });
     if (action === "apply_merge") return merges({ action: "apply" });
     if (action === "merge_status")

@@ -1,4 +1,9 @@
-import { reviewCandidate, reviewChannel, type ReviewCandidate } from "./development-review.js";
+import {
+  reviewCandidate,
+  reviewChannel,
+  type DevelopmentReview,
+  type ReviewCandidate
+} from "./development-review.js";
 import { developmentBranch } from "./project-development.js";
 import { ProjectDataInvalidError, ledgerIdentifier } from "./project-ledger.js";
 import { now } from "./types.js";
@@ -79,6 +84,97 @@ export interface MergeAcceptance {
   reviewId?: string;
   /** Approved as the version the program produced by bringing in every reviewed ticket. */
   tickets?: true;
+  /** The requirement's retro, done once before its last merge. */
+  retro?: MergeRetro;
+}
+
+/**
+ * What in a requirement's records points at a trap worth a pitfall entry:
+ * rework rounds, changes of approach, blocking findings let through and
+ * merges that did not land. All zero means there is nothing to look back on.
+ */
+export interface RetroSignals {
+  reworkRounds: number;
+  changedApproach: number;
+  dismissedBlocking: number;
+  failedMerges: number;
+}
+
+/**
+ * A requirement's retro. It exists to keep the repository's pitfalls: the
+ * outcome is either the pitfall entries it added, merged or removed (in a
+ * commit on top of the approved version that touches only `docs/pitfalls/`),
+ * or nothing to record, with why.
+ */
+export interface MergeRetro {
+  outcome: "pitfalls" | "nothing";
+  summary: string;
+  signals: RetroSignals;
+  /** Recorded by the program because every signal was zero. */
+  auto?: true;
+  at: string;
+}
+
+/** Where a project keeps its pitfalls; a retro's commit may touch nothing else. */
+export const PITFALLS_DIRECTORY = "docs/pitfalls/";
+
+export function retroSignals(reviews: DevelopmentReview[], merges: DevelopmentMerge[]): RetroSignals {
+  const findings = reviews.flatMap((review) => review.findings);
+  return {
+    reworkRounds: reviews.reduce((sum, review) => sum + review.reworks.length, 0),
+    changedApproach: reviews.filter((review) => review.verdict?.approach).length,
+    dismissedBlocking: findings.filter(
+      (finding) => finding.blocking && finding.ruling?.decision === "dismiss"
+    ).length,
+    failedMerges: merges.filter((merge) => ["conflict", "check_failed", "failed"].includes(merge.state))
+      .length
+  };
+}
+
+export function hasRetroSignals(signals: RetroSignals): boolean {
+  return Object.values(signals).some((count) => count > 0);
+}
+
+/** The retro Main hands in with request_merge: the pitfalls it wrote, or why there are none. */
+export function retroInput(value: unknown): { outcome: MergeRetro["outcome"]; summary: string } | undefined {
+  if (value === undefined || value === null) return undefined;
+  if (typeof value !== "object" || Array.isArray(value))
+    throw new ProjectDataInvalidError("复盘须为对象：{ pitfalls } 或 { nothing }");
+  const input = value as Record<string, unknown>;
+  if ((input.pitfalls === undefined) === (input.nothing === undefined))
+    throw new ProjectDataInvalidError(
+      "复盘须且只能写一项：pitfalls（写了哪些坑点）或 nothing（为什么没有要记的）"
+    );
+  return input.pitfalls !== undefined
+    ? { outcome: "pitfalls", summary: bounded(input.pitfalls, "复盘的坑点说明", 2000) }
+    : { outcome: "nothing", summary: bounded(input.nothing, "复盘没有要记的理由", 2000) };
+}
+
+function mergeRetro(value: unknown): MergeRetro {
+  if (!value || typeof value !== "object" || Array.isArray(value))
+    throw new ProjectDataInvalidError("复盘记录必须是对象");
+  const input = value as Record<string, unknown>;
+  if (input.outcome !== "pitfalls" && input.outcome !== "nothing")
+    throw new ProjectDataInvalidError("复盘结果须为 pitfalls / nothing");
+  const signals = (input.signals ?? {}) as Record<string, unknown>;
+  const count = (key: keyof RetroSignals) => {
+    const number = Number(signals[key]);
+    if (!Number.isInteger(number) || number < 0)
+      throw new ProjectDataInvalidError(`复盘信号 ${key} 须为非负整数`);
+    return number;
+  };
+  return {
+    outcome: input.outcome,
+    summary: bounded(input.summary, "复盘说明", 2000),
+    signals: {
+      reworkRounds: count("reworkRounds"),
+      changedApproach: count("changedApproach"),
+      dismissedBlocking: count("dismissedBlocking"),
+      failedMerges: count("failedMerges")
+    },
+    ...(input.auto === true ? { auto: true as const } : {}),
+    at: bounded(input.at, "复盘时间", 100)
+  };
 }
 
 export interface DevelopmentMerge {
@@ -209,7 +305,8 @@ export function mergeAcceptance(value: unknown): MergeAcceptance {
     approvedCommit: mergeCommit(input.approvedCommit, "验收提交"),
     approvedTree: mergeCommit(input.approvedTree, "验收树"),
     ...(input.reviewId === undefined ? {} : { reviewId: ledgerIdentifier(input.reviewId, "验收审查 ID") }),
-    ...(input.tickets === true ? { tickets: true as const } : {})
+    ...(input.tickets === true ? { tickets: true as const } : {}),
+    ...(input.retro === undefined ? {} : { retro: mergeRetro(input.retro) })
   };
 }
 
