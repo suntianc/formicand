@@ -165,9 +165,53 @@ export const history = [
   }
 ];
 
+/**
+ * Years of later work on the same tool, written after `history` so the rules
+ * the task needs are the oldest records: a default listing of the most recent
+ * requirements no longer reaches them, and several later records share their
+ * words (日期, 导出, 列, 字段) without deciding anything the task needs.
+ */
+const AREAS = [
+  ["list", "列表"],
+  ["search", "搜索"],
+  ["export", "导出"],
+  ["add", "新增条目"],
+  ["done", "完成条目"],
+  ["tag", "标签"],
+  ["config", "配置"],
+  ["README", "文档"],
+  ["test", "测试"],
+  ["perf", "性能"]
+];
+const ASPECTS = [
+  ["空数据时的提示", "数据文件为空或不存在时给一句提示。", "提示统一写 (empty)。"],
+  ["参数校验", "未知参数时报错。", "未知参数报错退出，提示用法。"],
+  ["输出宽度", "终端很窄时输出不换行错乱。", ""],
+  ["日期相关的展示", "有人提出在这里显示日期，讨论后没有定论。", ""],
+  ["列的顺序调整", "有人希望调整显示的列顺序。", "保持现状，不调整。"],
+  ["字段说明", "补充这里用到的字段的说明。", ""],
+  ["大数据量", "上万条时的速度。", "上万条以内不做专门优化。"],
+  ["国际化", "输出文字要不要支持多语言。", "暂不支持，输出保持英文。"],
+  ["错误码细分", "不同错误用不同退出码。", ""],
+  ["脚本友好", "输出方便脚本处理。", "不加颜色和装饰字符。"],
+  ["帮助文本", "--help 输出这个命令的说明。", ""],
+  ["回归测试", "给这里补回归测试。", ""],
+  ["小问题修复", "用户反馈的小问题。", ""]
+];
+const STATUSES = ["delivered", "delivered", "open", "withdrawn", "delivered"];
+
+export const laterHistory = AREAS.flatMap(([area, name], a) =>
+  ASPECTS.slice(0, 12 + (a % 2)).map(([aspect, content, decision], b) => ({
+    title: `${area} ${aspect}`,
+    content: `${name}：${content}`,
+    status: STATUSES[(a + b) % STATUSES.length],
+    decisions: decision ? [decision] : []
+  }))
+);
+
 /** Write the history into a project's ledger through the product API. */
-export async function seedLedger(post) {
-  for (const entry of history) {
+export async function seedLedger(post, entries = history) {
+  for (const entry of entries) {
     let { requirement } = await post({ action: "create", title: entry.title, content: entry.content });
     for (const decision of entry.decisions) {
       const { text, retracted } = typeof decision === "string" ? { text: decision } : decision;

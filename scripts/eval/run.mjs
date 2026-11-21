@@ -65,11 +65,17 @@ const textOf = (message) =>
         .map((part) => part.text)
         .join("");
 
-/** Settled: the turn ended and no delegated work or callback is outstanding. */
+/**
+ * Settled: the turn ended and no delegated work or callback is outstanding.
+ * A turn that ends on a reply waits for the user, which counts as settled once
+ * no question card is pending; the questions are answered above.
+ */
 function settled(detail) {
   const { task, runtime, coordination } = detail;
+  const waiting =
+    task.status === "waiting" && !detail.humanRequests.some((request) => request.status === "pending");
   return (
-    ["completed", "failed", "cancelled"].includes(task.status) &&
+    (["completed", "failed", "cancelled"].includes(task.status) || waiting) &&
     !runtime.active &&
     !coordination.pending?.length &&
     !coordination.callbackPending?.length
@@ -171,7 +177,10 @@ async function runTask(dashboard, task, attempt, out) {
     projectDirectory: repo
   });
   if (task.ledger)
-    await seedLedger((body) => api(dashboard.base, `/api/projects/${project.projectId}/ledger`, body));
+    await seedLedger(
+      (body) => api(dashboard.base, `/api/projects/${project.projectId}/ledger`, body),
+      task.ledger
+    );
   // The first conversation takes the prompt and its follow-ups; each later
   // session is a new conversation in the same project.
   const conversations = [{ prompt: task.prompt, followUps: task.followUps ?? [] }].concat(
