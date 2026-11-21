@@ -2985,7 +2985,8 @@ html[data-theme] body :is(.provider-search, .provider-input) input:not([type="ch
   border-color: var(--color-line-strong);
 }
 .settings-project-picker:focus-within {
-  border-color: var(--color-accent);
+  border-color: var(--field-focus-edge);
+  box-shadow: 0 0 0 3px var(--field-focus-ring);
 }
 .settings-project-picker .ui-icon {
   width: 15px;
@@ -3169,8 +3170,8 @@ html[data-theme] body :is(.provider-search, .provider-input) input:not([type="ch
   border-color: var(--color-text-3);
 }
 .agent-effort:focus-within {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 1px;
+  border-color: var(--field-focus-edge);
+  box-shadow: 0 0 0 3px var(--field-focus-ring);
 }
 .agent-effort.is-disabled {
   cursor: default;
@@ -3389,8 +3390,8 @@ html[data-theme] body :is(.provider-search, .provider-input) input:not([type="ch
   border-color: var(--color-line-strong);
 }
 .agent-add:focus-within {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 1px;
+  border-color: var(--field-focus-edge);
+  box-shadow: 0 0 0 3px var(--field-focus-ring);
 }
 .agent-form-foot {
   display: flex;
