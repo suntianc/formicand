@@ -289,7 +289,7 @@ async function project(dashboard, directory, name) {
   const { requirement } = await post(`/api/projects/${encodeURIComponent(created.projectId)}/ledger`, {
     action: "create",
     title: "分页修复",
-    content: "list 命令的分页从第二页开始错位。"
+    summary: "list 命令的分页从第二页开始错位。"
   });
   const { taskId } = await post("/api/tasks", { goal: name, projectId: created.projectId });
   return { projectId: created.projectId, requirementId: requirement.requirementId, taskId, post };

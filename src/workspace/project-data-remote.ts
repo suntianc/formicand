@@ -205,29 +205,6 @@ export class RemoteProjectDataService implements ProjectDataGateway {
     return result.requirement as RequirementDetail;
   }
 
-  async addDecision(
-    projectId: unknown,
-    requirementId: unknown,
-    input: { expectedRevision?: unknown; text?: unknown; effective?: unknown; source?: unknown }
-  ): Promise<RequirementDetail> {
-    const result = await this.request(projectPath(projectId, "/ledger"), {
-      body: { action: "decide", requirementId, ...input }
-    });
-    return result.requirement as RequirementDetail;
-  }
-
-  async setDecisionEffective(
-    projectId: unknown,
-    requirementId: unknown,
-    decisionId: unknown,
-    input: { expectedRevision?: unknown; effective?: unknown }
-  ): Promise<RequirementDetail> {
-    const result = await this.request(projectPath(projectId, "/ledger"), {
-      body: { action: "set_decision_effective", requirementId, decisionId, ...input }
-    });
-    return result.requirement as RequirementDetail;
-  }
-
   async getRequirement(projectId: unknown, requirementId: unknown): Promise<RequirementDetail> {
     const result = await this.request(projectPath(projectId, "/ledger"), {
       body: { action: "get", requirementId }

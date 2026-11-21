@@ -30,7 +30,7 @@ import { escapeHtml as esc } from "../ui/html.js";
 
 const enc = encodeURIComponent;
 const SOURCE_LABELS = { internal: "内部", external: "看板", legacy: "历史" };
-const LEDGER_STATUS = { open: "有效", delivered: "已记录交付", withdrawn: "已撤回" };
+const LEDGER_STATUS = { active: "在用", retired: "停用" };
 const ROUTE_LABELS = { quick: "快速", direct: "直接", full: "Full" };
 const REVIEW_LABEL = {
   in_review: "审查中",
@@ -288,7 +288,7 @@ export function createObserveRequirements({
     const text = query.trim().toLowerCase();
     if (!text) return list;
     return list.filter((row) =>
-      [row.title, row.content, row.projectName].some((value) =>
+      [row.title, row.summary, row.projectName].some((value) =>
         String(value ?? "")
           .toLowerCase()
           .includes(text)

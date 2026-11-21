@@ -233,7 +233,7 @@ test("each node authorizes, holds its own snapshot and event stream, and one ref
     backendId: "backend-a",
     projects: [project("pa", "甲项目")],
     tasks: [{ taskId: "ta", projectId: "pa", status: "running", title: "甲需求" }],
-    requirements: { pa: [{ requirementId: "ra", title: "甲需求", status: "open" }] }
+    requirements: { pa: [{ requirementId: "ra", title: "甲需求", status: "active" }] }
   });
   const b = fakeBackend({
     origin: "http://127.0.0.1:4002",
@@ -248,7 +248,7 @@ test("each node authorizes, holds its own snapshot and event stream, and one ref
     local: localProvider({
       projects: [project("pl", "本机项目")],
       tasks: [{ taskId: "tl", projectId: "pl", status: "idle", title: "本机需求" }],
-      requirements: { pl: [{ requirementId: "rl", title: "本机需求", status: "open" }] }
+      requirements: { pl: [{ requirementId: "rl", title: "本机需求", status: "active" }] }
     })
   });
   port.start();
@@ -411,7 +411,7 @@ test("a node read only accepts relative paths so its token cannot reach another 
     origin: "http://127.0.0.1:4001",
     backendId: "backend-a",
     projects: [project("pa", "甲项目")],
-    requirements: { pa: [{ requirementId: "ra", title: "甲需求", status: "open" }] }
+    requirements: { pa: [{ requirementId: "ra", title: "甲需求", status: "active" }] }
   });
   const other = fakeBackend({ origin: "http://127.0.0.1:4002", backendId: "backend-other" });
   const port = createPort({
@@ -467,7 +467,7 @@ test("every observation read carries the read-only marker and the work entry sen
     origin: "http://127.0.0.1:4001",
     backendId: "backend-a",
     projects: [project("pa", "甲项目")],
-    requirements: { pa: [{ requirementId: "ra", title: "甲需求", status: "open" }] }
+    requirements: { pa: [{ requirementId: "ra", title: "甲需求", status: "active" }] }
   });
   const localReads = [];
   const port = createPort({

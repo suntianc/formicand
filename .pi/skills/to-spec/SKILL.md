@@ -1,9 +1,9 @@
 ---
 name: to-spec
-description: Turn the conversation and the codebase into a spec for a requirement - problem, solution, implementation and testing decisions, out of scope - and record it as the requirement's content in the ledger. Use on the full route, after the interview and before splitting into tickets.
+description: Turn the conversation and the codebase into a spec for a requirement - problem, solution, implementation and testing decisions, out of scope - and record it as the development's goal. Use on the full route, after the interview and before splitting into tickets.
 ---
 
-<!-- Adapted from mattpocock/skills (MIT), skills/engineering/to-spec at abeeaf9. Changes: the spec is written to the requirement's content in project_ledger instead of an issue tracker; user stories become the requirement's completion criteria; seams are stated in the spec and checked with the user through the ticket confirmation. -->
+<!-- Adapted from mattpocock/skills (MIT), skills/engineering/to-spec at abeeaf9. Changes: the spec is written to the development record's goal instead of an issue tracker; user stories become the requirement's completion criteria; seams are stated in the spec and checked with the user through the ticket confirmation. -->
 
 This skill takes the current conversation and your understanding of the code and produces a spec. Do NOT interview the user; just synthesise what you already know. If questions are still open, run `grill-with-docs` first.
 
@@ -13,7 +13,7 @@ This skill takes the current conversation and your understanding of the code and
 
 2. Sketch the seams at which the feature will be tested. Prefer existing seams to new ones, and the highest seam possible. If new seams are needed, propose them at the highest point you can. The fewer seams across the codebase, the better; the ideal number is one. Write them under Testing Decisions; the user checks them when confirming the tickets.
 
-3. Write the spec with the template below and record it as the requirement's `content` with `project_ledger` (`update`, carrying the revision you last read). What the user must be able to observe when it is done goes into the development record's completion criteria, not into the spec as user stories.
+3. Write the spec with the template below and record it as the development's `goal` with `project_development` (`update`, carrying the revision you last read). The spec is this development's; the requirement's summary says how the feature behaves once it is merged. What the user must be able to observe when it is done goes into the development record's completion criteria, not into the spec as user stories.
 
 <spec-template>
 

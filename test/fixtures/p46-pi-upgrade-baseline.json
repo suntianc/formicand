@@ -623,8 +623,6 @@
               "get",
               "create",
               "update",
-              "decide",
-              "set_decision_effective",
               "board",
               "claim_board",
               "pause_board",
@@ -634,23 +632,17 @@
           },
           "q": {
             "type": "string",
-            "description": "query: match requirement title or content."
+            "description": "query: match requirement title, summary or aliases."
           },
           "status": {
             "type": "string",
-            "enum": ["open", "delivered", "withdrawn"]
+            "enum": ["active", "retired"]
           },
           "requirementId": {
             "type": "string",
             "minLength": 1,
             "maxLength": 300,
-            "description": "get/update/decide/set_decision_effective target."
-          },
-          "decisionId": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 300,
-            "description": "set_decision_effective target."
+            "description": "get/update target."
           },
           "boardId": {
             "type": "string",
@@ -672,9 +664,24 @@
             "type": "string",
             "maxLength": 200
           },
-          "content": {
+          "summary": {
             "type": "string",
-            "maxLength": 20000
+            "maxLength": 20000,
+            "description": "How the feature behaves now and the rules it keeps; update replaces it whole."
+          },
+          "aliases": {
+            "type": "array",
+            "maxItems": 20,
+            "items": {
+              "type": "string",
+              "maxLength": 100
+            },
+            "description": "Other names for the feature; update replaces the whole list."
+          },
+          "history": {
+            "type": "string",
+            "maxLength": 1000,
+            "description": "update: one history line, dated today."
           },
           "note": {
             "type": "string",
@@ -689,15 +696,6 @@
             "type": "string",
             "maxLength": 300,
             "description": "Opaque external label."
-          },
-          "text": {
-            "type": "string",
-            "maxLength": 4000,
-            "description": "decide: the decision itself."
-          },
-          "effective": {
-            "type": "boolean",
-            "description": "decide defaults true; retract with false."
           }
         },
         "required": ["action"],
@@ -717,6 +715,7 @@
               "query",
               "find_by_requirement",
               "update",
+              "withdraw",
               "ensure_workspace",
               "tickets",
               "propose_tickets",
@@ -753,8 +752,8 @@
           },
           "goal": {
             "type": "string",
-            "maxLength": 4000,
-            "description": "create/update: what this development must achieve."
+            "maxLength": 20000,
+            "description": "create/update: what this development must achieve; on the full route, its spec."
           },
           "completionCriteria": {
             "type": "array",

@@ -126,7 +126,7 @@ test(
     const requirement = await request(`/api/projects/${encodeURIComponent(project.projectId)}/ledger`, {
       action: "create",
       title: "报表导出加合计行",
-      content: "导出文件须包含合计行。"
+      summary: "导出文件须包含合计行。"
     });
     assert.equal(requirement.status, 201, JSON.stringify(requirement.body));
     const merge = await request(`/api/projects/${encodeURIComponent(project.projectId)}/merge-config`, {
@@ -1025,7 +1025,7 @@ test("a remote backend writes review facts through the authority and reads them 
     await request(`/api/projects/${encodeURIComponent(project.projectId)}/ledger`, {
       action: "create",
       title: "远端审查",
-      content: "远端写入审查记录。"
+      summary: "远端写入审查记录。"
     })
   ).body.requirement;
   const instance = await readBackendInstance(backendPaths(join(dashboard.root, "home")));
@@ -1197,7 +1197,7 @@ async function makeLifecycleHarness({ root, runtime, backendId = "backend-lifecy
   let seq = 0;
   const fixtureChecks = [{ name: "controlled check", command: "fixture", exitCode: 0, output: "ok" }];
   async function makeDevelopment(label) {
-    const requirement = await gateway.createRequirement(projectId, { title: label, content: label });
+    const requirement = await gateway.createRequirement(projectId, { title: label, summary: label });
     return service.create(projectId, {
       requirementId: requirement.requirementId,
       goal: label,

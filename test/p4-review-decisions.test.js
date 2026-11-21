@@ -106,7 +106,7 @@ test(
     const requirement = await request(`/api/projects/${encodeURIComponent(project.projectId)}/ledger`, {
       action: "create",
       title: "导出报表",
-      content: "导出当前报表。"
+      summary: "导出当前报表。"
     });
     assert.equal(requirement.status, 201, JSON.stringify(requirement.body));
     const merge = await request(`/api/projects/${encodeURIComponent(project.projectId)}/merge-config`, {
@@ -770,7 +770,7 @@ test(
     const smallRequirement = await request(`/api/projects/${encodeURIComponent(project.projectId)}/ledger`, {
       action: "create",
       title: "修改按钮文案",
-      content: "把按钮文案改为导出。"
+      summary: "把按钮文案改为导出。"
     });
     assert.equal(smallRequirement.status, 201, JSON.stringify(smallRequirement.body));
     const smallDevelopment = await request(

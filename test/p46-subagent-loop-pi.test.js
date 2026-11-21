@@ -153,7 +153,7 @@ async function fixture(t, { handle, taskId = "loop-task", goal = "完成需求�
   const requirement = await request(`/api/projects/${encodeURIComponent(project.projectId)}/ledger`, {
     action: "create",
     title: "导出入口",
-    content: "报表页提供导出入口。"
+    summary: "报表页提供导出入口。"
   });
   assert.equal(requirement.status, 201, JSON.stringify(requirement.body));
   const merge = await request(`/api/projects/${encodeURIComponent(project.projectId)}/merge-config`, {

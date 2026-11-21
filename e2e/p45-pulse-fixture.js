@@ -139,7 +139,7 @@ export async function createPulseSession(
 /** One requirement through the public ledger contract. */
 export async function createPulseRequirement(page, dashboard, projectId, title) {
   const response = await page.request.post(`${dashboard.base}/api/projects/${projectId}/ledger`, {
-    data: { action: "create", title, content: `${title}的说明`, source: { kind: "internal" } }
+    data: { action: "create", title, summary: `${title}的说明`, source: { kind: "internal" } }
   });
   if (!response.ok()) throw new Error(`requirement creation failed: ${response.status()}`);
   return (await response.json()).requirement;

@@ -1,8 +1,8 @@
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import {
-  ledgerContent,
-  ledgerDecisionText,
+  ledgerAliases,
+  ledgerHistoryText,
   ledgerIdentifier,
   ledgerNote,
   ledgerProjectDirectory,
@@ -13,6 +13,7 @@ import {
   ledgerSearchText,
   ledgerSource,
   ledgerStatus,
+  ledgerSummary,
   ledgerTaskId,
   ledgerTitle,
   ProjectDataConflictError,
@@ -20,8 +21,10 @@ import {
   ProjectDataNotFoundError,
   type LedgerSource,
   type ProjectIdentity,
-  type RequirementDecision,
+  type RequirementAlias,
   type RequirementDetail,
+  type RequirementHistoryEntry,
+  type RequirementKind,
   type RequirementReference,
   type RequirementRevision,
   type RequirementStatus,
@@ -119,6 +122,7 @@ import {
   type ProjectDataEngine
 } from "../storage/project-data/config.js";
 import type { SqlDatabase, SqlTransaction } from "../storage/project-data/database.js";
+import { insertMiscRequirement } from "../storage/project-data/migrations.js";
 import { ProjectBoardRepository } from "./project-board.js";
 import { ProjectDeliveryRepository } from "./project-delivery.js";
 import { RemoteProjectDataService } from "./project-data-remote.js";
@@ -132,8 +136,9 @@ interface ProjectRow {
 interface RequirementRow {
   project_id: string;
   requirement_id: string;
+  kind: string;
   title: string;
-  content: string;
+  summary: string;
   source_kind: string;
   source_reference: string | null;
   status: string;
@@ -144,7 +149,7 @@ interface RequirementRow {
 interface RevisionRow {
   revision: number;
   title: string;
-  content: string;
+  summary: string;
   status: string;
   source_kind: string;
   source_reference: string | null;
@@ -152,13 +157,16 @@ interface RevisionRow {
   task_id: string | null;
   created_at: string;
 }
-interface DecisionRow {
-  decision_id: string;
+interface AliasRow {
+  alias: string;
+  development_id: string | null;
+  created_at: string;
+}
+interface HistoryRow {
+  entry_id: string;
+  day: string;
   text: string;
-  effective: number;
-  source_kind: string;
-  source_reference: string | null;
-  at_revision: number;
+  development_id: string | null;
   created_at: string;
 }
 interface ReferenceRow {
@@ -312,7 +320,8 @@ export interface RequirementQuery {
 
 export interface RequirementCreate {
   title?: unknown;
-  content?: unknown;
+  summary?: unknown;
+  aliases?: unknown;
   source?: unknown;
   references?: unknown;
 }
@@ -320,7 +329,11 @@ export interface RequirementCreate {
 export interface RequirementUpdate {
   expectedRevision?: unknown;
   title?: unknown;
-  content?: unknown;
+  summary?: unknown;
+  /** The whole alias list, replacing the current one. */
+  aliases?: unknown;
+  /** One line appended to the history, dated today. */
+  history?: unknown;
   status?: unknown;
   note?: unknown;
   taskId?: unknown;
@@ -341,6 +354,8 @@ export interface DevelopmentUpdate {
   goal?: unknown;
   completionCriteria?: unknown;
   route?: unknown;
+  /** Only `withdrawn`: Main stops this development. */
+  status?: unknown;
 }
 
 export interface MergeConfigInput {
@@ -387,17 +402,6 @@ export interface ProjectDataGateway {
     projectId: unknown,
     requirementId: unknown,
     input: RequirementUpdate
-  ): Promise<RequirementDetail>;
-  addDecision(
-    projectId: unknown,
-    requirementId: unknown,
-    input: { expectedRevision?: unknown; text?: unknown; effective?: unknown; source?: unknown }
-  ): Promise<RequirementDetail>;
-  setDecisionEffective(
-    projectId: unknown,
-    requirementId: unknown,
-    decisionId: unknown,
-    input: { expectedRevision?: unknown; effective?: unknown }
   ): Promise<RequirementDetail>;
   getRequirement(projectId: unknown, requirementId: unknown): Promise<RequirementDetail>;
   queryRequirements(projectId: unknown, query?: RequirementQuery): Promise<RequirementSummary[]>;
@@ -496,13 +500,14 @@ export interface ProjectDataGateway {
   close(): Promise<void>;
 }
 
-const SNAPSHOT_VERSION = 7;
+const SNAPSHOT_VERSION = 8;
 const TABLES = [
   "project_data_projects",
   "project_data_bindings",
   "project_data_requirements",
   "project_data_requirement_revisions",
-  "project_data_decisions",
+  "project_data_requirement_history",
+  "project_data_requirement_aliases",
   "project_data_references",
   "project_data_board_entries",
   "project_data_board_events",
@@ -526,8 +531,9 @@ const TABLE_COLUMNS: Record<SnapshotTable, readonly string[]> = {
   project_data_requirements: [
     "project_id",
     "requirement_id",
+    "kind",
     "title",
-    "content",
+    "summary",
     "source_kind",
     "source_reference",
     "status",
@@ -540,7 +546,7 @@ const TABLE_COLUMNS: Record<SnapshotTable, readonly string[]> = {
     "requirement_id",
     "revision",
     "title",
-    "content",
+    "summary",
     "status",
     "source_kind",
     "source_reference",
@@ -548,22 +554,25 @@ const TABLE_COLUMNS: Record<SnapshotTable, readonly string[]> = {
     "task_id",
     "created_at"
   ],
-  project_data_decisions: [
+  project_data_requirement_history: [
     "project_id",
     "requirement_id",
-    "decision_id",
+    "entry_id",
+    "day",
     "text",
-    "effective",
-    "source_kind",
-    "source_reference",
-    "at_revision",
+    "development_id",
     "created_at"
   ],
+  project_data_requirement_aliases: ["project_id", "requirement_id", "alias", "development_id", "created_at"],
   project_data_references: ["project_id", "requirement_id", "reference_id", "kind", "value", "created_at"],
   project_data_board_entries: [
     "project_id",
     "board_id",
     "requirement_id",
+    "title",
+    "content",
+    "source_kind",
+    "source_reference",
     "entry_kind",
     "state",
     "revision",
@@ -755,13 +764,20 @@ function sourceOf(kind: string, reference: string | null): LedgerSource {
   return { kind: kind as LedgerSource["kind"], ...(reference ? { reference } : {}) };
 }
 
-function decisionOf(row: DecisionRow): RequirementDecision {
+function aliasOf(row: AliasRow): RequirementAlias {
   return {
-    decisionId: row.decision_id,
+    alias: row.alias,
+    ...(row.development_id ? { developmentId: row.development_id } : {}),
+    createdAt: row.created_at
+  };
+}
+
+function historyOf(row: HistoryRow): RequirementHistoryEntry {
+  return {
+    entryId: row.entry_id,
+    day: row.day,
     text: row.text,
-    effective: row.effective === 1,
-    source: sourceOf(row.source_kind, row.source_reference),
-    atRevision: Number(row.at_revision),
+    ...(row.development_id ? { developmentId: row.development_id } : {}),
     createdAt: row.created_at
   };
 }
@@ -770,7 +786,7 @@ function revisionOf(row: RevisionRow): RequirementRevision {
   return {
     revision: Number(row.revision),
     title: row.title,
-    content: row.content,
+    summary: row.summary,
     status: row.status as RequirementStatus,
     source: sourceOf(row.source_kind, row.source_reference),
     ...(row.note ? { note: row.note } : {}),
@@ -1001,6 +1017,7 @@ export class ProjectDataRepository {
         "INSERT INTO project_data_projects (project_id, project_name, created_at, updated_at) VALUES (?, ?, ?, ?)",
         [projectId, projectName, timestamp, timestamp]
       );
+      await insertMiscRequirement(this.transaction, projectId, timestamp);
     }
     const binding = await this.transaction.query<{ local_directory: string }>(
       "SELECT local_directory FROM project_data_bindings WHERE backend_id = ? AND project_id = ?",
@@ -1036,22 +1053,24 @@ export class ProjectDataRepository {
     await this.requireProject(projectId);
     const requirementId = id("requirement");
     const title = ledgerTitle(input.title);
-    const content = ledgerContent(input.content);
+    const summary = ledgerSummary(input.summary);
+    const aliases = ledgerAliases(input.aliases);
     const source = ledgerSource(input.source);
     const references = ledgerReferences(input.references);
     const timestamp = now();
     await this.transaction.execute(
       `INSERT INTO project_data_requirements
-         (project_id, requirement_id, title, content, source_kind, source_reference, status, revision, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         (project_id, requirement_id, kind, title, summary, source_kind, source_reference, status, revision, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         projectId,
         requirementId,
+        "feature",
         title,
-        content,
+        summary,
         source.kind,
         source.reference ?? null,
-        "open",
+        "active",
         1,
         timestamp,
         timestamp
@@ -1060,11 +1079,13 @@ export class ProjectDataRepository {
     await this.insertRevision(projectId, requirementId, {
       revision: 1,
       title,
-      content,
-      status: "open",
+      summary,
+      status: "active",
       source,
       createdAt: timestamp
     });
+    for (const alias of aliases)
+      await this.insertAlias(projectId, requirementId, alias, undefined, timestamp);
     for (const reference of references)
       await this.transaction.execute(
         "INSERT INTO project_data_references (project_id, requirement_id, reference_id, kind, value, created_at) VALUES (?, ?, ?, ?, ?, ?)",
@@ -1089,8 +1110,12 @@ export class ProjectDataRepository {
         "revision_conflict"
       );
     const title = input.title === undefined ? current.title : ledgerTitle(input.title);
-    const content = input.content === undefined ? current.content : ledgerContent(input.content);
+    const summary = input.summary === undefined ? current.summary : ledgerSummary(input.summary);
     const status = ledgerStatus(input.status, current.status as RequirementStatus);
+    if (current.kind === "misc" && (status !== "active" || title !== current.title))
+      throw new ProjectDataConflictError("杂项需求不能改名或停用", undefined, "requirement_misc_fixed");
+    const aliases = input.aliases === undefined ? undefined : ledgerAliases(input.aliases);
+    const history = input.history === undefined ? undefined : ledgerHistoryText(input.history);
     const note = ledgerNote(input.note);
     const taskId = ledgerTaskId(input.taskId);
     const revision = expectedRevision + 1;
@@ -1098,7 +1123,7 @@ export class ProjectDataRepository {
     await this.insertRevision(projectId, requirementId, {
       revision,
       title,
-      content,
+      summary,
       status,
       source: sourceOf(current.source_kind, current.source_reference),
       note,
@@ -1107,75 +1132,23 @@ export class ProjectDataRepository {
     });
     const changed = await this.transaction.execute(
       `UPDATE project_data_requirements
-          SET title = ?, content = ?, status = ?, revision = ?, updated_at = ?
+          SET title = ?, summary = ?, status = ?, revision = ?, updated_at = ?
         WHERE project_id = ? AND requirement_id = ? AND revision = ?`,
-      [title, content, status, revision, timestamp, projectId, requirementId, expectedRevision]
+      [title, summary, status, revision, timestamp, projectId, requirementId, expectedRevision]
     );
     if (changed !== 1)
       throw new ProjectDataConflictError("需求已被另一写入更新，请重新读取", undefined, "revision_conflict");
-    return this.requirement(projectId, requirementId);
-  }
-
-  async addDecision(
-    projectIdValue: unknown,
-    requirementIdValue: unknown,
-    input: { expectedRevision?: unknown; text?: unknown; effective?: unknown; source?: unknown }
-  ): Promise<RequirementDetail> {
-    const projectId = ledgerProjectId(projectIdValue);
-    const requirementId = ledgerIdentifier(requirementIdValue, "需求 ID");
-    const expectedRevision = ledgerRevision(input.expectedRevision);
-    const current = await this.requireRequirement(projectId, requirementId);
-    if (Number(current.revision) !== expectedRevision)
-      throw new ProjectDataConflictError(
-        "需求已更新，请基于最新修订重试",
-        Number(current.revision),
-        "revision_conflict"
-      );
-    const source = ledgerSource(input.source);
-    const effective = input.effective === undefined ? true : input.effective;
-    if (typeof effective !== "boolean") throw new ProjectDataInvalidError("effective 须为布尔值");
-    await this.transaction.execute(
-      `INSERT INTO project_data_decisions
-         (project_id, requirement_id, decision_id, text, effective, source_kind, source_reference, at_revision, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        projectId,
-        requirementId,
-        id("decision"),
-        ledgerDecisionText(input.text),
-        effective ? 1 : 0,
-        source.kind,
-        source.reference ?? null,
-        expectedRevision,
-        now()
-      ]
-    );
-    return this.requirement(projectId, requirementId);
-  }
-
-  async setDecisionEffective(
-    projectIdValue: unknown,
-    requirementIdValue: unknown,
-    decisionIdValue: unknown,
-    input: { expectedRevision?: unknown; effective?: unknown }
-  ): Promise<RequirementDetail> {
-    const projectId = ledgerProjectId(projectIdValue);
-    const requirementId = ledgerIdentifier(requirementIdValue, "需求 ID");
-    const decisionId = ledgerIdentifier(decisionIdValue, "决定 ID");
-    const expectedRevision = ledgerRevision(input.expectedRevision);
-    const current = await this.requireRequirement(projectId, requirementId);
-    if (Number(current.revision) !== expectedRevision)
-      throw new ProjectDataConflictError(
-        "需求已更新，请基于最新修订重试",
-        Number(current.revision),
-        "revision_conflict"
-      );
-    if (typeof input.effective !== "boolean") throw new ProjectDataInvalidError("effective 须为布尔值");
-    const changed = await this.transaction.execute(
-      "UPDATE project_data_decisions SET effective = ? WHERE project_id = ? AND requirement_id = ? AND decision_id = ?",
-      [input.effective ? 1 : 0, projectId, requirementId, decisionId]
-    );
-    if (changed !== 1) throw new ProjectDataNotFoundError("找不到该决定");
+    if (aliases) {
+      const kept = (await this.aliases(projectId, [requirementId])).get(requirementId) ?? [];
+      for (const alias of kept.filter((item) => !aliases.includes(item.alias)))
+        await this.transaction.execute(
+          "DELETE FROM project_data_requirement_aliases WHERE project_id = ? AND requirement_id = ? AND alias = ?",
+          [projectId, requirementId, alias.alias]
+        );
+      for (const alias of aliases.filter((item) => !kept.some((entry) => entry.alias === item)))
+        await this.insertAlias(projectId, requirementId, alias, undefined, timestamp);
+    }
+    if (history) await this.insertHistory(projectId, requirementId, history, undefined, timestamp);
     return this.requirement(projectId, requirementId);
   }
 
@@ -1184,14 +1157,19 @@ export class ProjectDataRepository {
     const requirementId = ledgerIdentifier(requirementIdValue, "需求 ID");
     const row = await this.requireRequirement(projectId, requirementId);
     // One client per transaction: queries stay sequential rather than racing it.
-    const decisions = await this.decisions(projectId, [requirementId]);
+    const aliases = await this.aliases(projectId, [requirementId]);
     const references = await this.references(projectId, [requirementId]);
+    const history = await this.transaction.query<HistoryRow>(
+      "SELECT * FROM project_data_requirement_history WHERE project_id = ? AND requirement_id = ? ORDER BY day ASC, created_at ASC, entry_id ASC",
+      [projectId, requirementId]
+    );
     const revisions = await this.transaction.query<RevisionRow>(
       "SELECT * FROM project_data_requirement_revisions WHERE project_id = ? AND requirement_id = ? ORDER BY revision ASC",
       [projectId, requirementId]
     );
     return {
-      ...this.summaryOf(row, decisions, references),
+      ...this.summaryOf(row, aliases, references),
+      history: history.map(historyOf),
       revisions: revisions.map(revisionOf)
     };
   }
@@ -1211,9 +1189,15 @@ export class ProjectDataRepository {
       params.push(status);
     }
     if (text) {
-      filters.push("(LOWER(title) LIKE ? ESCAPE '\\' OR LOWER(content) LIKE ? ESCAPE '\\')");
+      filters.push(
+        `(LOWER(title) LIKE ? ESCAPE '\\' OR LOWER(summary) LIKE ? ESCAPE '\\' OR EXISTS (
+           SELECT 1 FROM project_data_requirement_aliases a
+            WHERE a.project_id = project_data_requirements.project_id
+              AND a.requirement_id = project_data_requirements.requirement_id
+              AND LOWER(a.alias) LIKE ? ESCAPE '\\'))`
+      );
       const pattern = likePattern(text);
-      params.push(pattern, pattern);
+      params.push(pattern, pattern, pattern);
     }
     params.push(limit);
     const rows = await this.transaction.query<RequirementRow>(
@@ -1222,9 +1206,9 @@ export class ProjectDataRepository {
       params
     );
     const ids = rows.map((row) => row.requirement_id);
-    const decisions = await this.decisions(projectId, ids);
+    const aliases = await this.aliases(projectId, ids);
     const references = await this.references(projectId, ids);
-    return rows.map((row) => this.summaryOf(row, decisions, references));
+    return rows.map((row) => this.summaryOf(row, aliases, references));
   }
 
   /**
@@ -1507,11 +1491,13 @@ export class ProjectDataRepository {
     const projectId = ledgerProjectId(projectIdValue);
     await this.requireProject(projectId);
     const requirementId = ledgerIdentifier(input.requirementId, "需求 ID");
-    await this.requireRequirement(projectId, requirementId);
+    const requirement = await this.requireRequirement(projectId, requirementId);
+    if (requirement.status !== "active")
+      throw new ProjectDataConflictError("需求已停用，不能再开发", undefined, "requirement_retired");
     const existing = await this.developmentByRequirement(projectId, requirementId);
-    if (existing)
+    if (existing?.status === "active")
       throw new DevelopmentExistsError(
-        `该需求已有开发记录（${existing.development_id}）；请读取后更新，不要重复创建`,
+        `该需求有一次开发还在进行（${existing.development_id}）；继续这次开发，或等它合入、撤回后再新建`,
         existing.development_id
       );
     const goal = developmentGoal(input.goal);
@@ -1527,6 +1513,7 @@ export class ProjectDataRepository {
         ? undefined
         : ledgerIdentifier(input.taskId, "Task ID");
     const timestamp = now();
+    const developmentId = id("development");
     await this.transaction.execute(
       `INSERT INTO project_data_developments
          (project_id, development_id, requirement_id, goal, completion_criteria, route, status, revision,
@@ -1534,7 +1521,7 @@ export class ProjectDataRepository {
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         projectId,
-        id("development"),
+        developmentId,
         requirementId,
         goal,
         JSON.stringify(completionCriteria),
@@ -1549,8 +1536,7 @@ export class ProjectDataRepository {
         timestamp
       ]
     );
-    const created = await this.developmentByRequirement(projectId, requirementId);
-    return developmentOf(created!);
+    return developmentOf(await this.requireDevelopment(projectId, developmentId));
   }
 
   /** A newer revision replaces goal, criteria or route; a stale one is refused. */
@@ -1570,6 +1556,27 @@ export class ProjectDataRepository {
         Number(current.revision),
         "revision_conflict"
       );
+    if (current.status !== "active")
+      throw new ProjectDataConflictError(
+        `这次开发已${current.status === "merged" ? "合入" : "撤回"}，不能再改；同一需求的新工作新建一次开发`,
+        undefined,
+        "development_closed"
+      );
+    const status = input.status === undefined ? "active" : developmentStatus(input.status);
+    if (status === "merged")
+      throw new ProjectDataInvalidError("开发记录只能改为 withdrawn；合入由交付记录写");
+    if (status === "withdrawn") {
+      const pending = await this.transaction.query<{ merge_id: string }>(
+        "SELECT merge_id FROM project_data_development_merges WHERE project_id = ? AND development_id = ? AND state IN ('waiting', 'applying', 'merged')",
+        [projectId, developmentId]
+      );
+      if (pending.length)
+        throw new ProjectDataConflictError(
+          `这次开发有合入（${pending[0].merge_id}）在排队或已合入，不能撤回`,
+          undefined,
+          "development_merge_pending"
+        );
+    }
     const goal = input.goal === undefined ? current.goal : developmentGoal(input.goal);
     const completionCriteria =
       input.completionCriteria === undefined
@@ -1582,12 +1589,13 @@ export class ProjectDataRepository {
     const timestamp = now();
     const changed = await this.transaction.execute(
       `UPDATE project_data_developments
-          SET goal = ?, completion_criteria = ?, route = ?, revision = ?, updated_at = ?
+          SET goal = ?, completion_criteria = ?, route = ?, status = ?, revision = ?, updated_at = ?
         WHERE project_id = ? AND development_id = ? AND revision = ?`,
       [
         goal,
         JSON.stringify(completionCriteria),
         route,
+        status,
         revision,
         timestamp,
         projectId,
@@ -2170,7 +2178,9 @@ export class ProjectDataRepository {
          FROM project_data_developments d
          LEFT JOIN project_data_requirements r
            ON r.project_id = d.project_id AND r.requirement_id = d.requirement_id
-        WHERE d.project_id = ? AND d.requirement_id = ?`,
+        WHERE d.project_id = ? AND d.requirement_id = ?
+        ORDER BY CASE WHEN d.status = 'active' THEN 0 ELSE 1 END, d.created_at DESC, d.development_id DESC
+        LIMIT 1`,
       [projectId, requirementId]
     );
     return rows[0];
@@ -2301,22 +2311,57 @@ export class ProjectDataRepository {
 
   private summaryOf(
     row: RequirementRow,
-    decisions: Map<string, RequirementDecision[]>,
+    aliases: Map<string, RequirementAlias[]>,
     references: Map<string, RequirementReference[]>
   ): RequirementSummary {
     return {
       projectId: row.project_id,
       requirementId: row.requirement_id,
+      kind: row.kind as RequirementKind,
       title: row.title,
-      content: row.content,
+      summary: row.summary,
+      aliases: aliases.get(row.requirement_id) ?? [],
       source: sourceOf(row.source_kind, row.source_reference),
       status: row.status as RequirementStatus,
       revision: Number(row.revision),
       createdAt: row.created_at,
       updatedAt: row.updated_at,
-      decisions: decisions.get(row.requirement_id) ?? [],
       references: references.get(row.requirement_id) ?? []
     };
+  }
+
+  private async insertAlias(
+    projectId: string,
+    requirementId: string,
+    alias: string,
+    developmentId: string | undefined,
+    timestamp: string
+  ): Promise<void> {
+    await this.transaction.execute(
+      "INSERT INTO project_data_requirement_aliases (project_id, requirement_id, alias, development_id, created_at) VALUES (?, ?, ?, ?, ?)",
+      [projectId, requirementId, alias, developmentId ?? null, timestamp]
+    );
+  }
+
+  private async insertHistory(
+    projectId: string,
+    requirementId: string,
+    text: string,
+    developmentId: string | undefined,
+    timestamp: string
+  ): Promise<void> {
+    await this.transaction.execute(
+      "INSERT INTO project_data_requirement_history (project_id, requirement_id, entry_id, day, text, development_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      [
+        projectId,
+        requirementId,
+        id("history"),
+        timestamp.slice(0, 10),
+        text,
+        developmentId ?? null,
+        timestamp
+      ]
+    );
   }
 
   private async insertRevision(
@@ -2326,14 +2371,14 @@ export class ProjectDataRepository {
   ): Promise<void> {
     await this.transaction.execute(
       `INSERT INTO project_data_requirement_revisions
-         (project_id, requirement_id, revision, title, content, status, source_kind, source_reference, note, task_id, created_at)
+         (project_id, requirement_id, revision, title, summary, status, source_kind, source_reference, note, task_id, created_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         projectId,
         requirementId,
         revision.revision,
         revision.title,
-        revision.content,
+        revision.summary,
         revision.status,
         revision.source.kind,
         revision.source.reference ?? null,
@@ -2364,21 +2409,21 @@ export class ProjectDataRepository {
     return rows[0];
   }
 
-  private async decisions(
+  private async aliases(
     projectId: string,
     requirementIds: string[]
-  ): Promise<Map<string, RequirementDecision[]>> {
-    const grouped = new Map<string, RequirementDecision[]>();
+  ): Promise<Map<string, RequirementAlias[]>> {
+    const grouped = new Map<string, RequirementAlias[]>();
     if (!requirementIds.length) return grouped;
-    const rows = await this.transaction.query<DecisionRow & { requirement_id: string }>(
-      `SELECT * FROM project_data_decisions WHERE project_id = ? AND requirement_id IN (${requirementIds
+    const rows = await this.transaction.query<AliasRow & { requirement_id: string }>(
+      `SELECT * FROM project_data_requirement_aliases WHERE project_id = ? AND requirement_id IN (${requirementIds
         .map(() => "?")
-        .join(", ")}) ORDER BY created_at ASC, decision_id ASC`,
+        .join(", ")}) ORDER BY created_at ASC, alias ASC`,
       [projectId, ...requirementIds]
     );
     for (const row of rows) {
       const list = grouped.get(row.requirement_id) ?? [];
-      list.push(decisionOf(row));
+      list.push(aliasOf(row));
       grouped.set(row.requirement_id, list);
     }
     return grouped;
@@ -2405,44 +2450,50 @@ export class ProjectDataRepository {
   }
 
   /**
-   * Mark the requirement delivered by one real merge.
+   * Record one real merge on the requirement and close its development.
    *
-   * The delivered status, its revision note and a `delivery` reference carrying
-   * the actual merge commit are written together. Repeating the same merge is a
-   * no-op, so a retried synchronization never appends a second delivery
-   * revision; a later, different merge appends its own commit and reference.
+   * A revision note and a `delivery` reference carrying the actual merge commit
+   * are written together, and the development becomes `merged`, which frees
+   * the requirement for its next development. The requirement stays active: a
+   * delivery is the development's outcome. Repeating the same merge is a no-op,
+   * so a retried synchronization never appends a second delivery revision.
    */
-  async markRequirementDelivered(
+  async recordRequirementDelivery(
     projectIdValue: unknown,
     requirementIdValue: unknown,
-    input: { mergeId: unknown; mergedCommit: unknown; targetBranch: unknown }
+    input: { developmentId: unknown; mergeId: unknown; mergedCommit: unknown; targetBranch: unknown }
   ): Promise<RequirementDetail> {
     const projectId = ledgerProjectId(projectIdValue);
     const requirementId = ledgerIdentifier(requirementIdValue, "需求 ID");
+    const developmentId = ledgerIdentifier(input.developmentId, "开发记录 ID");
     const mergeId = ledgerIdentifier(input.mergeId, "合入操作 ID");
     const mergedCommit = mergeCommit(input.mergedCommit, "合入提交");
     const targetBranch = developmentBranch(input.targetBranch, "合入目标分支");
     const current = await this.requireRequirement(projectId, requirementId);
+    await this.transaction.execute(
+      "UPDATE project_data_developments SET status = 'merged', updated_at = ? WHERE project_id = ? AND development_id = ? AND status = 'active'",
+      [now(), projectId, developmentId]
+    );
     const delivered = await this.transaction.query<ReferenceRow>(
       "SELECT * FROM project_data_references WHERE project_id = ? AND requirement_id = ? AND kind = 'delivery' AND value = ?",
       [projectId, requirementId, mergedCommit]
     );
-    if (current.status === "delivered" && delivered.length) return this.requirement(projectId, requirementId);
+    if (delivered.length) return this.requirement(projectId, requirementId);
     const revision = Number(current.revision) + 1;
     const timestamp = now();
     const note = `合入 ${targetBranch} · ${mergedCommit.slice(0, 12)} · ${mergeId}`;
     await this.insertRevision(projectId, requirementId, {
       revision,
       title: current.title,
-      content: current.content,
-      status: "delivered",
+      summary: current.summary,
+      status: current.status as RequirementStatus,
       source: sourceOf(current.source_kind, current.source_reference),
       note: note.slice(0, 2000),
       createdAt: timestamp
     });
     const changed = await this.transaction.execute(
       `UPDATE project_data_requirements
-          SET status = 'delivered', revision = ?, updated_at = ?
+          SET revision = ?, updated_at = ?
         WHERE project_id = ? AND requirement_id = ? AND revision = ?`,
       [revision, timestamp, projectId, requirementId, Number(current.revision)]
     );
@@ -2492,23 +2543,6 @@ export class ProjectDataService implements ProjectDataGateway {
   }
   updateRequirement(projectId: unknown, requirementId: unknown, input: RequirementUpdate) {
     return this.transaction((repository) => repository.updateRequirement(projectId, requirementId, input));
-  }
-  addDecision(
-    projectId: unknown,
-    requirementId: unknown,
-    input: { expectedRevision?: unknown; text?: unknown; effective?: unknown; source?: unknown }
-  ) {
-    return this.transaction((repository) => repository.addDecision(projectId, requirementId, input));
-  }
-  setDecisionEffective(
-    projectId: unknown,
-    requirementId: unknown,
-    decisionId: unknown,
-    input: { expectedRevision?: unknown; effective?: unknown }
-  ) {
-    return this.transaction((repository) =>
-      repository.setDecisionEffective(projectId, requirementId, decisionId, input)
-    );
   }
   getRequirement(projectId: unknown, requirementId: unknown) {
     return this.transaction((repository) => repository.requirement(projectId, requirementId));

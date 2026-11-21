@@ -69,7 +69,7 @@ test("the detail shows the recorded requirement and offers no session or diff", 
     await expect(facts.nth(1)).toContainText("归属人");
     await expect(facts.nth(2)).toContainText("合入");
     await expect(facts.nth(2).locator(".or-fact-value")).toHaveText(/^main · [0-9a-f]{8}$/);
-    await expect(facts.nth(3).locator(".or-fact-value")).toHaveText(/^v\d+ · 已记录交付$/);
+    await expect(facts.nth(3).locator(".or-fact-value")).toHaveText(/^v\d+ · 在用$/);
 
     // A passed review and the merge confirm every completion criterion.
     const criteria = detail.locator('[data-or-section="criteria"]');

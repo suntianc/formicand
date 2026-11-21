@@ -35,7 +35,7 @@ test("the production board publishes, claims and lists through the real HTTP bac
   const internal = await dashboard.request(`/api/projects/${encodeURIComponent(projectId)}/ledger`, {
     action: "create",
     title: "内部需求",
-    content: "内部需求只进台账。",
+    summary: "内部需求只进台账。",
     source: { kind: "internal" }
   });
   assert.equal(internal.status, 201, JSON.stringify(internal.body));

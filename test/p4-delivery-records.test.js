@@ -19,6 +19,12 @@ import { createProjectDevelopmentService } from "../dist/src/dashboard/project-d
 import { ProjectDataUnavailableError } from "../dist/src/domain/project-ledger.js";
 import { SqliteDatabase } from "../dist/src/storage/project-data/sqlite-database.js";
 
+/** A requirement stays active; a delivery shows as a reference to the merge commit. */
+const delivered = (requirement) => {
+  assert.equal(requirement.status, "active");
+  return requirement.references.some((reference) => reference.kind === "delivery");
+};
+
 const run = promisify(execFile);
 const git = (cwd, args) =>
   run("git", ["-C", cwd, ...args], { maxBuffer: 8 * 1024 * 1024 }).then((result) => result.stdout.trim());
@@ -273,7 +279,7 @@ for (const engine of PROJECT_DATA_ENGINES) {
       const internal = await request(projectPath(project.projectId, "/ledger"), {
         action: "create",
         title: "内部交付需求",
-        content: "内部直接提出，只写台账。"
+        summary: "内部直接提出，只写台账。"
       });
       assert.equal(internal.status, 201, JSON.stringify(internal.body));
       const internalRequirementId = internal.body.requirement.requirementId;
@@ -296,7 +302,7 @@ for (const engine of PROJECT_DATA_ENGINES) {
       const openLedger = await request(
         projectPath(project.projectId, `/ledger/${encodeURIComponent(boardRequirementId)}`)
       );
-      assert.equal(openLedger.body.requirement.status, "open");
+      assert.equal(delivered(openLedger.body.requirement), false);
       assert.ok(
         !(openLedger.body.requirement.references ?? []).some((reference) => reference.kind === "delivery")
       );
@@ -334,7 +340,7 @@ for (const engine of PROJECT_DATA_ENGINES) {
       const boardLedger = await request(
         projectPath(project.projectId, `/ledger/${encodeURIComponent(boardRequirementId)}`)
       );
-      assert.equal(boardLedger.body.requirement.status, "delivered");
+      assert.equal(delivered(boardLedger.body.requirement), true);
       assert.ok(
         boardLedger.body.requirement.references.some(
           (reference) => reference.kind === "delivery" && reference.value === boardMerge.mergeCommit
@@ -375,13 +381,41 @@ for (const engine of PROJECT_DATA_ENGINES) {
       assert.equal(stillDelivered.body.entry.state, "pending_release");
       assert.deepEqual(stillDelivered.body.entry.assignment, claimed.body.entry.assignment);
 
+      // The merge closed this development and its card, so the same feature
+      // takes its next piece of work as a new card and a new development.
+      assert.equal((await service.get(project.projectId, boardDevelopment.developmentId)).status, "merged");
+      const nextCard = await request(projectPath(project.projectId, "/board"), {
+        action: "publish",
+        requestId: "publish-delivery-board-next",
+        requirementId: boardRequirementId,
+        title: "看板交付需求的下一次工作",
+        content: "同一功能的下一次工作。",
+        source: { kind: "external", reference: "客户渠道" }
+      });
+      assert.equal(nextCard.status, 201, JSON.stringify(nextCard.body));
+      assert.equal(nextCard.body.entry.requirementId, boardRequirementId);
+      assert.equal(nextCard.body.entry.title, "看板交付需求的下一次工作");
+      const secondOpen = await request(projectPath(project.projectId, "/board"), {
+        action: "publish",
+        requestId: "publish-delivery-board-again",
+        requirementId: boardRequirementId,
+        title: "同时再来一张",
+        content: "一个功能同一时间只有一张卡在进行。",
+        source: { kind: "external" }
+      });
+      assert.equal(secondOpen.status, 409, JSON.stringify(secondOpen.body));
+      assert.equal(secondOpen.body.code, "board_requirement_open");
+      const nextDevelopment = await develop(boardRequirementId, "看板交付第二次");
+      assert.equal(nextDevelopment.status, "active");
+      assert.notEqual(nextDevelopment.developmentId, boardDevelopment.developmentId);
+
       // The internal demand writes its delivery to the ledger only.
       const internalMerge = await merge(internalDevelopment, "internal.txt");
       assert.equal(internalMerge.state, "merged", JSON.stringify(internalMerge));
       const internalLedger = await request(
         projectPath(project.projectId, `/ledger/${encodeURIComponent(internalRequirementId)}`)
       );
-      assert.equal(internalLedger.body.requirement.status, "delivered");
+      assert.equal(delivered(internalLedger.body.requirement), true);
       assert.ok(
         internalLedger.body.requirement.references.some(
           (reference) => reference.kind === "delivery" && reference.value === internalMerge.mergeCommit
@@ -416,10 +450,14 @@ for (const engine of PROJECT_DATA_ENGINES) {
       const backupPath = join(dashboard.root, "delivery-backup.json");
       const backup = await authority.gateway.backupTo(backupPath);
       assert.equal(backup.counts.project_data_deliveries, 2);
-      assert.equal(backup.counts.project_data_board_entries, 1);
+      assert.equal(backup.counts.project_data_board_entries, 2);
       const snapshot = JSON.parse(await readFile(backupPath, "utf8"));
-      assert.equal(snapshot.version, 7);
-      assert.equal(snapshot.tables.project_data_board_entries[0].delivery_commit, boardMerge.mergeCommit);
+      assert.equal(snapshot.version, 8);
+      assert.equal(
+        snapshot.tables.project_data_board_entries.find((entry) => entry.board_id === boardId)
+          .delivery_commit,
+        boardMerge.mergeCommit
+      );
       const restored = await authority.gateway.restoreFrom(backupPath);
       assert.equal(restored.counts.project_data_deliveries, 2);
       assert.equal((await authority.gateway.queryDeliveries(project.projectId)).length, 2);
@@ -502,7 +540,7 @@ for (const engine of PROJECT_DATA_ENGINES) {
       const requirement = await request(projectPath(project.projectId, "/ledger"), {
         action: "create",
         title: "中断后补齐",
-        content: "合入真实发生，共享记录稍后补齐。"
+        summary: "合入真实发生，共享记录稍后补齐。"
       });
       const development = await execution.create(project.projectId, {
         requirementId: requirement.body.requirement.requirementId,
@@ -538,8 +576,8 @@ for (const engine of PROJECT_DATA_ENGINES) {
       assert.equal(pending[0].mergeId, requested.mergeId);
       assert.equal(pending[0].mergedCommit, requested.mergeCommit);
       assert.equal(
-        (await authority.gateway.getRequirement(project.projectId, development.requirementId)).status,
-        "open"
+        delivered(await authority.gateway.getRequirement(project.projectId, development.requirementId)),
+        false
       );
 
       // The service comes back; the next apply completes the same merge from
@@ -559,8 +597,8 @@ for (const engine of PROJECT_DATA_ENGINES) {
       assert.equal(deliveries[0].state, "synced");
       assert.equal(deliveries[0].mergedCommit, requested.mergeCommit);
       assert.equal(
-        (await authority.gateway.getRequirement(project.projectId, development.requirementId)).status,
-        "delivered"
+        delivered(await authority.gateway.getRequirement(project.projectId, development.requirementId)),
+        true
       );
       assert.deepEqual(await outboxEntries(join(dashboard.root, "execution")), []);
 
@@ -584,7 +622,7 @@ for (const engine of PROJECT_DATA_ENGINES) {
       const secondRequirement = await request(projectPath(project.projectId, "/ledger"), {
         action: "create",
         title: "同步失败可见",
-        content: "合入已记录，台账写入失败后重试。"
+        summary: "合入已记录，台账写入失败后重试。"
       });
       const second = await restarted.create(project.projectId, {
         requirementId: secondRequirement.body.requirement.requirementId,
@@ -617,8 +655,8 @@ for (const engine of PROJECT_DATA_ENGINES) {
       assert.equal(retried.state, "synced");
       assert.equal(retried.mergedCommit, secondMerge.mergeCommit);
       assert.equal(
-        (await authority.gateway.getRequirement(project.projectId, second.requirementId)).status,
-        "delivered"
+        delivered(await authority.gateway.getRequirement(project.projectId, second.requirementId)),
+        true
       );
       assert.deepEqual(await outboxEntries(join(dashboard.root, "execution")), []);
       assert.equal((await authority.gateway.queryDeliveries(project.projectId)).length, 2);
@@ -690,7 +728,7 @@ test(
     const internal = await request(projectPath(project.projectId, "/ledger"), {
       action: "create",
       title: "回执一致性内部需求",
-      content: "只写台账。"
+      summary: "只写台账。"
     });
     const internalRequirementId = internal.body.requirement.requirementId;
 
@@ -727,8 +765,8 @@ test(
     );
     assert.equal((await authority.gateway.queryDeliveries(project.projectId)).length, 0);
     assert.equal(
-      (await authority.gateway.getRequirement(project.projectId, boardRequirementId)).status,
-      "open"
+      delivered(await authority.gateway.getRequirement(project.projectId, boardRequirementId)),
+      false
     );
 
     // Each field that identifies the accepted version is authoritative; a
@@ -745,12 +783,12 @@ test(
     }
     assert.equal((await authority.gateway.queryDeliveries(project.projectId)).length, 0);
     assert.equal(
-      (await authority.gateway.getRequirement(project.projectId, boardRequirementId)).status,
-      "open"
+      delivered(await authority.gateway.getRequirement(project.projectId, boardRequirementId)),
+      false
     );
     assert.equal(
-      (await authority.gateway.getRequirement(project.projectId, internalRequirementId)).status,
-      "open"
+      delivered(await authority.gateway.getRequirement(project.projectId, internalRequirementId)),
+      false
     );
     assert.equal(
       (await authority.gateway.boardEntry(project.projectId, boardId)).state,
@@ -791,8 +829,8 @@ test(
       (error) => error.code === "delivery_not_merged"
     );
     assert.equal(
-      (await authority.gateway.getRequirement(project.projectId, boardRequirementId)).status,
-      "open"
+      delivered(await authority.gateway.getRequirement(project.projectId, boardRequirementId)),
+      false
     );
     assert.equal((await authority.gateway.boardEntry(project.projectId, boardId)).state, "claimed");
     const cleanup = await SqliteDatabase.open(info.target);
@@ -897,7 +935,7 @@ test(
     const requirement = await request(projectPath(project.projectId, "/ledger"), {
       action: "create",
       title: "自动补齐需求",
-      content: "共享服务恢复后无需读取即可补齐。"
+      summary: "共享服务恢复后无需读取即可补齐。"
     });
     const development = await service.create(project.projectId, {
       requirementId: requirement.body.requirement.requirementId,
@@ -951,10 +989,7 @@ test(
     assert.equal(merged.state, "merged");
     assert.equal(merged.mergeCommit, requested.mergeCommit);
     assert.equal(await git(repository, ["rev-list", "--count", "--first-parent", `${baseline}..main`]), "1");
-    assert.equal(
-      (await gateway.getRequirement(project.projectId, development.requirementId)).status,
-      "delivered"
-    );
+    assert.equal(delivered(await gateway.getRequirement(project.projectId, development.requirementId)), true);
     assert.deepEqual(await outboxEntries(execution.root), []);
 
     // Stopping the production execution host ends its retry task; no later
@@ -974,7 +1009,7 @@ test(
     const secondRequirement = await request(projectPath(project.projectId, "/ledger"), {
       action: "create",
       title: "重启后自动补齐",
-      content: "启动时仍不可达，恢复后自动完成。"
+      summary: "启动时仍不可达，恢复后自动完成。"
     });
     const secondDevelopment = await service.create(project.projectId, {
       requirementId: secondRequirement.body.requirement.requirementId,
@@ -1049,8 +1084,8 @@ test(
     );
     assert.equal(await git(repository, ["rev-list", "--count", "--first-parent", `${baseline}..main`]), "2");
     assert.equal(
-      (await gateway.getRequirement(project.projectId, secondDevelopment.requirementId)).status,
-      "delivered"
+      delivered(await gateway.getRequirement(project.projectId, secondDevelopment.requirementId)),
+      true
     );
     assert.deepEqual(await outboxEntries(execution.root), []);
     await restarted.stopDeliveryRecovery();

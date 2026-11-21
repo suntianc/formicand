@@ -15,7 +15,7 @@ async function freePort() {
 
 async function createRequirement(page, dashboard, projectId, title) {
   const response = await page.request.post(`${dashboard.base}/api/projects/${projectId}/ledger`, {
-    data: { action: "create", title, content: `${title}的说明`, source: { kind: "internal" } }
+    data: { action: "create", title, summary: `${title}的说明`, source: { kind: "internal" } }
   });
   expect(response.ok()).toBe(true);
 }

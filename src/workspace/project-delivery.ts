@@ -176,7 +176,8 @@ export class ProjectDeliveryRepository {
       backendId,
       actorId: `backend:${backendId}:host`
     });
-    await this.ledger.markRequirementDelivered(projectId, receipt.requirementId, {
+    await this.ledger.recordRequirementDelivery(projectId, receipt.requirementId, {
+      developmentId: receipt.developmentId,
       mergeId: receipt.mergeId,
       mergedCommit: receipt.mergedCommit,
       targetBranch: receipt.targetBranch

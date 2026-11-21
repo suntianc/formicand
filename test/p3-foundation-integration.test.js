@@ -189,7 +189,7 @@ async function requirement(request, projectId, title, content) {
   const created = await request(ledger(projectId), {
     action: "create",
     title,
-    content,
+    summary: content,
     source: { kind: "internal", reference: "内部会话" }
   });
   assert.equal(created.status, 201, JSON.stringify(created.body));
@@ -321,7 +321,9 @@ for (const engine of PROJECT_DATA_ENGINES) {
       const sharedLedger = await secondary.request(ledger(a.projectId), { action: "query" });
       assert.equal(sharedLedger.status, 200, JSON.stringify(sharedLedger.body));
       assert.deepEqual(
-        sharedLedger.body.requirements.map((entry) => entry.requirementId),
+        sharedLedger.body.requirements
+          .filter((entry) => entry.kind === "feature")
+          .map((entry) => entry.requirementId),
         [internal.requirementId]
       );
       assert.deepEqual((await request(board(a.projectId))).body.entries, []);
@@ -488,7 +490,7 @@ for (const engine of PROJECT_DATA_ENGINES) {
           action: "update",
           requirementId: internal.requirementId,
           expectedRevision: 1,
-          status: "delivered"
+          history: "登录改造完成"
         }
       );
       assert.equal(delivered.status, 200, JSON.stringify(delivered.body));
@@ -707,14 +709,14 @@ for (const engine of PROJECT_DATA_ENGINES) {
       const revised = await request(ledger(a.projectId), {
         action: "create",
         title: "重启前的需求",
-        content: "重启后应读回同一修订。"
+        summary: "重启后应读回同一修订。"
       });
       assert.equal(revised.status, 201, JSON.stringify(revised.body));
       const updated = await request(ledger(a.projectId), {
         action: "update",
         requirementId: revised.body.requirement.requirementId,
         expectedRevision: 1,
-        content: "重启后仍应读到第二次修订。"
+        summary: "重启后仍应读到第二次修订。"
       });
       assert.equal(updated.status, 200, JSON.stringify(updated.body));
       assert.equal(updated.body.requirement.revision, 2);
@@ -773,7 +775,7 @@ for (const engine of PROJECT_DATA_ENGINES) {
         (entry) => entry.requirementId === revised.body.requirement.requirementId
       );
       assert.equal(requirementAfter.revision, 2);
-      assert.equal(requirementAfter.content, "重启后仍应读到第二次修订。");
+      assert.equal(requirementAfter.summary, "重启后仍应读到第二次修订。");
 
       const sessionsAfter = await listSessions(request, a.projectId);
       assert.deepEqual(

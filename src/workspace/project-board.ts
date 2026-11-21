@@ -18,7 +18,9 @@ import {
   ProjectDataError,
   ProjectDataInvalidError,
   ProjectDataNotFoundError,
+  ledgerContent,
   ledgerRevision,
+  ledgerTitle,
   type LedgerSource
 } from "../domain/project-ledger.js";
 import { id, now } from "../domain/types.js";
@@ -183,10 +185,8 @@ export class ProjectBoardRepository {
   async list(projectId: string): Promise<BoardEntry[]> {
     await this.requireProject(projectId);
     const rows = await this.rows(
-      `SELECT b.*, r.title, r.content, r.source_kind, r.source_reference
+      `SELECT b.*
          FROM project_data_board_entries b
-         JOIN project_data_requirements r
-           ON r.project_id = b.project_id AND r.requirement_id = b.requirement_id
         WHERE b.project_id = ?
         ORDER BY b.updated_at DESC, b.board_id ASC`,
       [projectId]
@@ -216,30 +216,33 @@ export class ProjectBoardRepository {
     const requestId = boardRequestId(input.requestId);
     const source = boardSource(input.source);
     const replay = await this.transaction.query<BoardRow>(
-      `SELECT b.*, r.title, r.content, r.source_kind, r.source_reference
+      `SELECT b.*
          FROM project_data_board_entries b
-         JOIN project_data_requirements r
-           ON r.project_id = b.project_id AND r.requirement_id = b.requirement_id
         WHERE b.project_id = ? AND b.publish_request_id = ?`,
       [projectId, requestId]
     );
     if (replay.length) return entryOf(replay[0]);
-    const requirement = await this.ledger.createRequirement(projectId, {
-      title: input.title,
-      content: input.content,
-      source
-    });
+    const title = ledgerTitle(input.title);
+    const content = ledgerContent(input.content);
+    const requirementId =
+      input.requirementId === undefined || input.requirementId === null
+        ? (await this.ledger.createRequirement(projectId, { title, summary: content, source })).requirementId
+        : await this.openRequirement(projectId, boardIdentifier(input.requirementId, "需求 ID"));
     const timestamp = now();
     const boardId = id("board");
     await this.transaction.execute(
       `INSERT INTO project_data_board_entries
-         (project_id, board_id, requirement_id, entry_kind, state, revision, backend_id,
-          publish_request_id, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         (project_id, board_id, requirement_id, title, content, source_kind, source_reference, entry_kind, state,
+          revision, backend_id, publish_request_id, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         projectId,
         boardId,
-        requirement.requirementId,
+        requirementId,
+        title,
+        content,
+        source.kind,
+        source.reference ?? null,
         "external",
         "pending",
         1,
@@ -350,7 +353,7 @@ export class ProjectBoardRepository {
     }
   ): Promise<BoardEntry | undefined> {
     const requirementId = boardIdentifier(requirementIdValue, "需求 ID");
-    const current = await this.requireBoardByRequirement(projectId, requirementId, true);
+    const current = await this.requireBoardByRequirement(projectId, requirementId, input.mergeId, true);
     if (!current) return undefined;
     if (current.state === "cancelled") return entryOf(current);
     if (
@@ -587,9 +590,14 @@ export class ProjectBoardRepository {
     if (!rows.length) throw new ProjectDataNotFoundError("找不到该项目的共享记录");
   }
 
+  /**
+   * The card a merge delivers: the one it already delivered, on a retry, or
+   * else the requirement's open card. Without either the merge has no card.
+   */
   private async requireBoardByRequirement(
     projectId: string,
     requirementId: string,
+    mergeId: string,
     lock: boolean
   ): Promise<BoardRow | undefined> {
     if (lock && this.lockRows)
@@ -598,14 +606,32 @@ export class ProjectBoardRepository {
         [projectId, requirementId]
       );
     const rows = await this.rows(
-      `SELECT b.*, r.title, r.content, r.source_kind, r.source_reference
+      `SELECT b.*
          FROM project_data_board_entries b
-         JOIN project_data_requirements r
-           ON r.project_id = b.project_id AND r.requirement_id = b.requirement_id
-        WHERE b.project_id = ? AND b.requirement_id = ?`,
-      [projectId, requirementId]
+        WHERE b.project_id = ? AND b.requirement_id = ?
+          AND (b.delivery_merge_id = ? OR b.state NOT IN ('cancelled', 'pending_release'))
+        ORDER BY CASE WHEN b.delivery_merge_id = ? THEN 0 ELSE 1 END`,
+      [projectId, requirementId, mergeId, mergeId]
     );
     return rows[0];
+  }
+
+  /** A requirement a new card can join: active, with no other card open. */
+  private async openRequirement(projectId: string, requirementId: string): Promise<string> {
+    const requirement = await this.ledger.requirement(projectId, requirementId);
+    if (requirement.status !== "active")
+      throw new ProjectDataConflictError("需求已停用，不能再发卡", undefined, "requirement_retired");
+    const open = await this.transaction.query<{ board_id: string }>(
+      "SELECT board_id FROM project_data_board_entries WHERE project_id = ? AND requirement_id = ? AND state NOT IN ('cancelled', 'pending_release')",
+      [projectId, requirementId]
+    );
+    if (open.length)
+      throw new ProjectDataConflictError(
+        `该需求已有一张卡在进行（${open[0].board_id}）`,
+        undefined,
+        "board_requirement_open"
+      );
+    return requirementId;
   }
 
   private async requireBoard(projectId: string, boardIdValue: unknown, lock?: boolean): Promise<BoardRow> {
@@ -616,10 +642,8 @@ export class ProjectBoardRepository {
         [projectId, boardId]
       );
     const rows = await this.rows(
-      `SELECT b.*, r.title, r.content, r.source_kind, r.source_reference
+      `SELECT b.*
          FROM project_data_board_entries b
-         JOIN project_data_requirements r
-           ON r.project_id = b.project_id AND r.requirement_id = b.requirement_id
         WHERE b.project_id = ? AND b.board_id = ?`,
       [projectId, boardId]
     );

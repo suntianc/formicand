@@ -333,9 +333,9 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
     // Resolve the requirement before any record or checkout exists.
     await service.getRequirement(projectId, requirementId);
     const existing = await service.findDevelopmentByRequirement(projectId, requirementId, ports.backendId);
-    if (existing)
+    if (existing?.status === "active")
       throw new DevelopmentExistsError(
-        `该需求已有开发记录（${existing.developmentId}）；请读取后更新，不要重复创建`,
+        `该需求有一次开发还在进行（${existing.developmentId}）；继续这次开发，或等它合入、撤回后再新建`,
         existing.developmentId
       );
     let sessionId = input.sessionId;
@@ -412,6 +412,17 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
     const record = await (await gateway()).getDevelopment(projectId, developmentId, ports.backendId);
     if (!record.workspace || record.workspace.state !== "ready")
       throw conflict("开发记录没有就绪的本机现场；先 ensure_workspace", "review_workspace_not_ready");
+    return record;
+  }
+
+  /** A development still being worked on: the writes below refuse a merged or withdrawn one. */
+  async function openDevelopment(projectId: string, developmentIdValue: unknown): Promise<DevelopmentRecord> {
+    const record = await reviewDevelopment(projectId, developmentIdValue);
+    if (record.status !== "active")
+      throw conflict(
+        `这次开发已${record.status === "merged" ? "合入" : "撤回"}；同一需求的新工作新建一次开发`,
+        "development_closed"
+      );
     return record;
   }
 
@@ -1022,7 +1033,7 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
    */
   async function integrateTicket(projectId: string, input: Record<string, unknown>) {
     const developmentId = developmentIdentifier(input.developmentId, "开发记录 ID");
-    const record = await reviewDevelopment(projectId, developmentId);
+    const record = await openDevelopment(projectId, developmentId);
     const service = await gateway();
     const { ticket } = await requireTicket(projectId, developmentId, input.ticketId);
     if (ticket.state !== "passed")
@@ -1203,7 +1214,7 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
 
   async function setReviewPlan(projectId: string, input: Record<string, unknown>) {
     const developmentId = developmentIdentifier(input.developmentId, "开发记录 ID");
-    const record = await reviewDevelopment(projectId, developmentId);
+    const record = await openDevelopment(projectId, developmentId);
     const current = await inspectWorkspace(record);
     // A self check belongs to the integration version it actually ran on. The
     // program records that version here, so a later commit cannot inherit it.
@@ -1238,7 +1249,7 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
     input: Record<string, unknown>
   ): Promise<DevelopmentReview> {
     const developmentId = developmentIdentifier(input.developmentId, "开发记录 ID");
-    const record = await reviewDevelopment(projectId, developmentId);
+    const record = await openDevelopment(projectId, developmentId);
     if (input.ticketId !== undefined) return startTicketReview(projectId, taskId, record, input);
     if (record.route === "full") return startFinalReview(projectId, record, input);
     if (ticketRoute(record))
@@ -2065,7 +2076,7 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
     for (const item of improvements) {
       const requirement = await service.createRequirement(projectId, {
         title: item.title,
-        content: item.content,
+        summary: item.content,
         source: { kind: "internal", reference: retroSourceReference(requirementId) }
       });
       registered.push({ requirementId: requirement.requirementId, title: requirement.title });
@@ -2076,6 +2087,7 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
   async function requestMerge(projectId: string, input: Record<string, unknown>): Promise<DevelopmentMerge> {
     await project(projectId);
     const developmentId = developmentIdentifier(input.developmentId, "开发记录 ID");
+    // A closed development still answers a retry of its merged candidate below.
     const record = await reviewDevelopment(projectId, developmentId);
     const config = await requiredMergeConfig(projectId);
     const qualification = await deliveryQualification(projectId, developmentId);
@@ -2127,6 +2139,11 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
       .reverse()
       .find((entry) => entry.state === "merged" && entry.candidate.commit === candidate.commit);
     if (merged) return merged;
+    if (record.status !== "active")
+      throw conflict(
+        `这次开发已${record.status === "merged" ? "合入" : "撤回"}；同一需求的新工作新建一次开发`,
+        "development_closed"
+      );
     // Registered only once the merge is about to be recorded, so a refused
     // request leaves no requirement behind.
     if (improvements.length)

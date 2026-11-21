@@ -98,7 +98,7 @@ test(
     const { requirement } = await request(projectPath + "/ledger", {
       action: "create",
       title: "Development fixture",
-      content: "Authoritative fixture."
+      summary: "Authoritative fixture."
     });
     const { session } = await request(projectPath + "/main-sessions", {
       requirementId: requirement.requirementId

@@ -103,7 +103,7 @@ test("the Main tool reads and writes only the current project through the produc
     await tool.execute({
       action: "create",
       title: "登录记住设备",
-      content: "同一台设备 30 天内不再验证。",
+      summary: "同一台设备 30 天内不再验证。",
       sourceKind: "internal"
     })
   );
@@ -124,27 +124,27 @@ test("the Main tool reads and writes only the current project through the produc
       action: "update",
       requirementId,
       expectedRevision: 1,
-      content: "同一台设备 30 天内不再验证；敏感操作仍需验证。",
+      summary: "同一台设备 30 天内不再验证；敏感操作仍需验证。",
+      aliases: ["免验证"],
+      history: "补上敏感操作仍需验证",
       note: "补充敏感操作"
     })
   );
   assert.equal(revised.requirement.revision, 2);
   assert.equal(revised.requirement.revisions[1].taskId, "task-a");
-
-  const decided = remember(
-    await tool.execute({
-      action: "decide",
-      requirementId,
-      expectedRevision: 2,
-      text: "使用本机设备令牌。"
-    })
+  assert.deepEqual(
+    revised.requirement.aliases.map((alias) => alias.alias),
+    ["免验证"]
   );
-  assert.equal(decided.requirement.decisions[0].effective, true);
+  assert.equal(revised.requirement.history[0].text, "补上敏感操作仍需验证");
 
   // The other conversation's project never sees this requirement.
   const otherRead = remember(await toolB.execute({ action: "query" }));
   assert.equal(otherRead.projectId, f.b.projectId);
-  assert.deepEqual(otherRead.requirements, []);
+  assert.deepEqual(
+    otherRead.requirements.map((requirement) => requirement.kind),
+    ["misc"]
+  );
   await assert.rejects(
     toolB.execute({ action: "get", requirementId }),
     (error) => error.status === 404 && !JSON.stringify(error.message).includes(f.token)
@@ -152,7 +152,7 @@ test("the Main tool reads and writes only the current project through the produc
   // A project id in the body is not a selector: the Task's project still wins.
   const ignored = remember(await toolB.execute({ action: "query", projectId: f.a.projectId }));
   assert.equal(ignored.projectId, f.b.projectId);
-  assert.deepEqual(ignored.requirements, []);
+  assert.ok(!ignored.requirements.some((requirement) => requirement.requirementId === requirementId));
 
   // A crafted project URL with another Task's scope header is refused.
   const denied = await fetch(`${f.base}/api/projects/${encodeURIComponent(f.b.projectId)}/ledger`, {
