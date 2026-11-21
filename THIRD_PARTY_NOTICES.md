@@ -86,6 +86,12 @@ The previous README hero scene used ElectricLogo from [React Bits](https://githu
 
 The standalone scene's WebGL dependency is [OGL 1.0.11](https://www.npmjs.com/package/ogl/v/1.0.11), pinned by [docs/hero/package-lock.json](docs/hero/package-lock.json), under the **Unlicense**. Its full terms are copied verbatim from that npm release's README to [OGL-UNLICENSE.txt](docs/hero/react-bits/OGL-UNLICENSE.txt). Source and license: [OGL b9e653cc](https://github.com/oframe/ogl/tree/b9e653ccac8e08211ce0678695d0a01f722e1fc2) and its [README license section](https://github.com/oframe/ogl/blob/b9e653ccac8e08211ce0678695d0a01f722e1fc2/README.md#unlicense).
 
+## 工程方法技能 / Engineering method skills
+
+随产品提供的 [grilling](.pi/skills/grilling/SKILL.md)、[domain-modeling](.pi/skills/domain-modeling/SKILL.md)、[to-tickets](.pi/skills/to-tickets/SKILL.md)、[tdd](.pi/skills/tdd/SKILL.md)、[code-review](.pi/skills/code-review/SKILL.md) 与 [diagnosing-bugs](.pi/skills/diagnosing-bugs/SKILL.md) 改编自 [mattpocock/skills](https://github.com/mattpocock/skills)，适用 **MIT** 许可，版权所有者为 Matt Pocock。改编基于 [scripts/upstream-skills.json](scripts/upstream-skills.json) 记录的上游提交，每个技能开头注明来源与改动：提问改走 CoworkOS 的工具，票交给开发记录，审查结论按 CoworkOS 的拦截规则提交。完整[许可及版权声明](.pi/skills/mattpocock-skills-LICENSE.txt)与技能一起保留。
+
+The bundled grilling, domain-modeling, to-tickets, tdd, code-review and diagnosing-bugs skills are adapted from mattpocock/skills under the **MIT** license (copyright Matt Pocock), at the upstream commit recorded in `scripts/upstream-skills.json`. Each skill names its source and its changes at the top: questions go through CoworkOS's tools, tickets go to the development record, and review conclusions follow CoworkOS's blocking rules. The complete license and copyright notice are retained alongside the skills.
+
 ## Markdown document preview
 
 Web/App 文档预览使用 Marked 18.1.1（MIT）和 DOMPurify 3.4.17（Apache-2.0 OR MPL-2.0）。构建将浏览器依赖打包到本地静态资源，并复制上游许可证；不依赖 CDN。完整许可见 [Marked](https://registry.npmjs.org/marked/-/marked-18.1.1.tgz) 与 [DOMPurify](https://registry.npmjs.org/dompurify/-/dompurify-3.4.17.tgz)。

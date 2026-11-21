@@ -9,6 +9,11 @@ description: Develop a requirement in the user's Git project through an isolated
 
 Start with `find_by_requirement` and continue an existing record rather than create another. Work happens in the record's checkout, never the user's working tree.
 
+## Before the record
+
+- When open questions on the goal, scope or acceptance would change the design, load `grilling` and settle them first.
+- Read the parts of `GLOSSARY.md` and `docs/adr/` the requirement touches. Load `domain-modeling` when a term needs sharpening or a decision is worth an ADR.
+
 ## Choosing the route
 
 - `quick`: a small, clear change you can make and check yourself in a few files. No tickets and no independent review; your own checks gate the merge. Most fixes and small features belong here.
@@ -19,16 +24,16 @@ Pick the smallest route that keeps the result trustworthy. A route is cheaper to
 
 ## Splitting into tickets
 
-- Split by vertical slices that can each be checked on their own, not by layer: "the summary shows the total" rather than "parser" then "renderer".
-- A ticket's scope lists the paths it may change. Keep scopes apart, so tickets run in parallel and the scope check means something.
-- Add a dependency only where a ticket needs another's result; it serializes the work.
-- Prefer two to five tickets; more usually means several requirements.
-- "Keep working" names nearby behaviour that must survive. "Not in this change" names related work the user did not ask for, so the Executor does not drift into it.
+On the full route, load `to-tickets` and follow it. On any route, `preserve` names behaviour that must survive and `outOfScope` work nobody asked for.
+
+## Executors and Reviewers
+
+Built-in Executors build with `tdd` and Reviewers review with `code-review`, as their role prompts say. An Executor stuck on an unexplained bug loads `diagnosing-bugs`.
 
 ## Writing acceptance criteria
 
 - Say what is observed, when and where: "running `summarize.sh scores.csv` prints `total: 42`", not "totals are correct".
-- Give each criterion a check command when one exists. When none can, say why and how it is checked instead (a screenshot, a manual step the user confirms).
+- Give each criterion a check command, or say why none can exist and how it is checked instead.
 - Avoid unbounded words such as "all", "never" or "any input": name the inputs and platforms that matter.
 - Confirmed criteria change only by the user's decision, recorded with `revise_ticket`.
 

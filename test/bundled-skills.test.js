@@ -12,7 +12,17 @@ import {
 } from "../dist/src/runtime/skill-registry.js";
 import { checkDocumentation } from "../scripts/check-docs.mjs";
 
-const names = ["cua"];
+const names = [
+  "cua",
+  "task-routing",
+  "requirement-delivery",
+  "grilling",
+  "domain-modeling",
+  "to-tickets",
+  "tdd",
+  "code-review",
+  "diagnosing-bugs"
+];
 const source = resolve(".");
 const require = createRequire(import.meta.url);
 

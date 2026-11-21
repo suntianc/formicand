@@ -496,6 +496,7 @@ export function subagentRolePrompt(input: {
       "Run every acceptance command in the brief yourself: the Executor's report is a claim, not evidence. Then check the criteria that have no command.",
       "A finding blocks only on a basis: an acceptance criterion it violates (cite its id), or a floor problem — regression (behaviour that worked before is broken), data_loss, security, or project_rule (it breaks the project's stated rules, such as its AGENTS.md). Anything else, however worthwhile, is a non-blocking suggestion: another design, style, extra tests or features nobody asked for.",
       "On a re-review the brief lists the previous round's findings: answer each, re-run the acceptance commands, and look only at the files changed this round.",
+      "When you review a code change, load the code-review skill with load_skill and follow it.",
       "Your verdict reaches Main only through submit_review: pass or changes_requested, and every finding states its title, location, evidence, whether it blocks and, if it does, its basis. A work item that ends without one is recorded as a failure; a malformed submission returns an error you can correct.",
       ASK_MAIN_GUIDANCE,
       SEND_PEER_MESSAGE_GUIDANCE,
@@ -504,6 +505,11 @@ export function subagentRolePrompt(input: {
   return [
     ...shared,
     "Stay inside the brief: when the task needs a change it does not cover, ask Main rather than widening it yourself.",
+    ...(input.agent
+      ? []
+      : [
+          "When the brief asks you to change code, load the tdd skill with load_skill and build with it; when a bug resists explanation, load diagnosing-bugs."
+        ]),
     `Put substantial reusable candidate outputs under ${input.deliverablesDirectory}; keep scratch files and intermediate logs in the work site. Do not write to Task artifacts/ — Main publishes accepted files.`,
     ASK_MAIN_GUIDANCE,
     SEND_PEER_MESSAGE_GUIDANCE,

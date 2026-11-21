@@ -1,0 +1,12 @@
+{
+  "repo": "https://github.com/mattpocock/skills",
+  "commit": "abeeaf95660ba9e8b7c753eb38f441ca707a8823",
+  "skills": {
+    "code-review": "skills/engineering/code-review",
+    "diagnosing-bugs": "skills/engineering/diagnosing-bugs",
+    "domain-modeling": "skills/engineering/domain-modeling",
+    "grilling": "skills/productivity/grilling",
+    "tdd": "skills/engineering/tdd",
+    "to-tickets": "skills/engineering/to-tickets"
+  }
+}
