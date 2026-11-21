@@ -5,9 +5,68 @@
  * `hidden/` run after Main settles; `expect` lists the behavior a good run
  * shows, which the report compares with what happened.
  */
-import { readFile, writeFile } from "node:fs/promises";
-import { join } from "node:path";
-import { history, laterHistory } from "./history.mjs";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
+import { createdFeature, duplicateFeature, history, repoFiles } from "./history.mjs";
+
+/** Replace each `[from, to]` in a file of the copy; every `from` must be there. */
+async function patch(repo, path, ...pairs) {
+  const file = join(repo, path);
+  let source = await readFile(file, "utf8");
+  for (const [from, to] of pairs) {
+    if (!source.includes(from)) throw new Error(`${path} has no ${from}`);
+    source = source.replace(from, to);
+  }
+  await writeFile(file, source);
+}
+
+/** The instructions and architecture decisions an older project came with. */
+async function writeRepoFiles(repo) {
+  for (const [path, text] of Object.entries(repoFiles)) {
+    await mkdir(dirname(join(repo, path)), { recursive: true });
+    await writeFile(join(repo, path), text);
+  }
+}
+
+/** The creation date as an earlier development delivered it, following the ledger's rules. */
+async function deliverCreated(repo) {
+  await patch(
+    repo,
+    "src/store.js",
+    [
+      "    tags: Array.isArray(raw.tags) ? raw.tags.map(String) : []\n  };",
+      '    tags: Array.isArray(raw.tags) ? raw.tags.map(String) : [],\n    ...(typeof raw.created === "string" ? { created: raw.created } : {})\n  };'
+    ],
+    [
+      "export function add(items, itemTitle, tags = []) {",
+      "export const today = () => process.env.TODO_TODAY ?? new Date().toISOString().slice(0, 10);\n\nexport function add(items, itemTitle, tags = [], created = today()) {"
+    ],
+    ["{ id, itemTitle, done: false, tags }", "{ id, itemTitle, done: false, tags, created }"]
+  );
+  await patch(repo, "src/format.js", [
+    "${tags}`;",
+    '${tags}${item.created ? ` [created ${item.created}]` : ""}`;'
+  ]);
+  await patch(
+    repo,
+    "src/export.js",
+    ['cell(item.tags.join(" "))]', 'cell(item.tags.join(" ")), item.created ?? ""]'],
+    ['"id,title,done,tags"', '"id,title,done,tags,created"']
+  );
+  await patch(repo, "test/cli.test.js", [
+    'test("export writes',
+    'process.env.TODO_TODAY = "2026-03-01";\n\ntest("export writes'
+  ]);
+  await patch(
+    repo,
+    "test/cli.test.js",
+    [
+      '"[ ] 1. Buy milk #home\\n[x] 2. Call bank\\npage 1/1\\n"',
+      '"[ ] 1. Buy milk #home [created 2026-03-01]\\n[x] 2. Call bank [created 2026-03-01]\\npage 1/1\\n"'
+    ],
+    ["'id,title,done,tags\\n1,\"a, b\",false,\\n'", "'id,title,done,tags,created\\n1,\"a, b\",false,,\\n'"]
+  );
+}
 
 export const tasks = [
   {
@@ -102,28 +161,58 @@ export const tasks = [
     expect: {}
   },
   {
-    // An older project whose rules live only in its ledger: the prompt says to
-    // follow them without naming one, and one earlier decision was retracted.
+    // An older project whose rules live in its ledger's feature summaries and
+    // its architecture decisions: the prompt says to follow them without
+    // naming one, and the old date format was superseded.
     id: "history",
     kind: "检索",
     title: "老项目",
     prompt:
       "给条目加上创建日期：add 的时候记下来，list 和 export 里都要能看到。按我们之前定下的规矩来，补上测试。",
+    setup: writeRepoFiles,
     ledger: history,
     hidden: "history.test.js",
     expect: {}
   },
   {
-    // The same rules under years of later records: the rules are the oldest
-    // entries, so the most recent fifty no longer include them.
-    id: "history-large",
+    // The user's words differ from the ledger's: 添加时间 is the feature
+    // recorded as 创建日期, whose summary holds the rule the request needs.
+    id: "history-alias",
     kind: "检索",
-    title: "老项目（大）",
+    title: "换了说法",
     prompt:
-      "给条目加上创建日期：add 的时候记下来，list 和 export 里都要能看到。按我们之前定下的规矩来，补上测试。",
-    ledger: [...history, ...laterHistory],
-    hidden: "history.test.js",
-    expect: {}
+      "list 加一个 --since YYYY-MM-DD 选项，只列添加时间在这天及以后的条目。按之前定下的规矩来，补上测试。",
+    async setup(repo) {
+      await writeRepoFiles(repo);
+      await deliverCreated(repo);
+    },
+    ledger: [...history, createdFeature],
+    hidden: "history-alias.test.js",
+    expect: { requirementsCreated: 0 }
+  },
+  {
+    // A change no feature owns: it belongs to the project's miscellaneous
+    // requirement, not to a new one.
+    id: "history-misc",
+    kind: "检索",
+    title: "杂项改动",
+    prompt: "把 package.json 里的版本号改成 0.2.0，README 标题下面加一行 Version: 0.2.0。",
+    setup: writeRepoFiles,
+    ledger: history,
+    hidden: "history-misc.test.js",
+    expect: { requirementsCreated: 0 }
+  },
+  {
+    // The ledger holds one feature twice. The request is ordinary export work;
+    // a ledger tidy after its merge should fold the two into one.
+    id: "history-tidy",
+    kind: "检索",
+    title: "重复需求",
+    prompt: "export 加一个 --done 选项，只导出已完成的条目。按之前定下的规矩来，补上测试。",
+    setup: writeRepoFiles,
+    ledger: [...history, duplicateFeature],
+    hidden: "history-tidy.test.js",
+    expect: { merged: [duplicateFeature.title, "导出给财务的 CSV"] }
   },
   {
     id: "ask",

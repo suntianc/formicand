@@ -20,7 +20,7 @@ import { promisify } from "node:util";
 import { setTimeout as delay } from "node:timers/promises";
 import { startDashboard } from "../../test/dashboard-fixture.mjs";
 import { tasks } from "./tasks.mjs";
-import { seedLedger } from "./history.mjs";
+import { ledgerTitles, seedLedger } from "./history.mjs";
 
 const run = promisify(execFile);
 const here = resolve(new URL(".", import.meta.url).pathname);
@@ -176,11 +176,9 @@ async function runTask(dashboard, task, attempt, out) {
     projectName: `${task.id}-${attempt}`,
     projectDirectory: repo
   });
-  if (task.ledger)
-    await seedLedger(
-      (body) => api(dashboard.base, `/api/projects/${project.projectId}/ledger`, body),
-      task.ledger
-    );
+  const ledgerPost = (body) => api(dashboard.base, `/api/projects/${project.projectId}/ledger`, body);
+  if (task.ledger) await seedLedger(ledgerPost, task.ledger);
+  const seeded = await ledgerTitles(ledgerPost);
   // The first conversation takes the prompt and its follow-ups; each later
   // session is a new conversation in the same project.
   const conversations = [{ prompt: task.prompt, followUps: task.followUps ?? [] }].concat(
@@ -233,6 +231,7 @@ async function runTask(dashboard, task, attempt, out) {
     tools[payload.toolName] = (tools[payload.toolName] ?? 0) + 1;
     if (payload.toolName === "project_ledger") ledger.push(payload.args ?? {});
   }
+  const titles = await ledgerTitles(ledgerPost);
   const calls = detail.coordination.calls ?? [];
   const final = detail.messages.findLast((message) => message.role === "assistant");
   const result = {
@@ -280,6 +279,9 @@ async function runTask(dashboard, task, attempt, out) {
       findings: review.findings.length
     })),
     tools,
+    // Requirements the run added to the ledger, and the seeded ones it removed (a tidy's merge).
+    requirementsCreated: titles.filter((title) => !seeded.includes(title)),
+    requirementsRemoved: seeded.filter((title) => !titles.includes(title)),
     // How Main searched the ledger: each call's action and its query or target.
     ledger: ledger.map((args) =>
       [args.action, args.q ?? args.requirementId ?? args.status ?? ""].join(" ").trim()
@@ -337,6 +339,10 @@ function verdicts(task, result) {
   if (expect.tickets && !result.tickets.length) notes.push("没拆票");
   // A call record carries no role; an independent review leaves a review record.
   if (expect.review && !result.reviews.length) notes.push("没派审查");
+  if (expect.requirementsCreated === 0 && result.requirementsCreated.length)
+    notes.push(`新建需求 ${result.requirementsCreated.join("、")}`);
+  if (expect.merged && expect.merged.every((title) => !result.requirementsRemoved.includes(title)))
+    notes.push("重复需求没合并");
   if (result.leftovers?.length) notes.push(`残留 ${result.leftovers.join(" ")}`);
   return notes.length ? notes.join("；") : "通过";
 }
@@ -416,12 +422,12 @@ function report(rows, model) {
   const lines = [
     `模型：${model?.connectionName ?? "?"} / ${model?.model ?? "?"}，上下文窗口 ${model?.contextWindow ?? "?"}`,
     "",
-    "| 任务 | 次 | 结果 | 分钟 | tokens | 不含缓存 | 换窗 | 记在 | 查台账 | 派单 | 提问 | 票 | 审查 | 改动文件 |",
-    "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |"
+    "| 任务 | 次 | 结果 | 分钟 | tokens | 不含缓存 | 换窗 | 记在 | 查台账 | 新建需求 | 派单 | 提问 | 票 | 审查 | 改动文件 |",
+    "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |"
   ];
   for (const { task, result, verdict } of rows)
     lines.push(
-      `| ${task.title} | ${result.attempt} | ${verdict} | ${result.minutes} | ${result.tokens ?? "—"} | ${result.freshTokens ?? "—"} | ${result.windows} | ${remembered(result)} | ${result.ledger.length} | ${result.delegations.length} | ${result.questions.length} | ${result.tickets.length} | ${result.reviews.length} | ${result.changedFiles.length} |`
+      `| ${task.title} | ${result.attempt} | ${verdict} | ${result.minutes} | ${result.tokens ?? "—"} | ${result.freshTokens ?? "—"} | ${result.windows} | ${remembered(result)} | ${result.ledger.length} | ${result.requirementsCreated.join("、") || "—"} | ${result.delegations.length} | ${result.questions.length} | ${result.tickets.length} | ${result.reviews.length} | ${result.changedFiles.length} |`
     );
   lines.push("", "## 最终汇报", "");
   for (const { task, result } of rows) {
