@@ -501,53 +501,21 @@ html[data-theme] .turn-endline::after {
   border-top: 1px solid var(--color-line);
 }
 
-/* Where the conversation moved to a new context window: a rule like the turn
-   end line, folding open onto the handoff the new window started from. */
+/* Where the conversation moved to a new context window: a dashed rule like
+   the turn end line. */
 html[data-theme] .context-window-divider {
-  margin: 16px 0;
-}
-html[data-theme] .context-window-divider > summary {
   display: flex;
   align-items: center;
   gap: 8px;
+  margin: 16px 0;
   color: var(--color-text-3);
   font-size: 12px;
-  cursor: pointer;
-  list-style: none;
 }
-html[data-theme] .context-window-divider > summary::-webkit-details-marker {
-  display: none;
-}
-html[data-theme] .context-window-divider > summary::before,
-html[data-theme] .context-window-divider > summary::after {
+html[data-theme] .context-window-divider::before,
+html[data-theme] .context-window-divider::after {
   content: "";
   flex: 1 1 auto;
   border-top: 1px dashed var(--color-line);
-}
-html[data-theme] .context-window-divider > summary:hover {
-  color: var(--color-text-2);
-}
-html[data-theme] .context-window-chevron {
-  line-height: 0;
-  transition: transform var(--motion-fast);
-}
-html[data-theme] .context-window-chevron .ui-icon {
-  width: var(--ui-icon-small);
-  height: var(--ui-icon-small);
-}
-html[data-theme] .context-window-divider[open] .context-window-chevron {
-  transform: rotate(90deg);
-}
-html[data-theme] .chat-pane .context-window-divider > .reasoning-copy.markdown-body {
-  margin-top: 10px;
-  padding: 12px 14px;
-  border: 1px solid var(--color-line);
-  border-radius: 10px;
-}
-@media (prefers-reduced-motion: reduce) {
-  html[data-theme] .context-window-chevron {
-    transition: none;
-  }
 }
 
 /* Subagents a step sent out: one row for the dispatch, then each Subagent

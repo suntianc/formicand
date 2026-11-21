@@ -12,6 +12,8 @@ import {
 } from "./model-profile.js";
 import { deflateSync } from "node:zlib";
 import { modelErrorCode, responseModelErrorCode } from "./model-error.js";
+import type { ResolvedModelRole } from "./role-models.js";
+import type { SummaryCompletion } from "./session-summary.js";
 
 export interface ModelConnectionInput extends Partial<ConnectionProfile> {
   baseUrl: string;
@@ -245,5 +247,52 @@ export async function testModelConnection(input: ModelConnectionInput, options: 
     supportsImages: input.supportsImages === true,
     streaming: true,
     durationMs: Date.now() - started
+  };
+}
+
+/**
+ * One request to a resolved role's model from the Dashboard itself, for work
+ * done while no Agent process holds the session, such as summarizing a
+ * stored Main session when the user changes its window offline.
+ */
+export function roleCompletion(selection: ResolvedModelRole): SummaryCompletion {
+  return async (context, signal) => {
+    const model = createCoworkModel({
+      baseUrl: selection.baseUrl,
+      connectionId: selection.connectionId,
+      api: selection.profile.api,
+      thinkingFormat: selection.profile.thinkingFormat,
+      model: selection.model,
+      maxTokens: selection.profile.mainMaxTokens,
+      contextWindow: selection.profile.contextWindow,
+      supportsImages: selection.supportsImages,
+      supportsReasoningEffort: selection.profile.supportsReasoningEffort
+    });
+    const models = createModels();
+    models.setProvider(
+      createProvider({
+        id: model.provider,
+        name: "CoworkOS model service",
+        baseUrl: model.baseUrl,
+        auth: {
+          apiKey: { name: "CoworkOS API key", resolve: async () => ({ auth: { apiKey: selection.apiKey } }) }
+        },
+        models: [model],
+        api: createModelStreams(model.api, { supportsPromptCacheKey: false })
+      })
+    );
+    const transport = createHttpTransport();
+    try {
+      return await models
+        .streamSimple(model, normalizeContext(context), {
+          apiKey: selection.apiKey,
+          maxTokens: selection.profile.mainMaxTokens,
+          signal,
+          fetch: (request, init) => transport.fetch(request, init)
+        })
+        .result();
+    } finally {
+      await transport.close();
+    }
   };
 }

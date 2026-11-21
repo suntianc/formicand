@@ -26,11 +26,11 @@ test(
       if (step === 3) return call("session_notes", { action: "append", text: "暂停后保留这行。" });
       if (step === 4) return call("read", { path: "long.txt" });
       if (step === 5)
-        archivePath = /Tool result stored at (tool-results\/[^\]]+)/.exec(providerText(body))?.[1];
+        archivePath = /Full output saved to: (tool-results\/\S+\.json)/.exec(providerText(body))?.[1];
       if (step < 12) return call("read", { path: `receipt-${step}.txt` }, step === 11 ? 36000 : 1000);
       if (step === 12) {
         assert.doesNotMatch(providerText(body), /CLEARED_RECEIPT_MARKER/);
-        assert.match(providerText(body), /read result call_5 cleared/);
+        assert.match(providerText(body), /\[Old tool result content cleared\]/);
         await fixture.store.updateTask(fixture.taskId, {
           pause: { requestedAt: new Date().toISOString(), requestedBy: "user" }
         });

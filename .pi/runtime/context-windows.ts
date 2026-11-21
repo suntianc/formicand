@@ -1,5 +1,7 @@
 import {
+  convertToLlm,
   estimateTokens,
+  serializeConversation,
   type CompactionResult,
   type ExtensionAPI,
   type ExtensionContext,
@@ -17,8 +19,21 @@ import {
   type HandoffScope,
   type WindowDetails
 } from "../../dist/src/runtime/session-handoff.js";
+import { writeHandoffSummary } from "../../dist/src/runtime/session-summary.js";
 
 const NOTICE_THRESHOLD = 0.75;
+/** The model's summary of the window being left, through the session's own model. */
+function summarizeWindow(ctx: ExtensionContext, signal?: AbortSignal): Promise<string | undefined> {
+  const model = ctx.model;
+  if (!model) return Promise.resolve(undefined);
+  return writeHandoffSummary(
+    serializeConversation(convertToLlm(ctx.sessionManager.buildSessionProjection().messages)),
+    ctx.getContextUsage()?.contextWindow ?? model.contextWindow,
+    (context, abort) =>
+      ctx.modelRegistry.streamSimple(model, context, { signal: abort, cacheRetention: "none" }).result(),
+    signal
+  );
+}
 
 function overflowAlreadyRecovered(branch: SessionEntry[]): boolean {
   const window = latestWindow(branch);
@@ -40,10 +55,18 @@ export function registerContextWindows(pi: ExtensionAPI, scope: HandoffScope) {
     toolRequested = false;
   });
 
-  const build = async (ctx: ExtensionContext, reason: WindowDetails["reason"], requestId?: string) => {
+  const build = async (
+    ctx: ExtensionContext,
+    reason: WindowDetails["reason"],
+    requestId?: string,
+    signal?: AbortSignal
+  ) => {
     const contextWindow = ctx.getContextUsage()?.contextWindow ?? ctx.model?.contextWindow;
+    // An overflow leaves no room for a summary request; its handoff is the records alone.
+    const summary = reason === "overflow" ? undefined : await summarizeWindow(ctx, signal);
     try {
       return await sessionHandoff({
+        summary,
         session: ctx.sessionManager,
         entries: ctx.sessionManager.getBranch(),
         scope,
@@ -63,8 +86,7 @@ export function registerContextWindows(pi: ExtensionAPI, scope: HandoffScope) {
       const details: WindowDetails = { kind: "cowork-context-window", reason, requestId };
       return {
         type: "compaction" as const,
-        summary:
-          "# Context window handoff\nUse search_history and read_history to recover the original conversation and session_notes for working notes.",
+        summary: `# Context window handoff\n\n${summary ?? "The records for this handoff could not be read."}`,
         firstKeptEntryId: null,
         details
       };
@@ -77,7 +99,8 @@ export function registerContextWindows(pi: ExtensionAPI, scope: HandoffScope) {
       event.reason,
       event.reason === "manual" && event.customInstructions?.startsWith("compact-")
         ? event.customInstructions
-        : undefined
+        : undefined,
+      event.signal
     );
     const compaction: CompactionResult = {
       summary: draft.summary,

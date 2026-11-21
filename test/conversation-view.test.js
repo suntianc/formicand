@@ -39,7 +39,7 @@ test("a submitted human reply uses a compact disclosure and preserves its open s
   assert.equal(disclosure.open, true);
 });
 
-test("a context divider preserves its chronological position and open handoff across updates", () => {
+test("a context divider keeps its chronological position and shows nothing of the handoff", () => {
   const { document, state, render } = fixture("context-window-divider", "");
   const reply = {
     id: "before-window",
@@ -52,19 +52,17 @@ test("a context divider preserves its chronological position and open handoff ac
   state.detail.runtimeEvents = [];
   state.detail.runtime.active = false;
   state.detail.task.status = "completed";
-  state.detail.contextWindows = [{ id: "window-2", timestamp: 3, summary: "Constraint: <img src=example>" }];
+  state.detail.contextWindows = [{ id: "window-2", timestamp: 3 }];
   render([user, reply, followUp]);
   const divider = document.querySelector(".context-window-divider");
   assert.ok(divider);
   assert.match(divider.previousElementSibling.textContent, /First reply/);
   assert.match(divider.nextElementSibling.textContent, /Continue the work/);
-  assert.equal(divider.querySelector(".markdown-body").textContent.trim(), "Constraint: <img src=example>");
-  assert.equal(divider.querySelector("img"), null);
-  divider.open = true;
+  assert.equal(divider.textContent, "新的上下文窗口");
+  assert.equal(divider.querySelector("details, summary"), null, "nothing opens onto the handoff");
   state.detail.contextUsage = { tokens: 1000, contextWindow: 64_000, window: 2 };
   render([user, reply, followUp]);
-  assert.equal(document.querySelector(".context-window-divider"), divider);
-  assert.equal(divider.open, true);
+  assert.equal(document.querySelectorAll(".context-window-divider").length, 1);
 });
 
 test("a mid-run instruction separates earlier activity from the continuing response", () => {

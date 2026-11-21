@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { test } from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
@@ -20,7 +20,7 @@ async function waitFor(read, check, label) {
 }
 
 test(
-  "composer command switches the real resident Main without a model call and carries authoritative development records",
+  "composer command switches the real resident Main with a summary from its model and carries authoritative development records",
   { timeout: 60_000 },
   async (t) => {
     let release;
@@ -28,7 +28,13 @@ test(
       release = resolve;
     });
     const ordinary = [];
+    const summaries = [];
     const provider = await modelProtocolFixture("openai-completions", async (body) => {
+      // A request without tools is a window's summary, not a turn of Main's.
+      if (!body.tools?.length) {
+        summaries.push(body);
+        return { text: `<analysis>a</analysis><summary>MODEL SUMMARY ${summaries.length}</summary>` };
+      }
       ordinary.push(body);
       if (ordinary.length === 2) await barrier;
       return { text: `Fixture answer ${ordinary.length}` };
@@ -128,6 +134,17 @@ test(
       200
     );
     const details = () => request(taskPath);
+    // The handoffs as Main's session stores them; the browser never receives them.
+    const handoffs = async () => {
+      const directory = join(dashboard.env.COWORK_WORKSPACE, session.taskId, "sessions", "main", "pi");
+      const files = (await readdir(directory)).filter((file) => file.endsWith(".jsonl"));
+      const lines = (await Promise.all(files.map((file) => readFile(join(directory, file), "utf8"))))
+        .join("\n")
+        .split("\n")
+        .filter(Boolean)
+        .map(JSON.parse);
+      return lines.filter((entry) => entry.type === "compaction").map((entry) => entry.summary);
+    };
     await request(taskPath + "/run", { prompt: "Remember this original user request." }, 202);
     await waitFor(
       details,
@@ -149,10 +166,12 @@ test(
       development.developmentId,
       "Route: direct",
       "01 [draft] AUTHORITATIVE TICKET",
-      next.next
+      next.next,
+      "MODEL SUMMARY 1"
     ]) {
-      assert.ok(first.contextWindows[0].summary.includes(text), text);
+      assert.ok((await handoffs())[0].includes(text), text);
     }
+    assert.equal(first.contextWindows[0].summary, undefined, "the handoff is not sent to the browser");
 
     await request(taskPath + "/run", { prompt: "One more original instruction." }, 202);
     await waitFor(
@@ -169,7 +188,7 @@ test(
       "window at the in-flight step boundary"
     );
     assert.equal(ordinary.length, 2);
-    assert.match(second.contextWindows[1].summary, /One more original instruction/);
+    assert.match((await handoffs())[1], /One more original instruction/);
     assert.ok(!second.messages.some((message) => message.role === "user" && message.content === "/compact"));
     await waitFor(
       details,
@@ -182,7 +201,11 @@ test(
     const offline = await details();
     assert.equal(offline.contextUsage.window, 4);
     assert.equal(offline.contextWindows.length, 3);
-    assert.match(offline.contextWindows[2].summary, /DURABLE GOAL/);
-    assert.equal(ordinary.length, 2, "an offline window also makes no provider request");
+    const offlineHandoff = (await handoffs())[2];
+    assert.match(offlineHandoff, /DURABLE GOAL/);
+    // The Dashboard asks Main's model for the summary of a stored session itself.
+    assert.match(offlineHandoff, /MODEL SUMMARY 3/);
+    assert.equal(summaries.length, 3);
+    assert.equal(ordinary.length, 2, "changing windows starts no turn of Main's");
   }
 );

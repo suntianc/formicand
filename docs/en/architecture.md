@@ -47,7 +47,7 @@ Runtime imports of package-internal subpaths (such as `@earendil-works/pi-ai/api
 
 A browser request flows through HTTP routes → Dashboard Run → AgentProcessHost → Pi launcher → Pi extension → Coordinator. CLI can use runtime services directly. These entrypoints share business semantics.
 
-The shared Pi extension owns tool archiving, context projection and model-free window changes for both roles. Pi persists the append-only session and handoff cursor. Task detail exposes Main’s usage and window changes.
+The shared Pi extension owns tool archiving, context projection and window changes (a model summary plus the records the program carries over) for both roles. Pi persists the append-only session and handoff cursor. Task detail exposes Main’s usage and window changes.
 
 Pi session IDs scope notes, and history tools read original session entries and result archives.
 
