@@ -2985,8 +2985,7 @@ html[data-theme] body :is(.provider-search, .provider-input) input:not([type="ch
   border-color: var(--color-line-strong);
 }
 .settings-project-picker:focus-within {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 1px;
+  border-color: var(--color-accent);
 }
 .settings-project-picker .ui-icon {
   width: 15px;

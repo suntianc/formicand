@@ -1066,9 +1066,6 @@ html[data-desktop-platform="darwin"]:not([data-desktop-fullscreen="true"]) .app-
   width: 17px;
   height: 17px;
 }
-.composer-left:has(#model-setup-button:not([hidden])) #model-select {
-  display: none;
-}
 .composer .model-menu {
   bottom: calc(100% + 8px);
   left: 0;
@@ -1095,7 +1092,6 @@ html[data-desktop-platform="darwin"]:not([data-desktop-fullscreen="true"]) .app-
     flex-basis: 28px;
   }
 }
-#model-setup-button,
 .request-error-actions button {
   border: 1px solid var(--ui-border);
   background: var(--ui-panel);
