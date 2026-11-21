@@ -507,9 +507,7 @@ export function subagentRolePrompt(input: {
     "Stay inside the brief: when the task needs a change it does not cover, ask Main rather than widening it yourself.",
     ...(input.agent
       ? []
-      : [
-          "When the brief asks you to change code, load the tdd skill with load_skill and build with it; when a bug resists explanation, load diagnosing-bugs."
-        ]),
+      : ["When the brief asks you to change code, load the implement skill with load_skill and follow it."]),
     `Put substantial reusable candidate outputs under ${input.deliverablesDirectory}; keep scratch files and intermediate logs in the work site. Do not write to Task artifacts/ — Main publishes accepted files.`,
     ASK_MAIN_GUIDANCE,
     SEND_PEER_MESSAGE_GUIDANCE,

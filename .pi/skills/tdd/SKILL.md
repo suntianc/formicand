@@ -3,7 +3,7 @@ name: tdd
 description: Test-driven development. Use when the user wants to build features or fix bugs test-first, mentions "red-green-refactor", or wants integration tests.
 ---
 
-<!-- Adapted from mattpocock/skills (MIT), skills/engineering/tdd at abeeaf9. Changes: seams come from the ticket instead of a conversation with the user; the codebase-design reference is not bundled. -->
+<!-- Adapted from mattpocock/skills (MIT), skills/engineering/tdd at abeeaf9. Changes: seams come from the ticket instead of a conversation with the user; tests go where the project's checks run them. -->
 
 # Test-Driven Development
 
@@ -23,7 +23,9 @@ A **seam** is the public boundary you test at: the interface where you observe b
 
 **Test only at agreed seams.** Before writing any test, write down the seams under test. The ticket agrees them: the public interfaces its acceptance criteria observe (a command and its output, an exported function, an HTTP route). You can't test everything, so fixing the seams up front is how testing effort lands on the critical paths and complex logic instead of every edge case.
 
-Give each seam a one-line note on what it catches and what it misses, and list them in your report. When the ticket leaves the seam in doubt (how deep the module is, where the seam belongs, what the interface should expose), ask Main with `ask_main` rather than choose one the ticket did not imply.
+Give each seam a one-line note on what it catches and what it misses, and list them in your report.
+
+When the shape of that interface is itself in question (how deep the module is, where the seam belongs, what the interface should expose), load `codebase-design` for the vocabulary. It is the shared source of the module, interface, depth, seam, adapter, leverage and locality terms, and it is a reference to consult, not a session to run. When the ticket leaves the seam itself in doubt, ask whoever gave you the work (Main through `ask_main`, for a collaborator) rather than choose one the ticket did not imply.
 
 Put every test where the project's own test command runs it, so it keeps guarding the behaviour after the change is merged.
 
@@ -37,4 +39,4 @@ Put every test where the project's own test command runs it, so it keeps guardin
 
 - **Red before green.** Write the failing test first, then only enough code to pass it. Don't anticipate future tests or add speculative features.
 - **One slice at a time.** One seam, one test, one minimal implementation per cycle.
-- **Refactoring is not part of the loop.** Do only the refactoring the ticket calls for, after the loop is green; anything more is a note in your report, not part of this change.
+- **Refactoring is not part of the loop.** It belongs to the review stage (see the `code-review` skill), not the red → green cycle. Do only the refactoring the ticket calls for; anything more is a note in your report.

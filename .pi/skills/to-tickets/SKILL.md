@@ -1,19 +1,19 @@
 ---
 name: to-tickets
-description: Break a requirement's plan into tracer-bullet tickets, each a vertical slice with its own scope, acceptance criteria and dependencies, and propose them through project_development. Use on the full route, after the plan is written.
+description: Break a requirement's spec into tracer-bullet tickets, each a vertical slice with its own scope, acceptance criteria and dependencies, and propose them through project_development. Use on the full route, after to-spec.
 ---
 
 <!-- Adapted from mattpocock/skills (MIT), skills/engineering/to-tickets at abeeaf9. Changes: tickets go to project_development's propose_tickets instead of an issue tracker or local files; the user confirms them through the program's confirmation. -->
 
 # To Tickets
 
-Break the requirement's plan into **tickets**: tracer-bullet vertical slices, each declaring the tickets it **depends on**.
+Break the requirement's spec into **tickets**: tracer-bullet vertical slices, each declaring the tickets it **depends on**.
 
 ## Process
 
 ### 1. Gather context
 
-Work from the development record (goal, completion criteria, plan) and the conversation. Read `GLOSSARY.md` if the project has one, so ticket titles use its words, and the ADRs in `docs/adr/` in the area the requirement touches.
+Work from the spec `to-spec` recorded as the requirement's content, the development record's goal and completion criteria, and the conversation. Read `GLOSSARY.md` if the project has one, so ticket titles use its words, and the ADRs in `docs/adr/` in the area the requirement touches.
 
 ### 2. Explore the codebase
 

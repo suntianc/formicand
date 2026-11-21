@@ -3,10 +3,14 @@
   "commit": "abeeaf95660ba9e8b7c753eb38f441ca707a8823",
   "skills": {
     "code-review": "skills/engineering/code-review",
+    "codebase-design": "skills/engineering/codebase-design",
     "diagnosing-bugs": "skills/engineering/diagnosing-bugs",
     "domain-modeling": "skills/engineering/domain-modeling",
+    "grill-with-docs": "skills/engineering/grill-with-docs",
     "grilling": "skills/productivity/grilling",
+    "implement": "skills/engineering/implement",
     "tdd": "skills/engineering/tdd",
+    "to-spec": "skills/engineering/to-spec",
     "to-tickets": "skills/engineering/to-tickets"
   }
 }

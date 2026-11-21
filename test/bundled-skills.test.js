@@ -16,9 +16,13 @@ const names = [
   "cua",
   "task-routing",
   "requirement-delivery",
+  "grill-with-docs",
   "grilling",
   "domain-modeling",
+  "codebase-design",
+  "to-spec",
   "to-tickets",
+  "implement",
   "tdd",
   "code-review",
   "diagnosing-bugs"

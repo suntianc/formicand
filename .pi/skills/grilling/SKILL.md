@@ -1,6 +1,6 @@
 ---
 name: grilling
-description: Interview the user round by round until you share an understanding of a requirement, plan or decision. Use before designing a requirement whose goal, scope or acceptance still has open questions, or when the user asks to be grilled.
+description: The interview primitive - rounds of numbered questions with recommended answers until you share an understanding of a plan, decision or idea. In a project, grill-with-docs runs it and also records terms and decisions; use it directly when there is nothing to record into, or when the user asks to be grilled.
 ---
 
 <!-- Adapted from mattpocock/skills (MIT), skills/productivity/grilling at abeeaf9. Changes: questions go through askhuman; an unanswered round proceeds on the recommended answers. -->
