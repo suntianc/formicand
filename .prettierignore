@@ -16,6 +16,7 @@ src/software/cad/runtime-source.generated.ts
 src/software/cad/api-reference.generated.ts
 
 vendor/pptist/
+vendor/workloop-skills/
 docs/hero/react-bits/
 web/assets/pptist/generated/
 web/assets/math/generated/

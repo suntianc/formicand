@@ -7,6 +7,7 @@
  */
 import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { history, laterHistory } from "./history.mjs";
 
 export const tasks = [
   {
@@ -98,6 +99,30 @@ export const tasks = [
     ],
     sessions: ["加一个 rm <编号> 命令，删掉这个条目，输出 removed: <编号>。补上测试。"],
     hidden: "memory.test.js",
+    expect: {}
+  },
+  {
+    // An older project whose rules live only in its ledger: the prompt says to
+    // follow them without naming one, and one earlier decision was retracted.
+    id: "history",
+    kind: "检索",
+    title: "老项目",
+    prompt:
+      "给条目加上创建日期：add 的时候记下来，list 和 export 里都要能看到。按我们之前定下的规矩来，补上测试。",
+    ledger: history,
+    hidden: "history.test.js",
+    expect: {}
+  },
+  {
+    // The same rules under years of later records: the rules are the oldest
+    // entries, so the most recent fifty no longer include them.
+    id: "history-large",
+    kind: "检索",
+    title: "老项目（大）",
+    prompt:
+      "给条目加上创建日期：add 的时候记下来，list 和 export 里都要能看到。按我们之前定下的规矩来，补上测试。",
+    ledger: [...history, ...laterHistory],
+    hidden: "history.test.js",
     expect: {}
   },
   {

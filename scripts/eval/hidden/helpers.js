@@ -10,7 +10,7 @@ export const repo = process.env.EVAL_REPO;
 export function todo(items = [], env = {}) {
   const file = join(mkdtempSync(join(tmpdir(), "todo-hidden-")), "todo.json");
   writeFileSync(file, JSON.stringify(items));
-  return (...args) => {
+  const run = (...args) => {
     try {
       const out = execFileSync("node", [join(repo, "src/cli.js"), ...args], {
         env: { ...process.env, ...env, TODO_FILE: file },
@@ -21,4 +21,6 @@ export function todo(items = [], env = {}) {
       return { code: error.status, out: error.stdout, err: error.stderr };
     }
   };
+  run.file = file;
+  return run;
 }

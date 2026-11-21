@@ -20,6 +20,7 @@ import { promisify } from "node:util";
 import { setTimeout as delay } from "node:timers/promises";
 import { startDashboard } from "../../test/dashboard-fixture.mjs";
 import { tasks } from "./tasks.mjs";
+import { seedLedger } from "./history.mjs";
 
 const run = promisify(execFile);
 const here = resolve(new URL(".", import.meta.url).pathname);
@@ -64,11 +65,17 @@ const textOf = (message) =>
         .map((part) => part.text)
         .join("");
 
-/** Settled: the turn ended and no delegated work or callback is outstanding. */
+/**
+ * Settled: the turn ended and no delegated work or callback is outstanding.
+ * A turn that ends on a reply waits for the user, which counts as settled once
+ * no question card is pending; the questions are answered above.
+ */
 function settled(detail) {
   const { task, runtime, coordination } = detail;
+  const waiting =
+    task.status === "waiting" && !detail.humanRequests.some((request) => request.status === "pending");
   return (
-    ["completed", "failed", "cancelled"].includes(task.status) &&
+    (["completed", "failed", "cancelled"].includes(task.status) || waiting) &&
     !runtime.active &&
     !coordination.pending?.length &&
     !coordination.callbackPending?.length
@@ -169,6 +176,11 @@ async function runTask(dashboard, task, attempt, out) {
     projectName: `${task.id}-${attempt}`,
     projectDirectory: repo
   });
+  if (task.ledger)
+    await seedLedger(
+      (body) => api(dashboard.base, `/api/projects/${project.projectId}/ledger`, body),
+      task.ledger
+    );
   // The first conversation takes the prompt and its follow-ups; each later
   // session is a new conversation in the same project.
   const conversations = [{ prompt: task.prompt, followUps: task.followUps ?? [] }].concat(
@@ -214,9 +226,12 @@ async function runTask(dashboard, task, attempt, out) {
   const changed = (await git(repo, "status", "--porcelain")).split("\n").filter(Boolean);
   const committed = (await git(repo, "diff", "--name-only", base, "HEAD")).split("\n").filter(Boolean);
   const tools = {};
+  const ledger = [];
   for (const event of detail.runtimeEvents ?? []) {
     const payload = event.payload ?? event;
-    if (payload.type === "tool_execution_start") tools[payload.toolName] = (tools[payload.toolName] ?? 0) + 1;
+    if (payload.type !== "tool_execution_start") continue;
+    tools[payload.toolName] = (tools[payload.toolName] ?? 0) + 1;
+    if (payload.toolName === "project_ledger") ledger.push(payload.args ?? {});
   }
   const calls = detail.coordination.calls ?? [];
   const final = detail.messages.findLast((message) => message.role === "assistant");
@@ -265,6 +280,10 @@ async function runTask(dashboard, task, attempt, out) {
       findings: review.findings.length
     })),
     tools,
+    // How Main searched the ledger: each call's action and its query or target.
+    ledger: ledger.map((args) =>
+      [args.action, args.q ?? args.requirementId ?? args.status ?? ""].join(" ").trim()
+    ),
     // Compaction entries in the Main sessions, counted the same way for the
     // summary compaction before P4.9 and the handoff after it.
     windows: await windowChanges(dashboard.env.COWORK_WORKSPACE, taskIds),
@@ -397,16 +416,21 @@ function report(rows, model) {
   const lines = [
     `模型：${model?.connectionName ?? "?"} / ${model?.model ?? "?"}，上下文窗口 ${model?.contextWindow ?? "?"}`,
     "",
-    "| 任务 | 次 | 结果 | 分钟 | tokens | 不含缓存 | 换窗 | 记在 | 派单 | 提问 | 票 | 审查 | 改动文件 |",
-    "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |"
+    "| 任务 | 次 | 结果 | 分钟 | tokens | 不含缓存 | 换窗 | 记在 | 查台账 | 派单 | 提问 | 票 | 审查 | 改动文件 |",
+    "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |"
   ];
   for (const { task, result, verdict } of rows)
     lines.push(
-      `| ${task.title} | ${result.attempt} | ${verdict} | ${result.minutes} | ${result.tokens ?? "—"} | ${result.freshTokens ?? "—"} | ${result.windows} | ${remembered(result)} | ${result.delegations.length} | ${result.questions.length} | ${result.tickets.length} | ${result.reviews.length} | ${result.changedFiles.length} |`
+      `| ${task.title} | ${result.attempt} | ${verdict} | ${result.minutes} | ${result.tokens ?? "—"} | ${result.freshTokens ?? "—"} | ${result.windows} | ${remembered(result)} | ${result.ledger.length} | ${result.delegations.length} | ${result.questions.length} | ${result.tickets.length} | ${result.reviews.length} | ${result.changedFiles.length} |`
     );
   lines.push("", "## 最终汇报", "");
-  for (const { task, result } of rows)
-    lines.push(`### ${task.title} #${result.attempt}`, "", result.finalReply, "");
+  for (const { task, result } of rows) {
+    lines.push(`### ${task.title} #${result.attempt}`, "");
+    if (result.hidden.output.includes("not ok"))
+      lines.push("检查未过：", "", "```", result.hidden.output, "```", "");
+    if (result.ledger.length) lines.push(`查台账：${result.ledger.join("；")}`, "");
+    lines.push(result.finalReply, "");
+  }
   return lines.join("\n");
 }
 

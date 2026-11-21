@@ -8,4 +8,4 @@
 
 ## 开发
 
-[开发环境](development.md) · [产品术语](../GLOSSARY.md) · [阶段规划](development-phases.md) · [提示词与开发流程设计](prompt-and-delivery-design.md) · [记忆与上下文压缩设计](memory-and-compaction-design.md) · [架构](architecture.md) · [API](product-api.md) · [贡献](../CONTRIBUTING.md) · [复盘落实](retrospectives.md) · [Workloop 问题](workloop-followups.md) · [项目坑点](pitfalls/README.md)
+[开发环境](development.md) · [产品术语](../GLOSSARY.md) · [阶段规划](development-phases.md) · [提示词与开发流程设计](prompt-and-delivery-design.md) · [记忆与上下文压缩设计](memory-and-compaction-design.md) · [上下文检索增强设计](context-retrieval-design.md) · [与 Workloop 的对比](workloop-comparison.md) · [架构](architecture.md) · [API](product-api.md) · [贡献](../CONTRIBUTING.md) · [复盘落实](retrospectives.md) · [Workloop 问题](workloop-followups.md) · [项目坑点](pitfalls/README.md)
