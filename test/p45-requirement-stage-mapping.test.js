@@ -332,6 +332,7 @@ test("every recorded combination lands in exactly one observation tab", () => {
       "release"
     ],
     ["delivered", { ...merged, delivery: { state: "synced", mergedCommit: commit("d") } }, "delivered"],
+    ["merged development", { development: { ...development(), status: "merged" } }, "delivered"],
     ["retired", { requirement: { revision: 2, status: "retired" } }, "withdrawn"],
     ["a waiting Main", { ...developing, waitingForReply: true }, "waiting"]
   ];

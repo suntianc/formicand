@@ -40,7 +40,7 @@ function fixture() {
       requirementId: "r2",
       projectId: "p1",
       title: "已经交付",
-      status: "delivered",
+      status: "active",
       revision: 3,
       updatedAt: now
     },
@@ -70,6 +70,7 @@ function fixture() {
     }
   ];
   const developments = [
+    { developmentId: "d2", requirementId: "r2", status: "merged" },
     { developmentId: "d3", requirementId: "r3" },
     { developmentId: "d4", requirementId: "r4" },
     { developmentId: "d5", requirementId: "r5" }

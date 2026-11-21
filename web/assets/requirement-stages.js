@@ -120,7 +120,8 @@ function stageOf(input) {
   // A board need merged into the target still awaits release to its customer;
   // publishing is the later phase, so the requirement is not delivered yet.
   if (board?.state === "pending_release") return "release";
-  if (delivery?.state === "synced") return "delivered";
+  // A synced delivery closes the development as merged; either fact means delivered.
+  if (delivery?.state === "synced" || development?.status === "merged") return "delivered";
   if (merged || delivery?.state === "pending")
     return board?.state === "pending_release" ? "release" : "merged";
   if (Array.isArray(merges) && merges.some((entry) => ["waiting", "applying"].includes(entry?.state)))
