@@ -12,7 +12,7 @@ import { atriaRoleIdentity } from "../../dist/src/domain/agent-identity.js";
 import { agentDisplayName } from "../../dist/src/runtime/agent-identity.js";
 import { delegationRoleGuidance } from "../../dist/src/runtime/delegation-model.js";
 import { ASK_MAIN_GUIDANCE, SEND_PEER_MESSAGE_GUIDANCE } from "../../dist/src/runtime/subagent-guidance.js";
-import type { ReviewConclusion } from "../../dist/src/runtime/subagent-review.js";
+import { parseReviewScope, type ReviewConclusion } from "../../dist/src/runtime/subagent-review.js";
 import {
   capabilityToolNames,
   subagentToolNames,
@@ -324,6 +324,9 @@ export async function registerSubagentAgent(pi: ExtensionAPI, role: AgentRole): 
     callId,
     agentId,
     taskWorkspace,
+    ...(role === "reviewer" && process.env.COWORK_REVIEW_SCOPE
+      ? { reviewScope: parseReviewScope(process.env.COWORK_REVIEW_SCOPE) }
+      : {}),
     submitReview: (review) => {
       submittedReview = review;
     }
@@ -490,8 +493,10 @@ export function subagentRolePrompt(input: {
     return [
       ...shared,
       "You examine a checkout of the candidate that is yours alone: run the tests and commands that prove or reproduce what you report. You have no edit or write tool, so files you create stay in your checkout and never reach the candidate, the Executor's checkout or the project.",
-      "Check each acceptance criterion in the brief, then look for what it does not cover: kept behaviour that broke, changes outside the stated scope, missing tests.",
-      "Your verdict reaches Main only through submit_review: pass or changes_requested, and every finding states its location, its evidence and whether it blocks acceptance. A work item that ends without one is recorded as a failure; a malformed submission returns an error you can correct.",
+      "Run every acceptance command in the brief yourself: the Executor's report is a claim, not evidence. Then check the criteria that have no command.",
+      "A finding blocks only on a basis: an acceptance criterion it violates (cite its id), or a floor problem — regression (behaviour that worked before is broken), data_loss, security, or project_rule (it breaks the project's stated rules, such as its AGENTS.md). Anything else, however worthwhile, is a non-blocking suggestion: another design, style, extra tests or features nobody asked for.",
+      "On a re-review the brief lists the previous round's findings: answer each, re-run the acceptance commands, and look only at the files changed this round.",
+      "Your verdict reaches Main only through submit_review: pass or changes_requested, and every finding states its title, location, evidence, whether it blocks and, if it does, its basis. A work item that ends without one is recorded as a failure; a malformed submission returns an error you can correct.",
       ASK_MAIN_GUIDANCE,
       SEND_PEER_MESSAGE_GUIDANCE,
       ...extra

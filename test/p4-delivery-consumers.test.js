@@ -256,6 +256,8 @@ test(
     });
     review = await execution.recordFinding(project.projectId, {
       reviewId: review.reviewId,
+      blocking: true,
+      basis: "regression",
       title: "报告缺少来源",
       detail: "建议补充数据来源。",
       location: "report.txt",

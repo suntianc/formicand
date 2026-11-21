@@ -261,55 +261,42 @@ test(
             };
           }
           if (step === 10) {
-            assert.equal(toolJson(body).review.reviewer.agentId, calls.b.agentId);
+            const review = toolJson(body).review;
+            assert.equal(review.reviewer.agentId, calls.b.agentId);
+            // The program imported every submitted finding, in order, with its basis.
+            assert.deepEqual(
+              review.findings.map((entry) => [entry.title, entry.state, entry.basis]),
+              [
+                ["导出缺少数据行", "open", "CC2"],
+                ["建议增加 PDF 导出", "open", "project_rule"],
+                ["文件名不是 report.csv", "open", "project_rule"],
+                ["列名可以更清楚", "suggestion", undefined]
+              ]
+            );
+            [findings.standard, findings.outOfScope, findings.falsePositive] = review.findings.map(
+              (entry) => entry.findingId
+            );
             return {
               name: "project_development",
               arguments: {
                 action: "record_finding",
                 reviewId: reviewId1,
-                title: "导出缺少数据行",
-                detail: "完成标准要求至少一行数据，实际只有 header。",
-                location: "export.txt",
-                checks: [
-                  {
-                    name: "数据行",
-                    command: "wc -l < export.txt",
-                    exitCode: 1,
-                    output: "actual_lines=1"
-                  }
-                ],
-                rawFailure: "actual_lines=1\nexpected_lines>=2"
+                title: "手抄的发现",
+                detail: "结论已导入后不应再手抄。",
+                blocking: true,
+                findingBasis: "CC2"
               }
             };
           }
           if (step === 11) {
-            findings.standard = toolJson(body).review.findings.at(-1).findingId;
-            return {
-              name: "project_development",
-              arguments: {
-                action: "record_finding",
-                reviewId: reviewId1,
-                title: "建议增加 PDF 导出",
-                detail: "把导出格式从 CSV 改为 PDF 更通用。",
-                location: "export.txt"
-              }
-            };
+            assert.match(lastToolText(body), /已由程序导入/);
+            return { name: "project_development", arguments: { action: "get_review", reviewId: reviewId1 } };
           }
           if (step === 12) {
-            findings.outOfScope = toolJson(body).review.findings.at(-1).findingId;
-            return {
-              name: "project_development",
-              arguments: {
-                action: "record_finding",
-                reviewId: reviewId1,
-                title: "文件名不是 report.csv",
-                detail: "报告文件名为 export.txt。",
-                location: "export.txt"
-              }
-            };
+            assert.equal(toolJson(body).review.findings.length, 4);
+            return { name: "project_development", arguments: { action: "get_review", reviewId: reviewId1 } };
           }
           if (step === 13) {
-            findings.falsePositive = toolJson(body).review.findings.at(-1).findingId;
             return {
               name: "project_development",
               arguments: {
@@ -626,9 +613,31 @@ test(
                 verdict: "changes_requested",
                 findings: [
                   {
+                    title: "导出缺少数据行",
                     location: "export.txt",
                     evidence: "wc -l < export.txt 输出 1：只有 header，完成标准要求至少一行数据。",
-                    blocking: true
+                    blocking: true,
+                    basis: "CC2"
+                  },
+                  {
+                    title: "建议增加 PDF 导出",
+                    location: "export.txt",
+                    evidence: "把导出格式从 CSV 改为 PDF 更通用。",
+                    blocking: true,
+                    basis: "project_rule"
+                  },
+                  {
+                    title: "文件名不是 report.csv",
+                    location: "export.txt",
+                    evidence: "报告文件名为 export.txt。",
+                    blocking: true,
+                    basis: "project_rule"
+                  },
+                  {
+                    title: "列名可以更清楚",
+                    location: "export.txt:1",
+                    evidence: "header 一词不说明列的含义。",
+                    blocking: false
                   }
                 ]
               }
@@ -642,7 +651,17 @@ test(
         }
         if (role === "c") {
           if (step === 0) return { name: "bash", arguments: { command: "wc -l < export.txt" } };
-          if (step === 1) return { name: "submit_review", arguments: { verdict: "pass", findings: [] } };
+          if (step === 1)
+            return {
+              name: "submit_review",
+              arguments: {
+                verdict: "pass",
+                findings: [],
+                previousFindings: [
+                  { findingId: findings.standard, fixed: true, evidence: "wc -l < export.txt 输出 2" }
+                ]
+              }
+            };
           return { text: "复审通过：数据行为 2 行。" };
         }
         if (step === 0) return { name: "submit_review", arguments: { verdict: "pass", findings: [] } };
@@ -709,7 +728,9 @@ test(
     assert.equal(records.reviews.length, 3);
     const [first, second, third] = records.reviews;
     assert.equal(first.reviewId, reviewId1);
-    assert.equal(first.findings.length, 3);
+    assert.equal(first.findings.length, 4, "three blocking findings and one suggestion");
+    const suggestion = first.findings.find((entry) => !entry.blocking);
+    assert.equal(suggestion.state, "suggestion", "a suggestion needs no ruling and blocks nothing");
     const standard = first.findings.find((entry) => entry.findingId === findings.standard);
     assert.equal(standard.state, "fixed");
     assert.equal(standard.fixedCommit, candidate2);

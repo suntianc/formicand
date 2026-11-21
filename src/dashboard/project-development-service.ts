@@ -1,14 +1,24 @@
 import { dirname, join, resolve } from "node:path";
 import type { WindowDevelopment } from "../runtime/session-handoff.js";
 import {
+  parseReviewConclusion,
+  type ReviewConclusion,
+  type ReviewScope
+} from "../runtime/subagent-review.js";
+import {
+  REWORK_ROUNDS,
+  approachKind,
   dismissalCategory,
+  reviewApproved,
   reviewBasis,
+  reviewReport,
   reviewCandidate,
   reviewFindingInput,
   reviewKind,
   reviewPlanInput,
   reviewVerdict,
   rulingDecision,
+  type ApproachKind,
   type DevelopmentReview,
   type ReviewCandidate,
   type ReviewFinding,
@@ -33,6 +43,7 @@ import {
   type DevelopmentDelivery
 } from "../domain/development-delivery.js";
 import {
+  completionCriterionIds,
   developmentNext,
   finalReviews,
   outsideScope,
@@ -41,6 +52,7 @@ import {
   ticketIdentifier,
   ticketOfReview,
   type DevelopmentTicket,
+  type RereviewBrief,
   type TicketCheckResult,
   type TicketSet,
   type TicketWork,
@@ -119,6 +131,8 @@ export interface WorkItemCallFact {
   developmentId?: string;
   status: string;
   continuationFrom?: string;
+  /** A finished Reviewer's submitted conclusion. */
+  review?: ReviewConclusion;
 }
 
 export interface ProjectDevelopmentPorts {
@@ -478,6 +492,305 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
     });
   }
 
+  /**
+   * The reviews that share one rework budget: a ticket's own, or the
+   * requirement's own (the full route's final reviews, or a quick change's).
+   */
+  function chainOf(
+    tickets: DevelopmentTicket[],
+    reviews: DevelopmentReview[],
+    ticket?: DevelopmentTicket
+  ): DevelopmentReview[] {
+    return ticket
+      ? reviews.filter((review) => ticket.reviewIds.includes(review.reviewId))
+      : finalReviews(tickets, reviews);
+  }
+
+  /**
+   * The failed rounds a chain has had and the rounds it may have. Each change of
+   * approach other than delivering what is done grants a new budget.
+   */
+  function roundBudget(chain: DevelopmentReview[]) {
+    const failed = chain.filter((review) => review.state === "failed");
+    const changed: ApproachKind[] = failed.flatMap((review) =>
+      review.verdict?.approach && review.verdict.approach.kind !== "deliver_partial"
+        ? [review.verdict.approach.kind]
+        : []
+    );
+    return {
+      failed: failed.length,
+      limit: REWORK_ROUNDS * (1 + changed.length),
+      changed,
+      last: failed.at(-1)
+    };
+  }
+
+  /**
+   * Refuse another round of the same rework once the chain used its budget, and
+   * check that the first round after a change of approach carries it out.
+   */
+  function checkRound(
+    chain: DevelopmentReview[],
+    tickets: DevelopmentTicket[],
+    ticket?: DevelopmentTicket
+  ): void {
+    const budget = roundBudget(chain);
+    const label = ticket ? `票 ${ticket.ticketId}` : "这个需求的整体审查";
+    if (budget.last && budget.failed >= budget.limit)
+      throw conflict(
+        `${label} 已返修 ${budget.failed} 轮，到了上限：不要原样再改一轮。先对审查 ${budget.last.reviewId} 用 change_approach 换办法（${
+          ticket ? "fresh_executor / revised_ticket" : "new_plan"
+        } / deliver_partial），写明理由`,
+        "review_round_limit"
+      );
+    const last = budget.last;
+    const approach = last?.verdict?.approach;
+    if (!last || !approach || chain.some((review) => review.createdAt > approach.at)) return;
+    const since = last.verdict!.at;
+    if (approach.kind === "fresh_executor" && ticket?.work?.agentId === last.author?.agentId)
+      throw conflict(
+        `换办法选的是换执行者：${label} 须由新的 Executor 从头做（call_subagent 带 ticketId、不带 continueCallId），不能接着原会话改`,
+        "review_approach_not_applied"
+      );
+    if (approach.kind === "revised_ticket" && !ticket?.changes.some((change) => change.at > since))
+      throw conflict(
+        `换办法选的是改票：先用 revise_ticket 改 ${label}，再送审`,
+        "review_approach_not_applied"
+      );
+    if (
+      approach.kind === "new_plan" &&
+      tickets.length > 0 &&
+      !tickets.some((entry) => entry.createdAt > since)
+    )
+      throw conflict(
+        "换办法选的是重新规划：先用 propose_tickets 提出新的修复票并并入，再送整体终审",
+        "review_approach_not_applied"
+      );
+  }
+
+  /** A re-review answers the previous round, so every finding there must be ruled first. */
+  function checkPreviousRuled(previous: DevelopmentReview): void {
+    const open = previous.findings.filter((finding) => finding.state === "open");
+    if (open.length)
+      throw conflict(
+        `上一轮审查 ${previous.reviewId} 还有没裁定的发现：${open
+          .map((finding) => finding.findingId)
+          .join("、")}；先 rule_finding`,
+        "review_previous_unruled"
+      );
+  }
+
+  /**
+   * What one review may cite and, on a re-review, the previous round it answers.
+   * Read before the conclusion is imported: the previous round's claimed fixes
+   * are what the re-review must answer.
+   */
+  async function reviewScopeOf(projectId: string, review: DevelopmentReview) {
+    const service = await gateway();
+    const record = await service.getDevelopment(projectId, review.developmentId, ports.backendId);
+    const { tickets } = await service.tickets(projectId, review.developmentId);
+    const ticket = ticketOfReview(tickets, review.reviewId);
+    const previous = review.previousReviewId
+      ? await service.getReview(projectId, review.previousReviewId)
+      : undefined;
+    const toFix = previous?.findings.filter((finding) => finding.state === "fix_claimed") ?? [];
+    const scope: ReviewScope = {
+      criteria: ticket
+        ? ticket.criteria.map((criterion) => criterion.criterionId)
+        : completionCriterionIds(record.completionCriteria),
+      ...(previous
+        ? {
+            previous: toFix.map((finding) => ({ findingId: finding.findingId, title: finding.title })),
+            changedPaths: review.changedPaths
+          }
+        : {})
+    };
+    const rereview: RereviewBrief | undefined = previous
+      ? {
+          previous: toFix.map((finding) => ({
+            findingId: finding.findingId,
+            title: finding.title,
+            ...(finding.location ? { location: finding.location } : {}),
+            detail: finding.detail
+          })),
+          changedPaths: review.changedPaths
+        }
+      : undefined;
+    return { record, tickets, ticket, previous, scope, rereview };
+  }
+
+  /**
+   * Write a finished Reviewer's conclusion into its review.
+   *
+   * The program imports it, so Main neither transcribes nor drops a finding:
+   * blocking findings open, the rest are suggestions, and on a re-review each
+   * claimed fix of the previous round becomes fixed or is carried here, under
+   * its id, as an open finding.
+   */
+  async function importConclusion(
+    projectId: string,
+    review: DevelopmentReview,
+    conclusion: ReviewConclusion
+  ): Promise<DevelopmentReview> {
+    const service = await gateway();
+    const reviewer = review.reviewer!;
+    const { parsed, previous } = await checkedConclusion(projectId, review, conclusion);
+    const timestamp = now();
+    const source = { role: "reviewer" as const, callId: reviewer.callId, agentId: reviewer.agentId };
+
+    const answers = parsed.review.previousFindings ?? [];
+    const carried: ReviewFinding[] = answers
+      .filter((answer) => !answer.fixed)
+      .map((answer) => {
+        const before = previous!.findings.find((finding) => finding.findingId === answer.findingId)!;
+        return {
+          findingId: before.findingId,
+          title: before.title,
+          detail: answer.evidence,
+          ...(before.location ? { location: before.location } : {}),
+          blocking: true,
+          ...(before.basis ? { basis: before.basis } : {}),
+          candidateCommit: review.candidate.commit,
+          state: "open",
+          checks: [],
+          source,
+          createdAt: timestamp,
+          updatedAt: timestamp
+        };
+      });
+    const found: ReviewFinding[] = parsed.review.findings.map((finding) => ({
+      findingId: id("finding"),
+      title: finding.title,
+      detail: finding.evidence,
+      location: finding.location,
+      blocking: finding.blocking,
+      ...(finding.basis ? { basis: finding.basis } : {}),
+      candidateCommit: review.candidate.commit,
+      state: finding.blocking ? "open" : "suggestion",
+      checks: [],
+      source,
+      createdAt: timestamp,
+      updatedAt: timestamp
+    }));
+    if (previous && answers.length)
+      await service.updateReview(projectId, previous.reviewId, {
+        expectedRevision: previous.revision,
+        findings: previous.findings.map((finding) => {
+          const answer = answers.find((entry) => entry.findingId === finding.findingId);
+          if (!answer || finding.state !== "fix_claimed") return finding;
+          return answer.fixed
+            ? {
+                ...finding,
+                state: "fixed" as const,
+                fixedCommit: review.candidate.commit,
+                verifiedByReviewId: review.reviewId,
+                updatedAt: timestamp
+              }
+            : { ...finding, state: "reopened" as const, updatedAt: timestamp };
+        })
+      });
+    return service.updateReview(projectId, review.reviewId, {
+      expectedRevision: review.revision,
+      reviewer: {
+        ...reviewer,
+        conclusion: {
+          verdict: parsed.review.verdict,
+          ...(parsed.review.previousFindings ? { previousFindings: parsed.review.previousFindings } : {}),
+          at: timestamp
+        }
+      },
+      findings: [...review.findings, ...carried, ...found]
+    });
+  }
+
+  /** A conclusion checked against the review it belongs to; refused before anything is bound or written. */
+  async function checkedConclusion(
+    projectId: string,
+    review: DevelopmentReview,
+    conclusion: ReviewConclusion
+  ) {
+    const { scope, previous } = await reviewScopeOf(projectId, review);
+    const parsed = parseReviewConclusion(conclusion, scope);
+    if (!parsed.ok)
+      throw conflict(
+        `Reviewer 的结论不符合这次审查的规则：${parsed.errors.join("；")}。派一个新的 Reviewer 重新审查`,
+        "review_conclusion_invalid"
+      );
+    return { parsed, previous };
+  }
+
+  /**
+   * Change approach on a failed review whose chain used its rounds.
+   *
+   * Main decides and records why; the next freeze checks the change was carried
+   * out. Delivering what is done accepts the failed review as it is, once every
+   * finding that stays unfixed has a recorded dismissal.
+   */
+  async function changeApproach(projectId: string, input: Record<string, unknown>) {
+    const service = await gateway();
+    const reviewId = developmentIdentifier(input.reviewId, "审查 ID");
+    const review = await service.getReview(projectId, reviewId);
+    if (review.state !== "failed" || !review.verdict)
+      throw conflict("只有没通过的审查才能换办法", "review_state_conflict");
+    const kind = approachKind(input.approach);
+    const basis = reviewBasis(input.basis);
+    const [{ tickets }, reviews] = await Promise.all([
+      service.tickets(projectId, review.developmentId),
+      service.queryReviews(projectId, review.developmentId)
+    ]);
+    const ticket = ticketOfReview(tickets, reviewId);
+    const chain = chainOf(tickets, reviews, ticket);
+    if (chain.at(-1)?.reviewId !== reviewId)
+      throw conflict("只能对审查链上最近的一次审查换办法", "review_not_latest");
+    if (review.verdict.approach)
+      throw conflict(
+        `审查 ${reviewId} 已经换过办法（${review.verdict.approach.kind}）`,
+        "review_approach_recorded"
+      );
+    const budget = roundBudget(chain);
+    if (budget.failed < budget.limit)
+      throw conflict(
+        `还没到返修上限（已返修 ${budget.failed} 轮，上限 ${budget.limit} 轮）；照常返修`,
+        "review_round_available"
+      );
+    const allowed: ApproachKind[] = ticket
+      ? ["fresh_executor", "revised_ticket", "deliver_partial"]
+      : ["new_plan", "deliver_partial"];
+    if (!allowed.includes(kind))
+      throw conflict(
+        `${ticket ? "票的审查" : "整体审查"}只能选 ${allowed.join(" / ")}`,
+        "review_approach_invalid"
+      );
+    if (budget.changed.includes(kind))
+      throw conflict(
+        `${kind} 在这条审查链上已经用过；换一种办法，或 deliver_partial`,
+        "review_approach_used"
+      );
+    if (kind === "deliver_partial") {
+      const pending = review.findings.filter(
+        (finding) => finding.state === "open" || finding.state === "fix_claimed"
+      );
+      if (pending.length)
+        throw conflict(
+          `先把不再修的发现裁定为不采纳（category=deferred，写明没做的部分）：${pending
+            .map((finding) => finding.findingId)
+            .join("、")}`,
+          "review_findings_open"
+        );
+    }
+    const updated = await service.updateReview(projectId, reviewId, {
+      expectedRevision: review.revision,
+      verdict: { ...review.verdict, approach: { kind, basis, at: now() } }
+    });
+    if (kind === "deliver_partial" && ticket?.state === "rework" && ticket.reviewIds.at(-1) === reviewId)
+      await service.writeTickets(projectId, review.developmentId, {
+        op: "verdict",
+        ticketId: ticket.ticketId,
+        passed: true
+      });
+    return updated;
+  }
+
   /** Whether a development is split into tickets: the direct and full routes. */
   function ticketRoute(record: DevelopmentRecord): boolean {
     return record.route !== "quick";
@@ -544,6 +857,7 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
     const finals = finalReviews(tickets, await service.queryReviews(projectId, developmentId));
     if (finals.some((review) => review.state === "in_review"))
       throw conflict("已有一份进行中的整体终审", "review_open");
+    checkRound(finals, tickets);
     let previous: DevelopmentReview | undefined;
     if (input.previousReviewId !== undefined) {
       const previousId = developmentIdentifier(input.previousReviewId, "上一次审查 ID");
@@ -551,6 +865,7 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
       if (!previous) throw conflict("上一次审查不是这个需求的整体终审", "review_previous_mismatch");
       if (previous.candidate.commit === candidate.commit)
         throw conflict("候选没有变化；复审需要先并入修复票", "review_candidate_unchanged");
+      checkPreviousRuled(previous);
     }
     return service.createReview(projectId, developmentId, {
       kind: "independent",
@@ -636,7 +951,26 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
         throw conflict("上一次审查还没有结束，不能开始复审", "review_previous_open");
       if (previous.candidate.commit === current.commit)
         throw conflict("候选没有变化；复审需要新的候选提交", "review_candidate_unchanged");
+      checkPreviousRuled(previous);
     }
+    const { tickets } = await service.tickets(projectId, developmentId);
+    checkRound(
+      chainOf(tickets, await service.queryReviews(projectId, developmentId), ticket),
+      tickets,
+      ticket
+    );
+    // A re-review looks at what this round changed, not everything since the fork.
+    const roundChanges = previous
+      ? (
+          await git(record.workspace!.directory, [
+            "diff",
+            "--name-only",
+            `${previous.candidate.commit}..${current.commit}`
+          ])
+        )
+          .split("\n")
+          .filter(Boolean)
+      : changed;
     const review = await service.createReview(projectId, developmentId, {
       kind: "independent",
       candidate: {
@@ -655,7 +989,7 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
         ? {
             previousReviewId: previous.reviewId,
             previousCandidateCommit: previous.candidate.commit,
-            changedPaths: changed.slice(0, 200)
+            changedPaths: roundChanges.slice(0, 200)
           }
         : {})
     });
@@ -911,6 +1245,8 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
     let author: DevelopmentReview["author"];
     let previous: DevelopmentReview | undefined;
     let changedPaths: string[] = [];
+    // The round limit comes first: past it, another rework of the same kind is not the next step.
+    checkRound(await service.queryReviews(projectId, developmentId), []);
     if (input.previousReviewId !== undefined) {
       previous = await service.getReview(
         projectId,
@@ -922,6 +1258,7 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
         throw conflict("上一次审查还没有结束，不能开始复审", "review_previous_open");
       if (previous.candidate.commit === candidate.commit)
         throw conflict("候选没有变化；复审需要新的候选提交", "review_candidate_unchanged");
+      checkPreviousRuled(previous);
       changedPaths = (
         await git(record.workspace!.directory, [
           "diff",
@@ -986,10 +1323,16 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
       throw conflict("该工作项不是 Reviewer，不能记为独立审查", "review_reviewer_role");
     if (fact.developmentId !== review.developmentId)
       throw conflict("审查工作项不属于这个需求的现场", "review_development_mismatch");
-    if (fact.status === "queued")
-      throw conflict("审查工作项还没有开始，现场不可核对", "review_reviewer_not_started");
     if (fact.status === "failed" || fact.status === "cancelled")
       throw conflict(`审查工作项已 ${fact.status}，没有有效结论`, "review_reviewer_terminal");
+    // A Reviewer is bound only once it has finished, together with its
+    // conclusion: one that breaks the review's rules is never bound, so another
+    // Reviewer can still take the review.
+    if (fact.status !== "completed")
+      throw conflict(
+        `Reviewer ${fact.callId} 还没有结束（${fact.status}）；等它交回结论再绑定`,
+        "review_reviewer_running"
+      );
     if (!fact.workspace) throw conflict("审查工作项没有独立现场", "review_site_missing");
     const development = await service.getDevelopment(projectId, review.developmentId, ports.backendId);
     if (!development.workspace)
@@ -1011,11 +1354,8 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
     }
     if (review.author && (review.author.callId === fact.callId || review.author.agentId === fact.agentId))
       throw conflict("审查会话与执行身份相同，不能记为独立审查", "review_not_independent");
-    // A leased work item may not have created its checkout yet. That is a
-    // retryable state, not unauthorized drift; only readable, changed content
-    // invalidates the review.
     const site = await readReviewSite(fact.workspace);
-    if (!site) throw conflict("审查工作项现场尚未准备完成；稍后重试绑定", "review_site_unavailable");
+    if (!site) throw conflict("审查工作项现场不可读", "review_site_unavailable");
     const reason = driftReason(site, review.candidate);
     if (reason) {
       // The review cannot bind this checkout, so it is not evidence for any
@@ -1024,7 +1364,8 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
       await releaseSite(review, derived);
       throw conflict(reason, "review_drifted");
     }
-    return service.updateReview(projectId, reviewId, {
+    if (fact.review) await checkedConclusion(projectId, review, fact.review);
+    const bound = await service.updateReview(projectId, reviewId, {
       expectedRevision: review.revision,
       reviewer: {
         role: "reviewer",
@@ -1034,6 +1375,7 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
         workspace: derived
       }
     });
+    return fact.review ? importConclusion(projectId, bound, fact.review) : bound;
   }
 
   async function recordFinding(
@@ -1045,15 +1387,44 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
     const review = await service.getReview(projectId, reviewId);
     if (review.state !== "in_review") throw conflict("审查已结束，不能再追加发现", "review_closed");
     if (!review.reviewer) throw conflict("还没有绑定独立审查会话", "review_reviewer_missing");
+    if (review.reviewer.conclusion)
+      throw conflict("Reviewer 的结论已由程序导入审查记录；不要再手抄发现", "review_conclusion_imported");
+    const fact = ports.call ? await ports.call(review.reviewer.taskId, review.reviewer.callId) : undefined;
+    if (fact?.review)
+      throw conflict(
+        "Reviewer 交回了结构化结论；用 attach_reviewer 导入，不要手抄",
+        "review_conclusion_imported"
+      );
     const parsed = reviewFindingInput(input);
+    // A custom Reviewer answers in prose, so Main records what it found under
+    // the same rule: a blocking finding cites a criterion or a floor class.
+    const { scope } = await reviewScopeOf(projectId, review);
+    const check = parseReviewConclusion(
+      {
+        verdict: parsed.blocking ? "changes_requested" : "pass",
+        findings: [
+          {
+            title: parsed.title,
+            location: parsed.location ?? "-",
+            evidence: parsed.detail,
+            blocking: parsed.blocking,
+            ...(parsed.basis ? { basis: parsed.basis } : {})
+          }
+        ]
+      },
+      { criteria: scope.criteria }
+    );
+    if (!check.ok) throw conflict(check.errors.join("；"), "review_finding_basis");
     const timestamp = now();
     const finding: ReviewFinding = {
       findingId: id("finding"),
       title: parsed.title,
       detail: parsed.detail,
       ...(parsed.location ? { location: parsed.location } : {}),
+      blocking: parsed.blocking,
+      ...(parsed.blocking && parsed.basis ? { basis: parsed.basis } : {}),
       candidateCommit: review.candidate.commit,
-      state: "open",
+      state: parsed.blocking ? "open" : "suggestion",
       checks: parsed.checks,
       ...(parsed.rawFailure ? { rawFailure: parsed.rawFailure } : {}),
       source: {
@@ -1086,7 +1457,19 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
     const basis = reviewBasis(input.basis);
     const target = review.findings.find((finding) => finding.findingId === findingId);
     if (!target) throw new ProjectDataNotFoundError("审查发现不存在");
-    if (target.state !== "open") throw conflict(`发现 ${findingId} 已有裁定`, "review_finding_ruled");
+    // A suggestion blocks nothing, so Main only picks it up to fix; a claimed fix
+    // of a failed review may still be given up with a recorded dismissal.
+    const rulable =
+      target.state === "open" ||
+      (target.state === "suggestion" && decision === "fix") ||
+      (target.state === "fix_claimed" && decision === "dismiss" && review.state === "failed");
+    if (!rulable)
+      throw conflict(
+        target.state === "suggestion"
+          ? `发现 ${findingId} 是建议，不拦截，不需要放行`
+          : `发现 ${findingId} 已有裁定`,
+        "review_finding_ruled"
+      );
     const timestamp = now();
     const findings = review.findings.map((finding) =>
       finding.findingId === findingId
@@ -1235,12 +1618,13 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
     const review = await service.getReview(projectId, reviewId);
     if (review.state !== "in_review") throw conflict("审查已经结束", "review_closed");
     if (!review.reviewer) throw conflict("还没有绑定独立审查会话", "review_reviewer_missing");
+    const reviewer = review.reviewer;
     const verdict = reviewVerdict({ summary: input.summary, checks: input.checks });
     if (input.verdict !== "passed" && input.verdict !== "failed")
       throw conflict("审查结论须为 passed / failed", "review_verdict_invalid");
-    const site = await readReviewSite(review.reviewer.workspace);
+    const site = await readReviewSite(reviewer.workspace);
     if (!site) {
-      const reason = `审查现场 ${review.reviewer.workspace} 不可读`;
+      const reason = `审查现场 ${reviewer.workspace} 不可读`;
       await markDrifted(projectId, review, reason);
       throw conflict(reason, "review_drifted");
     }
@@ -1251,10 +1635,12 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
     }
     if (input.verdict === "passed") {
       if (verdict.checks.length === 0) throw conflict("通过审查须记录检查回执", "review_checks_missing");
-      const unresolved = review.findings.filter((finding) => finding.state !== "dismissed");
+      const unresolved = review.findings.filter(
+        (finding) => finding.state === "open" || finding.state === "fix_claimed"
+      );
       if (unresolved.length)
         throw conflict(
-          `发现 ${unresolved.map((finding) => finding.findingId).join("、")} 还没有不采纳的裁定；修复后须复审新候选`,
+          `发现 ${unresolved.map((finding) => finding.findingId).join("、")} 拦着这次审查：裁定不修并写理由，或修复后复审新候选`,
           "review_findings_open"
         );
     }
@@ -1312,7 +1698,7 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
         else {
           qualification.reviewId = final.reviewId;
           qualification.independentReview = Boolean(final.reviewer);
-          if (final.state !== "passed") reasons.push(`review_${final.state}`);
+          if (!reviewApproved(final)) reasons.push(`review_${final.state}`);
           else if (final.candidate.commit !== current.commit || final.candidate.tree !== current.tree)
             reasons.push("candidate_changed");
         }
@@ -1331,7 +1717,7 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
         qualification.reviewId = latest.reviewId;
         qualification.kind = latest.kind;
         qualification.independentReview = Boolean(latest.reviewer);
-        if (latest.state !== "passed") reasons.push(`review_${latest.state}`);
+        if (!reviewApproved(latest)) reasons.push(`review_${latest.state}`);
         else {
           qualification.approved = latest.candidate;
           if (plan.channel === "combined" && latest.kind !== "combined") reasons.push("review_kind_mismatch");
@@ -1370,17 +1756,31 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
     const review = reviews.at(-1);
     const final = record.route === "full" ? finalReviews(tickets.tickets, reviews).at(-1) : undefined;
     const merge = merges.at(-1);
+    // A failed review whose chain used its rounds and has no change of approach yet.
+    const atLimit = (chain: DevelopmentReview[]) => {
+      const budget = roundBudget(chain);
+      return budget.failed >= budget.limit && !chain.at(-1)?.verdict?.approach;
+    };
+    const fact = (entry: DevelopmentReview, chain: DevelopmentReview[]) => ({
+      reviewId: entry.reviewId,
+      state: entry.state,
+      reviewer: Boolean(entry.reviewer),
+      ...(entry.state === "failed" && atLimit(chain) ? { atLimit: true } : {})
+    });
+    const ticketsAtLimit = tickets.tickets.flatMap((ticket) => {
+      const chain = chainOf(tickets.tickets, reviews, ticket);
+      return ticket.state === "rework" && chain.at(-1)?.state === "failed" && atLimit(chain)
+        ? [{ ticketId: ticket.ticketId, reviewId: chain.at(-1)!.reviewId }]
+        : [];
+    });
     return developmentNext({
       route: record.route,
       workspaceReady,
       tickets: tickets.tickets,
-      ...(final
-        ? { finalReview: { reviewId: final.reviewId, state: final.state, reviewer: Boolean(final.reviewer) } }
-        : {}),
+      ...(final ? { finalReview: fact(final, finalReviews(tickets.tickets, reviews)) } : {}),
+      ...(ticketsAtLimit.length ? { ticketsAtLimit } : {}),
       ...(workspaceReady ? { qualification: await deliveryQualification(projectId, developmentId) } : {}),
-      ...(review
-        ? { review: { reviewId: review.reviewId, state: review.state, reviewer: Boolean(review.reviewer) } }
-        : {}),
+      ...(review ? { review: fact(review, record.route === "quick" ? reviews : [review]) } : {}),
       ...(merge
         ? {
             merge: {
@@ -1493,7 +1893,7 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
         );
         if (!final) reasons.push("final_review_missing");
         else {
-          if (final.state !== "passed") reasons.push(`review_${final.state}`);
+          if (!reviewApproved(final)) reasons.push(`review_${final.state}`);
           if (final.candidate.commit !== merge.candidate.commit) reasons.push("candidate_changed");
         }
       }
@@ -1515,7 +1915,7 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
         : undefined;
       if (!review) reasons.push("review_missing");
       else {
-        if (review.state !== "passed") reasons.push(`review_${review.state}`);
+        if (!reviewApproved(review)) reasons.push(`review_${review.state}`);
         if (review.candidate.commit !== merge.candidate.commit) reasons.push("candidate_changed");
         if (merge.acceptance.channel === "combined" && review.kind !== "combined")
           reasons.push("review_kind_mismatch");
@@ -2364,7 +2764,8 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
       ...(diff ? { diff } : {}),
       roles,
       tickets,
-      ...(waitingSync ? { pendingSync: waitingSync } : {})
+      ...(waitingSync ? { pendingSync: waitingSync } : {}),
+      reviewReport: reviewReport(reviews, (reviewId) => ticketOfReview(tickets, reviewId)?.ticketId)
     };
   }
 
@@ -2500,10 +2901,7 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
       if (reviewId && !named)
         throw conflict(`审查 ${reviewId} 不是这个需求里正在进行的审查`, "review_not_frozen");
       if (!named) return site.candidate;
-      const service = await gateway();
-      const record = await service.getDevelopment(found.projectId, developmentId, ports.backendId);
-      const { tickets } = await service.tickets(found.projectId, developmentId);
-      const ticket = ticketOfReview(tickets, named.reviewId);
+      const { record, tickets, ticket, scope, rereview } = await reviewScopeOf(found.projectId, named);
       return {
         repository: site.directory,
         commit: named.candidate.commit,
@@ -2511,8 +2909,10 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
           goal: record.goal,
           criteria: record.completionCriteria,
           tickets,
-          ...(ticket ? { ticket } : {})
-        })
+          ...(ticket ? { ticket } : {}),
+          ...(rereview ? { rereview } : {})
+        }),
+        scope
       };
     },
 
@@ -2847,6 +3247,15 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
     async recordReworkForTask(taskId: string, input: Record<string, unknown>) {
       const found = await taskProject(taskId);
       return recordRework(found.projectId, taskId, input);
+    },
+
+    async changeApproach(projectId: string, input: Record<string, unknown>) {
+      return changeApproach(projectId, input);
+    },
+
+    async changeApproachForTask(taskId: string, input: Record<string, unknown>) {
+      const found = await taskProject(taskId);
+      return changeApproach(found.projectId, input);
     },
 
     async completeReview(projectId: string, input: Record<string, unknown>) {

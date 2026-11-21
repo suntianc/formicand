@@ -1,3 +1,4 @@
+import type { ReviewScope } from "./subagent-review.js";
 import { randomUUID } from "node:crypto";
 import { readdir } from "node:fs/promises";
 import { join, resolve } from "node:path";
@@ -116,7 +117,7 @@ export interface SubagentDispatchPorts {
     /** The review to examine; required when several are frozen at once. */
     reviewId?: string;
     /** What the Reviewer examines, written from the records: a ticket, the whole requirement or a quick change. */
-  }): Promise<{ repository: string; commit: string; brief?: string } | undefined>;
+  }): Promise<{ repository: string; commit: string; brief?: string; scope?: ReviewScope } | undefined>;
   /** The ticket a delegation implements; refused when it is not ready to start. */
   ticket?(input: TicketDispatchInput): Promise<TicketDispatch>;
   ticketStarted?(input: TicketStartInput): Promise<void>;
@@ -189,6 +190,8 @@ interface StoredPayload {
   agentDefinition?: AgentDefinition;
   /** A built-in Executor's or Reviewer's skills, MCP servers and extra prompt at dispatch. */
   builtinAgent?: BuiltinAgentSettings;
+  /** What a Reviewer's findings may cite, from the frozen review. */
+  reviewScope?: ReviewScope;
 }
 
 export class SubagentDispatchService {
@@ -399,7 +402,8 @@ export class SubagentDispatchService {
         delegation,
         capabilityGrants,
         ...(agentDefinition ? { agentDefinition } : {}),
-        ...(builtinAgent ? { builtinAgent } : {})
+        ...(builtinAgent ? { builtinAgent } : {}),
+        ...(reviewed?.scope ? { reviewScope: reviewed.scope } : {})
       },
       maxAttempts: resolveCapabilities(task.capabilities).maxAttempts
     });
@@ -558,7 +562,13 @@ export class SubagentDispatchService {
     workItemSite?: WorkItemSite;
     projectDirectory: string;
     reviewId?: string;
-  }): Promise<{ repository: string; commit: string; directory: string; brief?: string }> {
+  }): Promise<{
+    repository: string;
+    commit: string;
+    directory: string;
+    brief?: string;
+    scope?: ReviewScope;
+  }> {
     if (input.developmentId && input.development) {
       const frozen = await this.ports.frozenCandidate?.({
         taskId: input.taskId,
@@ -572,6 +582,7 @@ export class SubagentDispatchService {
         repository: resolve(frozen?.repository ?? input.development.directory),
         commit: frozen?.commit ?? (await headCommit(input.development.directory)),
         ...(frozen?.brief ? { brief: frozen.brief } : {}),
+        ...(frozen?.scope ? { scope: frozen.scope } : {}),
         directory: input.workItemSite
           ? resolve(input.workItemSite.directory)
           : join(

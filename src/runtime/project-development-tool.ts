@@ -94,6 +94,7 @@ const REVIEW_ACTIONS = [
   "record_finding",
   "rule_finding",
   "record_rework",
+  "change_approach",
   "complete_review",
   "delivery_check",
   "query_reviews",
@@ -118,7 +119,7 @@ export function createProjectDevelopmentTool(options: ProjectDevelopmentToolOpti
     name: "project_development",
     label: "Project Development",
     description:
-      "The current project's requirement development records: create one with its isolated Git checkout, read and revise it, propose its tickets for the user to confirm, review a fixed candidate, merge an accepted candidate through the project's shared entry, and read delivery status. Load the requirement-delivery skill for the order of these steps. One record exists per requirement, so look it up before creating; update carries the revision you last read. Each result's next field says what to do next. The project and Task come from this conversation, so no project id or path is accepted.",
+      "The current project's requirement development records: create one with its isolated Git checkout, read and revise it, propose its tickets for the user to confirm, review a fixed candidate (the Reviewer's findings are imported by the program; a review chain has two rework rounds before Main must change approach), merge an accepted candidate through the project's shared entry, and read delivery status. Load the requirement-delivery skill for the order of these steps. One record exists per requirement, so look it up before creating; update carries the revision you last read. Each result's next field says what to do next. The project and Task come from this conversation, so no project id or path is accepted.",
     parameters: {
       type: "object",
       properties: {
@@ -211,13 +212,19 @@ export function createProjectDevelopmentTool(options: ProjectDevelopmentToolOpti
           type: "string",
           maxLength: 2000,
           description:
-            "review_plan: why this channel is justified. rule_finding: required for fix and dismiss alike."
+            "review_plan: why this channel is justified. rule_finding: required for fix and dismiss alike. change_approach: why this approach, and for deliver_partial what is left undone."
         },
         checks: {
           type: "array",
           maxItems: 20,
           items: CHECK,
           description: "review_plan/record_finding/complete_review: command, exit code and captured output."
+        },
+        approach: {
+          type: "string",
+          enum: ["fresh_executor", "revised_ticket", "new_plan", "deliver_partial"],
+          description:
+            "change_approach, on the latest failed review once its chain used its two rework rounds: fresh_executor (a ticket restarts with a new Executor), revised_ticket (revise_ticket, then a new round), new_plan (the whole requirement's review: new fix tickets), or deliver_partial (accept the failed review as it is; first dismiss what stays unfixed with category=deferred). Each of the first three is used once per chain."
         },
         kind: {
           type: "string",
@@ -234,15 +241,30 @@ export function createProjectDevelopmentTool(options: ProjectDevelopmentToolOpti
           description:
             "freeze_candidate: the Executor work item that produced the candidate; its identity must differ from the Reviewer's."
         },
-        reviewId: { ...ID, description: "attach_reviewer/record/rule/complete/get_review target." },
+        reviewId: {
+          ...ID,
+          description: "attach_reviewer/record/rule/change_approach/complete/get_review target."
+        },
         callId: {
           ...ID,
           description:
-            "attach_reviewer: the Reviewer work item returned by call_subagent. The first Reviewer owns the review; retrying the same call is safe and another call is refused."
+            "attach_reviewer, once the Reviewer work item returned by call_subagent has finished: binds it to the review and imports its submitted findings. A running Reviewer is refused; a conclusion that breaks the review's rules is refused and leaves the review free for another Reviewer. The bound Reviewer owns the review; retrying the same call is safe."
         },
-        title: { type: "string", maxLength: 300, description: "record_finding: short finding title." },
+        title: {
+          type: "string",
+          maxLength: 300,
+          description:
+            "record_finding (only for a custom Reviewer that answers in prose): short finding title."
+        },
         detail: { type: "string", maxLength: 4000, description: "record_finding: what is wrong and why." },
         location: { type: "string", maxLength: 1000, description: "record_finding: file or symbol." },
+        blocking: { type: "boolean", description: "record_finding: whether it blocks acceptance." },
+        findingBasis: {
+          type: "string",
+          maxLength: 40,
+          description:
+            "record_finding with blocking=true: the criterion id it violates, or regression, data_loss, security, project_rule."
+        },
         rawFailure: {
           type: "string",
           maxLength: 8000,
@@ -253,12 +275,13 @@ export function createProjectDevelopmentTool(options: ProjectDevelopmentToolOpti
           type: "string",
           enum: ["fix", "dismiss"],
           description:
-            "rule_finding: fix it or dismiss it; every ruling needs basis — for fix, how it is or will be fixed; for dismiss, why it is not a defect. Findings of failed or drifted reviews stay rulable; a passed review is closed."
+            "rule_finding: fix it or dismiss it; every ruling needs basis — for fix, how it is or will be fixed; for dismiss, why it does not stand. A suggestion blocks nothing and can only be picked up to fix. A claimed fix on a failed review can still be dismissed. Findings of failed or drifted reviews stay rulable; a passed review is closed."
         },
         category: {
           type: "string",
-          enum: ["false_positive", "out_of_scope", "other"],
-          description: "rule_finding with dismiss: why the finding does not stand."
+          enum: ["false_positive", "out_of_scope", "deferred", "other"],
+          description:
+            "rule_finding with dismiss: why the finding does not stand — or deferred, when it is left for later and reported as not done."
         },
         findingIds: {
           type: "array",
@@ -459,6 +482,8 @@ export function createProjectDevelopmentTool(options: ProjectDevelopmentToolOpti
         title: input.title,
         detail: input.detail,
         ...(input.location === undefined ? {} : { location: input.location }),
+        blocking: input.blocking,
+        ...(input.findingBasis === undefined ? {} : { basis: input.findingBasis }),
         ...(input.checks === undefined ? {} : { checks: input.checks }),
         ...(input.rawFailure === undefined ? {} : { rawFailure: input.rawFailure })
       });
@@ -478,6 +503,13 @@ export function createProjectDevelopmentTool(options: ProjectDevelopmentToolOpti
         findingIds: input.findingIds,
         fromCallId: input.fromCallId,
         continuationCallId: input.continuationCallId
+      });
+    if (action === "change_approach")
+      return review({
+        action: "change_approach",
+        reviewId: input.reviewId,
+        approach: input.approach,
+        basis: input.basis
       });
     if (action === "complete_review")
       return review({

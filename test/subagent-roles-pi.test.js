@@ -454,12 +454,15 @@ test(
       verdict: "changes_requested",
       findings: [
         {
+          title: "The new branch returns the old value",
           location: "src/feature.ts:12",
           evidence:
             "The new branch returns the old value; the added test passes only because it asserts the old value.",
-          blocking: true
+          blocking: true,
+          basis: "AC1"
         },
         {
+          title: "README does not mention the flag",
           location: "README.md",
           evidence: "The documented flag is not mentioned in the change.",
           blocking: false
@@ -493,12 +496,26 @@ test(
   async (t) => {
     const invalid = {
       verdict: "pass",
-      findings: [{ location: "src/a.ts", evidence: "observed a broken branch", blocking: true }]
+      findings: [
+        {
+          title: "Broken branch",
+          location: "src/a.ts",
+          evidence: "observed a broken branch",
+          blocking: true,
+          basis: "regression"
+        }
+      ]
     };
     const corrected = {
       verdict: "changes_requested",
       findings: [
-        { location: "src/a.ts:8", evidence: "the branch ignores the configured limit", blocking: true }
+        {
+          title: "Limit ignored",
+          location: "src/a.ts:8",
+          evidence: "the branch ignores the configured limit",
+          blocking: true,
+          basis: "regression"
+        }
       ]
     };
     const { provider, result } = await delegatedCall(t, {

@@ -2,6 +2,8 @@ import { lstat, open, readFile, readdir, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { listTaskArtifacts } from "../workspace/artifact-store.js";
 import { agentDisplayName } from "./agent-identity.js";
+import { agentProcessRecordPath } from "./agent-process.js";
+import { parseReviewConclusion, type ReviewConclusion } from "./subagent-review.js";
 
 export interface SubagentProgress {
   callId: string;
@@ -196,6 +198,8 @@ export interface SubagentCallFact {
   status: string;
   /** The call this one explicitly continued, when it is a rework. */
   continuationFrom?: string;
+  /** A finished Reviewer's submitted conclusion, as its process recorded it. */
+  review?: ReviewConclusion;
 }
 
 /**
@@ -252,19 +256,48 @@ export async function findSubagentCall(input: {
       item.payload?.reviewSite?.directory ??
       item.payload?.workItemSite?.directory ??
       item.payload?.projectDirectory;
+    const role = item.payload?.delegation?.role === "reviewer" ? "reviewer" : "executor";
+    const review =
+      role === "reviewer" && item.status === "completed"
+        ? await recordedConclusion(input.workspaceRoot, input.taskId, run.runId, item.agentId, item.stepId)
+        : undefined;
     return {
       callId: item.stepId,
       agentId: item.agentId,
-      role: item.payload?.delegation?.role === "reviewer" ? "reviewer" : "executor",
+      role,
       ...(workspace ? { workspace } : {}),
       ...(item.payload?.developmentId ? { developmentId: item.payload.developmentId } : {}),
       status: item.status,
       ...(item.payload?.continuation?.fromCallId
         ? { continuationFrom: item.payload.continuation.fromCallId }
-        : {})
+        : {}),
+      ...(review ? { review } : {})
     };
   }
   return undefined;
+}
+
+/**
+ * The conclusion a Reviewer's process recorded when it settled.
+ *
+ * The process record belongs to the agent, so it is read only when it still
+ * describes this call; a record of another call or one without a valid
+ * conclusion yields none.
+ */
+async function recordedConclusion(
+  workspaceRoot: string,
+  taskId: string,
+  runId: string,
+  agentId: string,
+  callId: string
+): Promise<ReviewConclusion | undefined> {
+  const record = await readJson<{ callId?: string; outcome?: { review?: unknown } } | undefined>(
+    agentProcessRecordPath(workspaceRoot, taskId, runId, "reviewer", agentId),
+    undefined
+  );
+  if (record?.callId !== callId || record.outcome?.review === undefined) return undefined;
+  const parsed = parseReviewConclusion(record.outcome.review);
+  return parsed.ok ? parsed.review : undefined;
 }
 
 function normalizeStatus(status: string): SubagentProgress["status"] {

@@ -306,7 +306,7 @@ test(
     const frozenFinal = await service.frozenCandidateForTask("task-flow", developmentId, final.reviewId);
     assert.match(frozenFinal.brief, /^You give the final review of the whole requirement/);
     assert.match(frozenFinal.brief, /Requirement: 两个文件/);
-    assert.match(frozenFinal.brief, /Completion criteria:\n- 两个文件都在/);
+    assert.match(frozenFinal.brief, /Completion criteria:\n- CC1 两个文件都在/);
     assert.match(frozenFinal.brief, /- 02 写 src\/b\.txt: src\/b\.txt 存在/);
     assert.match(
       (
@@ -317,9 +317,14 @@ test(
       /不是这个需求里正在进行的审查/
     );
     final = await reviewer(final, "call-rf1");
-    assert.match(await service.next(projectId, developmentId), /Final review: Review .* is in progress/);
+    assert.match(
+      await service.next(projectId, developmentId),
+      /Final review: Review .* has its Reviewer's findings/
+    );
     final = await service.recordFinding(projectId, {
       reviewId: final.reviewId,
+      blocking: true,
+      basis: "CC1",
       title: "缺少总说明",
       detail: "三个文件之间没有说明",
       checks: []
@@ -508,5 +513,199 @@ test(
     assert.equal(tickets.tickets[0].work.workspace, accepted.body.workspace);
     const again = await dispatch({ task: "再做一次", developmentId, ticketId: "01" });
     assert.match(again.body.error, /已经在执行或已完成，返修用 continueCallId/);
+  }
+);
+
+test(
+  "a ticket that used its rework rounds changes approach before another round",
+  { timeout: 120_000 },
+  async (t) => {
+    const root = await mkdtemp(join(tmpdir(), "atria-p48-ticket-rounds-"));
+    t.after(() => rm(root, { recursive: true, force: true }));
+    const repo = await repository(join(root, "repository"));
+    const runtime = new ProjectDataRuntime({
+      config: { sqlite: { path: join(root, "project-data.sqlite") } },
+      configPath: join(root, "config.json"),
+      dataRoot: root,
+      env: {}
+    });
+    t.after(() => runtime.close());
+    const gateway = await runtime.service();
+    const projectId = "project_rounds";
+    await gateway.ensureProject({
+      projectId,
+      projectName: "返修轮次",
+      projectDirectory: repo,
+      backendId: "backend_rounds"
+    });
+    const requirement = await gateway.createRequirement(projectId, { title: "文件", content: "一张票" });
+    const projectInfo = { projectId, projectName: "返修轮次", projectDirectory: repo };
+    const calls = {};
+    const developmentRoot = join(root, "development-workspaces");
+    const service = createProjectDevelopmentService({
+      runtime: { service: async () => gateway },
+      backendId: "backend_rounds",
+      developmentRoot,
+      project: async (id) => (id === projectId ? projectInfo : undefined),
+      taskProject: async (id) => (id === "task-rounds" ? projectInfo : undefined),
+      call: async (_taskId, callId) => calls[callId]
+    });
+    await service.setMergeConfig(projectId, { repository: repo, targetBranch: "main" });
+    const development = await service.create(projectId, {
+      requirementId: requirement.requirementId,
+      goal: "一个文件",
+      completionCriteria: ["文件在"],
+      route: "direct"
+    });
+    const developmentId = development.developmentId;
+    const integration = development.workspace.directory;
+    let set = await service.writeTickets(projectId, developmentId, {
+      op: "propose",
+      tickets: [ticket("01", "src/a.txt")]
+    });
+    set = await service.writeTickets(projectId, developmentId, {
+      op: "confirm",
+      expectedRevision: set.revision
+    });
+
+    const executor = async (callId, agentId) => {
+      const directory = join(developmentRoot, "work-items", callId);
+      await prepareWorkItemSite({
+        developmentDirectory: integration,
+        directory,
+        branch: `coworkos/work/${callId}`
+      });
+      await service.ticketStarted("task-rounds", developmentId, "01", {
+        callId,
+        agentId,
+        workspace: directory
+      });
+      calls[callId] = {
+        callId,
+        agentId,
+        role: "executor",
+        workspace: directory,
+        developmentId,
+        status: "completed"
+      };
+      return directory;
+    };
+    let reviewers = 0;
+    const reviewer = async (review, conclusion) => {
+      const callId = `call-r${++reviewers}`;
+      const directory = join(developmentRoot, "work-items", callId);
+      await git(integration, ["worktree", "add", "--detach", directory, review.candidate.commit]);
+      calls[callId] = {
+        callId,
+        agentId: `agent-${callId}`,
+        role: "reviewer",
+        workspace: directory,
+        developmentId,
+        status: "completed",
+        review: conclusion
+      };
+      return service.attachReviewer(projectId, "task-rounds", { reviewId: review.reviewId, callId });
+    };
+    const defect = {
+      title: "内容不对",
+      location: "src/a.txt",
+      evidence: "cat src/a.txt",
+      blocking: true,
+      basis: "AC1"
+    };
+    // One failed round: freeze, the Reviewer's conclusion is imported, Main rules it to fix.
+    const failedRound = async (previous) => {
+      let review = await service.startReview(projectId, "task-rounds", {
+        developmentId,
+        ticketId: "01",
+        ...(previous ? { previousReviewId: previous.reviewId } : {})
+      });
+      const findingId = previous?.findings.find((entry) => entry.state === "fix_claimed")?.findingId;
+      review = await reviewer(
+        review,
+        previous
+          ? {
+              verdict: "changes_requested",
+              findings: [],
+              previousFindings: [{ findingId, fixed: false, evidence: "还是不对" }]
+            }
+          : { verdict: "changes_requested", findings: [defect] }
+      );
+      review = await service.ruleFinding(projectId, {
+        reviewId: review.reviewId,
+        findingId: review.findings[0].findingId,
+        decision: "fix",
+        basis: "照验收标准修"
+      });
+      return service.completeReview(projectId, {
+        reviewId: review.reviewId,
+        verdict: "failed",
+        summary: "没过",
+        checks: []
+      });
+    };
+
+    const first = await executor("call-e1", "agent-e1");
+    await commit(first, { "src/a.txt": "1\n" }, "one");
+    const round1 = await failedRound();
+    await commit(first, { "src/a.txt": "2\n" }, "two");
+    const round2 = await failedRound(round1);
+    assert.equal(
+      round2.findings[0].findingId,
+      round1.findings[0].findingId,
+      "the unfixed finding keeps its id"
+    );
+    await commit(first, { "src/a.txt": "3\n" }, "three");
+    await assert.rejects(
+      service.startReview(projectId, "task-rounds", {
+        developmentId,
+        ticketId: "01",
+        previousReviewId: round2.reviewId
+      }),
+      (error) => error.code === "review_round_limit"
+    );
+    assert.match(await service.next(projectId, developmentId), /Ticket 01 used its rework rounds/);
+    await assert.rejects(
+      service.changeApproach(projectId, { reviewId: round2.reviewId, approach: "new_plan", basis: "x" }),
+      (error) => error.code === "review_approach_invalid"
+    );
+    await service.changeApproach(projectId, {
+      reviewId: round2.reviewId,
+      approach: "fresh_executor",
+      basis: "第一个执行者两轮都没理解要求"
+    });
+    // The change must be carried out: the old Executor's checkout is refused.
+    await assert.rejects(
+      service.startReview(projectId, "task-rounds", {
+        developmentId,
+        ticketId: "01",
+        previousReviewId: round2.reviewId
+      }),
+      (error) => error.code === "review_approach_not_applied"
+    );
+    const fresh = await executor("call-e2", "agent-e2");
+    await commit(fresh, { "src/a.txt": "right\n" }, "fresh");
+    const rereview = await service.startReview(projectId, "task-rounds", {
+      developmentId,
+      ticketId: "01",
+      previousReviewId: round2.reviewId
+    });
+    assert.equal(rereview.author.agentId, "agent-e2");
+    assert.deepEqual(rereview.changedPaths, ["src/a.txt"], "only what changed since the previous candidate");
+    const frozen = await service.frozenCandidateForTask("task-rounds", developmentId, rereview.reviewId);
+    assert.deepEqual(frozen.scope, {
+      criteria: ["AC1"],
+      previous: [{ findingId: round2.findings[0].findingId, title: "内容不对" }],
+      changedPaths: ["src/a.txt"]
+    });
+    assert.match(frozen.brief, /This is a re-review after a fix/);
+    await assert.rejects(
+      service.changeApproach(projectId, {
+        reviewId: round2.reviewId,
+        approach: "fresh_executor",
+        basis: "again"
+      }),
+      (error) => error.code === "review_not_latest"
+    );
   }
 );

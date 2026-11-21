@@ -38,7 +38,21 @@ const REVIEW_LABEL = {
   failed: "审查未通过",
   drifted: "候选已变化"
 };
-const FINDING_LABEL = { open: "待处理", fix_claimed: "已声明修复", fixed: "已修复", dismissed: "已驳回" };
+const FINDING_LABEL = {
+  open: "待处理",
+  suggestion: "建议",
+  fix_claimed: "已声明修复",
+  fixed: "已修复",
+  reopened: "未修好",
+  dismissed: "已放行"
+};
+const DISMISS_LABEL = { false_positive: "误报", out_of_scope: "范围外", deferred: "推迟", other: "其他" };
+const APPROACH_LABEL = {
+  fresh_executor: "换执行者",
+  revised_ticket: "改票",
+  new_plan: "重新规划",
+  deliver_partial: "先交付已完成部分"
+};
 const PROJECT_READ_MS = 15_000;
 const VIEW_READ_MS = 15_000;
 const READ_CONCURRENCY = 4;
@@ -451,28 +465,65 @@ export function createObserveRequirements({
     const review = [...(row.facts.reviews ?? [])].at(-1);
     if (!review) return "";
     const findings = review.findings ?? [];
-    const outOfScope = findings.filter(
-      (finding) => finding.ruling?.decision === "dismiss" && finding.ruling?.category === "out_of_scope"
-    ).length;
+    const report = row.view?.reviewReport ?? { dismissed: [], approaches: [], suggestions: [] };
+    const where = (entry) => (entry.ticketId ? `${entry.ticketId} · ` : "");
+    const item = (state, title, label, detail) =>
+      `<li data-finding-state="${esc(state)}"${detail ? ` title="${esc(detail)}"` : ""}><span>${esc(
+        title
+      )}</span><span class="or-spacer"></span><span class="or-finding-state">${esc(ui(label))}</span></li>`;
+    const items = [
+      ...findings
+        .filter((finding) => finding.blocking !== false)
+        .map((finding) =>
+          item(
+            finding.state,
+            finding.title,
+            FINDING_LABEL[finding.state] ?? finding.state,
+            finding.ruling?.basis
+          )
+        ),
+      ...report.approaches.map((entry) =>
+        item(
+          "approach",
+          `${where(entry)}${ui(APPROACH_LABEL[entry.kind] ?? entry.kind)}`,
+          "换办法",
+          entry.basis
+        )
+      ),
+      ...report.dismissed
+        .filter((entry) => entry.reviewId !== review.reviewId)
+        .map((entry) =>
+          item(
+            "dismissed",
+            `${where(entry)}${entry.title}`,
+            DISMISS_LABEL[entry.category] ?? entry.category,
+            entry.basis
+          )
+        ),
+      ...report.suggestions.map((entry) =>
+        item(
+          entry.picked ? "fix_claimed" : "suggestion",
+          `${where(entry)}${entry.title}`,
+          entry.picked ? "已采纳" : "建议",
+          entry.location
+        )
+      )
+    ];
+    const counts = [
+      report.dismissed.length ? ui`放行 ${report.dismissed.length}` : "",
+      report.approaches.length ? ui`换办法 ${report.approaches.length}` : "",
+      report.suggestions.length ? ui`建议 ${report.suggestions.length}` : ""
+    ].filter(Boolean);
     const conclusion = `<span class="or-review-text">${esc(ui(REVIEW_LABEL[review.state] ?? review.state))}</span>`;
-    const head = findings.length
+    const head = items.length
       ? `<button type="button" class="or-review" data-observe-review aria-expanded="false" aria-controls="or-review-findings">${icon(
           "shield-check"
         )}${conclusion}<span class="or-spacer"></span>${
-          outOfScope ? `<span class="or-review-findings">${esc(ui`${outOfScope} 项范围外`)}</span>` : ""
+          counts.length ? `<span class="or-review-findings">${esc(counts.join(" · "))}</span>` : ""
         }${icon("chevron-right", "or-chevron")}</button>`
       : `<div class="or-review">${icon("shield-check")}${conclusion}</div>`;
-    const list = findings.length
-      ? `<ul class="or-findings" id="or-review-findings" hidden>${findings
-          .map(
-            (finding) =>
-              `<li data-finding-state="${esc(finding.state)}"><span>${esc(
-                finding.title
-              )}</span><span class="or-spacer"></span><span class="or-finding-state">${esc(
-                ui(FINDING_LABEL[finding.state] ?? finding.state)
-              )}</span></li>`
-          )
-          .join("")}</ul>`
+    const list = items.length
+      ? `<ul class="or-findings" id="or-review-findings" hidden>${items.join("")}</ul>`
       : "";
     return `<section class="or-section" data-or-section="review"><h3 class="or-label">${esc(
       ui("审查")
