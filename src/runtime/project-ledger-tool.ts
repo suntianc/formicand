@@ -26,7 +26,7 @@ export function createProjectLedgerTool(options: ProjectLedgerToolOptions) {
     name: "project_ledger",
     label: "Project Ledger",
     description:
-      "The current project's requirement ledger and board. Query the ledger before recording anything, so one need keeps one requirement. create records a new internal requirement; it does not create a board item. update appends a revision and must carry the revision you last read. decide records a settled decision; set_decision_effective retracts or restores one. board lists published demands; claim_board claims one as this Task, while pause_board/release_board/cancel_board act only on what this conversation owns. The current project and Task come from this conversation, so no project id or path is accepted.",
+      "The current project's requirement ledger and board. A requirement is a long-lived feature: its summary says how the feature behaves now and the rules it keeps, its history lists what each development changed, and its aliases are other names users give it; many developments belong to one requirement over time. The project's misc requirement takes changes no feature owns. Query the ledger before recording anything, so one feature keeps one requirement. create records a new feature; it does not create a board item. update appends a revision and must carry the revision you last read: it rewrites the summary, replaces the aliases, appends one history line, or retires the feature. A rule that is hard to reverse belongs in the repository's docs/adr/, not the ledger. board lists published demands; claim_board claims one as this Task, while pause_board/release_board/cancel_board act only on what this conversation owns. The current project and Task come from this conversation, so no project id or path is accepted.",
     parameters: {
       type: "object",
       properties: {
@@ -37,8 +37,6 @@ export function createProjectLedgerTool(options: ProjectLedgerToolOptions) {
             "get",
             "create",
             "update",
-            "decide",
-            "set_decision_effective",
             "board",
             "claim_board",
             "pause_board",
@@ -46,10 +44,9 @@ export function createProjectLedgerTool(options: ProjectLedgerToolOptions) {
             "cancel_board"
           ]
         },
-        q: { type: "string", description: "query: match requirement title or content." },
-        status: { type: "string", enum: ["open", "delivered", "withdrawn"] },
-        requirementId: { ...ID, description: "get/update/decide/set_decision_effective target." },
-        decisionId: { ...ID, description: "set_decision_effective target." },
+        q: { type: "string", description: "query: match requirement title, summary or aliases." },
+        status: { type: "string", enum: ["active", "retired"] },
+        requirementId: { ...ID, description: "get/update target." },
         boardId: { ...ID, description: "claim_board/pause_board/release_board/cancel_board target." },
         requestId: {
           type: "string",
@@ -62,12 +59,21 @@ export function createProjectLedgerTool(options: ProjectLedgerToolOptions) {
           description: "The revision returned by the last read; a stale value is refused."
         },
         title: { type: "string", maxLength: 200 },
-        content: { type: "string", maxLength: 20000 },
+        summary: {
+          type: "string",
+          maxLength: 20000,
+          description: "How the feature behaves now and the rules it keeps; update replaces it whole."
+        },
+        aliases: {
+          type: "array",
+          maxItems: 20,
+          items: { type: "string", maxLength: 100 },
+          description: "Other names for the feature; update replaces the whole list."
+        },
+        history: { type: "string", maxLength: 1000, description: "update: one history line, dated today." },
         note: { type: "string", maxLength: 2000, description: "Why this revision happened." },
         sourceKind: { type: "string", enum: ["internal", "external", "legacy"] },
-        sourceReference: { type: "string", maxLength: 300, description: "Opaque external label." },
-        text: { type: "string", maxLength: 4000, description: "decide: the decision itself." },
-        effective: { type: "boolean", description: "decide defaults true; retract with false." }
+        sourceReference: { type: "string", maxLength: 300, description: "Opaque external label." }
       },
       required: ["action"],
       additionalProperties: false
@@ -94,7 +100,8 @@ export function createProjectLedgerTool(options: ProjectLedgerToolOptions) {
         return request({
           action,
           title: input.title,
-          content: input.content,
+          ...(input.summary === undefined ? {} : { summary: input.summary }),
+          ...(input.aliases === undefined ? {} : { aliases: input.aliases }),
           ...(source ? { source } : {}),
           // The requirement remembers which conversation raised it.
           references: [{ kind: "task", value: options.taskId }]
@@ -105,27 +112,12 @@ export function createProjectLedgerTool(options: ProjectLedgerToolOptions) {
           requirementId: input.requirementId,
           expectedRevision: input.expectedRevision,
           ...(input.title === undefined ? {} : { title: input.title }),
-          ...(input.content === undefined ? {} : { content: input.content }),
+          ...(input.summary === undefined ? {} : { summary: input.summary }),
+          ...(input.aliases === undefined ? {} : { aliases: input.aliases }),
+          ...(input.history === undefined ? {} : { history: input.history }),
           ...(input.status === undefined ? {} : { status: input.status }),
           ...(input.note === undefined ? {} : { note: input.note }),
           taskId: options.taskId
-        });
-      if (action === "decide")
-        return request({
-          action,
-          requirementId: input.requirementId,
-          expectedRevision: input.expectedRevision,
-          text: input.text,
-          ...(input.effective === undefined ? {} : { effective: input.effective }),
-          ...(source ? { source } : {})
-        });
-      if (action === "set_decision_effective")
-        return request({
-          action,
-          requirementId: input.requirementId,
-          decisionId: input.decisionId,
-          expectedRevision: input.expectedRevision,
-          effective: input.effective
         });
       if (action === "board") return client.board(undefined, "GET");
       if (

@@ -81,7 +81,7 @@ export async function seedRequirement(page, dashboard, project, input) {
     await api(projectPath("/ledger"), {
       action: "create",
       title: input.title,
-      content: input.content ?? `${input.title}的内容。`
+      summary: input.content ?? `${input.title}的内容。`
     })
   ).requirement;
   const session = (

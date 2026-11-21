@@ -120,7 +120,7 @@ export function createProjectDevelopmentTool(options: ProjectDevelopmentToolOpti
     name: "project_development",
     label: "Project Development",
     description:
-      "The current project's requirement development records: create one with its isolated Git checkout, read and revise it, propose its tickets for the user to confirm, review a fixed candidate (the Reviewer's findings are imported by the program; a review chain has two rework rounds before Main must change approach), merge an accepted candidate through the project's shared entry, and read delivery status. Load the requirement-delivery skill for the order of these steps. One record exists per requirement, so look it up before creating; update carries the revision you last read. Each result's next field says what to do next. The project and Task come from this conversation, so no project id or path is accepted.",
+      "The current project's requirement development records: create one with its isolated Git checkout, read and revise it, propose its tickets for the user to confirm, review a fixed candidate (the Reviewer's findings are imported by the program; a review chain has two rework rounds before Main must change approach), merge an accepted candidate through the project's shared entry, and read delivery status. Load the requirement-delivery skill for the order of these steps. A requirement is a long-lived feature with one development per piece of work and at most one active: find_by_requirement returns the active one (or the latest), so continue it rather than creating another; withdraw stops one that will not be finished. update and withdraw carry the revision you last read. Each result's next field says what to do next. The project and Task come from this conversation, so no project id or path is accepted.",
     parameters: {
       type: "object",
       properties: {
@@ -132,6 +132,7 @@ export function createProjectDevelopmentTool(options: ProjectDevelopmentToolOpti
             "query",
             "find_by_requirement",
             "update",
+            "withdraw",
             "ensure_workspace",
             "tickets",
             "propose_tickets",
@@ -152,8 +153,8 @@ export function createProjectDevelopmentTool(options: ProjectDevelopmentToolOpti
         },
         goal: {
           type: "string",
-          maxLength: 4000,
-          description: "create/update: what this development must achieve."
+          maxLength: 20000,
+          description: "create/update: what this development must achieve; on the full route, its spec."
         },
         completionCriteria: {
           type: "array",
@@ -472,6 +473,13 @@ export function createProjectDevelopmentTool(options: ProjectDevelopmentToolOpti
         ...(input.goal === undefined ? {} : { goal: input.goal }),
         ...(input.completionCriteria === undefined ? {} : { completionCriteria: input.completionCriteria }),
         ...(input.route === undefined ? {} : { route: input.route })
+      });
+    if (action === "withdraw")
+      return request({
+        action: "update",
+        developmentId: input.developmentId,
+        expectedRevision: input.expectedRevision,
+        status: "withdrawn"
       });
     if (action === "ensure_workspace") return request({ action, developmentId: input.developmentId });
     if (action === "tickets") return request({ action, developmentId: input.developmentId });

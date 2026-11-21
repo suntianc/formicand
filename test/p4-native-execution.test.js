@@ -109,7 +109,7 @@ test(
     const requirement = await request(`/api/projects/${encodeURIComponent(project.projectId)}/ledger`, {
       action: "create",
       title: "报表页加导出按钮",
-      content: "用户希望导出当前报表。"
+      summary: "用户希望导出当前报表。"
     });
     assert.equal(requirement.status, 201, JSON.stringify(requirement.body));
     const merge = await request(`/api/projects/${encodeURIComponent(project.projectId)}/merge-config`, {

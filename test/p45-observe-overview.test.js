@@ -32,7 +32,7 @@ function fixture() {
       requirementId: "r1",
       projectId: "p1",
       title: "报表导出 CSV",
-      status: "open",
+      status: "active",
       revision: 1,
       updatedAt: now
     },
@@ -48,7 +48,7 @@ function fixture() {
       requirementId: "r3",
       projectId: "p1",
       title: "自检的需求",
-      status: "open",
+      status: "active",
       revision: 1,
       updatedAt: now
     },
@@ -56,7 +56,7 @@ function fixture() {
       requirementId: "r4",
       projectId: "p1",
       title: "等待回复的需求",
-      status: "open",
+      status: "active",
       revision: 1,
       updatedAt: now
     },
@@ -64,7 +64,7 @@ function fixture() {
       requirementId: "r5",
       projectId: "p1",
       title: "审查未通过的需求",
-      status: "open",
+      status: "active",
       revision: 2,
       updatedAt: now
     }

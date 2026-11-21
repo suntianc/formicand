@@ -103,7 +103,7 @@ test(
       await request(projectPath(project.projectId, "/ledger"), {
         action: "create",
         title: "按分数文件汇总总分",
-        content: "新增 summarize.sh。"
+        summary: "新增 summarize.sh。"
       })
     ).body.requirement;
     const development = await execution.create(project.projectId, {
@@ -177,7 +177,7 @@ test(
       await request(projectPath(project.projectId, "/ledger"), {
         action: "create",
         title: "只有台账的需求",
-        content: "还没有开发记录。"
+        summary: "还没有开发记录。"
       })
     ).body.requirement;
     const missing = await request(projectPath(project.projectId, "/deliveries"), {

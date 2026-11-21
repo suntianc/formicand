@@ -13,7 +13,7 @@ Break the requirement's spec into **tickets**: tracer-bullet vertical slices, ea
 
 ### 1. Gather context
 
-Work from the spec `to-spec` recorded as the requirement's content, the development record's goal and completion criteria, and the conversation. Read `GLOSSARY.md` if the project has one, so ticket titles use its words, and the ADRs in `docs/adr/` in the area the requirement touches.
+Work from the spec `to-spec` recorded as the development record's goal, its completion criteria, and the conversation. Read `GLOSSARY.md` if the project has one, so ticket titles use its words, and the ADRs in `docs/adr/` in the area the requirement touches.
 
 ### 2. Explore the codebase
 

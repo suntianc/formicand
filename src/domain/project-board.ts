@@ -9,8 +9,9 @@ import {
 /**
  * The shared demand board.
  *
- * A board entry is a projection of one ledger requirement. It holds shared
- * facts only: which backend published it, who owns it now, and its revision.
+ * A board entry is one piece of work on a ledger requirement, with its own
+ * title and text; a requirement keeps at most one card open at a time. It
+ * holds shared facts only: which backend published it, who owns it now, and its revision.
  * The handler is a stable identity (backend, project, Task) so two backends can
  * agree on it; it is never a directory path. The effective MainSession id
  * arrives with a later ticket as an extra handler field, not as a second
@@ -125,6 +126,8 @@ export interface BoardActionContext {
 }
 
 export interface BoardPublishInput {
+  /** The feature the work belongs to; without one the card starts a new requirement. */
+  requirementId?: unknown;
   title?: unknown;
   content?: unknown;
   source?: unknown;

@@ -16,11 +16,16 @@ import {
  * is recorded by later tickets; this record stays `active` until then.
  */
 export type DevelopmentRoute = "quick" | "direct" | "full";
-export type DevelopmentStatus = "active";
+/**
+ * `active` while the work goes on; `merged` once its merge was delivered;
+ * `withdrawn` when Main stops it. A requirement has at most one active
+ * development, so the next one starts after the last is merged or withdrawn.
+ */
+export type DevelopmentStatus = "active" | "merged" | "withdrawn";
 export type DevelopmentWorkspaceState = "ready" | "failed";
 
 export const DEVELOPMENT_ROUTES: readonly DevelopmentRoute[] = ["quick", "direct", "full"];
-export const DEVELOPMENT_STATUSES: readonly DevelopmentStatus[] = ["active"];
+export const DEVELOPMENT_STATUSES: readonly DevelopmentStatus[] = ["active", "merged", "withdrawn"];
 export const DEVELOPMENT_WORKSPACE_STATES: readonly DevelopmentWorkspaceState[] = ["ready", "failed"];
 
 export interface DevelopmentBaseline {
@@ -98,7 +103,8 @@ function bounded(value: unknown, label: string, max: number): string {
 }
 
 export function developmentGoal(value: unknown): string {
-  return bounded(value, "开发目标", 4000);
+  // A full-route goal holds the whole spec.
+  return bounded(value, "开发目标", 20000);
 }
 
 export function developmentCompletionCriteria(value: unknown): string[] {

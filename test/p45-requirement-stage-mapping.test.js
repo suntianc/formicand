@@ -94,7 +94,7 @@ test("an unclaimed board requirement is pending rather than in development", () 
 });
 
 test("a recorded requirement without a development is at the record step", () => {
-  const input = { requirement: { revision: 2, status: "open" } };
+  const input = { requirement: { revision: 2, status: "active" } };
   assert.equal(requirementStage(input).stage, "requirement");
   const steps = requirementSteps(input);
   assert.deepEqual(
@@ -202,7 +202,7 @@ test("a queued merge waits, a real merge is merged and a synced delivery is deli
 
 test("a delivered requirement never reads as in progress", () => {
   const input = {
-    requirement: { revision: 3, status: "delivered" },
+    requirement: { revision: 3, status: "active" },
     development: development(),
     roles,
     reviews: [review("passed")],
@@ -218,7 +218,7 @@ test("a delivered requirement never reads as in progress", () => {
 
 test("a merged board need stays 待发布 after its ledger delivery until it is released", () => {
   const input = {
-    requirement: { revision: 3, status: "delivered" },
+    requirement: { revision: 3, status: "active" },
     development: development(),
     roles,
     reviews: [review("passed")],
@@ -315,7 +315,7 @@ test("every recorded combination lands in exactly one observation tab", () => {
   const cases = [
     ["unclaimed board need", { board: { state: "pending" } }, "pending"],
     ["claimed board need", { board: { state: "claimed" } }, "pending"],
-    ["ledger record only", { requirement: { revision: 1, status: "open" } }, "active"],
+    ["ledger record only", { requirement: { revision: 1, status: "active" } }, "active"],
     ["development", developing, "active"],
     ["review", { ...developing, reviews: [review("in_review")] }, "active"],
     ["review not passed", { ...developing, reviews: [review("failed")] }, "active"],
@@ -332,8 +332,7 @@ test("every recorded combination lands in exactly one observation tab", () => {
       "release"
     ],
     ["delivered", { ...merged, delivery: { state: "synced", mergedCommit: commit("d") } }, "delivered"],
-    ["ledger says delivered", { requirement: { revision: 3, status: "delivered" } }, "delivered"],
-    ["withdrawn", { requirement: { revision: 2, status: "withdrawn" } }, "withdrawn"],
+    ["retired", { requirement: { revision: 2, status: "retired" } }, "withdrawn"],
     ["a waiting Main", { ...developing, waitingForReply: true }, "waiting"]
   ];
   for (const [name, input, tab] of cases) assert.equal(requirementTab(input), tab, name);
@@ -343,7 +342,7 @@ test("tab counts add up to the whole list and a delivered need never counts as i
   const developing = { development: development(), roles };
   const delivered = {
     ...developing,
-    requirement: { revision: 3, status: "delivered" },
+    requirement: { revision: 3, status: "active" },
     reviews: [review("passed")],
     merges: [merge("merged", { mergeCommit: commit("d") })],
     delivery: { state: "synced", mergedCommit: commit("d") }

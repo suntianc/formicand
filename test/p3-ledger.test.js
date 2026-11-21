@@ -88,7 +88,7 @@ for (const engine of PROJECT_DATA_ENGINES) {
     // v1 and v2 stayed intact; v3 adds project Main sessions and v4 adds
     // development records. Migrations are applied one version at a time, so a
     // later version does not hide an unapplied one.
-    assert.equal(info.body.schemaVersion, 8);
+    assert.equal(info.body.schemaVersion, 9);
     assert.ok(info.body.serverVersion, "the engine version is reported");
     assert.doesNotMatch(JSON.stringify(info.body), /password/i);
     if (engine === "sqlite")
@@ -97,7 +97,8 @@ for (const engine of PROJECT_DATA_ENGINES) {
     const created = await f.request(ledger(a.projectId), {
       action: "create",
       title: "登录需要记住设备",
-      content: "用户每天在同一台设备登录，不应反复输入验证码。",
+      summary: "用户每天在同一台设备登录，不应反复输入验证码。",
+      aliases: ["免验证码登录"],
       source: { kind: "internal", reference: "会话 a" },
       references: [{ kind: "session", value: "session-a" }]
     });
@@ -105,7 +106,13 @@ for (const engine of PROJECT_DATA_ENGINES) {
     const requirement = created.body.requirement;
     assert.equal(requirement.revision, 1);
     assert.equal(requirement.source.kind, "internal");
-    assert.equal(requirement.decisions.length, 0);
+    assert.equal(requirement.kind, "feature");
+    assert.equal(requirement.status, "active");
+    assert.deepEqual(
+      requirement.aliases.map((alias) => alias.alias),
+      ["免验证码登录"]
+    );
+    assert.deepEqual(requirement.history, []);
     assert.equal(requirement.revisions.length, 1);
     assert.equal(requirement.references[0].value, "session-a");
     // An internal requirement is ledger-only: this ticket adds no board projection.
@@ -122,7 +129,8 @@ for (const engine of PROJECT_DATA_ENGINES) {
       action: "update",
       requirementId: requirement.requirementId,
       expectedRevision: 1,
-      content: "用户每天在同一台设备登录，记住 30 天，敏感操作仍需验证。",
+      summary: "用户每天在同一台设备登录，记住 30 天，敏感操作仍需验证。",
+      history: "加上 30 天有效期",
       note: "补充有效期与敏感操作"
     });
     assert.equal(revised.status, 200, JSON.stringify(revised.body));
@@ -133,27 +141,18 @@ for (const engine of PROJECT_DATA_ENGINES) {
     );
     assert.equal(revised.body.requirement.revisions[1].note, "补充有效期与敏感操作");
 
-    const decided = await f.request(ledger(a.projectId), {
-      action: "decide",
-      requirementId: requirement.requirementId,
-      expectedRevision: 2,
-      text: "使用本机设备令牌，30 天后重新验证。"
-    });
-    assert.equal(decided.status, 200, JSON.stringify(decided.body));
-    const decision = decided.body.requirement.decisions[0];
-    assert.equal(decision.effective, true);
-    const retracted = await f.request(ledger(a.projectId), {
-      action: "set_decision_effective",
-      requirementId: requirement.requirementId,
-      decisionId: decision.decisionId,
-      expectedRevision: 2,
-      effective: false
-    });
-    assert.equal(retracted.status, 200, JSON.stringify(retracted.body));
-    assert.equal(retracted.body.requirement.decisions[0].effective, false);
+    assert.equal(
+      revised.body.requirement.summary,
+      "用户每天在同一台设备登录，记住 30 天，敏感操作仍需验证。"
+    );
+    assert.deepEqual(
+      revised.body.requirement.history.map((entry) => entry.text),
+      ["加上 30 天有效期"]
+    );
+    assert.match(revised.body.requirement.history[0].day, /^\d{4}-\d{2}-\d{2}$/);
 
-    // Text query returns the source and validity, both as a page read and as the
-    // tool-shaped POST the Main bridge uses.
+    // Text query matches the summary and the aliases, both as a page read and as
+    // the tool-shaped POST the Main bridge uses.
     const byText = await f.request(
       `${ledger(a.projectId)}?q=${encodeURIComponent("设备")}`,
       undefined,
@@ -162,13 +161,30 @@ for (const engine of PROJECT_DATA_ENGINES) {
     assert.equal(byText.status, 200);
     assert.equal(byText.body.requirements.length, 1);
     assert.equal(byText.body.requirements[0].source.kind, "internal");
-    assert.equal(byText.body.requirements[0].decisions[0].effective, false);
     assert.equal(byText.body.requirements[0].source.reference, "会话 a");
-    const byDelivered = await f.request(`${ledger(a.projectId)}?status=delivered`, undefined, "GET");
-    assert.deepEqual(byDelivered.body.requirements, []);
+    const byAlias = await f.request(ledger(a.projectId), { action: "query", q: "免验证码" });
+    assert.deepEqual(
+      byAlias.body.requirements.map((entry) => entry.requirementId),
+      [requirement.requirementId]
+    );
+    const retired = await f.request(`${ledger(a.projectId)}?status=retired`, undefined, "GET");
+    assert.deepEqual(retired.body.requirements, []);
+    // Every project starts with its one miscellaneous requirement, which keeps its name.
     const isolation = await f.request(ledger(b.projectId), { action: "query" });
     assert.equal(isolation.status, 200);
-    assert.deepEqual(isolation.body.requirements, []);
+    assert.deepEqual(
+      isolation.body.requirements.map((entry) => [entry.kind, entry.title]),
+      [["misc", "杂项"]]
+    );
+    const misc = isolation.body.requirements[0];
+    const renamed = await f.request(ledger(b.projectId), {
+      action: "update",
+      requirementId: misc.requirementId,
+      expectedRevision: misc.revision,
+      status: "retired"
+    });
+    assert.equal(renamed.status, 409, JSON.stringify(renamed.body));
+    assert.equal(renamed.body.code, "requirement_misc_fixed");
 
     // A stale page cannot overwrite the newer revision.
     const stale = await f.request(ledger(a.projectId), {
@@ -189,12 +205,12 @@ for (const engine of PROJECT_DATA_ENGINES) {
     // A failure inside a transaction leaves no requirement and no revision behind.
     await assert.rejects(
       before.service.transaction(async (repository) => {
-        await repository.createRequirement(a.projectId, { title: "临时", content: "不应保存" });
+        await repository.createRequirement(a.projectId, { title: "临时", summary: "不应保存" });
         throw new Error("fixture rollback");
       }),
       /fixture rollback/
     );
-    assert.equal((await before.service.queryRequirements(a.projectId)).length, 1);
+    assert.equal((await before.service.queryRequirements(a.projectId)).length, 2);
 
     // Two writers from revision 2: exactly one wins and every accepted revision stays.
     const race = await Promise.allSettled([
@@ -226,12 +242,12 @@ for (const engine of PROJECT_DATA_ENGINES) {
     await f.request(ledger(a.projectId), {
       action: "create",
       title: "备份后新增",
-      content: "这一条不应在恢复后出现。"
+      summary: "这一条不应在恢复后出现。"
     });
-    assert.equal((await before.service.queryRequirements(a.projectId)).length, 2);
+    assert.equal((await before.service.queryRequirements(a.projectId)).length, 3);
     const restored = await before.service.restoreFrom(backupPath);
     assert.equal(restored.counts.project_data_requirements, backup.counts.project_data_requirements);
-    assert.equal((await before.service.queryRequirements(a.projectId)).length, 1);
+    assert.equal((await before.service.queryRequirements(a.projectId)).length, 2);
 
     // A snapshot cannot shape the restore statement, and a rejected file changes nothing.
     const tampered = JSON.parse(await readFile(backupPath, "utf8"));
@@ -239,7 +255,7 @@ for (const engine of PROJECT_DATA_ENGINES) {
     const tamperedPath = join(f.root, `ledger-backup-tampered-${engine}.json`);
     await writeFile(tamperedPath, JSON.stringify(tampered));
     await assert.rejects(before.service.restoreFrom(tamperedPath), /不是已知字段/);
-    assert.equal((await before.service.queryRequirements(a.projectId)).length, 1);
+    assert.equal((await before.service.queryRequirements(a.projectId)).length, 2);
 
     // Restart reads the restored fact back from the engine, not from memory.
     await f.restart();
@@ -257,9 +273,9 @@ for (const engine of PROJECT_DATA_ENGINES) {
     );
     assert.equal(detail.body.requirement.revision, 3);
     assert.equal(detail.body.requirement.revisions.length, 3);
-    assert.equal(detail.body.requirement.decisions[0].effective, false);
+    assert.equal(detail.body.requirement.history.length, 1);
     const infoAfterRestart = await f.request("/api/project-data", undefined, "GET");
-    assert.equal(infoAfterRestart.body.schemaVersion, 8);
+    assert.equal(infoAfterRestart.body.schemaVersion, 9);
   });
 
   test(`${engine}: an explicit project and its task keep their identity and files`, async (t) => {
@@ -280,7 +296,7 @@ for (const engine of PROJECT_DATA_ENGINES) {
     const created = await f.request(`/api/projects/${encodeURIComponent(project.projectId)}/ledger`, {
       action: "create",
       title: "项目需求",
-      content: "项目继续记录需求。"
+      summary: "项目继续记录需求。"
     });
     assert.equal(created.status, 201, JSON.stringify(created.body));
     assert.equal(created.body.requirement.projectId, project.projectId);
@@ -298,8 +314,7 @@ for (const engine of PROJECT_DATA_ENGINES) {
     const ledger = await f.request(`/api/projects/${encodeURIComponent(project.projectId)}/ledger`, {
       action: "query"
     });
-    assert.equal(ledger.body.requirements.length, 1);
-    assert.equal(ledger.body.requirements[0].title, "项目需求");
+    assert.deepEqual(ledger.body.requirements.map((entry) => entry.title).sort(), ["杂项", "项目需求"]);
   });
 }
 

@@ -188,7 +188,7 @@ test(
     const internal = await request(projectPath(project.projectId, "/ledger"), {
       action: "create",
       title: "直接开发交付",
-      content: "小改动，Main 直接完成。"
+      summary: "小改动，Main 直接完成。"
     });
     assert.equal(internal.status, 201, JSON.stringify(internal.body));
     const internalRequirementId = internal.body.requirement.requirementId;

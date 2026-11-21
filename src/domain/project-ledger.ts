@@ -1,17 +1,20 @@
 /**
- * The shared project ledger: what a project needs, where each requirement came
- * from, and which decisions are still in force.
+ * The shared project ledger: the project's long-lived features, how each
+ * behaves now, what each development changed, and where it came from.
  *
  * These records are shared facts. A local directory is a per-backend binding,
  * never the project's identity, so the same project keeps its id when a
  * different machine holds the working copy.
  */
 export type LedgerSourceKind = "internal" | "external" | "legacy";
-export type RequirementStatus = "open" | "delivered" | "withdrawn";
+/** In use, or retired once the feature is dropped; a delivery is a development's outcome, not a status. */
+export type RequirementStatus = "active" | "retired";
+/** A feature, or the project's one requirement for changes no feature owns. */
+export type RequirementKind = "feature" | "misc";
 export type RequirementReferenceKind = "task" | "session" | "delivery";
 
 export const LEDGER_SOURCE_KINDS: readonly LedgerSourceKind[] = ["internal", "external", "legacy"];
-export const REQUIREMENT_STATUSES: readonly RequirementStatus[] = ["open", "delivered", "withdrawn"];
+export const REQUIREMENT_STATUSES: readonly RequirementStatus[] = ["active", "retired"];
 export const REQUIREMENT_REFERENCE_KINDS: readonly RequirementReferenceKind[] = [
   "task",
   "session",
@@ -48,20 +51,29 @@ export interface RequirementReference {
   createdAt: string;
 }
 
-export interface RequirementDecision {
-  decisionId: string;
+/** One dated line of what changed in a feature. */
+export interface RequirementHistoryEntry {
+  entryId: string;
+  /** YYYY-MM-DD. */
+  day: string;
   text: string;
-  /** A decision stays recorded after it is retracted; `effective` says which. */
-  effective: boolean;
-  source: LedgerSource;
-  atRevision: number;
+  /** The development that made the change, when one did. */
+  developmentId?: string;
+  createdAt: string;
+}
+
+/** Another name users give a feature. */
+export interface RequirementAlias {
+  alias: string;
+  /** The development whose request brought the name in; absent for one written by hand. */
+  developmentId?: string;
   createdAt: string;
 }
 
 export interface RequirementRevision {
   revision: number;
   title: string;
-  content: string;
+  summary: string;
   status: RequirementStatus;
   source: LedgerSource;
   note?: string;
@@ -72,18 +84,22 @@ export interface RequirementRevision {
 export interface RequirementSummary {
   projectId: string;
   requirementId: string;
+  kind: RequirementKind;
   title: string;
-  content: string;
+  /** How the feature behaves now and the rules it keeps. */
+  summary: string;
+  aliases: RequirementAlias[];
   source: LedgerSource;
   status: RequirementStatus;
   revision: number;
   createdAt: string;
   updatedAt: string;
-  decisions: RequirementDecision[];
   references: RequirementReference[];
 }
 
 export interface RequirementDetail extends RequirementSummary {
+  /** Oldest first. */
+  history: RequirementHistoryEntry[];
   revisions: RequirementRevision[];
 }
 
@@ -184,7 +200,7 @@ export function ledgerSource(value: unknown): LedgerSource {
   };
 }
 
-export function ledgerStatus(value: unknown, fallback: RequirementStatus = "open"): RequirementStatus {
+export function ledgerStatus(value: unknown, fallback: RequirementStatus = "active"): RequirementStatus {
   if (value === undefined) return fallback;
   if (typeof value !== "string" || !REQUIREMENT_STATUSES.includes(value as RequirementStatus))
     throw new ProjectDataInvalidError(`需求状态须为 ${REQUIREMENT_STATUSES.join(" / ")}`);
@@ -195,8 +211,29 @@ export function ledgerTitle(value: unknown): string {
   return boundedText(value, "需求标题", 200);
 }
 
+/** A board card's text: the piece of work it asks for. */
 export function ledgerContent(value: unknown): string {
   return boundedText(value, "需求内容", 20000);
+}
+
+/** A summary may be empty: a new feature, or the miscellaneous requirement, may have no rule yet. */
+export function ledgerSummary(value: unknown): string {
+  return boundedText(value ?? "", "需求现状", 20000, { allowEmpty: true });
+}
+
+export function ledgerHistoryText(value: unknown): string {
+  return boundedText(value, "历史", 1000);
+}
+
+export function ledgerAlias(value: unknown): string {
+  return boundedText(value, "别名", 100);
+}
+
+export function ledgerAliases(value: unknown): string[] {
+  if (value === undefined || value === null) return [];
+  if (!Array.isArray(value) || value.length > 20)
+    throw new ProjectDataInvalidError("别名须为不超过 20 个的数组");
+  return [...new Set(value.map(ledgerAlias))];
 }
 
 export function ledgerNote(value: unknown): string | undefined {
@@ -230,10 +267,6 @@ export function ledgerReferences(value: unknown): Array<{ kind: RequirementRefer
       value: boundedText(input.value, "需求引用内容", 500)
     };
   });
-}
-
-export function ledgerDecisionText(value: unknown): string {
-  return boundedText(value, "决定内容", 4000);
 }
 
 /** Requirement text search input; `%` and `_` are matched literally. */

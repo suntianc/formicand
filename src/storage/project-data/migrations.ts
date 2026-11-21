@@ -1,17 +1,20 @@
-import { now } from "../../domain/types.js";
+import { id, now } from "../../domain/types.js";
 import { ProjectDataError } from "../../domain/project-ledger.js";
-import type { SqlDatabase } from "./database.js";
+import type { SqlDatabase, SqlTransaction } from "./database.js";
 
 /**
- * The one project data schema this build writes.
+ * The project data schema this build writes.
  *
- * Nothing is released yet, so there is no earlier database to upgrade: a new
- * file is created at this version and any file recorded at another version is
- * refused with its location and version, without being migrated or rewritten.
- * Date/time values are ISO text and booleans are integers so one business query
- * serves both engines.
+ * A new database is created at this version. A database at the one earlier
+ * version this build knows (8) is converted in the same transaction that
+ * records the new version; any other version is refused with its location and
+ * version, without being rewritten. Date/time values are ISO text and booleans
+ * are integers so one business query serves both engines.
  */
-export const PROJECT_DATA_SCHEMA_VERSION = 8;
+export const PROJECT_DATA_SCHEMA_VERSION = 9;
+
+/** The title of the requirement every project keeps for changes no feature owns. */
+export const MISC_REQUIREMENT_TITLE = "杂项";
 
 const PROJECT_DATA_SCHEMA: readonly string[] = [
   `CREATE TABLE IF NOT EXISTS project_data_projects (
@@ -29,11 +32,16 @@ const PROJECT_DATA_SCHEMA: readonly string[] = [
      PRIMARY KEY (backend_id, project_id),
      UNIQUE (backend_id, local_directory)
    )`,
+  // A requirement is a long-lived feature: its summary says how it behaves now,
+  // its history lists what each development changed, and its aliases are the
+  // other names users give it. Each project keeps one `misc` requirement for
+  // changes no feature owns.
   `CREATE TABLE IF NOT EXISTS project_data_requirements (
      project_id TEXT NOT NULL REFERENCES project_data_projects(project_id) ON DELETE CASCADE,
      requirement_id TEXT NOT NULL,
+     kind TEXT NOT NULL,
      title TEXT NOT NULL,
-     content TEXT NOT NULL,
+     summary TEXT NOT NULL,
      source_kind TEXT NOT NULL,
      source_reference TEXT,
      status TEXT NOT NULL,
@@ -47,7 +55,7 @@ const PROJECT_DATA_SCHEMA: readonly string[] = [
      requirement_id TEXT NOT NULL,
      revision INTEGER NOT NULL,
      title TEXT NOT NULL,
-     content TEXT NOT NULL,
+     summary TEXT NOT NULL,
      status TEXT NOT NULL,
      source_kind TEXT NOT NULL,
      source_reference TEXT,
@@ -58,17 +66,27 @@ const PROJECT_DATA_SCHEMA: readonly string[] = [
      FOREIGN KEY (project_id, requirement_id)
        REFERENCES project_data_requirements(project_id, requirement_id) ON DELETE CASCADE
    )`,
-  `CREATE TABLE IF NOT EXISTS project_data_decisions (
+  `CREATE UNIQUE INDEX IF NOT EXISTS project_data_requirements_misc
+     ON project_data_requirements(project_id) WHERE kind = 'misc'`,
+  `CREATE TABLE IF NOT EXISTS project_data_requirement_history (
      project_id TEXT NOT NULL,
      requirement_id TEXT NOT NULL,
-     decision_id TEXT NOT NULL,
+     entry_id TEXT NOT NULL,
+     day TEXT NOT NULL,
      text TEXT NOT NULL,
-     effective INTEGER NOT NULL,
-     source_kind TEXT NOT NULL,
-     source_reference TEXT,
-     at_revision INTEGER NOT NULL,
+     development_id TEXT,
      created_at TEXT NOT NULL,
-     PRIMARY KEY (project_id, requirement_id, decision_id),
+     PRIMARY KEY (project_id, requirement_id, entry_id),
+     FOREIGN KEY (project_id, requirement_id)
+       REFERENCES project_data_requirements(project_id, requirement_id) ON DELETE CASCADE
+   )`,
+  `CREATE TABLE IF NOT EXISTS project_data_requirement_aliases (
+     project_id TEXT NOT NULL,
+     requirement_id TEXT NOT NULL,
+     alias TEXT NOT NULL,
+     development_id TEXT,
+     created_at TEXT NOT NULL,
+     PRIMARY KEY (project_id, requirement_id, alias),
      FOREIGN KEY (project_id, requirement_id)
        REFERENCES project_data_requirements(project_id, requirement_id) ON DELETE CASCADE
    )`,
@@ -87,7 +105,9 @@ const PROJECT_DATA_SCHEMA: readonly string[] = [
      ON project_data_requirements(project_id, updated_at)`,
   `CREATE INDEX IF NOT EXISTS project_data_revisions_project
      ON project_data_requirement_revisions(project_id, requirement_id)`,
-  // The shared demand board. Board facts project one requirement; the event rows
+  // The shared demand board. A card is one piece of work on a requirement, with
+  // its own title and text; a requirement has at most one card still open
+  // (neither cancelled nor delivered) at a time. The event rows
   // keep every accepted transition, and a request id makes a retry return the
   // committed result without appending a second event. The delivery columns keep
   // the actual merged commit beside the pending-release state, so an external
@@ -96,6 +116,10 @@ const PROJECT_DATA_SCHEMA: readonly string[] = [
      project_id TEXT NOT NULL,
      board_id TEXT NOT NULL,
      requirement_id TEXT NOT NULL,
+     title TEXT NOT NULL,
+     content TEXT NOT NULL,
+     source_kind TEXT NOT NULL,
+     source_reference TEXT,
      entry_kind TEXT NOT NULL,
      state TEXT NOT NULL,
      revision INTEGER NOT NULL,
@@ -113,7 +137,6 @@ const PROJECT_DATA_SCHEMA: readonly string[] = [
      created_at TEXT NOT NULL,
      updated_at TEXT NOT NULL,
      PRIMARY KEY (project_id, board_id),
-     UNIQUE (project_id, requirement_id),
      UNIQUE (project_id, publish_request_id),
      FOREIGN KEY (project_id, requirement_id)
        REFERENCES project_data_requirements(project_id, requirement_id) ON DELETE CASCADE
@@ -139,6 +162,9 @@ const PROJECT_DATA_SCHEMA: readonly string[] = [
    )`,
   `CREATE INDEX IF NOT EXISTS project_data_board_entries_project
      ON project_data_board_entries(project_id, updated_at)`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS project_data_board_entries_open
+     ON project_data_board_entries(project_id, requirement_id)
+     WHERE state NOT IN ('cancelled', 'pending_release')`,
   `CREATE INDEX IF NOT EXISTS project_data_board_events_board
      ON project_data_board_events(project_id, board_id, revision)`,
   // A session is shared fact; its Pi transcript stays with the Task on the
@@ -174,7 +200,8 @@ const PROJECT_DATA_SCHEMA: readonly string[] = [
      ON project_data_main_sessions(project_id, updated_at)`,
   `CREATE INDEX IF NOT EXISTS project_data_main_session_runs_task
      ON project_data_main_session_runs(task_id, run_id)`,
-  // A requirement's development record and its per-backend Git checkout. The
+  // One development of a requirement and its per-backend Git checkout. A
+  // requirement has many developments over time and at most one active. The
   // merge configuration is the project's single update entry; the checkout
   // directory stays a per-backend fact like a directory binding.
   `CREATE TABLE IF NOT EXISTS project_data_developments (
@@ -193,10 +220,11 @@ const PROJECT_DATA_SCHEMA: readonly string[] = [
      created_at TEXT NOT NULL,
      updated_at TEXT NOT NULL,
      PRIMARY KEY (project_id, development_id),
-     UNIQUE (project_id, requirement_id),
      FOREIGN KEY (project_id, requirement_id)
        REFERENCES project_data_requirements(project_id, requirement_id) ON DELETE CASCADE
    )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS project_data_developments_active
+     ON project_data_developments(project_id, requirement_id) WHERE status = 'active'`,
   `CREATE TABLE IF NOT EXISTS project_data_development_workspaces (
      project_id TEXT NOT NULL,
      development_id TEXT NOT NULL,
@@ -357,13 +385,13 @@ const PROJECT_DATA_SCHEMA: readonly string[] = [
 ];
 
 /**
- * Create this build's schema in one transaction, or refuse a file recorded at a
- * version this build does not write.
+ * Create this build's schema in one transaction, convert a version 8 database,
+ * or refuse a file recorded at a version this build does not know.
  *
  * The version row is written in the same transaction as the tables, so a
- * database is either empty or complete at the current version. A file recorded
- * at another version is left byte for byte as it was: the transaction rolls
- * back and nothing is migrated, downgraded or rebuilt.
+ * database is either empty or complete at the current version. A file at an
+ * unknown version is left byte for byte as it was: the transaction rolls back
+ * and nothing is migrated, downgraded or rebuilt.
  */
 export async function migrateProjectData(database: SqlDatabase): Promise<number> {
   return database.transaction(async (transaction) => {
@@ -378,14 +406,187 @@ export async function migrateProjectData(database: SqlDatabase): Promise<number>
     );
     const version = Number(rows[0]?.version ?? 0);
     if (version === PROJECT_DATA_SCHEMA_VERSION) return version;
-    if (version !== 0) throw incompatibleVersion(database.label, version);
+    if (version !== 0 && version !== 8) throw incompatibleVersion(database.label, version);
+    const previous = version === 8 ? await dropVersion8(transaction) : undefined;
     for (const statement of PROJECT_DATA_SCHEMA) await transaction.execute(statement);
+    if (previous) await writeFromVersion8(transaction, previous);
     await transaction.execute("INSERT INTO project_data_migrations (version, applied_at) VALUES (?, ?)", [
       PROJECT_DATA_SCHEMA_VERSION,
       now()
     ]);
     return PROJECT_DATA_SCHEMA_VERSION;
   });
+}
+
+/** Version 8's tables, parents before children. */
+const VERSION_8_TABLES = [
+  "project_data_projects",
+  "project_data_bindings",
+  "project_data_requirements",
+  "project_data_requirement_revisions",
+  "project_data_decisions",
+  "project_data_references",
+  "project_data_board_entries",
+  "project_data_board_events",
+  "project_data_main_sessions",
+  "project_data_main_session_runs",
+  "project_data_developments",
+  "project_data_development_workspaces",
+  "project_data_merge_configs",
+  "project_data_development_review_plans",
+  "project_data_development_tickets",
+  "project_data_development_reviews",
+  "project_data_development_merges",
+  "project_data_deliveries"
+] as const;
+
+type Row = Record<string, string | number | null>;
+type Version8Rows = Record<(typeof VERSION_8_TABLES)[number], Row[]>;
+
+/**
+ * Read every version 8 row and drop the tables, children first so no drop
+ * cascades into a table still holding rows. The new schema is then created
+ * from scratch, which both engines do inside the open transaction.
+ */
+async function dropVersion8(transaction: SqlTransaction): Promise<Version8Rows> {
+  const rows = {} as Version8Rows;
+  for (const table of VERSION_8_TABLES) rows[table] = await transaction.query<Row>(`SELECT * FROM ${table}`);
+  for (const table of [...VERSION_8_TABLES].reverse()) await transaction.execute(`DROP TABLE ${table}`);
+  return rows;
+}
+
+async function insert(transaction: SqlTransaction, table: string, row: Row): Promise<void> {
+  const columns = Object.keys(row);
+  await transaction.execute(
+    `INSERT INTO ${table} (${columns.join(", ")}) VALUES (${columns.map(() => "?").join(", ")})`,
+    columns.map((column) => row[column])
+  );
+}
+
+const day = (timestamp: unknown) => String(timestamp).slice(0, 10);
+
+/**
+ * Write version 8's rows in the version 9 shape. A requirement's content
+ * becomes its summary, with its decisions still in force appended; a
+ * retracted decision becomes a history line; each delivery reference becomes
+ * a history line; open and delivered become active, withdrawn becomes
+ * retired. A development with a synced delivery is merged, a board card keeps
+ * the title, text and source it was published with, and every project gains its
+ * miscellaneous requirement.
+ */
+async function writeFromVersion8(transaction: SqlTransaction, rows: Version8Rows): Promise<void> {
+  const status = (value: unknown) => (value === "withdrawn" ? "retired" : "active");
+  const byRequirement = (table: Row[], row: Row) =>
+    table.filter((item) => item.project_id === row.project_id && item.requirement_id === row.requirement_id);
+  for (const row of rows.project_data_projects) await insert(transaction, "project_data_projects", row);
+  for (const row of rows.project_data_bindings) await insert(transaction, "project_data_bindings", row);
+  for (const row of rows.project_data_requirements) {
+    const decisions = byRequirement(rows.project_data_decisions, row);
+    const effective = decisions.filter((decision) => Number(decision.effective) === 1);
+    const summary = [String(row.content), ...effective.map((decision) => `- ${String(decision.text)}`)].join(
+      "\n"
+    );
+    const { content: _content, ...rest } = row;
+    await insert(transaction, "project_data_requirements", {
+      ...rest,
+      kind: "feature",
+      summary,
+      status: status(row.status)
+    });
+    let entry = 0;
+    const history = (at: unknown, text: string) =>
+      insert(transaction, "project_data_requirement_history", {
+        project_id: row.project_id,
+        requirement_id: row.requirement_id,
+        entry_id: `history_migrated_${++entry}`,
+        day: day(at),
+        text,
+        development_id: null,
+        created_at: String(at)
+      });
+    for (const decision of decisions.filter((item) => Number(item.effective) !== 1))
+      await history(decision.created_at, `不再生效的决定：${String(decision.text)}`);
+    for (const reference of byRequirement(rows.project_data_references, row).filter(
+      (item) => item.kind === "delivery"
+    ))
+      await history(reference.created_at, `合入 ${String(reference.value).slice(0, 12)}`);
+  }
+  for (const row of rows.project_data_requirement_revisions) {
+    const { content, ...rest } = row;
+    await insert(transaction, "project_data_requirement_revisions", {
+      ...rest,
+      summary: content,
+      status: status(row.status)
+    });
+  }
+  for (const row of rows.project_data_references) await insert(transaction, "project_data_references", row);
+  for (const row of rows.project_data_board_entries) {
+    const requirement = rows.project_data_requirements.find(
+      (item) => item.project_id === row.project_id && item.requirement_id === row.requirement_id
+    );
+    await insert(transaction, "project_data_board_entries", {
+      ...row,
+      title: requirement?.title ?? "",
+      content: requirement?.content ?? "",
+      source_kind: requirement?.source_kind ?? "external",
+      source_reference: requirement?.source_reference ?? null
+    });
+  }
+  for (const table of [
+    "project_data_board_events",
+    "project_data_main_sessions",
+    "project_data_main_session_runs"
+  ] as const)
+    for (const row of rows[table]) await insert(transaction, table, row);
+  for (const row of rows.project_data_developments) {
+    const merged = rows.project_data_deliveries.some(
+      (delivery) =>
+        delivery.project_id === row.project_id &&
+        delivery.development_id === row.development_id &&
+        delivery.state === "synced"
+    );
+    await insert(transaction, "project_data_developments", { ...row, status: merged ? "merged" : "active" });
+  }
+  for (const table of [
+    "project_data_development_workspaces",
+    "project_data_merge_configs",
+    "project_data_development_review_plans",
+    "project_data_development_tickets",
+    "project_data_development_reviews",
+    "project_data_development_merges",
+    "project_data_deliveries"
+  ] as const)
+    for (const row of rows[table]) await insert(transaction, table, row);
+  const timestamp = now();
+  for (const project of rows.project_data_projects)
+    await insertMiscRequirement(transaction, String(project.project_id), timestamp);
+}
+
+/** The project's miscellaneous requirement, at its first revision. */
+export async function insertMiscRequirement(
+  transaction: SqlTransaction,
+  projectId: string,
+  timestamp: string
+): Promise<string> {
+  const requirementId = id("requirement");
+  const row = {
+    project_id: projectId,
+    requirement_id: requirementId,
+    title: MISC_REQUIREMENT_TITLE,
+    summary: "",
+    source_kind: "internal",
+    source_reference: null,
+    status: "active",
+    revision: 1,
+    created_at: timestamp
+  };
+  await insert(transaction, "project_data_requirements", {
+    ...row,
+    kind: "misc",
+    updated_at: timestamp
+  });
+  await insert(transaction, "project_data_requirement_revisions", { ...row, note: null, task_id: null });
+  return requirementId;
 }
 
 function incompatibleVersion(label: string, version: number): ProjectDataError {

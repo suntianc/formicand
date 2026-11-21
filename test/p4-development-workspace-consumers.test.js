@@ -78,12 +78,12 @@ async function toolFixture(t) {
   const requirementA = await request(`/api/projects/${encodeURIComponent(a.projectId)}/ledger`, {
     action: "create",
     title: "登录记住设备",
-    content: "同一台设备 30 天内不再验证。"
+    summary: "同一台设备 30 天内不再验证。"
   });
   const requirementB = await request(`/api/projects/${encodeURIComponent(b.projectId)}/ledger`, {
     action: "create",
     title: "报表导出",
-    content: "管理员按月导出。"
+    summary: "管理员按月导出。"
   });
   assert.equal(requirementA.status, 201, JSON.stringify(requirementA.body));
   assert.equal(requirementB.status, 201, JSON.stringify(requirementB.body));
@@ -181,7 +181,7 @@ test("the Main tool records and reads developments only for its own project", as
   const secondRequirement = await f.request(`/api/projects/${encodeURIComponent(f.a.projectId)}/ledger`, {
     action: "create",
     title: "第二个需求",
-    content: "同一项目的另一个会话。"
+    summary: "同一项目的另一个会话。"
   });
   assert.equal(secondRequirement.status, 201, JSON.stringify(secondRequirement.body));
   const secondSession = await f.request(`/api/projects/${encodeURIComponent(f.a.projectId)}/main-sessions`, {

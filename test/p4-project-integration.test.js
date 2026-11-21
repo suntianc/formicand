@@ -151,7 +151,7 @@ for (const engine of PROJECT_DATA_ENGINES) {
       const requirement = async (title) => {
         const response = await dashboard.request(
           `/api/projects/${encodeURIComponent(project.projectId)}/ledger`,
-          { action: "create", title, content: `${title}的内容` }
+          { action: "create", title, summary: `${title}的内容` }
         );
         assert.equal(response.status, 201, JSON.stringify(response.body));
         return response.body.requirement;

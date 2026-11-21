@@ -80,7 +80,7 @@ test(
       projectDirectory: repo,
       backendId: "backend_flow"
     });
-    const requirement = await gateway.createRequirement(projectId, { title: "分页", content: "两张票" });
+    const requirement = await gateway.createRequirement(projectId, { title: "分页", summary: "两张票" });
     const projectInfo = { projectId, projectName: "票流程", projectDirectory: repo };
     const calls = {};
     const developmentRoot = join(root, "development-workspaces");
@@ -453,7 +453,7 @@ test(
       await post(`/api/projects/${encodeURIComponent(project.projectId)}/ledger`, {
         action: "create",
         title: "分页",
-        content: "一张票"
+        summary: "一张票"
       })
     ).body.requirement;
     const { taskId } = (await post("/api/tasks", { goal: "派单", projectId: project.projectId })).body;
@@ -540,7 +540,7 @@ test(
       projectDirectory: repo,
       backendId: "backend_rounds"
     });
-    const requirement = await gateway.createRequirement(projectId, { title: "文件", content: "一张票" });
+    const requirement = await gateway.createRequirement(projectId, { title: "文件", summary: "一张票" });
     const projectInfo = { projectId, projectName: "返修轮次", projectDirectory: repo };
     const calls = {};
     const developmentRoot = join(root, "development-workspaces");

@@ -23,7 +23,7 @@ export const REQUIREMENT_STAGE_LABELS = {
   merged: "已合入",
   release: "待发布",
   delivered: "已交付",
-  withdrawn: "已撤回"
+  withdrawn: "已停用"
 };
 
 /** A Main that is waiting on a person: the phase is unchanged, its wording is not. */
@@ -33,7 +33,7 @@ export const WAITING_FOR_REPLY_LABEL = "等待回复";
  * The observation list's tabs, in the design's order.
  *
  * `all` holds every requirement; the rest split it by the phase above, so a
- * requirement appears in exactly one of them. A withdrawn requirement is kept
+ * requirement appears in exactly one of them. A retired requirement is kept
  * in the list and in `all` without a tab of its own.
  */
 export const REQUIREMENT_TABS = [
@@ -116,11 +116,11 @@ function stageOf(input) {
   const { requirement, board, development, plan, reviews, merges, delivery } = input;
   const review = lastReview(reviews);
   const merged = mergedOperation(merges);
-  if (requirement?.status === "withdrawn") return "withdrawn";
+  if (requirement?.status === "retired") return "withdrawn";
   // A board need merged into the target still awaits release to its customer;
   // publishing is the later phase, so the requirement is not delivered yet.
   if (board?.state === "pending_release") return "release";
-  if (delivery?.state === "synced" || requirement?.status === "delivered") return "delivered";
+  if (delivery?.state === "synced") return "delivered";
   if (merged || delivery?.state === "pending")
     return board?.state === "pending_release" ? "release" : "merged";
   if (Array.isArray(merges) && merges.some((entry) => ["waiting", "applying"].includes(entry?.state)))

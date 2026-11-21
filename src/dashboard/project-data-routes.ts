@@ -335,7 +335,8 @@ export async function handleProjectDataRequest(
       return reply(response, 201, {
         requirement: await service.createRequirement(project.projectId, {
           title: body.title,
-          content: body.content,
+          summary: body.summary,
+          aliases: body.aliases,
           source: body.source,
           references: body.references
         })
@@ -346,29 +347,12 @@ export async function handleProjectDataRequest(
         requirement: await service.updateRequirement(project.projectId, requirementId, {
           expectedRevision: body.expectedRevision,
           title: body.title,
-          content: body.content,
+          summary: body.summary,
+          aliases: body.aliases,
+          history: body.history,
           status: body.status,
           note: body.note,
           taskId: body.taskId
-        })
-      });
-    case "decide":
-      if (!requirementId) throw new HttpError(400, "decide 需要 requirementId");
-      return reply(response, 200, {
-        requirement: await service.addDecision(project.projectId, requirementId, {
-          expectedRevision: body.expectedRevision,
-          text: body.text,
-          effective: body.effective,
-          source: body.source
-        })
-      });
-    case "set_decision_effective":
-      if (!requirementId || typeof body.decisionId !== "string")
-        throw new HttpError(400, "set_decision_effective 需要 requirementId 与 decisionId");
-      return reply(response, 200, {
-        requirement: await service.setDecisionEffective(project.projectId, requirementId, body.decisionId, {
-          expectedRevision: body.expectedRevision,
-          effective: body.effective
         })
       });
     default:

@@ -114,7 +114,7 @@ test(
       const { requirement } = await post(`/api/projects/${encodeURIComponent(project.projectId)}/ledger`, {
         action: "create",
         title: "分页修复",
-        content: "list 命令的分页从第二页开始错位。"
+        summary: "list 命令的分页从第二页开始错位。"
       });
       const { taskId } = await post("/api/tasks", { goal: name, projectId: project.projectId });
       const tool = createProjectDevelopmentTool({ dashboardUrl: dashboard.base, taskId, token });
@@ -167,7 +167,7 @@ test(
         await post(`/api/projects/${encodeURIComponent(project.projectId)}/ledger`, {
           action: "create",
           title,
-          content: title
+          summary: title
         })
       ).requirement;
       requirementIds.set(title, requirementId);

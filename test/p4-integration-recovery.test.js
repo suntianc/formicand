@@ -168,7 +168,7 @@ test(
         await request(`/api/projects/${encodeURIComponent(project.projectId)}/ledger`, {
           action: "create",
           title,
-          content: `${title}的内容`
+          summary: `${title}的内容`
         })
       ).body.requirement;
       const record = await main.create(project.projectId, {

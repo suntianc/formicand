@@ -97,7 +97,7 @@ async function createRequirement(request, projectId, title) {
   const response = await request(`/api/projects/${encodeURIComponent(projectId)}/ledger`, {
     action: "create",
     title,
-    content: `${title}的内容`
+    summary: `${title}的内容`
   });
   assert.equal(response.status, 201, JSON.stringify(response.body));
   return response.body.requirement;
@@ -393,6 +393,40 @@ for (const engine of PROJECT_DATA_ENGINES) {
       `${developmentPath(other.projectId)}/${encodeURIComponent(one.developmentId)}`
     );
     assert.equal(crossProject.status, 404, JSON.stringify(crossProject.body));
+
+    // A requirement is a long-lived feature: once its development is
+    // withdrawn, the next piece of work on it is a new development, and the
+    // withdrawn one takes no more writes.
+    const withdrawn = await request(developmentPath(project.projectId), {
+      action: "update",
+      developmentId: one.developmentId,
+      expectedRevision: 2,
+      status: "withdrawn"
+    });
+    assert.equal(withdrawn.status, 200, JSON.stringify(withdrawn.body));
+    assert.equal(withdrawn.body.development.status, "withdrawn");
+    const closed = await request(developmentPath(project.projectId), {
+      action: "update",
+      developmentId: one.developmentId,
+      expectedRevision: 3,
+      goal: "撤回之后再改"
+    });
+    assert.equal(closed.status, 409, JSON.stringify(closed.body));
+    assert.equal(closed.body.code, "development_closed");
+    const next = await request(developmentPath(project.projectId), {
+      action: "create",
+      requirementId: first.requirementId,
+      goal: "公共设备每次验证",
+      completionCriteria: ["公共设备每次登录都要求验证码"],
+      route: "direct"
+    });
+    assert.equal(next.status, 201, JSON.stringify(next.body));
+    assert.notEqual(next.body.development.developmentId, one.developmentId);
+    const found = await request(developmentPath(project.projectId), {
+      action: "find_by_requirement",
+      requirementId: first.requirementId
+    });
+    assert.equal(found.body.development.developmentId, next.body.development.developmentId);
   });
 
   test(`${engine}: an authenticated secondary backend owns its checkout and every reader gets its own workspace`, async (t) => {

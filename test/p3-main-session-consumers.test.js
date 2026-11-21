@@ -243,7 +243,7 @@ test(
       {
         action: "create",
         title: "跨后端需求",
-        content: "两个后端共享同一会话记录。"
+        summary: "两个后端共享同一会话记录。"
       }
     );
     assert.equal(requirement.status, 201, JSON.stringify(requirement.body));
@@ -299,7 +299,7 @@ test(
     const next = await authority.request(`/api/projects/${encodeURIComponent(project.projectId)}/ledger`, {
       action: "create",
       title: "权威侧需求",
-      content: "由权威后端写入。"
+      summary: "由权威后端写入。"
     });
     const selected = await backend.request(`${sessionsPath(project.projectId)}/${session.sessionId}`, {
       action: "select_requirement",
@@ -454,7 +454,7 @@ async function sharedSession(request, dashboard, name) {
   const created = await request(ledgerPath(project.projectId), {
     action: "create",
     title: `${name} 需求`,
-    content: "Run 归属必须保持对应。"
+    summary: "Run 归属必须保持对应。"
   });
   assert.equal(created.status, 201, JSON.stringify(created.body));
   const requirementId = created.body.requirement.requirementId;

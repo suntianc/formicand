@@ -105,16 +105,16 @@ for (const engine of PROJECT_DATA_ENGINES) {
     const internal = await authority.request(ledger(authority, project.projectId), {
       action: "create",
       title: "内部需求",
-      content: "内部新工作只写入台账。",
+      summary: "内部新工作只写入台账。",
       source: { kind: "internal" }
     });
     assert.equal(internal.status, 201, JSON.stringify(internal.body));
     const sharedRead = await backend.request(ledger(backend, project.projectId), { action: "query" });
     assert.equal(sharedRead.status, 200, JSON.stringify(sharedRead.body));
-    assert.deepEqual(
-      sharedRead.body.requirements.map((requirement) => requirement.title),
-      ["内部需求"]
-    );
+    assert.deepEqual(sharedRead.body.requirements.map((requirement) => requirement.title).sort(), [
+      "内部需求",
+      "杂项"
+    ]);
     assert.deepEqual(
       (await authority.request(board(authority, project.projectId), undefined, "GET")).body.entries,
       []
@@ -143,7 +143,11 @@ for (const engine of PROJECT_DATA_ENGINES) {
     assert.equal(replayPublish.body.entry.boardId, entry.boardId);
     assert.equal(replayPublish.body.entry.requirementId, entry.requirementId);
     const requirements = await backend.request(ledger(backend, project.projectId), { action: "query" });
-    assert.equal(requirements.body.requirements.length, 2, "the replayed publish made no second requirement");
+    assert.equal(
+      requirements.body.requirements.length,
+      3,
+      "the replayed publish made no second requirement beside the internal one and 杂项"
+    );
 
     // Two backends claim at the same revision: exactly one wins, the other gets
     // a locatable conflict and sees the winner's ownership.
