@@ -144,7 +144,7 @@ App 使用 Electron safeStorage 加密客户端会话凭据，保存在桌面数
 }
 ```
 
-- 每项都可省略：`profileId` 是模型，`thinkingLevel` 是推理强度，`skills`、`mcp` 是名称列表或 `"all"`，`prompt` 是附加提示词。省略时 `skills` 为全部；`mcp` 对 Main 是全部已启用服务，对 Executor、Reviewer 是不用任何服务。
+- 每项都可省略：`profileId` 是模型，`thinkingLevel` 是推理强度，`skills`、`mcp` 是名称列表或 `"all"`，`prompt` 是附加提示词。省略时 `skills` 对 Main 是全部，对 Executor、Reviewer 是各自的随附技能名单（见[配置说明](configuration.md)）；`mcp` 对 Main 是全部已启用服务，对 Executor、Reviewer 是不用任何服务。
 - `host` 是本机所有项目的默认，`projects` 以项目目录为键逐项覆盖，没写的项跟随 `host`。两者都不进入共享项目数据，其他后端不会继承。某个会话临时换模型，在对话面板里选择即可。
 - 模型解析优先级为单次/会话显式选择、项目设置、主机设置、第一个启用供应商的第一个模型。没有配置供应商时使用 CLI 单连接字段。推理强度依次取消息里选的档位、自定义 Agent 的 `thinking`、角色设置、模型默认档位。
 - 每次 Run 在准入时固定连接、模型、消息格式与推理参数，并把非敏感来源记录为 `main.run_spawned.modelSelection`；之后修改设置只影响下一次 Run，在途 Run 和原请求重试继续使用已保存的执行归属。
