@@ -123,6 +123,7 @@ test(
     assert.match(dispatched.brief, /^Ticket 01: 写 src\/a\.txt/);
     assert.match(dispatched.brief, /Change only these paths:\n- src\/a\.txt/);
     assert.match(dispatched.brief, /AC1 src\/a\.txt 存在 \(check: test -f src\/a\.txt\)/);
+    assert.deepEqual(dispatched.criteria, ["AC1"], "the Executor answers each criterion in its report");
     assert.match(await service.next(projectId, developmentId), /Tickets 01, 03 can start/);
 
     // A finished Executor in its own checkout, the way the queue records it.
@@ -196,6 +197,7 @@ test(
     assert.equal((await service.tickets(projectId, developmentId)).tickets[0].state, "rework");
     assert.deepEqual(await service.ticketForDispatch("task-flow", developmentId, "01", true), {
       ticketId: "01",
+      criteria: ["AC1"],
       start: true
     });
     await service.ticketStarted("task-flow", developmentId, "01", {

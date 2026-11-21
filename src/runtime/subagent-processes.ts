@@ -19,6 +19,7 @@ import {
 } from "./agent-process.js";
 import { enqueueMainCallback, formatSubagentSummary } from "./subagent-callback.js";
 import { parseReviewConclusion, type ReviewConclusion, type ReviewScope } from "./subagent-review.js";
+import { executorReportText, parseExecutorReport } from "./executor-report.js";
 import { pitfallsHint } from "./project-pitfalls.js";
 
 /**
@@ -79,6 +80,7 @@ interface AgentResultRecord {
   outputFiles?: unknown;
   diagnostics?: unknown;
   review?: unknown;
+  report?: unknown;
   error?: unknown;
 }
 
@@ -100,6 +102,8 @@ interface WorkPayload {
   builtinAgent?: BuiltinAgentSettings;
   /** What a Reviewer's findings may cite, fixed when its candidate was frozen. */
   reviewScope?: ReviewScope;
+  /** A ticket Executor's criterion ids, each answered in its report. */
+  ticketCriteria?: string[];
 }
 
 /** The roles this service launches and settles; Main belongs to the run service. */
@@ -478,7 +482,11 @@ export class SubagentProcessService {
       COWORK_AGENT_DEFINITION: payload.agentDefinition ? JSON.stringify(payload.agentDefinition) : undefined,
       COWORK_BUILTIN_AGENT: payload.builtinAgent ? JSON.stringify(payload.builtinAgent) : undefined,
       COWORK_REVIEW_SCOPE:
-        role === "reviewer" && payload.reviewScope ? JSON.stringify(payload.reviewScope) : undefined
+        role === "reviewer" && payload.reviewScope ? JSON.stringify(payload.reviewScope) : undefined,
+      COWORK_TICKET_CRITERIA:
+        role === "executor" && payload.ticketCriteria?.length
+          ? JSON.stringify(payload.ticketCriteria)
+          : undefined
     };
   }
 
@@ -706,6 +714,22 @@ export class SubagentProcessService {
         };
       review = parsed.review;
     }
+    // A ticket Executor's report answers each criterion; without it Main would
+    // have to read the criteria out of prose, so it is a failed call.
+    let reported = response;
+    const payload = (item?.payload ?? {}) as WorkPayload;
+    if (record.role === "executor" && payload.ticketCriteria?.length && result.termination === "completed") {
+      const parsed = parseExecutorReport(result.report, payload.ticketCriteria);
+      if (!parsed.ok)
+        return {
+          ...base,
+          status: "failed",
+          response,
+          outputFiles,
+          error: `Executor result has no valid ticket report: ${parsed.errors.join("; ")}`
+        };
+      reported = `${response}\n\n${executorReportText(parsed.report)}`;
+    }
     if (result.termination !== "completed")
       return {
         ...base,
@@ -725,7 +749,7 @@ export class SubagentProcessService {
         outputFiles,
         error: "Subagent completed without returning a textual summary"
       };
-    return { ...base, status: "succeeded", response, outputFiles, ...(review ? { review } : {}) };
+    return { ...base, status: "succeeded", response: reported, outputFiles, ...(review ? { review } : {}) };
   }
 
   private async projectFailure(

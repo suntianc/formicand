@@ -183,6 +183,7 @@ async function delegatedCall(
     prepare,
     env = {},
     payload,
+    ticketCriteria,
     observe,
     expectFailure = false
   }
@@ -230,7 +231,8 @@ async function delegatedCall(
       task,
       projectDirectory: site,
       delegation: { role },
-      ...(capabilityGrants ? { capabilityGrants } : {})
+      ...(capabilityGrants ? { capabilityGrants } : {}),
+      ...(ticketCriteria ? { ticketCriteria } : {})
     },
     maxAttempts: 1
   });
@@ -567,6 +569,82 @@ test(
     assert.equal(result.termination, "completed");
   }
 );
+
+test(
+  "a ticket Executor answers each acceptance criterion, and Main reads the answers",
+  { timeout: 120_000 },
+  async (t) => {
+    const report = {
+      criteria: [
+        { criterionId: "AC1", met: true, evidence: "npm test -- list: 3 passed" },
+        { criterionId: "AC2", met: false, evidence: "the second page still starts at item 10" }
+      ]
+    };
+    const { provider, result, callback } = await delegatedCall(t, {
+      role: "executor",
+      agentId: "subagent_ticket_report",
+      callId: "call-ticket-report",
+      ticketCriteria: ["AC1", "AC2"],
+      handle: (body, requests) => {
+        if (requests.length === 1) {
+          assert.ok(
+            body.tools.some((tool) => (tool.function?.name ?? tool.name) === "submit_report"),
+            "a ticket Executor holds submit_report"
+          );
+          return { name: "submit_report", arguments: { criteria: [report.criteria[0]] } };
+        }
+        if (requests.length === 2) return { name: "submit_report", arguments: report };
+        return { text: "Done: pagination fixed for page one." };
+      }
+    });
+    const rejection = provider.requests[1].messages.findLast(
+      (message) => message.role === "tool" || message.role === "toolResult"
+    );
+    assert.match(String(rejection?.content ?? ""), /criteria is missing AC2/, "every criterion is answered");
+    assert.deepEqual(result.report, report);
+    assert.equal(callback.payload.status, "succeeded", JSON.stringify(callback.payload));
+    assert.match(
+      callback.payload.response,
+      /Done: pagination[^]*AC1 met: npm test[^]*AC2 NOT met: the second page/
+    );
+  }
+);
+
+test(
+  "a ticket Executor that ends without its report is recorded as a failure",
+  { timeout: 120_000 },
+  async (t) => {
+    const { result, callback } = await delegatedCall(t, {
+      role: "executor",
+      agentId: "subagent_ticket_silent",
+      callId: "call-ticket-silent",
+      ticketCriteria: ["AC1"],
+      handle: () => ({ text: "all done" })
+    });
+    assert.equal(result.termination, "failed");
+    assert.match(result.error, /without a ticket report/);
+    assert.equal(callback.payload.status, "failed", JSON.stringify(callback.payload));
+  }
+);
+
+test("a delegated process may not kill processes by name", { timeout: 120_000 }, async (t) => {
+  const { provider, callback } = await delegatedCall(t, {
+    role: "executor",
+    agentId: "subagent_pkill",
+    callId: "call-pkill",
+    handle: (_body, requests) =>
+      requests.length === 1
+        ? { name: "bash", arguments: { command: "pkill -f dashboard && echo KILLED" } }
+        : { text: "stopped what I started" }
+  });
+  const reply = provider.requests[1].messages.findLast(
+    (message) => message.role === "tool" || message.role === "toolResult"
+  );
+  const text = JSON.stringify(reply?.content ?? "");
+  assert.match(text, /pkill stops every process with that name/);
+  assert.doesNotMatch(text, /KILLED/);
+  assert.equal(callback.payload.status, "succeeded");
+});
 
 test(
   "a Reviewer that ends without a conclusion is recorded as a failure",

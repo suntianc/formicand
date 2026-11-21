@@ -1114,11 +1114,12 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
     const record = await (await gateway()).getDevelopment(found.projectId, developmentId, ports.backendId);
     if (!ticketRoute(record)) throw conflict("quick 路线没有票", "ticket_missing");
     const { set, ticket } = await requireTicket(found.projectId, developmentId, ticketIdValue);
+    const criteria = ticket.criteria.map((criterion) => criterion.criterionId);
     // A continuation keeps the session that already read the brief: a rework
     // restarts the ticket, a follow-up while it is still running leaves it alone.
     if (continuation) {
-      if (ticket.state === "rework") return { ticketId: ticket.ticketId, start: true };
-      if (ticket.state === "in_progress") return { ticketId: ticket.ticketId, start: false };
+      if (ticket.state === "rework") return { ticketId: ticket.ticketId, criteria, start: true };
+      if (ticket.state === "in_progress") return { ticketId: ticket.ticketId, criteria, start: false };
       throw conflict(`票 ${ticket.ticketId} 现在不需要返修`, "ticket_state_conflict");
     }
     if (ticket.state !== "confirmed" && ticket.state !== "rework")
@@ -1136,7 +1137,7 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
         `票 ${ticket.ticketId} 依赖的票 ${blocking.join("、")} 还没有合入`,
         "ticket_dependency_pending"
       );
-    return { ticketId: ticket.ticketId, brief: ticketBrief(ticket), start: true };
+    return { ticketId: ticket.ticketId, brief: ticketBrief(ticket), criteria, start: true };
   }
 
   async function ticketStarted(taskId: string, developmentId: string, ticketId: string, work: TicketWork) {
