@@ -12,14 +12,14 @@
 
 ## 一、提示词分层
 
-| 层       | 内容                                                     | 什么时候发          | 上限              |
-| -------- | -------------------------------------------------------- | ------------------- | ----------------- |
-| 基础层   | 身份、做事方式、协作者、文件位置、何时询问用户、如何汇报 | 会话开始时写一次    | 4 KB              |
-| 状态层   | 当前工作区路径、项目与需求、开发记录摘要                 | 内容变化时才发送    | 1.5 KB            |
-| 流程层   | `requirement-delivery` 等内置技能                        | Main 判断需要时加载 | 单个技能 4 KB     |
-| 工具层   | 工具说明；结果中给出下一步                               | 随工具一起发送      | 单个工具说明 1 KB |
-| 消息层   | 附件清单、`/` `@` 引用、回调、协作者提问                 | 出现时随消息附带    | —                 |
-| 程序保证 | 权限、路径保护、票冻结、改动范围检查、合入规则           | 不写进提示词        | —                 |
+| 层       | 内容                                                                | 什么时候发       | 上限              |
+| -------- | ------------------------------------------------------------------- | ---------------- | ----------------- |
+| 基础层   | 身份、做事方式、协作者、文件位置、何时询问用户、如何汇报            | 会话开始时写一次 | 4 KB              |
+| 状态层   | 当前工作区路径、项目与需求、开发记录摘要                            | 内容变化时才发送 | 1.5 KB            |
+| 流程层   | `task-routing`（任务开始时加载）、`requirement-delivery` 等内置技能 | Main 按需加载    | 单个技能 4 KB     |
+| 工具层   | 工具说明；结果中给出下一步                                          | 随工具一起发送   | 单个工具说明 1 KB |
+| 消息层   | 附件清单、`/` `@` 引用、回调、协作者提问                            | 出现时随消息附带 | —                 |
+| 程序保证 | 权限、路径保护、票冻结、改动范围检查、合入规则                      | 不写进提示词     | —                 |
 
 - 提示词统一用英文写；面向用户的界面文字和项目文档仍用中文。
 - 规则先说明适用范围和原因，再给做法。"不要……"类写法只用于程序无法保证的真实边界。
@@ -229,16 +229,9 @@ You are the Main Agent of CoworkOS. The user hands you a task; you see it throug
 - Check results in proportion to the change: reread a small edit, run the relevant tests for code, preview pages and images.
 - The context is compacted automatically when it fills up, so keep going. End the turn when the task is done and checked and no collaborator result is still pending.
 
-## Requirements and other tasks
+## Starting a task
 
-- A requirement is a feature, fix or change of behaviour the user wants in a Git project. Load the `requirement-delivery` skill and work through a development record, even for a small change: its `quick` route is you editing and checking alone, and the program records and merges. Never change the user's working tree for a requirement.
-- Everything else, such as questions, investigations, documents, one-off scripts and file handling, needs no record: just do it.
-
-## Collaborators
-
-- Each collaborator costs extra time and money. Do simple tasks, single-file edits and work that needs continuity yourself instead of delegating them; delegate independent work that can run in parallel, or work that needs a clean context or an independent judgment.
-- Brief a collaborator as a colleague who has not seen this conversation: the goal, the scope, where the inputs are, what to hand back, and how to tell it is right.
-- A collaborator's "succeeded" means it finished running. Confirm the work from the files, command output or tests it hands back.
+- Load the `task-routing` skill at the start of a task, before reading code or editing files, unless it is already loaded in this conversation. It tells a requirement, which goes through a development record, from other tasks, and how to delegate to collaborators.
 
 ## Files
 

@@ -107,6 +107,135 @@
       }
     },
     {
+      "name": "session_notes",
+      "parameters": {
+        "type": "object",
+        "required": ["action"],
+        "properties": {
+          "action": {
+            "anyOf": [
+              {
+                "type": "string",
+                "const": "read"
+              },
+              {
+                "type": "string",
+                "const": "append"
+              },
+              {
+                "type": "string",
+                "const": "rewrite"
+              }
+            ]
+          },
+          "text": {
+            "type": "string",
+            "description": "Text to append or rewrite; an empty rewrite clears the notes."
+          },
+          "start": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Start character offset (inclusive)."
+          },
+          "end": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "End character offset (exclusive)."
+          }
+        }
+      }
+    },
+    {
+      "name": "search_history",
+      "parameters": {
+        "type": "object",
+        "required": ["query"],
+        "properties": {
+          "query": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          },
+          "role": {
+            "anyOf": [
+              {
+                "type": "string",
+                "const": "user"
+              },
+              {
+                "type": "string",
+                "const": "assistant"
+              },
+              {
+                "type": "string",
+                "const": "toolResult"
+              },
+              {
+                "type": "string",
+                "const": "custom"
+              }
+            ]
+          },
+          "tool": {
+            "type": "string",
+            "description": "Exact tool name; restricts the search to its results."
+          },
+          "before": {
+            "type": "string",
+            "description": "Only search entries before this entry ID."
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 20
+          }
+        }
+      }
+    },
+    {
+      "name": "read_history",
+      "parameters": {
+        "type": "object",
+        "required": ["id"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "start": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Start character offset (inclusive)."
+          },
+          "end": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "End character offset (exclusive)."
+          },
+          "field": {
+            "type": "string",
+            "const": "structured"
+          },
+          "image": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      }
+    },
+    {
+      "name": "clear_context",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "description": "Why a fresh window is useful now."
+          }
+        }
+      }
+    },
+    {
       "name": "askhuman",
       "parameters": {
         "type": "object",
@@ -198,13 +327,17 @@
             "type": "string",
             "description": "Run this work item in its own checkout forked from the recorded requirement checkout. Its directory, not the user's working tree, becomes the delegate's project directory; ensure_workspace must have made it ready."
           },
+          "ticketId": {
+            "type": "string",
+            "description": "With developmentId: the confirmed ticket this Executor implements. Its scope, acceptance criteria, what must keep working and what is out of scope are written into the task; add only the background. A continuation keeps the original's ticket."
+          },
           "continueCallId": {
             "type": "string",
             "description": "Rework by continuing this Run's finished Executor call: same agent identity, checkpoint history and checkout, with this task appended as the next turn. The finished call stays finished; this creates one new call instead of repeating it."
           },
           "reviewId": {
             "type": "string",
-            "description": "With continueCallId: the review whose finding this rework answers, recorded on the new call."
+            "description": "role=reviewer: the frozen review this Reviewer examines; needed when several are frozen. With continueCallId: the review whose finding this rework answers, recorded on the new call."
           },
           "profileId": {
             "type": "string",
@@ -585,12 +718,17 @@
               "find_by_requirement",
               "update",
               "ensure_workspace",
+              "tickets",
+              "propose_tickets",
+              "revise_ticket",
+              "integrate_ticket",
               "review_plan",
               "freeze_candidate",
               "attach_reviewer",
               "record_finding",
               "rule_finding",
               "record_rework",
+              "change_approach",
               "complete_review",
               "delivery_check",
               "query_reviews",
@@ -634,6 +772,192 @@
             "enum": ["quick", "direct", "full"],
             "description": "The suggested path: quick, direct or full. A suggestion, not a quota."
           },
+          "tickets": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 30,
+            "items": {
+              "type": "object",
+              "properties": {
+                "ticketId": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 20
+                },
+                "title": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200
+                },
+                "scope": {
+                  "type": "array",
+                  "maxItems": 50,
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 300
+                  },
+                  "description": "Relative paths or directories the ticket may change; required on the direct route."
+                },
+                "criteria": {
+                  "type": "array",
+                  "minItems": 1,
+                  "maxItems": 20,
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "text": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 1000
+                      },
+                      "command": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 4000,
+                        "description": "A command that checks it."
+                      },
+                      "manual": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 1000,
+                        "description": "Instead of command: why no command can check it."
+                      }
+                    },
+                    "required": ["text"],
+                    "additionalProperties": false
+                  },
+                  "description": "Acceptance criteria: what to observe, under which condition, each with a command or a manual reason."
+                },
+                "preserve": {
+                  "type": "array",
+                  "maxItems": 50,
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 300
+                  },
+                  "description": "Nearby behaviour that must keep working."
+                },
+                "outOfScope": {
+                  "type": "array",
+                  "maxItems": 50,
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 300
+                  },
+                  "description": "Related changes the user did not ask for."
+                },
+                "dependsOn": {
+                  "type": "array",
+                  "maxItems": 50,
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 300
+                  },
+                  "description": "Ticket ids that must be merged first."
+                }
+              },
+              "required": ["ticketId", "title", "criteria"],
+              "additionalProperties": false
+            },
+            "description": "propose_tickets: the drafts, ids like 01, 02. They replace earlier unconfirmed drafts; confirmed tickets stay. The user confirms them on a card."
+          },
+          "ticketId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 20,
+            "description": "revise_ticket/integrate_ticket target. freeze_candidate: review this ticket's own checkout (direct and full routes); on full, without it once every ticket is in, the final review of the whole requirement."
+          },
+          "changes": {
+            "type": "object",
+            "properties": {
+              "title": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              "scope": {
+                "type": "array",
+                "maxItems": 50,
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 300
+                },
+                "description": "Relative paths or directories the ticket may change; required on the direct route."
+              },
+              "criteria": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 20,
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "text": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 1000
+                    },
+                    "command": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 4000,
+                      "description": "A command that checks it."
+                    },
+                    "manual": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 1000,
+                      "description": "Instead of command: why no command can check it."
+                    }
+                  },
+                  "required": ["text"],
+                  "additionalProperties": false
+                },
+                "description": "Acceptance criteria: what to observe, under which condition, each with a command or a manual reason."
+              },
+              "preserve": {
+                "type": "array",
+                "maxItems": 50,
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 300
+                },
+                "description": "Nearby behaviour that must keep working."
+              },
+              "outOfScope": {
+                "type": "array",
+                "maxItems": 50,
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 300
+                },
+                "description": "Related changes the user did not ask for."
+              },
+              "dependsOn": {
+                "type": "array",
+                "maxItems": 50,
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 300
+                },
+                "description": "Ticket ids that must be merged first."
+              }
+            },
+            "additionalProperties": false,
+            "description": "revise_ticket: only the fields that change. The user confirms the change on a card."
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 2000,
+            "description": "revise_ticket: why the confirmed ticket must change."
+          },
           "expectedRevision": {
             "type": "integer",
             "minimum": 1,
@@ -647,7 +971,7 @@
           "basis": {
             "type": "string",
             "maxLength": 2000,
-            "description": "review_plan: why this channel is justified. rule_finding: required for fix and dismiss alike."
+            "description": "review_plan: why this channel is justified. rule_finding: required for fix and dismiss alike. change_approach: why this approach, and for deliver_partial what is left undone."
           },
           "checks": {
             "type": "array",
@@ -679,6 +1003,11 @@
             },
             "description": "review_plan/record_finding/complete_review: command, exit code and captured output."
           },
+          "approach": {
+            "type": "string",
+            "enum": ["fresh_executor", "revised_ticket", "new_plan", "deliver_partial"],
+            "description": "change_approach, on the latest failed review once its chain used its two rework rounds: fresh_executor (a ticket restarts with a new Executor), revised_ticket (revise_ticket, then a new round), new_plan (the whole requirement's review: new fix tickets), or deliver_partial (accept the failed review as it is; first dismiss what stays unfixed with category=deferred). Each of the first three is used once per chain."
+          },
           "kind": {
             "type": "string",
             "enum": ["independent", "combined"],
@@ -700,18 +1029,18 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 300,
-            "description": "attach_reviewer/record/rule/complete/get_review target."
+            "description": "attach_reviewer/record/rule/change_approach/complete/get_review target."
           },
           "callId": {
             "type": "string",
             "minLength": 1,
             "maxLength": 300,
-            "description": "attach_reviewer: the Reviewer work item returned by call_subagent. The first Reviewer owns the review; retrying the same call is safe and another call is refused."
+            "description": "attach_reviewer, once the Reviewer work item returned by call_subagent has finished: binds it to the review and imports its submitted findings. A running Reviewer is refused; a conclusion that breaks the review's rules is refused and leaves the review free for another Reviewer. The bound Reviewer owns the review; retrying the same call is safe."
           },
           "title": {
             "type": "string",
             "maxLength": 300,
-            "description": "record_finding: short finding title."
+            "description": "record_finding (only for a custom Reviewer that answers in prose): short finding title."
           },
           "detail": {
             "type": "string",
@@ -722,6 +1051,15 @@
             "type": "string",
             "maxLength": 1000,
             "description": "record_finding: file or symbol."
+          },
+          "blocking": {
+            "type": "boolean",
+            "description": "record_finding: whether it blocks acceptance."
+          },
+          "findingBasis": {
+            "type": "string",
+            "maxLength": 40,
+            "description": "record_finding with blocking=true: the criterion id it violates, or regression, data_loss, security, project_rule."
           },
           "rawFailure": {
             "type": "string",
@@ -737,12 +1075,12 @@
           "decision": {
             "type": "string",
             "enum": ["fix", "dismiss"],
-            "description": "rule_finding: fix it or dismiss it; every ruling needs basis — for fix, how it is or will be fixed; for dismiss, why it is not a defect. Findings of failed or drifted reviews stay rulable; a passed review is closed."
+            "description": "rule_finding: fix it or dismiss it; every ruling needs basis — for fix, how it is or will be fixed; for dismiss, why it does not stand. A suggestion blocks nothing and can only be picked up to fix. A claimed fix on a failed review can still be dismissed. Findings of failed or drifted reviews stay rulable; a passed review is closed."
           },
           "category": {
             "type": "string",
-            "enum": ["false_positive", "out_of_scope", "other"],
-            "description": "rule_finding with dismiss: why the finding does not stand."
+            "enum": ["false_positive", "out_of_scope", "deferred", "other"],
+            "description": "rule_finding with dismiss: why the finding does not stand — or deferred, when it is left for later and reported as not done."
           },
           "findingIds": {
             "type": "array",
@@ -787,7 +1125,7 @@
               "required": ["name", "command"],
               "additionalProperties": false
             },
-            "description": "request_merge: commands to run on the target-plus-candidate version. Omit to reuse the recorded self checks or the passed review's checks."
+            "description": "request_merge: commands to run on the target-plus-candidate version; omit to reuse the recorded checks. integrate_ticket: the project's checks, run with the ticket's acceptance commands."
           },
           "verdict": {
             "type": "string",
@@ -805,6 +1143,44 @@
       }
     },
     {
+      "name": "memory",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": ["list", "read", "write", "delete"]
+          },
+          "scope": {
+            "type": "string",
+            "enum": ["user", "project"],
+            "description": "Needed to write and delete. A read without it looks in project, then user."
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 64,
+            "description": "Lowercase letters, digits and hyphens. write replaces a memory of the same name."
+          },
+          "type": {
+            "type": "string",
+            "enum": ["user", "feedback", "project", "reference"]
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 150,
+            "description": "One line for the index."
+          },
+          "body": {
+            "type": "string",
+            "maxLength": 4000,
+            "description": "The fact; for feedback and project add why it holds and how to apply it."
+          }
+        },
+        "required": ["action"],
+        "additionalProperties": false
+      }
+    },
+    {
       "name": "load_skill",
       "parameters": {
         "type": "object",
@@ -813,18 +1189,6 @@
           "name": {
             "type": "string",
             "description": "Exact skill name from the available skill catalog."
-          }
-        }
-      }
-    },
-    {
-      "name": "clear_context",
-      "parameters": {
-        "type": "object",
-        "properties": {
-          "reason": {
-            "type": "string",
-            "description": "Short explanation for this context reset."
           }
         }
       }
@@ -1166,7 +1530,7 @@
       "<addendum>",
       "# CoworkOS Main Agent",
       "## Doing the work",
-      "## Collaborators",
+      "## Starting a task",
       "## Files",
       "## When to ask the user",
       "## Talking to the user",
