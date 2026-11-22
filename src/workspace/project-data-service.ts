@@ -126,7 +126,15 @@ import {
 } from "../storage/project-data/config.js";
 import type { SqlDatabase, SqlTransaction } from "../storage/project-data/database.js";
 import { insertMiscRequirement } from "../storage/project-data/migrations.js";
-import { lookupRequirements, type LookupEntry, type LookupResult } from "../domain/ledger-lookup.js";
+import {
+  catalogOf,
+  lookupRequirements,
+  similarPairs,
+  type CatalogEntry,
+  type LookupEntry,
+  type LookupResult,
+  type SimilarPair
+} from "../domain/ledger-lookup.js";
 import { ProjectBoardRepository } from "./project-board.js";
 import { ProjectDeliveryRepository } from "./project-delivery.js";
 import { RemoteProjectDataService } from "./project-data-remote.js";
@@ -134,6 +142,7 @@ import { RemoteProjectDataService } from "./project-data-remote.js";
 interface ProjectRow {
   project_id: string;
   project_name: string;
+  ledger_tidied_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -330,6 +339,27 @@ export interface RequirementCreate {
   references?: unknown;
 }
 
+/** Fold one requirement into another; the folded one is deleted once everything moved. */
+export interface RequirementMerge {
+  /** The requirement folded away. */
+  from?: unknown;
+  /** The requirement that stays. */
+  into?: unknown;
+  /** The revision of `into` last read. */
+  expectedRevision?: unknown;
+  /** The kept requirement's summary after the merge, with both requirements' rules. */
+  summary?: unknown;
+  taskId?: unknown;
+}
+
+/** What a ledger tidy reads: how many features are new since the last one, and which look alike. */
+export interface LedgerTidy {
+  created: number;
+  tidiedAt?: string;
+  pairs: SimilarPair[];
+  catalog: CatalogEntry[];
+}
+
 export interface RequirementUpdate {
   expectedRevision?: unknown;
   title?: unknown;
@@ -413,6 +443,9 @@ export interface ProjectDataGateway {
   queryRequirements(projectId: unknown, query?: RequirementQuery): Promise<RequirementSummary[]>;
   /** Which feature the user's own words are about; see `lookupRequirements`. */
   lookupRequirements(projectId: unknown, request: unknown): Promise<LookupResult>;
+  tidyLedger(projectId: unknown): Promise<LedgerTidy>;
+  finishLedgerTidy(projectId: unknown): Promise<{ tidiedAt: string }>;
+  mergeRequirements(projectId: unknown, input: RequirementMerge): Promise<RequirementDetail>;
   // Persistent Main sessions are business facts too: a secondary backend writes
   // them through this surface, never through SQL or a transaction callback.
   createMainSession(
@@ -508,7 +541,7 @@ export interface ProjectDataGateway {
   close(): Promise<void>;
 }
 
-const SNAPSHOT_VERSION = 8;
+const SNAPSHOT_VERSION = 9;
 const TABLES = [
   "project_data_projects",
   "project_data_bindings",
@@ -534,7 +567,7 @@ type SnapshotTable = (typeof TABLES)[number];
 
 /** Restore accepts only these columns, so a snapshot cannot shape the INSERT. */
 const TABLE_COLUMNS: Record<SnapshotTable, readonly string[]> = {
-  project_data_projects: ["project_id", "project_name", "created_at", "updated_at"],
+  project_data_projects: ["project_id", "project_name", "ledger_tidied_at", "created_at", "updated_at"],
   project_data_bindings: ["backend_id", "project_id", "local_directory", "created_at", "updated_at"],
   project_data_requirements: [
     "project_id",
@@ -1223,6 +1256,143 @@ export class ProjectDataRepository {
     const projectId = ledgerProjectId(projectIdValue);
     await this.requireProject(projectId);
     return lookupRequirements(await this.lookupEntries(projectId), ledgerRequestText(requestValue));
+  }
+
+  /** Features created since the last tidy, the pairs that look alike and the whole catalog. */
+  async tidy(projectIdValue: unknown): Promise<LedgerTidy> {
+    const projectId = ledgerProjectId(projectIdValue);
+    const project = await this.requireProject(projectId);
+    const rows = await this.transaction.query<{ created: number | string }>(
+      "SELECT COUNT(*) AS created FROM project_data_requirements WHERE project_id = ? AND kind = 'feature' AND created_at > ?",
+      [projectId, project.ledger_tidied_at ?? ""]
+    );
+    const entries = await this.lookupEntries(projectId);
+    return {
+      created: Number(rows[0]?.created ?? 0),
+      ...(project.ledger_tidied_at ? { tidiedAt: project.ledger_tidied_at } : {}),
+      pairs: similarPairs(entries),
+      catalog: catalogOf(entries)
+    };
+  }
+
+  /** Mark the tidy done: features created from now on count toward the next one. */
+  async finishTidy(projectIdValue: unknown): Promise<{ tidiedAt: string }> {
+    const projectId = ledgerProjectId(projectIdValue);
+    await this.requireProject(projectId);
+    const tidiedAt = now();
+    await this.transaction.execute(
+      "UPDATE project_data_projects SET ledger_tidied_at = ?, updated_at = ? WHERE project_id = ?",
+      [tidiedAt, tidiedAt, projectId]
+    );
+    return { tidiedAt };
+  }
+
+  /**
+   * Fold `from` into `into`: its developments, board cards, merges,
+   * deliveries, history, references and aliases move over, its title becomes
+   * an alias, and `into` takes the summary Main wrote for both. Then `from` is
+   * deleted; no record of work is lost, only the duplicate requirement.
+   */
+  async mergeRequirements(projectIdValue: unknown, input: RequirementMerge): Promise<RequirementDetail> {
+    const projectId = ledgerProjectId(projectIdValue);
+    const fromId = ledgerIdentifier(input.from, "被合并的需求 ID");
+    const intoId = ledgerIdentifier(input.into, "保留的需求 ID");
+    if (fromId === intoId) throw new ProjectDataInvalidError("不能把需求合并到它自己");
+    const expectedRevision = ledgerRevision(input.expectedRevision);
+    if (input.summary === undefined) throw new ProjectDataInvalidError("合并须写明合并后的现状");
+    const summary = ledgerSummary(input.summary);
+    const taskId = ledgerTaskId(input.taskId);
+    const from = await this.requireRequirement(projectId, fromId);
+    const into = await this.requireRequirement(projectId, intoId);
+    if (from.kind === "misc")
+      throw new ProjectDataConflictError("杂项需求不能被合并掉", undefined, "requirement_misc_fixed");
+    if (Number(into.revision) !== expectedRevision)
+      throw new ProjectDataConflictError(
+        "需求已更新，请基于最新修订重试",
+        Number(into.revision),
+        "revision_conflict"
+      );
+    // Each requirement keeps at most one active development and one open card.
+    const busy = async (table: string, open: string) => {
+      const rows = await this.transaction.query<{ requirement_id: string }>(
+        `SELECT DISTINCT requirement_id FROM ${table} WHERE project_id = ? AND requirement_id IN (?, ?) AND ${open}`,
+        [projectId, fromId, intoId]
+      );
+      return rows.length === 2;
+    };
+    if (await busy("project_data_developments", "status = 'active'"))
+      throw new ProjectDataConflictError(
+        "两条需求都有进行中的开发，等其中一条合入或撤回后再合并",
+        undefined,
+        "requirement_merge_busy"
+      );
+    if (await busy("project_data_board_entries", "state NOT IN ('cancelled', 'pending_release')"))
+      throw new ProjectDataConflictError(
+        "两条需求都有未完成的看板卡，等其中一张完成后再合并",
+        undefined,
+        "requirement_merge_busy"
+      );
+    const timestamp = now();
+    for (const table of [
+      "project_data_developments",
+      "project_data_board_entries",
+      "project_data_development_merges",
+      "project_data_deliveries",
+      "project_data_requirement_history",
+      "project_data_references",
+      "project_data_main_session_runs"
+    ])
+      await this.transaction.execute(
+        `UPDATE ${table} SET requirement_id = ? WHERE project_id = ? AND requirement_id = ?`,
+        [intoId, projectId, fromId]
+      );
+    await this.transaction.execute(
+      "UPDATE project_data_main_sessions SET current_requirement_id = ? WHERE project_id = ? AND current_requirement_id = ?",
+      [intoId, projectId, fromId]
+    );
+    const aliases = await this.aliases(projectId, [fromId, intoId]);
+    const known = new Set(
+      [into.title, ...(aliases.get(intoId) ?? []).map((alias) => alias.alias)].map((text) =>
+        text.toLowerCase()
+      )
+    );
+    const moved: RequirementAlias[] = [
+      { alias: from.title, createdAt: timestamp },
+      ...(aliases.get(fromId) ?? [])
+    ];
+    await this.transaction.execute(
+      "DELETE FROM project_data_requirement_aliases WHERE project_id = ? AND requirement_id = ?",
+      [projectId, fromId]
+    );
+    for (const alias of moved) {
+      if (known.has(alias.alias.toLowerCase())) continue;
+      known.add(alias.alias.toLowerCase());
+      await this.insertAlias(projectId, intoId, alias.alias, alias.developmentId, alias.createdAt);
+    }
+    await this.insertHistory(projectId, intoId, `合并了重复的需求「${from.title}」`, undefined, timestamp);
+    const revision = expectedRevision + 1;
+    await this.insertRevision(projectId, intoId, {
+      revision,
+      title: into.title,
+      summary,
+      status: into.status as RequirementStatus,
+      source: sourceOf(into.source_kind, into.source_reference),
+      note: `并入 ${fromId}`,
+      taskId,
+      createdAt: timestamp
+    });
+    await this.transaction.execute(
+      `UPDATE project_data_requirements SET summary = ?, revision = ?, updated_at = ?
+        WHERE project_id = ? AND requirement_id = ?`,
+      [summary, revision, timestamp, projectId, intoId]
+    );
+    // Only its own revisions are left; they go with it.
+    for (const table of ["project_data_requirement_revisions", "project_data_requirements"])
+      await this.transaction.execute(`DELETE FROM ${table} WHERE project_id = ? AND requirement_id = ?`, [
+        projectId,
+        fromId
+      ]);
+    return this.requirement(projectId, intoId);
   }
 
   /** Every requirement with the text lookup scores, oldest first. */
@@ -2617,6 +2787,15 @@ export class ProjectDataService implements ProjectDataGateway {
   }
   lookupRequirements(projectId: unknown, request: unknown) {
     return this.transaction((repository) => repository.lookup(projectId, request));
+  }
+  tidyLedger(projectId: unknown) {
+    return this.transaction((repository) => repository.tidy(projectId));
+  }
+  finishLedgerTidy(projectId: unknown) {
+    return this.transaction((repository) => repository.finishTidy(projectId));
+  }
+  mergeRequirements(projectId: unknown, input: RequirementMerge) {
+    return this.transaction((repository) => repository.mergeRequirements(projectId, input));
   }
   createMainSession(projectId: unknown, input: Parameters<ProjectDataRepository["createMainSession"]>[1]) {
     return this.transaction((repository) => repository.createMainSession(projectId, input));

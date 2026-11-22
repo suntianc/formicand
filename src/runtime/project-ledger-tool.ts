@@ -26,7 +26,7 @@ export function createProjectLedgerTool(options: ProjectLedgerToolOptions) {
     name: "project_ledger",
     label: "Project Ledger",
     description:
-      "The current project's requirement ledger and board. A requirement is a long-lived feature: its summary says how the feature behaves now and the rules it keeps, its history lists what each development changed, and its aliases are other names users give it; many developments belong to one requirement over time. The project's misc requirement takes changes no feature owns. Before recording or developing anything, lookup the user's own words: it scores every feature and says whether one is likely, several look alike or none fits, with the full catalog when it is not sure or the ledger is small; settle the owner yourself from the conversation and the catalog, a feature named differently included, and create a requirement only when no feature owns the request and it is not a misc change. Then read context for the chosen requirement: its summary, recent history, past developments, the architecture decisions it names and where its code usually changes. query only browses or filters by status. create records a new feature; it does not create a board item. update appends a revision and must carry the revision you last read: it rewrites the summary, replaces the aliases, appends one history line, or retires the feature. A rule that is hard to reverse belongs in the repository's docs/adr/, not the ledger. board lists published demands; claim_board claims one as this Task, while pause_board/release_board/cancel_board act only on what this conversation owns. The current project and Task come from this conversation, so no project id or path is accepted.",
+      "The current project's requirement ledger and board. A requirement is a long-lived feature: its summary says how the feature behaves now and the rules it keeps, its history lists what each development changed, and its aliases are other names users give it; many developments belong to one requirement over time. The project's misc requirement takes changes no feature owns. Before recording or developing anything, lookup the user's own words: it scores every feature and says whether one is likely, several look alike or none fits, with the full catalog when it is not sure or the ledger is small; settle the owner yourself from the conversation and the catalog, a feature named differently included, and create a requirement only when no feature owns the request and it is not a misc change. Then read context for the chosen requirement: its summary, recent history, past developments, the architecture decisions it names and where its code usually changes. query only browses or filters by status. create records a new feature; it does not create a board item. update appends a revision and must carry the revision you last read: it rewrites the summary, replaces the aliases, appends one history line, or retires the feature. When a result's next says to tidy the ledger, read tidy: it lists pairs of features that look alike and the whole catalog; for each pair that is truly one feature recorded twice — and only then — merge_requirements folds from into into with a summary that keeps every rule of both, moving its developments, cards, history and aliases and deleting from; also fold any duplicate you find in the catalog yourself. Do not ask the user and do not report the tidy. finish_tidy when done, merged or not. A rule that is hard to reverse belongs in the repository's docs/adr/, not the ledger. board lists published demands; claim_board claims one as this Task, while pause_board/release_board/cancel_board act only on what this conversation owns. The current project and Task come from this conversation, so no project id or path is accepted.",
     parameters: {
       type: "object",
       properties: {
@@ -39,6 +39,9 @@ export function createProjectLedgerTool(options: ProjectLedgerToolOptions) {
             "get",
             "create",
             "update",
+            "tidy",
+            "merge_requirements",
+            "finish_tidy",
             "board",
             "claim_board",
             "pause_board",
@@ -54,6 +57,8 @@ export function createProjectLedgerTool(options: ProjectLedgerToolOptions) {
         q: { type: "string", description: "query: match requirement title, summary or aliases." },
         status: { type: "string", enum: ["active", "retired"] },
         requirementId: { ...ID, description: "context/get/update target." },
+        from: { ...ID, description: "merge_requirements: the duplicate folded away and deleted." },
+        into: { ...ID, description: "merge_requirements: the requirement that stays." },
         boardId: { ...ID, description: "claim_board/pause_board/release_board/cancel_board target." },
         requestId: {
           type: "string",
@@ -63,13 +68,15 @@ export function createProjectLedgerTool(options: ProjectLedgerToolOptions) {
         expectedRevision: {
           type: "integer",
           minimum: 1,
-          description: "The revision returned by the last read; a stale value is refused."
+          description:
+            "The revision returned by the last read (merge_requirements: of into); a stale value is refused."
         },
         title: { type: "string", maxLength: 200 },
         summary: {
           type: "string",
           maxLength: 20000,
-          description: "How the feature behaves now and the rules it keeps; update replaces it whole."
+          description:
+            "How the feature behaves now and the rules it keeps; update and merge_requirements replace it whole."
         },
         aliases: {
           type: "array",
@@ -126,6 +133,16 @@ export function createProjectLedgerTool(options: ProjectLedgerToolOptions) {
           ...(input.history === undefined ? {} : { history: input.history }),
           ...(input.status === undefined ? {} : { status: input.status }),
           ...(input.note === undefined ? {} : { note: input.note }),
+          taskId: options.taskId
+        });
+      if (action === "tidy" || action === "finish_tidy") return request({ action });
+      if (action === "merge_requirements")
+        return request({
+          action,
+          from: input.from,
+          into: input.into,
+          expectedRevision: input.expectedRevision,
+          summary: input.summary,
           taskId: options.taskId
         });
       if (action === "board") return client.board(undefined, "GET");

@@ -11,15 +11,18 @@ import type { SqlDatabase, SqlTransaction } from "./database.js";
  * version, without being rewritten. Date/time values are ISO text and booleans
  * are integers so one business query serves both engines.
  */
-export const PROJECT_DATA_SCHEMA_VERSION = 9;
+export const PROJECT_DATA_SCHEMA_VERSION = 10;
 
 /** The title of the requirement every project keeps for changes no feature owns. */
 export const MISC_REQUIREMENT_TITLE = "杂项";
 
 const PROJECT_DATA_SCHEMA: readonly string[] = [
+  // `ledger_tidied_at` is when Main last tidied the ledger; features created
+  // since then count toward the next tidy. Empty until the first one.
   `CREATE TABLE IF NOT EXISTS project_data_projects (
      project_id TEXT PRIMARY KEY,
      project_name TEXT NOT NULL,
+     ledger_tidied_at TEXT,
      created_at TEXT NOT NULL,
      updated_at TEXT NOT NULL
    )`,
@@ -385,8 +388,8 @@ const PROJECT_DATA_SCHEMA: readonly string[] = [
 ];
 
 /**
- * Create this build's schema in one transaction, convert a version 8 database,
- * or refuse a file recorded at a version this build does not know.
+ * Create this build's schema in one transaction, add version 10's tidy mark to
+ * a version 9 database, convert a version 8 database, or refuse a file recorded at a version this build does not know.
  *
  * The version row is written in the same transaction as the tables, so a
  * database is either empty or complete at the current version. A file at an
@@ -406,10 +409,15 @@ export async function migrateProjectData(database: SqlDatabase): Promise<number>
     );
     const version = Number(rows[0]?.version ?? 0);
     if (version === PROJECT_DATA_SCHEMA_VERSION) return version;
-    if (version !== 0 && version !== 8) throw incompatibleVersion(database.label, version);
-    const previous = version === 8 ? await dropVersion8(transaction) : undefined;
-    for (const statement of PROJECT_DATA_SCHEMA) await transaction.execute(statement);
-    if (previous) await writeFromVersion8(transaction, previous);
+    if (version !== 0 && version !== 8 && version !== 9) throw incompatibleVersion(database.label, version);
+    if (version === 9) {
+      // Version 10 only adds the tidy mark; an existing ledger has never been tidied.
+      await transaction.execute("ALTER TABLE project_data_projects ADD COLUMN ledger_tidied_at TEXT");
+    } else {
+      const previous = version === 8 ? await dropVersion8(transaction) : undefined;
+      for (const statement of PROJECT_DATA_SCHEMA) await transaction.execute(statement);
+      if (previous) await writeFromVersion8(transaction, previous);
+    }
     await transaction.execute("INSERT INTO project_data_migrations (version, applied_at) VALUES (?, ?)", [
       PROJECT_DATA_SCHEMA_VERSION,
       now()

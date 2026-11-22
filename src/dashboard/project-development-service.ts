@@ -1833,6 +1833,7 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
           }
         : {}),
       ...(deliveries.length ? { delivery: { state: deliveries.at(-1)!.state } } : {}),
+      ...(merge?.state === "merged" ? { ledgerCreated: (await service.tidyLedger(projectId)).created } : {}),
       retro: {
         signals: retroSignals(reviews, merges),
         recorded: merges.some((entry) => entry.acceptance.retro && !entry.acceptance.retro.auto),

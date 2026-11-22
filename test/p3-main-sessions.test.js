@@ -94,11 +94,11 @@ async function createProject(request, dashboard, name) {
   return created.body.project;
 }
 
-async function requirement(request, projectId, title, content) {
+async function requirement(request, projectId, title, summary) {
   const created = await request(`/api/projects/${encodeURIComponent(projectId)}/ledger`, {
     action: "create",
     title,
-    content
+    summary
   });
   assert.equal(created.status, 201, JSON.stringify(created.body));
   return created.body.requirement;
@@ -202,7 +202,7 @@ test(
     // Finishing a requirement ends that Run; the session stays and takes the next one.
     const delivered = await request(
       `/api/projects/${encodeURIComponent(a.projectId)}/ledger/${encodeURIComponent(first.requirementId)}`,
-      { action: "update", requirementId: first.requirementId, expectedRevision: 1, status: "delivered" }
+      { action: "update", requirementId: first.requirementId, expectedRevision: 1, history: "登录改造已交付" }
     );
     assert.equal(delivered.status, 200, JSON.stringify(delivered.body));
     const next = await requirement(request, a.projectId, "导出月度报表", "管理员每月导出一次。");
@@ -443,7 +443,7 @@ for (const engine of PROJECT_DATA_ENGINES) {
     const b = await createProject(request, f, `other-${engine}`);
     const info = await request("/api/project-data");
     assert.equal(info.status, 200);
-    assert.equal(info.body.schemaVersion, 8);
+    assert.equal(info.body.schemaVersion, 10);
     const opened = await openService(f, engine, info.body);
     t.after(() => opened.close());
 
@@ -458,7 +458,7 @@ for (const engine of PROJECT_DATA_ENGINES) {
       });
     const requirement = await opened.service.createRequirement(a.projectId, {
       title: "共享需求",
-      content: "两种引擎都一样。"
+      summary: "两种引擎都一样。"
     });
     const created = await opened.service.createMainSession(a.projectId, {
       title: "外部接续会话",
