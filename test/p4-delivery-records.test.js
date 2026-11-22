@@ -452,7 +452,7 @@ for (const engine of PROJECT_DATA_ENGINES) {
       assert.equal(backup.counts.project_data_deliveries, 2);
       assert.equal(backup.counts.project_data_board_entries, 2);
       const snapshot = JSON.parse(await readFile(backupPath, "utf8"));
-      assert.equal(snapshot.version, 8);
+      assert.equal(snapshot.version, 9);
       assert.equal(
         snapshot.tables.project_data_board_entries.find((entry) => entry.board_id === boardId)
           .delivery_commit,

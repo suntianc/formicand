@@ -18,6 +18,7 @@ const feature = (requirementId, title, summary, extra = {}) => ({
   kind: "feature",
   status: "active",
   title,
+  description: "",
   aliases: [],
   summary,
   history: [],
@@ -78,9 +79,19 @@ test("a large ledger leaves out the catalog only when one feature is likely", ()
   assert.equal(likely.verdict, "likely");
   assert.equal(likely.catalog, undefined);
   assert.equal(lookupRequirements(many, "添加时间").catalog.length, many.length);
-  // The catalog keeps the summary's first 100 characters only.
-  const long = lookupRequirements([feature("r", "长", "字".repeat(300))], "无关");
-  assert.equal(long.catalog[0].summary.length, 100);
+  // The catalog tells features apart by title and description, not by their rules.
+  const described = lookupRequirements(
+    [feature("r", "导出", "列只能往后加。", { description: "把条目导出成 CSV。" })],
+    "无关"
+  );
+  assert.deepEqual(described.catalog[0], {
+    requirementId: "r",
+    kind: "feature",
+    status: "active",
+    title: "导出",
+    aliases: [],
+    description: "把条目导出成 CSV。"
+  });
 });
 
 async function openLedger(t) {

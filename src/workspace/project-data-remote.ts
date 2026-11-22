@@ -28,7 +28,9 @@ import type {
   DevelopmentCreate,
   DevelopmentUpdate,
   MergeConfigInput,
+  LedgerTidy,
   RequirementCreate,
+  RequirementMerge,
   RequirementQuery,
   RequirementUpdate
 } from "./project-data-service.js";
@@ -225,6 +227,25 @@ export class RemoteProjectDataService implements ProjectDataGateway {
       body: { action: "lookup", request }
     });
     return result.lookup as LookupResult;
+  }
+
+  async tidyLedger(projectId: unknown): Promise<LedgerTidy> {
+    const result = await this.request(projectPath(projectId, "/ledger"), { body: { action: "tidy" } });
+    return result.tidy as LedgerTidy;
+  }
+
+  async finishLedgerTidy(projectId: unknown): Promise<{ tidiedAt: string }> {
+    const result = await this.request(projectPath(projectId, "/ledger"), {
+      body: { action: "finish_tidy" }
+    });
+    return { tidiedAt: result.tidiedAt as string };
+  }
+
+  async mergeRequirements(projectId: unknown, input: RequirementMerge): Promise<RequirementDetail> {
+    const result = await this.request(projectPath(projectId, "/ledger"), {
+      body: { action: "merge_requirements", ...input }
+    });
+    return result.requirement as RequirementDetail;
   }
 
   /**

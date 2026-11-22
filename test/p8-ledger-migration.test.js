@@ -200,7 +200,7 @@ for (const engine of PROJECT_DATA_ENGINES) {
       dataRoot: legacy.dataRoot
     });
     const service = await runtime.service();
-    assert.equal(service.description.schemaVersion, 9);
+    assert.equal(service.description.schemaVersion, 10);
 
     const requirements = await service.queryRequirements(project);
     assert.deepEqual(requirements.map((entry) => [entry.kind, entry.title, entry.status]).sort(), [
@@ -213,6 +213,7 @@ for (const engine of PROJECT_DATA_ENGINES) {
     // retracted decision and the delivery become history lines.
     const exported = await service.getRequirement(project, "requirement_export");
     assert.equal(exported.summary, "export 输出 CSV。\n- 列只能往后加。");
+    assert.equal(exported.description, "export 输出 CSV。");
     assert.deepEqual(
       exported.history.map((entry) => [entry.day, entry.text]),
       [

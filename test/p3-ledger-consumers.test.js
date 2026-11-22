@@ -103,10 +103,13 @@ test("the Main tool reads and writes only the current project through the produc
     await tool.execute({
       action: "create",
       title: "登录记住设备",
+      description: "登录时记住用过的设备。",
       summary: "同一台设备 30 天内不再验证。",
       sourceKind: "internal"
     })
   );
+  // A feature is recorded with what it is, so later lookups can tell features apart.
+  await assert.rejects(tool.execute({ action: "create", title: "没有描述" }), /description/);
   assert.equal(created.requirement.projectId, f.a.projectId);
   assert.equal(created.requirement.source.kind, "internal");
   assert.deepEqual(

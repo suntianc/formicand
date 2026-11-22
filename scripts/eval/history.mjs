@@ -8,12 +8,13 @@
  * (`repoFiles`); nothing in a task's prompt names a rule.
  */
 
-/** @typedef {{ title: string, summary: string, history: string[], status?: "active" | "retired" }} Feature */
+/** @typedef {{ title: string, description: string, summary: string, history: string[], status?: "active" | "retired" }} Feature */
 
 /** @type {Feature[]} */
 export const history = [
   {
     title: "列表显示",
+    description: "list 命令怎么把条目一行一行显示出来。",
     summary: [
       "list 每行是 [x]/[ ] 编号. 标题 #标签。",
       "行末的附加信息统一写成方括号 [<字段名> <值>]，比如 [due 2026-01-02]；多个时用一个空格隔开。",
@@ -27,17 +28,20 @@ export const history = [
   },
   {
     title: "分页与排序",
+    description: "list 的分页和按字段排序。",
     summary:
       "list 支持 --page 和 --size，默认每页 10 条，--size 最大 100，超过按 100 算，末尾显示 page N/M。--sort id|title，标题用普通字符串比较，不做拼音排序。",
     history: ["2025-09-10 加分页", "2025-10-03 加按标题排序"]
   },
   {
     title: "搜索",
+    description: "search 命令按关键字找条目。",
     summary: "search 只匹配标题，不区分大小写，不匹配标签。",
     history: ["2025-09-18 首次交付", "2025-12-01 改为不区分大小写"]
   },
   {
     title: "导出给财务的 CSV",
+    description: "export 命令把条目导出成 CSV，给财务用。",
     summary: [
       "export 按 CSV 输出全部条目，现在的列是 id,title,done,tags。",
       "财务每周用脚本按列的位置把导出结果读进他们的表格：以后加列只能追加在最后一列后面，不能插到中间，已有列名也不能改。",
@@ -50,6 +54,7 @@ export const history = [
   },
   {
     title: "数据文件",
+    description: "条目存放在哪个 JSON 文件里、文件怎么写、字段怎么命名。",
     summary: [
       "数据默认存在当前目录的 todo.json；环境变量 TODO_FILE 指定路径，组里大家在共享盘上指向同一个文件。",
       "JSON 用两个空格缩进，末尾留一个换行。",
@@ -60,42 +65,50 @@ export const history = [
   },
   {
     title: "错误输出",
+    description: "命令出错时怎么报告错误。",
     summary: "命令出错时错误写到 stderr，格式 error: <说明>，退出码 1。",
     history: ["2025-09-25 统一错误输出"]
   },
   {
     title: "条目标题",
+    description: "条目标题的填写要求。",
     summary: "标题必填，最长 200 个字符，超过时报错，不截断。",
     history: ["2025-11-02 加长度限制"]
   },
   {
     title: "标签",
+    description: "给条目加标签。",
     summary: "add --tag 给条目加标签；标签只允许字母、数字和中划线。",
     history: ["2025-09-05 首次交付", "2025-12-12 限定标签字符"]
   },
   {
     title: "完成条目",
+    description: "done 命令把条目标为完成。",
     summary: "done <编号> 把条目标为完成。计划让 done 一次接受多个编号（done 1 3 5），还没做。",
     history: ["2025-09-02 首次交付"]
   },
   {
     title: "优先级",
+    description: "给条目分优先级。",
     summary: "条目分高、中、低三档，还没开始做。",
     history: ["2026-02-20 用户提出"]
   },
   {
     title: "归档已完成条目",
+    description: "把已完成的条目移出主列表另存。",
     summary: "archive 把已完成的条目移到另一个文件，还没开始做。",
     history: ["2026-02-25 用户提出"]
   },
   {
     title: "从 CSV 导入",
+    description: "从 CSV 文件导入条目。",
     summary: "不做：大家直接共用一个数据文件，不需要导入。",
     history: ["2025-11-15 讨论后停用"],
     status: "retired"
   },
   {
     title: "到期提醒",
+    description: "条目快到期时提醒用户。",
     summary: "不做系统通知。",
     history: ["2026-01-20 讨论后停用"],
     status: "retired"
@@ -137,6 +150,7 @@ export const repoFiles = {
  */
 export const createdFeature = {
   title: "创建日期",
+  description: "记下每个条目的创建日期，并在 list 和 export 里显示。",
   summary: [
     "add 时记下创建日期，字段 created，格式 YYYY-MM-DD，取 TODO_TODAY 或系统当天；list 行末显示 [created <日期>]，export 在最后一列加 created。",
     "共享盘上的老条目没有创建日期：按日期筛选时这些老条目一律保留，不能被筛掉，大家还要看到它们。"
@@ -151,6 +165,7 @@ export const createdFeature = {
  */
 export const duplicateFeature = {
   title: "CSV 列",
+  description: "export 导出的 CSV 有哪些列。",
   summary: "export 输出的 CSV 列：id,title,done,tags；表头行固定在第一行，不能省略。",
   history: ["2026-02-28 把表头行固定下来"]
 };
@@ -182,7 +197,12 @@ export async function seedLedger(post, entries = history) {
       });
       continue;
     }
-    let { requirement } = await post({ action: "create", title: entry.title, summary: entry.summary });
+    let { requirement } = await post({
+      action: "create",
+      title: entry.title,
+      description: entry.description,
+      summary: entry.summary
+    });
     for (const line of entry.history)
       ({ requirement } = await post({
         action: "update",

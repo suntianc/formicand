@@ -6,7 +6,7 @@
  * is asked. English is split into words and Chinese into overlapping
  * two-character pieces, with single characters worth half; each piece is
  * scored by BM25, so a piece most requirements share ("功能", "支持") counts
- * little. Title and aliases weigh fully, summary and history at 0.6.
+ * little. Title, description and aliases weigh fully, summary and history at 0.6.
  *
  * The result is a short candidate list and a verdict: one requirement is
  * likely, several look alike, or none fits. Main settles the last two from the
@@ -19,6 +19,7 @@ export interface LookupEntry {
   kind: RequirementKind;
   status: RequirementStatus;
   title: string;
+  description: string;
   aliases: string[];
   summary: string;
   history: string[];
@@ -40,8 +41,8 @@ export interface CatalogEntry {
   status: RequirementStatus;
   title: string;
   aliases: string[];
-  /** The summary's opening. */
-  summary: string;
+  /** What the feature is: with the title, enough to tell features apart. */
+  description: string;
 }
 
 export interface LookupResult {
@@ -59,11 +60,12 @@ const CHARACTER_WEIGHT = 0.5;
 const CANDIDATES = 5;
 /** Up to this many requirements, the catalog comes even with a likely match. */
 const SMALL_LEDGER = 30;
-const CATALOG_SUMMARY = 100;
 /** The share of the request's known pieces the top candidate must hold to be likely. */
 const LIKELY_COVERAGE = 0.5;
 /** And how far ahead of the next one it must be. */
-const LIKELY_LEAD = 1.5;
+const LIKELY_LEAD = 2;
+/** And how many of the request's words and pieces it must share: one shared word is a coincidence. */
+const LIKELY_MATCHES = 2;
 /** Below this share, nothing fits. */
 const NONE_COVERAGE = 0.2;
 
@@ -110,19 +112,19 @@ function documentOf(entry: LookupEntry): Document {
       length += weight;
     }
   };
-  for (const text of [entry.title, ...entry.aliases]) add(text, MAIN_WEIGHT);
+  for (const text of [entry.title, entry.description, ...entry.aliases]) add(text, MAIN_WEIGHT);
   for (const text of [entry.summary, ...entry.history]) add(text, BODY_WEIGHT);
   return { entry, frequency, length };
 }
 
-function catalogOf(entries: LookupEntry[]): CatalogEntry[] {
+export function catalogOf(entries: LookupEntry[]): CatalogEntry[] {
   return entries.map((entry) => ({
     requirementId: entry.requirementId,
     kind: entry.kind,
     status: entry.status,
     title: entry.title,
     aliases: entry.aliases,
-    summary: [...entry.summary].slice(0, CATALOG_SUMMARY).join("")
+    description: entry.description
   }));
 }
 
@@ -180,7 +182,9 @@ export function lookupRequirements(entries: LookupEntry[], request: string): Loo
   const verdict: LookupVerdict =
     !top || top.coverage < NONE_COVERAGE
       ? "none"
-      : top.coverage >= LIKELY_COVERAGE && (!next || top.score >= next.score * LIKELY_LEAD)
+      : top.coverage >= LIKELY_COVERAGE &&
+          top.matched.length >= LIKELY_MATCHES &&
+          (!next || top.score >= next.score * LIKELY_LEAD)
         ? "likely"
         : "several";
   const candidates = scored.slice(0, CANDIDATES).map((item) => ({

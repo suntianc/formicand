@@ -625,6 +625,9 @@
               "get",
               "create",
               "update",
+              "tidy",
+              "merge_requirements",
+              "finish_tidy",
               "board",
               "claim_board",
               "pause_board",
@@ -651,6 +654,18 @@
             "maxLength": 300,
             "description": "context/get/update target."
           },
+          "from": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300,
+            "description": "merge_requirements: the duplicate folded away and deleted."
+          },
+          "into": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300,
+            "description": "merge_requirements: the requirement that stays."
+          },
           "boardId": {
             "type": "string",
             "minLength": 1,
@@ -665,16 +680,21 @@
           "expectedRevision": {
             "type": "integer",
             "minimum": 1,
-            "description": "The revision returned by the last read; a stale value is refused."
+            "description": "The revision returned by the last read (merge_requirements: of into); a stale value is refused."
           },
           "title": {
             "type": "string",
             "maxLength": 200
           },
+          "description": {
+            "type": "string",
+            "maxLength": 200,
+            "description": "create (required)/update: what the feature is, in a sentence or two, without its rules or history."
+          },
           "summary": {
             "type": "string",
             "maxLength": 20000,
-            "description": "How the feature behaves now and the rules it keeps; update replaces it whole."
+            "description": "How the feature behaves now and the rules it keeps; update and merge_requirements replace it whole."
           },
           "aliases": {
             "type": "array",

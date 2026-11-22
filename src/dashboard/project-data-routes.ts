@@ -331,6 +331,20 @@ export async function handleProjectDataRequest(
       return reply(response, 200, {
         lookup: await service.lookupRequirements(project.projectId, body.request)
       });
+    case "tidy":
+      return reply(response, 200, { tidy: await service.tidyLedger(project.projectId) });
+    case "finish_tidy":
+      return reply(response, 200, await service.finishLedgerTidy(project.projectId));
+    case "merge_requirements":
+      return reply(response, 200, {
+        requirement: await service.mergeRequirements(project.projectId, {
+          from: body.from,
+          into: body.into,
+          expectedRevision: body.expectedRevision,
+          summary: body.summary,
+          taskId: body.taskId
+        })
+      });
     case "context":
       if (!requirementId) throw new HttpError(400, "context 需要 requirementId");
       return reply(response, 200, {
@@ -345,6 +359,7 @@ export async function handleProjectDataRequest(
       return reply(response, 201, {
         requirement: await service.createRequirement(project.projectId, {
           title: body.title,
+          description: body.description,
           summary: body.summary,
           aliases: body.aliases,
           source: body.source,
@@ -357,6 +372,7 @@ export async function handleProjectDataRequest(
         requirement: await service.updateRequirement(project.projectId, requirementId, {
           expectedRevision: body.expectedRevision,
           title: body.title,
+          description: body.description,
           summary: body.summary,
           aliases: body.aliases,
           history: body.history,
