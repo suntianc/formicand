@@ -5,23 +5,25 @@ description: Which flow and which skills fit a task, and how to delegate work to
 
 # Task routing
 
-Before stating what a skill does or skipping one of its steps, load it: the summaries here are for orientation only.
+Load a skill before stating what it does or skipping a step: these summaries only orient.
 
 ## A requirement: the main flow
 
-A requirement is a feature, fix or change of behaviour the user wants in a Git project. Load `requirement-delivery`: the program carries the work in a development record, even for a small change (its `quick` route is you editing and checking alone, and the program records and merges). Never change the user's working tree for a requirement.
+A requirement is a feature, fix or change of behaviour the user wants in a Git project. Load `requirement-delivery`: the program carries the work in a development record, even for a small change (its `quick` route is you editing and checking alone). Never change the user's working tree for a requirement.
 
-The method runs along these skills, each naming the next:
+Before any question or design, `project_ledger lookup` the user's own words and settle which feature owns it: an existing one, even named differently; misc for a change no feature owns; a new feature only when none fits. Then read its `context`: the summary holds the rules the change must keep.
 
-1. **`grill-with-docs`** settles the open questions on the goal, scope and acceptance by interview, and records the project's terms and decisions. Skip it when the request already settles them.
+The method runs along these skills:
+
+1. **`grill-with-docs`** interviews to settle open questions on goal, scope and acceptance, and records the project's terms; a decision hard to reverse becomes an ADR in the development's first commit. Skip it when the request settles them.
 2. On the `full` route, **`to-spec`** turns the outcome into a spec, then **`to-tickets`** splits it into tickets.
-3. **`implement`** builds each ticket, driving **`tdd`** and closing with a self-review by **`code-review`**. An Executor runs it on a ticket; you run it yourself on the `quick` route.
+3. **`implement`** builds each ticket, driving **`tdd`** and closing with a self-review by **`code-review`**. An Executor runs it per ticket; on `quick`, you do.
 4. On the `direct` and `full` routes, an independent Reviewer reviews with **`code-review`**.
-5. Before the last merge, **`retro`** turns what the requirement taught into environment improvements and pitfalls.
+5. Before the last merge, **`retro`** turns its lessons into environment improvements and pitfalls.
 
 ## Something is broken
 
-A bug report, a failing test or wrong behaviour: load **`diagnosing-bugs`** before theorising. It builds a loop that goes red on this bug first, then fixes with a regression test. Diagnosing alone is an investigation; once the fix changes the code, it is a requirement, usually on the `quick` route.
+A bug report, failing test or wrong behaviour: load **`diagnosing-bugs`** before theorising. It reproduces the bug first, then fixes it with a regression test. Diagnosing alone is an investigation; once the fix changes the code, it is a requirement, usually on the `quick` route.
 
 ## The words underneath
 
@@ -30,16 +32,16 @@ A bug report, a failing test or wrong behaviour: load **`diagnosing-bugs`** befo
 
 ## Everything else
 
-Questions, investigations, documents, one-off scripts and file handling need no record. Do them yourself, delegating as below when it pays. When unsure, a change to code or behaviour the user will keep is a requirement.
+Questions, investigations, documents, one-off scripts and file handling need no record; do them yourself, delegating when it pays. When unsure, a change to code or behaviour the user will keep is a requirement.
 
 ## Delegating
 
-- Each collaborator costs extra time and money. Do simple tasks, single-file edits and work that needs continuity yourself; delegate independent work that can run in parallel, or work that needs a clean context or an independent judgment.
-- One delegation is one clear result that can be checked on its own. Brief it as a colleague who has not seen this conversation: the goal, the scope, the question to answer, the input paths, what to hand back and how to tell it is right. Do not forward the user's broad request as it is.
-- `call_subagent` returns a callId at once and the result arrives as a callback. Keep doing work that does not depend on it, or end the turn; use `wait_for_subagents` only when this turn needs the result.
-- Send independent delegations in the same turn. When one needs another's result, declare `dependsOn` rather than waiting and sending it yourself.
-- Do not let two collaborators repeat the same work or edit the same file. When two need to exchange findings, give each the other's callId; they use `send_peer_message`.
-- For a costly or risky result, add one independent check: `role=reviewer` with the candidate and its evidence, never the executor's own account. Skip it for simple tasks.
-- A collaborator's "succeeded" means it finished running. Check its conclusions, paths, commands and tests before you use them. To change its direction while it runs, use `send_subagent_message`.
-- A collaborator's question arrives with a `questionId` and blocks it until answered or timed out. Answer once and promptly with `send_subagent_message`, passing the callId and questionId. After a timeout it goes on with the assumption it stated, so judge its result by that.
-- Call collaborators by their `name` when talking to the user.
+- Each collaborator costs time and money. Do simple tasks, single-file edits and work that needs continuity yourself; delegate independent work that can run in parallel, or that needs a clean context or an independent judgment.
+- One delegation is one result checkable on its own. Brief it as a colleague who has not seen this conversation: goal, scope, question, input paths, what to hand back and how to tell it is right; never forward the user's broad request as is.
+- `call_subagent` returns a callId at once; the result arrives as a callback. Keep doing other work or end the turn; `wait_for_subagents` only when this turn needs the result.
+- Send independent delegations in one turn; when one needs another's result, declare `dependsOn` instead of waiting.
+- Never let two collaborators repeat work or edit the same file. To exchange findings, give each the other's callId; they use `send_peer_message`.
+- For a costly or risky result, add one independent check: `role=reviewer` with the candidate and its evidence, not the executor's account. Skip it for simple tasks.
+- A collaborator's "succeeded" means it finished running: check its conclusions, paths, commands and tests before use. To redirect it while it runs, use `send_subagent_message`.
+- A collaborator's question carries a `questionId` and blocks it until answered or timed out. Answer once, promptly, with `send_subagent_message` (callId and questionId). After a timeout it goes on with the assumption it stated; judge its result by that.
+- Call collaborators by `name` when talking to the user.

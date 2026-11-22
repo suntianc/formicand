@@ -7,7 +7,7 @@ description: Develop a requirement in the user's Git project through an isolated
 
 `project_development` keeps the record, tickets, reviews and merge; every result carries `next`, the step the program expects. Follow it.
 
-Start with `find_by_requirement` and continue an existing record rather than create another. Work happens in the record's checkout, never the user's working tree.
+The requirement is the feature `project_ledger lookup` settled. Start with `find_by_requirement` and continue its active record rather than create another; `create` takes `request`, the user's own words. Work happens in the record's checkout, never the user's working tree.
 
 The method itself lives in the skills `task-routing` names (`grill-with-docs`, `to-spec`, `to-tickets`, `implement`, `code-review`); this skill covers how the program carries it and the judgments the program cannot make.
 
@@ -47,6 +47,10 @@ A ticket, and the requirement's own review, get two rework rounds; then the prog
 - `deliver_partial`: deliver what is done, after dismissing what stays unfixed as `deferred`.
 
 Decide these yourself.
+
+## The ledger at merge
+
+`request_merge` carries `ledger`. Rewrite the whole summary as the feature now behaves and the rules it keeps, adding the rules this work settled and dropping the ones it replaced; the next developer reads only this. The history line says what changed in a sentence.
 
 ## Reporting
 
