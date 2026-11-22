@@ -40,6 +40,7 @@ import type { DevelopmentMerge, MergeCreate } from "../domain/development-merge.
 import type { DevelopmentDelivery } from "../domain/development-delivery.js";
 import type { MainSessionRun } from "../domain/main-session.js";
 import type { RequirementDetail, RequirementSummary, SharedProject } from "../domain/project-ledger.js";
+import type { LookupResult } from "../domain/ledger-lookup.js";
 
 export interface RemoteProjectDataOptions {
   /** The authority's origin, without a path. */
@@ -217,6 +218,13 @@ export class RemoteProjectDataService implements ProjectDataGateway {
       body: { action: "query", q: query.text, status: query.status, limit: query.limit }
     });
     return (result.requirements as RequirementSummary[] | undefined) ?? [];
+  }
+
+  async lookupRequirements(projectId: unknown, request: unknown): Promise<LookupResult> {
+    const result = await this.request(projectPath(projectId, "/ledger"), {
+      body: { action: "lookup", request }
+    });
+    return result.lookup as LookupResult;
   }
 
   /**

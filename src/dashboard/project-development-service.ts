@@ -351,6 +351,7 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
     });
     const record = await service.createDevelopment(projectId, {
       requirementId,
+      request: input.request,
       goal: input.goal,
       completionCriteria: input.completionCriteria,
       route: input.route,

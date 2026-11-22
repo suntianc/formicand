@@ -229,10 +229,13 @@ export function ledgerAlias(value: unknown): string {
   return boundedText(value, "别名", 100);
 }
 
+/** The most aliases one requirement keeps. */
+export const ALIAS_LIMIT = 20;
+
 export function ledgerAliases(value: unknown): string[] {
   if (value === undefined || value === null) return [];
-  if (!Array.isArray(value) || value.length > 20)
-    throw new ProjectDataInvalidError("别名须为不超过 20 个的数组");
+  if (!Array.isArray(value) || value.length > ALIAS_LIMIT)
+    throw new ProjectDataInvalidError(`别名须为不超过 ${ALIAS_LIMIT} 个的数组`);
   return [...new Set(value.map(ledgerAlias))];
 }
 
@@ -274,4 +277,9 @@ export function ledgerSearchText(value: unknown): string | undefined {
   if (value === undefined || value === null || value === "") return undefined;
   const text = boundedText(value, "查询内容", 200);
   return text;
+}
+
+/** The user's own words, as `lookup` and a new development take them. */
+export function ledgerRequestText(value: unknown): string {
+  return boundedText(value, "用户原话", 2000);
 }

@@ -1,6 +1,8 @@
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import {
+  ALIAS_LIMIT,
+  ledgerAlias,
   ledgerAliases,
   ledgerHistoryText,
   ledgerIdentifier,
@@ -9,6 +11,7 @@ import {
   ledgerProjectId,
   ledgerProjectName,
   ledgerReferences,
+  ledgerRequestText,
   ledgerRevision,
   ledgerSearchText,
   ledgerSource,
@@ -123,6 +126,7 @@ import {
 } from "../storage/project-data/config.js";
 import type { SqlDatabase, SqlTransaction } from "../storage/project-data/database.js";
 import { insertMiscRequirement } from "../storage/project-data/migrations.js";
+import { lookupRequirements, type LookupEntry, type LookupResult } from "../domain/ledger-lookup.js";
 import { ProjectBoardRepository } from "./project-board.js";
 import { ProjectDeliveryRepository } from "./project-delivery.js";
 import { RemoteProjectDataService } from "./project-data-remote.js";
@@ -341,6 +345,8 @@ export interface RequirementUpdate {
 
 export interface DevelopmentCreate {
   requirementId?: unknown;
+  /** The user's own words for the feature; kept as an alias when lookup would not have found it. */
+  request?: unknown;
   goal?: unknown;
   completionCriteria?: unknown;
   route?: unknown;
@@ -405,6 +411,8 @@ export interface ProjectDataGateway {
   ): Promise<RequirementDetail>;
   getRequirement(projectId: unknown, requirementId: unknown): Promise<RequirementDetail>;
   queryRequirements(projectId: unknown, query?: RequirementQuery): Promise<RequirementSummary[]>;
+  /** Which feature the user's own words are about; see `lookupRequirements`. */
+  lookupRequirements(projectId: unknown, request: unknown): Promise<LookupResult>;
   // Persistent Main sessions are business facts too: a secondary backend writes
   // them through this surface, never through SQL or a transaction callback.
   createMainSession(
@@ -1211,6 +1219,39 @@ export class ProjectDataRepository {
     return rows.map((row) => this.summaryOf(row, aliases, references));
   }
 
+  async lookup(projectIdValue: unknown, requestValue: unknown): Promise<LookupResult> {
+    const projectId = ledgerProjectId(projectIdValue);
+    await this.requireProject(projectId);
+    return lookupRequirements(await this.lookupEntries(projectId), ledgerRequestText(requestValue));
+  }
+
+  /** Every requirement with the text lookup scores, oldest first. */
+  private async lookupEntries(projectId: string): Promise<LookupEntry[]> {
+    const rows = await this.transaction.query<RequirementRow>(
+      "SELECT * FROM project_data_requirements WHERE project_id = ? ORDER BY created_at ASC, requirement_id ASC",
+      [projectId]
+    );
+    const aliases = await this.aliases(
+      projectId,
+      rows.map((row) => row.requirement_id)
+    );
+    const history = new Map<string, string[]>();
+    for (const row of await this.transaction.query<HistoryRow & { requirement_id: string }>(
+      "SELECT * FROM project_data_requirement_history WHERE project_id = ? ORDER BY day ASC, created_at ASC, entry_id ASC",
+      [projectId]
+    ))
+      history.set(row.requirement_id, [...(history.get(row.requirement_id) ?? []), row.text]);
+    return rows.map((row) => ({
+      requirementId: row.requirement_id,
+      kind: row.kind as RequirementKind,
+      status: row.status as RequirementStatus,
+      title: row.title,
+      aliases: (aliases.get(row.requirement_id) ?? []).map((alias) => alias.alias),
+      summary: row.summary,
+      history: history.get(row.requirement_id) ?? []
+    }));
+  }
+
   /**
    * A project's persistent Main sessions.
    *
@@ -1512,6 +1553,8 @@ export class ProjectDataRepository {
       input.taskId === undefined || input.taskId === null
         ? undefined
         : ledgerIdentifier(input.taskId, "Task ID");
+    const request =
+      input.request === undefined || input.request === null ? undefined : ledgerAlias(input.request);
     const timestamp = now();
     const developmentId = id("development");
     await this.transaction.execute(
@@ -1536,7 +1579,29 @@ export class ProjectDataRepository {
         timestamp
       ]
     );
+    if (request) await this.learnAlias(projectId, requirementId, developmentId, request, timestamp);
     return developmentOf(await this.requireDevelopment(projectId, developmentId));
+  }
+
+  /**
+   * Keep the user's words as an alias of the feature when lookup would not
+   * have put this requirement first with confidence, so the same words find it
+   * next time. The alias names the development it came from.
+   */
+  private async learnAlias(
+    projectId: string,
+    requirementId: string,
+    developmentId: string,
+    request: string,
+    timestamp: string
+  ): Promise<void> {
+    const entries = await this.lookupEntries(projectId);
+    const result = lookupRequirements(entries, request);
+    if (result.verdict === "likely" && result.candidates[0]?.requirementId === requirementId) return;
+    const entry = entries.find((item) => item.requirementId === requirementId)!;
+    const known = [entry.title, ...entry.aliases].map((text) => text.toLowerCase());
+    if (known.includes(request.toLowerCase()) || entry.aliases.length >= ALIAS_LIMIT) return;
+    await this.insertAlias(projectId, requirementId, request, developmentId, timestamp);
   }
 
   /** A newer revision replaces goal, criteria or route; a stale one is refused. */
@@ -2549,6 +2614,9 @@ export class ProjectDataService implements ProjectDataGateway {
   }
   queryRequirements(projectId: unknown, query: RequirementQuery = {}) {
     return this.transaction((repository) => repository.query(projectId, query));
+  }
+  lookupRequirements(projectId: unknown, request: unknown) {
+    return this.transaction((repository) => repository.lookup(projectId, request));
   }
   createMainSession(projectId: unknown, input: Parameters<ProjectDataRepository["createMainSession"]>[1]) {
     return this.transaction((repository) => repository.createMainSession(projectId, input));
