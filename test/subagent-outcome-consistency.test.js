@@ -3,9 +3,11 @@ import { once } from "node:events";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { hostname, tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { spawn } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import { test } from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
+import { AgentProcessHost } from "../dist/src/runtime/agent-process.js";
+import { SubagentDispatchService } from "../dist/src/runtime/subagent-dispatch.js";
 import { CoordinatorRuntime } from "../dist/src/runtime/coordinator-runtime.js";
 import { DurableScheduler, InboxStore } from "../dist/src/runtime/scheduler.js";
 import { SubagentProcessService } from "../dist/src/runtime/subagent-processes.js";
@@ -252,4 +254,109 @@ test("a launch whose item was cancelled while it prepared starts nothing", async
   await service.launch(claimed, claimed.payload, claimed.lease.token);
   const processFile = join(runRoot, "agents", "subagents", "subagent_1", "process.json");
   await assert.rejects(readFile(processFile, "utf8"), { code: "ENOENT" });
+});
+
+test("cancellation acknowledged before the host launches never delivers the prompt", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "p46-cancel-at-spawn-"));
+  const workspaceRoot = join(root, "workspace");
+  const run = { taskId: TASK_ID, runId: RUN_ID };
+  const runRoot = join(workspaceRoot, TASK_ID, "runs", RUN_ID);
+  const marker = join(root, "prompt");
+  await mkdir(join(root, "scripts"));
+  await writeFile(
+    join(root, "scripts", "start-pi.mjs"),
+    `import { writeFile } from "node:fs/promises"; let prompt = ""; for await (const part of process.stdin) prompt += part; await writeFile(process.env.PROMPT_MARKER, prompt);`
+  );
+  const dispatch = new SubagentDispatchService({
+    workspaceRoot,
+    harnessRoot: root,
+    env: async () => ({ env: { PROMPT_MARKER: marker } })
+  });
+  t.after(async () => {
+    dispatch.close();
+    await rm(root, { recursive: true, force: true });
+  });
+  const scheduler = new DurableScheduler(join(runRoot, "queue.json"));
+  await scheduler.enqueue({
+    ...run,
+    stepId: CALL_ID,
+    agentId: "subagent_1",
+    importance: "normal",
+    payload: { task: "write the result", projectDirectory: root }
+  });
+  const entered = Promise.withResolvers();
+  const resume = Promise.withResolvers();
+  const launch = AgentProcessHost.prototype.launch;
+  t.mock.method(AgentProcessHost.prototype, "launch", async function (input) {
+    entered.resolve();
+    await resume.promise;
+    return launch.call(this, input);
+  });
+  const starting = dispatch.maintain(run);
+  try {
+    await entered.promise;
+    assert.equal((await dispatch.cancel({ ...run, callId: CALL_ID })).status, "cancelled");
+  } finally {
+    resume.resolve();
+    await starting;
+  }
+  assert.deepEqual(
+    (await new InboxStore(join(runRoot, "agents", "main", "inbox-store.json")).list("main")).map(
+      (message) => message.payload.status
+    ),
+    ["cancelled"]
+  );
+  await assert.rejects(readFile(join(runRoot, "agents", "subagents", "subagent_1", "process.json")), {
+    code: "ENOENT"
+  });
+  await assert.rejects(readFile(marker), { code: "ENOENT" });
+});
+
+test("a Reviewer startup failure releases the checkout even without a process record", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "p46-review-env-failure-"));
+  const repository = join(root, "repo");
+  const checkout = join(root, "review");
+  await mkdir(repository);
+  const git = (...args) => execFileSync("git", ["-C", repository, ...args], { encoding: "utf8" }).trim();
+  git("init", "-q");
+  git(
+    "-c",
+    "user.name=fixture",
+    "-c",
+    "user.email=fixture@example.test",
+    "commit",
+    "--allow-empty",
+    "-qm",
+    "candidate"
+  );
+  const workspaceRoot = join(root, "workspace");
+  const run = { taskId: TASK_ID, runId: RUN_ID };
+  const scheduler = new DurableScheduler(join(workspaceRoot, TASK_ID, "runs", RUN_ID, "queue.json"));
+  await scheduler.enqueue({
+    ...run,
+    stepId: CALL_ID,
+    agentId: "subagent_1",
+    importance: "normal",
+    payload: {
+      task: "review",
+      delegation: { role: "reviewer" },
+      projectDirectory: repository,
+      reviewSite: { repository, directory: checkout, commit: git("rev-parse", "HEAD") }
+    }
+  });
+  const dispatch = new SubagentDispatchService({
+    workspaceRoot,
+    harnessRoot: root,
+    env: async () => {
+      throw new Error("model configuration unavailable");
+    }
+  });
+  t.after(async () => {
+    dispatch.close();
+    await rm(root, { recursive: true, force: true });
+  });
+  await dispatch.maintain(run);
+  assert.equal((await scheduler.list())[0].status, "failed");
+  assert.equal(git("worktree", "list", "--porcelain").includes(checkout), false);
+  await assert.rejects(readFile(join(checkout, ".git")), { code: "ENOENT" });
 });

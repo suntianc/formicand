@@ -58,6 +58,7 @@ async function fixture(t) {
     state: "merged",
     executionBackendId: BACKEND,
     receipt: { ...RECEIPT },
+    acceptance: { channel: "self", approvedCommit: RECEIPT.candidateCommit, approvedTree: "3".repeat(40) },
     revision: 3,
     updatedAt: RECEIPT.mergedAt
   };

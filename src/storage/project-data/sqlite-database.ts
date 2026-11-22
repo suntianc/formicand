@@ -68,9 +68,12 @@ export class SqliteDatabase implements SqlDatabase {
   }
 
   /** One writer queue: a transaction runs from BEGIN to COMMIT without another interleaving. */
-  transaction<T>(action: (transaction: SqlTransaction) => Promise<T>): Promise<T> {
+  transaction<T>(
+    action: (transaction: SqlTransaction) => Promise<T>,
+    mode: "read" | "write" = "write"
+  ): Promise<T> {
     const run = this.queue.then(async () => {
-      this.database.exec("BEGIN IMMEDIATE");
+      this.database.exec(mode === "read" ? "BEGIN" : "BEGIN IMMEDIATE");
       try {
         const result = await action(this);
         this.database.exec("COMMIT");

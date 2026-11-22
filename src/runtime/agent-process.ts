@@ -6,6 +6,7 @@ import { dirname, join, resolve } from "node:path";
 import { atomicWrite } from "../storage/atomic-file.js";
 import { withFileLock } from "../storage/file-lock.js";
 import { now } from "../domain/types.js";
+import { DurableScheduler } from "./scheduler.js";
 import { agentWakeEndpoint } from "./agent-wake.js";
 import {
   processGroupIsAlive,
@@ -202,7 +203,17 @@ export class AgentProcessHost {
    * in between leaves an adoption record for the process it just created
    * instead of an unowned child.
    */
-  async launch(input: AgentProcessLaunch): Promise<AgentProcessRecord> {
+  launch(input: AgentProcessLaunch & { leaseToken?: undefined }): Promise<AgentProcessRecord>;
+  launch(input: AgentProcessLaunch): Promise<AgentProcessRecord | undefined>;
+  async launch(input: AgentProcessLaunch): Promise<AgentProcessRecord | undefined> {
+    if (input.leaseToken === undefined) return this.spawnProcess(input);
+    const queue = new DurableScheduler(
+      join(this.workspaceRoot, input.taskId, "runs", input.runId, "queue.json")
+    );
+    return queue.whileLeased(input.callId, input.leaseToken, () => this.spawnProcess(input));
+  }
+
+  private async spawnProcess(input: AgentProcessLaunch): Promise<AgentProcessRecord> {
     const token = randomUUID();
     const directory = agentProcessDirectory(
       this.workspaceRoot,

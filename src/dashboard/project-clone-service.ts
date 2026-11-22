@@ -63,8 +63,6 @@ interface RunningClone {
   percent: number;
   output: string;
   done: Promise<void>;
-  /** Why writing the outcome failed; a stop reports it rather than returning as if all were written. */
-  failure?: unknown;
 }
 
 const CLONE_ID = /^[A-Za-z0-9_-]{1,100}$/;
@@ -193,6 +191,8 @@ export function createProjectCloneService(options: {
   const gitCommand = options.gitCommand ?? "git";
   const host = new ProcessHost();
   const running = new Map<string, RunningClone>();
+  // A failed terminal write leaves a durable record for the next service to recover.
+  const outcomeWriteFailures: unknown[] = [];
 
   const recordPath = (value: string) => join(directory, `${value}.json`);
 
@@ -413,7 +413,7 @@ export function createProjectCloneService(options: {
       // included, so a stop waits for it.
       void finish(record, state, failure)
         .catch((error: unknown) => {
-          state.failure = error;
+          outcomeWriteFailures.push(error);
         })
         .finally(() => {
           running.delete(record.cloneId);
@@ -597,9 +597,8 @@ export function createProjectCloneService(options: {
     for (const state of pending) state.cancelled = true;
     await host.stop();
     await Promise.all(pending.map((state) => state.done));
-    const failures = pending.flatMap((state) => (state.failure === undefined ? [] : [state.failure]));
-    if (failures.length === 1) throw failures[0];
-    if (failures.length) throw new AggregateError(failures, "克隆的结果未能全部写入");
+    if (outcomeWriteFailures.length === 1) throw outcomeWriteFailures[0];
+    if (outcomeWriteFailures.length) throw new AggregateError(outcomeWriteFailures, "克隆的结果未能全部写入");
   }
 
   return { ready, start, status, cancel, stop };

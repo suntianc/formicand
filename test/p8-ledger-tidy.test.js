@@ -177,7 +177,7 @@ test("the tidy counts developments merged since the last one and lists the whole
     second.readAt
   );
   assert.equal(next, undefined);
-  assert.equal(tidiedAt, second.readAt);
+  assert.equal(tidiedAt, new Date(tidiedAt).toISOString());
   const after = await again.service.tidyLedger(project.projectId);
   assert.equal(after.tidiedAt, tidiedAt);
   assert.equal(after.merged, 0);
@@ -391,6 +391,7 @@ test("a version 9 ledger gains the tidy mark and each requirement a description"
   for (const table of ["project_data_requirements", "project_data_requirement_revisions"])
     await database.execute(`ALTER TABLE ${table} DROP COLUMN description`);
   await database.execute("ALTER TABLE project_data_development_reviews DROP COLUMN mapping");
+  await database.execute("ALTER TABLE project_data_projects DROP COLUMN ledger_clock");
   await database.execute("DELETE FROM project_data_migrations");
   await database.execute("INSERT INTO project_data_migrations (version, applied_at) VALUES (9, ?)", [
     new Date().toISOString()
@@ -399,7 +400,7 @@ test("a version 9 ledger gains the tidy mark and each requirement a description"
 
   const again = await openLedger(t, root);
   t.after(() => again.runtime.close());
-  assert.equal(again.service.description.schemaVersion, 13);
+  assert.equal(again.service.description.schemaVersion, 14);
   // A version 9 requirement takes its summary's first sentence as its description.
   const upgraded = await again.service.getRequirement(project.projectId, exported.requirementId);
   assert.equal(upgraded.description, "export 输出 CSV。");
@@ -422,6 +423,7 @@ test("a version 12 ledger drops the per-project tidy read time", async (t) => {
 
   const database = await SqliteDatabase.open(join(root, "project-data.sqlite"));
   await database.execute("ALTER TABLE project_data_projects ADD COLUMN ledger_tidy_read_at TEXT");
+  await database.execute("ALTER TABLE project_data_projects DROP COLUMN ledger_clock");
   await database.execute("DELETE FROM project_data_migrations");
   await database.execute("INSERT INTO project_data_migrations (version, applied_at) VALUES (12, ?)", [
     new Date().toISOString()
@@ -430,7 +432,7 @@ test("a version 12 ledger drops the per-project tidy read time", async (t) => {
 
   const again = await openLedger(t, root);
   t.after(() => again.runtime.close());
-  assert.equal(again.service.description.schemaVersion, 13);
+  assert.equal(again.service.description.schemaVersion, 14);
   const reopened = await SqliteDatabase.open(join(root, "project-data.sqlite"));
   const columns = await reopened.query("PRAGMA table_info(project_data_projects)");
   await reopened.close();
@@ -443,3 +445,31 @@ test("a version 12 ledger drops the per-project tidy read time", async (t) => {
     (await again.service.finishLedgerTidy(project.projectId, { unchanged: "x" }, read.readAt)).tidiedAt
   );
 });
+
+for (const completed of [false, true])
+  test(`v13 migration preserves same-millisecond deliveries from a ${completed ? "completed" : "pending"} tidy`, async (t) => {
+    const { root, service, projectId } = await ledger(t);
+    const requirement = await service.createRequirement(projectId, { title: "导出" });
+    const development = await develop(service, projectId, requirement.requirementId);
+    const at = "2026-01-02T00:00:00.000Z";
+    await recordMerges(root, projectId, development.developmentId, requirement.requirementId, [at, at]);
+    const database = await SqliteDatabase.open(join(root, "project-data.sqlite"));
+    await database.execute("ALTER TABLE project_data_projects DROP COLUMN ledger_clock");
+    await database.execute("UPDATE project_data_projects SET ledger_tidied_at = ? WHERE project_id = ?", [
+      completed ? at : null,
+      projectId
+    ]);
+    await database.execute("UPDATE project_data_migrations SET version = 13 WHERE version = 14");
+    await database.close();
+
+    const upgraded = await openLedger(t, root);
+    t.after(() => upgraded.runtime.close());
+    await assert.rejects(upgraded.service.finishLedgerTidy(projectId, { unchanged: "旧版未见交付" }, at), {
+      code: "invalid_project_data"
+    });
+    const read = await upgraded.service.tidyLedger(projectId);
+    assert.equal(read.merged, 2);
+    assert.equal(read.changes.length, 2);
+    await upgraded.service.finishLedgerTidy(projectId, { unchanged: "已核对" }, read.readAt);
+    assert.equal((await upgraded.service.tidyLedger(projectId)).merged, 0);
+  });

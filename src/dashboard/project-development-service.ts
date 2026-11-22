@@ -1,4 +1,5 @@
 import { dirname, join, resolve } from "node:path";
+import { withFileLock } from "../storage/file-lock.js";
 import type { WindowDevelopment } from "../runtime/session-handoff.js";
 import {
   parseReviewConclusion,
@@ -968,6 +969,28 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
       .at(-1);
   }
 
+  async function ticketChangedPaths(
+    directory: string,
+    integration: string,
+    candidate: string,
+    ticket: DevelopmentTicket
+  ) {
+    // A rename changes both paths. Ask Git for the deletion and addition separately.
+    const changed = await gitPaths(directory, [
+      "diff",
+      "--name-only",
+      "--no-renames",
+      `${integration}...${candidate}`
+    ]);
+    const outside = ticket.scope.length ? outsideScope(ticket.scope, changed) : [];
+    if (outside.length)
+      throw conflict(
+        `票 ${ticket.ticketId} 改动了范围以外的文件：${outside.slice(0, 20).join("、")}。让 Executor 撤回这些改动，或经用户确认用 revise_ticket 扩大范围`,
+        "ticket_scope_exceeded"
+      );
+    return changed;
+  }
+
   /**
    * Freeze one ticket's own checkout for review.
    *
@@ -997,19 +1020,13 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
     if (current.changes)
       throw conflict("票的现场有未提交改动；让 Executor 提交后再冻结", "review_candidate_dirty");
     const integration = await inspectWorkspace(record);
-    const base = await git(record.workspace!.directory, ["merge-base", integration.commit, current.commit]);
-    const changed = await gitPaths(record.workspace!.directory, [
-      "diff",
-      "--name-only",
-      `${base}..${current.commit}`
-    ]);
+    const changed = await ticketChangedPaths(
+      record.workspace!.directory,
+      integration.commit,
+      current.commit,
+      ticket
+    );
     if (!changed.length) throw conflict(`票 ${ticket.ticketId} 的现场没有新提交`, "ticket_no_changes");
-    const outside = ticket.scope.length ? outsideScope(ticket.scope, changed) : [];
-    if (outside.length)
-      throw conflict(
-        `票 ${ticket.ticketId} 改动了范围以外的文件：${outside.slice(0, 20).join("、")}。让 Executor 撤回这些改动，或经用户确认用 revise_ticket 扩大范围`,
-        "ticket_scope_exceeded"
-      );
     const { tickets } = await service.tickets(projectId, developmentId);
     const chain = chainOf(tickets, await service.queryReviews(projectId, developmentId), ticket);
     checkRound(chain, tickets, ticket);
@@ -1019,6 +1036,7 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
       ? await gitPaths(record.workspace!.directory, [
           "diff",
           "--name-only",
+          "--no-renames",
           `${previous.candidate.commit}..${current.commit}`
         ])
       : changed;
@@ -1060,14 +1078,17 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
    * checkout as it was, so a later ticket never builds on a broken version.
    */
   function integrateTicket(projectId: string, input: Record<string, unknown>) {
-    return inDevelopment(projectId, input, () => integrateTicketNow(projectId, input));
+    return inDevelopment(projectId, input, (record) => integrateTicketNow(projectId, record, input));
   }
 
-  async function integrateTicketNow(projectId: string, input: Record<string, unknown>) {
-    const developmentId = developmentIdentifier(input.developmentId, "开发记录 ID");
-    const record = await openDevelopment(projectId, developmentId);
+  async function integrateTicketNow(
+    projectId: string,
+    record: DevelopmentRecord,
+    input: Record<string, unknown>
+  ) {
+    const developmentId = record.developmentId;
     const service = await gateway();
-    const { ticket } = await requireTicket(projectId, developmentId, input.ticketId);
+    const { set, ticket } = await requireTicket(projectId, developmentId, input.ticketId);
     if (ticket.state !== "passed")
       throw conflict(`票 ${ticket.ticketId} 还没有通过审查`, "ticket_state_conflict");
     const review = await service.getReview(projectId, ticket.reviewIds.at(-1)!);
@@ -1080,14 +1101,28 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
     const directory = record.workspace!.directory;
     let before = await inspectWorkspace(record);
     if (before.changes) throw conflict("需求现场有未提交改动；先提交或清理", "review_candidate_dirty");
-    const parents = (await git(directory, ["rev-list", "--parents", "-n", "1", before.commit])).split(" ");
-    if (parents.length === 3 && parents[2] === item.commit) {
-      // The checkout's last merge is this ticket, which the ledger does not
-      // hold as integrated: an earlier attempt stopped between the merge and
-      // its checks. Undo that merge and run it again.
-      await git(directory, ["reset", "--hard", parents[1]]);
-      before = await inspectWorkspace(record);
+    // The ledger's baseline and recorded ticket merges are already published.
+    // An unrecorded two-parent merge of a passed ticket was interrupted, no
+    // matter which ticket is next or how its Git commit message was written.
+    const recorded =
+      before.commit === record.workspace!.baseCommit ||
+      set.tickets.some((entry) => entry.integration?.commit === before.commit);
+    if (!recorded) {
+      const parents = (await git(directory, ["rev-list", "--parents", "-n", "1", before.commit])).split(" ");
+      if (parents.length === 3) {
+        const passedReviews = new Set(
+          set.tickets.filter((entry) => entry.state === "passed").map((entry) => entry.reviewIds.at(-1))
+        );
+        const reviews = await service.queryReviews(projectId, developmentId);
+        if (
+          reviews.some((entry) => passedReviews.has(entry.reviewId) && entry.candidate.commit === parents[2])
+        ) {
+          await git(directory, ["reset", "--hard", parents[1]]);
+          before = await inspectWorkspace(record);
+        }
+      }
     }
+    await ticketChangedPaths(directory, before.commit, item.commit, ticket);
     const checks = [
       ...(input.checks === undefined ? [] : mergeCheckCommands(input.checks)),
       ...ticket.criteria.flatMap((criterion) =>
@@ -1282,43 +1317,38 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
     return (await gateway()).setReviewPlan(projectId, developmentId, plan);
   }
 
-  const developmentQueues = new Map<string, Promise<unknown>>();
-
-  /**
-   * One development's checkout work, one step at a time in this process: Main
-   * may send several tool calls at once, and bringing a ticket in, checking it
-   * and rolling back, or opening a final review, each reads the checkout or
-   * the open rounds before it writes them.
-   */
-  function inDevelopment<T>(projectId: string, input: Record<string, unknown>, action: () => Promise<T>) {
-    // Keyed on the ID as the action reads it, so " d1" and "d1" share one queue;
-    // an ID the action would refuse needs no queue.
-    const developmentId = String(input.developmentId ?? "").trim();
-    if (!developmentId) return action();
-    const key = `${projectId}\n${developmentId}`;
-    const next = (developmentQueues.get(key) ?? Promise.resolve()).then(action, action);
-    const settled = next.then(
-      () => undefined,
-      () => undefined
+  /** A check and its rollback share one checkout lock with all backend processes. */
+  async function inDevelopment<T>(
+    projectId: string,
+    input: Record<string, unknown>,
+    action: (record: DevelopmentRecord) => Promise<T>
+  ) {
+    const developmentId = developmentIdentifier(input.developmentId, "开发记录 ID");
+    const { workspace } = await (await gateway()).getDevelopment(projectId, developmentId, ports.backendId);
+    const directory = workspace?.directory ?? workspaceDirectory(developmentId);
+    return withFileLock(
+      directory,
+      async () => {
+        const record = await openDevelopment(projectId, developmentId);
+        if (record.workspace!.directory !== directory)
+          throw conflict("等待期间需求现场已变更，请重试", "review_workspace_not_ready");
+        return action(record);
+      },
+      { timeoutMs: Infinity }
     );
-    developmentQueues.set(key, settled);
-    void settled.then(() => {
-      if (developmentQueues.get(key) === settled) developmentQueues.delete(key);
-    });
-    return next;
   }
 
   function startReview(projectId: string, taskId: string | undefined, input: Record<string, unknown>) {
-    return inDevelopment(projectId, input, () => startReviewNow(projectId, taskId, input));
+    return inDevelopment(projectId, input, (record) => startReviewNow(projectId, taskId, record, input));
   }
 
   async function startReviewNow(
     projectId: string,
     taskId: string | undefined,
+    record: DevelopmentRecord,
     input: Record<string, unknown>
   ): Promise<DevelopmentReview> {
-    const developmentId = developmentIdentifier(input.developmentId, "开发记录 ID");
-    const record = await openDevelopment(projectId, developmentId);
+    const developmentId = record.developmentId;
     const final = input.ticketId === undefined && record.route === "full";
     if (input.mapping !== undefined && !final)
       throw conflict("只有 full 路线的整体终审带对照表", "review_mapping_unexpected");
@@ -1892,7 +1922,7 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
           }
         : {}),
       ...(deliveries.length ? { delivery: { state: deliveries.at(-1)!.state } } : {}),
-      ...(merge?.state === "merged" ? { mergedSinceTidy: (await service.tidyLedger(projectId)).merged } : {}),
+      ...(merge?.state === "merged" ? { mergedSinceTidy: await service.mergedSinceTidy(projectId) } : {}),
       retro: {
         signals: retroSignals(reviews, merges),
         recorded: merges.some((entry) => entry.acceptance.retro && !entry.acceptance.retro.auto),

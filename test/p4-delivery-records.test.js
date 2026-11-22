@@ -852,6 +852,8 @@ test(
     // The accepted receipt syncs the real candidate and the authority's own
     // merge time; a later sync keeps the same delivery and revision.
     await delay(20);
+    t.mock.timers.enable({ apis: ["Date"], now: Date.now() });
+    const snapshot = await authority.gateway.tidyLedger(project.projectId);
     const boardDelivery = await authority.gateway.syncDelivery(project.projectId, boardMerge.receipt);
     assert.equal(boardDelivery.state, "synced");
     assert.equal(boardDelivery.candidateCommit, boardMerge.candidate.commit);
@@ -860,6 +862,45 @@ test(
     const internalDelivery = await authority.gateway.syncDelivery(project.projectId, internalMerge.receipt);
     assert.equal(internalDelivery.candidateCommit, internalMerge.candidate.commit);
     assert.equal(internalDelivery.mergedAt, internalMerge.receipt.mergedAt);
+    await authority.gateway.finishLedgerTidy(
+      project.projectId,
+      { unchanged: "快照中还没有交付" },
+      snapshot.readAt
+    );
+    const observer = await SqliteDatabase.open(info.target);
+    t.after(() => observer.close());
+    const remote = await RemoteProjectDataService.open({
+      url: dashboard.base,
+      token: instance.value.token,
+      backendId: instance.value.backendId,
+      source: "observe-delivery-count"
+    });
+    t.after(() => remote.close());
+    const beforeNext = await observer.query("PRAGMA data_version");
+    const nextResponse = await fetch(`${dashboard.base}/api/projects/${project.projectId}/developments`, {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-cowork-read-only": "1" },
+      body: JSON.stringify({ action: "next", developmentId: boardDevelopment.developmentId })
+    });
+    assert.equal(nextResponse.status, 200, await nextResponse.text());
+    assert.deepEqual(
+      await observer.query("PRAGMA data_version"),
+      beforeNext,
+      "observing the next step wrote to the ledger"
+    );
+    // A read on a second backend can count while another connection holds SQLite's writer lock.
+    await observer.execute("BEGIN IMMEDIATE");
+    try {
+      assert.equal(await remote.mergedSinceTidy(project.projectId), 2);
+    } finally {
+      await observer.execute("ROLLBACK");
+    }
+    const next = await authority.gateway.tidyLedger(project.projectId);
+    assert.equal(next.merged, 2);
+    assert.equal(next.changes.length, 2);
+    await authority.gateway.finishLedgerTidy(project.projectId, { unchanged: "已核对两笔交付" }, next.readAt);
+    assert.equal((await authority.gateway.tidyLedger(project.projectId)).merged, 0);
+    t.mock.timers.reset();
     const boardEntry = await authority.gateway.boardEntry(project.projectId, boardId);
     assert.equal(boardEntry.state, "pending_release");
     assert.equal(boardEntry.delivery.mergedAt, boardMerge.receipt.mergedAt);

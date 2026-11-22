@@ -1,75 +1,134 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
-import { chmod, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 import { promisify } from "node:util";
 import { publishMerge } from "../dist/src/workspace/project-merge.js";
 
-/**
- * Publishing a merge into the user's checkout of the target branch: if that
- * checkout switches branches after it was found, nothing else moves and the
- * merge is not reported as landed.
- */
-
 const run = promisify(execFile);
-const git = (cwd, args) => run("git", ["-C", cwd, ...args]).then((result) => result.stdout.trim());
 
-/** Switch the target checkout to `other` right after git runs a command matching `trigger`. */
-async function publishWhileSwitching(t, trigger) {
+async function fixture(t) {
   const root = await mkdtemp(join(tmpdir(), "coworkos-publish-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const repo = join(root, "repo");
-  await run("git", ["init", "-b", "main", repo]);
-  await git(repo, ["config", "user.email", "fixture@example.test"]);
-  await git(repo, ["config", "user.name", "Fixture"]);
-  await writeFile(join(repo, "a.txt"), "a\n");
-  await git(repo, ["add", "."]);
-  await git(repo, ["commit", "-m", "base"]);
-  const base = await git(repo, ["rev-parse", "HEAD"]);
-  await git(repo, ["branch", "other"]);
-  await git(repo, ["switch", "-c", "feature"]);
-  await writeFile(join(repo, "b.txt"), "b\n");
-  await git(repo, ["add", "."]);
-  await git(repo, ["commit", "-m", "feature"]);
-  const merged = await git(repo, ["rev-parse", "HEAD"]);
-  await git(repo, ["switch", "main"]);
-
-  // Right after the checkout is found on main, the person switches it to other.
   const real = (await run("which", ["git"])).stdout.trim();
-  const bin = join(root, "bin");
-  await run("mkdir", [bin]);
-  await writeFile(
-    join(bin, "git"),
-    `#!/bin/sh\n"${real}" "$@"\nstatus=$?\ncase "$*" in *"${trigger}"*) "${real}" -C "${repo}" switch -q other ;; esac\nexit $status\n`
-  );
-  await chmod(join(bin, "git"), 0o755);
-  const path = process.env.PATH;
-  process.env.PATH = `${bin}:${path}`;
-  t.after(() => {
-    process.env.PATH = path;
-  });
+  const git = (args) => run(real, ["-C", repo, ...args]).then((result) => result.stdout.trim());
+  await run(real, ["init", "-b", "main", repo]);
+  await git(["config", "user.email", "fixture@example.test"]);
+  await git(["config", "user.name", "Fixture"]);
+  await writeFile(join(repo, "a.txt"), "a\n");
+  await git(["add", "."]);
+  await git(["commit", "-m", "base"]);
+  const base = await git(["rev-parse", "HEAD"]);
+  await git(["branch", "other"]);
+  await git(["branch", "third"]);
+  await git(["switch", "-c", "feature"]);
+  await writeFile(join(repo, "b.txt"), "b\n");
+  await git(["add", "."]);
+  await git(["commit", "-m", "feature"]);
+  const merged = await git(["rev-parse", "HEAD"]);
+  await git(["switch", "main"]);
+  const publish = () =>
+    publishMerge({ repository: repo, targetBranch: "main", mergeCommit: merged, expectedTarget: base });
 
+  async function intercept(commands) {
+    const bin = join(root, "bin");
+    await mkdir(bin);
+    const wrapper = join(bin, "git");
+    await writeFile(
+      wrapper,
+      `#!/bin/sh
+git() { "${real}" -C "${repo}" "$@"; }
+case "$*" in
+${commands}
+esac
+exec "${real}" "$@"
+`
+    );
+    await chmod(wrapper, 0o755);
+    const path = process.env.PATH;
+    process.env.PATH = `${bin}:${path}`;
+    t.after(() => {
+      process.env.PATH = path;
+    });
+  }
+  return { root, repo, real, git, base, merged, publish, intercept };
+}
+
+test("two checkout switches during publication leave every branch where its owner put it", async (t) => {
+  const { git, real, base, merged, publish, intercept } = await fixture(t);
+  await git(["switch", "other"]);
+  await git(["merge", "--ff-only", merged]);
+  await git(["switch", "main"]);
+  await intercept(`*"worktree list"*) "${real}" "$@" && git switch -q other; exit $? ;;
+*"update-ref"*) git switch -q third ;;`);
+  assert.equal((await publish()).status, "blocked");
+  assert.equal(await git(["branch", "--show-current"]), "third");
+  assert.equal(await git(["rev-parse", "main"]), base);
+  assert.equal(await git(["rev-parse", "other"]), merged);
+  assert.equal(await git(["rev-parse", "third"]), base);
+  assert.equal(await git(["status", "--porcelain"]), "");
+});
+
+test("a branch already at the candidate keeps its previous fast-forward and reflog", async (t) => {
+  const { git, real, base, merged, publish, intercept } = await fixture(t);
+  await git(["switch", "other"]);
+  await git(["merge", "--ff-only", merged]);
+  const reflog = await git(["reflog", "show", "other"]);
+  await git(["switch", "main"]);
+  await intercept(`*"worktree list"*) "${real}" "$@" && git switch -q other; exit $? ;;`);
+  const blocked = await publish();
+  assert.equal(blocked.status, "blocked");
+  assert.ok(blocked.detail.includes(base) && blocked.detail.includes(merged), blocked.detail);
+  assert.equal(await git(["rev-parse", "main"]), base);
+  assert.equal(await git(["rev-parse", "other"]), merged);
+  assert.equal(await git(["reflog", "show", "other"]), reflog);
+  assert.equal(await git(["status", "--porcelain"]), "");
+});
+
+test("the target stays locked through the fast-forward and unrelated staged and unstaged edits survive", async (t) => {
+  const { repo, git, real, root, base, merged, publish, intercept } = await fixture(t);
+  await writeFile(join(repo, "a.txt"), "staged\n");
+  await git(["add", "a.txt"]);
+  await writeFile(join(repo, "a.txt"), "working\n");
+  const marker = join(root, "switch-result");
+  await intercept(
+    `*"symbolic-ref"*) "${real}" "$@" || exit $?; git switch -q other 2>/dev/null; echo "$?" > "${marker}"; exit 0 ;;`
+  );
+  assert.equal((await publish()).status, "updated");
+  assert.notEqual((await readFile(marker, "utf8")).trim(), "0");
+  assert.equal(await git(["rev-parse", "main"]), merged);
+  assert.equal(await git(["rev-parse", "other"]), base);
+  assert.equal(await git(["show", ":a.txt"]), "staged");
+  assert.equal(await readFile(join(repo, "a.txt"), "utf8"), "working\n");
+  assert.equal(await readFile(join(repo, "b.txt"), "utf8"), "b\n");
+});
+
+test("a conflicting local file blocks publication and retry finishes an already prepared tree", async (t) => {
+  const { repo, git, base, merged, publish } = await fixture(t);
+  await writeFile(join(repo, "b.txt"), "local\n");
+  assert.equal((await publish()).status, "blocked");
+  assert.equal(await git(["rev-parse", "main"]), base);
+  assert.equal(await readFile(join(repo, "b.txt"), "utf8"), "local\n");
+  await rm(join(repo, "b.txt"));
+  await git(["read-tree", "-u", "-m", base, merged]);
+  assert.equal((await publish()).status, "updated");
+  assert.equal(await git(["rev-parse", "main"]), merged);
+  assert.equal(await git(["status", "--porcelain"]), "");
+});
+
+test("an unchecked target can only be fast-forwarded", async (t) => {
+  const { repo, git, base, merged, publish } = await fixture(t);
+  await git(["switch", "other"]);
+  assert.equal((await publish()).status, "updated");
   const result = await publishMerge({
     repository: repo,
     targetBranch: "main",
-    mergeCommit: merged,
-    expectedTarget: base
+    expectedTarget: merged,
+    mergeCommit: base
   });
-  process.env.PATH = path;
-  assert.equal(result.status, "blocked", JSON.stringify(result));
-  assert.equal(await git(repo, ["rev-parse", "other"]), base, "the branch switched to stays where it was");
-  assert.equal(await git(repo, ["rev-parse", "main"]), base);
-  assert.equal(await git(repo, ["status", "--porcelain"]), "", "the checkout's files match its branch");
-  return result;
-}
-
-test("a target checkout that switched branches is not fast-forwarded", async (t) => {
-  await publishWhileSwitching(t, "worktree list");
-});
-
-test("a switch between the branch check and the fast-forward is undone", async (t) => {
-  const result = await publishWhileSwitching(t, "symbolic-ref");
-  assert.match(result.detail, /other 被切到这个工作区后误前进，已退回原提交/);
+  assert.equal(result.status, "blocked");
+  assert.equal(await git(["rev-parse", "main"]), merged);
 });

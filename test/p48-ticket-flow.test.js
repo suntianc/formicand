@@ -89,14 +89,16 @@ test(
     const projectInfo = { projectId, projectName: "票流程", projectDirectory: repo };
     const calls = {};
     const developmentRoot = join(root, "development-workspaces");
-    const service = createProjectDevelopmentService({
+    const developmentPorts = {
       runtime: { service: async () => gateway },
       backendId: "backend_flow",
       developmentRoot,
       project: async (id) => (id === projectId ? projectInfo : undefined),
       taskProject: async (id) => (id === "task-flow" ? projectInfo : undefined),
       call: async (_taskId, callId) => calls[callId]
-    });
+    };
+    const service = createProjectDevelopmentService(developmentPorts);
+    const otherService = createProjectDevelopmentService(developmentPorts);
     await service.setMergeConfig(projectId, { repository: repo, targetBranch: "main" });
     const development = await service.create(projectId, {
       requirementId: requirement.requirementId,
@@ -187,6 +189,14 @@ test(
     );
     await git(site, ["rm", "-q", "notes.txt"]);
     await git(site, ["commit", "-m", "keep to the ticket"]);
+    // Rename detection normally reports only the in-scope destination.
+    await git(site, ["mv", "-f", "src/cli.js", "src/a.txt"]);
+    await git(site, ["commit", "-m", "rename from outside the ticket"]);
+    await assert.rejects(
+      service.startReview(projectId, "task-flow", { developmentId, ticketId: "01" }),
+      /范围以外的文件：src\/cli\.js/
+    );
+    await git(site, ["revert", "--no-edit", "HEAD"]);
     let review = await service.startReview(projectId, "task-flow", { developmentId, ticketId: "01" });
     assert.equal(review.candidate.workspace, site, "the ticket's own checkout is frozen");
     assert.equal(review.author.callId, "call-e1");
@@ -287,6 +297,24 @@ test(
         checks: passing
       });
     }
+    // A process died after merging 02. Starting 03 must first recover the checkout,
+    // even though 02 is not the ticket being retried.
+    const cleanTip = await git(integration, ["rev-parse", "HEAD"]);
+    await git(integration, [
+      "merge",
+      "--no-ff",
+      "-m",
+      "Legacy merge with a custom subject",
+      second.candidate.commit
+    ]);
+    const afterCrash = await otherService.integrateTicket(projectId, {
+      developmentId,
+      ticketId: "03",
+      checks: [{ name: "fail", command: "exit 2" }]
+    });
+    assert.equal(afterCrash.integrated, false);
+    assert.equal(await git(integration, ["rev-parse", "HEAD"]), cleanTip);
+
     // Main may bring two tickets in at once: one's failing check undoes only its own merge.
     const [slowFailure, other] = await Promise.all([
       service.integrateTicket(projectId, {
@@ -294,8 +322,8 @@ test(
         ticketId: "02",
         checks: [{ name: "项目检查", command: "sleep 0.3; exit 3" }]
       }),
-      // The same development spelled with spaces is the same queue.
-      service.integrateTicket(projectId, {
+      // Another backend process can address the same checkout.
+      otherService.integrateTicket(projectId, {
         developmentId: ` ${developmentId} `,
         ticketId: "03",
         checks: [{ name: "项目检查", command: "test -f src/cli.js" }]
@@ -315,7 +343,7 @@ test(
       "merge",
       "--no-ff",
       "-m",
-      "Merge ticket 02: interrupted",
+      "Legacy merge with a custom subject",
       await git(work02, ["rev-parse", "HEAD"])
     ]);
     const afterInterrupted = await service.integrateTicket(projectId, {
@@ -355,7 +383,7 @@ test(
     // Two freezes at once open one final review.
     const freezes = await Promise.allSettled([
       service.startReview(projectId, "task-flow", { developmentId, mapping }),
-      service.startReview(projectId, "task-flow", { developmentId: `${developmentId} `, mapping })
+      otherService.startReview(projectId, "task-flow", { developmentId: `${developmentId} `, mapping })
     ]);
     assert.deepEqual(freezes.map((result) => result.status).sort(), ["fulfilled", "rejected"]);
     assert.match(
@@ -363,6 +391,15 @@ test(
       /已有一份进行中的整体终审/
     );
     let final = freezes.find((result) => result.status === "fulfilled").value;
+    // A second host can use its own checkout. The shared write must reject its stale freeze.
+    await assert.rejects(
+      gateway.createReview(projectId, developmentId, {
+        kind: "independent",
+        candidate: final.candidate,
+        mapping: final.mapping
+      }),
+      { code: "review_open" }
+    );
     assert.deepEqual(
       final.mapping.map((row) => row.rowId),
       ["M1"]

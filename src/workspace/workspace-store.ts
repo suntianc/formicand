@@ -1,5 +1,5 @@
 import { readTemporaryWorkspace } from "./temporary-workspaces.js";
-import { appendFile, mkdir, readFile, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
+import { appendFile, mkdir, mkdtemp, readFile, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
 import { isAbsolute, join, resolve } from "node:path";
 import { withFileLock } from "../storage/file-lock.js";
 import {
@@ -125,6 +125,26 @@ export class LocalWorkspaceStore implements WorkspaceStore {
       throw error;
     });
     if (existing) return path;
+    return this.initializeTask(path, taskId, metadata);
+  }
+
+  /** Publish a newly allocated project Task only after its creation event is durable. */
+  async createNewTask(taskId: string, metadata: TaskMetadata): Promise<void> {
+    const destination = this.taskPath(taskId);
+    await validateTemporaryRoot(metadata);
+    await mkdir(this.root, { recursive: true });
+    // '+' cannot occur in Task IDs, so listings cannot adopt a staging directory.
+    const staging = await mkdtemp(join(this.root, ".creating+"));
+    try {
+      await this.initializeTask(staging, taskId, metadata);
+      await rename(staging, destination);
+    } catch (error) {
+      await rm(staging, { recursive: true, force: true });
+      throw error;
+    }
+  }
+
+  private async initializeTask(path: string, taskId: string, metadata: TaskMetadata): Promise<string> {
     await mkdir(join(path, "artifacts"), { recursive: true });
     await mkdir(join(path, "agents", "main", "work"), { recursive: true });
     await mkdir(join(path, "agents", "main", "context"), { recursive: true });
@@ -149,7 +169,7 @@ export class LocalWorkspaceStore implements WorkspaceStore {
     try {
       const createdAt = new Date().toISOString();
       await writeFile(
-        taskFile,
+        join(path, "task.json"),
         `${JSON.stringify(
           {
             taskId,

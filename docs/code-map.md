@@ -91,6 +91,8 @@ CLI 一条命令安装由 [install.sh](../scripts/install.sh) 负责，使用公
 
 ### 项目上下文
 
+台账维护的读取边界和完成游标由[项目数据服务](../src/workspace/project-data-service.ts)管理，[交付仓储](../src/workspace/project-delivery.ts)在同一项目的时钟下写入交付及其历史。对应回归覆盖[并发完成维护](../test/p3-ledger.test.js)、[旧台账升级](../test/p8-ledger-tidy.test.js)和[同毫秒交付](../test/p4-delivery-records.test.js)。
+
 Main 的项目上下文只来自需求台账：项目与需求、完成标准和交付记录由 [项目数据服务](../src/workspace/project-data-service.ts) 与 [Main 工具](../.pi/runtime/tools/project-ledger.ts) 提供，工具的装配在 [Pi 扩展](../.pi/runtime/extension.ts)。每个 Task 的 Main 上下文目录（[main-context](../src/runtime/main-context.ts)）只保存这个 Task 的消息副本与运行快照，不是跨 Task 的用户记忆；Main 暂停或重启后接续原 Pi 会话，进度由会话本身和开发记录提供。
 
 用户记忆、自动学习与项目经验已在 P4.6 剔除：源码、HTTP 接口、Pi 工具、界面入口与专门测试均已删除，系统提示不再包含这些段落，磁盘上的残留文件不再读取。剔除项统一记录在[剔除守卫](../test/removed-capabilities.test.js)。

@@ -743,7 +743,7 @@
           },
           "readAt": {
             "type": "string",
-            "description": "finish_tidy: the readAt your tidy returned."
+            "description": "finish_tidy: copy the opaque readAt token returned by tidy."
           },
           "note": {
             "type": "string",

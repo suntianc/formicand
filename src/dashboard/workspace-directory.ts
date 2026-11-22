@@ -285,6 +285,27 @@ export function createWorkspaceDirectory(
     };
   }
 
+  async function persistProjectTask(taskId: string, projectId: string, metadata: TaskMetadata) {
+    await catalogReady;
+    await withFileLock(join(dirname(globalIndexPath), "task-creation.lock"), () =>
+      projectCatalog.withProjectLock(projectId, async (project) => {
+        for (const root of await knownWorkspaceRoots()) {
+          const existing = await new LocalWorkspaceStore(root).readTask(taskId).catch((error: Error) => {
+            if (error.message === `unknown task: ${taskId}`) return undefined;
+            throw error;
+          });
+          if (existing) throw new ProjectCatalogError("会话 ID 已存在，请创建新的会话", 409);
+        }
+        await new LocalWorkspaceStore(workspaceRoot).createNewTask(taskId, {
+          ...metadata,
+          projectId,
+          projectCatalogPath: projectCatalog.filePath,
+          projectDirectory: project.projectDirectory
+        });
+      })
+    );
+  }
+
   return {
     knownWorkspaceRoots,
     createTemporaryWorkspace: () => temporaryWorkspaces.create(workspaceRoot),
@@ -378,25 +399,9 @@ export function createWorkspaceDirectory(
       });
       return { projectId: project.projectId, removedAt: project.removedAt!, taskIds };
     },
+    persistProjectTask,
     async createProjectTask(taskId: string, projectId: string, metadata: TaskMetadata) {
-      await catalogReady;
-      await withFileLock(join(dirname(globalIndexPath), "task-creation.lock"), () =>
-        projectCatalog.withProjectLock(projectId, async (project) => {
-          for (const root of await knownWorkspaceRoots()) {
-            const existing = await new LocalWorkspaceStore(root).readTask(taskId).catch((error: Error) => {
-              if (error.message === `unknown task: ${taskId}`) return undefined;
-              throw error;
-            });
-            if (existing) throw new ProjectCatalogError("会话 ID 已存在，请创建新的会话", 409);
-          }
-          await new LocalWorkspaceStore(workspaceRoot).createTask(taskId, {
-            ...metadata,
-            projectId,
-            projectCatalogPath: projectCatalog.filePath,
-            projectDirectory: project.projectDirectory
-          });
-        })
-      );
+      await persistProjectTask(taskId, projectId, metadata);
       return taskListItem(await locateTask(taskId));
     },
     async updateProject(

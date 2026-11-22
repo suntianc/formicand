@@ -22,7 +22,7 @@ export interface SqlDatabase extends SqlTransaction {
   readonly dialect: "sqlite" | "postgres";
   /** A locatable target for errors: a file path or `host:port/database`. */
   readonly label: string;
-  transaction<T>(action: (transaction: SqlTransaction) => Promise<T>): Promise<T>;
+  transaction<T>(action: (transaction: SqlTransaction) => Promise<T>, mode?: "read" | "write"): Promise<T>;
   close(): Promise<void>;
 }
 

@@ -230,6 +230,13 @@ export class RemoteProjectDataService implements ProjectDataGateway {
     return result.lookup as LookupResult;
   }
 
+  async mergedSinceTidy(projectId: unknown): Promise<number> {
+    const result = await this.request(projectPath(projectId, "/ledger"), {
+      body: { action: "count_since_tidy" }
+    });
+    return result.merged as number;
+  }
+
   async tidyLedger(projectId: unknown): Promise<LedgerTidy> {
     const result = await this.request(projectPath(projectId, "/ledger"), { body: { action: "tidy" } });
     return result.tidy as LedgerTidy;

@@ -108,19 +108,13 @@ export class ProjectDeliveryRepository {
   async record(projectIdValue: unknown, receiptValue: unknown): Promise<DevelopmentDelivery> {
     const projectId = ledgerProjectId(projectIdValue);
     const receipt: DeliveryReceipt = deliveryReceipt(receiptValue);
-    await this.requireProject(projectId);
-    if (this.lockRows)
-      await this.transaction.query(
-        "SELECT project_id FROM project_data_projects WHERE project_id = ? FOR UPDATE",
-        [projectId]
-      );
-    const { ledger } = await this.requireMergedReceipt(projectId, receipt);
+    const { timestamp } = await this.ledger.nextLedgerTime(projectId);
+    await this.requireMergedReceipt(projectId, receipt);
     const existing = await this.transaction.query<DeliveryRow>(
       "SELECT * FROM project_data_deliveries WHERE project_id = ? AND merge_id = ?",
       [projectId, receipt.mergeId]
     );
     if (existing.length) return deliveryOf(existing[0]);
-    const timestamp = now();
     const deliveryId = id("delivery");
     await this.transaction.execute(
       `INSERT INTO project_data_deliveries
@@ -159,6 +153,7 @@ export class ProjectDeliveryRepository {
     const projectId = ledgerProjectId(projectIdValue);
     const deliveryId = ledgerIdentifier(deliveryIdValue, "交付记录 ID");
     const backendId = ledgerIdentifier(backendIdValue, "交付执行后端");
+    const { timestamp } = await this.ledger.nextLedgerTime(projectId);
     const row = await this.requireDelivery(projectId, deliveryId, true);
     if (row.state === "synced") return deliveryOf(row);
     const receipt: DeliveryReceipt = deliveryReceipt({
@@ -178,14 +173,13 @@ export class ProjectDeliveryRepository {
       backendId,
       actorId: `backend:${backendId}:host`
     });
-    await this.ledger.recordRequirementDelivery(projectId, receipt.requirementId, {
+    await this.ledger.recordRequirementDelivery(projectId, receipt.requirementId, timestamp, {
       developmentId: receipt.developmentId,
       mergeId: receipt.mergeId,
       mergedCommit: receipt.mergedCommit,
       targetBranch: receipt.targetBranch,
       ...(ledger ? { ledger } : {})
     });
-    const timestamp = now();
     await this.transaction.execute(
       `UPDATE project_data_deliveries
           SET state = 'synced', attempts = attempts + 1, error = NULL, synced_at = ?, board_id = ?, updated_at = ?

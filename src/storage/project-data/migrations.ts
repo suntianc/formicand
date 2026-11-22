@@ -6,12 +6,12 @@ import type { SqlDatabase, SqlTransaction } from "./database.js";
  * The project data schema this build writes.
  *
  * A new database is created at this version. A database at an earlier
- * version this build knows (8 to 12) is converted in the same transaction that
+ * version this build knows (8 to 13) is converted in the same transaction that
  * records the new version; any other version is refused with its location and
  * version, without being rewritten. Date/time values are ISO text and booleans
  * are integers so one business query serves both engines.
  */
-export const PROJECT_DATA_SCHEMA_VERSION = 13;
+export const PROJECT_DATA_SCHEMA_VERSION = 14;
 
 /** The title of the requirement every project keeps for changes no feature owns. */
 export const MISC_REQUIREMENT_TITLE = "杂项";
@@ -25,6 +25,7 @@ const PROJECT_DATA_SCHEMA: readonly string[] = [
      project_id TEXT PRIMARY KEY,
      project_name TEXT NOT NULL,
      ledger_tidied_at TEXT,
+     ledger_clock TEXT,
      created_at TEXT NOT NULL,
      updated_at TEXT NOT NULL
    )`,
@@ -415,21 +416,44 @@ export async function migrateProjectData(database: SqlDatabase): Promise<number>
     );
     const version = Number(rows[0]?.version ?? 0);
     if (version === PROJECT_DATA_SCHEMA_VERSION) return version;
-    if (![0, 8, 9, 10, 11, 12].includes(version)) throw incompatibleVersion(database.label, version);
+    if (![0, 8, 9, 10, 11, 12, 13].includes(version)) throw incompatibleVersion(database.label, version);
     if (version === 9) await upgradeVersion9(transaction);
     if (version === 9 || version === 10) await upgradeVersion10(transaction);
     if (version === 12) await upgradeVersion12(transaction);
+    if (version >= 9)
+      await transaction.execute("ALTER TABLE project_data_projects ADD COLUMN ledger_clock TEXT");
     if (version < 9) {
       const previous = version === 8 ? await dropVersion8(transaction) : undefined;
       for (const statement of PROJECT_DATA_SCHEMA) await transaction.execute(statement);
       if (previous) await writeFromVersion8(transaction, previous);
     }
+    if (version > 0) await initializeLedgerClocks(transaction);
     await transaction.execute("INSERT INTO project_data_migrations (version, applied_at) VALUES (?, ?)", [
       PROJECT_DATA_SCHEMA_VERSION,
       now()
     ]);
     return PROJECT_DATA_SCHEMA_VERSION;
   });
+}
+
+/** Preserve ordering from the old timestamps and recheck deliveries at an ambiguous v13 boundary once. */
+async function initializeLedgerClocks(transaction: SqlTransaction): Promise<void> {
+  await transaction.execute(`UPDATE project_data_projects SET ledger_clock = (
+        SELECT MAX(mark) FROM (
+          SELECT ledger_tidied_at AS mark
+          UNION ALL SELECT MAX(created_at) FROM project_data_deliveries WHERE project_id = project_data_projects.project_id
+          UNION ALL SELECT MAX(created_at) FROM project_data_requirement_history WHERE project_id = project_data_projects.project_id AND development_id IS NOT NULL
+        ) AS marks
+      )`);
+  const tied = await transaction.query<{ project_id: string; ledger_tidied_at: string }>(`
+    SELECT project_id, ledger_tidied_at FROM project_data_projects p
+    WHERE EXISTS (SELECT 1 FROM project_data_deliveries d WHERE d.project_id = p.project_id AND d.created_at = p.ledger_tidied_at)
+       OR EXISTS (SELECT 1 FROM project_data_requirement_history h WHERE h.project_id = p.project_id AND h.development_id IS NOT NULL AND h.created_at = p.ledger_tidied_at)`);
+  for (const project of tied)
+    await transaction.execute("UPDATE project_data_projects SET ledger_tidied_at = ? WHERE project_id = ?", [
+      new Date(Date.parse(project.ledger_tidied_at) - 1).toISOString(),
+      project.project_id
+    ]);
 }
 
 /**

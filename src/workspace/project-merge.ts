@@ -1,10 +1,12 @@
 import { execFile } from "node:child_process";
 import { mkdir, rm } from "node:fs/promises";
 import { dirname } from "node:path";
+import { createInterface } from "node:readline";
+import { pipeline } from "node:stream/promises";
 import { promisify } from "node:util";
 import { now } from "../domain/types.js";
 import type { MergeCheck } from "../domain/development-merge.js";
-import { assertRepository, git, gitPaths } from "./development-workspace.js";
+import { assertRepository, git, gitPaths, GIT_TIMEOUT_MS } from "./development-workspace.js";
 
 const execute = promisify(execFile);
 const CHECK_TIMEOUT_MS = 10 * 60_000;
@@ -27,25 +29,6 @@ export async function targetTip(repository: string, branch: string): Promise<str
   } catch {
     return undefined;
   }
-}
-
-/**
- * The checkout switched branches between the check and the fast-forward, so
- * the fast-forward moved the branch it switched to. That branch goes back
- * where it was, files included, when its last reflog entry is exactly this
- * fast-forward; the branch it names, or undefined when nothing was undone.
- */
-async function undoStrayFastForward(worktree: string, mergeCommit: string): Promise<string | undefined> {
-  const head = await git(worktree, ["symbolic-ref", "--quiet", "HEAD"]);
-  const branch = head.replace(/^refs\/heads\//, "");
-  const [tip, entry] = await Promise.all([
-    git(worktree, ["rev-parse", head]),
-    git(worktree, ["reflog", "-1", "--format=%gs", head])
-  ]);
-  if (tip !== mergeCommit || entry !== `merge ${mergeCommit}: Fast-forward`) return undefined;
-  const before = await git(worktree, ["rev-parse", `${head}@{1}`]);
-  await git(worktree, ["reset", "--keep", before]);
-  return branch;
 }
 
 /** Whether `ancestor` is already contained in `commit`; a target may advance past our update. */
@@ -177,6 +160,29 @@ export async function runMergeChecks(directory: string, checks: MergeCheck[]): P
   return results;
 }
 
+/** Git holds HEAD and its referent from prepare until commit (or EOF). */
+async function advanceCheckout(worktree: string, target: string, before: string, after: string) {
+  const update = execute("git", ["-C", worktree, "update-ref", "-m", "publish merge", "--stdin"], {
+    timeout: GIT_TIMEOUT_MS
+  });
+  const replies = createInterface({ input: update.child.stdout! })[Symbol.asyncIterator]();
+  const started = replies.next();
+  async function* commands() {
+    yield `start\nupdate HEAD ${after} ${before}\nprepare\n`;
+    if ((await started).value !== "start: ok" || (await replies.next()).value !== "prepare: ok")
+      throw new Error("Git 未确认分支引用已锁定");
+    if ((await git(worktree, ["symbolic-ref", "--quiet", "HEAD"])) !== target)
+      throw new Error(`${worktree} 已不在 ${target} 分支上，请稍后重试合入`);
+    // The same two-tree update as Git's push-to-checkout hook: keep local
+    // changes unless the incoming tree would overwrite them.
+    await git(worktree, ["read-tree", "-u", "-m", before, after]);
+    yield "commit\n";
+  }
+  const [transaction, input] = await Promise.allSettled([update, pipeline(commands(), update.child.stdin!)]);
+  if (transaction.status === "rejected") throw transaction.reason;
+  if (input.status === "rejected") throw input.reason;
+}
+
 /**
  * Publish the combined commit to the target branch.
  *
@@ -195,38 +201,13 @@ export async function publishMerge(input: {
   const current = await targetTip(input.repository, input.targetBranch);
   if (!current) throw new Error(`合入目标分支 ${input.targetBranch} 不存在`);
   if (current !== input.expectedTarget) return { status: "moved" };
-  const worktree = await targetWorktree(input.repository, input.targetBranch);
-  if (worktree) {
-    try {
-      // The checkout may have switched branches since it was found: fast-forward
-      // only while it is still on the target, and succeed only if the target moved.
-      const head = await git(worktree, ["symbolic-ref", "--quiet", "HEAD"]);
-      if (head !== `refs/heads/${input.targetBranch}`)
-        return {
-          status: "blocked",
-          detail: `${worktree} 已不在 ${input.targetBranch} 分支上，请稍后重试合入`
-        };
-      await git(worktree, ["merge", "--ff-only", input.mergeCommit]);
-      const after = await targetTip(input.repository, input.targetBranch);
-      if (after === input.mergeCommit) return { status: "updated" };
-      const restored = await undoStrayFastForward(worktree, input.mergeCommit);
-      return {
-        status: "blocked",
-        detail: `${input.targetBranch} 没有前进到合入提交（现在是 ${after ?? "不存在"}）${restored ? `；${restored} 被切到这个工作区后误前进，已退回原提交` : ""}，请检查该工作区后重试合入`
-      };
-    } catch (error) {
-      const after = await targetTip(input.repository, input.targetBranch);
-      if (after !== input.expectedTarget) return { status: "moved" };
-      return { status: "blocked", detail: error instanceof Error ? error.message : String(error) };
-    }
-  }
+  const ref = `refs/heads/${input.targetBranch}`;
   try {
-    await git(input.repository, [
-      "update-ref",
-      `refs/heads/${input.targetBranch}`,
-      input.mergeCommit,
-      input.expectedTarget
-    ]);
+    if (!(await isAncestor(input.repository, current, input.mergeCommit)))
+      return { status: "blocked", detail: `${input.targetBranch} 无法快进到合入提交` };
+    const worktree = await targetWorktree(input.repository, input.targetBranch);
+    if (worktree) await advanceCheckout(worktree, ref, current, input.mergeCommit);
+    else await git(input.repository, ["update-ref", ref, input.mergeCommit, current]);
     return { status: "updated" };
   } catch (error) {
     const after = await targetTip(input.repository, input.targetBranch);

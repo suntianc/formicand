@@ -86,6 +86,8 @@ These tests are starting points; cross-layer changes also validate consumers. Ru
 
 ### Project context
 
+The [project data service](../../src/workspace/project-data-service.ts) owns the tidy snapshot and completion cursor. The [delivery repository](../../src/workspace/project-delivery.ts) records deliveries and their history against the same project clock. Regression coverage includes [concurrent completion](../../test/p3-ledger.test.js), [legacy ledger migration](../../test/p8-ledger-tidy.test.js), and [same-millisecond deliveries](../../test/p4-delivery-records.test.js).
+
 Main's project context comes only from the requirement ledger: projects, requirements, completion standards and delivery records come from the [project data service](../../src/workspace/project-data-service.ts) and the [Main tool](../../.pi/runtime/tools/project-ledger.ts), and the ledger tool is registered by the [Pi extension](../../.pi/runtime/extension.ts). Each Task's Main context directory ([main-context](../../src/runtime/main-context.ts)) holds only that Task's message copy and run snapshot, not cross-Task user memory; after a park or a restart Main continues its Pi session, and progress comes from the session and the development record.
 
 User memory, automatic learning and project experience were removed in P4.6: sources, HTTP routes, Pi tools, UI entries and dedicated tests are gone, requests no longer carry those sections, and leftover files on disk are not read. The [removal guard](../../test/removed-capabilities.test.js) records what is gone.

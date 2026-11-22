@@ -328,8 +328,7 @@ export class SubagentProcessService {
   ): Promise<void> {
     const scheduler = new DurableScheduler(this.queuePath(input));
     const item = await scheduler.cancel(input.callId, { callbackPending: true });
-    // A launch already past its last queue check registered its process before
-    // looking; one registered now is stopped here, so either side sees the cancel.
+    // A launch that acquired the queue lock first has now registered its process.
     const launched = await this.findRecord(input);
     if (launched && !launched.settledAt) await this.host.stop(launched);
     if (item.status !== "cancelled" || item.callbackPending !== true) return;
@@ -453,24 +452,12 @@ export class SubagentProcessService {
         throw error;
       }
     }
-    // A first turn is told about the checkout's pitfalls; a continuation was told already.
-    const hint = payload.continuation ? undefined : await pitfallsHint(site.directory);
-    const prompt = delegatedPrompt(payload.task ?? "Continue the delegated task.", hint);
-    const env = await this.childEnv(item, role);
-    const scheduler = new DurableScheduler(this.queuePath(item));
-    const held = async () => {
-      const entry = (await scheduler.list()).find((candidate) => candidate.stepId === item.stepId);
-      return entry !== undefined && !isTerminalWorkStatus(entry.status);
-    };
-    // A cancel while the site and environment were prepared ended the item:
-    // nothing starts. One that lands after this check finds the process
-    // record (cancelUnstarted), or the check after the launch finds it.
-    if (!(await held())) {
-      if (site.reviewSite) await this.discardReviewSite(site.reviewSite, directory);
-      return;
-    }
+    let launched = false;
     try {
-      await this.host.launch({
+      const hint = payload.continuation ? undefined : await pitfallsHint(site.directory);
+      const prompt = delegatedPrompt(payload.task ?? "Continue the delegated task.", hint);
+      const env = await this.childEnv(item, role);
+      const process = await this.host.launch({
         taskId: item.taskId,
         runId: item.runId,
         callId: item.stepId,
@@ -492,13 +479,10 @@ export class SubagentProcessService {
         env,
         leaseToken
       });
-    } catch (error) {
-      if (site.reviewSite) await this.discardReviewSite(site.reviewSite, directory);
-      throw error;
-    }
-    if (!(await held())) {
-      const record = await this.findRecord({ taskId: item.taskId, runId: item.runId, callId: item.stepId });
-      if (record && !record.settledAt) await this.host.stop(record);
+      launched = process !== undefined;
+    } finally {
+      // Once launched, the process owns the site until settlement.
+      if (!launched && site.reviewSite) await this.discardReviewSite(site.reviewSite, directory);
     }
   }
 

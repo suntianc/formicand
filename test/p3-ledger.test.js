@@ -3,6 +3,8 @@ import { after, before, test } from "node:test";
 import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { createServer } from "node:net";
 import { once } from "node:events";
+import { setTimeout as delay } from "node:timers/promises";
+import pg from "pg";
 import { join } from "node:path";
 import { startDashboard } from "./dashboard-fixture.mjs";
 import {
@@ -88,7 +90,7 @@ for (const engine of PROJECT_DATA_ENGINES) {
     // v1 and v2 stayed intact; v3 adds project Main sessions and v4 adds
     // development records. Migrations are applied one version at a time, so a
     // later version does not hide an unapplied one.
-    assert.equal(info.body.schemaVersion, 13);
+    assert.equal(info.body.schemaVersion, 14);
     assert.ok(info.body.serverVersion, "the engine version is reported");
     assert.doesNotMatch(JSON.stringify(info.body), /password/i);
     if (engine === "sqlite")
@@ -275,7 +277,7 @@ for (const engine of PROJECT_DATA_ENGINES) {
     assert.equal(detail.body.requirement.revisions.length, 3);
     assert.equal(detail.body.requirement.history.length, 1);
     const infoAfterRestart = await f.request("/api/project-data", undefined, "GET");
-    assert.equal(infoAfterRestart.body.schemaVersion, 13);
+    assert.equal(infoAfterRestart.body.schemaVersion, 14);
   });
 
   test(`${engine}: an explicit project and its task keep their identity and files`, async (t) => {
@@ -317,6 +319,57 @@ for (const engine of PROJECT_DATA_ENGINES) {
     assert.deepEqual(ledger.body.requirements.map((entry) => entry.title).sort(), ["杂项", "项目需求"]);
   });
 }
+
+if (PROJECT_DATA_ENGINES.includes("postgres"))
+  test("postgres: an older tidy finishing concurrently cannot move the mark back", async (t) => {
+    const fixture = await ledgerFixture(t, "postgres");
+    const { service, close } = await openService(fixture, "postgres");
+    t.after(close);
+    const project = await service.ensureProject({
+      projectId: "project_tidy",
+      projectName: "维护",
+      projectDirectory: fixture.root,
+      backendId: "backend_tidy"
+    });
+    const older = await service.tidyLedger(project.projectId);
+    const newer = await service.tidyLedger(project.projectId);
+
+    const gate = new pg.Client({ connectionString: postgres.connectionString });
+    await gate.connect();
+    try {
+      await gate.query("BEGIN");
+      await gate.query("SELECT project_id FROM project_data_projects WHERE project_id=$1 FOR UPDATE", [
+        project.projectId
+      ]);
+      // Queue both transactions behind the same row lock, newer first.
+      async function waitForWriters(count) {
+        for (let attempt = 0; attempt < 300; attempt++) {
+          const { rows } = await gate.query(
+            "SELECT count(*) AS waiting FROM pg_stat_activity WHERE datname = current_database() AND application_name='coworkos-project-data' AND wait_event_type='Lock'"
+          );
+          if (Number(rows[0].waiting) === count) return;
+          await delay(10);
+          await gate.query("SELECT pg_stat_clear_snapshot()");
+        }
+        assert.fail(`expected ${count} blocked writers`);
+      }
+      const finish = (read) =>
+        service.finishLedgerTidy(project.projectId, { unchanged: "已核对" }, read.readAt);
+      const first = finish(newer);
+      await waitForWriters(1);
+      const second = finish(older);
+      const completed = Promise.allSettled([first, second]);
+      await waitForWriters(2);
+      await gate.query("COMMIT");
+      const [accepted, rejected] = await completed;
+      assert.equal(accepted.status, "fulfilled");
+      assert.equal(rejected.status, "rejected");
+      assert.equal(rejected.reason.code, "tidy_stale");
+      assert.equal((await service.tidyLedger(project.projectId)).tidiedAt, accepted.value.tidiedAt);
+    } finally {
+      await gate.end();
+    }
+  });
 
 test("an invalid engine is refused with a locatable error and no fallback database", async (t) => {
   await assert.rejects(

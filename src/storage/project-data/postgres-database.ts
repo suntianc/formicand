@@ -95,7 +95,10 @@ export class PostgresDatabase implements SqlDatabase {
     return (await this.run(sql, params)).rowCount ?? 0;
   }
 
-  async transaction<T>(action: (transaction: SqlTransaction) => Promise<T>): Promise<T> {
+  async transaction<T>(
+    action: (transaction: SqlTransaction) => Promise<T>,
+    mode: "read" | "write" = "write"
+  ): Promise<T> {
     let client: pg.PoolClient;
     try {
       client = await this.pool.connect();
@@ -109,7 +112,7 @@ export class PostgresDatabase implements SqlDatabase {
         (await this.runWith(client, sql, params)).rowCount ?? 0
     };
     try {
-      await client.query("BEGIN");
+      await client.query(mode === "read" ? "BEGIN READ ONLY" : "BEGIN");
       const result = await action(scoped);
       await client.query("COMMIT");
       return result;

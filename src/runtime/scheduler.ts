@@ -93,6 +93,15 @@ export class DurableScheduler {
     });
   }
 
+  /** Serialize process registration and prompt delivery with cancellation and reclaim. */
+  async whileLeased<T>(stepId: string, token: string, start: () => Promise<T>): Promise<T | undefined> {
+    return this.withLock(async () => {
+      const item = (await this.readItems()).find((candidate) => candidate.stepId === stepId);
+      if (item?.lease?.token === token) return start();
+      return undefined;
+    });
+  }
+
   /** Requeue expired leases, or dead-letter them after maxAttempts. */
   async reclaimExpired(): Promise<WorkItem[]> {
     return this.withLock(async () => {

@@ -442,7 +442,12 @@ test("a stop reports an outcome that could not be written, and a restart settles
   const stopping = service.stop();
   await chmod(dataRoot, 0o555);
   release();
-  await assert.rejects(stopping.finally(() => chmod(dataRoot, 0o755)));
+  await assert.rejects(
+    stopping.finally(() => chmod(dataRoot, 0o755)),
+    { code: "EACCES" }
+  );
+  assert.equal((await service.status(started.cloneId)).state, "registering");
+  await assert.rejects(service.stop(), { code: "EACCES" });
 
   const again = createProjectCloneService({
     dataRoot,

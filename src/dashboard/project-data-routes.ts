@@ -335,6 +335,8 @@ export async function handleProjectDataRequest(
       return reply(response, 200, {
         lookup: await service.lookupRequirements(project.projectId, body.request)
       });
+    case "count_since_tidy":
+      return reply(response, 200, { merged: await service.mergedSinceTidy(project.projectId) });
     case "tidy":
       return reply(response, 200, { tidy: await service.tidyLedger(project.projectId) });
     case "finish_tidy":

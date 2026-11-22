@@ -122,7 +122,10 @@ export function createProjectLedgerTool(options: ProjectLedgerToolOptions) {
             unchanged: { type: "string", maxLength: 1000 }
           }
         },
-        readAt: { type: "string", description: "finish_tidy: the readAt your tidy returned." },
+        readAt: {
+          type: "string",
+          description: "finish_tidy: copy the opaque readAt token returned by tidy."
+        },
         note: { type: "string", maxLength: 2000, description: "Why this revision happened." },
         sourceKind: { type: "string", enum: ["internal", "external", "legacy"] },
         sourceReference: { type: "string", maxLength: 300, description: "Opaque external label." }

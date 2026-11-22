@@ -72,7 +72,7 @@ export interface MainSessionServicePorts {
   };
   project(projectId: string): Promise<MainSessionProject | undefined>;
   projectTasks(projectId: string): Promise<MainSessionTask[]>;
-  createProjectTask(taskId: string, projectId: string, metadata: { goal: string }): Promise<unknown>;
+  createProjectTask(taskId: string, projectId: string, metadata: { goal: string }): Promise<void>;
 }
 
 /**

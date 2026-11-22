@@ -2,6 +2,8 @@
 
 2026-11-11 更新，合并 [P1](p1-retrospective.md)、[P2](p2-retrospective.md)、[科学工具剪枝](core-pruning-retrospective.md)、[P3](p3-retrospective.md)、[P4](p4-retrospective.md) 和 [P4.5](p4.5-retrospective.md) 六轮复盘。每项经验归到现行指南、已有修复或待定事项；原验收记录继续保留。P4 修复已交付，两项操作坑点已记录，产品重构与工具建议保留待处理状态。
 
+2026-11-22 的[一阶段本地开发链路审查](local-development-review.md)记录了六个模块的 13 项问题、复现条件和修复验收标准。
+
 ## 已落实的做法
 
 日常操作入口为 [开发交接与验证记录](development-handoffs.md)，具体命令归 [本地测试](testing-local-run.md)。下表按问题合并跨轮重复建议。

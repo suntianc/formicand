@@ -129,7 +129,6 @@ export interface DashboardRoutePorts {
   globalTaskPayload: WorkspaceDirectory["globalTaskPayload"];
   locateTask: WorkspaceDirectory["locateTask"];
   taskListItem: WorkspaceDirectory["taskListItem"];
-  projectTasks: WorkspaceDirectory["projectTasks"];
   projectForRoot: WorkspaceDirectory["projectForRoot"];
   projectForId: WorkspaceDirectory["projectForId"];
   availableModels(): Promise<Array<{ id: string } & ModelLevels>>;
@@ -486,29 +485,7 @@ export function createDashboardHandler(
         }))
       )
         return;
-      if (
-        ports.mainSessions &&
-        ports.projectData &&
-        (await handleMainSessionRequest(request, response, url, {
-          runtime: ports.projectData,
-          backendId: ports.backendInfo().backendId,
-          project: async (projectId) => {
-            const project = await ports.projectForId(projectId);
-            return project
-              ? {
-                  projectId: project.projectId,
-                  projectName: project.projectName,
-                  projectDirectory: project.projectDirectory
-                }
-              : undefined;
-          },
-          projectTasks: ports.projectTasks,
-          createProjectTask: ports.createProjectTask,
-          // The same budget the run path enforces: a saved external session is
-          // part of the project's limit before it ever runs.
-          capacity: ports.mainCapacity
-        }))
-      )
+      if (ports.mainSessions && (await handleMainSessionRequest(request, response, url, ports.mainSessions)))
         return;
       if (ports.mainCapacity && (await handleMainCapacityRequest(request, response, url, ports.mainCapacity)))
         return;

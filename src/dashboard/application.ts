@@ -162,7 +162,7 @@ export function createDashboardApplication(
         : undefined;
     },
     projectTasks: workspaces.projectTasks,
-    createProjectTask: workspaces.createProjectTask,
+    createProjectTask: workspaces.persistProjectTask,
     capacity: {
       settings: () => runtimeConfig.mainCapacity,
       sessionUsage: (projectId) =>
@@ -892,7 +892,6 @@ export function createDashboardApplication(
     modelSettings,
     globalTaskPayload,
     locateTask,
-    projectTasks: workspaces.projectTasks,
     projectForRoot: workspaces.projectForRoot,
     projectForId: workspaces.projectForId,
     workspaceRoot: () => workspaceRoot,

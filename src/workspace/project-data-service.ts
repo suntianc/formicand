@@ -146,6 +146,7 @@ interface ProjectRow {
   project_id: string;
   project_name: string;
   ledger_tidied_at: string | null;
+  ledger_clock: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -366,7 +367,7 @@ export interface RequirementMerge {
 export interface LedgerTidy {
   merged: number;
   tidiedAt?: string;
-  /** Where this read stops; finishing the tidy hands it back as the new mark. */
+  /** Opaque snapshot token; finish_tidy takes it verbatim. */
   readAt: string;
   catalog: CatalogEntry[];
   /** What each development merged since the last tidy changed, for Main to judge which documents fell behind. */
@@ -464,6 +465,7 @@ export interface ProjectDataGateway {
   queryRequirements(projectId: unknown, query?: RequirementQuery): Promise<RequirementSummary[]>;
   /** Which feature the user's own words are about; see `lookupRequirements`. */
   lookupRequirements(projectId: unknown, request: unknown): Promise<LookupResult>;
+  mergedSinceTidy(projectId: unknown): Promise<number>;
   tidyLedger(projectId: unknown): Promise<LedgerTidy>;
   finishLedgerTidy(projectId: unknown, documents: unknown, readAt: unknown): Promise<LedgerTidyFinished>;
   mergeRequirements(projectId: unknown, input: RequirementMerge): Promise<RequirementDetail>;
@@ -589,7 +591,14 @@ type SnapshotTable = (typeof TABLES)[number];
 
 /** Restore accepts only these columns, so a snapshot cannot shape the INSERT. */
 const TABLE_COLUMNS: Record<SnapshotTable, readonly string[]> = {
-  project_data_projects: ["project_id", "project_name", "ledger_tidied_at", "created_at", "updated_at"],
+  project_data_projects: [
+    "project_id",
+    "project_name",
+    "ledger_tidied_at",
+    "ledger_clock",
+    "created_at",
+    "updated_at"
+  ],
   project_data_bindings: ["backend_id", "project_id", "local_directory", "created_at", "updated_at"],
   project_data_requirements: [
     "project_id",
@@ -1041,6 +1050,9 @@ function storedMergeChecks(raw: string): MergeCheck[] {
   return hasResults ? mergeCheckResults(value) : mergeCheckCommands(value);
 }
 
+// A v13 wall-clock reading cannot identify which side of a same-millisecond delivery it observed.
+const tidySnapshotPrefix = (projectId: string) => `tidy/1/${projectId}/`;
+
 function likePattern(text: string): string {
   return `%${text.toLowerCase().replaceAll("\\", "\\\\").replaceAll("%", "\\%").replaceAll("_", "\\_")}%`;
 }
@@ -1303,32 +1315,39 @@ export class ProjectDataRepository {
     return lookupRequirements(await this.lookupEntries(projectId), ledgerRequestText(requestValue));
   }
 
+  async mergedSinceTidy(projectIdValue: unknown): Promise<number> {
+    const rows = await this.transaction.query<{ merged: number | string }>(
+      `SELECT COUNT(d.delivery_id) AS merged FROM project_data_projects p
+         LEFT JOIN project_data_deliveries d ON d.project_id = p.project_id AND d.created_at > COALESCE(p.ledger_tidied_at, '')
+         WHERE p.project_id = ? GROUP BY p.project_id`,
+      [ledgerProjectId(projectIdValue)]
+    );
+    if (!rows.length) throw new ProjectDataNotFoundError("找不到该项目的共享记录");
+    return Number(rows[0].merged);
+  }
+
   /**
    * Developments recorded since the last tidy, and the whole catalog for Main
-   * to compare. Reading writes nothing: two reads, or a count for a result's
-   * next, never move the mark. Deliveries count by when they were recorded,
+   * to compare. A read reserves its ordered time but never moves the completed
+   * tidy mark. Deliveries count by when they were recorded,
    * so one replayed late is still after the mark.
    */
   async tidy(projectIdValue: unknown): Promise<LedgerTidy> {
     const projectId = ledgerProjectId(projectIdValue);
-    const project = await this.requireProject(projectId);
-    const from = project.ledger_tidied_at ?? "";
-    const readAt = now();
-    const rows = await this.transaction.query<{ merged: number | string }>(
-      "SELECT COUNT(*) AS merged FROM project_data_deliveries WHERE project_id = ? AND created_at > ? AND created_at <= ?",
-      [projectId, from, readAt]
-    );
+    const { tidiedAt, timestamp } = await this.nextLedgerTime(projectId);
+    const from = tidiedAt ?? "";
+    const merged = await this.mergedSinceTidy(projectId);
     const changes = await this.transaction.query<{ requirement_id: string; title: string; text: string }>(
       `SELECT h.requirement_id, r.title, h.text FROM project_data_requirement_history h
         JOIN project_data_requirements r ON r.project_id = h.project_id AND r.requirement_id = h.requirement_id
         WHERE h.project_id = ? AND h.development_id IS NOT NULL AND h.created_at > ? AND h.created_at <= ?
         ORDER BY h.created_at ASC, h.entry_id ASC`,
-      [projectId, from, readAt]
+      [projectId, from, timestamp]
     );
     return {
-      merged: Number(rows[0]?.merged ?? 0),
-      ...(project.ledger_tidied_at ? { tidiedAt: project.ledger_tidied_at } : {}),
-      readAt,
+      merged,
+      ...(tidiedAt ? { tidiedAt } : {}),
+      readAt: tidySnapshotPrefix(projectId) + timestamp,
       catalog: catalogOf(await this.lookupEntries(projectId)),
       changes: changes.map((row) => ({
         requirementId: row.requirement_id,
@@ -1359,19 +1378,24 @@ export class ProjectDataRepository {
         undefined,
         "documents_verdict_missing"
       );
-    const tidiedAt = readAtValue;
-    if (typeof tidiedAt !== "string" || Number.isNaN(Date.parse(tidiedAt)) || tidiedAt > now())
+    const prefix = tidySnapshotPrefix(projectId);
+    const tidiedAt =
+      typeof readAtValue === "string" && readAtValue.startsWith(prefix)
+        ? readAtValue.slice(prefix.length)
+        : "";
+    if (new Date(tidiedAt).toJSON() !== tidiedAt || !project.ledger_clock || tidiedAt > project.ledger_clock)
       throw new ProjectDataInvalidError("readAt 须为这次 tidy 返回的 readAt；先用 tidy 读取台账");
-    if (project.ledger_tidied_at && tidiedAt <= project.ledger_tidied_at)
+    const changed = await this.transaction.execute(
+      `UPDATE project_data_projects SET ledger_tidied_at = ?, updated_at = ? WHERE project_id = ?
+         AND (ledger_tidied_at IS NULL OR ledger_tidied_at < ?)`,
+      [tidiedAt, now(), projectId, tidiedAt]
+    );
+    if (!changed)
       throw new ProjectDataConflictError(
         "这次读取之后已有一次维护完成并覆盖了它；重新 tidy 再完成",
         undefined,
         "tidy_stale"
       );
-    await this.transaction.execute(
-      "UPDATE project_data_projects SET ledger_tidied_at = ?, updated_at = ? WHERE project_id = ?",
-      [tidiedAt, now(), projectId]
-    );
     if (!("update" in documents)) return { tidiedAt, documents };
     const misc = await this.transaction.query<{ requirement_id: string }>(
       "SELECT requirement_id FROM project_data_requirements WHERE project_id = ? AND kind = 'misc'",
@@ -2219,6 +2243,16 @@ export class ProjectDataRepository {
         : {}),
       developmentId
     });
+    if (input.mapping) {
+      // requireDevelopment holds the parent row until this insert commits.
+      const open = await this.transaction.query<{ review_id: string }>(
+        `SELECT review_id FROM project_data_development_reviews
+          WHERE project_id = ? AND development_id = ? AND mapping IS NOT NULL AND state = 'in_review' LIMIT 1`,
+        [projectId, developmentId]
+      );
+      if (open.length)
+        throw new ProjectDataConflictError("已有一份进行中的整体终审", undefined, "review_open");
+    }
     if (input.previousReviewId) await this.requireReview(projectId, input.previousReviewId);
     const reviewId = id("review");
     const timestamp = now();
@@ -2761,9 +2795,22 @@ export class ProjectDataRepository {
     );
   }
 
-  private async requireProject(projectId: string): Promise<ProjectRow> {
+  /** Serialize snapshot and delivery timestamps even if the host clocks tie or move backwards. */
+  async nextLedgerTime(projectId: string): Promise<{ timestamp: string; tidiedAt: string | null }> {
+    const project = await this.requireProject(projectId, true);
+    const timestamp = new Date(
+      Math.max(Date.now(), project.ledger_clock ? Date.parse(project.ledger_clock) + 1 : 0)
+    ).toISOString();
+    await this.transaction.execute("UPDATE project_data_projects SET ledger_clock = ? WHERE project_id = ?", [
+      timestamp,
+      projectId
+    ]);
+    return { timestamp, tidiedAt: project.ledger_tidied_at };
+  }
+
+  private async requireProject(projectId: string, lock = false): Promise<ProjectRow> {
     const rows = await this.transaction.query<ProjectRow>(
-      "SELECT * FROM project_data_projects WHERE project_id = ?",
+      `SELECT * FROM project_data_projects WHERE project_id = ?${lock && this.lockRows ? " FOR UPDATE" : ""}`,
       [projectId]
     );
     if (!rows.length) throw new ProjectDataNotFoundError("找不到该项目的共享记录");
@@ -2845,6 +2892,7 @@ export class ProjectDataRepository {
   async recordRequirementDelivery(
     projectIdValue: unknown,
     requirementIdValue: unknown,
+    timestamp: string,
     input: {
       developmentId: unknown;
       mergeId: unknown;
@@ -2871,7 +2919,6 @@ export class ProjectDataRepository {
     );
     if (delivered.length) return this.requirement(projectId, requirementId);
     const revision = Number(current.revision) + 1;
-    const timestamp = now();
     const note = `合入 ${targetBranch} · ${mergedCommit.slice(0, 12)} · ${mergeId}`;
     const summary = input.ledger?.summary ?? current.summary;
     const description = input.ledger?.description ?? current.description;
@@ -2921,10 +2968,13 @@ export class ProjectDataService implements ProjectDataGateway {
     readonly description: ProjectDataDescription
   ) {}
 
-  /** Run ledger writes that commit or roll back together. */
-  transaction<T>(action: (repository: ProjectDataRepository) => Promise<T>): Promise<T> {
-    return this.database.transaction((transaction) =>
-      action(new ProjectDataRepository(transaction, this.database.dialect === "postgres"))
+  transaction<T>(
+    action: (repository: ProjectDataRepository) => Promise<T>,
+    mode: "read" | "write" = "write"
+  ): Promise<T> {
+    return this.database.transaction(
+      (transaction) => action(new ProjectDataRepository(transaction, this.database.dialect === "postgres")),
+      mode
     );
   }
 
@@ -2948,6 +2998,9 @@ export class ProjectDataService implements ProjectDataGateway {
   }
   lookupRequirements(projectId: unknown, request: unknown) {
     return this.transaction((repository) => repository.lookup(projectId, request));
+  }
+  mergedSinceTidy(projectId: unknown) {
+    return this.transaction((repository) => repository.mergedSinceTidy(projectId), "read");
   }
   tidyLedger(projectId: unknown) {
     return this.transaction((repository) => repository.tidy(projectId));

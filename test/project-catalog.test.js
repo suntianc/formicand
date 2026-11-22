@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import fs from "node:fs/promises";
+import { syncBuiltinESMExports } from "node:module";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { GlobalProjectCatalog } from "../dist/src/workspace/project-catalog.js";
@@ -278,4 +280,33 @@ test("removing a project hides it and its conversations, and adding its folder a
     /busy/
   );
   assert.equal((await f.directory.globalTaskPayload()).projects.length, 1);
+});
+
+test("a failed creation event leaves no project Task for the session list to adopt", async (t) => {
+  const f = await fixture(t);
+  const project = await f.directory.createProject({
+    projectName: "Event failure",
+    projectDirectory: f.first
+  });
+  const append = fs.appendFile;
+  const fault = t.mock.method(fs, "appendFile", async (path, ...args) => {
+    if (String(path).endsWith("/task_events.jsonl"))
+      throw Object.assign(new Error("task event write failed"), { code: "EIO" });
+    return append(path, ...args);
+  });
+  syncBuiltinESMExports();
+  try {
+    await assert.rejects(f.directory.createProjectTask("first", project.projectId, { goal: "retry" }), {
+      code: "EIO"
+    });
+    assert.deepEqual(await f.directory.projectTasks(project.projectId), []);
+  } finally {
+    fault.mock.restore();
+    syncBuiltinESMExports();
+  }
+  await f.directory.createProjectTask("second", project.projectId, { goal: "retry" });
+  assert.deepEqual(
+    (await f.directory.projectTasks(project.projectId)).map((task) => task.taskId),
+    ["second"]
+  );
 });

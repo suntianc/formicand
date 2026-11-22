@@ -1,6 +1,6 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { HttpError, readJsonBody, sendJson } from "./http.js";
-import { createMainSessionService, type MainSessionServicePorts } from "./main-session-service.js";
+import type { MainSessionService } from "./main-session-service.js";
 
 const PROJECT_PATH = /^\/api\/projects\/([^/]+)\/main-sessions(?:\/([^/]+))?$/;
 
@@ -15,11 +15,10 @@ export async function handleMainSessionRequest(
   request: IncomingMessage,
   response: ServerResponse,
   url: URL,
-  ports: MainSessionServicePorts
+  service: MainSessionService
 ): Promise<boolean> {
   const match = url.pathname.match(PROJECT_PATH);
   if (!match) return false;
-  const service = createMainSessionService(ports);
   const projectId = decodeURIComponent(match[1]);
   // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- 第二段路径来自可选捕获组，匹配成功时该分组也可能缺失，这里必须保留 undefined 分支
   const sessionId = match[2] === undefined ? undefined : decodeURIComponent(match[2]);

@@ -6,7 +6,7 @@ import { isDocument } from "../domain/project-documents.js";
 import { ProjectDataError, ProjectDataInvalidError } from "../domain/project-ledger.js";
 
 const execute = promisify(execFile);
-const TIMEOUT_MS = 20_000;
+export const GIT_TIMEOUT_MS = 20_000;
 const MAX_BUFFER = 4 * 1024 * 1024;
 
 interface GitFailure {
@@ -41,7 +41,7 @@ export async function gitPaths(repository: string, args: string[]): Promise<stri
 async function run(repository: string, args: string[]): Promise<string> {
   try {
     const { stdout } = await execute("git", ["-C", repository, "-c", "core.quotePath=false", ...args], {
-      timeout: TIMEOUT_MS,
+      timeout: GIT_TIMEOUT_MS,
       maxBuffer: MAX_BUFFER,
       windowsHide: true
     });
