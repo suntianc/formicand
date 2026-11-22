@@ -243,7 +243,7 @@ export async function recordEarlierMerges(file, post, projectId, count) {
     `INSERT INTO project_data_developments
        (project_id, development_id, requirement_id, goal, completion_criteria, route, status, revision,
         baseline_branch, baseline_commit, created_at, updated_at)
-     VALUES (?, ?, ?, '更早的零碎改动', '[]', 'quick', 'merged', 1, 'main', ?, ?, ?)`,
+     VALUES (?, ?, ?, '更早的零碎改动', '["测试通过"]', 'quick', 'merged', 1, 'main', ?, ?, ?)`,
     [projectId, developmentId, misc.requirementId, "0".repeat(40), at, at]
   );
   for (let index = 0; index < count; index += 1)
