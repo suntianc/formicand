@@ -161,6 +161,11 @@ test("the tidy counts developments merged since the last one and lists the whole
     updated.next,
     new RegExp(`misc requirement ${misc.requirementId}[^]*README\\.md \\(导出命令改了参数\\)`)
   );
+  // Each finish closes the read it answers: another one needs another read.
+  await assert.rejects(again.service.finishLedgerTidy(project.projectId, { unchanged: "x" }), {
+    code: "tidy_not_read"
+  });
+  await again.service.tidyLedger(project.projectId);
   const { tidiedAt, next } = await again.service.finishLedgerTidy(project.projectId, {
     unchanged: "两次只改了内部实现"
   });
@@ -168,6 +173,37 @@ test("the tidy counts developments merged since the last one and lists the whole
   const after = await again.service.tidyLedger(project.projectId);
   assert.equal(after.tidiedAt, tidiedAt);
   assert.equal(after.merged, 0);
+});
+
+test("a merge that lands while Main tidies counts toward the next tidy", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "coworkos-tidy-race-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const first = await openLedger(t, root);
+  const project = await first.service.ensureProject({
+    projectId: "project_tidy",
+    projectName: "待办",
+    projectDirectory: root,
+    backendId: "backend_local"
+  });
+  const exported = await first.service.createRequirement(project.projectId, { title: "导出" });
+  const development = await develop(first.service, project.projectId, exported.requirementId);
+  const read = await first.service.tidyLedger(project.projectId);
+  assert.equal(read.merged, 0);
+  await first.runtime.close();
+  // Landed after the read, before the verdict.
+  await recordMerges(root, project.projectId, development.developmentId, exported.requirementId, [
+    new Date(Date.now() + 1000).toISOString()
+  ]);
+
+  const again = await openLedger(t, root);
+  t.after(() => again.runtime.close());
+  await again.service.finishLedgerTidy(project.projectId, { unchanged: "读到时没有合入" });
+  const next = await again.service.tidyLedger(project.projectId);
+  assert.equal(next.merged, 1);
+  assert.deepEqual(
+    next.changes.map((change) => change.history),
+    ["第 1 次改动"]
+  );
 });
 
 test("merging moves everything to the feature that stays and deletes the duplicate", async (t) => {
@@ -196,6 +232,7 @@ test("merging moves everything to the feature that stays and deletes the duplica
       from: from.requirementId,
       into: into.requirementId,
       expectedRevision: into.revision,
+      fromRevision: fromWithHistory.revision,
       summary: "x"
     }),
     { code: "requirement_merge_busy" }
@@ -204,12 +241,14 @@ test("merging moves everything to the feature that stays and deletes the duplica
     expectedRevision: busy.revision,
     status: "withdrawn"
   });
-  // A stale revision of the one that stays, or a missing summary, is refused.
+  // A stale revision of either side, or a missing summary, is refused: a merge
+  // written from the duplicate's old text would drop what changed since.
   await assert.rejects(
     service.mergeRequirements(projectId, {
       from: from.requirementId,
       into: into.requirementId,
-      expectedRevision: into.revision + 1,
+      expectedRevision: into.revision,
+      fromRevision: from.revision,
       summary: "x"
     }),
     { code: "revision_conflict" }
@@ -218,7 +257,18 @@ test("merging moves everything to the feature that stays and deletes the duplica
     service.mergeRequirements(projectId, {
       from: from.requirementId,
       into: into.requirementId,
-      expectedRevision: into.revision
+      expectedRevision: into.revision + 1,
+      fromRevision: fromWithHistory.revision,
+      summary: "x"
+    }),
+    { code: "revision_conflict" }
+  );
+  await assert.rejects(
+    service.mergeRequirements(projectId, {
+      from: from.requirementId,
+      into: into.requirementId,
+      expectedRevision: into.revision,
+      fromRevision: fromWithHistory.revision
     }),
     { code: "invalid_project_data" }
   );
@@ -235,6 +285,7 @@ test("merging moves everything to the feature that stays and deletes the duplica
       from: misc.requirementId,
       into: into.requirementId,
       expectedRevision: into.revision,
+      fromRevision: misc.revision,
       summary: "x"
     }),
     { code: "requirement_misc_fixed" }
@@ -244,6 +295,7 @@ test("merging moves everything to the feature that stays and deletes the duplica
     from: from.requirementId,
     into: into.requirementId,
     expectedRevision: into.revision,
+    fromRevision: fromWithHistory.revision,
     summary: "export 输出 CSV。表头行固定在第一行。",
     taskId: "task_main"
   });
@@ -287,6 +339,7 @@ test("a version 9 ledger gains the tidy mark and each requirement a description"
   // Put the file back to version 9: no tidy mark, recorded at 9.
   const database = await SqliteDatabase.open(join(root, "project-data.sqlite"));
   await database.execute("ALTER TABLE project_data_projects DROP COLUMN ledger_tidied_at");
+  await database.execute("ALTER TABLE project_data_projects DROP COLUMN ledger_tidy_read_at");
   for (const table of ["project_data_requirements", "project_data_requirement_revisions"])
     await database.execute(`ALTER TABLE ${table} DROP COLUMN description`);
   await database.execute("ALTER TABLE project_data_development_reviews DROP COLUMN mapping");
@@ -298,11 +351,41 @@ test("a version 9 ledger gains the tidy mark and each requirement a description"
 
   const again = await openLedger(t, root);
   t.after(() => again.runtime.close());
-  assert.equal(again.service.description.schemaVersion, 11);
+  assert.equal(again.service.description.schemaVersion, 12);
   // A version 9 requirement takes its summary's first sentence as its description.
   const upgraded = await again.service.getRequirement(project.projectId, exported.requirementId);
   assert.equal(upgraded.description, "export 输出 CSV。");
   assert.equal(upgraded.revisions[0].description, "export 输出 CSV。");
   // Never tidied: every merge so far counts toward the first tidy.
   assert.equal((await again.service.tidyLedger(project.projectId)).tidiedAt, undefined);
+});
+
+test("a version 11 ledger gains the tidy read time, with no tidy in progress", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "coworkos-tidy-v11-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const first = await openLedger(t, root);
+  const project = await first.service.ensureProject({
+    projectId: "project_v11",
+    projectName: "旧项目",
+    projectDirectory: root,
+    backendId: "backend_local"
+  });
+  await first.runtime.close();
+
+  const database = await SqliteDatabase.open(join(root, "project-data.sqlite"));
+  await database.execute("ALTER TABLE project_data_projects DROP COLUMN ledger_tidy_read_at");
+  await database.execute("DELETE FROM project_data_migrations");
+  await database.execute("INSERT INTO project_data_migrations (version, applied_at) VALUES (11, ?)", [
+    new Date().toISOString()
+  ]);
+  await database.close();
+
+  const again = await openLedger(t, root);
+  t.after(() => again.runtime.close());
+  assert.equal(again.service.description.schemaVersion, 12);
+  await assert.rejects(again.service.finishLedgerTidy(project.projectId, { unchanged: "x" }), {
+    code: "tidy_not_read"
+  });
+  await again.service.tidyLedger(project.projectId);
+  assert.ok((await again.service.finishLedgerTidy(project.projectId, { unchanged: "x" })).tidiedAt);
 });

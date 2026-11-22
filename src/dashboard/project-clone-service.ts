@@ -296,7 +296,6 @@ export function createProjectCloneService(options: {
   }
 
   async function finish(record: ProjectCloneRecord, state: RunningClone, failure?: string): Promise<void> {
-    running.delete(record.cloneId);
     if (state.cancelled) {
       const cleanup = await removeDestination(record.destination);
       await write({
@@ -408,7 +407,12 @@ export function createProjectCloneService(options: {
     const settle = (failure?: string) => {
       if (settled) return;
       settled = true;
-      void finish(record, state, failure).finally(resolveDone);
+      // The clone stays running until its outcome is written, registration
+      // included, so a stop waits for it.
+      void finish(record, state, failure).finally(() => {
+        running.delete(record.cloneId);
+        resolveDone();
+      });
     };
     child.once("error", (error) => {
       const missingGit = (error as NodeJS.ErrnoException).code === "ENOENT";

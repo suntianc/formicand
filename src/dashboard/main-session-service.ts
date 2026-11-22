@@ -249,7 +249,9 @@ export function createMainSessionService(ports: MainSessionServicePorts) {
             ? input.title.trim()
             : (requirementTitle ?? "新会话");
         const taskId = `task-${randomUUID()}`;
-        await ports.createProjectTask(taskId, projectId, { goal: title });
+        // The session is written before its Task: a list in between would
+        // otherwise take the Task for an old conversation and adopt it, and a
+        // title the ledger refuses would leave a Task behind.
         const record = await service.createMainSession(projectId, {
           title,
           entryKind,
@@ -258,6 +260,7 @@ export function createMainSessionService(ports: MainSessionServicePorts) {
           taskId,
           ...(requirementId ? { requirementId } : {})
         });
+        await ports.createProjectTask(taskId, projectId, { goal: title });
         // The CLI and worker find this backend's external Mains through this
         // local index, so it is written with the session before it is listed.
         await ports.capacity

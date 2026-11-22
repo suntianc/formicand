@@ -291,6 +291,51 @@ export class SubagentProcessService {
     return afterStop ?? (await this.findSettled(record));
   }
 
+  /**
+   * Cancel an item that never started: no process will report it, so the
+   * queue row and Main's callback are the whole outcome, written as a settled
+   * process writes them.
+   */
+  async cancelUnstarted(
+    input: { taskId: string; runId: string; callId: string },
+    reason: string
+  ): Promise<void> {
+    const scheduler = new DurableScheduler(this.queuePath(input));
+    const item = await scheduler.cancel(input.callId, { callbackPending: true });
+    if (item.status !== "cancelled" || item.callbackPending !== true) return;
+    const role: AgentProcessRole =
+      (item.payload as WorkPayload | undefined)?.delegation?.role === "reviewer" ? "reviewer" : "executor";
+    const diagnostics = {
+      tracePath: `sessions/${item.agentId}/pi/${item.stepId}`,
+      resultPath: relative(
+        join(this.workspaceRoot, item.taskId),
+        join(
+          agentProcessDirectory(this.workspaceRoot, item.taskId, item.runId, role, item.agentId),
+          "result.json"
+        )
+      )
+    };
+    await enqueueMainCallback({
+      workspaceRoot: this.workspaceRoot,
+      taskId: item.taskId,
+      runId: item.runId,
+      callId: item.stepId,
+      agentId: item.agentId,
+      status: "cancelled",
+      response: formatSubagentSummary({
+        status: "cancelled",
+        rawResponse: "",
+        outputFiles: [],
+        diagnostics,
+        error: reason
+      }),
+      outputFiles: [],
+      diagnostics,
+      error: reason
+    });
+    await scheduler.clearCallbackPending(item.stepId);
+  }
+
   /** Whether any process this Run launched is still running. */
   async running(input: { taskId: string; runId: string }): Promise<boolean> {
     const records = await this.delegatedRecords(input);

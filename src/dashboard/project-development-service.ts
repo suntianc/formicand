@@ -79,7 +79,12 @@ import {
   type DevelopmentRecord,
   type MergeConfig
 } from "../domain/project-development.js";
-import { hasRegistryProblems, REGISTRY_FILE, registryProblems } from "../domain/project-documents.js";
+import {
+  hasRegistryProblems,
+  problemsSince,
+  REGISTRY_FILE,
+  registryProblems
+} from "../domain/project-documents.js";
 import { ProjectDataConflictError, ProjectDataNotFoundError } from "../domain/project-ledger.js";
 import { id, now } from "../domain/types.js";
 import type {
@@ -599,6 +604,39 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
   }
 
   /** A re-review answers the previous round, so every finding there must be ruled first. */
+  /**
+   * The round a new review follows: the chain's latest, from the stored
+   * reviews. Leaving `previousReviewId` out does not start a fresh chain, so a
+   * failed candidate is never reviewed again unchanged; a drifted review ended
+   * because the checkout moved, not on a verdict.
+   */
+  function previousRound(
+    chain: DevelopmentReview[],
+    given: unknown,
+    commit: string
+  ): DevelopmentReview | undefined {
+    const latest = chain.at(-1);
+    if (given !== undefined) {
+      const id = developmentIdentifier(given, "上一次审查 ID");
+      if (latest?.reviewId !== id)
+        throw conflict(
+          latest ? `上一次审查是 ${latest.reviewId}，复审接着它` : "还没有上一次审查",
+          "review_previous_mismatch"
+        );
+    }
+    if (!latest) return undefined;
+    if (latest.state === "in_review")
+      throw conflict("上一次审查还没有结束，不能开始复审", "review_previous_open");
+    if (latest.candidate.commit === commit) {
+      if (latest.state === "failed")
+        throw conflict("候选没有变化；复审需要新的候选提交", "review_candidate_unchanged");
+      // Another review of a version that passed, such as a combined one, starts its own chain.
+      if (latest.state === "passed" && given === undefined) return undefined;
+    }
+    checkPreviousRuled(latest);
+    return latest;
+  }
+
   function checkPreviousRuled(previous: DevelopmentReview): void {
     const open = previous.findings.filter((finding) => finding.state === "open");
     if (open.length)
@@ -891,6 +929,7 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
     if (finals.some((review) => review.state === "in_review"))
       throw conflict("已有一份进行中的整体终审", "review_open");
     checkRound(finals, tickets);
+    const previous = previousRound(finals, input.previousReviewId, candidate.commit);
     // The documents come first: fixing them takes a ticket, and the final review covers its result.
     await requireRegistry(record, candidate.commit);
     // Written for this candidate: a later round's mapping is rewritten for its own tip.
@@ -900,15 +939,6 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
         "final_review_mapping_missing"
       );
     const mapping = reviewMappingInput(input.mapping);
-    let previous: DevelopmentReview | undefined;
-    if (input.previousReviewId !== undefined) {
-      const previousId = developmentIdentifier(input.previousReviewId, "上一次审查 ID");
-      previous = finals.find((review) => review.reviewId === previousId);
-      if (!previous) throw conflict("上一次审查不是这个需求的整体终审", "review_previous_mismatch");
-      if (previous.candidate.commit === candidate.commit)
-        throw conflict("候选没有变化；复审需要先并入修复票", "review_candidate_unchanged");
-      checkPreviousRuled(previous);
-    }
     return service.createReview(projectId, developmentId, {
       kind: "independent",
       candidate,
@@ -982,26 +1012,10 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
         `票 ${ticket.ticketId} 改动了范围以外的文件：${outside.slice(0, 20).join("、")}。让 Executor 撤回这些改动，或经用户确认用 revise_ticket 扩大范围`,
         "ticket_scope_exceeded"
       );
-    let previous: DevelopmentReview | undefined;
-    if (input.previousReviewId !== undefined) {
-      previous = await service.getReview(
-        projectId,
-        developmentIdentifier(input.previousReviewId, "上一次审查 ID")
-      );
-      if (!ticket.reviewIds.includes(previous.reviewId))
-        throw conflict("上一次审查不是这张票的审查", "review_previous_mismatch");
-      if (previous.state === "in_review")
-        throw conflict("上一次审查还没有结束，不能开始复审", "review_previous_open");
-      if (previous.candidate.commit === current.commit)
-        throw conflict("候选没有变化；复审需要新的候选提交", "review_candidate_unchanged");
-      checkPreviousRuled(previous);
-    }
     const { tickets } = await service.tickets(projectId, developmentId);
-    checkRound(
-      chainOf(tickets, await service.queryReviews(projectId, developmentId), ticket),
-      tickets,
-      ticket
-    );
+    const chain = chainOf(tickets, await service.queryReviews(projectId, developmentId), ticket);
+    checkRound(chain, tickets, ticket);
+    const previous = previousRound(chain, input.previousReviewId, current.commit);
     // A re-review looks at what this round changed, not everything since the fork.
     const roundChanges = previous
       ? (
@@ -1051,7 +1065,11 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
    * acceptance commands there. A conflict or a failing check leaves the
    * checkout as it was, so a later ticket never builds on a broken version.
    */
-  async function integrateTicket(projectId: string, input: Record<string, unknown>) {
+  function integrateTicket(projectId: string, input: Record<string, unknown>) {
+    return inDevelopment(projectId, input, () => integrateTicketNow(projectId, input));
+  }
+
+  async function integrateTicketNow(projectId: string, input: Record<string, unknown>) {
     const developmentId = developmentIdentifier(input.developmentId, "开发记录 ID");
     const record = await openDevelopment(projectId, developmentId);
     const service = await gateway();
@@ -1263,7 +1281,33 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
     return (await gateway()).setReviewPlan(projectId, developmentId, plan);
   }
 
-  async function startReview(
+  const developmentQueues = new Map<string, Promise<unknown>>();
+
+  /**
+   * One development's checkout work, one step at a time in this process: Main
+   * may send several tool calls at once, and bringing a ticket in, checking it
+   * and rolling back, or opening a final review, each reads the checkout or
+   * the open rounds before it writes them.
+   */
+  function inDevelopment<T>(projectId: string, input: Record<string, unknown>, action: () => Promise<T>) {
+    const key = `${projectId}\n${String(input.developmentId)}`;
+    const next = (developmentQueues.get(key) ?? Promise.resolve()).then(action, action);
+    const settled = next.then(
+      () => undefined,
+      () => undefined
+    );
+    developmentQueues.set(key, settled);
+    void settled.then(() => {
+      if (developmentQueues.get(key) === settled) developmentQueues.delete(key);
+    });
+    return next;
+  }
+
+  function startReview(projectId: string, taskId: string | undefined, input: Record<string, unknown>) {
+    return inDevelopment(projectId, input, () => startReviewNow(projectId, taskId, input));
+  }
+
+  async function startReviewNow(
     projectId: string,
     taskId: string | undefined,
     input: Record<string, unknown>
@@ -1293,19 +1337,10 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
     let previous: DevelopmentReview | undefined;
     let changedPaths: string[] = [];
     // The round limit comes first: past it, another rework of the same kind is not the next step.
-    checkRound(await service.queryReviews(projectId, developmentId), []);
-    if (input.previousReviewId !== undefined) {
-      previous = await service.getReview(
-        projectId,
-        developmentIdentifier(input.previousReviewId, "上一次审查 ID")
-      );
-      if (previous.developmentId !== developmentId)
-        throw conflict("上一次审查不属于这个开发记录", "review_previous_mismatch");
-      if (previous.state === "in_review")
-        throw conflict("上一次审查还没有结束，不能开始复审", "review_previous_open");
-      if (previous.candidate.commit === candidate.commit)
-        throw conflict("候选没有变化；复审需要新的候选提交", "review_candidate_unchanged");
-      checkPreviousRuled(previous);
+    const reviews = await service.queryReviews(projectId, developmentId);
+    checkRound(reviews, []);
+    previous = previousRound(reviews, input.previousReviewId, candidate.commit);
+    if (previous) {
       changedPaths = (
         await git(record.workspace!.directory, [
           "diff",
@@ -2101,12 +2136,18 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
     const base = record.workspace!.baseCommit;
     const registry = await fileAt(directory, candidate, REGISTRY_FILE);
     const documents = await documentsAt(directory, candidate);
-    const built = registryProblems(await fileAt(directory, base, REGISTRY_FILE), [], []).missing;
-    const problems = registryProblems(
-      registry,
-      documents,
-      built ? documents : await documentsAdded(directory, base, candidate)
+    const before = registryProblems(
+      await fileAt(directory, base, REGISTRY_FILE),
+      await documentsAt(directory, base),
+      []
     );
+    // Building the table checks all of it; otherwise only what this requirement brought.
+    const problems = before.missing
+      ? registryProblems(registry, documents, documents)
+      : problemsSince(
+          registryProblems(registry, documents, await documentsAdded(directory, base, candidate)),
+          before
+        );
     if (!hasRegistryProblems(problems)) return;
     const fix = "用一张修复票（propose_tickets）改好，并入后再冻结整体终审";
     if (problems.missing)

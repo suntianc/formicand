@@ -22,10 +22,13 @@ function gitFailure(repository: string, error: unknown): Error {
   return new Error(`git 在 ${repository} 执行失败：${stderr || detail.message || "未知错误"}`);
 }
 
-/** Run one git command in a repository or a linked worktree. */
+/**
+ * Run one git command in a repository or a linked worktree. Paths come out as
+ * they are: by default git quotes and escapes a non-ASCII one ("docs/\344…").
+ */
 export async function git(repository: string, args: string[]): Promise<string> {
   try {
-    const { stdout } = await execute("git", ["-C", repository, ...args], {
+    const { stdout } = await execute("git", ["-C", repository, "-c", "core.quotePath=false", ...args], {
       timeout: TIMEOUT_MS,
       maxBuffer: MAX_BUFFER,
       windowsHide: true

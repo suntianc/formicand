@@ -18,6 +18,7 @@ function fixture(t, { api, command } = {}) {
   window.HTMLElement.prototype.getClientRects ??= () => [];
   const calls = [];
   const created = [];
+  const listed = [];
   const toasts = [];
   const controller = createAddProjectController({
     api: async (path, options) => {
@@ -31,7 +32,8 @@ function fixture(t, { api, command } = {}) {
     showToast: (message) => toasts.push(message),
     onCreated: (project) => {
       created.push(project);
-    }
+    },
+    onListed: (project) => listed.push(project)
   });
   const $ = (selector) => document.querySelector(selector);
   const submit = () =>
@@ -43,7 +45,7 @@ function fixture(t, { api, command } = {}) {
       else globalThis[key] = value;
     }
   });
-  return { controller, calls, created, toasts, $, submit, window };
+  return { controller, calls, created, listed, toasts, $, submit, window };
 }
 
 test("adding a local project sends the folder, closes and hands the project over", async (t) => {
@@ -63,6 +65,30 @@ test("adding a local project sends the folder, closes and hands the project over
   assert.deepEqual(f.created, [{ projectId: "project_new", projectName: "新项目" }]);
   assert.equal(f.$("#add-project-modal").hidden, true);
   assert.equal(f.$("#add-project-name").value, "");
+});
+
+test("a late answer for a dialog closed meanwhile leaves the reopened one alone", async (t) => {
+  let answer;
+  const f = fixture(t, {
+    command: () =>
+      new Promise((resolve) => {
+        answer = resolve;
+      })
+  });
+  f.controller.open();
+  f.$("#add-project-name").value = "项目 A";
+  f.$("#add-project-directory").value = "/tmp/a";
+  f.submit();
+  await delay(0);
+  f.controller.close();
+  f.controller.open();
+  f.$("#add-project-name").value = "项目 B";
+  answer({ project: { projectId: "project_a", projectName: "项目 A" } });
+  await delay(0);
+  assert.deepEqual(f.created, [], "no switch to A");
+  assert.deepEqual(f.listed, [{ projectId: "project_a", projectName: "项目 A" }], "A still joins the list");
+  assert.equal(f.$("#add-project-modal").hidden, false);
+  assert.equal(f.$("#add-project-name").value, "项目 B");
 });
 
 test("a failed local attempt keeps the dialog and its inputs", async (t) => {

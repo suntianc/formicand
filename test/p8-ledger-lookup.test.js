@@ -70,6 +70,15 @@ test("lookup says how sure it is, and lists the catalog when it is not", () => {
   assert.equal(lookupRequirements(ledger, "到期提醒").verdict, "none");
 });
 
+test("an English word next to Chinese is still a word", () => {
+  const only = [feature("r_csv", "CSV", ""), { ...feature("r_misc", "杂项", ""), kind: "misc" }];
+  for (const words of ["CSV导出", "CSV 导出", "导出CSV"]) {
+    const found = lookupRequirements(only, words);
+    assert.equal(found.candidates[0]?.requirementId, "r_csv", words);
+    assert.ok(found.candidates[0].matched.includes("csv"), words);
+  }
+});
+
 test("a large ledger leaves out the catalog only when one feature is likely", () => {
   const many = Array.from({ length: 31 }, (_, index) =>
     feature(`r_${index}`, `功能${index}号`, `第${index}个功能。`)

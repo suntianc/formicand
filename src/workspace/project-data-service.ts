@@ -146,6 +146,7 @@ interface ProjectRow {
   project_id: string;
   project_name: string;
   ledger_tidied_at: string | null;
+  ledger_tidy_read_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -355,6 +356,8 @@ export interface RequirementMerge {
   into?: unknown;
   /** The revision of `into` last read. */
   expectedRevision?: unknown;
+  /** The revision of `from` last read: a merge built on either side's old text is refused. */
+  fromRevision?: unknown;
   /** The kept requirement's summary after the merge, with both requirements' rules. */
   summary?: unknown;
   taskId?: unknown;
@@ -584,7 +587,14 @@ type SnapshotTable = (typeof TABLES)[number];
 
 /** Restore accepts only these columns, so a snapshot cannot shape the INSERT. */
 const TABLE_COLUMNS: Record<SnapshotTable, readonly string[]> = {
-  project_data_projects: ["project_id", "project_name", "ledger_tidied_at", "created_at", "updated_at"],
+  project_data_projects: [
+    "project_id",
+    "project_name",
+    "ledger_tidied_at",
+    "ledger_tidy_read_at",
+    "created_at",
+    "updated_at"
+  ],
   project_data_bindings: ["backend_id", "project_id", "local_directory", "created_at", "updated_at"],
   project_data_requirements: [
     "project_id",
@@ -1302,6 +1312,13 @@ export class ProjectDataRepository {
   async tidy(projectIdValue: unknown): Promise<LedgerTidy> {
     const projectId = ledgerProjectId(projectIdValue);
     const project = await this.requireProject(projectId);
+    // Finishing this tidy moves the mark to here, not to when it finishes:
+    // what lands while Main works stays for the next one.
+    const readAt = now();
+    await this.transaction.execute(
+      "UPDATE project_data_projects SET ledger_tidy_read_at = ? WHERE project_id = ?",
+      [readAt, projectId]
+    );
     const rows = await this.transaction.query<{ merged: number | string }>(
       "SELECT COUNT(*) AS merged FROM project_data_deliveries WHERE project_id = ? AND merged_at > ?",
       [projectId, project.ledger_tidied_at ?? ""]
@@ -1326,13 +1343,13 @@ export class ProjectDataRepository {
   }
 
   /**
-   * Mark the tidy done: developments merged from now on count toward the next
-   * one. Main hands in its verdict on the documents; an update list becomes the
-   * next development, on the misc requirement.
+   * Mark the tidy done up to where it read: developments merged after that
+   * count toward the next one. Main hands in its verdict on the documents; an
+   * update list becomes the next development, on the misc requirement.
    */
   async finishTidy(projectIdValue: unknown, documentsValue: unknown): Promise<LedgerTidyFinished> {
     const projectId = ledgerProjectId(projectIdValue);
-    await this.requireProject(projectId);
+    const project = await this.requireProject(projectId);
     const documents = tidyDocumentsInput(documentsValue);
     if (!documents)
       throw new ProjectDataConflictError(
@@ -1340,10 +1357,12 @@ export class ProjectDataRepository {
         undefined,
         "documents_verdict_missing"
       );
-    const tidiedAt = now();
+    const tidiedAt = project.ledger_tidy_read_at;
+    if (!tidiedAt)
+      throw new ProjectDataConflictError("先用 tidy 读取台账，再完成维护", undefined, "tidy_not_read");
     await this.transaction.execute(
-      "UPDATE project_data_projects SET ledger_tidied_at = ?, updated_at = ? WHERE project_id = ?",
-      [tidiedAt, tidiedAt, projectId]
+      "UPDATE project_data_projects SET ledger_tidied_at = ?, ledger_tidy_read_at = NULL, updated_at = ? WHERE project_id = ?",
+      [tidiedAt, now(), projectId]
     );
     if (!("update" in documents)) return { tidiedAt, documents };
     const misc = await this.transaction.query<{ requirement_id: string }>(
@@ -1365,6 +1384,9 @@ export class ProjectDataRepository {
     const intoId = ledgerIdentifier(input.into, "保留的需求 ID");
     if (fromId === intoId) throw new ProjectDataInvalidError("不能把需求合并到它自己");
     const expectedRevision = ledgerRevision(input.expectedRevision);
+    if (input.fromRevision === undefined)
+      throw new ProjectDataInvalidError("合并须带 fromRevision：被合并的需求最后读到的修订号");
+    const fromRevision = ledgerRevision(input.fromRevision);
     if (input.summary === undefined) throw new ProjectDataInvalidError("合并须写明合并后的现状");
     const summary = ledgerSummary(input.summary);
     const taskId = ledgerTaskId(input.taskId);
@@ -1376,6 +1398,12 @@ export class ProjectDataRepository {
       throw new ProjectDataConflictError(
         "需求已更新，请基于最新修订重试",
         Number(into.revision),
+        "revision_conflict"
+      );
+    if (Number(from.revision) !== fromRevision)
+      throw new ProjectDataConflictError(
+        "被合并的需求已更新，请重新读取两条需求后重试",
+        Number(from.revision),
         "revision_conflict"
       );
     // Each requirement keeps at most one active development and one open card.

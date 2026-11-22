@@ -346,7 +346,7 @@ test("a crash between registration and completion keeps the folder and the regis
       return new Promise(() => {});
     }
   });
-  t.after(() => first.stop());
+  // No stop for the dead process: a stop waits for registration, which never ends here.
   const started = await first.start({ remoteUrl: "https://example.test/instant.git", destination });
   await waitForServiceState(first, started.cloneId, "registering");
   await waitForCondition(() => catalog.has(destination));
@@ -367,6 +367,53 @@ test("a crash between registration and completion keeps the folder and the regis
   assert.equal(await exists(destination), true);
 });
 
+test("stopping waits for a registration in progress to be written", async (t) => {
+  const root = await mkdtempForTest();
+  const git = await silentGit(root);
+  const dataRoot = join(root, "project-clones");
+  const destination = join(root, "stopping-clone");
+  let release;
+  const registered = new Promise((resolve) => {
+    release = resolve;
+  });
+  const project = {
+    projectId: "project_stopping",
+    projectName: "stopping-clone",
+    projectDirectory: destination
+  };
+  const service = createProjectCloneService({
+    dataRoot,
+    gitCommand: git.path,
+    projectForDirectory: async () => undefined,
+    createProject: async () => {
+      await registered;
+      return project;
+    }
+  });
+  const started = await service.start({ remoteUrl: "https://example.test/instant.git", destination });
+  await waitForServiceState(service, started.cloneId, "registering");
+  let stopped = false;
+  const stopping = service.stop().then(() => {
+    stopped = true;
+  });
+  await delay(100);
+  assert.equal(stopped, false, "stop returned while the project was still registering");
+  release();
+  await stopping;
+
+  const again = createProjectCloneService({
+    dataRoot,
+    gitCommand: git.path,
+    projectForDirectory: async () => project,
+    createProject: async () => project
+  });
+  t.after(() => again.stop());
+  await again.ready;
+  const record = await again.status(started.cloneId);
+  assert.equal(record.state, "completed");
+  assert.equal(record.project.projectId, "project_stopping");
+});
+
 test("recovery finishes registration for a registering record and keeps the clone", async (t) => {
   const root = await mkdtempForTest();
   const git = await silentGit(root);
@@ -378,7 +425,7 @@ test("recovery finishes registration for a registering record and keeps the clon
     projectForDirectory: async () => undefined,
     createProject: async () => new Promise(() => {})
   });
-  t.after(() => first.stop());
+  // No stop for the dead process: a stop waits for registration, which never ends here.
   const started = await first.start({ remoteUrl: "https://example.test/instant.git", destination });
   await waitForServiceState(first, started.cloneId, "registering");
 
@@ -412,7 +459,7 @@ test("recovery keeps a complete clone when the catalog cannot be read", async (t
     projectForDirectory: async () => undefined,
     createProject: async () => new Promise(() => {})
   });
-  t.after(() => first.stop());
+  // No stop for the dead process: a stop waits for registration, which never ends here.
   const started = await first.start({ remoteUrl: "https://example.test/instant.git", destination });
   await waitForServiceState(first, started.cloneId, "registering");
 
