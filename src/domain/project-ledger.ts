@@ -73,6 +73,7 @@ export interface RequirementAlias {
 export interface RequirementRevision {
   revision: number;
   title: string;
+  description: string;
   summary: string;
   status: RequirementStatus;
   source: LedgerSource;
@@ -86,6 +87,8 @@ export interface RequirementSummary {
   requirementId: string;
   kind: RequirementKind;
   title: string;
+  /** What the feature is, in a sentence or two; with the title it tells features apart. */
+  description: string;
   /** How the feature behaves now and the rules it keeps. */
   summary: string;
   aliases: RequirementAlias[];
@@ -214,6 +217,25 @@ export function ledgerTitle(value: unknown): string {
 /** A board card's text: the piece of work it asks for. */
 export function ledgerContent(value: unknown): string {
   return boundedText(value, "需求内容", 20000);
+}
+
+export const DESCRIPTION_LENGTH = 200;
+
+export function ledgerDescription(value: unknown): string {
+  return boundedText(value, "功能描述", DESCRIPTION_LENGTH);
+}
+
+/**
+ * A description for a requirement recorded without one — from the board, a
+ * retro or an older ledger: the summary's first sentence, else the title.
+ */
+export function describeFeature(summary: string, title: string): string {
+  const first =
+    summary
+      .trim()
+      .split(/(?<=[。！？!?])|\n/u)[0]
+      ?.trim() ?? "";
+  return [...(first || title)].slice(0, DESCRIPTION_LENGTH).join("");
 }
 
 /** A summary may be empty: a new feature, or the miscellaneous requirement, may have no rule yet. */

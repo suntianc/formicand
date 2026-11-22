@@ -359,6 +359,7 @@ export async function handleProjectDataRequest(
       return reply(response, 201, {
         requirement: await service.createRequirement(project.projectId, {
           title: body.title,
+          description: body.description,
           summary: body.summary,
           aliases: body.aliases,
           source: body.source,
@@ -371,6 +372,7 @@ export async function handleProjectDataRequest(
         requirement: await service.updateRequirement(project.projectId, requirementId, {
           expectedRevision: body.expectedRevision,
           title: body.title,
+          description: body.description,
           summary: body.summary,
           aliases: body.aliases,
           history: body.history,

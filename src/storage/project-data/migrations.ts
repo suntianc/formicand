@@ -1,12 +1,12 @@
 import { id, now } from "../../domain/types.js";
-import { ProjectDataError } from "../../domain/project-ledger.js";
+import { describeFeature, ProjectDataError } from "../../domain/project-ledger.js";
 import type { SqlDatabase, SqlTransaction } from "./database.js";
 
 /**
  * The project data schema this build writes.
  *
- * A new database is created at this version. A database at the one earlier
- * version this build knows (8) is converted in the same transaction that
+ * A new database is created at this version. A database at an earlier
+ * version this build knows (8 or 9) is converted in the same transaction that
  * records the new version; any other version is refused with its location and
  * version, without being rewritten. Date/time values are ISO text and booleans
  * are integers so one business query serves both engines.
@@ -15,6 +15,8 @@ export const PROJECT_DATA_SCHEMA_VERSION = 10;
 
 /** The title of the requirement every project keeps for changes no feature owns. */
 export const MISC_REQUIREMENT_TITLE = "杂项";
+export const MISC_REQUIREMENT_DESCRIPTION =
+  "与任何功能都无关的零碎改动，比如改错别字、调一个配置、改版本号。";
 
 const PROJECT_DATA_SCHEMA: readonly string[] = [
   // `ledger_tidied_at` is when Main last tidied the ledger; features created
@@ -44,6 +46,7 @@ const PROJECT_DATA_SCHEMA: readonly string[] = [
      requirement_id TEXT NOT NULL,
      kind TEXT NOT NULL,
      title TEXT NOT NULL,
+     description TEXT NOT NULL,
      summary TEXT NOT NULL,
      source_kind TEXT NOT NULL,
      source_reference TEXT,
@@ -58,6 +61,7 @@ const PROJECT_DATA_SCHEMA: readonly string[] = [
      requirement_id TEXT NOT NULL,
      revision INTEGER NOT NULL,
      title TEXT NOT NULL,
+     description TEXT NOT NULL,
      summary TEXT NOT NULL,
      status TEXT NOT NULL,
      source_kind TEXT NOT NULL,
@@ -410,10 +414,8 @@ export async function migrateProjectData(database: SqlDatabase): Promise<number>
     const version = Number(rows[0]?.version ?? 0);
     if (version === PROJECT_DATA_SCHEMA_VERSION) return version;
     if (version !== 0 && version !== 8 && version !== 9) throw incompatibleVersion(database.label, version);
-    if (version === 9) {
-      // Version 10 only adds the tidy mark; an existing ledger has never been tidied.
-      await transaction.execute("ALTER TABLE project_data_projects ADD COLUMN ledger_tidied_at TEXT");
-    } else {
+    if (version === 9) await upgradeVersion9(transaction);
+    else {
       const previous = version === 8 ? await dropVersion8(transaction) : undefined;
       for (const statement of PROJECT_DATA_SCHEMA) await transaction.execute(statement);
       if (previous) await writeFromVersion8(transaction, previous);
@@ -424,6 +426,28 @@ export async function migrateProjectData(database: SqlDatabase): Promise<number>
     ]);
     return PROJECT_DATA_SCHEMA_VERSION;
   });
+}
+
+/**
+ * Version 10 adds the tidy mark, never set on an existing ledger, and each
+ * requirement's description, taken from its summary's first sentence.
+ */
+async function upgradeVersion9(transaction: SqlTransaction): Promise<void> {
+  await transaction.execute("ALTER TABLE project_data_projects ADD COLUMN ledger_tidied_at TEXT");
+  for (const table of ["project_data_requirements", "project_data_requirement_revisions"]) {
+    await transaction.execute(`ALTER TABLE ${table} ADD COLUMN description TEXT NOT NULL DEFAULT ''`);
+    const rows = await transaction.query<{
+      project_id: string;
+      requirement_id: string;
+      title: string;
+      summary: string;
+    }>(`SELECT DISTINCT project_id, requirement_id, title, summary FROM ${table}`);
+    for (const row of rows)
+      await transaction.execute(
+        `UPDATE ${table} SET description = ? WHERE project_id = ? AND requirement_id = ? AND title = ? AND summary = ?`,
+        [describeFeature(row.summary, row.title), row.project_id, row.requirement_id, row.title, row.summary]
+      );
+  }
 }
 
 /** Version 8's tables, parents before children. */
@@ -498,6 +522,7 @@ async function writeFromVersion8(transaction: SqlTransaction, rows: Version8Rows
     await insert(transaction, "project_data_requirements", {
       ...rest,
       kind: "feature",
+      description: describeFeature(summary, String(row.title)),
       summary,
       status: status(row.status)
     });
@@ -523,6 +548,7 @@ async function writeFromVersion8(transaction: SqlTransaction, rows: Version8Rows
     const { content, ...rest } = row;
     await insert(transaction, "project_data_requirement_revisions", {
       ...rest,
+      description: describeFeature(String(content), String(row.title)),
       summary: content,
       status: status(row.status)
     });
@@ -581,6 +607,7 @@ export async function insertMiscRequirement(
     project_id: projectId,
     requirement_id: requirementId,
     title: MISC_REQUIREMENT_TITLE,
+    description: MISC_REQUIREMENT_DESCRIPTION,
     summary: "",
     source_kind: "internal",
     source_reference: null,

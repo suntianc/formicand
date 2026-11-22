@@ -21,6 +21,7 @@ export interface RequirementContext {
     kind: RequirementKind;
     status: RequirementStatus;
     title: string;
+    description: string;
     revision: number;
     summary: string;
     aliases: RequirementAlias[];
@@ -135,6 +136,7 @@ export async function requirementContext(
       kind: requirement.kind,
       status: requirement.status,
       title: requirement.title,
+      description: requirement.description,
       revision: requirement.revision,
       summary: requirement.summary,
       aliases: requirement.aliases

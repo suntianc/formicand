@@ -686,6 +686,11 @@
             "type": "string",
             "maxLength": 200
           },
+          "description": {
+            "type": "string",
+            "maxLength": 200,
+            "description": "create (required)/update: what the feature is, in a sentence or two, without its rules or history."
+          },
           "summary": {
             "type": "string",
             "maxLength": 20000,

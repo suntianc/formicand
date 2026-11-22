@@ -2,8 +2,10 @@ import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import {
   ALIAS_LIMIT,
+  describeFeature,
   ledgerAlias,
   ledgerAliases,
+  ledgerDescription,
   ledgerHistoryText,
   ledgerIdentifier,
   ledgerNote,
@@ -151,6 +153,7 @@ interface RequirementRow {
   requirement_id: string;
   kind: string;
   title: string;
+  description: string;
   summary: string;
   source_kind: string;
   source_reference: string | null;
@@ -162,6 +165,7 @@ interface RequirementRow {
 interface RevisionRow {
   revision: number;
   title: string;
+  description: string;
   summary: string;
   status: string;
   source_kind: string;
@@ -333,6 +337,8 @@ export interface RequirementQuery {
 
 export interface RequirementCreate {
   title?: unknown;
+  /** What the feature is; taken from the summary's first sentence when absent. */
+  description?: unknown;
   summary?: unknown;
   aliases?: unknown;
   source?: unknown;
@@ -363,6 +369,7 @@ export interface LedgerTidy {
 export interface RequirementUpdate {
   expectedRevision?: unknown;
   title?: unknown;
+  description?: unknown;
   summary?: unknown;
   /** The whole alias list, replacing the current one. */
   aliases?: unknown;
@@ -574,6 +581,7 @@ const TABLE_COLUMNS: Record<SnapshotTable, readonly string[]> = {
     "requirement_id",
     "kind",
     "title",
+    "description",
     "summary",
     "source_kind",
     "source_reference",
@@ -587,6 +595,7 @@ const TABLE_COLUMNS: Record<SnapshotTable, readonly string[]> = {
     "requirement_id",
     "revision",
     "title",
+    "description",
     "summary",
     "status",
     "source_kind",
@@ -827,6 +836,7 @@ function revisionOf(row: RevisionRow): RequirementRevision {
   return {
     revision: Number(row.revision),
     title: row.title,
+    description: row.description,
     summary: row.summary,
     status: row.status as RequirementStatus,
     source: sourceOf(row.source_kind, row.source_reference),
@@ -1095,19 +1105,24 @@ export class ProjectDataRepository {
     const requirementId = id("requirement");
     const title = ledgerTitle(input.title);
     const summary = ledgerSummary(input.summary);
+    const description =
+      input.description === undefined || input.description === null
+        ? describeFeature(summary, title)
+        : ledgerDescription(input.description);
     const aliases = ledgerAliases(input.aliases);
     const source = ledgerSource(input.source);
     const references = ledgerReferences(input.references);
     const timestamp = now();
     await this.transaction.execute(
       `INSERT INTO project_data_requirements
-         (project_id, requirement_id, kind, title, summary, source_kind, source_reference, status, revision, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         (project_id, requirement_id, kind, title, description, summary, source_kind, source_reference, status, revision, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         projectId,
         requirementId,
         "feature",
         title,
+        description,
         summary,
         source.kind,
         source.reference ?? null,
@@ -1120,6 +1135,7 @@ export class ProjectDataRepository {
     await this.insertRevision(projectId, requirementId, {
       revision: 1,
       title,
+      description,
       summary,
       status: "active",
       source,
@@ -1151,10 +1167,19 @@ export class ProjectDataRepository {
         "revision_conflict"
       );
     const title = input.title === undefined ? current.title : ledgerTitle(input.title);
+    const description =
+      input.description === undefined ? current.description : ledgerDescription(input.description);
     const summary = input.summary === undefined ? current.summary : ledgerSummary(input.summary);
     const status = ledgerStatus(input.status, current.status as RequirementStatus);
-    if (current.kind === "misc" && (status !== "active" || title !== current.title))
-      throw new ProjectDataConflictError("杂项需求不能改名或停用", undefined, "requirement_misc_fixed");
+    if (
+      current.kind === "misc" &&
+      (status !== "active" || title !== current.title || description !== current.description)
+    )
+      throw new ProjectDataConflictError(
+        "杂项需求不能改名、改描述或停用",
+        undefined,
+        "requirement_misc_fixed"
+      );
     const aliases = input.aliases === undefined ? undefined : ledgerAliases(input.aliases);
     const history = input.history === undefined ? undefined : ledgerHistoryText(input.history);
     const note = ledgerNote(input.note);
@@ -1164,6 +1189,7 @@ export class ProjectDataRepository {
     await this.insertRevision(projectId, requirementId, {
       revision,
       title,
+      description,
       summary,
       status,
       source: sourceOf(current.source_kind, current.source_reference),
@@ -1173,9 +1199,9 @@ export class ProjectDataRepository {
     });
     const changed = await this.transaction.execute(
       `UPDATE project_data_requirements
-          SET title = ?, summary = ?, status = ?, revision = ?, updated_at = ?
+          SET title = ?, description = ?, summary = ?, status = ?, revision = ?, updated_at = ?
         WHERE project_id = ? AND requirement_id = ? AND revision = ?`,
-      [title, summary, status, revision, timestamp, projectId, requirementId, expectedRevision]
+      [title, description, summary, status, revision, timestamp, projectId, requirementId, expectedRevision]
     );
     if (changed !== 1)
       throw new ProjectDataConflictError("需求已被另一写入更新，请重新读取", undefined, "revision_conflict");
@@ -1231,14 +1257,14 @@ export class ProjectDataRepository {
     }
     if (text) {
       filters.push(
-        `(LOWER(title) LIKE ? ESCAPE '\\' OR LOWER(summary) LIKE ? ESCAPE '\\' OR EXISTS (
+        `(LOWER(title) LIKE ? ESCAPE '\\' OR LOWER(description) LIKE ? ESCAPE '\\' OR LOWER(summary) LIKE ? ESCAPE '\\' OR EXISTS (
            SELECT 1 FROM project_data_requirement_aliases a
             WHERE a.project_id = project_data_requirements.project_id
               AND a.requirement_id = project_data_requirements.requirement_id
               AND LOWER(a.alias) LIKE ? ESCAPE '\\'))`
       );
       const pattern = likePattern(text);
-      params.push(pattern, pattern, pattern);
+      params.push(pattern, pattern, pattern, pattern);
     }
     params.push(limit);
     const rows = await this.transaction.query<RequirementRow>(
@@ -1374,6 +1400,7 @@ export class ProjectDataRepository {
     await this.insertRevision(projectId, intoId, {
       revision,
       title: into.title,
+      description: into.description,
       summary,
       status: into.status as RequirementStatus,
       source: sourceOf(into.source_kind, into.source_reference),
@@ -1416,6 +1443,7 @@ export class ProjectDataRepository {
       kind: row.kind as RequirementKind,
       status: row.status as RequirementStatus,
       title: row.title,
+      description: row.description,
       aliases: (aliases.get(row.requirement_id) ?? []).map((alias) => alias.alias),
       summary: row.summary,
       history: history.get(row.requirement_id) ?? []
@@ -2554,6 +2582,7 @@ export class ProjectDataRepository {
       requirementId: row.requirement_id,
       kind: row.kind as RequirementKind,
       title: row.title,
+      description: row.description,
       summary: row.summary,
       aliases: aliases.get(row.requirement_id) ?? [],
       source: sourceOf(row.source_kind, row.source_reference),
@@ -2606,13 +2635,14 @@ export class ProjectDataRepository {
   ): Promise<void> {
     await this.transaction.execute(
       `INSERT INTO project_data_requirement_revisions
-         (project_id, requirement_id, revision, title, summary, status, source_kind, source_reference, note, task_id, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         (project_id, requirement_id, revision, title, description, summary, status, source_kind, source_reference, note, task_id, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         projectId,
         requirementId,
         revision.revision,
         revision.title,
+        revision.description,
         revision.summary,
         revision.status,
         revision.source.kind,
@@ -2720,6 +2750,7 @@ export class ProjectDataRepository {
     await this.insertRevision(projectId, requirementId, {
       revision,
       title: current.title,
+      description: current.description,
       summary: current.summary,
       status: current.status as RequirementStatus,
       source: sourceOf(current.source_kind, current.source_reference),

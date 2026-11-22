@@ -20,6 +20,7 @@ const feature = (requirementId, title, summary, extra = {}) => ({
   kind: "feature",
   status: "active",
   title,
+  description: "",
   aliases: [],
   summary,
   history: [],
@@ -31,6 +32,7 @@ test("similar pairs find a short duplicate inside a long feature", () => {
   // twice, once under a narrower title.
   const entries = [...history, duplicateFeature].map((entry, index) =>
     feature(`r${index}`, entry.title, entry.summary, {
+      description: entry.description,
       history: entry.history,
       status: entry.status ?? "active"
     })
@@ -174,6 +176,13 @@ test("merging moves everything to the feature that stays and deletes the duplica
   );
   const misc = (await service.queryRequirements(projectId)).find((entry) => entry.kind === "misc");
   await assert.rejects(
+    service.updateRequirement(projectId, misc.requirementId, {
+      expectedRevision: misc.revision,
+      description: "改掉杂项的描述"
+    }),
+    { code: "requirement_misc_fixed" }
+  );
+  await assert.rejects(
     service.mergeRequirements(projectId, {
       from: misc.requirementId,
       into: into.requirementId,
@@ -221,12 +230,17 @@ test("a version 9 ledger gains the tidy mark and counts every feature as new", a
     projectDirectory: root,
     backendId: "backend_local"
   });
-  await first.service.createRequirement(project.projectId, { title: "导出" });
+  const exported = await first.service.createRequirement(project.projectId, {
+    title: "导出",
+    summary: "export 输出 CSV。列只能往后加。"
+  });
   await first.runtime.close();
 
   // Put the file back to version 9: no tidy mark, recorded at 9.
   const database = await SqliteDatabase.open(join(root, "project-data.sqlite"));
   await database.execute("ALTER TABLE project_data_projects DROP COLUMN ledger_tidied_at");
+  for (const table of ["project_data_requirements", "project_data_requirement_revisions"])
+    await database.execute(`ALTER TABLE ${table} DROP COLUMN description`);
   await database.execute("DELETE FROM project_data_migrations");
   await database.execute("INSERT INTO project_data_migrations (version, applied_at) VALUES (9, ?)", [
     new Date().toISOString()
@@ -236,6 +250,10 @@ test("a version 9 ledger gains the tidy mark and counts every feature as new", a
   const again = await openLedger(t, root);
   t.after(() => again.runtime.close());
   assert.equal(again.service.description.schemaVersion, 10);
+  // A version 9 requirement takes its summary's first sentence as its description.
+  const upgraded = await again.service.getRequirement(project.projectId, exported.requirementId);
+  assert.equal(upgraded.description, "export 输出 CSV。");
+  assert.equal(upgraded.revisions[0].description, "export 输出 CSV。");
   const tidy = await again.service.tidyLedger(project.projectId);
   assert.equal(tidy.created, 1);
   assert.equal(tidy.tidiedAt, undefined);
