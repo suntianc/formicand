@@ -146,7 +146,6 @@ interface ProjectRow {
   project_id: string;
   project_name: string;
   ledger_tidied_at: string | null;
-  ledger_tidy_read_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -367,6 +366,8 @@ export interface RequirementMerge {
 export interface LedgerTidy {
   merged: number;
   tidiedAt?: string;
+  /** Where this read stops; finishing the tidy hands it back as the new mark. */
+  readAt: string;
   catalog: CatalogEntry[];
   /** What each development merged since the last tidy changed, for Main to judge which documents fell behind. */
   changes: Array<{ requirementId: string; title: string; history: string }>;
@@ -464,7 +465,7 @@ export interface ProjectDataGateway {
   /** Which feature the user's own words are about; see `lookupRequirements`. */
   lookupRequirements(projectId: unknown, request: unknown): Promise<LookupResult>;
   tidyLedger(projectId: unknown): Promise<LedgerTidy>;
-  finishLedgerTidy(projectId: unknown, documents: unknown): Promise<LedgerTidyFinished>;
+  finishLedgerTidy(projectId: unknown, documents: unknown, readAt: unknown): Promise<LedgerTidyFinished>;
   mergeRequirements(projectId: unknown, input: RequirementMerge): Promise<RequirementDetail>;
   // Persistent Main sessions are business facts too: a secondary backend writes
   // them through this surface, never through SQL or a transaction callback.
@@ -479,6 +480,7 @@ export interface ProjectDataGateway {
   ): Promise<number>;
   listMainSessions(projectId: unknown): Promise<MainSessionRecord[]>;
   getMainSession(projectId: unknown, sessionId: unknown): Promise<MainSessionRecord>;
+  discardMainSession(projectId: unknown, backendId: unknown, taskId: unknown): Promise<boolean>;
   findMainSessionByTask(
     projectId: unknown,
     backendId: unknown,
@@ -587,14 +589,7 @@ type SnapshotTable = (typeof TABLES)[number];
 
 /** Restore accepts only these columns, so a snapshot cannot shape the INSERT. */
 const TABLE_COLUMNS: Record<SnapshotTable, readonly string[]> = {
-  project_data_projects: [
-    "project_id",
-    "project_name",
-    "ledger_tidied_at",
-    "ledger_tidy_read_at",
-    "created_at",
-    "updated_at"
-  ],
+  project_data_projects: ["project_id", "project_name", "ledger_tidied_at", "created_at", "updated_at"],
   project_data_bindings: ["backend_id", "project_id", "local_directory", "created_at", "updated_at"],
   project_data_requirements: [
     "project_id",
@@ -1308,31 +1303,32 @@ export class ProjectDataRepository {
     return lookupRequirements(await this.lookupEntries(projectId), ledgerRequestText(requestValue));
   }
 
-  /** Developments merged since the last tidy, and the whole catalog for Main to compare. */
+  /**
+   * Developments recorded since the last tidy, and the whole catalog for Main
+   * to compare. Reading writes nothing: two reads, or a count for a result's
+   * next, never move the mark. Deliveries count by when they were recorded,
+   * so one replayed late is still after the mark.
+   */
   async tidy(projectIdValue: unknown): Promise<LedgerTidy> {
     const projectId = ledgerProjectId(projectIdValue);
     const project = await this.requireProject(projectId);
-    // Finishing this tidy moves the mark to here, not to when it finishes:
-    // what lands while Main works stays for the next one.
+    const from = project.ledger_tidied_at ?? "";
     const readAt = now();
-    await this.transaction.execute(
-      "UPDATE project_data_projects SET ledger_tidy_read_at = ? WHERE project_id = ?",
-      [readAt, projectId]
-    );
     const rows = await this.transaction.query<{ merged: number | string }>(
-      "SELECT COUNT(*) AS merged FROM project_data_deliveries WHERE project_id = ? AND merged_at > ?",
-      [projectId, project.ledger_tidied_at ?? ""]
+      "SELECT COUNT(*) AS merged FROM project_data_deliveries WHERE project_id = ? AND created_at > ? AND created_at <= ?",
+      [projectId, from, readAt]
     );
     const changes = await this.transaction.query<{ requirement_id: string; title: string; text: string }>(
       `SELECT h.requirement_id, r.title, h.text FROM project_data_requirement_history h
         JOIN project_data_requirements r ON r.project_id = h.project_id AND r.requirement_id = h.requirement_id
-        WHERE h.project_id = ? AND h.development_id IS NOT NULL AND h.created_at > ?
+        WHERE h.project_id = ? AND h.development_id IS NOT NULL AND h.created_at > ? AND h.created_at <= ?
         ORDER BY h.created_at ASC, h.entry_id ASC`,
-      [projectId, project.ledger_tidied_at ?? ""]
+      [projectId, from, readAt]
     );
     return {
       merged: Number(rows[0]?.merged ?? 0),
       ...(project.ledger_tidied_at ? { tidiedAt: project.ledger_tidied_at } : {}),
+      readAt,
       catalog: catalogOf(await this.lookupEntries(projectId)),
       changes: changes.map((row) => ({
         requirementId: row.requirement_id,
@@ -1343,11 +1339,17 @@ export class ProjectDataRepository {
   }
 
   /**
-   * Mark the tidy done up to where it read: developments merged after that
-   * count toward the next one. Main hands in its verdict on the documents; an
-   * update list becomes the next development, on the misc requirement.
+   * Mark the tidy done up to where it read: Main hands back the `readAt` its
+   * tidy returned, and what was recorded after it counts toward the next one.
+   * A read older than the mark was already covered by a later tidy. Main hands
+   * in its verdict on the documents; an update list becomes the next
+   * development, on the misc requirement.
    */
-  async finishTidy(projectIdValue: unknown, documentsValue: unknown): Promise<LedgerTidyFinished> {
+  async finishTidy(
+    projectIdValue: unknown,
+    documentsValue: unknown,
+    readAtValue: unknown
+  ): Promise<LedgerTidyFinished> {
     const projectId = ledgerProjectId(projectIdValue);
     const project = await this.requireProject(projectId);
     const documents = tidyDocumentsInput(documentsValue);
@@ -1357,11 +1359,17 @@ export class ProjectDataRepository {
         undefined,
         "documents_verdict_missing"
       );
-    const tidiedAt = project.ledger_tidy_read_at;
-    if (!tidiedAt)
-      throw new ProjectDataConflictError("先用 tidy 读取台账，再完成维护", undefined, "tidy_not_read");
+    const tidiedAt = readAtValue;
+    if (typeof tidiedAt !== "string" || Number.isNaN(Date.parse(tidiedAt)) || tidiedAt > now())
+      throw new ProjectDataInvalidError("readAt 须为这次 tidy 返回的 readAt；先用 tidy 读取台账");
+    if (project.ledger_tidied_at && tidiedAt <= project.ledger_tidied_at)
+      throw new ProjectDataConflictError(
+        "这次读取之后已有一次维护完成并覆盖了它；重新 tidy 再完成",
+        undefined,
+        "tidy_stale"
+      );
     await this.transaction.execute(
-      "UPDATE project_data_projects SET ledger_tidied_at = ?, ledger_tidy_read_at = NULL, updated_at = ? WHERE project_id = ?",
+      "UPDATE project_data_projects SET ledger_tidied_at = ?, updated_at = ? WHERE project_id = ?",
       [tidiedAt, now(), projectId]
     );
     if (!("update" in documents)) return { tidiedAt, documents };
@@ -1573,6 +1581,34 @@ export class ProjectDataRepository {
         { kind: "task", value: taskId }
       ]);
     return this.mainSession(projectId, row.session_id);
+  }
+
+  /**
+   * Take back a session whose Task could not be written: the backend that
+   * created it removes it, with the references it made, before it ever ran.
+   */
+  async discardMainSession(
+    projectIdValue: unknown,
+    backendIdValue: unknown,
+    taskIdValue: unknown
+  ): Promise<boolean> {
+    const projectId = ledgerProjectId(projectIdValue);
+    const backendId = ledgerIdentifier(backendIdValue, "后端 ID");
+    const taskId = ledgerIdentifier(taskIdValue, "Task ID");
+    const row = await this.mainSessionRow(projectId, backendId, taskId);
+    if (!row) return false;
+    const runs = await this.mainSessionRuns(projectId, [row.session_id]);
+    if (runs.get(row.session_id)?.length)
+      throw new ProjectDataConflictError("会话已有运行记录，不能撤销", undefined, "main_session_started");
+    await this.transaction.execute(
+      "DELETE FROM project_data_references WHERE project_id = ? AND ((kind = 'session' AND value = ?) OR (kind = 'task' AND value = ?))",
+      [projectId, row.session_id, taskId]
+    );
+    await this.transaction.execute(
+      "DELETE FROM project_data_main_sessions WHERE project_id = ? AND session_id = ?",
+      [projectId, row.session_id]
+    );
+    return true;
   }
 
   /**
@@ -2916,8 +2952,8 @@ export class ProjectDataService implements ProjectDataGateway {
   tidyLedger(projectId: unknown) {
     return this.transaction((repository) => repository.tidy(projectId));
   }
-  finishLedgerTidy(projectId: unknown, documents: unknown) {
-    return this.transaction((repository) => repository.finishTidy(projectId, documents));
+  finishLedgerTidy(projectId: unknown, documents: unknown, readAt: unknown) {
+    return this.transaction((repository) => repository.finishTidy(projectId, documents, readAt));
   }
   mergeRequirements(projectId: unknown, input: RequirementMerge) {
     return this.transaction((repository) => repository.mergeRequirements(projectId, input));
@@ -2937,6 +2973,9 @@ export class ProjectDataService implements ProjectDataGateway {
   }
   getMainSession(projectId: unknown, sessionId: unknown) {
     return this.transaction((repository) => repository.mainSession(projectId, sessionId));
+  }
+  discardMainSession(projectId: unknown, backendId: unknown, taskId: unknown) {
+    return this.transaction((repository) => repository.discardMainSession(projectId, backendId, taskId));
   }
   findMainSessionByTask(projectId: unknown, backendId: unknown, taskId: unknown) {
     return this.transaction((repository) => repository.mainSessionByTask(projectId, backendId, taskId));

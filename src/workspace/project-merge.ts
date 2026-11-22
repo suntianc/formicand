@@ -4,7 +4,7 @@ import { dirname } from "node:path";
 import { promisify } from "node:util";
 import { now } from "../domain/types.js";
 import type { MergeCheck } from "../domain/development-merge.js";
-import { assertRepository, git } from "./development-workspace.js";
+import { assertRepository, git, gitPaths } from "./development-workspace.js";
 
 const execute = promisify(execFile);
 const CHECK_TIMEOUT_MS = 10 * 60_000;
@@ -27,6 +27,25 @@ export async function targetTip(repository: string, branch: string): Promise<str
   } catch {
     return undefined;
   }
+}
+
+/**
+ * The checkout switched branches between the check and the fast-forward, so
+ * the fast-forward moved the branch it switched to. That branch goes back
+ * where it was, files included, when its last reflog entry is exactly this
+ * fast-forward; the branch it names, or undefined when nothing was undone.
+ */
+async function undoStrayFastForward(worktree: string, mergeCommit: string): Promise<string | undefined> {
+  const head = await git(worktree, ["symbolic-ref", "--quiet", "HEAD"]);
+  const branch = head.replace(/^refs\/heads\//, "");
+  const [tip, entry] = await Promise.all([
+    git(worktree, ["rev-parse", head]),
+    git(worktree, ["reflog", "-1", "--format=%gs", head])
+  ]);
+  if (tip !== mergeCommit || entry !== `merge ${mergeCommit}: Fast-forward`) return undefined;
+  const before = await git(worktree, ["rev-parse", `${head}@{1}`]);
+  await git(worktree, ["reset", "--keep", before]);
+  return branch;
 }
 
 /** Whether `ancestor` is already contained in `commit`; a target may advance past our update. */
@@ -104,8 +123,7 @@ export async function mergeCandidate(input: {
     await git(input.directory, ["merge", "--no-ff", "--no-edit", input.candidate]);
   } catch (error) {
     const detail = error instanceof Error ? error.message : String(error);
-    const paths = await git(input.directory, ["diff", "--name-only", "--diff-filter=U"])
-      .then((listing) => listing.split("\n").filter(Boolean))
+    const paths = await gitPaths(input.directory, ["diff", "--name-only", "--diff-filter=U"])
       // eslint-disable-next-line no-restricted-syntax -- 冲突文件列表读不到时按 failed 汇报，原始 git 错误仍作为 detail 返回给调用方
       .catch(() => [] as string[]);
     // eslint-disable-next-line no-restricted-syntax -- 走到这里说明合入已失败，工作树可能已没有可中止的合并，abort 失败不改变下面返回的 conflict/failed 结果
@@ -191,9 +209,10 @@ export async function publishMerge(input: {
       await git(worktree, ["merge", "--ff-only", input.mergeCommit]);
       const after = await targetTip(input.repository, input.targetBranch);
       if (after === input.mergeCommit) return { status: "updated" };
+      const restored = await undoStrayFastForward(worktree, input.mergeCommit);
       return {
         status: "blocked",
-        detail: `${input.targetBranch} 没有前进到合入提交（现在是 ${after ?? "不存在"}），请检查该工作区后重试合入`
+        detail: `${input.targetBranch} 没有前进到合入提交（现在是 ${after ?? "不存在"}）${restored ? `；${restored} 被切到这个工作区后误前进，已退回原提交` : ""}，请检查该工作区后重试合入`
       };
     } catch (error) {
       const after = await targetTip(input.repository, input.targetBranch);

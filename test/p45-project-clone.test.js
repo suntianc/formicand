@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
-import { mkdir, mkdtemp, readdir, readFile, stat, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
@@ -412,6 +412,49 @@ test("stopping waits for a registration in progress to be written", async (t) =>
   const record = await again.status(started.cloneId);
   assert.equal(record.state, "completed");
   assert.equal(record.project.projectId, "project_stopping");
+});
+
+test("a stop reports an outcome that could not be written, and a restart settles it", async (t) => {
+  const root = await mkdtempForTest();
+  const git = await silentGit(root);
+  const dataRoot = join(root, "project-clones");
+  const destination = join(root, "unwritable-clone");
+  let release;
+  const registered = new Promise((resolve) => {
+    release = resolve;
+  });
+  const project = {
+    projectId: "project_unwritable",
+    projectName: "unwritable-clone",
+    projectDirectory: destination
+  };
+  const service = createProjectCloneService({
+    dataRoot,
+    gitCommand: git.path,
+    projectForDirectory: async () => undefined,
+    createProject: async () => {
+      await registered;
+      return project;
+    }
+  });
+  const started = await service.start({ remoteUrl: "https://example.test/instant.git", destination });
+  await waitForServiceState(service, started.cloneId, "registering");
+  const stopping = service.stop();
+  await chmod(dataRoot, 0o555);
+  release();
+  await assert.rejects(stopping.finally(() => chmod(dataRoot, 0o755)));
+
+  const again = createProjectCloneService({
+    dataRoot,
+    gitCommand: git.path,
+    projectForDirectory: async () => project,
+    createProject: async () => project
+  });
+  t.after(() => again.stop());
+  await again.ready;
+  const record = await again.status(started.cloneId);
+  assert.equal(record.state, "completed");
+  assert.equal(record.project.projectId, "project_unwritable");
 });
 
 test("recovery finishes registration for a registering record and keeps the clone", async (t) => {

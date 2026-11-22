@@ -178,3 +178,58 @@ test("a clone shows progress, cancels on close, and keeps its input after a read
     await dashboard.stop();
   }
 });
+
+test("switching projects while the new one is being listed keeps the person where they went", async ({
+  page
+}) => {
+  const dashboard = await startConfiguredDashboard({ defaultProject: false });
+  try {
+    const first = join(dashboard.root, "first-project");
+    const second = join(dashboard.root, "second-project");
+    const third = join(dashboard.root, "third-project");
+    await mkdir(first);
+    await mkdir(second);
+    await mkdir(third);
+    await page.goto(dashboard.base);
+    const add = async (name, directory) => {
+      await page.locator("#new-project").click();
+      const dialog = page.getByRole("dialog", { name: "添加项目", exact: true });
+      await dialog.getByRole("textbox", { name: "项目名称" }).fill(name);
+      await dialog.locator("#add-project-directory").fill(directory);
+      await dialog.getByRole("button", { name: "添加项目", exact: true }).click();
+      return dialog;
+    };
+    await expect(await add("甲项目", first)).toBeHidden();
+    const firstGroup = page.locator(".project-group", { hasText: "甲项目" });
+    await expect(firstGroup).toHaveClass(/is-selected/);
+    await expect(await add("丙项目", third)).toBeHidden();
+    await expect(page.locator(".project-group", { hasText: "丙项目" })).toHaveClass(/is-selected/);
+
+    // The catalog refresh after the second project is created waits until the person has moved.
+    let hold;
+    const held = new Promise((resolve) => {
+      hold = resolve;
+    });
+    let created = false;
+    await page.route("**/api/projects", async (route) => {
+      const response = await route.fetch();
+      created = true;
+      await route.fulfill({ response });
+    });
+    await page.route("**/api/tasks*", async (route) => {
+      if (created) await held;
+      await route.continue();
+    });
+    await add("乙项目", second);
+    await expect.poll(() => created).toBe(true);
+    await firstGroup.locator(".project-row").click();
+    hold();
+    const secondGroup = page.locator(".project-group", { hasText: "乙项目" });
+    await expect(secondGroup).toHaveCount(1);
+    await page.waitForTimeout(300);
+    await expect(firstGroup).toHaveClass(/is-selected/);
+    await expect(secondGroup).not.toHaveClass(/is-selected/);
+  } finally {
+    await dashboard.stop();
+  }
+});

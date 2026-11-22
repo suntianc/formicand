@@ -42,7 +42,7 @@ On the full route the program checks the registry before the final review, as Wo
 
 ## At a ledger tidy
 
-`tidy` lists what each development since the last tidy changed. From those changes and the registry, pick the documents they could have outdated, mostly product and instructions, and read only those against the code. `finish_tidy` takes `documents.update` (each path and why) or `documents.unchanged` (why none fell behind). Updates become one development; make each document match the code as it is now.
+`tidy` lists what each development since the last tidy changed. From those changes and the registry, pick the documents they could have outdated, mostly product and instructions, and read only those against the code. `finish_tidy` takes the `readAt` that `tidy` returned and `documents.update` (each path and why) or `documents.unchanged` (why none fell behind). Updates become one development; make each document match the code as it is now.
 
 ## A full tidy, when the user asks
 

@@ -260,7 +260,14 @@ export function createMainSessionService(ports: MainSessionServicePorts) {
           taskId,
           ...(requirementId ? { requirementId } : {})
         });
-        await ports.createProjectTask(taskId, projectId, { goal: title });
+        try {
+          await ports.createProjectTask(taskId, projectId, { goal: title });
+        } catch (error) {
+          // No Task means no conversation: take the session back, so a retry
+          // leaves one session, not a dead one beside it.
+          await service.discardMainSession(projectId, ports.backendId, taskId);
+          throw error;
+        }
         // The CLI and worker find this backend's external Mains through this
         // local index, so it is written with the session before it is listed.
         await ports.capacity

@@ -159,8 +159,9 @@ export class SubagentProcessService {
   async startQueued(input: { taskId: string; runId: string }): Promise<SubagentProcessResult[]> {
     const scheduler = new DurableScheduler(this.queuePath(input));
     await scheduler.reclaimExpired();
-    const items = await scheduler.list();
     const records = await this.delegatedRecords(input);
+    await this.redeliverUnstarted(scheduler, records);
+    const items = await scheduler.list();
     const active = new Set(records.filter((record) => !record.settledAt).map((record) => record.callId));
     const statusOf = new Map(items.map((item) => [item.stepId, item.status]));
     const terminal = new Set(
@@ -213,6 +214,31 @@ export class SubagentProcessService {
     }
     await this.armQueueRetry(input);
     return results;
+  }
+
+  /**
+   * Finish the callback of an item that ended without a process, when an
+   * earlier attempt stopped after the outcome and before the callback: no
+   * process record exists to settle it, so the queue row is the only trace.
+   */
+  private async redeliverUnstarted(scheduler: DurableScheduler, records: AgentProcessRecord[]) {
+    const recorded = new Set(records.map((record) => record.callId));
+    for (const item of await scheduler.list()) {
+      if (item.callbackPending !== true || recorded.has(item.stepId)) continue;
+      if (item.status === "cancelled")
+        await this.publishUnstartedCancel(scheduler, item, item.error ?? "Cancelled before it started");
+      else if (item.status === "failed") {
+        const payload = (item.payload ?? {}) as WorkPayload;
+        const role: AgentProcessRole = payload.delegation?.role === "reviewer" ? "reviewer" : "executor";
+        await this.projectFailure(
+          { taskId: item.taskId, runId: item.runId },
+          item,
+          role,
+          item.error ?? "Subagent failed"
+        );
+        await scheduler.clearCallbackPending(item.stepId);
+      }
+    }
   }
 
   /**
@@ -302,7 +328,16 @@ export class SubagentProcessService {
   ): Promise<void> {
     const scheduler = new DurableScheduler(this.queuePath(input));
     const item = await scheduler.cancel(input.callId, { callbackPending: true });
+    // A launch already past its last queue check registered its process before
+    // looking; one registered now is stopped here, so either side sees the cancel.
+    const launched = await this.findRecord(input);
+    if (launched && !launched.settledAt) await this.host.stop(launched);
     if (item.status !== "cancelled" || item.callbackPending !== true) return;
+    await this.publishUnstartedCancel(scheduler, item, reason);
+  }
+
+  /** The callback of an item cancelled before it started, then the pending mark cleared. */
+  private async publishUnstartedCancel(scheduler: DurableScheduler, item: WorkItem, reason: string) {
     const role: AgentProcessRole =
       (item.payload as WorkPayload | undefined)?.delegation?.role === "reviewer" ? "reviewer" : "executor";
     const diagnostics = {
@@ -421,6 +456,19 @@ export class SubagentProcessService {
     // A first turn is told about the checkout's pitfalls; a continuation was told already.
     const hint = payload.continuation ? undefined : await pitfallsHint(site.directory);
     const prompt = delegatedPrompt(payload.task ?? "Continue the delegated task.", hint);
+    const env = await this.childEnv(item, role);
+    const scheduler = new DurableScheduler(this.queuePath(item));
+    const held = async () => {
+      const entry = (await scheduler.list()).find((candidate) => candidate.stepId === item.stepId);
+      return entry !== undefined && !isTerminalWorkStatus(entry.status);
+    };
+    // A cancel while the site and environment were prepared ended the item:
+    // nothing starts. One that lands after this check finds the process
+    // record (cancelUnstarted), or the check after the launch finds it.
+    if (!(await held())) {
+      if (site.reviewSite) await this.discardReviewSite(site.reviewSite, directory);
+      return;
+    }
     try {
       await this.host.launch({
         taskId: item.taskId,
@@ -441,12 +489,16 @@ export class SubagentProcessService {
             }
           : {}),
         resultPath: join(directory, "result.json"),
-        env: await this.childEnv(item, role),
+        env,
         leaseToken
       });
     } catch (error) {
       if (site.reviewSite) await this.discardReviewSite(site.reviewSite, directory);
       throw error;
+    }
+    if (!(await held())) {
+      const record = await this.findRecord({ taskId: item.taskId, runId: item.runId, callId: item.stepId });
+      if (record && !record.settledAt) await this.host.stop(record);
     }
   }
 

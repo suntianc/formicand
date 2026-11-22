@@ -27,13 +27,25 @@ function gitFailure(repository: string, error: unknown): Error {
  * they are: by default git quotes and escapes a non-ASCII one ("docs/\344…").
  */
 export async function git(repository: string, args: string[]): Promise<string> {
+  return (await run(repository, args)).trim();
+}
+
+/**
+ * The paths a listing command prints, read NUL-separated: even with
+ * `core.quotePath` off git quotes a name holding a quote or a backslash.
+ */
+export async function gitPaths(repository: string, args: string[]): Promise<string[]> {
+  return (await run(repository, [...args.slice(0, 1), "-z", ...args.slice(1)])).split("\0").filter(Boolean);
+}
+
+async function run(repository: string, args: string[]): Promise<string> {
   try {
     const { stdout } = await execute("git", ["-C", repository, "-c", "core.quotePath=false", ...args], {
       timeout: TIMEOUT_MS,
       maxBuffer: MAX_BUFFER,
       windowsHide: true
     });
-    return stdout.trim();
+    return stdout;
   } catch (error) {
     throw gitFailure(repository, error);
   }
@@ -53,24 +65,20 @@ export async function onlyChangesUnder(
 ): Promise<boolean> {
   if (from === to) return false;
   if ((await git(repository, ["merge-base", from, to])) !== from) return false;
-  const files = (await git(repository, ["diff", "--name-only", "--no-renames", `${from}..${to}`]))
-    .split("\n")
-    .filter(Boolean);
+  const files = await gitPaths(repository, ["diff", "--name-only", "--no-renames", `${from}..${to}`]);
   return files.length > 0 && files.every((file) => file.startsWith(directory));
 }
 
 /** Every Markdown document a commit holds. */
 export async function documentsAt(repository: string, commit: string): Promise<string[]> {
-  return (await git(repository, ["ls-tree", "-r", "--name-only", commit]))
-    .split("\n")
-    .filter((file) => file && isDocument(file));
+  return (await gitPaths(repository, ["ls-tree", "-r", "--name-only", commit])).filter(isDocument);
 }
 
 /** The Markdown documents added or renamed between two commits. */
 export async function documentsAdded(repository: string, from: string, to: string): Promise<string[]> {
-  return (await git(repository, ["diff", "--name-only", "--diff-filter=AR", "-M", `${from}..${to}`]))
-    .split("\n")
-    .filter((file) => file && isDocument(file));
+  return (
+    await gitPaths(repository, ["diff", "--name-only", "--diff-filter=AR", "-M", `${from}..${to}`])
+  ).filter(isDocument);
 }
 
 /**
@@ -84,10 +92,8 @@ export async function changedPagesUnder(
   directory: string
 ): Promise<Record<string, string | undefined>> {
   const names = (
-    await git(repository, ["diff", "--name-only", "--no-renames", `${from}..${to}`, "--", directory])
-  )
-    .split("\n")
-    .filter((file) => file && !file.slice(directory.length).includes("/"));
+    await gitPaths(repository, ["diff", "--name-only", "--no-renames", `${from}..${to}`, "--", directory])
+  ).filter((file) => !file.slice(directory.length).includes("/"));
   return Object.fromEntries(
     await Promise.all(
       names.map(async (file) => [file.slice(directory.length), await fileAt(repository, to, file)] as const)

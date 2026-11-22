@@ -50,7 +50,7 @@ const ticket = (ticketId, file, extra = {}) => ({
   ticketId,
   title: `写 ${file}`,
   scope: [file],
-  criteria: [{ text: `${file} 存在`, command: `test -f ${file}` }],
+  criteria: [{ text: `${file} 存在`, command: file.includes('"') ? `test -f '${file}'` : `test -f ${file}` }],
   ...extra
 });
 
@@ -112,7 +112,7 @@ test(
         ticket("01", "src/a.txt"),
         ticket("02", "src/b.txt", { dependsOn: ["01"] }),
         // A Chinese path: git quotes it unless told not to.
-        ticket("03", "src/说明.txt")
+        ticket("03", 'src/说"明.txt')
       ]
     });
     set = await service.writeTickets(projectId, developmentId, {
@@ -267,7 +267,7 @@ test(
     // Two tickets in review at once: a Reviewer must say which one it examines.
     await service.ticketForDispatch("task-flow", developmentId, "02");
     await executor("call-e2", "02", { "src/b.txt": "b\n" });
-    await executor("call-e3", "03", { "src/说明.txt": "c\n" });
+    await executor("call-e3", "03", { 'src/说"明.txt': "c\n" });
     const second = await service.startReview(projectId, "task-flow", { developmentId, ticketId: "02" });
     const third = await service.startReview(projectId, "task-flow", { developmentId, ticketId: "03" });
     await assert.rejects(service.frozenCandidateForTask("task-flow", developmentId), /用 reviewId 指明/);
@@ -294,17 +294,38 @@ test(
         ticketId: "02",
         checks: [{ name: "项目检查", command: "sleep 0.3; exit 3" }]
       }),
+      // The same development spelled with spaces is the same queue.
       service.integrateTicket(projectId, {
-        developmentId,
+        developmentId: ` ${developmentId} `,
         ticketId: "03",
         checks: [{ name: "项目检查", command: "test -f src/cli.js" }]
       })
     ]);
     assert.equal(slowFailure.integrated, false);
     assert.equal(other.integrated, true, JSON.stringify(other));
-    assert.equal(await readFile(join(integration, "src", "说明.txt"), "utf8"), "c\n");
+    assert.equal(await readFile(join(integration, "src", '说"明.txt'), "utf8"), "c\n");
     const kept = other.tickets.tickets.find((entry) => entry.ticketId === "03").integration.commit;
     await git(integration, ["merge-base", "--is-ancestor", kept, "HEAD"]);
+    // An attempt that stopped between its merge and its checks: the retry undoes that merge first.
+    const beforeInterrupted = await git(integration, ["rev-parse", "HEAD"]);
+    const work02 = (await service.tickets(projectId, developmentId)).tickets.find(
+      (entry) => entry.ticketId === "02"
+    ).work.workspace;
+    await git(integration, [
+      "merge",
+      "--no-ff",
+      "-m",
+      "Merge ticket 02: interrupted",
+      await git(work02, ["rev-parse", "HEAD"])
+    ]);
+    const afterInterrupted = await service.integrateTicket(projectId, {
+      developmentId,
+      ticketId: "02",
+      checks: [{ name: "项目检查", command: "exit 3" }]
+    });
+    assert.equal(afterInterrupted.integrated, false);
+    assert.equal(await git(integration, ["rev-parse", "HEAD"]), beforeInterrupted);
+    await assert.rejects(readFile(join(integration, "src", "b.txt"), "utf8"), { code: "ENOENT" });
     const retried = await service.integrateTicket(projectId, {
       developmentId,
       ticketId: "02",
@@ -334,7 +355,7 @@ test(
     // Two freezes at once open one final review.
     const freezes = await Promise.allSettled([
       service.startReview(projectId, "task-flow", { developmentId, mapping }),
-      service.startReview(projectId, "task-flow", { developmentId, mapping })
+      service.startReview(projectId, "task-flow", { developmentId: `${developmentId} `, mapping })
     ]);
     assert.deepEqual(freezes.map((result) => result.status).sort(), ["fulfilled", "rejected"]);
     assert.match(
@@ -473,7 +494,7 @@ test(
         "test -f src/cli.js",
         "test -f src/a.txt",
         "test -f src/b.txt",
-        "test -f src/说明.txt",
+        "test -f 'src/说\"明.txt'",
         "test -f src/README.txt"
       ],
       "the checks each ticket passed run again on the combined version"

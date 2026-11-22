@@ -275,3 +275,28 @@ test(
     assert.equal(final.state, "in_review");
   }
 );
+
+test("documents are listed by their raw names, quotes and backslashes included", async (t) => {
+  const { documentsAdded, documentsAt } = await import("../dist/src/workspace/development-workspace.js");
+  const repo = await mkdtemp(join(tmpdir(), "coworkos-doc-names-"));
+  t.after(() => rm(repo, { recursive: true, force: true }));
+  const run = (args) =>
+    promisify(execFile)("git", ["-C", repo, ...args]).then((result) => result.stdout.trim());
+  await run(["init", "-q", "-b", "main"]);
+  await run(["config", "user.email", "fixture@example.test"]);
+  await run(["config", "user.name", "Fixture"]);
+  await writeFile(join(repo, "README.md"), "x\n");
+  await run(["add", "."]);
+  await run(["commit", "-qm", "base"]);
+  const base = await run(["rev-parse", "HEAD"]);
+  await mkdir(join(repo, "docs"));
+  for (const name of ['中"文.md', "a\\b.md"]) await writeFile(join(repo, "docs", name), "x\n");
+  await run(["add", "."]);
+  await run(["commit", "-qm", "docs"]);
+  const head = await run(["rev-parse", "HEAD"]);
+  assert.deepEqual((await documentsAdded(repo, base, head)).sort(), ["docs/a\\b.md", 'docs/中"文.md'].sort());
+  assert.deepEqual(
+    (await documentsAt(repo, head)).sort(),
+    ["README.md", "docs/a\\b.md", 'docs/中"文.md'].sort()
+  );
+});

@@ -98,6 +98,7 @@ import {
   checkedOutBranch,
   developmentWorkspaceIsIntact,
   git,
+  gitPaths,
   onlyChangesUnder,
   documentsAdded,
   documentsAt,
@@ -948,15 +949,12 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
             previousReviewId: previous.reviewId,
             previousCandidateCommit: previous.candidate.commit,
             changedPaths: (
-              await git(record.workspace!.directory, [
+              await gitPaths(record.workspace!.directory, [
                 "diff",
                 "--name-only",
                 `${previous.candidate.commit}..${candidate.commit}`
               ])
-            )
-              .split("\n")
-              .filter(Boolean)
-              .slice(0, 200)
+            ).slice(0, 200)
           }
         : {})
     });
@@ -1000,11 +998,11 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
       throw conflict("票的现场有未提交改动；让 Executor 提交后再冻结", "review_candidate_dirty");
     const integration = await inspectWorkspace(record);
     const base = await git(record.workspace!.directory, ["merge-base", integration.commit, current.commit]);
-    const changed = (
-      await git(record.workspace!.directory, ["diff", "--name-only", `${base}..${current.commit}`])
-    )
-      .split("\n")
-      .filter(Boolean);
+    const changed = await gitPaths(record.workspace!.directory, [
+      "diff",
+      "--name-only",
+      `${base}..${current.commit}`
+    ]);
     if (!changed.length) throw conflict(`票 ${ticket.ticketId} 的现场没有新提交`, "ticket_no_changes");
     const outside = ticket.scope.length ? outsideScope(ticket.scope, changed) : [];
     if (outside.length)
@@ -1018,15 +1016,11 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
     const previous = previousRound(chain, input.previousReviewId, current.commit);
     // A re-review looks at what this round changed, not everything since the fork.
     const roundChanges = previous
-      ? (
-          await git(record.workspace!.directory, [
-            "diff",
-            "--name-only",
-            `${previous.candidate.commit}..${current.commit}`
-          ])
-        )
-          .split("\n")
-          .filter(Boolean)
+      ? await gitPaths(record.workspace!.directory, [
+          "diff",
+          "--name-only",
+          `${previous.candidate.commit}..${current.commit}`
+        ])
       : changed;
     const review = await service.createReview(projectId, developmentId, {
       kind: "independent",
@@ -1084,8 +1078,16 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
         "ticket_candidate_changed"
       );
     const directory = record.workspace!.directory;
-    const before = await inspectWorkspace(record);
+    let before = await inspectWorkspace(record);
     if (before.changes) throw conflict("需求现场有未提交改动；先提交或清理", "review_candidate_dirty");
+    const parents = (await git(directory, ["rev-list", "--parents", "-n", "1", before.commit])).split(" ");
+    if (parents.length === 3 && parents[2] === item.commit) {
+      // The checkout's last merge is this ticket, which the ledger does not
+      // hold as integrated: an earlier attempt stopped between the merge and
+      // its checks. Undo that merge and run it again.
+      await git(directory, ["reset", "--hard", parents[1]]);
+      before = await inspectWorkspace(record);
+    }
     const checks = [
       ...(input.checks === undefined ? [] : mergeCheckCommands(input.checks)),
       ...ticket.criteria.flatMap((criterion) =>
@@ -1105,8 +1107,7 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
         item.commit
       ]);
     } catch (error) {
-      const paths = await git(directory, ["diff", "--name-only", "--diff-filter=U"])
-        .then((listing) => listing.split("\n").filter(Boolean))
+      const paths = await gitPaths(directory, ["diff", "--name-only", "--diff-filter=U"])
         // eslint-disable-next-line no-restricted-syntax -- 冲突文件列表读不到时仍按合并失败处理，原始 git 错误随后报告
         .catch(() => [] as string[]);
       // eslint-disable-next-line no-restricted-syntax -- 合并已失败，可能没有可中止的合并；中止失败不改变下面的拒绝结果
@@ -1290,7 +1291,11 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
    * the open rounds before it writes them.
    */
   function inDevelopment<T>(projectId: string, input: Record<string, unknown>, action: () => Promise<T>) {
-    const key = `${projectId}\n${String(input.developmentId)}`;
+    // Keyed on the ID as the action reads it, so " d1" and "d1" share one queue;
+    // an ID the action would refuse needs no queue.
+    const developmentId = String(input.developmentId ?? "").trim();
+    if (!developmentId) return action();
+    const key = `${projectId}\n${developmentId}`;
     const next = (developmentQueues.get(key) ?? Promise.resolve()).then(action, action);
     const settled = next.then(
       () => undefined,
@@ -1342,15 +1347,12 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
     previous = previousRound(reviews, input.previousReviewId, candidate.commit);
     if (previous) {
       changedPaths = (
-        await git(record.workspace!.directory, [
+        await gitPaths(record.workspace!.directory, [
           "diff",
           "--name-only",
           `${previous.candidate.commit}..${candidate.commit}`
         ])
-      )
-        .split("\n")
-        .filter(Boolean)
-        .slice(0, 200);
+      ).slice(0, 200);
       const pending = previous.findings.filter((finding) => finding.state === "fix_claimed");
       if (previous.author && pending.length) {
         const covered = new Set(previous.reworks.flatMap((rework) => rework.findingIds));
