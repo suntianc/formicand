@@ -1,7 +1,7 @@
 /**
  * A user project's document registry: a table under a `## 文档` (or
  * `## Documents`) heading in its root AGENTS.md, one row per path with the
- * document's type and domain. The program checks it at a requirement's merge;
+ * document's type and domain. The program checks it before a full route's final review;
  * whether a document's text is still right is Main's periodic maintenance.
  */
 import { ProjectDataInvalidError } from "./project-ledger.js";
@@ -47,14 +47,6 @@ function sectionRange(lines: string[]): { start: number; end: number } | undefin
   if (start < 0) return undefined;
   const after = lines.slice(start + 1).findIndex((line) => NEXT_HEADING.test(line));
   return { start, end: after < 0 ? lines.length : start + 1 + after };
-}
-
-/** The file without its registry section, so a change to the table alone can be told apart. */
-export function withoutRegistry(text: string | undefined): string {
-  const lines = (text ?? "").split("\n");
-  const range = sectionRange(lines);
-  const rest = range ? [...lines.slice(0, range.start), ...lines.slice(range.end)] : lines;
-  return rest.join("\n").replace(/\s+/g, " ").trim();
 }
 
 const cells = (line: string) =>
@@ -152,14 +144,6 @@ export const hasRegistryProblems = (problems: RegistryProblems) =>
   [problems.malformed, problems.unregistered, problems.stale, problems.duplicates].some(
     (list) => list.length > 0
   );
-
-/** What the commits on top of an approved version changed, when the approval carries over them. */
-export interface AfterApproval {
-  /** The retro's pitfalls. */
-  pitfalls: boolean;
-  /** The document registry in AGENTS.md, or a document this requirement added and then removed. */
-  registry: boolean;
-}
 
 /** One document a periodic maintenance found out of step with the code. */
 export interface DocumentUpdate {

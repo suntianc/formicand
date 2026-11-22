@@ -1,23 +1,17 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
-import { mkdir, mkdtemp, rm, unlink, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
-import { setTimeout as delay } from "node:timers/promises";
 import { promisify } from "node:util";
-import { startDashboard } from "./dashboard-fixture.mjs";
-import { backendPaths, readBackendInstance } from "../dist/src/dashboard/backend-instance.js";
-import { createProjectDevelopmentTool } from "../dist/src/runtime/project-development-tool.js";
-import {
-  parseRegistry,
-  registryProblems,
-  tidyDocumentsInput,
-  withoutRegistry
-} from "../dist/src/domain/project-documents.js";
+import { createProjectDevelopmentService } from "../dist/src/dashboard/project-development-service.js";
+import { ProjectDataRuntime } from "../dist/src/workspace/project-data-service.js";
+import { prepareWorkItemSite } from "../dist/src/workspace/work-item-workspace.js";
+import { parseRegistry, registryProblems, tidyDocumentsInput } from "../dist/src/domain/project-documents.js";
 
 const run = promisify(execFile);
-const git = (cwd, args) => run("git", args, { cwd });
+const git = (cwd, args) => run("git", ["-C", cwd, ...args]).then((result) => result.stdout.trim());
 
 const table = (...rows) =>
   [
@@ -42,11 +36,6 @@ test("the registry table parses, and its problems are named", () => {
   ]);
   assert.equal(parseRegistry("# Agents\n"), undefined);
   assert.match(parseRegistry(table("| x.md | notes | global |")).problems.join(), /类型 notes 不在/);
-  assert.equal(
-    withoutRegistry(text),
-    withoutRegistry(table("| README.md | product | global |") + "## Next\n\n| a | b |\n")
-  );
-  assert.notEqual(withoutRegistry(text), withoutRegistry(text.replace("Be brief.", "Be long.")));
 
   const documents = ["AGENTS.md", "README.md", "docs/adr/0001-x.md", "docs/pitfalls/README.md", "PLAN.md"];
   const problems = registryProblems(
@@ -75,143 +64,190 @@ test("a tidy's verdict on the documents is an update list or a reason", () => {
   assert.throws(() => tidyDocumentsInput({ update: [{ path: "README.md" }] }), /reason/);
 });
 
-async function servingToken(root) {
-  for (let attempt = 0; attempt < 200; attempt += 1) {
-    const instance = await readBackendInstance(backendPaths(join(root, "home")));
-    if (instance.value?.token) return instance.value.token;
-    await delay(25);
+async function commit(directory, files, message) {
+  for (const [path, content] of Object.entries(files)) {
+    await mkdir(join(directory, path, ".."), { recursive: true });
+    await writeFile(join(directory, path), content);
   }
-  assert.fail("the backend did not publish its local credential");
+  await git(directory, ["add", "-A"]);
+  await git(directory, ["commit", "-m", message]);
 }
 
+/** A project with documents and no registry, and the program's development service over it. */
+async function project(t) {
+  const root = await mkdtemp(join(tmpdir(), "registry-project-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const repo = join(root, "repository");
+  await mkdir(repo, { recursive: true });
+  await git(repo, ["init", "-b", "main"]);
+  await git(repo, ["config", "user.email", "fixture@example.test"]);
+  await git(repo, ["config", "user.name", "Fixture"]);
+  await commit(
+    repo,
+    { "AGENTS.md": "# Agents\n\nBe brief.\n", "README.md": "# fixture\n", "docs/guide.md": "# Guide\n" },
+    "baseline"
+  );
+  const runtime = new ProjectDataRuntime({
+    config: { sqlite: { path: join(root, "project-data.sqlite") } },
+    configPath: join(root, "config.json"),
+    dataRoot: root,
+    env: {}
+  });
+  t.after(() => runtime.close());
+  const gateway = await runtime.service();
+  const projectId = "project_registry";
+  await gateway.ensureProject({
+    projectId,
+    projectName: "登记",
+    projectDirectory: repo,
+    backendId: "backend_r"
+  });
+  const info = { projectId, projectName: "登记", projectDirectory: repo };
+  const calls = {};
+  const developmentRoot = join(root, "development-workspaces");
+  const service = createProjectDevelopmentService({
+    runtime: { service: async () => gateway },
+    backendId: "backend_r",
+    developmentRoot,
+    project: async (id) => (id === projectId ? info : undefined),
+    taskProject: async (id) => (id === "task-r" ? info : undefined),
+    call: async (_taskId, callId) => calls[callId]
+  });
+  await service.setMergeConfig(projectId, { repository: repo, targetBranch: "main" });
+  return { repo, gateway, projectId, calls, developmentRoot, service };
+}
+
+const ledger = { summaryUnchanged: "测试不改现状", history: "测试合入", descriptionUnchanged: true };
+
+test("a small change is not held to the registry, as in Workloop", { timeout: 60_000 }, async (t) => {
+  const { repo, gateway, projectId, service } = await project(t);
+  const requirement = await gateway.createRequirement(projectId, { title: "计划", summary: "小改动" });
+  const development = await service.create(projectId, {
+    requirementId: requirement.requirementId,
+    goal: "加一份说明",
+    completionCriteria: ["有说明"],
+    route: "quick"
+  });
+  await commit(development.workspace.directory, { "PLAN.md": "# Plan\n" }, "plan");
+  await service.setReviewPlan(projectId, {
+    developmentId: development.developmentId,
+    channel: "self",
+    basis: "小改动自检",
+    checks: [{ name: "说明", command: "test -f PLAN.md", exitCode: 0, output: "" }]
+  });
+  const merge = await service.requestMerge(projectId, {
+    developmentId: development.developmentId,
+    ledger,
+    checks: [{ name: "说明", command: "test -f PLAN.md" }]
+  });
+  assert.equal(merge.state, "merged", JSON.stringify(merge));
+  assert.match(await git(repo, ["ls-tree", "-r", "--name-only", "main"]), /PLAN\.md/);
+});
+
 test(
-  "a requirement's merge builds the registry first, then registers what it adds",
-  { timeout: 180_000 },
+  "the full route's final review waits for the registry, built and fixed by fix tickets",
+  { timeout: 120_000 },
   async (t) => {
-    const dashboard = await startDashboard({ defaultProject: false });
-    t.after(() => dashboard.stop());
-    const token = await servingToken(dashboard.root);
-    const post = async (path, body) => {
-      const response = await fetch(`${dashboard.base}${path}`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(body)
-      });
-      const json = await response.json();
-      assert.ok(response.ok, `${path} ${response.status} ${JSON.stringify(json)}`);
-      return json;
-    };
-    const root = await mkdtemp(join(tmpdir(), "registry-project-"));
-    t.after(() => rm(root, { recursive: true, force: true }));
-    const directory = join(root, "repository");
-    await mkdir(join(directory, "docs"), { recursive: true });
-    await git(directory, ["init", "-b", "main"]);
-    await git(directory, ["config", "user.email", "fixture@example.test"]);
-    await git(directory, ["config", "user.name", "Fixture"]);
-    await writeFile(join(directory, "AGENTS.md"), "# Agents\n\nBe brief.\n");
-    await writeFile(join(directory, "README.md"), "# fixture\n");
-    await writeFile(join(directory, "docs", "guide.md"), "# Guide\n");
-    await writeFile(join(directory, "list.txt"), "1\n");
-    await git(directory, ["add", "."]);
-    await git(directory, ["commit", "-m", "baseline"]);
-    const { project } = await post("/api/projects", { projectName: "登记", projectDirectory: directory });
-    const { taskId } = await post("/api/tasks", { goal: "登记", projectId: project.projectId });
-    const tool = createProjectDevelopmentTool({ dashboardUrl: dashboard.base, taskId, token });
-    const selfChecked = async (title, files) => {
-      const { requirement } = await post(`/api/projects/${encodeURIComponent(project.projectId)}/ledger`, {
-        action: "create",
-        title,
-        summary: title
-      });
-      const { development } = await tool.execute({
-        action: "create",
-        request: "这个功能",
-        requirementId: requirement.requirementId,
-        goal: title,
-        completionCriteria: [title],
-        route: "quick"
-      });
-      const checkout = development.workspace.directory;
-      for (const [path, text] of Object.entries(files)) await writeFile(join(checkout, path), text);
-      await git(checkout, ["add", "."]);
-      await git(checkout, ["commit", "-m", title]);
-      await tool.execute({
-        action: "review_plan",
-        developmentId: development.developmentId,
-        channel: "self",
-        basis: "小改动自检",
-        checks: [{ name: "list", command: "cat list.txt", exitCode: 0, output: "" }]
-      });
-      return { developmentId: development.developmentId, checkout };
-    };
-    const commit = async (checkout, path, text, message) => {
-      await writeFile(join(checkout, path), text);
-      await git(checkout, ["add", "."]);
-      await git(checkout, ["commit", "-m", message]);
-    };
-    const merge = (developmentId) =>
-      tool.execute({
-        action: "request_merge",
-        developmentId,
-        ledger: { summaryUnchanged: "测试不改现状", history: "测试合入", descriptionUnchanged: true },
-        mergeChecks: [{ name: "list", command: "test -f list.txt" }]
-      });
-
-    // No registry yet: the first merge builds one and registers every document.
-    const first = await selfChecked("第一项", { "list.txt": "1\n2\n" });
-    await assert.rejects(merge(first.developmentId), /还没有文档登记表[^]*tidy-docs/);
-    await commit(first.checkout, "AGENTS.md", table("| README.md | product | global |"), "docs: registry");
-    await assert.rejects(merge(first.developmentId), /没有登记：docs\/guide\.md/);
-    // Anything in AGENTS.md beyond the table is a change the approval does not carry.
-    await commit(
-      first.checkout,
-      "AGENTS.md",
-      table("| README.md | product | global |").replace("Be brief.", "Be long."),
-      "docs: more"
-    );
-    await assert.rejects(merge(first.developmentId), /交付资格还不满足：self_check_stale/);
-    await commit(
-      first.checkout,
-      "AGENTS.md",
-      table("| README.md | product | global |", "| docs/guide.md | product | guide |"),
-      "docs: register the guide"
-    );
-    const merged = await merge(first.developmentId);
-    assert.equal(merged.merge.state, "merged", JSON.stringify(merged.merge));
-    assert.notEqual(merged.merge.acceptance.approvedCommit, merged.merge.candidate.commit);
-
-    // With a registry, only what the requirement adds is checked.
-    const second = await selfChecked("第二项", {
-      "list.txt": "1\n2\n3\n",
-      "PLAN.md": "# Plan\n",
-      "docs/api.md": "# API\n"
+    const { gateway, projectId, calls, developmentRoot, service } = await project(t);
+    const requirement = await gateway.createRequirement(projectId, { title: "接口", summary: "两张票" });
+    const development = await service.create(projectId, {
+      requirementId: requirement.requirementId,
+      goal: "接口文档",
+      completionCriteria: ["有接口文档"],
+      route: "full"
     });
-    await assert.rejects(merge(second.developmentId), /没有登记：PLAN\.md、docs\/api\.md/);
-    await unlink(join(second.checkout, "PLAN.md"));
-    await commit(
-      second.checkout,
-      "AGENTS.md",
-      table(
+    const { developmentId } = development;
+    const integration = development.workspace.directory;
+    const passing = [{ name: "存在", command: "ls", exitCode: 0, output: "ok" }];
+    const mapping = [{ requirement: "有接口文档", evidence: "test -f docs/api.md" }];
+    // One ticket through its review into the requirement checkout, the way p48-ticket-flow does it.
+    const deliver = async (ticketId, files) => {
+      let set = await service.writeTickets(projectId, developmentId, {
+        op: "propose",
+        tickets: [
+          {
+            ticketId,
+            title: `票 ${ticketId}`,
+            scope: Object.keys(files),
+            criteria: Object.keys(files).map((file) => ({ text: `${file} 存在`, command: `test -f ${file}` }))
+          }
+        ]
+      });
+      set = await service.writeTickets(projectId, developmentId, {
+        op: "confirm",
+        expectedRevision: set.revision
+      });
+      await service.ticketForDispatch("task-r", developmentId, ticketId);
+      const callId = `call-e${ticketId}`;
+      const directory = join(developmentRoot, "work-items", callId);
+      await prepareWorkItemSite({
+        developmentDirectory: integration,
+        directory,
+        branch: `coworkos/work/${callId}`
+      });
+      await service.ticketStarted("task-r", developmentId, ticketId, {
+        callId,
+        agentId: `agent-${callId}`,
+        workspace: directory
+      });
+      calls[callId] = {
+        callId,
+        agentId: `agent-${callId}`,
+        role: "executor",
+        workspace: directory,
+        developmentId
+      };
+      await commit(directory, files, `ticket ${ticketId}`);
+      calls[callId].status = "completed";
+      const review = await service.startReview(projectId, "task-r", { developmentId, ticketId });
+      const reviewerId = `call-r${ticketId}`;
+      const site = join(developmentRoot, "work-items", reviewerId);
+      await git(integration, ["worktree", "add", "--detach", site, review.candidate.commit]);
+      calls[reviewerId] = {
+        callId: reviewerId,
+        agentId: `agent-${reviewerId}`,
+        role: "reviewer",
+        workspace: site,
+        developmentId,
+        status: "completed"
+      };
+      await service.attachReviewer(projectId, "task-r", { reviewId: review.reviewId, callId: reviewerId });
+      await service.completeReview(projectId, {
+        reviewId: review.reviewId,
+        verdict: "passed",
+        summary: "可以",
+        checks: passing
+      });
+      const done = await service.integrateTicket(projectId, {
+        developmentId,
+        ticketId,
+        checks: [{ name: "项目检查", command: "test -f README.md" }]
+      });
+      assert.equal(done.integrated, true, JSON.stringify(done));
+    };
+    const freeze = () => service.startReview(projectId, "task-r", { developmentId, mapping });
+
+    await deliver("01", { "docs/api.md": "# API\n" });
+    // No registry yet: this requirement builds one, registering every document, before its final review.
+    await assert.rejects(freeze(), /还没有文档登记表[^]*修复票/);
+    await deliver("02", { "AGENTS.md": table("| README.md | product | global |") });
+    await assert.rejects(freeze(), /没有登记：docs\/api\.md、docs\/guide\.md/);
+    await deliver("03", {
+      "AGENTS.md": table(
         "| README.md | product | global |",
         "| docs/guide.md | product | guide |",
         "| docs/api.md | product | guide |"
-      ),
-      "docs: register the api"
-    );
-    await assert.rejects(merge(second.developmentId), /同类同领域只许一份：docs\/guide\.md 与 docs\/api\.md/);
-    await commit(
-      second.checkout,
-      "AGENTS.md",
-      table(
+      )
+    });
+    await assert.rejects(freeze(), /同类同领域只许一份：docs\/guide\.md 与 docs\/api\.md/);
+    await deliver("04", {
+      "AGENTS.md": table(
         "| README.md | product | global |",
         "| docs/guide.md | product | guide |",
         "| docs/api.md | product | api |"
-      ),
-      "docs: the api is its own domain"
-    );
-    const done = await merge(second.developmentId);
-    assert.equal(done.merge.state, "merged", JSON.stringify(done.merge));
-    const tracked = (await git(directory, ["ls-tree", "-r", "--name-only", "main"])).stdout;
-    assert.doesNotMatch(tracked, /PLAN\.md/, "the requirement's own process document is gone");
+      )
+    });
+    const final = await freeze();
+    assert.equal(final.state, "in_review");
   }
 );
