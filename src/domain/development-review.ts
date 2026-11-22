@@ -1,4 +1,3 @@
-import type { AfterApproval } from "./project-documents.js";
 import { ProjectDataInvalidError, ledgerIdentifier, ledgerProjectDirectory } from "./project-ledger.js";
 import { now } from "./types.js";
 
@@ -175,6 +174,19 @@ export interface ReviewVerdict {
   approach?: ReviewApproach;
 }
 
+/**
+ * One row of the acceptance mapping Main writes before a final review: a
+ * requirement of the plan and what on the integrated tree shows it holds. The
+ * final Reviewer verifies each row; a blocking finding may cite its id.
+ */
+export interface MappingRow {
+  rowId: string;
+  requirement: string;
+  evidence: string;
+}
+
+export const MAX_MAPPING_ROWS = 50;
+
 export interface DevelopmentReview {
   projectId: string;
   reviewId: string;
@@ -188,6 +200,8 @@ export interface DevelopmentReview {
   previousCandidateCommit?: string;
   /** Files changed between the previous candidate and this one, for a re-review. */
   changedPaths: string[];
+  /** A final review's acceptance mapping, written for this candidate. */
+  mapping?: MappingRow[];
   reviewer?: ReviewReviewer;
   findings: ReviewFinding[];
   reworks: ReviewRework[];
@@ -230,8 +244,8 @@ export interface ReviewQualification {
   reviewId?: string;
   kind?: ReviewKind;
   independentReview: boolean;
-  /** The candidate is the approved version plus commits the approval carries over, and what they changed. */
-  afterApproval?: AfterApproval;
+  /** The candidate is the approved version plus a retro commit that touches only the pitfalls. */
+  pitfallsAfterApproval?: true;
   reasons: string[];
 }
 
@@ -621,6 +635,38 @@ export function reviewChangedPaths(value: unknown): string[] {
   return value.map((entry) => bounded(entry, "复审改动文件", 500));
 }
 
+/** Main's mapping as freeze_candidate takes it: rows of requirement and evidence, numbered here M1, M2… */
+export function reviewMappingInput(value: unknown): MappingRow[] {
+  if (!Array.isArray(value) || !value.length || value.length > MAX_MAPPING_ROWS)
+    throw new ProjectDataInvalidError(`对照表须为 1–${MAX_MAPPING_ROWS} 行`);
+  return value.map((entry, index) => {
+    const row = (entry && typeof entry === "object" && !Array.isArray(entry) ? entry : {}) as Record<
+      string,
+      unknown
+    >;
+    return {
+      rowId: `M${index + 1}`,
+      requirement: bounded(row.requirement, `对照表第 ${index + 1} 行的要求`, 1000),
+      evidence: bounded(row.evidence, `对照表第 ${index + 1} 行的证据`, 2000)
+    };
+  });
+}
+
+/** A stored mapping, re-checked as it is read. */
+export function reviewMapping(value: unknown): MappingRow[] {
+  if (!Array.isArray(value) || value.length > MAX_MAPPING_ROWS)
+    throw new ProjectDataInvalidError("对照表记录无效");
+  return value.map((entry, index) => {
+    const row = (entry ?? {}) as Record<string, unknown>;
+    if (row.rowId !== `M${index + 1}`) throw new ProjectDataInvalidError("对照表行号须依次为 M1、M2…");
+    return {
+      rowId: row.rowId,
+      requirement: bounded(row.requirement, "对照表要求", 1000),
+      evidence: bounded(row.evidence, "对照表证据", 2000)
+    };
+  });
+}
+
 /** Validate a new review row; the identifier and timestamps are assigned by the store. */
 export function reviewCreate(value: Record<string, unknown>): {
   developmentId: string;
@@ -630,6 +676,7 @@ export function reviewCreate(value: Record<string, unknown>): {
   previousReviewId?: string;
   previousCandidateCommit?: string;
   changedPaths: string[];
+  mapping?: MappingRow[];
 } {
   const author = value.author === undefined ? undefined : reviewAuthor(value.author);
   return {
@@ -643,7 +690,8 @@ export function reviewCreate(value: Record<string, unknown>): {
     ...(value.previousCandidateCommit === undefined
       ? {}
       : { previousCandidateCommit: reviewCommit(value.previousCandidateCommit, "上一次候选提交") }),
-    changedPaths: reviewChangedPaths(value.changedPaths)
+    changedPaths: reviewChangedPaths(value.changedPaths),
+    ...(value.mapping === undefined ? {} : { mapping: reviewMapping(value.mapping) })
   };
 }
 

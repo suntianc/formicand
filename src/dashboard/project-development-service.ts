@@ -15,6 +15,7 @@ import {
   reviewCandidate,
   reviewFindingInput,
   reviewKind,
+  reviewMappingInput,
   reviewPlanInput,
   reviewVerdict,
   rulingDecision,
@@ -92,7 +93,7 @@ import {
   checkedOutBranch,
   developmentWorkspaceIsIntact,
   git,
-  changesAfterApproval,
+  onlyChangesUnder,
   documentsAdded,
   documentsAt,
   changedPagesUnder,
@@ -626,7 +627,10 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
     const scope: ReviewScope = {
       criteria: ticket
         ? ticket.criteria.map((criterion) => criterion.criterionId)
-        : completionCriterionIds(record.completionCriteria),
+        : [
+            ...completionCriterionIds(record.completionCriteria),
+            ...(review.mapping ?? []).map((row) => row.rowId)
+          ],
       ...(previous
         ? {
             previous: toFix.map((finding) => ({ findingId: finding.findingId, title: finding.title })),
@@ -645,7 +649,7 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
           changedPaths: review.changedPaths
         }
       : undefined;
-    return { record, tickets, ticket, previous, scope, rereview };
+    return { record, tickets, ticket, previous, scope, rereview, mapping: review.mapping };
   }
 
   /**
@@ -887,6 +891,15 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
     if (finals.some((review) => review.state === "in_review"))
       throw conflict("已有一份进行中的整体终审", "review_open");
     checkRound(finals, tickets);
+    // The documents come first: fixing them takes a ticket, and the final review covers its result.
+    await requireRegistry(record, candidate.commit);
+    // Written for this candidate: a later round's mapping is rewritten for its own tip.
+    if (input.mapping === undefined)
+      throw conflict(
+        "整体终审先写对照表：freeze_candidate 带 mapping，每行一条要求和集成版本上能证明它的测试、命令或文件",
+        "final_review_mapping_missing"
+      );
+    const mapping = reviewMappingInput(input.mapping);
     let previous: DevelopmentReview | undefined;
     if (input.previousReviewId !== undefined) {
       const previousId = developmentIdentifier(input.previousReviewId, "上一次审查 ID");
@@ -899,6 +912,7 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
     return service.createReview(projectId, developmentId, {
       kind: "independent",
       candidate,
+      mapping,
       ...(previous
         ? {
             previousReviewId: previous.reviewId,
@@ -1256,8 +1270,11 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
   ): Promise<DevelopmentReview> {
     const developmentId = developmentIdentifier(input.developmentId, "开发记录 ID");
     const record = await openDevelopment(projectId, developmentId);
+    const final = input.ticketId === undefined && record.route === "full";
+    if (input.mapping !== undefined && !final)
+      throw conflict("只有 full 路线的整体终审带对照表", "review_mapping_unexpected");
     if (input.ticketId !== undefined) return startTicketReview(projectId, taskId, record, input);
-    if (record.route === "full") return startFinalReview(projectId, record, input);
+    if (final) return startFinalReview(projectId, record, input);
     if (ticketRoute(record))
       throw conflict(
         `${record.route} 路线按票审查：freeze_candidate 须带 ticketId，审查票自己的现场`,
@@ -1711,18 +1728,18 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
     const reasons: string[] = [];
     const latest = reviews.at(-1);
     // The approved version still stands when the checkout is that version, or
-    // that version plus the retro's pitfalls and the document registry.
+    // that version plus the retro's commit that touches only the pitfalls.
     const carries = async (approved: { commit: string; tree: string }) => {
       if (approved.commit === current.commit && approved.tree === current.tree) return true;
       if (current.changes) return false;
-      const extended = await changesAfterApproval(
+      const extended = await onlyChangesUnder(
         record.workspace!.directory,
         approved.commit,
         current.commit,
-        record.workspace!.baseCommit
+        PITFALLS_DIRECTORY
       );
-      if (extended) qualification.afterApproval = extended;
-      return extended !== undefined;
+      if (extended) qualification.pitfallsAfterApproval = true;
+      return extended;
     };
     const approvedAs = (approved: { commit: string; tree: string }): ReviewCandidate => ({
       ...qualification.candidate!,
@@ -1980,13 +1997,13 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
       if (unresolved.length) reasons.push("findings_open");
     }
     // The candidate is the approved version, or that version plus the retro's
-    // pitfalls and the document registry.
+    // commit that touches only the pitfalls.
     if (approved.commit !== merge.candidate.commit || approved.tree !== merge.candidate.tree) {
       const { repository } = await requiredMergeConfig(projectId);
-      const base = await git(repository, ["merge-base", approved.commit, merge.targetBranch]);
-      const extended = await changesAfterApproval(repository, approved.commit, merge.candidate.commit, base);
-      if (!extended || (extended.pitfalls && merge.acceptance.retro?.outcome !== "pitfalls"))
-        reasons.push("candidate_changed");
+      const extended =
+        merge.acceptance.retro?.outcome === "pitfalls" &&
+        (await onlyChangesUnder(repository, approved.commit, merge.candidate.commit, PITFALLS_DIRECTORY));
+      if (!extended) reasons.push("candidate_changed");
     }
     if (!merge.acceptance.retro) reasons.push("retro_missing");
     return [...new Set(reasons)];
@@ -2074,10 +2091,10 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
   }
 
   /**
-   * The project's document registry at the candidate: present, and holding
-   * every document this requirement added, or every document when this
-   * requirement built it. Fixed on top of the approved version, the table and
-   * removals of the requirement's own new documents keep the approval.
+   * The project's document registry at the requirement checkout, checked before
+   * its final review as Workloop does: present, and holding every document this
+   * requirement added, or every document when this requirement builds it. A fix
+   * is a fix ticket, so the final review covers it.
    */
   async function requireRegistry(record: DevelopmentRecord, candidate: string): Promise<void> {
     const directory = record.workspace!.directory;
@@ -2091,10 +2108,10 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
       built ? documents : await documentsAdded(directory, base, candidate)
     );
     if (!hasRegistryProblems(problems)) return;
-    const fix = `在验收版本之上提交修正，只改 ${REGISTRY_FILE} 里的文档表、删掉这个需求自己新加的文档，审核结果仍然有效；要把内容并进已有文档就改了正文，走返修重新审`;
+    const fix = "用一张修复票（propose_tickets）改好，并入后再冻结整体终审";
     if (problems.missing)
       throw conflict(
-        `这个项目还没有文档登记表：加载 tidy-docs 技能，在 ${REGISTRY_FILE} 里建“文档”表，把现有文档逐一登记，只登记、不删改。${fix}`,
+        `这个项目还没有文档登记表：加载 tidy-docs 技能，在 ${REGISTRY_FILE} 里建“文档”表，把现有文档逐一登记，只登记、不删改；${fix}`,
         "documents_registry_missing"
       );
     const parts = [
@@ -2104,7 +2121,7 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
       problems.duplicates.length ? `同类同领域只许一份：${problems.duplicates.join("；")}` : ""
     ].filter(Boolean);
     throw conflict(
-      `文档登记表不符（规则见 tidy-docs 技能）：${parts.join("。")}。过程文档（计划、进度、交接）删掉，正式文档登记或并进同类同领域的那份。${fix}`,
+      `文档登记表不符（规则见 tidy-docs 技能）：${parts.join("。")}。过程文档（计划、进度、交接）删掉，正式文档登记或并进同类同领域的那份；${fix}`,
       "documents_unregistered"
     );
   }
@@ -2180,7 +2197,7 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
         "merge_not_qualified"
       );
     const candidate = qualification.candidate;
-    const extended = qualification.afterApproval !== undefined;
+    const extended = qualification.pitfallsAfterApproval === true;
     if (
       !extended &&
       (qualification.approved.commit !== candidate.commit || qualification.approved.tree !== candidate.tree)
@@ -2192,11 +2209,8 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
       projectId,
       record,
       input.retro,
-      qualification.afterApproval?.pitfalls
-        ? { approved: qualification.approved.commit, candidate: candidate.commit }
-        : undefined
+      extended ? { approved: qualification.approved.commit, candidate: candidate.commit } : undefined
     );
-    await requireRegistry(record, candidate.commit);
     const ledger = await requirementLedgerUpdate(projectId, record, input.ledger);
     const checks = supplied ?? (await recordedMergeChecks(service, projectId, developmentId));
     if (!checks.length) throw conflict("合入须记录在组合版本上运行的检查命令", "merge_checks_missing");
@@ -3164,7 +3178,10 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
       if (reviewId && !named)
         throw conflict(`审查 ${reviewId} 不是这个需求里正在进行的审查`, "review_not_frozen");
       if (!named) return site.candidate;
-      const { record, tickets, ticket, scope, rereview } = await reviewScopeOf(found.projectId, named);
+      const { record, tickets, ticket, scope, rereview, mapping } = await reviewScopeOf(
+        found.projectId,
+        named
+      );
       return {
         repository: site.directory,
         commit: named.candidate.commit,
@@ -3173,6 +3190,7 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
           criteria: record.completionCriteria,
           tickets,
           ...(ticket ? { ticket } : {}),
+          ...(mapping ? { mapping } : {}),
           ...(rereview ? { rereview } : {})
         }),
         scope

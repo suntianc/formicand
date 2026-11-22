@@ -1,4 +1,5 @@
 import { ProjectDataConflictError, ProjectDataInvalidError, ledgerRevision } from "./project-ledger.js";
+import type { MappingRow } from "./development-review.js";
 import type { DevelopmentRoute } from "./project-development.js";
 import {
   PITFALLS_DIRECTORY,
@@ -518,6 +519,7 @@ export function reviewBrief(input: {
   criteria: string[];
   tickets: DevelopmentTicket[];
   ticket?: DevelopmentTicket;
+  mapping?: MappingRow[];
   rereview?: RereviewBrief;
 }): string {
   const list = (items: string[]) => items.map((item) => `- ${item}`).join("\n");
@@ -543,7 +545,14 @@ export function reviewBrief(input: {
               (ticket) =>
                 `- ${ticket.ticketId} ${ticket.title}: ${ticket.criteria.map((criterion) => criterion.text).join("; ")}`
             )
-            .join("\n")}`
+            .join("\n")}`,
+          ...(input.mapping?.length
+            ? [
+                `Acceptance mapping, written by Main: claims to verify, not evidence. Take each row in turn and establish for yourself that its evidence holds on this tree: re-run what it names, or inspect the file or behaviour it points at, and say what you checked and what it printed. A blocking finding may cite a row id.\n${list(
+                  input.mapping.map((row) => `${row.rowId} ${row.requirement} — evidence: ${row.evidence}`)
+                )}`
+              ]
+            : [])
         ];
   if (!input.rereview) return body.join("\n\n");
   const { previous, changedPaths } = input.rereview;
@@ -560,6 +569,22 @@ export function reviewBrief(input: {
       : "The previous round left no finding to fix.",
     changedPaths.length ? `Files changed this round:\n${list(changedPaths)}` : "No file changed this round."
   ].join("\n\n");
+}
+
+/**
+ * What every rework continuation is told, after Main's message about the
+ * findings: reproduce first, fix the cause, check the change as the re-review
+ * will. Most findings a re-review blocks on are a fix that fell short or broke
+ * something nearby.
+ */
+export function reworkMethod(reviewId: string): string {
+  return [
+    `This rework answers review ${reviewId}, written for your current HEAD; Main's message names its findings to fix. Then:`,
+    "1. Reproduce before you fix. Turn each finding's evidence into a test or command that fails on your current HEAD, before you change anything. Keep it as a test where the project's checks run it, so it guards the fix afterwards; a one-off reproduction (a stress loop, a before/after comparison) goes in your hand-back, not into the suite.",
+    "2. Fix the cause, not the reported instance. Look for the same defect elsewhere in your change. Where the fix touches concurrency, cleanup, retries or partial failure, write down the states and orderings it must handle before you edit, and test the ones that can go wrong.",
+    "3. Check your change since the review, as the re-reviewer will. Read the diff from the HEAD you started this rework on before you hand back: nothing the ticket says to keep working may break, no data may be lost, and every claim you added or changed in a document or report must match the code or the raw output it describes.",
+    "In your hand-back, give one line per finding id: the test or command that failed before and passes now, and what else you checked."
+  ].join("\n");
 }
 
 /** A ticket's dependencies are all merged, so it can start. */
@@ -622,6 +647,14 @@ export interface ReviewFact {
   atLimit?: boolean;
 }
 
+/** The final review's freeze: Main maps the plan onto the integrated tree first. */
+const FINAL_FREEZE =
+  "Write the acceptance mapping, then freeze it for the final review of the whole requirement: freeze_candidate without ticketId and with mapping, one row per completion criterion or plan requirement with the test, command or file on this checkout that shows it holds; then delegate role=reviewer with that reviewId.";
+
+/** How a fix ticket for a defect on the integrated tree is written, so it stands on its own. */
+const REPAIR_TICKET =
+  "Write each fix ticket so the Executor needs nothing else: reproduce the defect yourself on the requirement checkout, with a command you ran, not one an agent told you; its first criterion checks that command gives the expected result. Give the Executor, with the ticket, the symptom, that command and what it printed, and the cause you have established with its evidence, kept apart from what you only guess (mark a guess as a guess, or say the cause is unknown). Say what must be true once it is fixed, and prescribe the fix only if you know it.";
+
 const ids = (tickets: DevelopmentTicket[]) => tickets.map((ticket) => ticket.ticketId).join(", ");
 
 const LIMIT =
@@ -664,7 +697,7 @@ export function developmentNext(facts: NextStepFacts): string {
   if (review?.state === "failed" && review.atLimit)
     return `${mergeNote}Review ${review.reviewId} ${LIMIT} new_plan (rework with a different approach), or deliver_partial (dismiss what stays unfixed with category=deferred first).`;
   if (review?.state === "failed" || review?.state === "drifted")
-    return `${mergeNote}Review ${review.reviewId} ${review.state}: rule its blocking findings (fix, or dismiss with a basis), rework through the original Executor (continueCallId), then freeze_candidate with previousReviewId.`;
+    return `${mergeNote}Review ${review.reviewId} ${review.state}: rule its blocking findings (fix, or dismiss with a basis), rework through the original Executor (continueCallId and reviewId), then freeze_candidate with previousReviewId.`;
   const reasons = qualification?.reasons ?? [];
   const work = "Make the change in the checkout, run its checks, then record review_plan channel=self.";
   if (reasons.includes("review_plan_missing")) return `${mergeNote}${work}`;
@@ -745,13 +778,12 @@ function ticketSteps(facts: NextStepFacts): string {
   if (steps.length) return steps.join(" ");
   if (facts.route === "full") {
     const final = facts.finalReview;
-    if (!final)
-      return "Every ticket is in the requirement checkout. Freeze it for the final review of the whole requirement: freeze_candidate without ticketId, then delegate role=reviewer with that reviewId.";
+    if (!final) return `Every ticket is in the requirement checkout. ${FINAL_FREEZE}`;
     if (final.state === "in_review") return `Final review: ${reviewStep(final)}`;
     if (final.state === "failed" && final.atLimit)
       return `Final review ${final.reviewId} ${LIMIT} new_plan (propose new fix tickets on a different approach), or deliver_partial (dismiss what stays unfixed with category=deferred first).`;
     if (final.state === "failed" || final.state === "drifted")
-      return `Final review ${final.reviewId} ${final.state}: rule its blocking findings. A defect becomes a new fix ticket (propose_tickets); once it is integrated, freeze_candidate again with previousReviewId.`;
+      return `Final review ${final.reviewId} ${final.state}: rule its blocking findings. A defect becomes a new fix ticket (propose_tickets). ${REPAIR_TICKET} Once the fix tickets are integrated, freeze_candidate again with previousReviewId and a mapping rewritten for the new checkout.`;
   }
   const reasons = facts.qualification?.reasons ?? [];
   return `Every ticket is in the requirement checkout, but it does not qualify yet (${reasons.join(", ") || "unknown"}).`;

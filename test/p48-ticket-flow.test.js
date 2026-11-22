@@ -171,6 +171,7 @@ test(
       return service.attachReviewer(projectId, "task-flow", { reviewId: review.reviewId, callId });
     };
     const passing = [{ name: "存在", command: "ls src", exitCode: 0, output: "a.txt" }];
+    const mapping = [{ requirement: "两个文件都在", evidence: "test -f src/a.txt && test -f src/b.txt" }];
 
     const site = await executor("call-e1", "01", { "src/a.txt": "a\n", "notes.txt": "stray\n" });
     assert.equal((await service.tickets(projectId, developmentId)).tickets[0].state, "in_progress");
@@ -301,12 +302,25 @@ test(
     // Every ticket is in: the full route still needs one review of the whole requirement.
     qualification = await service.delivery(projectId, developmentId);
     assert.deepEqual(qualification.reasons, ["final_review_missing"]);
-    assert.match(await service.next(projectId, developmentId), /Freeze it for the final review/);
-    let final = await service.startReview(projectId, "task-flow", { developmentId });
+    assert.match(await service.next(projectId, developmentId), /Write the acceptance mapping, then freeze/);
+    // Main maps the plan onto the integrated tree before the final review, every round.
+    await assert.rejects(
+      service.startReview(projectId, "task-flow", { developmentId }),
+      /整体终审先写对照表/
+    );
+    await assert.rejects(
+      service.startReview(projectId, "task-flow", { developmentId, ticketId: "01", mapping }),
+      /只有 full 路线的整体终审带对照表/
+    );
+    let final = await service.startReview(projectId, "task-flow", { developmentId, mapping });
+    assert.deepEqual(
+      final.mapping.map((row) => row.rowId),
+      ["M1"]
+    );
     assert.equal(final.candidate.workspace, integration, "the final review freezes the requirement checkout");
     assert.equal(final.candidate.commit, await git(integration, ["rev-parse", "HEAD"]));
     await assert.rejects(
-      service.startReview(projectId, "task-flow", { developmentId }),
+      service.startReview(projectId, "task-flow", { developmentId, mapping }),
       /已有一份进行中的整体终审/
     );
     // The Reviewer is told what it examines, from the records.
@@ -315,6 +329,9 @@ test(
     assert.match(frozenFinal.brief, /Requirement: 两个文件/);
     assert.match(frozenFinal.brief, /Completion criteria:\n- CC1 两个文件都在/);
     assert.match(frozenFinal.brief, /- 02 写 src\/b\.txt: src\/b\.txt 存在/);
+    assert.match(frozenFinal.brief, /Acceptance mapping, written by Main: claims to verify, not evidence/);
+    assert.match(frozenFinal.brief, /- M1 两个文件都在 — evidence: test -f src\/a\.txt/);
+    assert.deepEqual(frozenFinal.scope.criteria, ["CC1", "M1"], "a blocking finding may cite a mapping row");
     assert.match(
       (
         await service
@@ -348,7 +365,10 @@ test(
       decision: "fix",
       basis: "完成标准要求整体可用"
     });
-    assert.match(await service.next(projectId, developmentId), /becomes a new fix ticket/);
+    assert.match(
+      await service.next(projectId, developmentId),
+      /becomes a new fix ticket[^]*reproduce the defect yourself on the requirement checkout/
+    );
     qualification = await service.delivery(projectId, developmentId);
     assert.ok(qualification.reasons.includes("review_failed"), JSON.stringify(qualification.reasons));
 
@@ -379,7 +399,8 @@ test(
     // The re-review follows the failed one, and its pass settles the ruled finding.
     let again = await service.startReview(projectId, "task-flow", {
       developmentId,
-      previousReviewId: final.reviewId
+      previousReviewId: final.reviewId,
+      mapping
     });
     assert.deepEqual(again.changedPaths, ["src/README.txt"]);
     again = await reviewer(again, "call-rf2");

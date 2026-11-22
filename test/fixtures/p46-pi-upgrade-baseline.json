@@ -337,7 +337,7 @@
           },
           "reviewId": {
             "type": "string",
-            "description": "role=reviewer: the frozen review this Reviewer examines; needed when several are frozen. With continueCallId: the review whose finding this rework answers, recorded on the new call."
+            "description": "role=reviewer: the frozen review this Reviewer examines; needed when several are frozen. With continueCallId: the review whose findings this rework answers, recorded on the new call; the program appends how to answer it (reproduce, fix the cause, check the change)."
           },
           "profileId": {
             "type": "string",
@@ -1081,6 +1081,25 @@
             "minLength": 1,
             "maxLength": 300,
             "description": "freeze_candidate: the Executor work item that produced the candidate; its identity must differ from the Reviewer's."
+          },
+          "mapping": {
+            "type": "array",
+            "maxItems": 50,
+            "description": "freeze_candidate, the final review only (required there, every round): the acceptance mapping the final Reviewer verifies, written for this requirement checkout. One row per completion criterion or plan requirement; rows are numbered M1, M2… and a blocking finding may cite one.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "requirement": {
+                  "type": "string",
+                  "description": "The completion criterion or plan requirement."
+                },
+                "evidence": {
+                  "type": "string",
+                  "description": "The test, command or file on this checkout that shows it holds."
+                }
+              },
+              "required": ["requirement", "evidence"]
+            }
           },
           "reviewId": {
             "type": "string",

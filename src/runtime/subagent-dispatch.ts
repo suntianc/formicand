@@ -2,6 +2,7 @@ import type { ReviewScope } from "./subagent-review.js";
 import { randomUUID } from "node:crypto";
 import { readdir } from "node:fs/promises";
 import { join, resolve } from "node:path";
+import { reworkMethod } from "../domain/development-ticket.js";
 import { id, now, transitionCall, type Call } from "../domain/types.js";
 import { JsonlEventStore } from "../storage/event-store.js";
 import { git } from "../workspace/development-workspace.js";
@@ -382,7 +383,14 @@ export class SubagentDispatchService {
       agentId,
       importance: "normal",
       payload: {
-        task: [ticket?.brief ?? reviewed?.brief, request.task].filter(Boolean).join("\n\n"),
+        // A rework is told how to answer the review after Main's message, by the program.
+        task: [
+          ticket?.brief ?? reviewed?.brief,
+          request.task,
+          continued && request.reviewId?.trim() ? reworkMethod(request.reviewId.trim()) : undefined
+        ]
+          .filter(Boolean)
+          .join("\n\n"),
         projectDirectory,
         ...(workItemSite ? { workItemSite } : {}),
         ...(reviewSite ? { reviewSite } : {}),

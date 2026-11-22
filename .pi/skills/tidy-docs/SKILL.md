@@ -1,6 +1,6 @@
 ---
 name: tidy-docs
-description: Keep a project's documents in order through the registry table in its AGENTS.md. Use when a merge refuses for the registry, when a ledger tidy asks about the documents, or when the user asks to tidy, sort or clean up the project's documents.
+description: Keep a project's documents in order through the registry table in its AGENTS.md. Use when a final review refuses for the registry, when a ledger tidy asks about the documents, or when the user asks to tidy, sort or clean up the project's documents.
 ---
 
 # Tidy docs
@@ -31,9 +31,9 @@ The registry is a table under a `## 文档` heading in the project's root `AGENT
 - Plans, progress notes and handoffs live in the development records, never in the repository: delete them.
 - The root `AGENTS.md` and `CLAUDE.md`, and `docs/pitfalls/`, count as registered without a row.
 
-## When a merge refuses for the registry
+## When a final review refuses for the registry
 
-The program checks the registry at a requirement's merge. Fix it in a commit on top of the approved version that only edits the table in `AGENTS.md` and deletes documents this requirement added; the approval still stands. Changing any other text, including merging a document into another, is a rework the review must see.
+On the full route the program checks the registry before the final review, as Workloop does; quick and direct changes are not checked. Fix it with a fix ticket, then freeze the final review again.
 
 - **No registry yet**: build it. Register every document in the repository; classify each by its path and first lines, and mark what you cannot place `unsorted`. Change and delete nothing else.
 - **Unregistered**: for each document the requirement added, delete it if it is a process document, else add a row.

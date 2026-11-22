@@ -214,7 +214,7 @@ export function registerCoordinationTools(pi: ExtensionAPI, context: CoworkToolC
         reviewId: Type.Optional(
           Type.String({
             description:
-              "role=reviewer: the frozen review this Reviewer examines; needed when several are frozen. With continueCallId: the review whose finding this rework answers, recorded on the new call."
+              "role=reviewer: the frozen review this Reviewer examines; needed when several are frozen. With continueCallId: the review whose findings this rework answers, recorded on the new call; the program appends how to answer it (reproduce, fix the cause, check the change)."
           })
         ),
         profileId: Type.Optional(
