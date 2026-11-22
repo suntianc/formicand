@@ -81,7 +81,9 @@ export async function seedRequirement(page, dashboard, project, input) {
     await api(projectPath("/ledger"), {
       action: "create",
       title: input.title,
-      summary: input.content ?? `${input.title}的内容。`
+      summary: input.content ?? `${input.title}的内容。`,
+      ...(input.description ? { description: input.description } : {}),
+      ...(input.aliases ? { aliases: input.aliases } : {})
     })
   ).requirement;
   const session = (
@@ -192,6 +194,9 @@ export async function seedRequirement(page, dashboard, project, input) {
           action: "record_finding",
           reviewId: review.reviewId,
           expectedRevision: review.revision,
+          // Dismissed below, so each one blocks on a floor class.
+          blocking: true,
+          basis: "regression",
           title: finding.title,
           detail: finding.detail ?? finding.title,
           checks: []
@@ -252,7 +257,9 @@ export async function seedRequirement(page, dashboard, project, input) {
             channel: "independent",
             approvedCommit: checkout.candidate,
             approvedTree: checkout.tree,
-            reviewId: review.reviewId
+            reviewId: review.reviewId,
+            // What Main said the ledger is after this development; written once delivered.
+            ...(input.ledger ? { ledger: input.ledger } : {})
           },
           checks: criteria.map((_, index) => ({ name: `组合检查 ${index + 1}`, command: "test -f notes.md" }))
         },

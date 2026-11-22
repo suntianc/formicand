@@ -1224,6 +1224,7 @@ export class ProjectDataRepository {
     // One client per transaction: queries stay sequential rather than racing it.
     const aliases = await this.aliases(projectId, [requirementId]);
     const references = await this.references(projectId, [requirementId]);
+    const developments = await this.developmentCounts(projectId, [requirementId]);
     const history = await this.transaction.query<HistoryRow>(
       "SELECT * FROM project_data_requirement_history WHERE project_id = ? AND requirement_id = ? ORDER BY day ASC, created_at ASC, entry_id ASC",
       [projectId, requirementId]
@@ -1233,7 +1234,7 @@ export class ProjectDataRepository {
       [projectId, requirementId]
     );
     return {
-      ...this.summaryOf(row, aliases, references),
+      ...this.summaryOf(row, aliases, references, developments),
       history: history.map(historyOf),
       revisions: revisions.map(revisionOf)
     };
@@ -1273,7 +1274,8 @@ export class ProjectDataRepository {
     const ids = rows.map((row) => row.requirement_id);
     const aliases = await this.aliases(projectId, ids);
     const references = await this.references(projectId, ids);
-    return rows.map((row) => this.summaryOf(row, aliases, references));
+    const developments = await this.developmentCounts(projectId, ids);
+    return rows.map((row) => this.summaryOf(row, aliases, references, developments));
   }
 
   async lookup(projectIdValue: unknown, requestValue: unknown): Promise<LookupResult> {
@@ -2571,7 +2573,8 @@ export class ProjectDataRepository {
   private summaryOf(
     row: RequirementRow,
     aliases: Map<string, RequirementAlias[]>,
-    references: Map<string, RequirementReference[]>
+    references: Map<string, RequirementReference[]>,
+    developments: Map<string, number>
   ): RequirementSummary {
     return {
       projectId: row.project_id,
@@ -2586,7 +2589,8 @@ export class ProjectDataRepository {
       revision: Number(row.revision),
       createdAt: row.created_at,
       updatedAt: row.updated_at,
-      references: references.get(row.requirement_id) ?? []
+      references: references.get(row.requirement_id) ?? [],
+      developments: developments.get(row.requirement_id) ?? 0
     };
   }
 
@@ -2668,6 +2672,18 @@ export class ProjectDataRepository {
     );
     if (!rows.length) throw new ProjectDataNotFoundError("找不到该需求");
     return rows[0];
+  }
+
+  /** How many developments each requirement has had. */
+  private async developmentCounts(projectId: string, requirementIds: string[]): Promise<Map<string, number>> {
+    if (!requirementIds.length) return new Map();
+    const rows = await this.transaction.query<{ requirement_id: string; count: number | string }>(
+      `SELECT requirement_id, COUNT(*) AS count FROM project_data_developments WHERE project_id = ? AND requirement_id IN (${requirementIds
+        .map(() => "?")
+        .join(", ")}) GROUP BY requirement_id`,
+      [projectId, ...requirementIds]
+    );
+    return new Map(rows.map((row) => [row.requirement_id, Number(row.count)]));
   }
 
   private async aliases(

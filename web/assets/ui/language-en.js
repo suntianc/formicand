@@ -1763,5 +1763,11 @@ export default {
   "Main 不再使用这个项目的记忆": "Main will no longer use this project's memory",
   纠正与认可: "Corrections and confirmations",
   项目情况: "Project facts",
-  外部资料: "References"
+  外部资料: "References",
+  现状: "Summary",
+  别名: "Aliases",
+  "历史 最近 ": "History, latest ",
+  "历次开发 ": "Developments ",
+  在用: "In use",
+  停用: "Retired"
 };

@@ -752,3 +752,68 @@ html[data-theme] .or-del {
     flex: 0 0 72px;
   }
 }
+
+/* The feature as the ledger keeps it. */
+html[data-theme] .or-description {
+  margin: 0;
+  color: var(--color-text-2);
+  font-size: 13px;
+  line-height: 18px;
+}
+html[data-theme] .or-summary {
+  margin: 0;
+  color: var(--color-text);
+  font-size: 13px;
+  line-height: 20px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+html[data-theme] .or-aliases {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+html[data-theme] .or-alias {
+  padding: 2px 8px;
+  border-radius: var(--radius-card);
+  background: var(--color-surface-2);
+  color: var(--color-text-2);
+  font-size: 12px;
+  line-height: 16px;
+}
+html[data-theme] .or-history,
+html[data-theme] .or-developments {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+html[data-theme] .or-history li,
+html[data-theme] .or-developments li {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+  color: var(--color-text);
+  font-size: 13px;
+  line-height: 18px;
+}
+html[data-theme] .or-history-day,
+html[data-theme] .or-development-state {
+  flex: 0 0 auto;
+  color: var(--color-text-3);
+  font-size: 12px;
+}
+html[data-theme] .or-development-goal {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+html[data-theme] .or-ledger-error {
+  margin: 0;
+  color: var(--color-danger);
+  font-size: 13px;
+}
