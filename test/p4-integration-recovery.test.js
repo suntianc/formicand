@@ -191,6 +191,7 @@ test(
       client(authority)(`/api/projects/${encodeURIComponent(project.projectId)}/merges`, {
         action: "request",
         developmentId: record.developmentId,
+        ledger: { summaryUnchanged: "测试不改现状", history: "测试合入", descriptionUnchanged: true },
         checks
       });
     const apply = () =>

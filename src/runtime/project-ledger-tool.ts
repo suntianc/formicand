@@ -26,7 +26,7 @@ export function createProjectLedgerTool(options: ProjectLedgerToolOptions) {
     name: "project_ledger",
     label: "Project Ledger",
     description:
-      "The current project's requirement ledger and board. A requirement is a long-lived feature: its description says in a sentence or two what the feature is, so the title and description alone tell features apart; its summary says how the feature behaves now and the rules it keeps, its history lists what each development changed, and its aliases are other names users give it; many developments belong to one requirement over time. The project's misc requirement takes changes no feature owns. Before recording or developing anything, lookup the user's own words: it scores every feature and says whether one is likely, several look alike or none fits, with the full catalog when it is not sure or the ledger is small; settle the owner yourself from the conversation and the catalog, a feature named differently included, and create a requirement only when no feature owns the request and it is not a misc change. Then read context for the chosen requirement: its summary, recent history, past developments, the architecture decisions it names and where its code usually changes. query only browses or filters by status. create records a new feature; it does not create a board item. update appends a revision and must carry the revision you last read: it rewrites the summary, or the description when the feature changed a lot, replaces the aliases, appends one history line, or retires the feature. When a result's next says to tidy the ledger, read tidy: it returns the whole catalog of titles and descriptions; compare every feature with every other yourself, and for any two features that are truly one feature recorded twice — and only then — merge_requirements folds from into into with a summary that keeps every rule of both, moving its developments, cards, history and aliases and deleting from. Do not ask the user and do not report the tidy. finish_tidy when done, merged or not. A rule that is hard to reverse belongs in the repository's docs/adr/, not the ledger. board lists published demands; claim_board claims one as this Task, while pause_board/release_board/cancel_board act only on what this conversation owns. The current project and Task come from this conversation, so no project id or path is accepted.",
+      "The current project's requirement ledger and board. A requirement is a long-lived feature: title and description tell features apart, the summary says how it behaves now and its rules, history lists what each development changed, aliases are other names users give it. The misc requirement takes changes no feature owns. Before recording or developing anything, lookup the user's own words and settle the owner yourself from the conversation and the catalog, a feature named differently included; create a feature only when none owns the request and it is not misc. Then read context for that requirement. query browses by status. tidy, merge_requirements and finish_tidy run only when a result's next says so. A rule hard to reverse belongs in docs/adr/, not the ledger. board lists published demands; claim_board claims one as this Task, while pause_board/release_board/cancel_board act only on what this conversation owns. The current project and Task come from this conversation, so no project id or path is accepted.",
     parameters: {
       type: "object",
       properties: {
@@ -52,12 +52,21 @@ export function createProjectLedgerTool(options: ProjectLedgerToolOptions) {
         request: {
           type: "string",
           maxLength: 2000,
-          description: "lookup: the user's request in their own words."
+          description:
+            "lookup: the user's request in their own words. The result says whether one feature is likely, several look alike or none fits, with the whole catalog when it is not sure or the ledger is small."
         },
         q: { type: "string", description: "query: match requirement title, summary or aliases." },
         status: { type: "string", enum: ["active", "retired"] },
-        requirementId: { ...ID, description: "context/get/update target." },
-        from: { ...ID, description: "merge_requirements: the duplicate folded away and deleted." },
+        requirementId: {
+          ...ID,
+          description:
+            "context/get/update target. context returns the summary, recent history, past developments, the architecture decisions it names and where its code usually changes."
+        },
+        from: {
+          ...ID,
+          description:
+            "merge_requirements: the duplicate folded away; its developments, cards, history and aliases move to into and it is deleted. Only for two features that are truly one recorded twice."
+        },
         into: { ...ID, description: "merge_requirements: the requirement that stays." },
         boardId: { ...ID, description: "claim_board/pause_board/release_board/cancel_board target." },
         requestId: {
@@ -69,20 +78,20 @@ export function createProjectLedgerTool(options: ProjectLedgerToolOptions) {
           type: "integer",
           minimum: 1,
           description:
-            "The revision returned by the last read (merge_requirements: of into); a stale value is refused."
+            "update/merge_requirements: the revision returned by the last read (merge_requirements: of into); a stale value is refused. update appends a revision."
         },
         title: { type: "string", maxLength: 200 },
         description: {
           type: "string",
           maxLength: 200,
           description:
-            "create (required)/update: what the feature is, in a sentence or two, without its rules or history."
+            "create (required)/update: what the feature is, in a sentence or two, without its rules or history; update it when the feature changed a lot. create records a feature, never a board item."
         },
         summary: {
           type: "string",
           maxLength: 20000,
           description:
-            "How the feature behaves now and the rules it keeps; update and merge_requirements replace it whole."
+            "How the feature behaves now and the rules it keeps; update and merge_requirements replace it whole (merge_requirements: keep every rule of both)."
         },
         aliases: {
           type: "array",

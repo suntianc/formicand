@@ -638,7 +638,7 @@
           "request": {
             "type": "string",
             "maxLength": 2000,
-            "description": "lookup: the user's request in their own words."
+            "description": "lookup: the user's request in their own words. The result says whether one feature is likely, several look alike or none fits, with the whole catalog when it is not sure or the ledger is small."
           },
           "q": {
             "type": "string",
@@ -652,13 +652,13 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 300,
-            "description": "context/get/update target."
+            "description": "context/get/update target. context returns the summary, recent history, past developments, the architecture decisions it names and where its code usually changes."
           },
           "from": {
             "type": "string",
             "minLength": 1,
             "maxLength": 300,
-            "description": "merge_requirements: the duplicate folded away and deleted."
+            "description": "merge_requirements: the duplicate folded away; its developments, cards, history and aliases move to into and it is deleted. Only for two features that are truly one recorded twice."
           },
           "into": {
             "type": "string",
@@ -680,7 +680,7 @@
           "expectedRevision": {
             "type": "integer",
             "minimum": 1,
-            "description": "The revision returned by the last read (merge_requirements: of into); a stale value is refused."
+            "description": "update/merge_requirements: the revision returned by the last read (merge_requirements: of into); a stale value is refused. update appends a revision."
           },
           "title": {
             "type": "string",
@@ -689,12 +689,12 @@
           "description": {
             "type": "string",
             "maxLength": 200,
-            "description": "create (required)/update: what the feature is, in a sentence or two, without its rules or history."
+            "description": "create (required)/update: what the feature is, in a sentence or two, without its rules or history; update it when the feature changed a lot. create records a feature, never a board item."
           },
           "summary": {
             "type": "string",
             "maxLength": 20000,
-            "description": "How the feature behaves now and the rules it keeps; update and merge_requirements replace it whole."
+            "description": "How the feature behaves now and the rules it keeps; update and merge_requirements replace it whole (merge_requirements: keep every rule of both)."
           },
           "aliases": {
             "type": "array",
@@ -1195,6 +1195,38 @@
             },
             "additionalProperties": false,
             "description": "request_merge: the requirement's retro, once before its last merge. pitfalls: which entries in docs/pitfalls/ were added, merged or removed (committed on top of the approved version, touching only that directory); nothing: why there is nothing to keep. improvements: changes to the agents' environment (code structure, checks, tests, instructions, tools) that would stop a trap better than a pitfall; each becomes a ledger requirement to develop after this merge. Omit retro when next does not ask for one."
+          },
+          "ledger": {
+            "type": "object",
+            "properties": {
+              "summary": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 20000
+              },
+              "summaryUnchanged": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1000
+              },
+              "history": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1000
+              },
+              "description": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              "descriptionUnchanged": {
+                "type": "boolean",
+                "enum": [true]
+              }
+            },
+            "required": ["history"],
+            "additionalProperties": false,
+            "description": "request_merge: the requirement's ledger once this development lands, written only when it is delivered. summary: the whole summary rewritten as the feature now is and its rules; summaryUnchanged: why it stays. history: one line on what this development changed. description: the new description when what the feature does, whom it serves or its scope changed; descriptionUnchanged: true otherwise. A retry reuses the earlier request's ledger."
           },
           "verdict": {
             "type": "string",

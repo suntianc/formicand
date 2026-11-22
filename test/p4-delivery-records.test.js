@@ -317,6 +317,7 @@ for (const engine of PROJECT_DATA_ENGINES) {
         });
         return service.requestMerge(project.projectId, {
           developmentId: development.developmentId,
+          ledger: { summaryUnchanged: "测试不改现状", history: "测试合入", descriptionUnchanged: true },
           checks: [{ name: "组合检查", command: `test -f ${file}` }]
         });
       };
@@ -559,6 +560,7 @@ for (const engine of PROJECT_DATA_ENGINES) {
       const baseline = await git(repository, ["rev-parse", "HEAD"]);
       const requested = await execution.requestMerge(project.projectId, {
         developmentId: development.developmentId,
+        ledger: { summaryUnchanged: "测试不改现状", history: "测试合入", descriptionUnchanged: true },
         checks: [{ name: "组合检查", command: "test -f resilient.txt" }]
       });
       // The merge record cannot be written, but the real Git update and the
@@ -640,6 +642,7 @@ for (const engine of PROJECT_DATA_ENGINES) {
       syncFailures = 10;
       const secondMerge = await restarted.requestMerge(project.projectId, {
         developmentId: second.developmentId,
+        ledger: { summaryUnchanged: "测试不改现状", history: "测试合入", descriptionUnchanged: true },
         checks: [{ name: "组合检查", command: "test -f retry.txt" }]
       });
       assert.equal(secondMerge.state, "merged", JSON.stringify(secondMerge));
@@ -751,6 +754,7 @@ test(
       });
       return service.requestMerge(project.projectId, {
         developmentId: development.developmentId,
+        ledger: { summaryUnchanged: "测试不改现状", history: "测试合入", descriptionUnchanged: true },
         checks: [{ name: "组合检查", command: `test -f ${file}` }]
       });
     };
@@ -953,6 +957,7 @@ test(
     const baseline = await git(repository, ["rev-parse", "HEAD"]);
     const requested = await service.requestMerge(project.projectId, {
       developmentId: development.developmentId,
+      ledger: { summaryUnchanged: "测试不改现状", history: "测试合入", descriptionUnchanged: true },
       checks: [{ name: "组合检查", command: "test -f auto.txt" }]
     });
     assert.equal(requested.state, "applying", JSON.stringify(requested));
@@ -1026,6 +1031,7 @@ test(
     });
     const secondRequested = await service.requestMerge(project.projectId, {
       developmentId: secondDevelopment.developmentId,
+      ledger: { summaryUnchanged: "测试不改现状", history: "测试合入", descriptionUnchanged: true },
       checks: [{ name: "组合检查", command: "test -f restart.txt" }]
     });
     assert.equal(secondRequested.state, "applying", JSON.stringify(secondRequested));

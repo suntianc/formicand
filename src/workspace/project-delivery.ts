@@ -10,6 +10,7 @@ import {
   ledgerIdentifier,
   ledgerProjectId
 } from "../domain/project-ledger.js";
+import { mergeAcceptance, type MergeLedgerUpdate } from "../domain/development-merge.js";
 import { id, now } from "../domain/types.js";
 import type { SqlTransaction } from "../storage/project-data/database.js";
 import type { ProjectDataRepository } from "./project-data-service.js";
@@ -62,6 +63,7 @@ interface MergeReceiptRow {
   target_branch: string;
   state: string;
   updated_at: string;
+  acceptance: string;
 }
 
 const ERROR_MAX = 2000;
@@ -112,7 +114,7 @@ export class ProjectDeliveryRepository {
         "SELECT project_id FROM project_data_projects WHERE project_id = ? FOR UPDATE",
         [projectId]
       );
-    await this.requireMergedReceipt(projectId, receipt);
+    const { ledger } = await this.requireMergedReceipt(projectId, receipt);
     const existing = await this.transaction.query<DeliveryRow>(
       "SELECT * FROM project_data_deliveries WHERE project_id = ? AND merge_id = ?",
       [projectId, receipt.mergeId]
@@ -168,7 +170,7 @@ export class ProjectDeliveryRepository {
       targetBranch: row.target_branch,
       mergedAt: row.merged_at
     });
-    await this.requireMergedReceipt(projectId, receipt);
+    const { ledger } = await this.requireMergedReceipt(projectId, receipt);
     const board = await this.ledger.board().markPendingRelease(projectId, receipt.requirementId, {
       mergeId: receipt.mergeId,
       mergedCommit: receipt.mergedCommit,
@@ -180,7 +182,8 @@ export class ProjectDeliveryRepository {
       developmentId: receipt.developmentId,
       mergeId: receipt.mergeId,
       mergedCommit: receipt.mergedCommit,
-      targetBranch: receipt.targetBranch
+      targetBranch: receipt.targetBranch,
+      ...(ledger ? { ledger } : {})
     });
     const timestamp = now();
     await this.transaction.execute(
@@ -223,9 +226,12 @@ export class ProjectDeliveryRepository {
    * that no longer agrees with the merged fact can never reach the ledger or
    * the board on retry.
    */
-  private async requireMergedReceipt(projectId: string, receipt: DeliveryReceipt): Promise<void> {
+  private async requireMergedReceipt(
+    projectId: string,
+    receipt: DeliveryReceipt
+  ): Promise<{ ledger?: MergeLedgerUpdate }> {
     const rows = await this.transaction.query<MergeReceiptRow>(
-      `SELECT development_id, requirement_id, candidate_commit, merge_commit, target_branch, state, updated_at
+      `SELECT development_id, requirement_id, candidate_commit, merge_commit, target_branch, state, updated_at, acceptance
          FROM project_data_development_merges
         WHERE project_id = ? AND merge_id = ?`,
       [projectId, receipt.mergeId]
@@ -248,6 +254,8 @@ export class ProjectDeliveryRepository {
         undefined,
         "delivery_not_merged"
       );
+    const { ledger } = mergeAcceptance(JSON.parse(merge.acceptance));
+    return ledger ? { ledger } : {};
   }
 
   private async requireDelivery(projectId: string, deliveryId: string, lock = false): Promise<DeliveryRow> {

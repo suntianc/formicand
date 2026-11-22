@@ -76,7 +76,8 @@ import {
   mergeUpdate,
   type DevelopmentMerge,
   type MergeCheck,
-  type MergeCreate
+  type MergeCreate,
+  type MergeLedgerUpdate
 } from "../domain/development-merge.js";
 import {
   applyTicketWrite,
@@ -2721,7 +2722,14 @@ export class ProjectDataRepository {
   async recordRequirementDelivery(
     projectIdValue: unknown,
     requirementIdValue: unknown,
-    input: { developmentId: unknown; mergeId: unknown; mergedCommit: unknown; targetBranch: unknown }
+    input: {
+      developmentId: unknown;
+      mergeId: unknown;
+      mergedCommit: unknown;
+      targetBranch: unknown;
+      /** What Main said the ledger is after this development, checked when the merge was requested. */
+      ledger?: MergeLedgerUpdate;
+    }
   ): Promise<RequirementDetail> {
     const projectId = ledgerProjectId(projectIdValue);
     const requirementId = ledgerIdentifier(requirementIdValue, "需求 ID");
@@ -2742,11 +2750,13 @@ export class ProjectDataRepository {
     const revision = Number(current.revision) + 1;
     const timestamp = now();
     const note = `合入 ${targetBranch} · ${mergedCommit.slice(0, 12)} · ${mergeId}`;
+    const summary = input.ledger?.summary ?? current.summary;
+    const description = input.ledger?.description ?? current.description;
     await this.insertRevision(projectId, requirementId, {
       revision,
       title: current.title,
-      description: current.description,
-      summary: current.summary,
+      description,
+      summary,
       status: current.status as RequirementStatus,
       source: sourceOf(current.source_kind, current.source_reference),
       note: note.slice(0, 2000),
@@ -2754,12 +2764,14 @@ export class ProjectDataRepository {
     });
     const changed = await this.transaction.execute(
       `UPDATE project_data_requirements
-          SET revision = ?, updated_at = ?
+          SET revision = ?, summary = ?, description = ?, updated_at = ?
         WHERE project_id = ? AND requirement_id = ? AND revision = ?`,
-      [revision, timestamp, projectId, requirementId, Number(current.revision)]
+      [revision, summary, description, timestamp, projectId, requirementId, Number(current.revision)]
     );
     if (changed !== 1)
       throw new ProjectDataConflictError("需求已被另一写入更新，请重新读取", undefined, "revision_conflict");
+    if (input.ledger)
+      await this.insertHistory(projectId, requirementId, input.ledger.history, developmentId, timestamp);
     await this.insertReferences(projectId, requirementId, [{ kind: "delivery", value: mergedCommit }]);
     return this.requirement(projectId, requirementId);
   }

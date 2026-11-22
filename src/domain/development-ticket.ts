@@ -607,6 +607,8 @@ export interface NextStepFacts {
   retro?: { signals: RetroSignals; recorded: boolean; improvements?: RetroImprovement[] };
   /** Developments merged since the ledger's last tidy, this one included. */
   mergedSinceTidy?: number;
+  /** An earlier merge request already said what the ledger is after this development. */
+  ledgerRecorded?: boolean;
 }
 
 /** Every this many merged developments, the merge asks Main to tidy the ledger. */
@@ -655,7 +657,8 @@ export function developmentNext(facts: NextStepFacts): string {
   const mergeNote = failed
     ? `Merge ${merge.mergeId} ended ${merge.state}${merge.detail ? `: ${merge.detail}` : ""}. `
     : "";
-  if (qualification?.eligible) return `${mergeNote}${retroStep(facts.retro)}`;
+  if (qualification?.eligible)
+    return `${mergeNote}${retroStep(facts.retro)}${facts.ledgerRecorded ? "" : LEDGER_STEP}`;
   if (facts.route !== "quick") return mergeNote + ticketSteps(facts);
   if (review?.state === "in_review") return reviewStep(review);
   if (review?.state === "failed" && review.atLimit)
@@ -668,10 +671,14 @@ export function developmentNext(facts: NextStepFacts): string {
   return `${mergeNote}Not yet qualified (${reasons.join(", ") || "unknown"}). ${work}`;
 }
 
+/** Every merge request says what the requirement's ledger is once this development lands. */
+const LEDGER_STEP =
+  " Give request_merge the ledger: ledger.summary rewrites the summary as the feature now is and its rules (or ledger.summaryUnchanged says why it stays), ledger.history is one line on what this development changed, and ledger.description is the new description when what the feature does, whom it serves or its scope changed (otherwise ledger.descriptionUnchanged: true).";
+
 /** After the merge: enough developments may have recorded one feature twice. */
 function tidyStep(merged = 0): string {
   if (merged < LEDGER_TIDY_AFTER) return "";
-  return ` ${merged} developments merged since the ledger was last tidied: tidy it now — read project_ledger tidy, compare the whole catalog, merge_requirements for each true duplicate, then finish_tidy.`;
+  return ` ${merged} developments merged since the ledger was last tidied: tidy it now — read project_ledger tidy and compare every feature in its catalog with every other yourself; merge_requirements only two features that are truly one recorded twice; then finish_tidy, merged or not. Do not ask the user or report the tidy.`;
 }
 
 /** After the merge: the environment improvements the retro registered are the next requirements. */
