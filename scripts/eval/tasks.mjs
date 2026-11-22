@@ -204,13 +204,15 @@ export const tasks = [
   },
   {
     // The ledger holds one feature twice. The request is ordinary export work;
-    // a ledger tidy after its merge should fold the two into one.
+    // a ledger tidy after its merge should fold the two into one. A tidy is
+    // due every tenth merged development, so nine are recorded beforehand.
     id: "history-tidy",
     kind: "检索",
     title: "重复需求",
     prompt: "export 加一个 --done 选项，只导出已完成的条目。按之前定下的规矩来，补上测试。",
     setup: writeRepoFiles,
     ledger: [...history, duplicateFeature],
+    mergedBefore: 9,
     hidden: "history-tidy.test.js",
     expect: { merged: [duplicateFeature.title, "导出给财务的 CSV"] }
   },
