@@ -643,7 +643,12 @@ const addProjectController = createAddProjectController({
   command: (path, options) => (api.command ? api.command(path, options) : api(path, options)),
   showToast,
   onCreated: async (project) => {
+    const navigation = () =>
+      JSON.stringify([state.selected, state.selectedProjectId, composerSession.currentToken]);
+    const before = navigation();
     await refresh();
+    // The person moved elsewhere while the catalog loaded: the new project is listed, and they stay put.
+    if (navigation() !== before) return;
     projectController.select(project.projectId);
     beginNewConversation(project.projectId);
   },

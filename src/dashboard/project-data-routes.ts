@@ -193,6 +193,10 @@ export async function handleProjectDataRequest(
             requirementId: body.requirementId
           })
         });
+      case "discard":
+        return reply(response, 200, {
+          discarded: await service.discardMainSession(project.projectId, backendId, body.taskId)
+        });
       case "adopt":
         return reply(response, 200, {
           adopted: await service.adoptMainSessionTasks(
@@ -334,7 +338,11 @@ export async function handleProjectDataRequest(
     case "tidy":
       return reply(response, 200, { tidy: await service.tidyLedger(project.projectId) });
     case "finish_tidy":
-      return reply(response, 200, await service.finishLedgerTidy(project.projectId, body.documents));
+      return reply(
+        response,
+        200,
+        await service.finishLedgerTidy(project.projectId, body.documents, body.readAt)
+      );
     case "merge_requirements":
       return reply(response, 200, {
         requirement: await service.mergeRequirements(project.projectId, {

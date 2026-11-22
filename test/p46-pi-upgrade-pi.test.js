@@ -17,7 +17,7 @@ const harness = resolve(".");
 /**
  * Reviewed differences against the recorded baseline, each naming the exact
  * path, the change and why it was made; any other difference fails the
- * comparison. The baseline was last recorded on 2026-11-20 (Pi 1.5.x, the
+ * comparison. The baseline was last recorded on 2026-11-22 (Pi 1.5.x, the
  * English base prompt): an intended change to the tool table or the prompt's
  * sections is either listed here or recorded again with
  * `node test/p46-pi-upgrade-capture.mjs --record`.

@@ -235,9 +235,13 @@ export class RemoteProjectDataService implements ProjectDataGateway {
     return result.tidy as LedgerTidy;
   }
 
-  async finishLedgerTidy(projectId: unknown, documents: unknown): Promise<LedgerTidyFinished> {
+  async finishLedgerTidy(
+    projectId: unknown,
+    documents: unknown,
+    readAt: unknown
+  ): Promise<LedgerTidyFinished> {
     const result = await this.request(projectPath(projectId, "/ledger"), {
-      body: { action: "finish_tidy", documents }
+      body: { action: "finish_tidy", documents, readAt }
     });
     return result as unknown as LedgerTidyFinished;
   }
@@ -290,6 +294,11 @@ export class RemoteProjectDataService implements ProjectDataGateway {
   ): Promise<number> {
     const result = await this.sessionRequest(projectId, { action: "adopt", tasks });
     return Number(result.adopted ?? 0);
+  }
+
+  async discardMainSession(projectId: unknown, _backendId: unknown, taskId: unknown): Promise<boolean> {
+    const result = await this.sessionRequest(projectId, { action: "discard", taskId });
+    return result.discarded === true;
   }
 
   async listMainSessions(projectId: unknown): Promise<MainSessionRecord[]> {

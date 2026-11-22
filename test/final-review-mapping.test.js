@@ -69,7 +69,6 @@ test("a version 10 ledger gains the review mapping", async (t) => {
 
   const database = await SqliteDatabase.open(join(root, "project-data.sqlite"));
   await database.execute("ALTER TABLE project_data_development_reviews DROP COLUMN mapping");
-  await database.execute("ALTER TABLE project_data_projects DROP COLUMN ledger_tidy_read_at");
   await database.execute("DELETE FROM project_data_migrations");
   await database.execute("INSERT INTO project_data_migrations (version, applied_at) VALUES (10, ?)", [
     new Date().toISOString()
@@ -78,7 +77,7 @@ test("a version 10 ledger gains the review mapping", async (t) => {
 
   const again = await open();
   t.after(() => again.runtime.close());
-  assert.equal(again.service.description.schemaVersion, 12);
+  assert.equal(again.service.description.schemaVersion, 13);
   const reopened = await SqliteDatabase.open(join(root, "project-data.sqlite"));
   const columns = await reopened.query("PRAGMA table_info(project_data_development_reviews)");
   await reopened.close();

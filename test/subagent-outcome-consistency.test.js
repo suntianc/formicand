@@ -194,3 +194,62 @@ test(
     assert.deepEqual(settled.callbackPending, [CALL_ID], "the callback is what Main reads");
   }
 );
+
+/** A queued item in a fresh workspace, with the service that would run it. */
+async function queuedItem(t, prefix) {
+  const root = await mkdtemp(join(tmpdir(), prefix));
+  const workspace = join(root, "workspace");
+  const runRoot = join(workspace, TASK_ID, "runs", RUN_ID);
+  await mkdir(join(runRoot, "agents", "main"), { recursive: true });
+  const service = new SubagentProcessService({
+    workspaceRoot: workspace,
+    harnessRoot: resolve("."),
+    env: {},
+    pollMs: 50
+  });
+  t.after(async () => {
+    service.close();
+    await rm(root, { recursive: true, force: true });
+  });
+  const scheduler = new DurableScheduler(join(runRoot, "queue.json"));
+  await scheduler.enqueue({
+    stepId: CALL_ID,
+    taskId: TASK_ID,
+    runId: RUN_ID,
+    agentId: "subagent_1",
+    importance: "normal",
+    payload: { task: "write the result", projectDirectory: workspace }
+  });
+  return { service, scheduler, runRoot, inboxPath: join(runRoot, "agents", "main", "inbox-store.json") };
+}
+
+test("a cancel whose callback was never written is delivered on the next pass", async (t) => {
+  const { service, scheduler, inboxPath } = await queuedItem(t, "p46-cancel-redeliver-");
+  // The cancel reached the queue; the Inbox write after it did not happen.
+  await scheduler.cancel(CALL_ID, { callbackPending: true });
+  await service.startQueued({ taskId: TASK_ID, runId: RUN_ID });
+  const item = (await scheduler.list()).find((entry) => entry.stepId === CALL_ID);
+  assert.equal(item.status, "cancelled");
+  assert.equal(item.callbackPending, undefined);
+  const callbacks = (await inboxMessages(inboxPath)).filter(
+    (message) => message.messageId === `callback-${CALL_ID}-cancelled`
+  );
+  assert.equal(callbacks.length, 1);
+  // A second pass finds nothing left to deliver.
+  await service.startQueued({ taskId: TASK_ID, runId: RUN_ID });
+  assert.equal(
+    (await inboxMessages(inboxPath)).filter(
+      (message) => message.messageId === `callback-${CALL_ID}-cancelled`
+    ).length,
+    1
+  );
+});
+
+test("a launch whose item was cancelled while it prepared starts nothing", async (t) => {
+  const { service, scheduler, runRoot } = await queuedItem(t, "p46-cancel-launch-");
+  const claimed = await scheduler.claim("fixture", 60_000, CALL_ID);
+  await scheduler.cancel(CALL_ID, { callbackPending: true });
+  await service.launch(claimed, claimed.payload, claimed.lease.token);
+  const processFile = join(runRoot, "agents", "subagents", "subagent_1", "process.json");
+  await assert.rejects(readFile(processFile, "utf8"), { code: "ENOENT" });
+});

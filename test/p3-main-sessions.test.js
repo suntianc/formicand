@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { once } from "node:events";
 import { createServer } from "node:http";
-import { mkdir, readFile, readdir, realpath, writeFile } from "node:fs/promises";
+import { chmod, mkdir, readFile, readdir, realpath, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { after, before, test } from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
@@ -185,6 +185,27 @@ test(
       [sessionOne.sessionId, sessionTwo.sessionId].sort()
     );
 
+    // A Task that cannot be written takes its session back: the retry leaves one new session.
+    await chmod(dashboard.workspaceRoot, 0o555);
+    const unwritable = await request(`/api/projects/${encodeURIComponent(a.projectId)}/main-sessions`, {
+      action: "create",
+      title: "写不进去"
+    }).finally(() => chmod(dashboard.workspaceRoot, 0o755));
+    assert.ok(unwritable.status >= 400, JSON.stringify(unwritable.body));
+    assert.deepEqual(
+      (await sessions(request, a.projectId)).map((session) => session.sessionId).sort(),
+      [sessionOne.sessionId, sessionTwo.sessionId].sort()
+    );
+    const retried = await request(`/api/projects/${encodeURIComponent(a.projectId)}/main-sessions`, {
+      action: "create",
+      title: "写不进去"
+    });
+    assert.equal(retried.status, 201, JSON.stringify(retried.body));
+    assert.equal(
+      (await sessions(request, a.projectId)).filter((session) => session.title === "写不进去").length,
+      1
+    );
+
     const runOne = await request(`/api/tasks/${encodeURIComponent(sessionOne.taskId)}/run`, {
       prompt: "请完成登录改造。",
       mainSessionId: sessionOne.sessionId,
@@ -300,7 +321,7 @@ test(
     assert.match(userText(local.requests[3]), /只处理 B 项目/);
     assert.doesNotMatch(userText(local.requests[3]), /请完成登录改造|接着做报表导出/);
     const aAgain = await sessions(request, a.projectId);
-    assert.equal(aAgain.length, 2);
+    assert.equal(aAgain.length, 3);
     assert.ok(aAgain.every((session) => session.projectId === a.projectId));
     const bAgain = await sessions(request, b.projectId);
     assert.equal(bAgain.length, 1);
@@ -454,7 +475,7 @@ for (const engine of PROJECT_DATA_ENGINES) {
     const b = await createProject(request, f, `other-${engine}`);
     const info = await request("/api/project-data");
     assert.equal(info.status, 200);
-    assert.equal(info.body.schemaVersion, 12);
+    assert.equal(info.body.schemaVersion, 13);
     const opened = await openService(f, engine, info.body);
     t.after(() => opened.close());
 

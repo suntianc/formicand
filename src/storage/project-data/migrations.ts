@@ -6,12 +6,12 @@ import type { SqlDatabase, SqlTransaction } from "./database.js";
  * The project data schema this build writes.
  *
  * A new database is created at this version. A database at an earlier
- * version this build knows (8, 9 or 10) is converted in the same transaction that
+ * version this build knows (8 to 12) is converted in the same transaction that
  * records the new version; any other version is refused with its location and
  * version, without being rewritten. Date/time values are ISO text and booleans
  * are integers so one business query serves both engines.
  */
-export const PROJECT_DATA_SCHEMA_VERSION = 12;
+export const PROJECT_DATA_SCHEMA_VERSION = 13;
 
 /** The title of the requirement every project keeps for changes no feature owns. */
 export const MISC_REQUIREMENT_TITLE = "杂项";
@@ -19,14 +19,12 @@ export const MISC_REQUIREMENT_DESCRIPTION =
   "与任何功能都无关的零碎改动，比如改错别字、调一个配置、改版本号。";
 
 const PROJECT_DATA_SCHEMA: readonly string[] = [
-  // `ledger_tidied_at` is where the last tidy read up to; what came after it
-  // counts toward the next one. `ledger_tidy_read_at` is when the tidy in
-  // progress read the ledger, and becomes the mark when it finishes.
+  // `ledger_tidied_at` is where the last finished tidy read up to; what was
+  // recorded after it counts toward the next one.
   `CREATE TABLE IF NOT EXISTS project_data_projects (
      project_id TEXT PRIMARY KEY,
      project_name TEXT NOT NULL,
      ledger_tidied_at TEXT,
-     ledger_tidy_read_at TEXT,
      created_at TEXT NOT NULL,
      updated_at TEXT NOT NULL
    )`,
@@ -397,7 +395,7 @@ const PROJECT_DATA_SCHEMA: readonly string[] = [
 /**
  * Create this build's schema in one transaction, add version 11's final review
  * mapping to a version 10 database, version 10's tidy mark too to a version 9
- * one, convert a version 8 database, or refuse a file recorded at a version this build does not know.
+ * one, drop version 12's tidy read time, convert a version 8 database, or refuse a file recorded at a version this build does not know.
  *
  * The version row is written in the same transaction as the tables, so a
  * database is either empty or complete at the current version. A file at an
@@ -417,11 +415,11 @@ export async function migrateProjectData(database: SqlDatabase): Promise<number>
     );
     const version = Number(rows[0]?.version ?? 0);
     if (version === PROJECT_DATA_SCHEMA_VERSION) return version;
-    if (![0, 8, 9, 10, 11].includes(version)) throw incompatibleVersion(database.label, version);
+    if (![0, 8, 9, 10, 11, 12].includes(version)) throw incompatibleVersion(database.label, version);
     if (version === 9) await upgradeVersion9(transaction);
     if (version === 9 || version === 10) await upgradeVersion10(transaction);
-    if (version >= 9) await upgradeVersion11(transaction);
-    else {
+    if (version === 12) await upgradeVersion12(transaction);
+    if (version < 9) {
       const previous = version === 8 ? await dropVersion8(transaction) : undefined;
       for (const statement of PROJECT_DATA_SCHEMA) await transaction.execute(statement);
       if (previous) await writeFromVersion8(transaction, previous);
@@ -461,9 +459,13 @@ async function upgradeVersion10(transaction: SqlTransaction): Promise<void> {
   await transaction.execute("ALTER TABLE project_data_development_reviews ADD COLUMN mapping TEXT");
 }
 
-/** Version 12 records when a tidy read the ledger; none is in progress. */
-async function upgradeVersion11(transaction: SqlTransaction): Promise<void> {
-  await transaction.execute("ALTER TABLE project_data_projects ADD COLUMN ledger_tidy_read_at TEXT");
+/**
+ * Version 12 kept one tidy read time per project, which a second read
+ * overwrote; version 13 has the tidy hand back the time it read instead.
+ * Version 11 has no such column and needs nothing.
+ */
+async function upgradeVersion12(transaction: SqlTransaction): Promise<void> {
+  await transaction.execute("ALTER TABLE project_data_projects DROP COLUMN ledger_tidy_read_at");
 }
 
 /** Version 8's tables, parents before children. */

@@ -63,6 +63,8 @@ interface RunningClone {
   percent: number;
   output: string;
   done: Promise<void>;
+  /** Why writing the outcome failed; a stop reports it rather than returning as if all were written. */
+  failure?: unknown;
 }
 
 const CLONE_ID = /^[A-Za-z0-9_-]{1,100}$/;
@@ -409,10 +411,14 @@ export function createProjectCloneService(options: {
       settled = true;
       // The clone stays running until its outcome is written, registration
       // included, so a stop waits for it.
-      void finish(record, state, failure).finally(() => {
-        running.delete(record.cloneId);
-        resolveDone();
-      });
+      void finish(record, state, failure)
+        .catch((error: unknown) => {
+          state.failure = error;
+        })
+        .finally(() => {
+          running.delete(record.cloneId);
+          resolveDone();
+        });
     };
     child.once("error", (error) => {
       const missingGit = (error as NodeJS.ErrnoException).code === "ENOENT";
@@ -591,6 +597,9 @@ export function createProjectCloneService(options: {
     for (const state of pending) state.cancelled = true;
     await host.stop();
     await Promise.all(pending.map((state) => state.done));
+    const failures = pending.flatMap((state) => (state.failure === undefined ? [] : [state.failure]));
+    if (failures.length === 1) throw failures[0];
+    if (failures.length) throw new AggregateError(failures, "克隆的结果未能全部写入");
   }
 
   return { ready, start, status, cancel, stop };

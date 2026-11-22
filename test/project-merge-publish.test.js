@@ -16,7 +16,8 @@ import { publishMerge } from "../dist/src/workspace/project-merge.js";
 const run = promisify(execFile);
 const git = (cwd, args) => run("git", ["-C", cwd, ...args]).then((result) => result.stdout.trim());
 
-test("a target checkout that switched branches is not fast-forwarded", async (t) => {
+/** Switch the target checkout to `other` right after git runs a command matching `trigger`. */
+async function publishWhileSwitching(t, trigger) {
   const root = await mkdtemp(join(tmpdir(), "coworkos-publish-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const repo = join(root, "repo");
@@ -41,7 +42,7 @@ test("a target checkout that switched branches is not fast-forwarded", async (t)
   await run("mkdir", [bin]);
   await writeFile(
     join(bin, "git"),
-    `#!/bin/sh\n"${real}" "$@"\nstatus=$?\ncase "$*" in *"worktree list"*) "${real}" -C "${repo}" switch -q other ;; esac\nexit $status\n`
+    `#!/bin/sh\n"${real}" "$@"\nstatus=$?\ncase "$*" in *"${trigger}"*) "${real}" -C "${repo}" switch -q other ;; esac\nexit $status\n`
   );
   await chmod(join(bin, "git"), 0o755);
   const path = process.env.PATH;
@@ -60,4 +61,15 @@ test("a target checkout that switched branches is not fast-forwarded", async (t)
   assert.equal(result.status, "blocked", JSON.stringify(result));
   assert.equal(await git(repo, ["rev-parse", "other"]), base, "the branch switched to stays where it was");
   assert.equal(await git(repo, ["rev-parse", "main"]), base);
+  assert.equal(await git(repo, ["status", "--porcelain"]), "", "the checkout's files match its branch");
+  return result;
+}
+
+test("a target checkout that switched branches is not fast-forwarded", async (t) => {
+  await publishWhileSwitching(t, "worktree list");
+});
+
+test("a switch between the branch check and the fast-forward is undone", async (t) => {
+  const result = await publishWhileSwitching(t, "symbolic-ref");
+  assert.match(result.detail, /other 被切到这个工作区后误前进，已退回原提交/);
 });

@@ -711,7 +711,7 @@ const LEDGER_STEP =
 /** After the merge: enough developments may have recorded one feature twice. */
 function tidyStep(merged = 0): string {
   if (merged < LEDGER_TIDY_AFTER) return "";
-  return ` ${merged} developments merged since the ledger was last tidied: tidy it now — read project_ledger tidy and compare every feature in its catalog with every other yourself; merge_requirements only two features that are truly one recorded twice. Then, from its changes and the registry in AGENTS.md, read only the documents those changes could have outdated, and finish_tidy with documents. Do not ask the user or report the tidy.`;
+  return ` ${merged} developments merged since the ledger was last tidied: tidy it now — read project_ledger tidy and compare every feature in its catalog with every other yourself; merge_requirements only two features that are truly one recorded twice. Then, from its changes and the registry in AGENTS.md, read only the documents those changes could have outdated, and finish_tidy with documents and the readAt tidy returned. Do not ask the user or report the tidy.`;
 }
 
 /** After the merge: the environment improvements the retro registered are the next requirements. */
