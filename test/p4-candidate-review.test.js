@@ -179,6 +179,7 @@ test(
               name: "project_development",
               arguments: {
                 action: "create",
+                request: "导出文件要有合计行",
                 requirementId,
                 goal: "导出文件包含 header、数据行与合计行",
                 completionCriteria: ["第一行为 header", "最后一行为 total"],
@@ -638,6 +639,11 @@ test(
           if (step === 2) {
             // The continuation is the same agent with the earlier transcript.
             assert.match(userText(body), /修复审查发现/);
+            // The program appends how to answer the review, after Main's message.
+            assert.match(
+              userText(body),
+              /修复审查发现[^]*This rework answers review \S+[^]*Reproduce before you fix/
+            );
             assert.match(assistantText(body), /A 完成：已写入 export\.txt/);
             assert.equal(body.messages.filter((message) => message.role === "user").length, 2);
             return {

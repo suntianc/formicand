@@ -289,6 +289,7 @@ test("a version 9 ledger gains the tidy mark and each requirement a description"
   await database.execute("ALTER TABLE project_data_projects DROP COLUMN ledger_tidied_at");
   for (const table of ["project_data_requirements", "project_data_requirement_revisions"])
     await database.execute(`ALTER TABLE ${table} DROP COLUMN description`);
+  await database.execute("ALTER TABLE project_data_development_reviews DROP COLUMN mapping");
   await database.execute("DELETE FROM project_data_migrations");
   await database.execute("INSERT INTO project_data_migrations (version, applied_at) VALUES (9, ?)", [
     new Date().toISOString()
@@ -297,7 +298,7 @@ test("a version 9 ledger gains the tidy mark and each requirement a description"
 
   const again = await openLedger(t, root);
   t.after(() => again.runtime.close());
-  assert.equal(again.service.description.schemaVersion, 10);
+  assert.equal(again.service.description.schemaVersion, 11);
   // A version 9 requirement takes its summary's first sentence as its description.
   const upgraded = await again.service.getRequirement(project.projectId, exported.requirementId);
   assert.equal(upgraded.description, "export 输出 CSV。");

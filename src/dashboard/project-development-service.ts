@@ -15,6 +15,7 @@ import {
   reviewCandidate,
   reviewFindingInput,
   reviewKind,
+  reviewMappingInput,
   reviewPlanInput,
   reviewVerdict,
   rulingDecision,
@@ -626,7 +627,10 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
     const scope: ReviewScope = {
       criteria: ticket
         ? ticket.criteria.map((criterion) => criterion.criterionId)
-        : completionCriterionIds(record.completionCriteria),
+        : [
+            ...completionCriterionIds(record.completionCriteria),
+            ...(review.mapping ?? []).map((row) => row.rowId)
+          ],
       ...(previous
         ? {
             previous: toFix.map((finding) => ({ findingId: finding.findingId, title: finding.title })),
@@ -645,7 +649,7 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
           changedPaths: review.changedPaths
         }
       : undefined;
-    return { record, tickets, ticket, previous, scope, rereview };
+    return { record, tickets, ticket, previous, scope, rereview, mapping: review.mapping };
   }
 
   /**
@@ -887,6 +891,13 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
     if (finals.some((review) => review.state === "in_review"))
       throw conflict("已有一份进行中的整体终审", "review_open");
     checkRound(finals, tickets);
+    // Written for this candidate: a later round's mapping is rewritten for its own tip.
+    if (input.mapping === undefined)
+      throw conflict(
+        "整体终审先写对照表：freeze_candidate 带 mapping，每行一条要求和集成版本上能证明它的测试、命令或文件",
+        "final_review_mapping_missing"
+      );
+    const mapping = reviewMappingInput(input.mapping);
     let previous: DevelopmentReview | undefined;
     if (input.previousReviewId !== undefined) {
       const previousId = developmentIdentifier(input.previousReviewId, "上一次审查 ID");
@@ -899,6 +910,7 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
     return service.createReview(projectId, developmentId, {
       kind: "independent",
       candidate,
+      mapping,
       ...(previous
         ? {
             previousReviewId: previous.reviewId,
@@ -1256,8 +1268,11 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
   ): Promise<DevelopmentReview> {
     const developmentId = developmentIdentifier(input.developmentId, "开发记录 ID");
     const record = await openDevelopment(projectId, developmentId);
+    const final = input.ticketId === undefined && record.route === "full";
+    if (input.mapping !== undefined && !final)
+      throw conflict("只有 full 路线的整体终审带对照表", "review_mapping_unexpected");
     if (input.ticketId !== undefined) return startTicketReview(projectId, taskId, record, input);
-    if (record.route === "full") return startFinalReview(projectId, record, input);
+    if (final) return startFinalReview(projectId, record, input);
     if (ticketRoute(record))
       throw conflict(
         `${record.route} 路线按票审查：freeze_candidate 须带 ticketId，审查票自己的现场`,
@@ -3164,7 +3179,10 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
       if (reviewId && !named)
         throw conflict(`审查 ${reviewId} 不是这个需求里正在进行的审查`, "review_not_frozen");
       if (!named) return site.candidate;
-      const { record, tickets, ticket, scope, rereview } = await reviewScopeOf(found.projectId, named);
+      const { record, tickets, ticket, scope, rereview, mapping } = await reviewScopeOf(
+        found.projectId,
+        named
+      );
       return {
         repository: site.directory,
         commit: named.candidate.commit,
@@ -3173,6 +3191,7 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
           criteria: record.completionCriteria,
           tickets,
           ...(ticket ? { ticket } : {}),
+          ...(mapping ? { mapping } : {}),
           ...(rereview ? { rereview } : {})
         }),
         scope

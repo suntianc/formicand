@@ -6,12 +6,12 @@ import type { SqlDatabase, SqlTransaction } from "./database.js";
  * The project data schema this build writes.
  *
  * A new database is created at this version. A database at an earlier
- * version this build knows (8 or 9) is converted in the same transaction that
+ * version this build knows (8, 9 or 10) is converted in the same transaction that
  * records the new version; any other version is refused with its location and
  * version, without being rewritten. Date/time values are ISO text and booleans
  * are integers so one business query serves both engines.
  */
-export const PROJECT_DATA_SCHEMA_VERSION = 10;
+export const PROJECT_DATA_SCHEMA_VERSION = 11;
 
 /** The title of the requirement every project keeps for changes no feature owns. */
 export const MISC_REQUIREMENT_TITLE = "杂项";
@@ -310,6 +310,7 @@ const PROJECT_DATA_SCHEMA: readonly string[] = [
      previous_review_id TEXT,
      previous_candidate_commit TEXT,
      changed_paths TEXT NOT NULL,
+     mapping TEXT,
      reviewer TEXT,
      findings TEXT NOT NULL,
      reworks TEXT NOT NULL,
@@ -392,8 +393,9 @@ const PROJECT_DATA_SCHEMA: readonly string[] = [
 ];
 
 /**
- * Create this build's schema in one transaction, add version 10's tidy mark to
- * a version 9 database, convert a version 8 database, or refuse a file recorded at a version this build does not know.
+ * Create this build's schema in one transaction, add version 11's final review
+ * mapping to a version 10 database, version 10's tidy mark too to a version 9
+ * one, convert a version 8 database, or refuse a file recorded at a version this build does not know.
  *
  * The version row is written in the same transaction as the tables, so a
  * database is either empty or complete at the current version. A file at an
@@ -413,8 +415,9 @@ export async function migrateProjectData(database: SqlDatabase): Promise<number>
     );
     const version = Number(rows[0]?.version ?? 0);
     if (version === PROJECT_DATA_SCHEMA_VERSION) return version;
-    if (version !== 0 && version !== 8 && version !== 9) throw incompatibleVersion(database.label, version);
+    if (![0, 8, 9, 10].includes(version)) throw incompatibleVersion(database.label, version);
     if (version === 9) await upgradeVersion9(transaction);
+    if (version === 9 || version === 10) await upgradeVersion10(transaction);
     else {
       const previous = version === 8 ? await dropVersion8(transaction) : undefined;
       for (const statement of PROJECT_DATA_SCHEMA) await transaction.execute(statement);
@@ -448,6 +451,11 @@ async function upgradeVersion9(transaction: SqlTransaction): Promise<void> {
         [describeFeature(row.summary, row.title), row.project_id, row.requirement_id, row.title, row.summary]
       );
   }
+}
+
+/** Version 11 adds a final review's acceptance mapping; no earlier review has one. */
+async function upgradeVersion10(transaction: SqlTransaction): Promise<void> {
+  await transaction.execute("ALTER TABLE project_data_development_reviews ADD COLUMN mapping TEXT");
 }
 
 /** Version 8's tables, parents before children. */

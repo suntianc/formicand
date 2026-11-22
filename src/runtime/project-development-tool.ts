@@ -249,6 +249,23 @@ export function createProjectDevelopmentTool(options: ProjectDevelopmentToolOpti
           description:
             "freeze_candidate: the Executor work item that produced the candidate; its identity must differ from the Reviewer's."
         },
+        mapping: {
+          type: "array",
+          maxItems: 50,
+          description:
+            "freeze_candidate, the final review only (required there, every round): the acceptance mapping the final Reviewer verifies, written for this requirement checkout. One row per completion criterion or plan requirement; rows are numbered M1, M2… and a blocking finding may cite one.",
+          items: {
+            type: "object",
+            properties: {
+              requirement: { type: "string", description: "The completion criterion or plan requirement." },
+              evidence: {
+                type: "string",
+                description: "The test, command or file on this checkout that shows it holds."
+              }
+            },
+            required: ["requirement", "evidence"]
+          }
+        },
         reviewId: {
           ...ID,
           description: "attach_reviewer/record/rule/change_approach/complete/get_review target."
@@ -533,7 +550,8 @@ export function createProjectDevelopmentTool(options: ProjectDevelopmentToolOpti
         ...(input.kind === undefined ? {} : { kind: input.kind }),
         ...(input.ticketId === undefined ? {} : { ticketId: input.ticketId }),
         ...(input.previousReviewId === undefined ? {} : { previousReviewId: input.previousReviewId }),
-        ...(input.authorCallId === undefined ? {} : { authorCallId: input.authorCallId })
+        ...(input.authorCallId === undefined ? {} : { authorCallId: input.authorCallId }),
+        ...(input.mapping === undefined ? {} : { mapping: input.mapping })
       });
     if (action === "attach_reviewer")
       return review({ action: "attach_reviewer", reviewId: input.reviewId, callId: input.callId });

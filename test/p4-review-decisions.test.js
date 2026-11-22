@@ -157,6 +157,7 @@ test(
               name: "project_development",
               arguments: {
                 action: "create",
+                request: "导出 CSV 报表",
                 requirementId,
                 goal: "导出 CSV 报表，包含 header 与数据行",
                 completionCriteria: ["导出首行为 header", "导出至少包含一行数据"],

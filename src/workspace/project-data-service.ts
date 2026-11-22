@@ -53,6 +53,7 @@ import {
   reviewChangedPaths,
   reviewChecks,
   reviewCreate,
+  reviewMapping,
   reviewFinding,
   reviewPlanInput,
   reviewRework,
@@ -290,6 +291,7 @@ interface ReviewRow {
   previous_review_id: string | null;
   previous_candidate_commit: string | null;
   changed_paths: string;
+  mapping: string | null;
   reviewer: string | null;
   findings: string;
   reworks: string;
@@ -759,6 +761,7 @@ const TABLE_COLUMNS: Record<SnapshotTable, readonly string[]> = {
     "previous_review_id",
     "previous_candidate_commit",
     "changed_paths",
+    "mapping",
     "reviewer",
     "findings",
     "reworks",
@@ -975,6 +978,7 @@ function reviewOf(row: ReviewRow): DevelopmentReview {
     ...(row.previous_review_id ? { previousReviewId: row.previous_review_id } : {}),
     ...(row.previous_candidate_commit ? { previousCandidateCommit: row.previous_candidate_commit } : {}),
     changedPaths: reviewChangedPaths(storedJson(row.changed_paths, "复审改动文件")),
+    ...(row.mapping ? { mapping: reviewMapping(storedJson(row.mapping, "对照表")) } : {}),
     ...(row.reviewer ? { reviewer: reviewReviewer(storedJson(row.reviewer, "审查身份")) } : {}),
     findings: storedArray(row.findings, "审查发现").map(reviewFinding),
     reworks: storedArray(row.reworks, "返修记录").map(reviewRework),
@@ -2158,9 +2162,9 @@ export class ProjectDataRepository {
       `INSERT INTO project_data_development_reviews
          (project_id, review_id, development_id, kind, state, revision,
           candidate_commit, candidate_tree, candidate_branch, candidate_workspace,
-          author, previous_review_id, previous_candidate_commit, changed_paths,
+          author, previous_review_id, previous_candidate_commit, changed_paths, mapping,
           reviewer, findings, reworks, verdict, drift, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         projectId,
         reviewId,
@@ -2176,6 +2180,7 @@ export class ProjectDataRepository {
         input.previousReviewId ?? null,
         input.previousCandidateCommit ?? null,
         JSON.stringify(input.changedPaths),
+        input.mapping ? JSON.stringify(input.mapping) : null,
         null,
         "[]",
         "[]",

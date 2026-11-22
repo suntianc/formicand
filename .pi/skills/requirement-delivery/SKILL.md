@@ -31,7 +31,7 @@ Pick the smallest route that keeps the result trustworthy. A route is cheaper to
 
 `attach_reviewer` imports a finished Reviewer's findings. Only a finding citing a criterion or a floor class (regression, data loss, security, project rules) blocks; the rest are suggestions.
 
-- `fix` a right blocking finding through the Executor that made the change (`continueCallId`).
+- `fix` a right blocking finding through the Executor that made the change (`continueCallId` and `reviewId`).
 - `dismiss` a wrong one (`false_positive`), one outside the ask (`out_of_scope`) or one left for later (`deferred`); the user reads the basis.
 - Take a suggestion only when cheap and inside the ticket; one that matters becomes a new ticket or a note to the user.
 - A change to the agreed goal, criteria or trade-offs goes to the user first.
