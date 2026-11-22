@@ -30,6 +30,7 @@ import {
   hasRetroSignals,
   mergeAcceptance,
   mergeCheckCommands,
+  ledgerUpdateInput,
   retroInput,
   retroSignals,
   retroSourceReference,
@@ -37,6 +38,7 @@ import {
   type RetroInput,
   type DevelopmentMerge,
   type MergeAcceptance,
+  type MergeLedgerUpdate,
   type MergeCheck,
   type MergeRetro
 } from "../domain/development-merge.js";
@@ -1838,7 +1840,8 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
         signals: retroSignals(reviews, merges),
         recorded: merges.some((entry) => entry.acceptance.retro && !entry.acceptance.retro.auto),
         improvements: merges.flatMap((entry) => entry.acceptance.retro?.improvements ?? [])
-      }
+      },
+      ledgerRecorded: merges.some((entry) => entry.acceptance.ledger)
     });
   }
 
@@ -2067,6 +2070,40 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
     return { retro, improvements: improvements.filter((item) => !registered.has(item.title)) };
   }
 
+  /**
+   * What the requirement's ledger says once this development is merged: Main
+   * hands it in with the merge request, as it does the retro, and an earlier
+   * attempt's update carries over to a retry. It is written to the requirement
+   * only when the delivery is recorded, so a merge that never lands changes nothing.
+   */
+  async function requirementLedgerUpdate(
+    projectId: string,
+    record: DevelopmentRecord,
+    value: unknown
+  ): Promise<MergeLedgerUpdate> {
+    const service = await gateway();
+    const given = ledgerUpdateInput(value);
+    const update =
+      given ??
+      [...(await service.queryMerges(projectId, record.developmentId))]
+        .reverse()
+        .find((merge) => merge.acceptance.ledger)?.acceptance.ledger;
+    if (!update)
+      throw conflict(
+        "合入前更新这条需求的台账：用 ledger.summary 把现状改写成这块功能现在的样子和规矩（没有变化就用 ledger.summaryUnchanged 写明理由），ledger.history 写一行这次改了什么；功能有了大的变动（做的事、服务的人或范围变了）时用 ledger.description 写新的功能描述，否则写 ledger.descriptionUnchanged: true",
+        "ledger_update_missing"
+      );
+    if (
+      update.description !== undefined &&
+      (await service.getRequirement(projectId, record.requirementId)).kind === "misc"
+    )
+      throw conflict(
+        "杂项需求的功能描述是固定的；改用 ledger.descriptionUnchanged: true",
+        "requirement_misc_fixed"
+      );
+    return update;
+  }
+
   /** Register a retro's environment improvements as ledger requirements. */
   async function registerImprovements(
     projectId: string,
@@ -2118,6 +2155,7 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
       input.retro,
       extended ? { approved: qualification.approved.commit, candidate: candidate.commit } : undefined
     );
+    const ledger = await requirementLedgerUpdate(projectId, record, input.ledger);
     const checks = supplied ?? (await recordedMergeChecks(service, projectId, developmentId));
     if (!checks.length) throw conflict("合入须记录在组合版本上运行的检查命令", "merge_checks_missing");
     const acceptance: MergeAcceptance = {
@@ -2126,7 +2164,8 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
       approvedTree: qualification.approved.tree,
       ...(qualification.reviewId ? { reviewId: qualification.reviewId } : {}),
       ...(ticketRoute(record) ? { tickets: true as const } : {}),
-      retro
+      retro,
+      ledger
     };
     const existing = await service.queryMerges(projectId, developmentId);
     const open = existing.find(

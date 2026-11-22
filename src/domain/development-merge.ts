@@ -5,7 +5,12 @@ import {
   type ReviewCandidate
 } from "./development-review.js";
 import { developmentBranch } from "./project-development.js";
-import { ProjectDataInvalidError, ledgerIdentifier } from "./project-ledger.js";
+import {
+  ProjectDataInvalidError,
+  ledgerDescription,
+  ledgerHistoryText,
+  ledgerIdentifier
+} from "./project-ledger.js";
 import { now } from "./types.js";
 
 /**
@@ -86,6 +91,65 @@ export interface MergeAcceptance {
   tickets?: true;
   /** The requirement's retro, done once before its last merge. */
   retro?: MergeRetro;
+  /** What the ledger says after this merge; written to the requirement only once it is delivered. */
+  ledger?: MergeLedgerUpdate;
+}
+
+/**
+ * The requirement's ledger after this development: its summary rewritten as the
+ * feature now is, or why it stays; one history line; and a new description when
+ * what the feature does, whom it serves or its scope changed.
+ */
+export interface MergeLedgerUpdate {
+  summary?: string;
+  /** Why the summary stays as it is; present exactly when `summary` is not. */
+  summaryUnchanged?: string;
+  history: string;
+  /** Absent: the description stays. */
+  description?: string;
+}
+
+const SUMMARY_MAX = 20000;
+const UNCHANGED_MAX = 1000;
+
+/** The ledger update Main hands in with request_merge. */
+export function ledgerUpdateInput(value: unknown): MergeLedgerUpdate | undefined {
+  if (value === undefined || value === null) return undefined;
+  if (typeof value !== "object" || Array.isArray(value))
+    throw new ProjectDataInvalidError(
+      "台账更新须为对象：{ summary 或 summaryUnchanged, history, description 或 descriptionUnchanged }"
+    );
+  const input = value as Record<string, unknown>;
+  if ((input.summary === undefined) === (input.summaryUnchanged === undefined))
+    throw new ProjectDataInvalidError(
+      "台账更新须且只能写一项：summary（新的现状）或 summaryUnchanged（现状为什么不变）"
+    );
+  if (input.description !== undefined && input.descriptionUnchanged !== undefined)
+    throw new ProjectDataInvalidError(
+      "台账更新只能写一项：description（新的功能描述）或 descriptionUnchanged"
+    );
+  if (input.description === undefined && input.descriptionUnchanged !== true)
+    throw new ProjectDataInvalidError(
+      "功能有了大的变动（做的事、服务的人或范围变了）时写 description（新的功能描述），否则写 descriptionUnchanged: true"
+    );
+  return storedLedgerUpdate(input);
+}
+
+/** A stored ledger update, or Main's input once its choices are checked. */
+function storedLedgerUpdate(input: Record<string, unknown>): MergeLedgerUpdate {
+  return {
+    ...(input.summary !== undefined
+      ? { summary: bounded(input.summary, "新的现状", SUMMARY_MAX) }
+      : { summaryUnchanged: bounded(input.summaryUnchanged, "现状不变的理由", UNCHANGED_MAX) }),
+    history: ledgerHistoryText(input.history),
+    ...(input.description === undefined ? {} : { description: ledgerDescription(input.description) })
+  };
+}
+
+function mergeLedgerUpdate(value: unknown): MergeLedgerUpdate {
+  if (!value || typeof value !== "object" || Array.isArray(value))
+    throw new ProjectDataInvalidError("合入的台账更新必须是对象");
+  return storedLedgerUpdate(value as Record<string, unknown>);
 }
 
 /**
@@ -364,7 +428,8 @@ export function mergeAcceptance(value: unknown): MergeAcceptance {
     approvedTree: mergeCommit(input.approvedTree, "验收树"),
     ...(input.reviewId === undefined ? {} : { reviewId: ledgerIdentifier(input.reviewId, "验收审查 ID") }),
     ...(input.tickets === true ? { tickets: true as const } : {}),
-    ...(input.retro === undefined ? {} : { retro: mergeRetro(input.retro) })
+    ...(input.retro === undefined ? {} : { retro: mergeRetro(input.retro) }),
+    ...(input.ledger === undefined ? {} : { ledger: mergeLedgerUpdate(input.ledger) })
   };
 }
 

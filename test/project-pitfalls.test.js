@@ -204,6 +204,7 @@ test(
     const plain = await tool.execute({
       action: "request_merge",
       developmentId: quiet.developmentId,
+      ledger: { summaryUnchanged: "测试不改现状", history: "测试合入", descriptionUnchanged: true },
       mergeChecks
     });
     assert.equal(plain.merge.state, "merged", JSON.stringify(plain.merge));
@@ -217,6 +218,7 @@ test(
     const failed = await tool.execute({
       action: "request_merge",
       developmentId: noisy.developmentId,
+      ledger: { summaryUnchanged: "测试不改现状", history: "测试合入", descriptionUnchanged: true },
       mergeChecks: [{ name: "fails", command: "false" }]
     });
     assert.equal(failed.merge.state, "check_failed");
@@ -240,6 +242,7 @@ test(
       tool.execute({
         action: "request_merge",
         developmentId: noisy.developmentId,
+        ledger: { summaryUnchanged: "测试不改现状", history: "测试合入", descriptionUnchanged: true },
         mergeChecks,
         retro: { pitfalls: "新增一条：合入检查命令在组合版本上运行" }
       }),
@@ -254,6 +257,7 @@ test(
       tool.execute({
         action: "request_merge",
         developmentId: noisy.developmentId,
+        ledger: { summaryUnchanged: "测试不改现状", history: "测试合入", descriptionUnchanged: true },
         mergeChecks,
         retro: { nothing: "没有要记的" }
       }),
@@ -263,6 +267,7 @@ test(
     const merged = await tool.execute({
       action: "request_merge",
       developmentId: noisy.developmentId,
+      ledger: { summaryUnchanged: "测试不改现状", history: "测试合入", descriptionUnchanged: true },
       mergeChecks,
       retro: { pitfalls: "新增一条：合入检查命令在组合版本上运行", improvements: [improvement] }
     });
@@ -315,6 +320,7 @@ test(
       tool.execute({
         action: "request_merge",
         developmentId: nested.developmentId,
+        ledger: { summaryUnchanged: "测试不改现状", history: "测试合入", descriptionUnchanged: true },
         mergeChecks,
         retro: { nothing: "没有坑", improvements: [{ title: "再改", content: "再改" }] }
       }),

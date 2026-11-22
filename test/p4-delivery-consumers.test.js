@@ -281,6 +281,7 @@ test(
     // A blocking finding was let through, so the last merge carries the requirement's retro.
     const reviewedMerge = await execution.requestMerge(project.projectId, {
       developmentId: reviewed.developmentId,
+      ledger: { summaryUnchanged: "测试不改现状", history: "测试合入", descriptionUnchanged: true },
       checks: [{ name: "组合检查", command: "test -f report.txt" }],
       retro: { nothing: "放行的发现是需求范围外的建议，没有仓库的坑" }
     });
@@ -299,11 +300,49 @@ test(
       basis: "单文件小改动，Main 自检",
       checks: [{ name: "自检", command: "test -f quick.txt", exitCode: 0, output: "" }]
     });
+    // The merge request must say what the ledger is after this development.
+    const quickChecks = [{ name: "组合检查", command: "test -f quick.txt" }];
+    await assert.rejects(
+      execution.requestMerge(project.projectId, { developmentId: quick.developmentId, checks: quickChecks }),
+      { code: "ledger_update_missing" }
+    );
+    await assert.rejects(
+      execution.requestMerge(project.projectId, {
+        developmentId: quick.developmentId,
+        checks: quickChecks,
+        ledger: { summary: "新的现状", history: "加了 quick.txt" }
+      }),
+      /descriptionUnchanged/
+    );
+    const ledgerBefore = await request(projectPath(project.projectId, "/ledger"), {
+      action: "get",
+      requirementId: internalRequirementId
+    });
     const quickMerge = await execution.requestMerge(project.projectId, {
       developmentId: quick.developmentId,
-      checks: [{ name: "组合检查", command: "test -f quick.txt" }]
+      ledger: {
+        summary: "Main 直接完成小改动，产出 quick.txt。",
+        history: "加了 quick.txt",
+        description: "Main 不经审查直接交付的小改动。"
+      },
+      checks: quickChecks
     });
     assert.equal(quickMerge.state, "merged", JSON.stringify(quickMerge));
+    // Written to the requirement once delivered, beside the delivery revision.
+    const ledgerAfter = (
+      await request(projectPath(project.projectId, "/ledger"), {
+        action: "get",
+        requirementId: internalRequirementId
+      })
+    ).body.requirement;
+    assert.equal(ledgerAfter.summary, "Main 直接完成小改动，产出 quick.txt。");
+    assert.equal(ledgerAfter.description, "Main 不经审查直接交付的小改动。");
+    assert.equal(ledgerAfter.revision, ledgerBefore.body.requirement.revision + 1);
+    assert.equal(ledgerAfter.revisions.at(-1).summary, ledgerAfter.summary);
+    assert.deepEqual(
+      ledgerAfter.history.map((entry) => [entry.text, entry.developmentId]),
+      [["加了 quick.txt", quick.developmentId]]
+    );
     const quickUnmergedHead = await commitFile(quick.workspace.directory, "quick-later.txt", "local only\n");
     assert.notEqual(quickUnmergedHead, quickMerge.mergeCommit);
 

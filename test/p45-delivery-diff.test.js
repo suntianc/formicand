@@ -129,6 +129,7 @@ test(
     });
     const merge = await execution.requestMerge(project.projectId, {
       developmentId: development.developmentId,
+      ledger: { summaryUnchanged: "测试不改现状", history: "测试合入", descriptionUnchanged: true },
       checks: [
         { name: "组合检查 1", command: "test -f summarize.sh" },
         { name: "组合检查 2", command: "test -f notes.md" }

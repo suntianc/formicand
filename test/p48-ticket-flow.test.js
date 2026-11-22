@@ -393,7 +393,10 @@ test(
     assert.equal(qualification.eligible, true, JSON.stringify(qualification.reasons));
     assert.equal(qualification.reviewId, again.reviewId);
     assert.match(await service.next(projectId, developmentId), /qualifies: request_merge/);
-    const merge = await service.requestMerge(projectId, { developmentId });
+    const merge = await service.requestMerge(projectId, {
+      developmentId,
+      ledger: { summaryUnchanged: "测试不改现状", history: "测试合入", descriptionUnchanged: true }
+    });
     assert.equal(merge.state, "merged", JSON.stringify(merge));
     assert.equal(merge.acceptance.tickets, true);
     assert.equal(merge.acceptance.reviewId, again.reviewId, "the final review the merge was accepted on");

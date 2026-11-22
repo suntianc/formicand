@@ -234,6 +234,7 @@ for (const engine of PROJECT_DATA_ENGINES) {
       // the operation waits instead of running Git there.
       const remoteRequest = await second.requestMerge(project.projectId, {
         developmentId: remoteDevelopment.developmentId,
+        ledger: { summaryUnchanged: "测试不改现状", history: "测试合入", descriptionUnchanged: true },
         checks: [{ name: "远端内容", command: "test -f report.txt" }]
       });
       assert.equal(remoteRequest.state, "waiting", JSON.stringify(remoteRequest));
@@ -257,6 +258,7 @@ for (const engine of PROJECT_DATA_ENGINES) {
       });
       const staleRequest = await second.requestMerge(project.projectId, {
         developmentId: staleDevelopment.developmentId,
+        ledger: { summaryUnchanged: "测试不改现状", history: "测试合入", descriptionUnchanged: true },
         checks: [{ name: "组合检查", command: "test -f stale.txt" }]
       });
       assert.equal(staleRequest.state, "waiting");
@@ -279,6 +281,7 @@ for (const engine of PROJECT_DATA_ENGINES) {
       });
       const failingRequest = await second.requestMerge(project.projectId, {
         developmentId: failingDevelopment.developmentId,
+        ledger: { summaryUnchanged: "测试不改现状", history: "测试合入", descriptionUnchanged: true },
         checks: [{ name: "组合检查", command: "printf 'combined check failed\\n' >&2; exit 3" }]
       });
       assert.equal(failingRequest.state, "waiting");
@@ -301,6 +304,7 @@ for (const engine of PROJECT_DATA_ENGINES) {
       });
       const mainRequest = await main.requestMerge(project.projectId, {
         developmentId: mainDevelopment.developmentId,
+        ledger: { summaryUnchanged: "测试不改现状", history: "测试合入", descriptionUnchanged: true },
         checks: [
           {
             name: "组合检查",
@@ -410,6 +414,7 @@ for (const engine of PROJECT_DATA_ENGINES) {
       const toolRetry = await tool.execute({
         action: "request_merge",
         developmentId: mainDevelopment.developmentId,
+        ledger: { summaryUnchanged: "测试不改现状", history: "测试合入", descriptionUnchanged: true },
         mergeChecks: [{ name: "组合检查", command: "test -f login.txt" }]
       });
       assert.equal(toolRetry.merge.mergeId, mainMerged.mergeId);

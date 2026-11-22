@@ -344,6 +344,20 @@ export function createProjectDevelopmentTool(options: ProjectDevelopmentToolOpti
           description:
             "request_merge: the requirement's retro, once before its last merge. pitfalls: which entries in docs/pitfalls/ were added, merged or removed (committed on top of the approved version, touching only that directory); nothing: why there is nothing to keep. improvements: changes to the agents' environment (code structure, checks, tests, instructions, tools) that would stop a trap better than a pitfall; each becomes a ledger requirement to develop after this merge. Omit retro when next does not ask for one."
         },
+        ledger: {
+          type: "object",
+          properties: {
+            summary: { type: "string", minLength: 1, maxLength: 20000 },
+            summaryUnchanged: { type: "string", minLength: 1, maxLength: 1000 },
+            history: { type: "string", minLength: 1, maxLength: 1000 },
+            description: { type: "string", minLength: 1, maxLength: 200 },
+            descriptionUnchanged: { type: "boolean", enum: [true] }
+          },
+          required: ["history"],
+          additionalProperties: false,
+          description:
+            "request_merge: the requirement's ledger once this development lands, written only when it is delivered. summary: the whole summary rewritten as the feature now is and its rules; summaryUnchanged: why it stays. history: one line on what this development changed. description: the new description when what the feature does, whom it serves or its scope changed; descriptionUnchanged: true otherwise. A retry reuses the earlier request's ledger."
+        },
         verdict: {
           type: "string",
           enum: ["passed", "failed"],
@@ -582,7 +596,8 @@ export function createProjectDevelopmentTool(options: ProjectDevelopmentToolOpti
         action: "request",
         developmentId: input.developmentId,
         ...(input.mergeChecks === undefined ? {} : { checks: input.mergeChecks }),
-        ...(input.retro === undefined ? {} : { retro: input.retro })
+        ...(input.retro === undefined ? {} : { retro: input.retro }),
+        ...(input.ledger === undefined ? {} : { ledger: input.ledger })
       });
     if (action === "apply_merge") return merges({ action: "apply" });
     if (action === "merge_status")
