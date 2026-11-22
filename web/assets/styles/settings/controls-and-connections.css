@@ -1,0 +1,780 @@
+.settings-stepper {
+  display: inline-flex;
+  align-items: center;
+  border-radius: var(--radius-control);
+  background: var(--color-surface-2);
+}
+.settings-stepper > button {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 0;
+  background: transparent;
+  color: var(--color-text-2);
+  cursor: pointer;
+}
+.settings-stepper > button:disabled {
+  color: var(--color-text-3);
+  cursor: default;
+}
+.settings-stepper > button .ui-icon {
+  width: 13px;
+  height: 13px;
+}
+.settings-stepper-value {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 30px;
+  color: var(--color-text);
+  font: 600 14px/1 var(--ui-font);
+}
+.settings-capacity-usage {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 150px;
+}
+.settings-capacity-bar {
+  display: inline-flex;
+  gap: 3px;
+}
+.settings-capacity-seg {
+  width: 14px;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--color-surface-3);
+}
+.settings-capacity-seg.is-accent {
+  background: var(--color-accent);
+}
+.settings-capacity-seg.is-warn {
+  background: var(--color-warn);
+}
+.settings-error {
+  color: var(--ui-danger);
+  font: 400 12px/1.5 var(--ui-font);
+}
+.settings-error[hidden] {
+  display: none;
+}
+.settings-icon-button {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--color-text-3);
+  cursor: pointer;
+}
+.settings-icon-button:hover {
+  background: var(--color-surface-3);
+  color: var(--color-text);
+}
+.settings-icon-button .ui-icon {
+  width: 16px;
+  height: 16px;
+}
+.settings-rows > .settings-row > .ui-icon {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+  color: var(--color-text-2);
+}
+.settings-role-name {
+  width: 140px;
+  flex: 0 0 auto;
+}
+.settings-select.is-model {
+  width: 260px;
+  min-width: 0;
+  flex: 0 1 260px;
+}
+.settings-select.is-effort {
+  width: 84px;
+  min-width: 0;
+  flex: 0 0 84px;
+}
+
+/* Tool rows are created by the search and window-access controllers; the
+   design reads search first, then window access. */
+#profile-settings-tools > .profile-setting {
+  order: 1;
+}
+#profile-settings-tools > .computer-setting {
+  order: 2;
+}
+.settings-rows .computer-setting > summary .settings-row-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  color: var(--color-text-2);
+  font: 400 12px/1.4 var(--ui-font);
+}
+.settings-rows .computer-setting > summary .settings-row-action .ui-icon {
+  width: 13px;
+  height: 13px;
+  color: var(--color-text-3);
+}
+
+.settings-row #appearance-status,
+.settings-row #language-status {
+  flex-basis: auto;
+  margin: 0;
+  color: var(--ui-danger);
+  font: 400 12px/1.5 var(--ui-font);
+}
+.settings-row #appearance-status:empty,
+.settings-row #language-status:empty {
+  display: none;
+}
+
+.settings-rows .desktop-updates {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.settings-rows .desktop-updates > :is(p, progress) {
+  margin: 0;
+  padding: 0 16px 14px;
+  border: 0;
+  background: transparent;
+}
+.settings-rows .desktop-updates > :is(p, progress)[hidden],
+.settings-rows .desktop-updates > p:empty {
+  display: none;
+}
+.settings-rows .desktop-updates > progress {
+  width: calc(100% - 32px);
+  margin: 0 16px 14px;
+  padding: 0;
+}
+
+.settings-card .settings-form {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  margin: 0;
+  overflow: hidden;
+}
+.settings-form-content,
+.settings-advanced-content {
+  display: grid;
+  align-content: start;
+  gap: 16px;
+}
+.settings-card .settings-field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  min-width: 0;
+  margin: 0;
+  color: var(--ui-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.5;
+}
+.settings-card :is(input:not([type="checkbox"]), select) {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 40px;
+  margin: 0;
+  padding: 9px 11px;
+  color: var(--ui-text);
+  background-color: var(--ui-panel);
+  border: 1px solid var(--ui-border);
+  border-radius: 10px;
+  outline: none;
+  font: 400 14px/1.5 var(--ui-font);
+  color-scheme: inherit;
+  transition:
+    border-color var(--motion-fast),
+    box-shadow var(--motion-fast);
+}
+.settings-card input::placeholder {
+  color: var(--ui-muted);
+  font-weight: 400;
+}
+.settings-card :is(input, select):focus-visible {
+  border-color: var(--ui-accent);
+  outline: 2px solid var(--ui-accent);
+  outline-offset: 2px;
+}
+.settings-card :is(input, select):disabled {
+  opacity: 0.5;
+}
+.settings-card :is(.settings-help, .settings-note, [data-model-result]) {
+  display: block;
+  margin: 0;
+  color: var(--ui-muted);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+.settings-card .settings-note {
+  color: var(--ui-secondary);
+  font-size: 13px;
+}
+.settings-profile {
+  display: grid;
+  gap: 7px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--ui-border);
+}
+.model-connection-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px 16px;
+}
+.model-connection-fields > :is(.model-full-width, small) {
+  grid-column: 1 / -1;
+}
+.model-connection-fields > small {
+  margin-top: -7px;
+}
+.settings-capabilities {
+  display: grid;
+  padding: 0 13px;
+  border: 1px solid var(--ui-border);
+  border-radius: 12px;
+}
+.settings-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 0;
+  padding: 13px 0;
+  cursor: pointer;
+}
+.settings-toggle + .settings-toggle {
+  border-top: 1px solid var(--ui-border);
+}
+.settings-toggle strong {
+  display: block;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.6;
+}
+.settings-toggle small {
+  display: block;
+  margin-top: 4px;
+  color: var(--ui-muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+.settings-toggle input[type="checkbox"] {
+  appearance: none;
+  position: relative;
+  flex: 0 0 32px;
+  width: 32px;
+  height: 20px;
+  margin: 0;
+  background: var(--ui-border-hover);
+  border: 1px solid var(--ui-border);
+  border-radius: 999px;
+  cursor: pointer;
+}
+.settings-toggle input::before {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 12px;
+  height: 12px;
+  background: var(--ui-panel);
+  border-radius: 50%;
+  transition: transform var(--motion-fast);
+}
+.settings-toggle input:checked {
+  background: var(--ui-accent);
+}
+.settings-toggle input:checked::before {
+  transform: translateX(12px);
+  background: var(--ui-bg);
+}
+.settings-card .settings-checkbox {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  min-width: 0;
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.65;
+  cursor: pointer;
+}
+.settings-checkbox input {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  margin: 3px 0 0;
+  accent-color: var(--ui-accent);
+}
+.settings-card .settings-advanced {
+  min-width: 0;
+  border: 1px solid var(--ui-border);
+  border-radius: 12px;
+}
+.settings-advanced > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 13px;
+  color: var(--ui-secondary);
+  font-size: 13px;
+  line-height: 1.6;
+  list-style: none;
+  cursor: pointer;
+}
+.settings-advanced > summary::-webkit-details-marker {
+  display: none;
+}
+.settings-advanced > summary .ui-icon {
+  width: 14px;
+  height: 14px;
+  transition: transform var(--motion-fast);
+}
+.settings-advanced[open] > summary .ui-icon {
+  transform: rotate(180deg);
+}
+.settings-advanced > summary:focus-visible {
+  outline: 2px solid var(--ui-accent);
+  outline-offset: 2px;
+  border-radius: 11px;
+}
+.settings-advanced-content {
+  padding: 4px 13px 16px;
+}
+.settings-card .settings-status {
+  justify-self: start;
+  margin: 0;
+  padding: 5px 9px;
+  color: var(--ui-secondary);
+  background: var(--ui-raised);
+  border: 1px solid var(--ui-border);
+  border-radius: 7px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.settings-card .settings-feedback {
+  flex: 0 0 auto;
+  padding: 0 24px 16px;
+}
+.settings-feedback:not(:has(p:not(:empty))) {
+  display: none;
+}
+.settings-backdrop .settings-card [role="alert"] {
+  margin: 0 0 8px;
+  padding: 10px 12px;
+  color: var(--ui-danger);
+  background: var(--ui-bg);
+  border: 1px solid var(--ui-border);
+  border-radius: 10px;
+  font-size: 12px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+.settings-card :is([role="alert"], #appearance-status):empty {
+  display: none;
+}
+.settings-card #appearance-status {
+  flex-basis: 100%;
+  margin: 0;
+  line-height: 1.6;
+}
+.settings-backdrop .settings-card .modal-actions {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  margin: 0;
+  padding: 16px 24px;
+  background: var(--ui-bg);
+  border-top: 1px solid var(--ui-border);
+}
+.settings-card .modal-actions:has(> :only-child[hidden]) {
+  display: none;
+}
+.settings-backdrop .settings-card .app-button {
+  min-height: 36px;
+  padding: 7px 12px;
+  border-radius: 10px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.settings-backdrop .settings-card .app-button.is-secondary {
+  color: var(--ui-secondary);
+  background: var(--ui-panel);
+  border-color: var(--ui-border);
+}
+.settings-backdrop .settings-card .app-button.is-secondary:hover:not(:disabled) {
+  color: var(--ui-text);
+  background: var(--ui-hover);
+  border-color: var(--ui-border-hover);
+}
+.settings-backdrop .settings-card .app-button.is-primary {
+  color: var(--ui-bg);
+  background: var(--ui-text);
+  border-color: transparent;
+}
+.settings-backdrop .settings-card .app-button.is-primary:hover:not(:disabled) {
+  color: var(--ui-bg);
+  background: var(--ui-secondary);
+}
+.settings-card .appearance-setting select {
+  flex: 0 0 auto;
+  width: auto;
+  min-width: 128px;
+  min-height: 36px;
+  padding: 7px 32px 7px 12px;
+}
+.settings-card .desktop-updates {
+  gap: 10px;
+  min-width: 0;
+  margin: 0;
+  padding: 14px;
+  border: 1px solid var(--ui-border);
+  border-radius: 14px;
+  background: var(--ui-bg);
+}
+.settings-card .desktop-updates .profile-setting {
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+.settings-card .desktop-updates p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.7;
+}
+.settings-card .desktop-updates progress {
+  width: 100%;
+  height: 5px;
+  accent-color: var(--ui-accent);
+}
+.conversation-sidebar .desktop-update-notice {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  margin: 0 0 6px 2px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  color: var(--ui-bg);
+  background: var(--ui-text);
+  cursor: pointer;
+}
+.conversation-sidebar .desktop-update-notice:hover {
+  background: var(--ui-secondary);
+}
+.conversation-sidebar .desktop-update-notice:focus-visible {
+  outline: 2px solid var(--ui-text);
+  outline-offset: 3px;
+}
+.desktop-update-notice[hidden] {
+  display: none;
+}
+@media (max-width: 520px) {
+  .settings-card .settings-heading {
+    padding: 20px;
+  }
+  .settings-card .settings-scroll {
+    padding: 0 20px 20px;
+  }
+  .settings-card .settings-feedback {
+    padding-inline: 20px;
+  }
+  .settings-backdrop .settings-card .modal-actions {
+    padding: 14px 20px;
+  }
+  .model-connection-fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .settings-card .profile-setting {
+    padding: 12px;
+  }
+}
+@media (max-width: 400px) {
+  .settings-card .profile-setting > .settings-row-copy {
+    flex-basis: 100%;
+  }
+  .settings-card .profile-setting > :is(.app-button, select) {
+    margin-left: 41px;
+  }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .settings-backdrop.modal-backdrop {
+    background: var(--ui-bg);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+  .settings-backdrop .settings-card.modal-card {
+    background: var(--ui-panel);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .settings-card * {
+    transition: none;
+  }
+}
+@media (forced-colors: active) {
+  .settings-backdrop .settings-card.modal-card {
+    background: Canvas;
+    border-color: CanvasText;
+  }
+  .settings-toggle input[type="checkbox"] {
+    appearance: auto;
+  }
+  .settings-toggle input::before {
+    content: none;
+  }
+}
+
+.computer-setting > .settings-row-copy {
+  width: 100%;
+}
+.computer-setting > summary {
+  list-style: none;
+  cursor: pointer;
+}
+.computer-setting > summary::-webkit-details-marker {
+  display: none;
+}
+.computer-setting > summary:focus-visible {
+  outline: 2px solid var(--ui-accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+.settings-row-action {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: 3px;
+  padding-left: 8px;
+  color: var(--ui-secondary);
+  font-size: 13px;
+}
+.settings-row-action .ui-icon {
+  width: 14px;
+  height: 14px;
+  color: var(--ui-faint);
+}
+.computer-setting[open] .settings-row-action .ui-icon {
+  transform: rotate(90deg);
+}
+.computer-setting-content {
+  margin-left: 32px;
+  padding-bottom: 12px;
+}
+.computer-setting-content > p {
+  margin: 0 0 12px;
+  color: var(--ui-muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+.computer-setting-content > p:last-child {
+  margin-bottom: 0;
+}
+.computer-setting strong,
+.computer-setting small {
+  display: block;
+}
+.computer-setting small {
+  margin-top: 4px;
+  color: var(--ui-muted);
+  font-size: 12px;
+}
+.computer-permission-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.computer-permission-actions[hidden] {
+  display: none;
+}
+.computer-setting > p {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--ui-muted);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.computer-setting [data-computer-error] {
+  color: var(--ui-danger);
+}
+
+/* Node connections: the row's retry, its action menu and the add/rename form.
+   Sizes come from the 「设置 · 节点连接」 board: 16px ellipsis, 5×10 retry,
+   200px menu with 7px rows and the popover's own shadow. */
+.settings-dot.is-alert {
+  background: var(--color-danger);
+}
+.settings-retry {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 10px;
+  border: 1px solid var(--color-line);
+  border-radius: 7px;
+  background: transparent;
+  color: var(--color-text);
+  font: 400 12px/1.3 var(--ui-font);
+  cursor: pointer;
+}
+.settings-retry:hover {
+  background: var(--color-surface-2);
+}
+.settings-icon-button {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-text-3);
+  cursor: pointer;
+}
+/* The mark stays 16px; the hit area reaches the 28px row control size. */
+.settings-icon-button::after {
+  position: absolute;
+  inset: -6px;
+  content: "";
+}
+.settings-icon-button:hover {
+  color: var(--color-text-2);
+}
+.settings-icon-button .ui-icon {
+  width: 16px;
+  height: 16px;
+}
+.settings-node-menu {
+  position: fixed;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 200px;
+  padding: 6px;
+  border: 1px solid var(--popover-edge);
+  border-radius: 10px;
+  background: var(--popover-fill);
+  box-shadow: var(--popover-shadow);
+}
+.settings-node-menu[hidden] {
+  display: none;
+}
+.settings-node-menu button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--color-text);
+  font: 400 13px/1.4 var(--ui-font);
+  text-align: left;
+  cursor: pointer;
+}
+.settings-node-menu button:hover:not(:disabled) {
+  background: var(--color-surface-3);
+}
+.settings-node-menu button:disabled {
+  color: var(--color-text-3);
+  cursor: default;
+}
+.settings-node-menu button .ui-icon {
+  flex: 0 0 auto;
+  width: 14px;
+  height: 14px;
+  color: var(--color-text-2);
+}
+.settings-node-menu button.is-danger,
+.settings-node-menu button.is-danger .ui-icon {
+  color: var(--ui-danger);
+}
+.node-dialog {
+  width: min(420px, calc(100vw - 32px));
+}
+.node-dialog [hidden] {
+  display: none;
+}
+.node-dialog .project-dialog-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.node-dialog .node-dialog-label {
+  margin-top: 6px;
+  color: var(--color-text-2);
+  font: 400 12px/1.4 var(--ui-font);
+}
+.node-dialog .settings-segmented {
+  align-self: flex-start;
+}
+
+/* A web phone-sized window stacks the navigation over one full-width column. */
+@media (max-width: 639px) {
+  .settings-entry {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+    gap: 10px;
+    padding: 10px;
+  }
+  .settings-nav {
+    gap: 6px;
+    min-height: 0;
+    padding: 0;
+  }
+  .settings-back {
+    align-self: flex-start;
+    margin: 0;
+    padding: 4px 6px;
+    font-size: 14px;
+  }
+  .settings-nav-items {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .settings-nav-item {
+    width: auto;
+    padding: 6px 10px;
+    font-size: 13px;
+  }
+  .settings-nav-item .ui-icon {
+    width: 14px;
+    height: 14px;
+  }
+  .settings-content {
+    height: auto;
+    min-height: 0;
+    padding: 20px 16px;
+  }
+  .settings-column {
+    gap: 28px;
+  }
+  .settings-panel {
+    gap: 28px;
+  }
+  .settings-page-title {
+    font-size: 20px;
+  }
+}

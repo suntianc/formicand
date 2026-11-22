@@ -27,7 +27,7 @@ async function fixture(t, { name = "coworkos" } = {}) {
   await git(author, "config", "user.email", "fixture@example.invalid");
   await writeFile(
     join(author, ".gitignore"),
-    ".tmp/\nnode_modules/\ndist/\nbuild/\n/config.json\n/workspace/\n/src/software/cad/*.generated.ts\n/web/assets/math/generated/\n/web/assets/pptist/generated/\n"
+    ".tmp/\nnode_modules/\ndist/\nbuild/\n/config.json\n/workspace/\n/src/software/cad/*.generated.ts\n/web/assets/math/generated/\n/web/assets/pptist/generated/\n/web/assets/markdown/generated/\n"
   );
   await writeFile(join(author, "tsconfig.json"), "{}\n");
   await writeFile(
@@ -76,6 +76,8 @@ if (args[0] === 'ci') {
   await mkdir('src/software/cad', {recursive:true});
   await writeFile('src/software/cad/runtime-source.generated.ts', 'generated\\n');
   if (args[1] === 'build') {
+    await mkdir('web/assets/markdown/generated/shell', {recursive:true});
+    await writeFile('web/assets/markdown/generated/shell/app.js', 'new shell');
     await mkdir('web/assets/math/generated', {recursive:true});
     await writeFile('web/assets/math/generated/bundle.js', 'new browser bundle\\n');
   }
@@ -187,6 +189,10 @@ test("desktop update installs changed locked dependencies and publishes its brow
   const result = await updateSource({ ...f.options, target: "desktop" });
   assert.equal(result.updated, true);
   assert.equal(result.needsRelaunch, true);
+  assert.equal(
+    await readFile(join(f.root, "web/assets/markdown/generated/shell/app.js"), "utf8"),
+    "new shell"
+  );
   assert.equal(await readFile(join(f.root, "node_modules/dependency.txt"), "utf8"), "new dependencies\n");
   assert.equal(
     await readFile(join(f.root, "web/assets/math/generated/bundle.js"), "utf8"),

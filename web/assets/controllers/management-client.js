@@ -19,6 +19,10 @@
  */
 
 import { createManagementEventClient, readEventStream } from "./management-events.js";
+import { ManagementClientError } from "./management-client-error.js";
+import { uploadManagementFile } from "./management-upload.js";
+
+export { ManagementClientError } from "./management-client-error.js";
 
 export const CLIENT_PROTOCOL_VERSION = "1.0";
 /** What the catalog view cannot work without; a backend without them is named, not guessed at. */
@@ -27,19 +31,6 @@ export const REQUIRED_CAPABILITIES = ["session.authorize", "events.snapshot", "e
 const SESSION_STORE = "cowork.management.sessions.v1";
 const TARGET_STORE = "cowork.management.target.v1";
 const SELF_KEY = "self";
-
-/** A protocol outcome a caller may branch on instead of matching prose. */
-export class ManagementClientError extends Error {
-  constructor(message, { code, status, network = false, stale = false, operationId } = {}) {
-    super(message);
-    this.name = "ManagementClientError";
-    this.code = code;
-    this.status = status;
-    this.network = network;
-    this.stale = stale;
-    if (operationId) this.operationId = operationId;
-  }
-}
 
 function memoryStorage() {
   const values = new Map();
@@ -691,63 +682,17 @@ export function createManagementClient({
     setTimeout(() => URL.revokeObjectURL(href), 2_000);
   }
 
-  /** Upload bytes with the current session, keeping the existing progress UI. */
-  function upload(file, { name, signal, onProgress } = {}) {
-    return new Promise((resolve, reject) => {
+  function upload(file, options) {
+    return uploadManagementFile(file, options, () => {
       requireHostSession();
       const requestToken = token;
-      if (typeof XMLHttpRequest === "undefined") {
-        reject(new ManagementClientError("当前环境不支持上传", { code: "upload_unavailable" }));
-        return;
-      }
       const at = epoch;
-      const xhr = new XMLHttpRequest();
-      const abort = () => xhr.abort();
-      signal?.addEventListener("abort", abort, { once: true });
-      xhr.open("POST", absoluteUrl(`/api/uploads?name=${encodeURIComponent(name || file.name || "file")}`));
-      xhr.withCredentials = true;
-      xhr.setRequestHeader("Content-Type", "application/octet-stream");
-      for (const [header, value] of Object.entries(authHeaders())) xhr.setRequestHeader(header, value);
-      xhr.upload.onprogress = (event) => {
-        if (event.lengthComputable) onProgress?.(Math.round((event.loaded / event.total) * 100));
+      return {
+        url: (name) => absoluteUrl(`/api/uploads?name=${encodeURIComponent(name)}`),
+        headers: authHeaders(),
+        isCurrent: () => at === epoch,
+        rejectUnauthorized: (error) => rejectCurrentSession(requestToken, error)
       };
-      xhr.onload = () => {
-        signal?.removeEventListener("abort", abort);
-        if (at !== epoch) {
-          reject(
-            new ManagementClientError("已切换后端，旧上传已作废", { code: "stale_client", stale: true })
-          );
-          return;
-        }
-        let result;
-        try {
-          result = JSON.parse(xhr.responseText);
-          // eslint-disable-next-line no-restricted-syntax -- an upload response can be a proxy error page instead of JSON; the upload is rejected with invalid_response
-        } catch {
-          reject(new ManagementClientError("上传响应无效", { code: "invalid_response" }));
-          return;
-        }
-        if (xhr.status >= 200 && xhr.status < 300) {
-          onProgress?.(100);
-          resolve(result);
-          return;
-        }
-        const error = new ManagementClientError(result?.error || "上传失败", {
-          code: result?.code || `http_${xhr.status}`,
-          status: xhr.status
-        });
-        if (xhr.status === 401) rejectCurrentSession(requestToken, error);
-        reject(error);
-      };
-      xhr.onerror = () => {
-        signal?.removeEventListener("abort", abort);
-        reject(new ManagementClientError("上传连接中断，请重试", { code: "network", network: true }));
-      };
-      xhr.onabort = () => {
-        signal?.removeEventListener("abort", abort);
-        reject(new ManagementClientError("上传已取消", { code: "aborted" }));
-      };
-      xhr.send(file);
     });
   }
 

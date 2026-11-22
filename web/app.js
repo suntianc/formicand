@@ -1,45 +1,23 @@
 import { ui, localizeShell } from "./assets/ui/language.js";
 import { installLanguageSettings } from "./assets/controllers/language-settings.js";
-import { createCoalescedRead } from "./assets/controllers/coalesced-read.js";
 import { createMessageEditController } from "./assets/controllers/message-edit.js";
-import { createComposerClipboard } from "./assets/controllers/composer-clipboard.js";
-import { providerLogo } from "./assets/controllers/model-providers.js";
 import { antMarkSvg } from "./assets/ui/thinking-mark.js";
 import { createComposerSession } from "./assets/controllers/composer-session.js";
 import { createDraftRecovery } from "./assets/controllers/draft-recovery.js";
 import { createComposerLayout } from "./assets/controllers/composer-layout.js";
-import { createFileUpload, uploadedFileIds } from "./assets/controllers/file-upload.js";
-import { installAttachmentPreview } from "./assets/controllers/attachment-preview.js";
-import { composePrompt } from "./assets/attachments.js";
-import { requestErrorMessage } from "./assets/request-error.js";
-import { renderMessageQueue } from "./assets/message-queue.js";
 import { createSidebarLayout } from "./assets/sidebar-layout.js";
 import { createResponsiveShell } from "./assets/controllers/responsive-shell.js";
 import { createConversationHistory } from "./assets/controllers/conversation-history.js";
-import { icon } from "./assets/ui/icons.js";
-import { createMenu } from "./assets/ui/menu.js";
 import { installSelectMenus } from "./assets/ui/select-menu.js";
-import {
-  createModelPicker,
-  DEFAULT_LEVELS,
-  LEVEL_LABELS,
-  nearestLevel
-} from "./assets/controllers/model-picker.js";
-import { createModal } from "./assets/ui/modal.js";
-import { formatStamp } from "./assets/ui/time-format.js";
 import { createVisiblePoll } from "./assets/ui/visible-poll.js";
 import { installDesktopSettings } from "./assets/controllers/desktop-settings.js";
 import { installDesktopUpdates } from "./assets/controllers/desktop-updates.js";
-import { presentToolCall } from "./assets/tool-presentation.js";
-import { assistantDisplayContent, normalizeReasoningDisplay } from "./assets/activity.js";
 import { createArtifactController } from "./assets/controllers/artifact-controller.js";
 import { createArtifactViewer } from "./assets/controllers/artifact-viewer.js";
-import { createManagedMedia } from "./assets/controllers/managed-media.js";
 import { createConversationView } from "./assets/controllers/conversation-view.js";
 import { createConversationLayout } from "./assets/controllers/conversation-layout.js";
 import { createConnectionController } from "./assets/controllers/connection-controller.js";
 import { revealScrollbarsWhileScrolling } from "./assets/ui/scrollbars.js";
-import { rememberedTaskMap } from "./assets/remembered-choices.js";
 import { createManagementClient } from "./assets/controllers/management-client.js";
 import { createTaskNotifications } from "./assets/controllers/task-notifications.js";
 import { createBackendConnection } from "./assets/controllers/backend-connection.js";
@@ -47,20 +25,8 @@ import { createProjectController } from "./assets/controllers/project-controller
 import { createConversationMenu } from "./assets/controllers/conversation-menu.js";
 import { createConversationOperations } from "./assets/controllers/conversation-operations.js";
 import { createConversationReadState, conversationTaskId } from "./assets/conversation-actions.js";
-import { renderMarkdown } from "./assets/markdown.js";
-import { mergeRuntimeEvents, streamRecordKey } from "./assets/conversation.js";
 import { createEntryController } from "./assets/controllers/entry-controller.js";
-import { createSettingsPages } from "./assets/controllers/settings-pages.js";
-import { createSkillSettings } from "./assets/controllers/skill-settings.js";
-import { createMemorySettings } from "./assets/controllers/memory-settings.js";
-import { createAgentSettings } from "./assets/controllers/agent-settings.js";
 import { createProjectTrustPrompt } from "./assets/controllers/project-trust-prompt.js";
-import { createMcpSettings } from "./assets/controllers/mcp-settings.js";
-import { createObserveData } from "./assets/controllers/observe-data.js";
-import { createObserveOverview } from "./assets/controllers/observe-overview.js";
-import { createObserveRuns } from "./assets/controllers/observe-runs.js";
-import { createObserveSidebar } from "./assets/controllers/observe-sidebar.js";
-import { createObserveRequirements } from "./assets/controllers/observe-requirements.js";
 import { createRequirementPanel } from "./assets/controllers/requirement-panel.js";
 import { createRunControl } from "./assets/controllers/run-control.js";
 import { createNewSessionView } from "./assets/controllers/new-session.js";
@@ -69,9 +35,20 @@ import { createAddProjectController } from "./assets/controllers/add-project.js"
 import { createHumanQuestions } from "./assets/human-questions.js";
 import { installComputerUse } from "./assets/controllers/computer-use.js";
 import { installCodeBlockActions } from "./assets/ui/code-blocks.js";
-import { animateLayout, installSelectionGlide } from "./assets/ui/motion.js";
-import { formatArtifactSize, artifactParentPath, invalidateArtifactCache } from "./assets/artifacts.js";
+import { installSelectionGlide } from "./assets/ui/motion.js";
 import { createComposerMenu } from "./assets/controllers/composer-menu.js";
+
+import { showToast } from "./assets/ui/toast.js";
+import { createBackendFiles } from "./assets/controllers/backend-files.js";
+import { createComposerModel } from "./assets/controllers/composer-model.js";
+import { createComposerAttachments } from "./assets/controllers/composer-attachments.js";
+import { createConversationDelivery } from "./assets/controllers/conversation-delivery.js";
+import { createObservationSettings } from "./assets/controllers/observation-settings.js";
+import { createSessionCatalog } from "./assets/controllers/session-catalog.js";
+import { createTaskSearch } from "./assets/controllers/task-search.js";
+import { createWorkSessions } from "./assets/controllers/work-sessions.js";
+import { bindWorkShortcuts, createWorkView } from "./assets/controllers/work-view.js";
+import { conversationTitle, textContent } from "./assets/controllers/work-title.js";
 
 revealScrollbarsWhileScrolling();
 
@@ -83,50 +60,21 @@ for (const dot of document.querySelectorAll(".run-control-dot")) {
 }
 
 /** Asks whether to trust a project's own Agents and skills; set once the composer exists. */
-let trustPrompt;
 const state = {
   online: true,
-  modelConfigured: undefined,
+  get modelConfigured() {
+    return composerModel.configured;
+  },
+  get model() {
+    return composerModel.model;
+  },
+  get defaultModel() {
+    return composerModel.defaultModel;
+  },
   tasks: [],
   projects: [],
   collapsedProjects: new Set(),
   collapsedSessions: new Set(),
-  models: [],
-  defaultModel: null,
-  model: null,
-  // The model picked for each conversation, remembered across restarts like
-  // its level and provider; a conversation without one shows the default.
-  modelByTask: rememberedTaskMap(() => draftStorage, "atria.model.model-by-task"),
-  /**
-   * A model picked from another provider: its profile id, sent with each run so
-   * that run uses that provider. Null follows the Main connection.
-   */
-  profileId: null,
-  // Remembered per conversation across restarts (`remembered-choices.js`).
-  profileByTask: rememberedTaskMap(() => draftStorage, "atria.model.profile-by-task"),
-  /** Usable providers and their models, from /api/models. */
-  modelProviders: [],
-  mainProviderId: "",
-  /**
-   * The level the user picked for the current conversation, or null to let the
-   * Main connection's saved level govern. The two are separate on purpose: an
-   * inherited level must never be sent as if it were a choice.
-   */
-  thinkingLevel: null,
-  thinkingLevelByTask: rememberedTaskMap(() => draftStorage, "atria.model.level-by-task"),
-  /** Per model: the reasoning levels it accepts and where they came from (#27). */
-  modelLevels: {},
-  /** The Main connection's saved level, reported by the server for the label. */
-  mainThinkingLevel: null,
-  /**
-   * The project directory the model list was read for ("" for none): a project
-   * may give Main its own model, so the composer reads it again on a switch.
-   */
-  modelScope: undefined,
-  /** The project the latest model read asks for, so a render does not ask twice. */
-  modelReadScope: undefined,
-  /** Main's model per project as last read, to tell a real change from a switch. */
-  mainByScope: new Map(),
   selected: null,
   detail: null,
   previewPath: null,
@@ -148,25 +96,8 @@ const state = {
   workspaceLabel: null,
   executionHistoryOpen: new Map()
 };
-const sending = new Map();
-let attachmentReadVersion = 0;
-let readingAttachments = false;
-let fileUpload;
-let attachmentPreview;
-let observeRequirements;
-let observeOverview;
-const creatingTasks = new Map();
-const stoppingTasks = new Set();
-const continuingTasks = new Set();
-const stopEpochs = new Map();
-const promotingMessages = new Set();
-let detailRequestSequence = 0;
-let listRequestSequence = 0;
-let latestListRead;
-const catalogReads = createCoalescedRead((_key, options) => refreshState(options));
-const detailReads = createCoalescedRead(readDetail);
-let renderedDetailSignature;
-
+let observation;
+let initialized = false;
 const $ = (selector) => document.querySelector(selector);
 createComposerLayout($("#composer-input"));
 createSidebarLayout($(".app-layout"), $(".conversation-sidebar"), $("#sidebar-divider"), {
@@ -208,8 +139,7 @@ const entryController = createEntryController({
   root: $(".app-layout"),
   storage: draftStorage,
   onChange: (next) => {
-    observeOverview?.applyEntry(next);
-    observeRequirements?.applyEntry(next);
+    observation?.applyEntry(next);
   }
 });
 for (const button of document.querySelectorAll("[data-entry-mode]"))
@@ -223,8 +153,7 @@ $(".entry-switch")?.addEventListener("keydown", (event) => {
 });
 for (const button of document.querySelectorAll("[data-observe-view]"))
   button.addEventListener("click", () => entryController.setObserveView(button.dataset.observeView));
-let initialConversationTaskId = conversationTaskId(location.href);
-let lastReadSelection;
+const initialConversationTaskId = conversationTaskId(location.href);
 let backendConnection;
 const taskNotifications = createTaskNotifications({ notify: window.bookmanDesktop?.notify });
 /**
@@ -254,12 +183,13 @@ const management = createManagementClient({
   storage: browserSessionStorage,
   targetStorage: draftStorage,
   events: {
-    onSnapshot: (snapshot) => adoptCatalogSnapshot(snapshot),
-    onEvent: (record) => applyCatalogEvent(record),
+    onSnapshot: (snapshot) => catalog.adoptCatalogSnapshot(snapshot),
+    onEvent: (record) => catalog.applyCatalogEvent(record),
     onReset: (reset) => {
       // A cursor reset only asks for a new snapshot of the same backend; the
       // screen is rebuilt from that snapshot. Only a backend change discards it.
-      if (reset?.reason === "backend_switched" || reset?.reason === "backend_mismatch") resetBackendView();
+      if (reset?.reason === "backend_switched" || reset?.reason === "backend_mismatch")
+        catalog.resetBackendView();
     },
     onStatus: () => {
       backendConnection?.apply(management.state());
@@ -269,89 +199,56 @@ const management = createManagementClient({
   onStateChange: (state) => {
     backendConnection?.apply(state);
     updateSendButton();
-    observeData.localChanged();
+    observation.data.localChanged();
   }
 });
+/** Every business request belongs to the bound backend's session. */
+async function api(path, options) {
+  return management.request(path, options);
+}
+/** A change command: same operation id and content may be retried after a lost response. */
+api.command = (path, options) => management.command(path, options);
+
 const artifactViewer = createArtifactViewer({
   read: (path) => management.blob(path),
   identity: () => management.state(),
   host: window.bookmanDesktop?.artifactViewer
 });
+const backendFiles = createBackendFiles(management, showToast);
 window.addEventListener(
   "unload",
   () => {
     artifactViewer.dispose();
-    clearManagedMedia();
-    observeOverview?.dispose();
-    observeRequirements?.dispose();
-    observeData.dispose();
+    backendFiles.clear();
+    observation?.dispose();
     management.stop();
   },
   { once: true }
 );
 window.addEventListener("pagehide", () => management.stop());
 window.addEventListener("pageshow", (event) => {
-  if (event.persisted) void bootBackend();
+  if (event.persisted && initialized) void bootBackend();
 });
 
-// The last model a person picked stays as the default for the next new
-// conversation, so switching once is enough instead of re-picking each time.
-const PREFERRED_MODEL_KEY = "atria.model.preferred";
-function readPreferredModel() {
-  try {
-    return (draftStorage && draftStorage.getItem(PREFERRED_MODEL_KEY)) || "";
-    // eslint-disable-next-line no-restricted-syntax -- getItem throws when the browser blocks storage, and the composer must still start with no preferred model
-  } catch {
-    return "";
-  }
-}
-function writePreferredModel(model) {
-  try {
-    if (!draftStorage) return;
-    if (model) draftStorage.setItem(PREFERRED_MODEL_KEY, model);
-    else draftStorage.removeItem(PREFERRED_MODEL_KEY);
-    // eslint-disable-next-line no-restricted-syntax -- best-effort preference write: blocked or full storage only loses the remembered model
-  } catch {
-    /* storage may be disabled */
-  }
-}
-const PREFERRED_PROFILE_KEY = "atria.model.preferred-profile";
-function readPreferredProfile() {
-  try {
-    return (draftStorage && draftStorage.getItem(PREFERRED_PROFILE_KEY)) || "";
-    // eslint-disable-next-line no-restricted-syntax -- getItem throws when the browser blocks storage; the composer then follows the Main connection
-  } catch {
-    return "";
-  }
-}
-function writePreferredProfile(profileId) {
-  try {
-    if (!draftStorage) return;
-    if (profileId) draftStorage.setItem(PREFERRED_PROFILE_KEY, profileId);
-    else draftStorage.removeItem(PREFERRED_PROFILE_KEY);
-    // eslint-disable-next-line no-restricted-syntax -- best-effort preference write: blocked or full storage only loses the remembered provider
-  } catch {
-    /* storage may be disabled */
-  }
-}
 const composerSession = createComposerSession({
   input: $("#composer-input"),
   storage: draftStorage,
   getAttachments: () => state.attachments,
-  setAttachments: (files) => {
-    // A kept upload still owns the busy state: sending and closing stay blocked
-    // until it ends, so only a navigation that retires it releases them here.
-    if (fileUpload?.retireUnlessShownDraft()) readingAttachments = false;
-    attachmentPreview?.close({ restoreFocus: false });
-    // Navigation retires a read belonging to the previous draft immediately.
-    attachmentReadVersion += 1;
-    state.attachments = files;
-    renderAttachments();
-  },
+  setAttachments: (files) => composerAttachments.setDraft(files),
   onError: showToast,
   onPersist: () => window.bookmanDesktop?.saveComposerDrafts?.()
 });
 await composerSession.ready;
+const composerAttachments = createComposerAttachments({
+  $,
+  state,
+  api,
+  upload: (file, options) => management.upload(file, options),
+  mediaUrl: (path) => backendFiles.mediaUrl(path),
+  session: () => composerSession,
+  updateSendButton,
+  showToast
+});
 /** The project the draft belongs to: the open session's, or the one chosen for a new session. */
 function composerProjectId() {
   if (state.selected) {
@@ -373,41 +270,32 @@ const composerMenu = createComposerMenu({
       name: "compact",
       icon: "refresh",
       description: ui("换一个上下文窗口"),
-      run: () => void compactConversation()
+      run: () => void delivery.compactConversation()
     },
     {
       name: "model",
       icon: "cpu",
       description: ui("切换本会话的模型与推理强度"),
-      run: () => void toggleModelMenu()
+      run: () => void composerModel.toggleMenu()
     }
   ],
   onError: showToast
 });
-trustPrompt = createProjectTrustPrompt({ api, getProjectId: composerProjectId, showToast });
-/** What a message's `/` and `@` words reference; the menus' lists are read first when it has any. */
-function hasReferenceWords(text) {
-  return /(^|\s)[/@]\S/.test(text);
-}
-async function draftReferences(text) {
-  if (!hasReferenceWords(text)) return [];
-  // eslint-disable-next-line no-restricted-syntax -- 列表读不到时按已知内容识别，消息照常发送
-  await composerMenu.prepare().catch(() => {});
-  return composerMenu.references(text);
-}
+const trustPrompt = createProjectTrustPrompt({ api, getProjectId: composerProjectId, showToast });
 const messageEdit = createMessageEditController({
   composerSession,
   input: $("#composer-input"),
   getState: () => state,
-  isBusy: () => Boolean(currentSubmission() || readingAttachments || isTaskStopping()),
+  isBusy: () =>
+    Boolean(delivery.currentSubmission() || composerAttachments.busy || delivery.isTaskStopping()),
   api,
   onError: showToast,
   onChange: () => {
     renderAll();
     updateSendButton();
   },
-  onSubmit: () => submitMessageEdit(),
-  referencesOf: draftReferences,
+  onSubmit: () => delivery.submitMessageEdit(),
+  referencesOf: (text) => delivery.draftReferences(text),
   onAccepted: async (taskId, run) => {
     if (state.selected === taskId) {
       state.localMessages = [];
@@ -426,34 +314,11 @@ const humanQuestions = createHumanQuestions($("#human-questions"), {
   submit: (taskId, requestId, answer) =>
     humanAction(taskId, `human/${encodeURIComponent(requestId)}/answer`, { answer }),
   resume: (taskId) => humanAction(taskId, "human/resume", {}),
-  onEditProposal: (proposal) => openAgentProposal(proposal),
+  onEditProposal: (proposal) => observation.openAgentProposal(proposal),
   onVisibility: (visible) => {
     $(".composer").hidden = visible;
   }
 });
-const esc = (value) =>
-  String(value ?? "").replace(
-    /[&<>"']/g,
-    (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]
-  );
-const statusLabel = {
-  created: ui("已创建"),
-  idle: ui("空闲中"),
-  running: ui("工作中"),
-  paused: ui("已暂停"),
-  waiting: ui("等待中"),
-  completed: ui("已完成"),
-  failed: ui("失败"),
-  cancelled: ui("已取消"),
-  queued: ui("排队中"),
-  leased: ui("工作中"),
-  succeeded: ui("已完成"),
-  timed_out: ui("超时"),
-  recorded: ui("已记录"),
-  interrupted: ui("已结束")
-};
-const stateText = (value) => statusLabel[value] || value || ui("未知");
-
 const computerUse = installComputerUse({
   api,
   showToast,
@@ -461,15 +326,13 @@ const computerUse = installComputerUse({
   getTaskLabel: (taskId) =>
     conversationTitle(state.tasks.find((task) => task.taskId === taskId) || state.detail?.task)
 });
-let requirementPanel;
-let runControl;
 const artifacts = createArtifactController({
   state,
   $,
   api,
   showToast,
-  renderRightPanel,
-  mediaUrl: mediaObjectUrl,
+  renderRightPanel: () => workView.renderRightPanel(),
+  mediaUrl: (path) => backendFiles.mediaUrl(path),
   openArtifactViewer: (path) => artifactViewer.open(path),
   getDelivery: () => requirementPanel?.records()
 });
@@ -481,111 +344,47 @@ const {
   fileTarget,
   openFileReference
 } = artifacts;
-requirementPanel = createRequirementPanel({
+const requirementPanel = createRequirementPanel({
   state,
   $,
   api,
   onCollapse: () => void toggleOutputPane(),
   openArtifact,
   openPreview,
-  onRendered: () => paintTopbarContext()
+  onRendered: () => workView.paintTopbarContext()
 });
 const conversationView = createConversationView({
   state,
   $,
   textContent,
   openArtifact,
-  retry: (taskId) => void retryFailedRequest(taskId),
+  retry: (taskId) => void delivery.retryFailedRequest(taskId),
   messageEdit,
   edit: (taskId, target) => messageEdit.begin(taskId, target),
-  fork: (taskId, messageId) => forkConversation(taskId, messageId),
+  fork: (taskId, messageId) => workSessions.forkConversation(taskId, messageId),
   resolveFile: (path) => Boolean(fileTarget(path)),
-  showToast: (message) => showToast(message)
+  showToast
 });
 installSelectionGlide();
 installCodeBlockActions(document, {
-  showToast: (message) => showToast(message),
+  showToast,
   openFile: (path, line) => {
     if (!openFileReference(path, line)) showToast(ui("这个文件不在本会话的产出或改动里，无法预览"));
   }
 });
-runControl = createRunControl({
+const runControl = createRunControl({
   state,
   $,
   api,
   showToast,
   onChanged: () => refresh(),
-  interruptRun: (taskId) => stopRound(taskId),
-  continueRun: (taskId) => continuePausedRun(taskId),
-  isContinuing: (taskId) => continuingTasks.has(taskId)
+  interruptRun: (taskId) => delivery.stopRound(taskId),
+  continueRun: (taskId) => delivery.continuePausedRun(taskId),
+  isContinuing: (taskId) => delivery.isContinuing(taskId)
 });
-/**
- * Backend files shown as images or iframes.
- *
- * A page may be managing another local backend, where a bare `<img src="/api/…">`
- * would reach the wrong origin without the session. Fetch the bytes through the
- * shared client and hand the DOM one object URL per path.
- */
-const managedMedia = createManagedMedia({
-  read: (path) => management.blob(path),
-  createObjectURL: (blob) => URL.createObjectURL(blob),
-  revokeObjectURL: (url) => URL.revokeObjectURL(url)
-});
-function mediaObjectUrl(path) {
-  return managedMedia.get(path);
-}
-function clearManagedMedia() {
-  managedMedia.clear();
-}
-
-function hydrateUploadImages(root) {
-  for (const image of root.querySelectorAll("img[data-upload-src]")) {
-    if (image.dataset.uploadLoaded) continue;
-    image.dataset.uploadLoaded = "1";
-    const id = image.dataset.uploadSrc;
-    void mediaObjectUrl(`/api/uploads/${encodeURIComponent(id)}`)
-      .then((href) => {
-        image.src = href;
-      })
-      // eslint-disable-next-line no-restricted-syntax -- a failed media read leaves this one upload image unloaded, and the transcript keeps rendering
-      .catch(() => undefined);
-  }
-}
-
-/**
- * A download that needs the management client addresses one backend file.
- *
- * Only root-relative `/api/` paths are backend files. A `blob:`/`data:` URL or
- * any other link was produced locally (the Markdown export builds a blob) or
- * belongs to someone else; rerouting it would ask the backend for a path it
- * never served. The client marks its own synthetic anchor so this listener
- * never intercepts the click it just created.
- */
-function isBackendDownload(href) {
-  return typeof href === "string" && href.startsWith("/api/");
-}
-
-document.addEventListener(
-  "click",
-  (event) => {
-    const link = event.target.closest?.("a[download]");
-    if (!link || link.dataset.managedDownload) return;
-    const href = link.getAttribute("href");
-    if (!isBackendDownload(href)) return;
-    // The bytes belong to the bound backend; a plain navigation would carry
-    // neither the session nor the right origin.
-    event.preventDefault();
-    void management.download(href, link.getAttribute("download") || undefined).catch((error) => {
-      showToast(error.message);
-    });
-  },
-  true
-);
-
-const { renderConversation: renderConversationView } = conversationView;
 function renderConversation(messages, task) {
-  renderConversationView(messages, task);
-  hydrateUploadImages($("#conversation"));
+  conversationView.renderConversation(messages, task);
+  backendFiles.hydrateImages($("#conversation"));
 }
 const connection = createConnectionController({
   state,
@@ -595,15 +394,6 @@ const connection = createConnectionController({
 });
 const connectEventStream = (taskId) => connection.connect(taskId);
 
-const workspaceDisplayName = (value) => {
-  const raw = String(value || "");
-  if (/^\/+\s*$/.test(raw)) return "/";
-  if (/^[A-Za-z]:[\\/]+$/.test(raw)) return raw.slice(0, 2) + "\\";
-  const normalized = raw.replace(/[\\/]+$/, "");
-  if (!normalized) return ui("选择文件夹");
-  const parts = normalized.split(/[\\/]/).filter(Boolean);
-  return parts.at(-1) || normalized;
-};
 const projectController = createProjectController({
   openAddProject: () => addProjectController.open(),
   state,
@@ -626,7 +416,7 @@ const projectController = createProjectController({
   },
   onRendered: () => {
     // The project list has just been drawn: a draft's project may only be known now.
-    void trustPrompt?.check();
+    void trustPrompt.check();
     if (!sessionMenu.isOpen) return;
     const trigger = $("#project-list").querySelector(
       `.conversation-item[data-task="${CSS.escape(sessionMenu.taskId)}"]`
@@ -669,173 +459,11 @@ const newSession = createNewSessionView({
 const draftRecovery = createDraftRecovery({
   button: $("#recover-drafts"),
   session: composerSession,
-  getBackend: () => boundBackendId,
-  getContext: () => backendRevision,
+  getBackend: () => catalog.backendId,
+  getContext: () => catalog.revision,
   getProjects: () => state.projects,
   openDraft: (projectId) => beginNewConversation(projectId)
 });
-function conversationTitle(task) {
-  return task?.title || truncate(String(task?.goal || task?.taskId || ui("新的对话")).split("\n")[0], 48);
-}
-function setModelLabel(value) {
-  const label = String(value || "").trim();
-  if (!label) return;
-  const name = $(".model-name");
-  if (name) name.textContent = label;
-  else $(".model-select").textContent = label;
-  paintModelProvider();
-  paintModelButton();
-}
-/** The composer's model button carries the mark of the provider the models come from. */
-function paintModelProvider(provider) {
-  if (provider !== undefined) state.modelProvider = provider || null;
-  const slot = $("#model-select .model-logo");
-  const shown = pickedProfile()?.provider || state.modelProvider;
-  if (!slot) return;
-  slot.innerHTML = providerLogo(shown, 18, state.model || state.defaultModel);
-}
-/** One button names the model and the reasoning level this Run will send. */
-function paintModelButton() {
-  const button = $("#model-select");
-  if (!button) return;
-  const model = $(".model-name")?.textContent || "";
-  const level = $(".reasoning-name")?.textContent || "";
-  button.title = ui`切换模型与推理强度 · ${model} · 推理 ${level}`;
-  button.setAttribute("aria-label", ui`模型：${model}，推理强度：${level}`);
-}
-
-const THINKING_LEVEL_LABELS = LEVEL_LABELS;
-/** The reasoning levels the selected model accepts (#27). */
-/** The model entry of a profile picked from another provider, with its provider. */
-function pickedProfile(profileId = state.profileId) {
-  if (!profileId) return null;
-  for (const provider of state.modelProviders) {
-    const model = provider.models.find((entry) => entry.profileId === profileId);
-    if (model) return { provider, model };
-  }
-  return null;
-}
-function modelLevelsFor(model = state.model || state.defaultModel) {
-  const picked = pickedProfile();
-  if (picked && picked.model.id === model) return picked.model.levels || DEFAULT_LEVELS;
-  return state.modelLevels[model]?.levels || DEFAULT_LEVELS;
-}
-/** The level the connection this run uses applies when nothing is picked. */
-function baseThinkingLevel() {
-  return pickedProfile()?.model.reasoningEffort || state.mainThinkingLevel || null;
-}
-/**
- * The level used when nothing is picked: the Main connection's saved level,
- * or the nearest one this model accepts when it does not take that one.
- */
-function fallbackThinkingLevel() {
-  return nearestLevel(baseThinkingLevel(), modelLevelsFor());
-}
-/** What a run sends: the pick, or the fallback only when it had to move. */
-function sentThinkingLevel() {
-  if (state.thinkingLevel) return state.thinkingLevel;
-  const fallback = fallbackThinkingLevel();
-  return fallback && fallback !== baseThinkingLevel() ? fallback : undefined;
-}
-function setThinkingLabel(value) {
-  // An unpicked level is not a choice: the label names what this Run will
-  // actually send, which is the Main connection's saved level.
-  const effective = value || fallbackThinkingLevel();
-  const label = effective ? THINKING_LEVEL_LABELS[effective] || effective : ui("自动");
-  const name = $(".reasoning-name");
-  if (name) name.textContent = label;
-  // No reasoning reads as just the model's name, not "model · Off".
-  $(".reasoning-label")?.classList.toggle("is-off", !effective || effective === "off");
-  paintModelButton();
-}
-
-// A new conversation inherits the last picked model when it is still offered
-// by the current connection; otherwise it falls back to the configured default.
-function defaultModelForNewConversation() {
-  const preferred = readPreferredModel();
-  if (preferred && (!state.models.length || state.models.includes(preferred))) return preferred;
-  return state.defaultModel;
-}
-
-function syncModelConnection(model, profileId, mainEffort, scope = state.modelScope ?? "") {
-  // Only the model list reports the Main connection's level; a catalog refresh
-  // omits it and must not erase what the composer is showing.
-  if (mainEffort !== undefined) state.mainThinkingLevel = mainEffort;
-  // The first read after start, or of another project, is not a switch: each
-  // conversation keeps the level and provider remembered for it. A real switch
-  // of a project's Main connection starts every conversation's choices over.
-  const main = `${profileId}\n${model}`;
-  const before = state.mainByScope.get(scope);
-  state.mainByScope.set(scope, main);
-  if (before !== undefined && before !== main) {
-    state.modelByTask.clear();
-    state.profileByTask.clear();
-    state.thinkingLevelByTask.clear();
-  }
-  if (state.connectionProfileId !== profileId || state.defaultModel !== model) {
-    state.connectionProfileId = profileId;
-    state.profileId = state.selected ? (state.profileByTask.get(state.selected) ?? null) : null;
-    // A remembered model of another provider is that provider's, not the default.
-    state.model =
-      pickedProfile()?.model.id ?? (state.selected && state.modelByTask.get(state.selected)) ?? model;
-    state.thinkingLevel = state.selected ? (state.thinkingLevelByTask.get(state.selected) ?? null) : null;
-  }
-  state.defaultModel = model;
-  state.model ||= model;
-  setModelLabel(state.model);
-  setThinkingLabel(state.thinkingLevel);
-}
-
-/** The directory of the project the composer sends to, or "" outside a project. */
-function composerProjectDirectory() {
-  const projectId = composerProjectId();
-  return state.projects.find((entry) => entry.projectId === projectId)?.projectDirectory || "";
-}
-
-let modelReadSequence = 0;
-async function loadModels() {
-  const scope = composerProjectDirectory();
-  const sequence = ++modelReadSequence;
-  state.modelReadScope = scope;
-  try {
-    const data = await api(
-      scope ? `/api/models?projectDirectory=${encodeURIComponent(scope)}` : "/api/models"
-    );
-    // A later read, for another project, has the say.
-    if (sequence !== modelReadSequence) return;
-    state.modelScope = scope;
-    state.modelConfigured = data.configured;
-    updateSendButton();
-    state.models = Array.isArray(data.models)
-      ? data.models.filter((model) => typeof model === "string" && model.trim())
-      : [];
-    state.modelLevels = data.levels && typeof data.levels === "object" ? data.levels : {};
-    const defaultModel =
-      typeof data.current === "string" && data.current.trim()
-        ? data.current.trim()
-        : state.models[0] || "glm-5.3";
-    // Providers first: restoring a remembered provider looks its model up.
-    state.modelProviders = Array.isArray(data.providers) ? data.providers : [];
-    state.mainProviderId = typeof data.mainProviderId === "string" ? data.mainProviderId : "";
-    syncModelConnection(defaultModel, data.connectionProfileId, data.reasoningEffort ?? null, scope);
-    if (state.profileId && !pickedProfile()) state.profileId = null;
-    paintModelProvider(data.provider);
-    // eslint-disable-next-line no-restricted-syntax -- /api/models is unavailable while the backend restarts or is offline; the picker keeps a usable model instead of an empty list
-  } catch {
-    state.models = state.model ? [state.model] : ["glm-5.3"];
-    state.defaultModel ||= state.models[0];
-    state.model ||= state.defaultModel;
-    setModelLabel(state.model);
-  }
-}
-
-/** Every business request belongs to the bound backend's session. */
-async function api(path, options) {
-  return management.request(path, options);
-}
-/** A change command: same operation id and content may be retried after a lost response. */
-api.command = (path, options) => management.command(path, options);
-
 async function humanAction(taskId, action, body) {
   const result = await api(`/api/tasks/${encodeURIComponent(taskId)}/${action}`, {
     method: "POST",
@@ -849,932 +477,58 @@ async function humanAction(taskId, action, body) {
   return result;
 }
 
-/**
- * One transient notice card.
- *
- * Every caller gets the same stack: a title, an optional second line and a
- * tone. The stack keeps at most three cards so notices about another session,
- * a question or a connection never cover the whole conversation.
- */
-function showToast(message, options = {}) {
-  const toast = $("#toast");
-  if (!toast) return;
-  const tone = ["success", "warn", "info", "danger"].includes(options.tone) ? options.tone : "info";
-  const iconName = {
-    success: "circle-check",
-    warn: "message-circle-question",
-    danger: "wifi-off",
-    info: "info"
-  }[tone];
-  const card = document.createElement("div");
-  card.className = `toast-card is-${tone}`;
-  card.innerHTML = ui`${icon(iconName)}<span class="toast-copy"><span class="toast-title">${esc(message)}</span>${options.detail ? ui`<span class="toast-detail">${esc(options.detail)}</span>` : ""}</span>`;
-  toast.append(card);
-  while (toast.children.length > 3) toast.firstElementChild.remove();
-  requestAnimationFrame(() => card.classList.add("visible"));
-  setTimeout(() => {
-    card.classList.remove("visible");
-    setTimeout(() => card.remove(), 200);
-  }, options.duration ?? 3200);
-}
-
-function readProjectCatalog(requestSequence = ++listRequestSequence, isCurrent = () => true) {
-  const request = api("/api/tasks").then((data) => {
-    // All list readers share one ordering, including independent documents.
-    // A superseded caller waits for the latest catalog instead of proceeding
-    // with an old project identity while a newer request is still in flight.
-    if (requestSequence !== listRequestSequence) return latestListRead;
-    if (isCurrent()) projectController.accept(data);
-    return data;
-  });
-  latestListRead = request;
-  return request;
-}
-
-function refresh(options) {
-  return catalogReads("catalog", options);
-}
-
-/**
- * The connection is one state with one transition notice.
- *
- * Repeated polling failures must not stack identical warnings; the reconnect
- * notice is the same state turning back on, and the catalog read that follows
- * it refreshes every conversation from the backend rather than from memory.
- */
-function setOnlineState(online) {
-  const changed = state.online !== online;
-  state.online = online;
-  backendConnection?.setOnline(online);
-  if (!changed) return;
-  if (online) showToast(ui("本机节点已重新连接"), { tone: "success" });
-  else showToast(ui("本机节点连接中断，正在重连…"), { tone: "danger" });
-}
-
-/**
- * A Main question in another conversation is a notification, not a reason to
- * switch: the selected conversation keeps its place and the sidebar carries
- * the dot. The first catalog seeds the set so opening the page is quiet.
- */
-let catalogQuestionsSeen = false;
-const pendingQuestionIds = new Set();
-function announcePendingQuestions() {
-  const current = new Set();
-  for (const task of state.tasks) {
-    if (!task.pendingQuestion) continue;
-    current.add(task.taskId);
-    if (catalogQuestionsSeen && task.taskId !== state.selected && !pendingQuestionIds.has(task.taskId))
-      showToast(ui("Main 有问题等你回答"), {
-        detail: conversationTitle(task),
-        tone: "warn"
-      });
-  }
-  pendingQuestionIds.clear();
-  for (const taskId of current) pendingQuestionIds.add(taskId);
-  catalogQuestionsSeen = true;
-}
-
-/**
- * Adopt one authoritative catalog, whether it came from `/api/tasks` or from a
- * snapshot the event client took. Replacing the lists here is what makes a
- * reconnect consistent: the sequence and revisions move in the same step.
- */
-async function applyCatalog(data, { poll = false } = {}) {
-  if (!data || typeof data !== "object") return;
-  announcePendingQuestions();
-  if (typeof data.workspaceRoot === "string" && data.workspaceRoot.trim()) {
-    state.workspaceRoot = data.currentWorkspaceRoot || data.workspaceRoot;
-    if (!state.workspacePath) state.workspacePath = state.workspaceRoot;
-    state.workspaceLabel = workspaceDisplayName(state.workspacePath);
-  }
-  // This local response arrives before provider model discovery. Establish
-  // the active connection before historical task models can be cached. It
-  // names the host's Main; inside a project the model list has the say.
-  if (data.model && !state.modelScope) {
-    if (data.connectionProfileId) syncModelConnection(data.model, data.connectionProfileId);
-    else {
-      state.defaultModel = data.model;
-      if (!state.model) state.model = data.model;
-      if (!state.selected || !state.modelByTask.has(state.selected)) setModelLabel(state.model);
-    }
-  }
-  setOnlineState(true);
-  const defaultTask = state.tasks.find((task) => !task.archived);
-  const linkedTaskId = initialConversationTaskId;
-  initialConversationTaskId = null;
-  if (linkedTaskId && !state.tasks.some((task) => task.taskId === linkedTaskId))
-    showToast(ui("找不到链接中的会话，可能已被移除"));
-  // The composer is usable before this first catalog lands. Text, attachments
-  // or an upload still running in it are a new conversation: neither picking
-  // the default conversation nor replacing one that disappeared may carry that
-  // draft away from the person who typed it.
-  const missingSelection = Boolean(
-    state.selected && !state.tasks.some((task) => task.taskId === state.selected)
-  );
-  if ((!state.selected || missingSelection) && !state.composingNew && composerHasUnsentContent())
-    state.composingNew = true;
-  if (!state.selected && defaultTask && !state.composingNew) state.selected = defaultTask.taskId;
-  if (missingSelection) state.selected = state.composingNew ? null : defaultTask?.taskId || null;
-  renderConversationList();
-  if (state.selected) {
-    const listed = state.tasks.find((task) => task.taskId === state.selected);
-    const loaded = state.detail?.task;
-    if (
-      !poll ||
-      loaded?.taskId !== state.selected ||
-      listed?.version !== loaded?.version ||
-      listed?.activeRunId !== loaded?.activeRunId ||
-      listed?.status !== loaded?.status
-    )
-      await loadDetail(state.selected, { poll });
-    connectEventStream(state.selected);
-  } else renderEmpty();
-  updateSendButton();
-}
-
-async function refreshState({ poll = false, isCurrent = () => true } = {}) {
-  const requestSequence = ++listRequestSequence;
-  try {
-    const data = await readProjectCatalog(requestSequence, isCurrent);
-    if (!isCurrent() || requestSequence !== listRequestSequence) return;
-    await applyCatalog(data, { poll });
-    observeData.localChanged();
-  } catch (error) {
-    // A request from the backend this page switched away from is not an outage.
-    if (error?.stale || error?.code === "stale_client") return;
-    if (!isCurrent() || requestSequence !== listRequestSequence) return;
-    // An ended session has its own actionable state and reauthorize action.
-    if (["session_revoked", "unauthorized", "host_credential_required"].includes(error?.code)) {
-      updateSendButton();
-      return;
-    }
-    setOnlineState(false);
-    updateSendButton();
-    observeData.localChanged();
-  }
-}
-
-/** The backend the visible catalog belongs to; events from any other are dropped. */
-let boundBackendId = null;
-let backendRevision = 0;
-
-/**
- * Bind the page to one backend identity.
- *
- * Drafts and selections are per backend: the composer swaps its storage
- * namespace, and a switch back restores exactly what that backend had.
- */
-function adoptBackendIdentity(backendId) {
-  if (!backendId || backendId === boundBackendId) return;
-  boundBackendId = backendId;
-  backendRevision += 1;
-  composerSession.setBackend(backendId);
-  void draftRecovery.refresh();
-  // The backend's own draft namespace may name a different last conversation
-  // than the page had before the session bound. A conversation link keeps its
-  // choice; otherwise the stored slot is what "the last conversation" means.
-  const active = initialConversationTaskId || composerSession.activeTask;
-  if (!initialConversationTaskId) {
-    state.selected = active;
-    state.composingNew = !active && composerSession.hasNewDraft;
-    state.selectedProjectId = composerSession.activeProject ?? null;
-  }
-  // Binding swapped the namespace and cleared the composer. Keep the composer
-  // attached to the conversation it shows (the link, or the stored slot), so
-  // typing before the first catalog lands in a draft instead of vanishing and a
-  // link the catalog later reports gone still holds what was typed into it.
-  composerSession.activate(active, { projectId: state.selectedProjectId });
-}
-
-/** Drop everything that belonged to the backend being left. */
-function resetBackendView() {
-  computerUse.reset();
-  artifactViewer.reset();
-  artifacts.resetMedia();
-  clearManagedMedia();
-  connection.close();
-  boundBackendId = null;
-  backendRevision += 1;
-  void draftRecovery.refresh();
-  state.selected = null;
-  state.detail = null;
-  state.tasks = [];
-  state.projects = [];
-  state.projectsLoaded = false;
-  state.localMessages = [];
-  state.previewPath = null;
-  state.artifactDrawerOpen = false;
-  state.openFiles = [];
-  state.artifactCache.clear();
-  state.viewerTaskId = null;
-  // Remembered model choices stay: conversation ids never repeat across
-  // backends, and this also runs when the page first binds after a restart.
-  state.mainThinkingLevel = null;
-  state.models = [];
-  state.model = null;
-  state.defaultModel = null;
-  state.modelConfigured = undefined;
-  state.connectionProfileId = undefined;
-  state.modelScope = undefined;
-  state.modelReadScope = undefined;
-  state.mainByScope.clear();
-  state.workspacePath = null;
-  state.workspaceRoot = null;
-  state.workspaceLabel = null;
-  state.selectedProjectId = null;
-  state.composingNew = false;
-  renderedDetailSignature = undefined;
-  projectController.reset();
-  composerSession.detach();
-  renderConversationList();
-  renderEmpty();
-  updateSendButton();
-}
-
-/** The client's catalog snapshot: same payload as `/api/tasks`, plus its cursor. */
-function adoptCatalogSnapshot(snapshot) {
-  if (!snapshot || snapshot.backendId !== management.state().backendId) return;
-  taskNotifications.snapshot(snapshot);
-  if (snapshot.backendId !== boundBackendId) resetBackendView();
-  adoptBackendIdentity(snapshot.backendId);
-  // The snapshot is a catalog read: accept it exactly like `/api/tasks` before
-  // deciding which conversation it names.
-  projectController.accept(snapshot);
-  // eslint-disable-next-line no-restricted-syntax -- a snapshot whose detail read fails while the backend restarts is re-applied by the 3.5s catalog poll
-  void applyCatalog(snapshot).catch(() => undefined);
-  observeData.localChanged();
-}
-
-/** Apply one live catalog event without waiting for a poll. */
-function applyCatalogEvent(record) {
-  if (!record || record.backendId !== boundBackendId) return;
-  taskNotifications.event(record);
-  if (record.scope === "task") {
-    const index = state.tasks.findIndex((task) => task.taskId === record.objectId);
-    if (record.type === "task.deleted") {
-      if (index >= 0) state.tasks.splice(index, 1);
-      if (state.selected === record.objectId) {
-        state.selected = null;
-        state.detail = null;
-        connection.close();
-      }
-    } else {
-      const task = record.payload;
-      if (!task || typeof task.taskId !== "string") return;
-      if (index >= 0) state.tasks[index] = { ...state.tasks[index], ...task };
-      else state.tasks.unshift(task);
-    }
-  } else if (record.scope === "project" && record.type === "project.changed") {
-    const project = record.payload;
-    if (!project || typeof project.projectId !== "string") return;
-    const index = state.projects.findIndex((entry) => entry.projectId === project.projectId);
-    if (index >= 0) state.projects[index] = { ...state.projects[index], ...project };
-    else state.projects.push({ ...project, tasks: [] });
-  } else {
-    return;
-  }
-  for (const project of state.projects) {
-    project.tasks = state.tasks.filter(
-      (task) =>
-        task.projectId === project.projectId ||
-        (project.tasks || []).some((entry) => entry.taskId === task.taskId)
-    );
-  }
-  announcePendingQuestions();
-  renderConversationList();
-  if (state.selected) connectEventStream(state.selected);
-  updateSendButton();
-  observeData.localChanged();
-}
-
-// Whether a polled detail would draw anything new. The history arrays are
-// compared by their length and last entries: serializing a long conversation
-// on every poll cost more than drawing it.
-function detailViewSignature(detail) {
-  const {
-    statistics: allStatistics,
-    messages = [],
-    runtimeEvents = [],
-    contextWindows = [],
-    ...rest
-  } = detail;
-  const { elapsedMs: _elapsed, observedAt: _observed, ...statistics } = allStatistics || {};
-  return JSON.stringify({
-    ...rest,
-    statistics,
-    messages: [messages.length, messages.slice(-2)],
-    contextWindows: contextWindows.map((window) => window.id),
-    runtimeEvents: [runtimeEvents.length, runtimeEvents.slice(-3).map(streamRecordKey)]
-  });
-}
-
-function loadDetail(taskId, options) {
-  if (state.selected === taskId) {
-    composerSession.activate(taskId);
-    if (state.detail?.task?.taskId !== taskId) {
-      const task = state.tasks.find((item) => item.taskId === taskId) || { taskId };
-      projectController.selectTask(task);
-      // A placeholder until the read returns: the pane stays blank rather than
-      // flashing the empty-conversation welcome between two conversations.
-      state.detail = { task, messages: [], loading: true };
-      state.model =
-        state.modelByTask.get(taskId) ||
-        (state.connectionProfileId ? state.defaultModel : task.model) ||
-        state.defaultModel ||
-        state.model;
-      state.profileId = state.profileByTask.get(taskId) ?? null;
-      setModelLabel(state.model);
-      state.thinkingLevel = state.thinkingLevelByTask.get(taskId) ?? null;
-      setThinkingLabel(state.thinkingLevel);
-      renderAll();
-    }
-  }
-  return detailReads(taskId, options);
-}
-
-async function readDetail(taskId, { poll = false, isCurrent = () => true } = {}) {
-  if (state.selected !== taskId) return;
-  const requestSequence = ++detailRequestSequence;
-  try {
-    const detail = await api(`/api/tasks/${encodeURIComponent(taskId)}`);
-    if (!isCurrent() || state.selected !== taskId || requestSequence !== detailRequestSequence) return;
-    if (state.viewerTaskId !== taskId) {
-      state.viewerTaskId = taskId;
-      state.openFiles = [];
-      state.artifactCache.clear();
-      state.previewPath = null;
-      state.drawerTab = null;
-      state.drawerFile = null;
-      state.drawerDiff = null;
-      state.artifactDrawerOpen = false;
-      requirementPanel.reset(taskId);
-    }
-    if (state.detail?.task?.taskId === taskId) {
-      if (state.detail.conversationVersion === detail.conversationVersion)
-        detail.runtimeEvents = mergeRuntimeEvents(detail.runtimeEvents, state.detail.runtimeEvents);
-      else connection.close();
-    }
-    connection.remember(taskId, detail.runtimeEvents);
-    state.detail = detail;
-    const taskModel =
-      (state.connectionProfileId ? state.defaultModel : detail.task?.model) ||
-      detail.runtime?.model ||
-      state.defaultModel;
-    if (state.selected === taskId) {
-      state.model = state.modelByTask.get(taskId) || taskModel || state.model;
-      state.profileId = state.profileByTask.get(taskId) ?? null;
-      setModelLabel(state.model);
-      state.thinkingLevel = state.thinkingLevelByTask.get(taskId) ?? null;
-      setThinkingLabel(state.thinkingLevel);
-    }
-    state.workspacePath = detail.storageRoot || detail.task?.storageRoot || state.workspaceRoot || null;
-    state.workspaceLabel = workspaceDisplayName(state.workspacePath);
-    const savedUsers = (detail.messages || []).filter((message) => message.role === "user").length;
-    const localCount = state.localMessages.length;
-    state.localMessages = state.localMessages.filter(
-      (message) =>
-        message.taskId === taskId &&
-        (message.interjected
-          ? !(detail.messages || []).some((saved) => saved.id === message.id)
-          : savedUsers <= message.savedUsers)
-    );
-    if (
-      !poll ||
-      state.localMessages.length !== localCount ||
-      detailViewSignature(detail) !== renderedDetailSignature
-    )
-      renderAll();
-  } catch (error) {
-    if (isCurrent() && state.selected === taskId && requestSequence === detailRequestSequence)
-      showToast(ui`Task 加载失败：${error.message}`);
-  }
-}
-
-function renderConversationList() {
-  if (lastReadSelection !== state.selected) {
-    if (state.selected) conversationReadState.setUnread(state.selected, false);
-    lastReadSelection = state.selected;
-  }
-  if (state.projectsLoaded) {
-    const url = new URL(location.href);
-    if (state.selected) url.searchParams.set("task", state.selected);
-    else url.searchParams.delete("task");
-    if (url.href !== location.href) history.replaceState(null, "", url.href);
-  }
-  projectController.render();
-  conversationHistory.visit(state.selected);
-  runControl?.render();
-  syncIdleComposer();
-}
-
-/**
- * Switching away never stops the previous Main; say so once so the choice is
- * not mistaken for a cancellation.
- */
-function announceBackgroundRun(previousTaskId, nextTitle) {
-  if (!previousTaskId || previousTaskId === state.selected) return;
-  const previous = state.tasks.find((task) => task.taskId === previousTaskId);
-  if (!previous || !["running", "waiting"].includes(previous.status)) return;
-  showToast(`${ui("已切换到")}“${nextTitle}”`, {
-    detail: `“${conversationTitle(previous)}”${ui(" 仍在后台运行")}`,
-    tone: "success"
-  });
-}
-
-function selectConversation(taskId) {
-  const previousTaskId = state.selected;
-  sessionMenu.close();
-  conversationReadState.setUnread(taskId, false);
-  document.body.classList.remove("sidebar-mobile-open");
-  state.selected = taskId;
-  if (taskId !== previousTaskId) {
-    const next = state.tasks.find((task) => task.taskId === taskId);
-    announceBackgroundRun(previousTaskId, next ? conversationTitle(next) : ui("新的对话"));
-  }
-  state.composingNew = false;
-  state.previewPath = null;
-  state.drawerTab = null;
-  state.drawerFile = null;
-  state.drawerDiff = null;
-  state.artifactDrawerOpen = false;
-  state.openFiles = [];
-  state.artifactCache.clear();
-  state.viewerTaskId = null;
-  state.localMessages = [];
-  requirementPanel.reset();
-  runControl?.reset();
-  connectEventStream(taskId);
-  renderConversationList();
-  void loadDetail(taskId);
-}
-
-function renderAll() {
-  computerUse.syncTask();
-  void trustPrompt?.check();
-  const detail = state.detail || {};
-  const task = detail.task || {};
-  paintTopbarContext();
-  if (detail.runtime?.model) setModelLabel(detail.runtime.model);
-  updateSendButton();
-  runControl?.render();
-  renderConversation(detail.messages || [], task);
-  humanQuestions.update(detail);
-  renderRightPanel();
-  renderedDetailSignature = detailViewSignature(detail);
-}
-
-function renderRightPanel() {
-  const artifacts = state.detail?.artifacts || [];
-  const artifactPaths = new Set(artifacts.map((artifact) => artifact.relativePath));
-  invalidateArtifactCache(state.artifactCache, artifacts);
-  state.openFiles = state.openFiles.filter((path) => artifactPaths.has(path));
-  if (state.previewPath && !artifactPaths.has(state.previewPath))
-    state.previewPath = state.openFiles.at(-1) || null;
-  requirementPanel.render();
-  renderArtifactDrawer();
-}
-function renderEmpty() {
-  renderedDetailSignature = undefined;
-  computerUse.syncTask();
-  if (firstUse.active()) firstUse.render();
-  else newSession.render();
-  syncIdleComposer();
-  humanQuestions.update(null);
-  renderRightPanel();
-  paintTopbarContext();
-}
-
-/**
- * Before a conversation exists the same composer belongs to either the
- * first-use guide or the new-session start, so one place decides its chrome.
- */
-function syncIdleComposer() {
-  newSession.sync();
-  firstUse.sync();
-  // The guide's composer cannot start a session, so it offers no project picker;
-  // adding a project is a step above it.
-  if (firstUse.blocksSending()) $("#composer-project").hidden = true;
-}
-function paintTopbarContext() {
-  // Another project may give Main another model.
-  if (state.modelScope !== undefined && composerProjectDirectory() !== state.modelReadScope)
-    void loadModels();
-  const idleTitle = firstUse.active() ? ui("开始使用") : ui("新会话");
-  const name = state.selected
-    ? conversationTitle(state.detail?.task || state.tasks.find((task) => task.taskId === state.selected))
-    : idleTitle;
-  $("#topbar-task").textContent = truncate(name, 44);
-  $("#topbar-task").title = name;
-  const usageLabel = $("#context-usage");
-  const usage = state.selected === state.detail?.task?.taskId ? state.detail?.contextUsage : null;
-  usageLabel.hidden = usage?.tokens == null;
-  if (usage?.tokens != null) {
-    const numbers = new Intl.NumberFormat(document.documentElement.lang);
-    const used = numbers.format(usage.tokens);
-    const limit = numbers.format(usage.contextWindow);
-    usageLabel.title = ui`上下文窗口 ${usage.window} · 已用 ${used} / ${limit} tokens`;
-    usageLabel.textContent = ui`上下文 ${Math.round((100 * usage.tokens) / usage.contextWindow)}%`;
-    usageLabel.setAttribute("aria-label", usageLabel.title);
-  }
-  // The title row names where the conversation lives and what it is working on.
-  const task = state.selected
-    ? state.detail?.task || state.tasks.find((entry) => entry.taskId === state.selected)
-    : null;
-  const projectId = task?.projectId ?? (state.selected ? null : state.selectedProjectId);
-  const project = projectId ? state.projects.find((entry) => entry.projectId === projectId) : null;
-  $("#topbar-project").hidden = !project;
-  $("[data-topbar-project-name]").textContent = project?.projectName ?? "";
-  $("#topbar-project").title = project?.projectDirectory || project?.workspaceRoot || "";
-  const requirement = state.selected ? requirementPanel.records()?.requirement : null;
-  const chip = $("#topbar-requirement");
-  chip.hidden = !requirement || requirementPanel.records()?.taskId !== state.selected;
-  if (!chip.hidden) {
-    chip.textContent = ui`需求 · ${requirement.title}`;
-    chip.title = ui`查看需求进度：${requirement.title}`;
-  }
-}
-function textContent(content) {
-  if (typeof content === "string") return content;
-  if (!Array.isArray(content)) return String(content || "");
-  return content.map((part) => (typeof part === "string" ? part : part?.text || "")).join("");
-}
-function shortDate(value) {
-  return formatStamp(value, window.atriaPreferences?.format() ?? "relative");
-}
-function truncate(value, length) {
-  const text = String(value ?? "");
-  return text.length > length ? `${text.slice(0, length - 1)}…` : text;
-}
-
-function beginNewConversation(projectId) {
-  if (!state.projectsLoaded) return false;
-  sessionMenu.close();
-  const project =
-    typeof projectId === "string"
-      ? projectController.select(projectId)
-      : projectId === null
-        ? undefined
-        : projectController.currentProject();
-  if (project) projectController.select(project.projectId);
-  else state.selectedProjectId = null;
-  composerSession.activate(null, {
-    projectId: project?.projectId,
-    fresh:
-      currentSubmission() &&
-      state.selected === null &&
-      composerSession.currentKey === `new:${encodeURIComponent(project?.projectId ?? "")}`
-  });
-  document.body.classList.remove("sidebar-mobile-open");
-  connection.close();
-  state.selected = null;
-  state.detail = null;
-  state.composingNew = true;
-  runControl?.reset();
-  state.model = defaultModelForNewConversation();
-  state.profileId =
-    pickedProfile(readPreferredProfile())?.model.id === state.model ? readPreferredProfile() : null;
-  setModelLabel(state.model);
-  state.thinkingLevel = null;
-  setThinkingLabel(state.thinkingLevel);
-  state.localMessages = [];
-  state.previewPath = null;
-  state.drawerTab = null;
-  state.drawerFile = null;
-  state.drawerDiff = null;
-  state.artifactDrawerOpen = false;
-  state.openFiles = [];
-  state.artifactCache.clear();
-  state.viewerTaskId = null;
-  requirementPanel.reset();
-  state.workspacePath = state.workspaceRoot;
-  state.workspaceLabel = state.workspaceRoot ? workspaceDisplayName(state.workspaceRoot) : null;
-  renderConversationList();
-  renderEmpty();
-  updateSendButton();
-  $("#composer-input").focus();
-  return true;
-}
-
-let taskSearchDialog;
-function openTaskSearch() {
-  let overlay = $("#task-search");
-  if (overlay && !overlay.hidden) return taskSearchDialog.close();
-  if (!overlay) {
-    overlay = document.createElement("div");
-    overlay.id = "task-search";
-    overlay.className = "search-overlay";
-    overlay.hidden = true;
-    overlay.innerHTML = ui`<section class="search-dialog" role="dialog" aria-modal="true" aria-label="搜索对话" aria-describedby="task-search-hint"><div class="search-dialog-head">${icon("search")}<input id="task-search-input" aria-label="搜索对话" placeholder="按名称或任务内容搜索…" autocomplete="off"/><button type="button" aria-label="关闭搜索">Esc</button></div><div id="task-search-results" aria-label="匹配的对话"></div><footer class="search-dialog-foot"><span id="task-search-hint">↑ ↓ 选择 · Enter 打开</span><span id="task-search-count" role="status"></span></footer></section>`;
-    document.body.appendChild(overlay);
-    taskSearchDialog = createModal(overlay, overlay.querySelector("button"));
-    const input = overlay.querySelector("input");
-    const results = overlay.querySelector("#task-search-results");
-    const draw = () => {
-      const query = input.value.trim().toLowerCase();
-      const matches = state.tasks.filter((task) =>
-        `${task.title || ""} ${task.goal || ""} ${task.taskId}`.toLowerCase().includes(query)
-      );
-      results.innerHTML = matches.length
-        ? matches
-            .slice(0, 12)
-            .map(
-              (task) =>
-                `<button type="button" class="search-result" data-task="${esc(task.taskId)}" title="${esc(conversationTitle(task))}"><strong>${esc(conversationTitle(task))}${task.archived ? ui(" · 已归档") : ""}</strong><small>${esc(stateText(task.status))} · ${esc(shortDate(task.updatedAt))}</small></button>`
-            )
-            .join("")
-        : ui('<div class="search-no-results">没有匹配的对话，试试其他关键词</div>');
-      overlay.querySelector("#task-search-count").textContent =
-        matches.length > 12 ? ui`显示前 12 项，共 ${matches.length} 项` : ui`${matches.length} 个对话`;
-      results.querySelectorAll("[data-task]").forEach((node) =>
-        node.addEventListener("click", () => {
-          document.body.classList.remove("sidebar-mobile-open");
-          taskSearchDialog.close();
-          selectConversation(node.dataset.task);
-        })
-      );
-    };
-    input.addEventListener("input", draw);
-    overlay.addEventListener("keydown", (event) => {
-      if (event.isComposing) return;
-      const choices = [...results.querySelectorAll("[data-task]")];
-      const index = choices.indexOf(document.activeElement);
-      if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-        event.preventDefault();
-        const next =
-          event.key === "ArrowDown"
-            ? (index + 1) % choices.length
-            : index <= 0
-              ? choices.length - 1
-              : index - 1;
-        choices[next]?.focus();
-      } else if (event.key === "Home" && index >= 0) {
-        event.preventDefault();
-        choices[0]?.focus();
-      } else if (event.key === "End" && index >= 0) {
-        event.preventDefault();
-        choices.at(-1)?.focus();
-      } else if (event.key === "Enter" && event.target === input) {
-        event.preventDefault();
-        choices[0]?.click();
-      }
-    });
-    overlay.drawResults = draw;
-  }
-  overlay.querySelector("input").value = "";
-  overlay.drawResults();
-  taskSearchDialog.open();
-}
-
-function positionModelMenu(button = $("#model-select"), menu = $("#model-menu")) {
-  if (!menu || !button || menu.hidden || !menu.offsetParent) return;
-  const bounds = menu.offsetParent.getBoundingClientRect();
-  const anchor = button.getBoundingClientRect();
-  const maximum = Math.max(0, bounds.width - menu.getBoundingClientRect().width);
-  menu.style.left = `${Math.min(maximum, Math.max(0, anchor.left - bounds.left))}px`;
-}
-
-let modelNotice = "";
-const modelPicker = createModelPicker({
-  panel: $("#model-menu"),
-  view: () => ({
-    model: state.model || state.defaultModel || "glm-5.3",
-    defaultModel: state.defaultModel,
-    models: state.models.length ? state.models : [state.model || state.defaultModel || "glm-5.3"],
-    levels: modelLevelsFor(),
-    chosen: state.thinkingLevel,
-    fallback: fallbackThinkingLevel(),
-    notice: modelNotice,
-    provider: state.modelProvider
-      ? {
-          name: state.modelProvider.name,
-          mark: providerLogo(state.modelProvider, 18, state.model || state.defaultModel)
-        }
-      : null,
-    groups: pickerGroups()
-  }),
-  chooseModel,
-  chooseLevel: chooseThinkingLevel
+const composerModel = createComposerModel({
+  $,
+  api,
+  storage: draftStorage,
+  selectedTask: () => state.selected,
+  composerProjectDirectory: () => {
+    const projectId = composerProjectId();
+    return state.projects.find((entry) => entry.projectId === projectId)?.projectDirectory || "";
+  },
+  updateSendButton
 });
-
-function renderModelMenu(page = "effort") {
-  const menu = $("#model-menu");
-  const button = $("#model-select");
-  if (!menu || !button) return;
-  modelNotice = "";
-  menu.hidden = false;
-  modelPicker.open(page);
-  positionModelMenu();
-  button.setAttribute("aria-expanded", "true");
+function onModelChanged() {
+  void composerModel.connectionChanged().then(() => refresh());
 }
-
-function closeModelMenu() {
-  const menu = $("#model-menu");
-  const button = $("#model-select");
-  if (!menu || !button) return;
-  menu.hidden = true;
-  modelNotice = "";
-  button.setAttribute("aria-expanded", "false");
-}
-
-/** `page: "models"` opens straight on the model list, as the error card's 切换模型 does. */
-async function toggleModelMenu({ page = "effort" } = {}) {
-  const menu = $("#model-menu");
-  if (!menu) return;
-  if (!menu.hidden) return closeModelMenu();
-  if (!state.models.length) await loadModels();
-  renderModelMenu(page);
-}
-
-/**
- * Every usable provider's models for the picker. The Main connection's own
- * provider comes first; the active entry is the picked profile, or the model
- * on that provider when nothing else was picked.
- */
-function pickerGroups() {
-  if (!state.modelProviders.length) return null;
-  const mainProvider = state.mainProviderId;
-  const model = state.model || state.defaultModel;
-  const ordered = [...state.modelProviders].sort(
-    (left, right) => Number(right.id === mainProvider) - Number(left.id === mainProvider)
-  );
-  return ordered.map((provider) => ({
-    name: provider.name,
-    mark: providerLogo(provider, 18),
-    models: provider.models.map((entry) => ({
-      id: entry.id,
-      mark: providerLogo(provider, 18, entry.id),
-      profileId: entry.profileId,
-      active: state.profileId
-        ? entry.profileId === state.profileId
-        : provider.id === mainProvider && entry.id === model,
-      isDefault: provider.id === mainProvider && entry.id === state.defaultModel
-    }))
-  }));
-}
-
-/** Picking a model keeps the popover open; a pick it does not accept moves to the nearest level. */
-function chooseModel(model, profileId = null) {
-  const selected = String(model || "").trim();
-  if (!selected) return;
-  state.model = selected;
-  // A model of the Main connection's own provider follows that connection.
-  const mainProvider = state.mainProviderId;
-  state.profileId = profileId && !profileId.startsWith(`${mainProvider}#`) ? profileId : null;
-  if (state.selected) {
-    state.modelByTask.set(state.selected, selected);
-    state.profileByTask.set(state.selected, state.profileId);
-  }
-  writePreferredModel(selected);
-  writePreferredProfile(state.profileId);
-  setModelLabel(selected);
-  const picked = state.thinkingLevel;
-  const kept = nearestLevel(picked, modelLevelsFor(selected));
-  modelNotice =
-    picked && kept !== picked
-      ? ui`此模型不支持「${THINKING_LEVEL_LABELS[picked] || picked}」，已改为「${THINKING_LEVEL_LABELS[kept] || kept}」。`
-      : "";
-  if (kept !== picked) {
-    state.thinkingLevel = kept;
-    if (state.selected) state.thinkingLevelByTask.set(state.selected, kept);
-  }
-  setThinkingLabel(state.thinkingLevel);
-}
-
-/** `null` returns to the connection's default; the popover stays open on the rail. */
-function chooseThinkingLevel(value) {
-  const selected = value ? String(value).trim() : null;
-  if (selected && !modelLevelsFor().includes(selected)) return;
-  state.thinkingLevel = selected;
-  if (state.selected) state.thinkingLevelByTask.set(state.selected, selected);
-  modelNotice = "";
-  setThinkingLabel(selected);
-  if (!$("#model-menu").hidden) modelPicker.render({ focus: true });
-}
-
-async function toggleOutputPane() {
-  animateLayout(() => document.body.classList.toggle("output-collapsed"), { part: "pane" });
-  requirementPanel.paintToggle();
-  if (!document.body.classList.contains("output-collapsed")) renderRightPanel();
-}
-
-function renderAttachments() {
-  const strip = $("#attachment-strip");
-  if (!strip) return;
-  strip.innerHTML = state.attachments
-    .map(
-      (file, index) =>
-        ui`<span class="attachment-chip"><span class="attachment-chip-icon">${icon(file.kind === "image" ? "image" : "paperclip")}</span>${file.uploadId ? ui`<button type="button" class="attachment-name" data-upload-preview="${esc(file.uploadId)}" title="预览 ${esc(file.name)}">${esc(file.name)}</button>` : `<span class="attachment-name">${esc(file.name)}</span>`}<small>${esc(formatArtifactSize(file.size ?? new TextEncoder().encode(file.text || "").length))}</small><button data-remove-attachment="${index}" aria-label="移除 ${esc(file.name)}">${icon("close")}</button></span>`
-    )
-    .join("");
-  strip.hidden = state.attachments.length === 0;
-  strip.querySelectorAll("[data-remove-attachment]").forEach((node) =>
-    node.addEventListener("click", () => {
-      state.attachments.splice(Number(node.dataset.removeAttachment), 1);
-      renderAttachments();
-      composerSession.save();
-      updateSendButton();
-    })
-  );
-}
-
-function clearAttachments() {
-  state.attachments = [];
-  const input = $("#file-input");
-  if (input) input.value = "";
-  renderAttachments();
-}
+const workSessions = createWorkSessions({
+  $,
+  state,
+  api,
+  composerSession,
+  composerModel,
+  projectController,
+  newOperationId: () => management.newOperationId(),
+  currentSubmission: () => delivery.currentSubmission(),
+  closeSessionMenu: () => sessionMenu.close(),
+  markRead: (taskId) => conversationReadState.setUnread(taskId, false),
+  resetRunControl: () => runControl.reset(),
+  resetRequirements: () => requirementPanel.reset(),
+  connectEventStream,
+  closeStream: () => connection.close(),
+  renderConversationList,
+  renderEmpty,
+  loadDetail,
+  updateSendButton,
+  showToast
+});
+const openTaskSearch = createTaskSearch({
+  $,
+  tasks: () => state.tasks,
+  selectConversation
+});
 
 createConversationLayout($("#conversation"));
-/**
- * Interrupt the turn Main is producing.
- *
- * The session, its Subagents and everything already done stay; the process
- * waits for the next message.
- */
-/** Stop the round: Main's turn and its working Subagents, all at once; the session stays. */
-async function stopRound(taskId = state.selected) {
-  if (!taskId || isTaskStopping(taskId)) return;
-  stopEpochs.set(taskId, (stopEpochs.get(taskId) || 0) + 1);
-  stoppingTasks.add(taskId);
-  updateSendButton();
-  try {
-    await api(`/api/tasks/${encodeURIComponent(taskId)}/action`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ action: "stop" })
-    });
-    await refresh();
-    showToast(ui("已停止，做完的步骤和结果保留"));
-  } catch (error) {
-    showToast(requestErrorMessage(error));
-  } finally {
-    stoppingTasks.delete(taskId);
-    updateSendButton();
-  }
-}
-/** Close the session: it stops the running turn and the Subagents it started. */
-async function stopTask(taskId = state.selected) {
-  if (!taskId || isTaskStopping(taskId)) return;
-  stopEpochs.set(taskId, (stopEpochs.get(taskId) || 0) + 1);
-  stoppingTasks.add(taskId);
-  updateSendButton();
-  try {
-    await api(`/api/tasks/${encodeURIComponent(taskId)}/action`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ action: "cancel" })
-    });
-    await refresh();
-    showToast(ui("会话已关闭，已保存的内容保留"));
-  } catch (error) {
-    showToast(requestErrorMessage(error));
-  } finally {
-    stoppingTasks.delete(taskId);
-    updateSendButton();
-  }
-}
 // Interrupting a run discards the step in flight, so the stop key asks first.
 $("#stop-button").addEventListener("click", () => runControl.confirmInterrupt($("#stop-button")));
-$("#send-button").addEventListener("click", () => void sendMessage());
-$("#composer-input").addEventListener("input", updateSendButton);
-$("#composer-input").addEventListener("keydown", (event) => {
-  // Enter sends like a desktop chat client; Shift+Enter keeps the textarea multiline.
-  if (event.key === "Enter" && !event.shiftKey && !event.isComposing) {
-    event.preventDefault();
-    // While Main runs, Enter inserts the message into its next step and ⌥Enter
-    // queues it until the current round ends.
-    void sendMessage({ queue: event.altKey });
-  }
-});
-$("#new-conversation").addEventListener("click", beginNewConversation);
-$("#titlebar-new-session").addEventListener("click", () => beginNewConversation());
-$("#topbar-requirement").addEventListener("click", () => {
-  if (document.body.classList.contains("output-collapsed")) void toggleOutputPane();
-  else $("#agent-pane").querySelector("button, [tabindex]")?.focus();
-});
-$("#output-pane-toggle").addEventListener("click", toggleOutputPane);
-$("[data-panel-collapse]")?.addEventListener("click", () => void toggleOutputPane());
-document.addEventListener("keydown", (event) => {
-  const modifier = event.metaKey || event.ctrlKey;
-  const modalOpen =
-    document.querySelector('[role="dialog"]') &&
-    [...document.querySelectorAll('[role="dialog"]')].some((node) => node.getClientRects().length);
-  if (modifier && event.key.toLowerCase() === "p" && !event.isComposing && !modalOpen) {
-    event.preventDefault();
-    openTaskSearch();
-  }
-  if (modifier && event.key.toLowerCase() === "k" && !event.isComposing && !modalOpen) {
-    event.preventDefault();
-    beginNewConversation();
-  }
-  if (event.key === "Escape" && state.artifactDrawerOpen) closeArtifactDrawer(true);
-});
 
-$("#model-select").addEventListener("click", () => void toggleModelMenu());
-document.addEventListener("click", (event) => {
-  // The popover redraws its page on a click, so the target may be detached by now.
-  if (!event.composedPath().some((node) => node.id === "model-select" || node.id === "model-menu"))
-    closeModelMenu();
+bindWorkShortcuts({
+  $,
+  beginNewConversation,
+  openTaskSearch,
+  toggleOutputPane,
+  artifactDrawerOpen: () => state.artifactDrawerOpen,
+  closeArtifactDrawer
 });
 const sessionAction = createConversationOperations({
   readState: conversationReadState,
@@ -1784,23 +538,21 @@ const sessionAction = createConversationOperations({
   refresh,
   getNavigation: () => ({ taskId: state.selected, token: composerSession.currentToken }),
   openNewConversation: () => beginNewConversation(),
-  stop: stopTask,
+  stop: (taskId) => delivery.stopTask(taskId),
   showToast
 });
 const sessionMenu = createConversationMenu({
   panel: $("#session-menu"),
   getTask: (taskId) => state.tasks.find((task) => task.taskId === taskId),
-  getContext: currentSessionMenuContext,
+  getContext: () => JSON.stringify([state.selected]),
   isTaskActive: (taskId, task) =>
     ["running", "waiting"].includes(task.status) ||
     (state.detail?.task?.taskId === taskId && state.detail?.runtime?.active),
-  isTaskStopping,
+  isTaskStopping: (taskId) => delivery.isTaskStopping(taskId),
   isUnread: (taskId) => conversationReadState.isUnread(taskId),
   onAction: (action, taskId, task) => void sessionAction(action, taskId, task)
 });
-function currentSessionMenuContext() {
-  return JSON.stringify([state.selected]);
-}
+
 window.addEventListener("resize", () => sessionMenu.reposition());
 $("#project-list").addEventListener("scroll", () => sessionMenu.reposition(), true);
 window.addEventListener("storage", (event) => {
@@ -1813,135 +565,19 @@ window.addEventListener("popstate", () => {
   if (!taskId || taskId === state.selected) return;
   if (state.tasks.some((task) => task.taskId === taskId)) selectConversation(taskId);
 });
-createMenu($("#model-select"), $("#model-menu"), {
-  toggleOnClick: false,
-  closeOnSelect: false,
-  onClose: closeModelMenu
-});
-window.addEventListener("resize", () => positionModelMenu());
-/**
- * The observation entry's read-only port.
- *
- * The local node is the page's existing client; every remote node gets one of
- * its own, stored per origin, so a token or failure never crosses nodes. The
- * work entry keeps using only the local client above.
- */
-let observeSidebar;
-const observeData = createObserveData({
+observation = createObservationSettings({
+  $,
+  api,
+  management,
   storage: draftStorage,
   sessionStorage: browserSessionStorage,
-  local: {
-    origin: location.origin,
-    name: ui("本机"),
-    role: "internal",
-    status: () => {
-      // The same "online" flag the page's offline banner uses: a catalog read
-      // that could not reach the backend means the local node is offline even
-      // while the management client still reports its old session.
-      if (!state.online) return "offline";
-      const status = management.state().status;
-      if (status === "connected") return "online";
-      if (status === "connecting" || status === "idle") return "connecting";
-      if (status === "unauthorized") return "unauthorized";
-      return "offline";
-    },
-    snapshot: () => ({ projects: state.projects, tasks: state.tasks }),
-    request: (path, options) => management.request(path, options)
-  }
-});
-const settingsPages = createSettingsPages({
-  root: $("#settings-entry"),
-  app: $("#app-layout"),
-  api,
-  showToast,
-  nodes: () => observeData.nodes(),
-  members: () => [{ id: "self", name: ui("我"), owner: true }],
-  addNode: (input) => observeData.addNode(input),
-  renameNode: (origin, name) => observeData.renameNode(origin, name),
-  reauthorizeNode: (origin) => observeData.reauthorizeNode(origin),
-  reconnectNode: (origin) => observeData.reconnectNode(origin),
-  disconnectNode: (origin) => observeData.disconnectNode(origin),
-  removeNode: (origin) => observeData.removeNode(origin)
-});
-const agentSettings = createAgentSettings({
-  panel: $('[data-settings-panel="agents"]'),
-  api,
-  projects: () => projectController.visibleProjects(),
-  onSection: settingsPages.onSection,
-  showToast,
-  // Main's model and effort are chosen here: the composer re-reads what the next turn uses.
-  onBuiltinSaved: () => {
-    state.model = null;
-    void loadModels().then(() => refresh());
-  },
-  // Main drafts the definition in a conversation and asks before it saves anything.
-  askMain: () => {
-    settingsPages.close();
-    beginNewConversation();
-    const input = $("#composer-input");
-    input.value = ui("帮我创建一个 Agent：");
-    input.dispatchEvent(new Event("input", { bubbles: true }));
-    input.focus();
-    input.setSelectionRange(input.value.length, input.value.length);
-  }
-});
-/** "Edit in settings" on a proposal opens the Agent page with that definition to finish. */
-function openAgentProposal(proposal) {
-  agentSettings.openProposal(proposal);
-  settingsPages.open("agents");
-}
-createSkillSettings({
-  panel: $('[data-settings-panel="skills"]'),
-  api,
-  projects: () => projectController.visibleProjects(),
-  onSection: settingsPages.onSection,
+  isOnline: () => state.online,
+  snapshot: () => ({ projects: state.projects, tasks: state.tasks }),
+  visibleProjects: () => projectController.visibleProjects(),
+  entryController,
+  onModelChanged,
+  beginNewConversation,
   showToast
-});
-createMcpSettings({
-  panel: $('[data-settings-panel="mcp"]'),
-  api,
-  onSection: settingsPages.onSection,
-  showToast
-});
-createMemorySettings({
-  panel: $('[data-settings-panel="memory"]'),
-  api,
-  projects: () => projectController.visibleProjects(),
-  onSection: settingsPages.onSection,
-  showToast
-});
-observeSidebar = createObserveSidebar({
-  root: $(".observe-nav"),
-  pane: $("#observe-entry"),
-  data: observeData,
-  addNode: () => settingsPages.addNodeDialog()
-});
-/**
- * The observation requirement view reads through the same port: the list, its
- * phase tabs and the detail are one read-only view of every connected node.
- */
-observeRequirements = createObserveRequirements({
-  pane: $("#observe-entry"),
-  detail: $("#observe-detail"),
-  layout: $(".app-layout"),
-  data: observeData,
-  showToast
-});
-observeRequirements.applyEntry(entryController.state());
-createObserveRuns({
-  root: $('[data-observe-panel="runs"]'),
-  header: $("[data-observe-runs-controls]"),
-  data: observeData
-});
-observeOverview = createObserveOverview({
-  root: $('[data-observe-panel="overview"]'),
-  data: observeData,
-  onOpenView: (view) => entryController.setObserveView(view)
-});
-observeOverview.applyEntry(entryController.state());
-observeData.subscribe(() => {
-  observeSidebar.render();
-  settingsPages.refresh();
 });
 const firstUse = createFirstUseView({
   state,
@@ -1952,773 +588,101 @@ const firstUse = createFirstUseView({
 });
 $("#titlebar-search").addEventListener("click", openTaskSearch);
 $("#sidebar-search").addEventListener("click", openTaskSearch);
-attachmentPreview = installAttachmentPreview({ api, mediaUrl: mediaObjectUrl });
-fileUpload = createFileUpload({
-  upload: (file, options) => management.upload(file, options),
-  getDraftIdentity: () => composerSession.shownDraftIdentity,
-  getFiles: () => state.attachments,
-  setFiles: (files) => {
-    state.attachments = files;
-    renderAttachments();
-    composerSession.save();
-    updateSendButton();
-  },
-  onBusy: (busy) => {
-    readingAttachments = busy;
-    updateSendButton();
-  },
-  onError: showToast,
-  onStatus: (status) => {
-    const panel = $("#upload-status");
-    panel.hidden = !status;
-    panel.innerHTML = !status
-      ? ""
-      : status.failed
-        ? ui`<span>${status.failed} 个文件未添加</span><button type="button" data-upload-retry>重试</button><button type="button" data-upload-cancel>关闭</button>`
-        : ui`<span>${esc(status.name)} · ${status.progress}% (${status.index}/${status.total})</span><button type="button" data-upload-cancel>取消</button>`;
-    panel
-      .querySelector("[data-upload-retry]")
-      ?.addEventListener("click", () => fileUpload.retry().catch((error) => showToast(error.message)));
-    panel.querySelector("[data-upload-cancel]")?.addEventListener("click", () => fileUpload.cancel());
-  }
-});
-async function addFiles(files) {
-  try {
-    await fileUpload.add(Array.from(files));
-  } catch (error) {
-    showToast(error.message);
-  }
+
+function beginNewConversation(projectId) {
+  return workSessions.beginNewConversation(projectId);
 }
-$(".attach-button").addEventListener("click", () => $("#file-input").click());
-$("#file-input").addEventListener("change", (event) => {
-  const files = Array.from(event.target.files || []);
-  event.target.value = "";
-  void addFiles(files);
-});
-createComposerClipboard({
-  input: $("#composer-input"),
-  addFiles,
-  attachedNames: () => state.attachments.map((file) => file.name)
-});
-window.addEventListener("dragover", (event) => {
-  if (Array.from(event.dataTransfer?.types || []).includes("Files")) event.preventDefault();
-});
-$(".composer").addEventListener("dragover", (event) => {
-  if (Array.from(event.dataTransfer?.types || []).includes("Files")) {
-    $(".composer").classList.add("is-file-drop");
-    event.preventDefault();
-  }
-});
-$(".composer").addEventListener("dragleave", (event) => {
-  if (!$(".composer").contains(event.relatedTarget)) $(".composer").classList.remove("is-file-drop");
-});
-$(".composer").addEventListener("drop", (event) => {
-  const files = event.dataTransfer?.files;
-  if (files?.length) {
-    event.preventDefault();
-    event.stopPropagation();
-    $(".composer").classList.remove("is-file-drop");
-    void addFiles(files);
-  }
-});
-
-window.addEventListener("drop", (event) => {
-  if (event.dataTransfer?.files?.length) {
-    event.preventDefault();
-    showToast(ui("请将文件拖入对话输入区；当前内容已保留。"));
-  }
-});
-
-async function createTask(goal, workspaceRoot, submission, projectId) {
-  const sourceKey = composerSession.currentKey;
-  const sourceToken = composerSession.currentToken;
-  const sourceDraft = composerSession.snapshot();
-  const sourceTask = state.selected;
-  const sourceProject = projectId
-    ? state.projects.find((project) => project.projectId === projectId)
-    : workspaceRoot
-      ? projectController.projectForWorkspace(workspaceRoot)
-      : state.selectedProjectId === null
-        ? undefined
-        : projectController.currentProject();
-  if (projectId && !sourceProject) throw new Error(ui("目标项目已不可用，请重新选择项目"));
-  const creationKey = JSON.stringify([sourceProject?.projectId ?? null, sourceToken]);
-  if (creatingTasks.has(creationKey)) return creatingTasks.get(creationKey);
-  composerSession.save();
-  const creation = createTaskFromDraft(
-    goal,
-    sourceTask,
-    sourceKey,
-    sourceToken,
-    sourceDraft,
-    sourceProject?.projectId ?? null,
-    submission,
-    sourceProject ? undefined : workspaceRoot
-  );
-  creatingTasks.set(creationKey, creation);
-  try {
-    return await creation;
-  } finally {
-    if (creatingTasks.get(creationKey) === creation) creatingTasks.delete(creationKey);
-    composerSession.release(sourceToken);
-  }
+function selectConversation(taskId) {
+  workSessions.selectConversation(taskId);
 }
-
-/**
- * One pending Task creation per draft and command content.
- *
- * A retry after an uncertain response must present the same operation id and
- * the same task id; otherwise a response that was lost after the commit would
- * become a second Task. Editing the draft changes the content key and starts a
- * genuinely new command.
- */
-const pendingCreations = new Map();
-
-function pendingCreation(draftIdentity, content) {
-  const contentKey = JSON.stringify(content);
-  const existing = pendingCreations.get(draftIdentity);
-  if (existing && existing.contentKey === contentKey) return existing;
-  const pending = {
-    contentKey,
-    operationId: management.newOperationId(),
-    taskId: `task-${crypto.randomUUID()}`
-  };
-  pendingCreations.set(draftIdentity, pending);
-  return pending;
+function renderConversationList() {
+  workView.renderConversationList();
 }
-
-async function createTaskFromDraft(
-  goal,
-  sourceTask,
-  sourceKey,
-  sourceToken,
-  sourceDraft,
-  projectId,
-  submission,
-  temporaryWorkspaceRoot
-) {
-  const draftIdentity = composerSession.shownDraftIdentity;
-  const pending = pendingCreation(draftIdentity, [goal, projectId, temporaryWorkspaceRoot || null]);
-  const taskId = pending.taskId;
-  const body = { taskId, goal, projectId, ...(temporaryWorkspaceRoot ? { temporaryWorkspaceRoot } : {}) };
-  // A catalog poll may expose the committed Task before this POST returns.
-  if (submission) associateSubmission(submission, taskId);
-  const task = await api.command("/api/tasks", {
-    method: "POST",
-    body,
-    operationId: pending.operationId
-  });
-  if (pendingCreations.get(draftIdentity) === pending) pendingCreations.delete(draftIdentity);
-  if (submission && task.taskId !== taskId) associateSubmission(submission, task.taskId);
-  const foreground =
-    state.selected === sourceTask &&
-    (state.selectedProjectId ?? null) === projectId &&
-    composerSession.currentToken === sourceToken;
-  composerSession.transfer(task.taskId, sourceKey, sourceToken, sourceDraft, { background: !foreground });
-  if (!state.tasks.some((item) => item.taskId === task.taskId)) state.tasks.unshift(task);
-  projectController.addTask(task);
-  // The request owns its original draft; a late response must not undo navigation.
-  if (!foreground || composerSession.currentKey !== task.taskId) {
-    renderConversationList();
-    return task.taskId;
-  }
-  state.selected = task.taskId;
-  // The new conversation keeps what the composer had picked; reading its
-  // detail would otherwise put the model and level back to the defaults.
-  if (state.model) state.modelByTask.set(task.taskId, state.model);
-  state.profileByTask.set(task.taskId, state.profileId);
-  state.thinkingLevelByTask.set(task.taskId, state.thinkingLevel);
-  state.composingNew = false;
-  state.detail = { task, messages: [] };
-  state.localMessages = [];
-  state.previewPath = null;
-  state.artifactDrawerOpen = false;
-  state.openFiles = [];
-  state.artifactCache.clear();
-  state.viewerTaskId = task.taskId;
-  state.workspacePath = task.storageRoot || state.workspaceRoot;
-  renderConversationList();
-  return task.taskId;
+function renderAll() {
+  workView.renderAll();
 }
-
-/**
- * A new conversation beside this one that starts from one reply. Only the
- * history up to that reply is copied; the new conversation opens, settled, so
- * the next message continues from there.
- */
-async function forkConversation(sourceTaskId, messageId) {
-  const source = state.tasks.find((task) => task.taskId === sourceTaskId);
-  if (!source) return;
-  let task;
-  try {
-    task = await api.command(`/api/tasks/${encodeURIComponent(sourceTaskId)}/fork`, {
-      method: "POST",
-      body: {
-        taskId: `task-${crypto.randomUUID()}`,
-        messageId,
-        title: `${truncate(conversationTitle(source), 92)} · Fork`
-      }
-    });
-  } catch (error) {
-    showToast(requestErrorMessage(error));
-    return;
-  }
-  if (!state.tasks.some((item) => item.taskId === task.taskId)) state.tasks.unshift(task);
-  projectController.addTask(task);
-  // Opening it is the confirmation; navigation already left the source.
-  if (state.selected !== sourceTaskId) return renderConversationList();
-  projectController.selectTask(task);
-  selectConversation(task.taskId);
+function renderEmpty() {
+  workView.renderEmpty();
 }
-
-/** Send to the running task's steering or follow-up queue, preserving draft ownership. */
-async function interject(taskId, text, delivery = "followUp", references = []) {
-  const draft = submissionDraft();
-  const stopEpoch = stopEpochs.get(taskId) || 0;
-  const model = state.model || state.defaultModel || undefined;
-  const savedUsers = (state.detail?.messages || []).filter((message) => message.role === "user").length;
-  const submission = beginSubmission(taskId);
-  submission.draft = draft;
-  updateSendButton();
-  try {
-    let result;
-    try {
-      result = await api(`/api/tasks/${encodeURIComponent(taskId)}/interject`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          message: text,
-          delivery,
-          attachmentIds: uploadedFileIds(JSON.parse(draft.attachments)),
-          ...(references.length ? { references } : {})
-        })
-      });
-    } catch (error) {
-      // A finished turn accepts the original complete message as a new run.
-      // Neither navigation nor further typing may change its destination/input.
-      if (error.status !== 409 || !/没有正在运行/.test(error.message)) throw error;
-      // An explicit stop supersedes this request, even after cancellation settles.
-      if (isTaskStopping(taskId) || (stopEpochs.get(taskId) || 0) !== stopEpoch) {
-        showToast(ui("补充内容未发送，草稿已保留"));
-        return;
-      }
-      await launchPrompt(taskId, text, {
-        submission,
-        model,
-        profileId: state.profileId || undefined,
-        thinkingLevel: sentThinkingLevel(),
-        resume: false,
-        savedUsers,
-        attachmentIds: uploadedFileIds(JSON.parse(draft.attachments)),
-        references
-      });
-      clearSubmittedDraft(taskId, draft);
-      await refresh();
-      return;
-    }
-    clearSubmittedDraft(taskId, draft);
-    if (state.selected === taskId) {
-      state.localMessages = [
-        ...state.localMessages,
-        {
-          role: "user",
-          content: text,
-          taskId,
-          interjected: true,
-          delivery,
-          pending: delivery === "followUp",
-          id: result.messageId,
-          timestamp: Date.now()
-        }
-      ];
-      renderAll();
-    }
-  } catch (error) {
-    showToast(ui`补充失败：${requestErrorMessage(error)}`);
-  } finally {
-    finishSubmission(submission);
-    updateSendButton();
-  }
+function toggleOutputPane() {
+  return workView.toggleOutputPane();
 }
-
-function currentSubmission() {
-  return (
-    (state.selected && sending.get(`task:${state.selected}`)) ||
-    sending.get(`draft:${composerSession.shownDraftIdentity}`)
-  );
+function refresh(options) {
+  return catalog.refresh(options);
 }
-
-function beginSubmission(taskId = state.selected) {
-  const submission = { keys: new Set(), launching: false };
-  const draftKey = `draft:${composerSession.shownDraftIdentity}`;
-  submission.keys.add(draftKey);
-  sending.set(draftKey, submission);
-  if (taskId) associateSubmission(submission, taskId);
-  return submission;
+function loadDetail(taskId, options) {
+  return catalog.loadDetail(taskId, options);
 }
-
-function associateSubmission(submission, taskId) {
-  const key = `task:${taskId}`;
-  submission.keys.add(key);
-  sending.set(key, submission);
-}
-
-function finishSubmission(submission) {
-  for (const key of submission.keys) if (sending.get(key) === submission) sending.delete(key);
-}
-
-function submissionDraft() {
-  return {
-    input: $("#composer-input").value,
-    attachments: JSON.stringify(state.attachments),
-    token: composerSession.currentToken,
-    focusedSend: document.activeElement === $("#send-button")
-  };
-}
-
-/**
- * While a message is on its way, the composer that still holds it looks empty:
- * starting Main can take seconds and the message already shows above. The
- * value stays, so navigation keeps the draft and a failure shows it again.
- */
-function showSentDraft(draft) {
-  const input = $("#composer-input");
-  const sent = Boolean(
-    draft &&
-    composerSession.currentToken === draft.token &&
-    input.value === draft.input &&
-    JSON.stringify(state.attachments) === draft.attachments
-  );
-  if (input.classList.contains("is-sent") === sent) return;
-  input.classList.toggle("is-sent", sent);
-  $("#attachment-strip").classList.toggle("is-sent", sent);
-}
-
-// Typing while a message is on its way starts the next one in an empty box
-// instead of editing the hidden text that is being sent.
-$("#composer-input").addEventListener("beforeinput", (event) => {
-  if (event.target.classList.contains("is-sent")) event.target.value = "";
-});
-
-function clearSubmittedDraft(taskId, draft) {
-  const input = $("#composer-input");
-  if (
-    state.selected === taskId &&
-    composerSession.currentToken === draft.token &&
-    input.value === draft.input &&
-    JSON.stringify(state.attachments) === draft.attachments
-  ) {
-    input.value = "";
-    clearAttachments();
-    composerSession.save();
-    if (
-      draft.focusedSend &&
-      document.activeElement === document.body &&
-      input.getClientRects().length &&
-      $("#human-questions").hidden
-    )
-      input.focus({ preventScroll: true });
-  }
-}
-
-async function launchPrompt(
-  taskId,
-  prompt,
-  {
-    model,
-    profileId,
-    thinkingLevel,
-    resume,
-    retryRequestId,
-    savedUsers,
-    attachmentIds = [],
-    references = [],
-    submission,
-    body
-  }
-) {
-  if (submission) submission.launching = true;
-  let optimisticMessage;
-  if (state.selected === taskId && prompt) {
-    optimisticMessage = { role: "user", content: prompt, taskId, savedUsers };
-    state.localMessages = [...state.localMessages, optimisticMessage];
-    state.submittingTaskId = taskId;
-    renderAll();
-  }
-  try {
-    const run = await api(`/api/tasks/${encodeURIComponent(taskId)}/run`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        prompt,
-        body,
-        resume,
-        model,
-        ...(profileId ? { profileId } : {}),
-        thinkingLevel,
-        attachmentIds,
-        ...(references.length ? { references } : {}),
-        retryRequestId
-      })
-    });
-    // A queued demand is accepted but not running: keeping the optimistic
-    // running state would route the next message into interject instead of
-    // letting the server refuse a different input.
-    if (run.status === "queued") {
-      showToast(ui`已排队第 ${run.queuePosition ?? 1} 位`);
-      return run;
-    }
-    if (run.model) {
-      state.modelByTask.set(taskId, run.model);
-      if (state.selected === taskId) {
-        state.model = run.model;
-        setModelLabel(run.model);
-      }
-    }
-    if (state.selected === taskId) {
-      const detail = state.detail?.task?.taskId === taskId ? state.detail : {};
-      const failed = run.status === "failed";
-      state.detail = {
-        ...detail,
-        task: {
-          ...detail.task,
-          taskId,
-          activeRunId: run.runId,
-          status: failed ? "failed" : "running",
-          ...(failed ? { lastError: run.error } : {})
-        },
-        runtime: { ...detail.runtime, active: !failed }
-      };
-      renderAll();
-      if (!failed) connectEventStream(taskId);
-    }
-    return run;
-  } catch (error) {
-    state.localMessages = state.localMessages.filter((message) => message !== optimisticMessage);
-    throw error;
-  }
-}
-
-function isTaskStopping(taskId = state.selected) {
-  return Boolean(
-    stoppingTasks.has(taskId) || (state.detail?.task?.taskId === taskId && state.detail?.runtime?.stopping)
-  );
-}
-
-/**
- * What a catalog restore must not replace: text or attachments the person put
- * in the composer, including an attachment whose upload is still running.
- */
-function composerHasUnsentContent() {
-  return Boolean($("#composer-input").value.trim() || state.attachments.length || readingAttachments);
-}
-
 function updateSendButton() {
-  messageEdit.sync();
-  const pendingSubmission = currentSubmission();
-  const isSending = Boolean(pendingSubmission);
-  showSentDraft(pendingSubmission?.draft);
-  state.submittingTaskId = pendingSubmission?.launching ? state.selected : null;
-  // While working, new messages wait in the queue and can be promoted explicitly.
-  const running = Boolean(state.detail?.task?.taskId === state.selected && state.detail?.runtime?.active);
-  const stopping = isTaskStopping();
-  const hasDraft = Boolean($("#composer-input").value.trim() || state.attachments.length);
-  // Main waiting on its Subagents is not Main working: the composer stays a
-  // send box and the status line carries pause and stop.
-  const showStop = stopping || (running && !hasDraft && !runControl?.waiting());
-  renderMessageQueue($("#queued-messages"), {
-    taskId: state.selected,
-    messages:
-      state.detail?.task?.taskId === state.selected
-        ? [...(state.detail.messages || []), ...state.localMessages]
-        : [],
-    running,
-    promoting: promotingMessages,
-    disabled: !state.online || stopping,
-    cancel: (taskId, messageId) => promoteQueuedMessage(taskId, messageId, "cancel"),
-    promote: promoteQueuedMessage
-  });
-  const backendReady = Boolean(backendConnection && backendConnection.ready());
-  const awaitingSetup = firstUse.blocksSending();
-  $("#send-button").hidden = showStop;
-  $("#send-button").disabled =
-    awaitingSetup || isSending || readingAttachments || stopping || !state.online || !backendReady;
-  $("#stop-button").hidden = !showStop;
-  $("#stop-button").disabled = stopping;
-  $("#stop-button").setAttribute("aria-busy", String(stopping));
-  $("#stop-button").setAttribute("aria-label", stopping ? ui("正在停止") : ui("停止"));
-  $("#stop-button").title = stopping ? ui("正在停止…") : ui("停止（Esc）");
-  $("#model-setup-button").hidden = state.modelConfigured !== false;
-  $("#send-button").title = awaitingSetup
-    ? firstUse.lockReason()
-    : !backendReady
-      ? ui("后端连接不可用")
-      : isSending
-        ? ui("正在发送…")
-        : readingAttachments
-          ? ui("正在读取附件…")
-          : running
-            ? ui("插入下一步（Enter）· 本轮结束后发送（⌥Enter）")
-            : ui("发送（Enter）");
-  $("#send-button").setAttribute("aria-label", running ? ui("插入下一步") : ui("发送"));
-  if (composerSession.editing) {
-    $("#send-button").title = ui("请先保存或取消正在编辑的消息");
-    $("#send-button").disabled = true;
-  }
+  delivery.updateSendButton();
 }
 
-async function promoteQueuedMessage(taskId, messageId, action = "steer") {
-  const key = `${taskId}:${messageId}`;
-  if (promotingMessages.has(key)) return;
-  promotingMessages.add(key);
-  updateSendButton();
-  try {
-    const result = await api(
-      `/api/tasks/${encodeURIComponent(taskId)}/interject/${encodeURIComponent(messageId)}/${action}`,
-      {
-        method: "POST"
-      }
-    );
-    if (state.selected === taskId) {
-      if (action === "cancel") {
-        state.localMessages = state.localMessages.filter((message) => message.id !== messageId);
-        if (state.detail?.messages)
-          state.detail.messages = state.detail.messages.filter((message) => message.id !== messageId);
-      } else {
-        for (const message of [...(state.detail?.messages || []), ...state.localMessages])
-          if (message.id === messageId) Object.assign(message, { delivery: "steer", pending: false });
-      }
-      if (result.status === "running") connectEventStream(taskId);
-      renderAll();
-    }
-  } catch (error) {
-    showToast(requestErrorMessage(error));
-  } finally {
-    promotingMessages.delete(key);
-    if (state.selected === taskId) await loadDetail(taskId);
-    updateSendButton();
-  }
-}
-
-async function submitMessageEdit() {
-  if (
-    !composerSession.editing ||
-    currentSubmission() ||
-    readingAttachments ||
-    !state.online ||
-    isTaskStopping()
-  )
-    return;
-  const submission = beginSubmission();
-  updateSendButton();
-  try {
-    await messageEdit.submit();
-  } finally {
-    finishSubmission(submission);
-    renderAll();
-    updateSendButton();
-  }
-}
-
-let resolvingReferences = false;
-async function compactConversation() {
-  const taskId = state.selected;
-  if (!taskId) return showToast(ui("发送第一条消息后可换窗口。"));
-  if (currentSubmission() || !state.online || isTaskStopping()) return;
-  const draft = submissionDraft();
-  const submission = beginSubmission();
-  updateSendButton();
-  try {
-    await api(`/api/tasks/${encodeURIComponent(taskId)}/action`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ action: "compact" })
-    });
-    const input = $("#composer-input");
-    if (
-      state.selected === taskId &&
-      composerSession.currentToken === draft.token &&
-      input.value === draft.input &&
-      draft.input.trim() === "/compact"
-    ) {
-      input.value = "";
-      composerSession.save();
-    }
-    await loadDetail(taskId);
-  } catch (error) {
-    showToast(requestErrorMessage(error));
-  } finally {
-    finishSubmission(submission);
-    updateSendButton();
-  }
-}
-
-async function sendMessage({ queue = false } = {}) {
-  if (!$("#human-questions").hidden) return;
-  if (firstUse.blocksSending()) return;
-  const input = $("#composer-input");
-  // Attachments alone are a message: nothing is typed on the person's behalf.
-  const text = input.value.trim();
-  if (!text && !state.attachments.length) return;
-  if (currentSubmission() || readingAttachments || !state.online) return;
-  if (isTaskStopping()) return;
-  if (composerSession.editing) {
-    return showToast(ui("请先保存或取消正在编辑的消息，底部草稿会保留。"));
-  }
-  if (text === "/compact") {
-    composerMenu.close();
-    return compactConversation();
-  }
-  if (state.modelConfigured === false) return void modelSettings.open();
-  composerMenu.close();
-  // Reading the menus' lists is a pause in which a second Enter must not send again;
-  // a message without `/` or `@` words sends without it.
-  if (resolvingReferences) return;
-  let references = [];
-  if (hasReferenceWords(text)) {
-    resolvingReferences = true;
-    try {
-      references = await draftReferences(text);
-    } finally {
-      resolvingReferences = false;
-    }
-  }
-  // Running input joins Main's next step; a queued message waits for the round to end.
-  if (state.detail?.task?.taskId === state.selected && state.detail?.runtime?.active && state.selected) {
-    try {
-      return interject(
-        state.selected,
-        composePrompt(text, state.attachments),
-        queue ? "followUp" : "steer",
-        references
-      );
-    } catch (error) {
-      showToast(error.message);
-      return;
-    }
-  }
-  const draft = submissionDraft();
-  const submission = beginSubmission();
-  submission.draft = draft;
-  updateSendButton();
-  const selectedTask = state.selected;
-  const detail = state.detail?.task?.taskId === selectedTask ? state.detail : null;
-  const runOptions = {
-    submission,
-    body: draft.input,
-    attachmentIds: uploadedFileIds(JSON.parse(draft.attachments)),
-    references,
-    resume: detail?.task?.status === "waiting",
-    model: state.model || state.defaultModel || undefined,
-    profileId: state.profileId || undefined,
-    thinkingLevel: sentThinkingLevel(),
-    savedUsers: (detail?.messages || []).filter((message) => message.role === "user").length
-  };
-  let prompt;
-  try {
-    prompt = composePrompt(text, state.attachments);
-  } catch (error) {
-    finishSubmission(submission);
-    updateSendButton();
-    showToast(error.message);
-    return;
-  }
-  try {
-    // A new session is named by its words, or by its files when there are none.
-    const title = text || state.attachments.map((file) => file.name).join("、");
-    const taskId = selectedTask || (await createTask(title, undefined, submission));
-    associateSubmission(submission, taskId);
-    await launchPrompt(taskId, prompt, runOptions);
-    clearSubmittedDraft(taskId, draft);
-    await refresh();
-  } catch (error) {
-    showToast(ui`发送失败：${requestErrorMessage(error)}`);
-  } finally {
-    finishSubmission(submission);
-    renderAll();
-    updateSendButton();
-  }
-}
-
-async function continuePausedRun(taskId = state.selected) {
-  const detail = state.detail?.task?.taskId === taskId ? state.detail : null;
-  if (
-    !taskId ||
-    state.selected !== taskId ||
-    !detail ||
-    detail.runtime?.active ||
-    detail.task.status !== "paused" ||
-    continuingTasks.has(taskId)
-  )
-    return;
-  continuingTasks.add(taskId);
-  try {
-    await launchPrompt(taskId, undefined, { resume: true });
-    await refresh();
-  } catch (error) {
-    showToast(ui`继续失败：${requestErrorMessage(error)}`);
-    await refresh();
-  } finally {
-    continuingTasks.delete(taskId);
-    renderAll();
-  }
-}
-
-async function retryFailedRequest(taskId) {
-  const detail = state.detail?.task?.taskId === taskId ? state.detail : null;
-  if (
-    !taskId ||
-    state.selected !== taskId ||
-    !detail ||
-    detail.runtime?.active ||
-    ["completed", "cancelled"].includes(detail.task.status) ||
-    !$("#human-questions").hidden ||
-    currentSubmission() ||
-    readingAttachments ||
-    !state.online
-  )
-    return;
-  if (state.modelConfigured === false) return void modelSettings.open();
-  if (detail.retryRequestUnavailable) {
-    showToast(ui("原始模型请求的重试记录不可用，已有历史和草稿已保留。请恢复工作区备份或主动发送新消息。"));
-    return;
-  }
-  // The exact request identity is independent of the next unsent message.
-  const runOptions = {
-    resume: true,
-    retryRequestId: detail.retryRequest?.requestId,
-    savedUsers: (detail.messages || []).filter((message) => message.role === "user").length
-  };
-  const recoveryFocus = document.activeElement?.hasAttribute?.("data-retry-request");
-  const navigation = composerSession.currentToken;
-  let rejected = false;
-  composerSession.save();
-  const submission = beginSubmission(taskId);
-  runOptions.submission = submission;
-  updateSendButton();
-  try {
-    await launchPrompt(taskId, undefined, runOptions);
-    await refresh();
-  } catch (error) {
-    rejected = true;
-    const classified = requestErrorMessage(error);
-    showToast(
-      ui`重试未能启动：${error.code === "main_retry_context_changed" || error.code === "main_retry_snapshot_invalid" ? error.message : classified !== error.message ? classified : ui("已有内容和草稿已保留，请检查连接后重试。")}`
-    );
-  } finally {
-    finishSubmission(submission);
-    renderAll();
-    updateSendButton();
-    if (
-      rejected &&
-      recoveryFocus &&
-      state.selected === taskId &&
-      composerSession.currentToken === navigation &&
-      document.activeElement === document.body
-    )
-      $("#conversation [data-retry-request]")?.focus({ preventScroll: true });
-  }
-}
+const workView = createWorkView({
+  $,
+  state,
+  computerUse,
+  trustPrompt,
+  humanQuestions,
+  projectController,
+  conversationReadState,
+  conversationHistory,
+  newSession,
+  firstUse,
+  requirementPanel,
+  renderConversation,
+  renderArtifactDrawer,
+  updateSendButton,
+  renderRunControl: () => runControl.render(),
+  markRendered: (detail) => catalog.markRendered(detail),
+  composerModel
+});
+const catalog = createSessionCatalog({
+  state,
+  api,
+  composerSession,
+  composerModel,
+  projectController,
+  connection,
+  taskNotifications,
+  initialConversationTaskId,
+  connectedBackend: () => management.state().backendId,
+  resetBackendFiles: () => {
+    computerUse.reset();
+    artifactViewer.reset();
+    artifacts.resetMedia();
+    backendFiles.clear();
+  },
+  resetRequirements: (taskId) => requirementPanel.reset(taskId),
+  onOnline: (online) => backendConnection?.setOnline(online),
+  onBackendChanged: () => void draftRecovery.refresh(),
+  onCatalogChanged: () => observation.data.localChanged(),
+  composerHasUnsentContent: () => delivery.composerHasUnsentContent(),
+  renderConversationList,
+  renderAll,
+  renderEmpty,
+  updateSendButton,
+  showToast
+});
+const delivery = createConversationDelivery({
+  $,
+  state,
+  api,
+  composerSession,
+  composerModel,
+  composerMenu,
+  attachments: composerAttachments,
+  messageEdit,
+  firstUse,
+  createTask: workSessions.createTask,
+  connectEventStream,
+  renderAll,
+  refresh,
+  loadDetail,
+  isBackendReady: () => Boolean(backendConnection?.ready()),
+  waiting: () => runControl.waiting(),
+  openModelSettings: () => modelSettings.open(),
+  showToast
+});
 
 composerSession.activate(state.selected, { projectId: state.selectedProjectId });
 // The page ships the composer read-only: the draft lease and this first
@@ -2744,14 +708,15 @@ async function bootBackend() {
   }
   // Bind drafts to the backend before the first conversation is activated, or
   // the composer would read the pre-connection namespace.
-  adoptBackendIdentity(connected.backendId);
+  catalog.adoptBackendIdentity(connected.backendId);
   void computerUse.refresh();
-  await loadModels();
+  await composerModel.refresh();
   await refresh();
   await draftRecovery.refresh();
   updateSendButton();
   if (window.bookmanDesktop && state.modelConfigured === false) void modelSettings.open();
 }
+initialized = true;
 void bootBackend();
 // Reserve initial navigation before starting reads that can restore a tab.
 // Automatic reads pause while hidden; explicit actions still refresh directly.
@@ -2771,7 +736,7 @@ createVisiblePoll({
 });
 
 async function prepareInterfaceClose() {
-  if (readingAttachments) {
+  if (composerAttachments.busy) {
     showToast(ui("附件仍在读取，请稍候再关闭窗口或更新模型连接"));
     return false;
   }
@@ -2780,15 +745,15 @@ async function prepareInterfaceClose() {
   const composerSaved = composerSession.prepareClose();
   return repliesSaved && composerSaved;
 }
-observeData.start();
+observation.data.start();
 backendConnection = createBackendConnection({
   management,
-  settingsHost: settingsPages.host,
+  settingsHost: observation.settingsPages.host,
   showToast,
   onReady: async ({ backendId }) => {
-    adoptBackendIdentity(backendId);
+    catalog.adoptBackendIdentity(backendId);
     void computerUse.refresh();
-    await loadModels();
+    await composerModel.refresh();
     await refresh();
     updateSendButton();
   }
@@ -2796,9 +761,9 @@ backendConnection = createBackendConnection({
 window.bookmanDesktop?.onPrepareClose(prepareInterfaceClose);
 installLanguageSettings({ prepareClose: prepareInterfaceClose, storage: draftStorage });
 installSelectMenus();
-installDesktopUpdates({ host: settingsPages.host });
+installDesktopUpdates({ host: observation.settingsPages.host });
 const modelSettings = installDesktopSettings({
-  host: settingsPages.host,
+  host: observation.settingsPages.host,
   showToast,
   api,
   identity: () => {
@@ -2807,10 +772,6 @@ const modelSettings = installDesktopSettings({
       ? JSON.stringify([current.backendId, current.baseUrl, current.pid, current.startedAt])
       : null;
   },
-  onSaved: () => {
-    // A switch of the Main connection resets the choices in syncModelConnection.
-    state.model = null;
-    void loadModels().then(() => refresh());
-  }
+  onSaved: onModelChanged
 });
 $("#model-setup-button").addEventListener("click", () => void modelSettings.open());

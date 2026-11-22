@@ -1,0 +1,519 @@
+/* Shared font families for legacy shell components. Size is centralized below. */
+body {
+  font-size: var(--ui-type-control);
+  line-height: 1.5;
+}
+button,
+input,
+select,
+textarea {
+  font-family: var(--ui-font);
+}
+:is(
+  .topbar-context,
+  .conversation-sidebar,
+  .chat-header,
+  .agent-pane,
+  .composer,
+  .modal-card,
+  .search-dialog,
+  .session-menu,
+  .model-menu,
+  .artifact-drawer
+) {
+  font-family: var(--ui-font);
+}
+
+.chat-pane .message-copy {
+  font-family: var(--ui-font);
+  font-size: var(--ui-type-body);
+  font-weight: var(--ui-weight-regular);
+  line-height: var(--ui-line-body);
+}
+.chat-message.main > .message-avatar {
+  display: none;
+}
+
+/* Restrained weight and natural spacing for Chinese and Latin text. */
+.brand-lockup strong {
+  font-weight: var(--ui-weight-emphasis);
+}
+.chat-pane .chat-header h1,
+.artifact-drawer-title h2,
+.attachment-preview-card header strong {
+  font-weight: var(--ui-weight-medium);
+  letter-spacing: normal;
+  line-height: 1.5;
+}
+
+.chat-pane .markdown-body {
+  font-weight: var(--ui-weight-regular);
+  letter-spacing: normal;
+  line-height: var(--ui-line-body);
+}
+.chat-pane .markdown-body p {
+  margin-bottom: 14px;
+}
+.chat-pane .markdown-body li {
+  margin-block: 6px;
+}
+.chat-pane .markdown-body :is(h1, h2, h3, h4, h5, h6) {
+  margin: 20px 0 8px;
+  font-weight: var(--ui-weight-medium);
+  letter-spacing: normal;
+  line-height: 1.5;
+}
+.chat-pane .markdown-body strong {
+  font-weight: var(--ui-weight-emphasis);
+}
+.chat-pane .markdown-body th {
+  font-weight: var(--ui-weight-medium);
+}
+.chat-pane .reasoning-copy.markdown-body strong {
+  font-weight: var(--ui-weight-medium);
+}
+.chat-pane .reasoning-copy.markdown-body p {
+  margin-bottom: 10px;
+}
+.chat-pane .markdown-body > :last-child {
+  margin-bottom: 0;
+}
+:is(.message-meta, .conversation-item-meta, .attachment-chip small, .model-provider) {
+  font-weight: var(--ui-weight-regular);
+  letter-spacing: normal;
+  line-height: 1.5;
+}
+:is(.markdown-body pre, .markdown-body code, .tool-call-body pre, .tool-result pre, .activity-preview.mono) {
+  font-family: var(--ui-mono);
+}
+
+.composer .send-button .ui-icon {
+  width: var(--ui-icon-large);
+  height: var(--ui-icon-large);
+}
+/* Solid surfaces keep chrome, popovers and input controls in one visual system. */
+.app-topbar,
+.conversation-sidebar,
+.agent-pane {
+  background: var(--ui-bg);
+  border-color: var(--ui-glass-border);
+}
+
+.composer {
+  background: var(--ui-panel);
+  border-color: transparent;
+  box-shadow: var(--ui-composer-shadow);
+}
+.agent-pane-header {
+  min-height: var(--shell-section-height);
+  padding: 16px 24px;
+  border-bottom: 0;
+  background: transparent;
+}
+
+.agent-pane {
+  font-size: var(--panel-type-body);
+}
+.agent-pane .panel-view {
+  padding-right: 24px;
+  padding-left: 24px;
+}
+/* The center surface meets one continuous toolbar and sidebar background. */
+.app-layout {
+  background: var(--ui-bg);
+}
+.conversation-sidebar,
+.agent-pane {
+  border: 0;
+}
+.agent-pane {
+  border-left: 1px solid var(--ui-border);
+}
+.chat-pane {
+  border: 0;
+  border-radius: 0;
+}
+.agent-pane .panel-add {
+  flex: 0 0 32px;
+  width: 32px;
+  min-width: 32px;
+  height: 32px;
+}
+.workspace-start {
+  padding: 32px 0;
+  color: var(--ui-muted);
+  line-height: 1.75;
+}
+.workspace-start strong {
+  display: block;
+  color: var(--ui-text);
+  font-size: var(--panel-type-body);
+  font-weight: var(--ui-weight-medium);
+}
+.workspace-start p {
+  margin: 12px 0;
+}
+.workspace-start small {
+  font-size: var(--ui-type-caption);
+}
+.workspace-view.is-empty-task > :not(.workspace-start),
+.workspace-view:not(.is-empty-task) > .workspace-start {
+  display: none;
+}
+/* Component roles set their sizes; body remains the shared reading baseline. */
+body {
+  font-size: var(--ui-type-body);
+}
+html,
+body {
+  background: var(--ui-bg);
+}
+.chat-header {
+  background: rgba(0, 0, 0, 0.32);
+}
+.chat-message.user {
+  background: rgba(28, 28, 28, 0.9);
+}
+.chat-pane .chat-message.user {
+  display: block;
+  width: fit-content;
+  max-width: min(720px, 78%);
+  margin: 0 0 34px auto;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.user-message-bubble {
+  position: relative;
+  padding: 9px 16px;
+  border-radius: 20px;
+  background: var(--ui-raised);
+}
+.chat-pane .user-message-bubble .markdown-body {
+  line-height: 1.55;
+}
+/* The prompt as typed: its own line breaks and indentation, long tokens wrapped. */
+.user-text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.user-message-bubble .markdown-body > :first-child {
+  margin-top: 0;
+}
+.user-message-bubble .markdown-body > :last-child {
+  margin-bottom: 0;
+}
+/* The edit key sits under the bubble's right edge, as Codex places its
+   message actions, but outside the flow: it is only added once the message is
+   saved, and taking room under the bubble then pushed the reply down a step
+   after it had started. The message's bottom margin is the room it shows in. */
+.chat-pane .chat-message.user:not(.is-editing) {
+  position: relative;
+}
+.user-message-actions {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 2px;
+  height: 24px;
+  margin: 0;
+  white-space: nowrap;
+}
+.user-message-time {
+  margin-right: 6px;
+  color: var(--ui-muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.user-message-actions > .user-message-time,
+.user-message-actions .app-button {
+  opacity: 0;
+}
+.chat-message.user:hover .user-message-actions > .user-message-time,
+.chat-message.user:focus-within .user-message-actions > .user-message-time {
+  opacity: 1;
+}
+.user-message-actions .app-button {
+  width: 24px;
+  height: 24px;
+  min-height: 0;
+  padding: 0;
+  border-radius: 6px;
+  color: var(--ui-muted);
+  opacity: 0;
+}
+.user-message-actions .app-button .ui-icon {
+  width: 15px;
+  height: 15px;
+}
+.chat-message.user:hover .user-message-actions .app-button,
+.chat-message.user:focus-within .user-message-actions .app-button,
+.chat-message.user.is-editing .user-message-actions .app-button {
+  opacity: 1;
+}
+@media (hover: none) {
+  .user-message-actions .app-button {
+    opacity: 1;
+  }
+}
+.chat-pane .chat-message.user.is-editing {
+  width: 100%;
+  max-width: 100%;
+}
+.chat-message.is-editing .user-message-bubble {
+  padding: 14px 16px 12px;
+  border-radius: 24px;
+  background: color-mix(in srgb, var(--ui-raised), var(--ui-text) 7%);
+}
+.chat-message.is-editing .user-message-bubble > .markdown-body {
+  display: none;
+}
+.chat-scroll:has(.is-editing) {
+  overflow-anchor: none;
+}
+.inline-message-editor {
+  white-space: normal;
+}
+.inline-message-editor textarea {
+  display: block;
+  width: 100%;
+  height: 64px;
+  min-height: 48px;
+  max-height: min(280px, 34dvh);
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--ui-text);
+  font: inherit;
+  line-height: 1.55;
+  resize: none;
+  overflow-y: auto;
+}
+@supports (field-sizing: content) {
+  .inline-message-editor textarea {
+    field-sizing: content;
+    height: auto;
+  }
+}
+.chat-message.is-editing .user-message-actions {
+  position: relative;
+  top: auto;
+  right: auto;
+  height: auto;
+  margin: 12px 0 0;
+}
+.inline-edit-actions {
+  position: relative;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  white-space: normal;
+}
+.inline-edit-actions .app-button {
+  width: auto;
+  min-width: 54px;
+  padding: 5px 12px;
+  border: 1px solid var(--ui-border-hover);
+  border-radius: 12px;
+  color: var(--ui-text);
+}
+.inline-edit-actions .app-button.is-primary {
+  background: var(--ui-text);
+  color: var(--ui-panel);
+  border-color: var(--ui-text);
+}
+.inline-edit-actions .app-button.is-primary:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--ui-text), var(--ui-panel) 10%);
+}
+.inline-edit-actions .inline-edit-attachments-menu .app-button {
+  min-width: 32px;
+  padding: 0;
+  border-color: transparent;
+}
+.inline-edit-attachments-menu {
+  position: static;
+}
+.inline-edit-attachments-menu summary {
+  list-style: none;
+}
+.inline-edit-attachments-menu summary::-webkit-details-marker {
+  display: none;
+}
+.inline-edit-attachments {
+  position: absolute;
+  top: 36px;
+  right: 0;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 240px;
+  max-width: calc(100vw - 100px);
+  padding: 8px;
+  border: 1px solid var(--ui-border);
+  border-radius: 10px;
+  background: var(--ui-panel);
+  box-shadow: var(--ui-popup-shadow);
+}
+.inline-edit-attachment {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  padding-left: 8px;
+  border-radius: 8px;
+  background: var(--ui-panel);
+  color: var(--ui-secondary);
+  font-size: 12px;
+}
+.inline-edit-attachment > span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.inline-edit-attachment > .ui-icon {
+  flex-shrink: 0;
+}
+.inline-edit-attachment button {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+.inline-edit-attachment button:hover {
+  background: var(--ui-hover);
+}
+
+/* The input occupies its own row instead of covering conversation content. */
+.composer-wrap {
+  position: relative;
+  inset: auto;
+  flex: 0 0 auto;
+}
+.chat-pane .chat-scroll {
+  flex: 1 1 0;
+  min-height: 0;
+  padding-bottom: 26px;
+  scroll-padding-bottom: 26px;
+}
+/* Composer controls share an open surface instead of individual boxes. */
+
+.composer :is(.send-button, .stop-button, .attachment-chip button) {
+  border: 0;
+  box-shadow: none;
+}
+/* Low-frequency settings stay lighter than the conversation and its primary action. */
+.conversation-sidebar .sidebar-bottom {
+  padding: 8px 12px 12px;
+  border-top: 0;
+  background: transparent;
+}
+.conversation-sidebar .account-row {
+  min-height: 36px;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  color: var(--ui-muted);
+  font-weight: 400;
+  line-height: 20px;
+}
+.conversation-sidebar .account-row:hover,
+.conversation-sidebar .account-row:focus-visible {
+  color: var(--ui-secondary);
+  background: light-dark(#24242c06, #ffffff06);
+}
+.account-row .account-name {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 400;
+}
+.account-row .account-icon {
+  width: var(--ui-icon-size);
+  height: var(--ui-icon-size);
+}
+.account-row .account-more {
+  display: flex;
+  color: var(--ui-faint);
+  opacity: 0;
+}
+.conversation-sidebar .account-more .ui-icon {
+  width: var(--ui-icon-small);
+  height: var(--ui-icon-small);
+}
+.account-row:hover .account-more,
+.account-row:focus-visible .account-more {
+  opacity: 1;
+}
+.profile-card .profile-heading {
+  gap: 10px;
+  margin-bottom: 20px;
+}
+.profile-card .profile-heading > .ui-icon {
+  width: var(--ui-icon-size);
+  height: var(--ui-icon-size);
+  color: var(--ui-muted);
+}
+.profile-card .profile-setting small {
+  color: var(--ui-muted);
+}
+
+:is(.app-topbar, .conversation-sidebar, .composer) .ui-icon {
+  stroke-width: 1.6;
+}
+.conversation-sidebar .sidebar-section-label,
+.conversation-sidebar .conversation-item-meta,
+.chat-pane .message-meta {
+  color: var(--ui-muted);
+  font-weight: 400;
+}
+.upload-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0 10px;
+  color: var(--ui-muted);
+}
+.upload-status[hidden] {
+  display: none;
+}
+.upload-status > span {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.upload-status button {
+  border: 0;
+  background: transparent;
+  color: var(--ui-text);
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 6px;
+}
+.upload-status button:hover {
+  background: light-dark(#24242c0a, #ffffff0a);
+}
+.composer.is-file-drop {
+  outline: 2px solid var(--ui-accent);
+  outline-offset: 2px;
+}

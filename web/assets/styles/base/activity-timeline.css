@@ -1,0 +1,530 @@
+/* Activity timeline: keep useful context in the open, and make verbose
+   payloads optional. This mirrors the scan-friendly execution history in
+   Codex while avoiding a wall of raw JSON. */
+.live-workflow {
+  position: relative;
+}
+.live-workflow-head {
+  min-height: 42px;
+  padding: 7px 0 13px;
+  border-bottom: 1px solid #353535;
+}
+.workflow-heading {
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+  min-width: 0;
+}
+.workflow-heading strong {
+  color: #ededed;
+  font-size: 14px;
+  font-weight: 600;
+}
+.workflow-heading span {
+  overflow: hidden;
+  color: #777;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.live-caption {
+  color: #949494;
+  font-size: 11px;
+}
+.workflow-rail {
+  position: relative;
+  padding: 4px 0 0 3px;
+}
+.workflow-rail::before {
+  content: "";
+  position: absolute;
+  top: 22px;
+  bottom: 16px;
+  left: 14px;
+  width: 1px;
+  background: #353535;
+}
+.workflow-turn {
+  position: relative;
+  margin: 0;
+  padding: 12px 0 8px 35px;
+}
+.workflow-turn-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 21px;
+  margin-bottom: 8px;
+  color: #a8a8a8;
+  font-size: 11px;
+}
+.workflow-turn-label small {
+  margin-left: auto;
+  color: #777;
+  font-size: 10px;
+}
+.workflow-index {
+  position: absolute;
+  left: 5px;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 19px;
+  height: 19px;
+  border: 1px solid #505050;
+  border-radius: 50%;
+  color: #c6c6c6;
+  background: #202020;
+  font:
+    10px "DM Mono",
+    monospace;
+}
+.activity-step {
+  position: relative;
+  display: flex;
+  gap: 10px;
+  margin: 8px 0;
+  padding: 11px 12px 11px 10px;
+  border: 1px solid #3a3a3a;
+  border-radius: 10px;
+  background: #232323;
+}
+.activity-step:hover {
+  border-color: #505050;
+  background: #282828;
+}
+.activity-marker {
+  display: grid;
+  place-items: center;
+  flex: 0 0 24px;
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+  color: #ddd;
+  background: #343434;
+  font-size: 12px;
+}
+.reasoning-marker {
+  color: #d7d7d7;
+  background: #3a343f;
+}
+.tool-marker {
+  color: #cfcfcf;
+  background: #343a42;
+}
+.activity-step-content {
+  min-width: 0;
+  flex: 1;
+}
+.activity-step-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 20px;
+}
+.activity-step-head strong {
+  color: #e2e2e2;
+  font-size: 12px;
+  font-weight: 600;
+}
+.activity-step-head > span:not(.tool-call-kind):not(.activity-status) {
+  margin-left: auto;
+  color: #7c7c7c;
+  font-size: 10px;
+}
+.activity-preview {
+  margin: 6px 0 0;
+  overflow: hidden;
+  color: #a9a9a9;
+  font-size: 12px;
+  line-height: 1.55;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.activity-preview.mono {
+  color: #bcbcbc;
+  font:
+    11px/1.55 "DM Mono",
+    ui-monospace,
+    monospace;
+}
+.activity-status {
+  margin-left: auto;
+  padding: 2px 7px;
+  border: 1px solid #444;
+  border-radius: 999px;
+  color: #b9b9b9;
+  background: #303030;
+  font-size: 10px;
+}
+.activity-status.running {
+  color: #d2d2d2;
+  border-color: #5a5a5a;
+  background: #383838;
+}
+.activity-status.done {
+  color: #ababab;
+}
+.activity-details {
+  margin-top: 8px;
+  border-top: 1px solid #363636;
+}
+.activity-details summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0 0;
+  color: #999;
+  cursor: pointer;
+  list-style: none;
+  font-size: 10px;
+}
+.activity-details summary::-webkit-details-marker {
+  display: none;
+}
+.activity-details summary::before {
+  content: "›";
+  color: #777;
+  font-size: 16px;
+  line-height: 1;
+  transition: transform 0.15s;
+}
+.activity-details[open] summary::before {
+  transform: rotate(90deg);
+}
+.activity-details summary small {
+  margin-left: auto;
+  color: #666;
+  font-size: 10px;
+}
+.activity-data-label {
+  margin: 10px 0 5px;
+  color: #707070;
+  font:
+    10px "DM Mono",
+    monospace;
+  text-transform: uppercase;
+}
+.activity-step .tool-call-body {
+  padding: 0 0 1px;
+}
+.activity-step .tool-call-body pre,
+.activity-step .tool-result pre {
+  max-height: 230px;
+  margin-top: 8px;
+}
+.reasoning-copy {
+  max-height: 260px;
+  padding: 9px 10px;
+  border: 1px solid #383838;
+  border-radius: 7px;
+  color: #a7a7a7;
+  background: #1e1e1e;
+  font:
+    11px/1.65 "DM Mono",
+    ui-monospace,
+    monospace;
+}
+.reasoning-short {
+  margin: 8px 0 0;
+  max-height: 150px;
+  overflow: auto;
+}
+.live-answer {
+  margin: 10px 0 0;
+  padding: 12px 0 2px;
+}
+.execution-history {
+  display: block;
+  margin: 0 0 24px;
+  border-bottom: 1px solid #343434;
+}
+.execution-history > summary {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 10px 0 12px;
+  color: #a8a8a8;
+  cursor: pointer;
+  list-style: none;
+}
+.execution-history > summary::-webkit-details-marker {
+  display: none;
+}
+.history-chevron {
+  color: #777;
+  font-size: 19px;
+  line-height: 1;
+  transition: transform 0.15s;
+}
+.execution-history[open] > summary .history-chevron {
+  transform: rotate(90deg);
+}
+.execution-history > summary > span:nth-child(2) {
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+  min-width: 0;
+}
+.execution-history > summary strong {
+  color: #d6d6d6;
+  font-size: 13px;
+  font-weight: 600;
+}
+.execution-history > summary small {
+  color: #777;
+  font-size: 11px;
+}
+.execution-history > summary em {
+  margin-left: auto;
+  color: #858585;
+  font-size: 11px;
+  font-style: normal;
+}
+.workspace-button.has-workspace {
+  color: #e0e0e0;
+  border-color: #555;
+  background: #2d2d2d;
+}
+.workspace-button.has-workspace .ui-icon {
+  color: #d5d5d5;
+}
+.workspace-button:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+
+@media (max-width: 1200px) {
+  .workflow-heading span {
+    display: none;
+  }
+  .activity-step {
+    padding-right: 9px;
+  }
+}
+
+/* Continuous execution transcript: one quiet rail, no round containers. */
+.workflow-rail {
+  padding-top: 0;
+}
+.workflow-turn {
+  display: contents;
+}
+.activity-step {
+  margin: 0;
+  padding: 13px 4px 13px 8px;
+  border: 0;
+  border-bottom: 1px solid #303030;
+  border-radius: 0;
+  background: transparent;
+}
+.activity-step:hover {
+  border-color: #3c3c3c;
+  background: #202020;
+}
+.activity-step:last-child {
+  border-bottom: 0;
+}
+.reasoning-step {
+  align-items: flex-start;
+}
+.reasoning-copy {
+  max-height: none;
+  overflow: visible;
+  margin: 8px 0 0;
+  padding: 0;
+  border: 0;
+  color: #b5b5b5;
+  background: transparent;
+  font:
+    12px/1.7 Manrope,
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    sans-serif;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.tool-step {
+  min-height: 46px;
+  align-items: center;
+  padding-top: 9px;
+  padding-bottom: 9px;
+}
+.tool-step .activity-step-content {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+.tool-step .activity-step-head {
+  width: 100%;
+}
+.tool-step .activity-marker {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  color: #aaa;
+  background: #2e2e2e;
+}
+.tool-call-kind {
+  min-width: 38px;
+  color: #777;
+  font-size: 10px;
+}
+.tool-step .activity-step-head strong {
+  color: #d0d0d0;
+  font:
+    12px "DM Mono",
+    ui-monospace,
+    monospace;
+  font-weight: 500;
+}
+.activity-status {
+  padding: 1px 6px;
+  color: #999;
+  background: #282828;
+}
+.live-answer {
+  margin: 0;
+  padding: 15px 4px 5px 8px;
+  border-top: 1px solid #3a3a3a;
+}
+.model-select {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+.model-logo {
+  display: grid;
+  place-items: center;
+  flex: 0 0 21px;
+  width: 21px;
+  height: 21px;
+  overflow: hidden;
+  border: 1px solid #4c4c4c;
+  border-radius: 6px;
+  background: #303030;
+}
+.model-logo img {
+  width: 17px;
+  height: 17px;
+  object-fit: contain;
+}
+.model-name {
+  color: #cfcfcf;
+}
+.model-chevron {
+  color: #777;
+}
+.reasoning-marker img {
+  width: 15px;
+  height: 15px;
+  object-fit: contain;
+}
+.model-process-icon img {
+  width: 17px;
+  height: 17px;
+  object-fit: contain;
+}
+.execution-history > summary {
+  padding-top: 13px;
+  padding-bottom: 13px;
+}
+.execution-history > summary::before {
+  display: none;
+}
+.execution-history > summary small {
+  color: #737373;
+}
+.workflow-rail::before {
+  display: none;
+}
+.tool-arguments {
+  flex: 1;
+  min-width: 0;
+  margin: 0 8px;
+  overflow: hidden;
+  color: #888;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tool-step .activity-step-head .tool-arguments {
+  margin-left: 8px;
+  margin-right: 8px;
+}
+
+/* Keep the two-column shell inside the viewport. Each panel owns its scroll
+   area so the sidebar and output column stay anchored while the conversation
+   grows. */
+html,
+body {
+  height: 100%;
+  overflow: hidden;
+}
+.app-shell {
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+}
+.app-layout {
+  height: calc(100dvh - var(--shell-toolbar-height));
+  min-height: 0;
+  overflow: hidden;
+}
+.conversation-sidebar,
+.chat-pane,
+.agent-pane {
+  min-height: 0;
+}
+.conversation-sidebar {
+  height: auto;
+}
+.chat-pane {
+  overflow: hidden;
+}
+.chat-scroll {
+  min-height: 0;
+  overflow: auto;
+}
+.agent-pane {
+  overflow: auto;
+}
+
+/* Slim, dark scrollbars keep the canvas visually quiet. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #444 transparent;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  min-height: 34px;
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: #444;
+  background-clip: padding-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: #5a5a5a;
+  background-clip: padding-box;
+}
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* A message on its way leaves the composer looking empty until the send settles. */
+#composer-input.is-sent {
+  color: transparent;
+  caret-color: transparent;
+}
+#composer-input.is-sent::selection {
+  background: transparent;
+}
+.attachment-strip.is-sent {
+  display: none;
+}

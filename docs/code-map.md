@@ -91,9 +91,11 @@ CLI 一条命令安装由 [install.sh](../scripts/install.sh) 负责，使用公
 
 ### 项目上下文
 
+项目开发入口按职责装配[现场](../src/dashboard/development-workspace-service.ts)、[票](../src/dashboard/development-ticket-service.ts)、[评审](../src/dashboard/development-review-start-service.ts)和[合入申请](../src/dashboard/development-merge-request-service.ts)。[项目数据仓储](../src/workspace/project-data-repository.ts)把当前事务传给各 SQL 仓储；台账和维护操作分别在[需求台账](../src/workspace/project-ledger-repository.ts)与[台账维护](../src/workspace/ledger-maintenance-repository.ts)，备份与恢复在[项目快照](../src/workspace/project-data-snapshot.ts)。
+
 项目开发服务将合入排队、目标分支发布、Git 对账和本地待交付记录重试交给[合入服务](../src/dashboard/project-development-merge-service.ts)。[Main 会话仓储](../src/workspace/project-main-session.ts)读写会话、需求关联和 Run 归属，由项目数据服务传入同一个 SQL 事务。
 
-台账维护的读取边界和完成游标由[项目数据服务](../src/workspace/project-data-service.ts)管理，[交付仓储](../src/workspace/project-delivery.ts)在同一项目的时钟下写入交付及其历史。对应回归覆盖[并发完成维护](../test/p3-ledger.test.js)、[旧台账升级](../test/p8-ledger-tidy.test.js)和[同毫秒交付](../test/p4-delivery-records.test.js)。
+[台账维护仓储](../src/workspace/ledger-maintenance-repository.ts)管理读取边界和完成游标，[交付仓储](../src/workspace/project-delivery.ts)在同一项目的时钟下写入交付及其历史。对应回归覆盖[并发完成维护](../test/p3-ledger.test.js)、[旧台账升级](../test/p8-ledger-tidy.test.js)和[同毫秒交付](../test/p4-delivery-records.test.js)。
 
 Main 的项目上下文只来自需求台账：项目与需求、完成标准和交付记录由 [项目数据服务](../src/workspace/project-data-service.ts) 与 [Main 工具](../.pi/runtime/tools/project-ledger.ts) 提供，工具的装配在 [Pi 扩展](../.pi/runtime/extension.ts)。每个 Task 的 Main 上下文目录（[main-context](../src/runtime/main-context.ts)）只保存这个 Task 的消息副本与运行快照，不是跨 Task 的用户记忆；Main 暂停或重启后接续原 Pi 会话，进度由会话本身和开发记录提供。
 
@@ -145,9 +147,11 @@ CoworkOS 的免依赖版本入口由 [cli-information](../scripts/cli-informatio
 
 ### 会话、输入与界面
 
-输入框的基础样式集中在 [composer.css](../web/assets/styles/composer.css)。会话重命名、更新和移除由[会话操作控制器](../web/assets/controllers/conversation-operations.js)处理。
+工作入口沿[会话目录](../web/assets/controllers/session-catalog.js)、[会话选择](../web/assets/controllers/work-sessions.js)和[消息发送](../web/assets/controllers/conversation-delivery.js)追踪。观测页面分别从[运行活动](../web/assets/controllers/observe-run-activity.js)与[需求详情](../web/assets/controllers/observe-requirement-detail.js)读取对应状态。
 
-界面的字体、字号、三栏比例与控件节奏由 [ui.css](../web/assets/ui.css) 统一；[formicand.css](../web/assets/formicand.css) 集中定义设计令牌、玻璃面板与减少动态效果，[system-theme.css](../web/assets/system-theme.css) 消费有效外观，[layout.css](../web/assets/layout.css) 管理阅读列与会话卡片。本地 Inter 字体及完整许可位于 `web/assets/fonts/`，来源见[第三方声明](../THIRD_PARTY_NOTICES.md#inter-界面字体--interface-typeface)。验证[阅读列与窄屏](../e2e/conversation-width.spec.js)、[输入框布局](../e2e/composer-layout.spec.js)及[主题与对比度](../e2e/system-theme.spec.js)，排版规范见 [UI 约定](development.md#应用-ui-约定)。
+输入框的基础样式集中在 [composer.css](../web/assets/styles/composer.css)。会话重命名、更新和移除由[会话操作控制器](../web/assets/controllers/conversation-operations.js)处理。[首屏构建脚本](../scripts/build-web-assets.mjs)按 [shell.css](../web/shell.css) 的导入顺序合并样式，并将 [app.js](../web/app.js) 及其静态依赖打成一个模块。英文词表按需加载。组件规则在 [styles](../web/assets/styles/) 下按工作区、设置和布局归组。
+
+界面的字体、字号、三栏比例与控件节奏由 [ui.css](../web/assets/ui.css) 统一；[formicand.css](../web/assets/formicand.css) 集中定义设计令牌、玻璃面板与减少动态效果，[system-theme.css](../web/assets/system-theme.css) 消费有效外观，[阅读列样式](../web/assets/styles/layout/reading-column.css)管理会话内容的宽度与间距。本地 Inter 字体及完整许可位于 `web/assets/fonts/`，来源见[第三方声明](../THIRD_PARTY_NOTICES.md#inter-界面字体--interface-typeface)。验证[阅读列与窄屏](../e2e/conversation-width.spec.js)、[输入框布局](../e2e/composer-layout.spec.js)及[主题与对比度](../e2e/system-theme.spec.js)，排版规范见 [UI 约定](development.md#应用-ui-约定)。
 
 对话中的数学公式由 [Markdown 渲染器](../web/assets/markdown.js) 和 [公式解析](../web/assets/math.js) 共用处理，Web/App 的本地 KaTeX 脚本、样式、字体和许可证由 [构建脚本](../scripts/build-math.mjs) 准备。验证 [分隔符/代码/错误回退](../test/markdown-math.test.js) 与 [真实流式、离线资源及历史重开](../e2e/conversation-math.spec.js)；支持范围见 [运行时参考](runtime-reference.md#数学公式)。
 
@@ -161,7 +165,7 @@ CoworkOS 的免依赖版本入口由 [cli-information](../scripts/cli-informatio
 
 执行行、失败摘要与折叠详情归 [会话视图](../web/assets/controllers/conversation-view.js)，工具名称和可读结果归 [工具展示](../web/assets/tool-presentation.js)，错误归类与脱敏归 [请求错误](../web/assets/request-error.js)。样式消费 [共用主题](../web/assets/system-theme.css) 的中性表面与状态颜色，成功状态保持低强调，技术细节和长日志默认折叠。验证 [执行展示、展开状态与日志阅读](../e2e/execution-display.spec.js)、[错误恢复与内容保留](../e2e/conversation-integrity.spec.js) 和 [主题与文字对比度](../e2e/system-theme.spec.js)，同步 [UI 约定](development.md#应用-ui-约定)。
 
-会话共同阅读列由 [布局样式](../web/assets/layout.css) 的会话容器尺寸管理，覆盖正文、历史、待回复和输入区；[共用样式](../web/assets/ui.css) 与 [主题](../web/assets/system-theme.css) 管理具有侧栏细边界的外壳和悬浮输入卡片。[侧栏尺寸](../web/assets/sidebar-layout.js) 管理鼠标、触控拖拽与键盘调整及细线的悬浮/焦点反馈。验证 [表面层级与焦点](../e2e/surface-hierarchy.spec.js)、[阅读列浏览器几何](../e2e/conversation-width.spec.js)、[输入布局](../e2e/composer-layout.spec.js) 与 [内容保留](../e2e/conversation-integrity.spec.js)。
+会话共同阅读列由[阅读列样式](../web/assets/styles/layout/reading-column.css) 的会话容器尺寸管理，覆盖正文、历史、待回复和输入区；[共用样式](../web/assets/ui.css) 与 [主题](../web/assets/system-theme.css) 管理具有侧栏细边界的外壳和悬浮输入卡片。[侧栏尺寸](../web/assets/sidebar-layout.js) 管理鼠标、触控拖拽与键盘调整及细线的悬浮/焦点反馈。验证 [表面层级与焦点](../e2e/surface-hierarchy.spec.js)、[阅读列浏览器几何](../e2e/conversation-width.spec.js)、[输入布局](../e2e/composer-layout.spec.js) 与 [内容保留](../e2e/conversation-integrity.spec.js)。
 
 顶栏在 [页面结构](../web/index.html) 和 [页面装配](../web/app.js) 中统一会话标题与项目归属；顶栏与侧栏的分组操作、复制子菜单和焦点/定位由 [会话菜单](../web/assets/controllers/conversation-menu.js) 负责。[会话操作](../web/assets/conversation-actions.js) 管理本机未读标记、对话 Markdown 和 `?task=<id>` 链接，[操作控制器](../web/assets/controllers/conversation-operations.js) 捕获原目标并执行复制、下载和打开，读取与导出不启动模型，也不切换当前草稿。运行或等待中的会话额外显示关闭会话；新任务页显示菜单但禁用会话操作。右侧需求进度面板由 [需求面板](../web/assets/controllers/requirement-panel.js) 渲染，阶段映射集中在 [阶段映射](../web/assets/requirement-stages.js)，供观测需求与总览复用；面板读取 Main 会话的需求、台账与交付视图，展示阶段、完成标准、票、改动、附件与按需展开的用量与执行细节；有票时阶段与完成标准按票判断。[预览抽屉](../web/assets/controllers/artifact-controller.js) 在工作入口内切换 diff、文件与附件；产出物对文本/Markdown/JSON/图片/PDF 提供只读预览与下载，其他类型直接下载。桌面额外提供「用系统默认应用打开」：preload 的 `bookman:open-artifact` 经 `GET /api/tasks/:taskId/artifact-path` 解析已索引文件后调用 Electron `shell.openPath`，Web 不显示该入口。下载走原有产出物接口。右侧面板在页面打开或刷新时默认收起；右上角开关优先收起或恢复当前会话工作区，没有工作区时控制需求进度面板，全局设置位于左下角侧栏，不再重复显示会话标题栏。验证 [操作内容与边界](../test/conversation-actions.test.js)、[未读/复制/导出/链接与子菜单](../e2e/conversation-menu.spec.js)、[表面层级与焦点](../e2e/surface-hierarchy.spec.js) 和 [原有会话菜单交互](../e2e/shell-interactions.spec.js)。
 
@@ -195,6 +199,8 @@ CoworkOS 的免依赖版本入口由 [cli-information](../scripts/cli-informatio
 
 ### 运行、委派与恢复
 
+Main 进程的名额、启动及退出分别由[准入](../src/dashboard/main-run-admission.ts)、[进程启动](../src/dashboard/main-run-process.ts)和[常驻 Main 结算](../src/dashboard/resident-main-settlement.ts)处理。Pi 扩展的[生命周期](../.pi/runtime/main-lifecycle.ts)负责回合、收件箱唤醒、心跳与关闭，[后台作业](../.pi/runtime/main-jobs.ts)向 Main 报告作业完成。委派进程返回后，[子代理结算](../src/runtime/subagent-settlement.ts)解析结果、更新队列并向 Main 投递回调。
+
 [任务生命周期](../src/dashboard/task-lifecycle.ts)负责任务完成、恢复、归档与删除的条件检查。它与 [Run 服务](../src/dashboard/run-service.ts)共用任务串行队列。Main 启动失败的 HTTP 回执见[产品 API](product-api.md)。
 
 重试的结构化工作目录归属由 [请求执行归属](../src/runtime/main-request-execution-scope.ts) 保存和比对，重放前校验 Task 存储根与实际工作目录。先运行 [归属比对](../test/main-request-execution-scope.test.js) 与 [请求重试](../test/main-request-retry.test.js)。
@@ -222,6 +228,8 @@ Main 失败请求重放由 [私有请求槽](../src/storage/main-request-store.t
 Main 与委派子代理都用 Pi 原生的 `bash` 和文件工具，命令的取消、超时与进程组回收由 Pi 宿主负责；跨工具调用继续运行的命令由 [jobs](../src/tools/jobs.ts) 管理，[Pi jobs 工具](../.pi/runtime/tools/jobs.ts) 接入。验证 [真实 job 启动失败](../test/jobs-spawn.test.js)、[Main jobs](../test/main-jobs.test.js) 和 [真实子代理命令](../test/p46-subagent-messages-pi.test.js)。
 
 ### 视觉、浏览器与桌面控制
+
+[Computer Use 操作协议](../src/gui/computer-action.ts)校验动作、按键和参数；[会话服务](../src/gui/computer-use.ts)持有窗口授权、观察状态和串行执行队列。
 
 桌面 HTTP 请求由 [路由装配](../src/dashboard/routes.ts) 在其他异步路由前交给 [Computer 路由](../src/dashboard/computer-routes.ts)，固定接入时的控制版本；停止、暂停或关闭后再恢复，未收完请求体的旧选择/发现仍须拒绝且不触达驱动。复核 [真实 HTTP 分块请求与恢复](../test/computer-policy-races.test.js) 及 [HTTP 消费者](../test/computer-http.test.js)。
 

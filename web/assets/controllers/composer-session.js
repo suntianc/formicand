@@ -1,6 +1,4 @@
-// Fallback for synchronous consumers without Web Locks. Browser contexts use
-// Web Locks, whose ownership ends automatically when a renderer exits.
-const localClaims = new WeakMap();
+import { createComposerPrebind } from "./composer-prebind.js";
 
 /** Conversation drafts stay separate from saved application documents. */
 export function createComposerSession({
@@ -13,60 +11,6 @@ export function createComposerSession({
   locks = globalThis.navigator?.locks
 }) {
   const storagePrefix = "atria.composer.v1:";
-  // Keep preconnection edits from different launches separate.
-  const randomId = () =>
-    Array.from(crypto.getRandomValues(new Uint8Array(16)), (byte) => byte.toString(16).padStart(2, "0")).join(
-      ""
-    );
-  const prebindRoot = `${storagePrefix}__prebind__:`;
-  const prebindId = randomId();
-  const lockManager = locks;
-  const readyMarker = `ready:${lockManager ? "lease:" : ""}${prebindId}`;
-  /**
-   * A session writes its marker before its drafts. Records without a marker, and
-   * markers from writers that never held a lease, are not sessions this version
-   * created, so they are not offered as recoverable drafts.
-   */
-  const currentMarker = (marker) =>
-    typeof marker === "string" &&
-    (lockManager
-      ? /^(?:live|ready:lease):[a-f0-9]{32}$/.test(marker)
-      : /^(?:live|ready):[a-f0-9]{32}$/.test(marker));
-  let prebindPrefix = `${prebindRoot}${prebindId}:`;
-  let adoptedMarker;
-  const unknownOccupancy = !lockManager && typeof window !== "undefined";
-  const claims = storage && !lockManager ? localClaims.get(storage) || new Map() : null;
-  if (claims && !localClaims.has(storage)) localClaims.set(storage, claims);
-  let releaseLease;
-  let disposed = false;
-  const lockName = (prefix) => `cowork-composer:${prefix}`;
-  const acquireLease = (prefix) => {
-    if (!lockManager) {
-      if (claims?.has(prefix) && claims.get(prefix) !== prebindId) return Promise.resolve(null);
-      claims?.set(prefix, prebindId);
-      return Promise.resolve(() => {
-        if (claims?.get(prefix) === prebindId) claims.delete(prefix);
-      });
-    }
-    return new Promise((resolve) => {
-      let release;
-      const held = new Promise((done) => {
-        release = done;
-      });
-      const request = Promise.resolve().then(() =>
-        lockManager.request(lockName(prefix), { ifAvailable: true }, async (lock) => {
-          if (!lock) return resolve(null);
-          resolve(async () => {
-            release();
-            await request;
-          });
-          await held;
-        })
-      );
-      // eslint-disable-next-line no-restricted-syntax -- a rejected Web Locks request leaves this session without the lease; resolve(null) is the documented "not acquired" result callers already handle
-      request.catch(() => resolve(null));
-    });
-  };
   let pendingStageBind;
   const journalKey = `${storagePrefix}migration-journal:active`;
   /**
@@ -119,7 +63,7 @@ export function createComposerSession({
       return null;
     }
   };
-  const keyFor = (key) => (!namespace && projectDraft(key) ? prebindPrefix + key : prefix() + key);
+  const keyFor = (key) => (!namespace && projectDraft(key) ? prebind.prefix + key : prefix() + key);
   const read = (key) => readRecord(keyFor(key));
   const hasRecord = (key) => {
     if (memory.has(key)) return memory.get(key) !== null || retainedNulls.has(key);
@@ -145,8 +89,8 @@ export function createComposerSession({
   };
   const write = (key, value) => {
     let destination = keyFor(key);
-    if (destination.startsWith(prebindPrefix)) {
-      if (!claimPrebind()) {
+    if (destination.startsWith(prebind.prefix)) {
+      if (!prebind.claim()) {
         destination = keyFor(key);
         memory.set(destination, value);
         pendingStorage.add(destination);
@@ -268,111 +212,17 @@ export function createComposerSession({
     }
     if (journalChanged) persistJournal();
   };
-  const prebindEntries = (prefix) => {
-    const keys = new Set(memory.keys());
-    for (let index = 0; index < (storage?.length || 0); index += 1) keys.add(storage.key(index));
-    return [...keys].filter((key) => {
-      if (typeof key !== "string" || !key.startsWith(prefix)) return false;
-      const slot = key.slice(prefix.length);
-      return (slot === "new" || projectDraft(slot)) && hasContent(readRecord(key));
-    });
-  };
-  const claimPrebind = () => {
-    if (lockManager && !releaseLease) return false;
-    const marker = prebindPrefix + "active";
-    if (pendingStorage.has(marker) && memory.get(marker) === `live:${prebindId}`) return false;
-    let owner;
-    try {
-      owner = JSON.parse(storage?.getItem(marker) || "null");
-      // eslint-disable-next-line no-restricted-syntax -- the prebind marker is shared with other windows and may be corrupt JSON; null means no owner has claimed it
-    } catch {
-      owner = null;
-    }
-    const claimedByOther = claims?.has(prebindPrefix) && claims.get(prebindPrefix) !== prebindId;
-    if (
-      claimedByOther ||
-      (owner && owner !== `live:${prebindId}` && owner !== readyMarker && owner !== adoptedMarker)
-    ) {
-      // A successor adopted this session after close preparation. Keep the
-      // continuing session's cached work under a fresh identity.
-      const oldPrefix = prebindPrefix;
-      const cached = [...memory].filter(([key, draft]) => key.startsWith(oldPrefix) && hasContent(draft));
-      prebindPrefix = `${prebindRoot}${randomId()}:`;
-      adoptedMarker = undefined;
-      if (claims) claims.set(prebindPrefix, prebindId);
-      for (const [key, draft] of cached) {
-        const target = prebindPrefix + key.slice(oldPrefix.length);
-        memory.set(target, draft);
-        pendingStorage.add(target);
-      }
-      if (!writeRecord(prebindPrefix + "active", `live:${prebindId}`)) return false;
-      for (const [key, draft] of cached) writeRecord(prebindPrefix + key.slice(oldPrefix.length), draft);
-      return true;
-    }
-    if (claims) claims.set(prebindPrefix, prebindId);
-    // A successfully closed draft stays recoverable even if this process
-    // exits after taking the transient lease and before binding a backend.
-    if (typeof owner === "string" && owner.startsWith("ready:")) return true;
-    return owner === `live:${prebindId}` || writeRecord(marker, `live:${prebindId}`);
-  };
-  const prebindGroups = (includeReferenced = false) => {
-    if (!storage) return;
-    const groups = new Map();
-    for (let index = 0; index < storage.length; index += 1) {
-      const key = storage.key(index);
-      const match =
-        typeof key === "string" && key.match(/^atria\.composer\.v1:__prebind__:([a-f0-9]{32}):(.*)$/);
-      if (!match) continue;
-      const prefix = `${prebindRoot}${match[1]}:`;
-      if (!groups.has(prefix)) groups.set(prefix, { marker: null, content: false });
-      const group = groups.get(prefix);
-      if (match[2] === "active") group.marker = readRecord(key);
-      else if ((match[2] === "new" || projectDraft(match[2])) && hasContent(readRecord(key)))
-        group.content = true;
-    }
-    const referenced = [...pendingMigrations.values(), ...migrationConflicts.values()].map(
-      (item) => item.sourceKey
-    );
-    const candidates = [...groups].filter(
-      ([prefix, group]) =>
-        group.content &&
-        currentMarker(group.marker) &&
-        (includeReferenced || !referenced.some((key) => key.startsWith(prefix)))
-    );
-    return candidates;
-  };
-  const adoptPrebind = (chosen) => {
-    prebindPrefix = chosen[0];
-    adoptedMarker = chosen[1].marker;
-    claims?.set(prebindPrefix, prebindId);
-  };
-  const choosePrebind = () => {
-    const candidates = prebindGroups() || [];
-    const ready = candidates.filter(
-      ([, group]) => typeof group.marker === "string" && group.marker.startsWith("ready:")
-    );
-    // A session that never reached close still owns its staged drafts; the
-    // drafts of a single closed session move into the next backend.
-    return ready.length === 1 ? ready[0] : null;
-  };
-  const cleanupEmptyPrebind = () => {
-    const marker = prebindPrefix + "active";
-    if (pendingStorage.has(marker) || prebindEntries(prebindPrefix).length) return;
-    const owner = JSON.parse(storage?.getItem(marker) || "null");
-    if (owner === `live:${prebindId}` || owner === readyMarker || owner === adoptedMarker)
-      writeRecord(marker, null);
-  };
   const migratePrebind = (backendId) => {
-    const marker = prebindPrefix + "active";
-    if (pendingStorage.has(marker) || (prebindEntries(prebindPrefix).length && !claimPrebind())) {
+    const marker = prebind.prefix + "active";
+    if (pendingStorage.has(marker) || (prebind.entries(prebind.prefix).length && !prebind.claim())) {
       pendingStageBind ??= backendId;
       return;
     }
     pendingStageBind = undefined;
-    const sources = prebindEntries(prebindPrefix);
+    const sources = prebind.entries(prebind.prefix);
     const writes = [];
     for (const sourceKey of sources) {
-      const slot = sourceKey.slice(prebindPrefix.length);
+      const slot = sourceKey.slice(prebind.prefix.length);
       const staged = readRecord(sourceKey);
       const destination = `${storagePrefix}${backendId}:${slot}`;
       const existing = readRecord(destination);
@@ -400,7 +250,7 @@ export function createComposerSession({
     }
     for (const [destination, staged] of writes) writeRecord(destination, staged);
     finishMigrations();
-    cleanupEmptyPrebind();
+    prebind.cleanup();
   };
   const restoreMigrations = () => {
     try {
@@ -437,7 +287,7 @@ export function createComposerSession({
           changed = true;
           continue;
         }
-        if (unknownOccupancy && sourceKey.startsWith(prebindRoot)) {
+        if (prebind.unknownOccupancy && prebind.includes(sourceKey)) {
           // Without cross-context locks another window may still own the source.
           // Keep it and protect an explicit destination delete.
           migrationConflicts.set(destination, { sourceKey });
@@ -450,7 +300,7 @@ export function createComposerSession({
           }
           continue;
         }
-        if (lockManager && sourceKey.startsWith(prebindRoot) && !conflict) deferredSources.add(sourceKey);
+        if (locks && prebind.includes(sourceKey) && !conflict) deferredSources.add(sourceKey);
         if (rawDestination === null && !conflict) {
           pendingMigrations.set(destination, { sourceKey, source, expectedDestination: source });
           memory.set(destination, source);
@@ -524,6 +374,27 @@ export function createComposerSession({
     input.value = typeof composerDraft?.text === "string" ? composerDraft.text : "";
     setAttachments(validAttachments(composerDraft?.attachments));
   };
+  const prebind = createComposerPrebind({
+    storage,
+    storagePrefix,
+    locks,
+    onError,
+    projectDraft,
+    hasContent,
+    store: {
+      readRecord,
+      writeRecord,
+      cachedKeys: () => [...memory.keys()],
+      cachedValue: (key) => memory.get(key),
+      isPending: (key) => pendingStorage.has(key),
+      deferWrite: (key, value) => {
+        memory.set(key, value);
+        pendingStorage.add(key);
+      },
+      referencedSources: () =>
+        [...pendingMigrations.values(), ...migrationConflicts.values()].map((item) => item.sourceKey)
+    }
+  });
   restoreMigrations();
   const deferredGroups = new Set(
     [...deferredSources]
@@ -538,69 +409,22 @@ export function createComposerSession({
     }
     finishMigrations();
   };
-  const chosen = choosePrebind();
-  let ready;
-  if (lockManager) {
-    ready = (async () => {
-      for (const group of deferredGroups) {
-        const acquired = await acquireLease(group);
-        if (acquired) {
-          finishDeferredGroup(group);
-          await acquired();
-        } else {
-          // A live owner retains the source until its context exits. The
-          // queued lock resumes journal cleanup once that ownership ends.
-          void Promise.resolve()
-            .then(() =>
-              lockManager.request(lockName(group), {}, (lock) => {
-                if (lock && !disposed) finishDeferredGroup(group);
-              })
-            )
-            // eslint-disable-next-line no-restricted-syntax -- this queued lock only resumes journal cleanup; a rejection leaves the source records in storage for the next launch
-            .catch(() => {});
-        }
-      }
-      releaseLease = await acquireLease(prebindPrefix);
-      if (!releaseLease) {
-        onError?.("草稿暂时无法保存到本机，请保留当前窗口");
-        return;
-      }
-      if (!chosen) return;
-      const acquired = await acquireLease(chosen[0]);
-      if (!acquired) return;
-      const fresh = choosePrebind();
-      if (!fresh || fresh[0] !== chosen[0] || fresh[1].marker !== chosen[1].marker) {
-        await acquired();
-        return;
-      }
-      await releaseLease();
-      releaseLease = acquired;
-      adoptPrebind(chosen);
-    })();
-  } else {
-    if (chosen && !unknownOccupancy && (!claims?.has(chosen[0]) || claims.get(chosen[0]) === prebindId))
-      adoptPrebind(chosen);
-    else claims?.set(prebindPrefix, prebindId);
-    ready = Promise.resolve();
-  }
+  const ready = prebind.start(deferredGroups, finishDeferredGroup);
   input.addEventListener("input", save);
   return {
     ready,
     dispose() {
-      disposed = true;
-      const released = releaseLease?.();
-      if (claims?.get(prebindPrefix) === prebindId) claims.delete(prebindPrefix);
-      return released;
+      return prebind.dispose();
     },
     async listRecoverableDrafts() {
       await ready;
       const referenced = new Set([...pendingMigrations.values()].map(({ sourceKey }) => sourceKey));
       const drafts = [];
-      for (const [group] of prebindGroups(true) || []) {
-        if (group === prebindPrefix && !namespace) continue;
-        const release = group === prebindPrefix ? () => {} : await acquireLease(group);
+      for (const [group] of prebind.groups(true) || []) {
+        if (group === prebind.prefix && !namespace) continue;
+        const release = group === prebind.prefix ? () => {} : await prebind.acquireLease(group);
         if (!release) continue;
-        for (const key of prebindEntries(group)) {
+        for (const key of prebind.entries(group)) {
           if (referenced.has(key)) continue;
           const draft = readRecord(key);
           const slot = key.slice(group.length);
@@ -624,7 +448,7 @@ export function createComposerSession({
       const selected = candidates.find((candidate) => candidate.id === id);
       if (!selected) return { ok: false, reason: "unavailable" };
       const group = id.slice(0, id.lastIndexOf(":new") + 1);
-      const release = group === prebindPrefix ? () => {} : await acquireLease(group);
+      const release = group === prebind.prefix ? () => {} : await prebind.acquireLease(group);
       if (!release) return { ok: false, reason: "unavailable" };
       try {
         if (namespace !== backend || token !== navigation) return { ok: false, reason: "backend" };
@@ -634,7 +458,7 @@ export function createComposerSession({
         if (hasRecord(destination)) return { ok: false, reason: "conflict" };
         const source = JSON.parse(storage?.getItem(id) || "null");
         if (!hasContent(source)) return { ok: false, reason: "unavailable" };
-        if (!unknownOccupancy) {
+        if (!prebind.unknownOccupancy) {
           registerMigration(destination, { sourceKey: id, source });
           finishMigrations();
         } else {
@@ -746,16 +570,16 @@ export function createComposerSession({
       // selected. A disk mirror of stale localStorage cannot protect memory.
       if (pendingStorage.has(journalKey)) writeRecord(journalKey, memory.get(journalKey));
       for (const key of [...pendingStorage]) {
-        if (lockManager && !releaseLease && key.startsWith(prebindPrefix)) continue;
+        if (prebind.requiresLease(key)) continue;
         if (
           (invalidJournal || pendingStorage.has(journalKey)) &&
           (pendingMigrations.has(key) || protectedDestinations.has(key))
         )
           continue;
         if (
-          key.startsWith(prebindPrefix) &&
-          key !== prebindPrefix + "active" &&
-          pendingStorage.has(prebindPrefix + "active")
+          key.startsWith(prebind.prefix) &&
+          key !== prebind.prefix + "active" &&
+          pendingStorage.has(prebind.prefix + "active")
         )
           continue;
         writeRecord(key, memory.get(key));
@@ -773,17 +597,11 @@ export function createComposerSession({
         migratePrebind(target);
         if (wasEmpty && read(current)) showDraft(read(current));
       }
-      if (namespace && !pendingStageBind) cleanupEmptyPrebind();
+      if (namespace && !pendingStageBind) prebind.cleanup();
       if (!namespace && !pendingStorage.size && !pendingMigrations.size && !invalidJournal) {
-        const marker = prebindPrefix + "active";
-        if (prebindEntries(prebindPrefix).length) {
-          if (claimPrebind()) writeRecord(prebindPrefix + "active", readyMarker);
-        } else {
-          const owner = JSON.parse(storage?.getItem(marker) || "null");
-          if (owner === `live:${prebindId}` || owner === readyMarker) writeRecord(marker, null);
-        }
+        prebind.prepareClose();
       }
-      if (!lockManager && claims?.get(prebindPrefix) === prebindId) claims.delete(prebindPrefix);
+      prebind.releaseClaim();
       return !invalidJournal && pendingStorage.size === 0 && pendingMigrations.size === 0;
     },
     /**

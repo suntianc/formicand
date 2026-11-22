@@ -1,0 +1,579 @@
+/* Shared by the Skill, MCP and Agent pages: the note beside the page title,
+   the project picker above a project list, tags with icons and the pager. */
+.settings-head-note {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+  color: var(--color-text-3);
+  font: 400 12px/1.4 var(--ui-font);
+  white-space: nowrap;
+}
+.settings-head-note > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.settings-head-note .ui-icon {
+  width: 14px;
+  height: 14px;
+  flex: none;
+}
+.settings-project {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.settings-project[hidden] {
+  display: none;
+}
+.settings-project-picker {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-control);
+  background: var(--color-surface-2);
+  color: var(--color-text-2);
+  cursor: pointer;
+}
+.settings-project-picker:hover {
+  border-color: var(--color-line-strong);
+}
+.settings-project-picker:focus-within {
+  border-color: var(--field-focus-edge);
+  box-shadow: 0 0 0 3px var(--field-focus-ring);
+}
+.settings-project-picker .ui-icon {
+  width: 15px;
+  height: 15px;
+  flex: none;
+}
+.settings-project-picker select {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+.settings-project-text {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+}
+.settings-project-text > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.settings-project-text > span:first-child {
+  color: var(--color-text);
+  font: 500 13px/1.4 var(--ui-font);
+}
+.settings-project-text > .is-mono {
+  color: var(--color-text-3);
+  font: 400 11px/1.4 var(--ui-mono);
+}
+.settings-project-trust {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 24px;
+  padding: 0 4px;
+  color: var(--color-text-2);
+  font: 400 12px/1.4 var(--ui-font);
+}
+.settings-project-trust:empty {
+  display: none;
+}
+.settings-project-trust > span:nth-child(2) {
+  flex: 1 1 auto;
+}
+.settings-project-trust .ui-icon {
+  display: block;
+  width: 14px;
+  height: 14px;
+}
+.settings-project-trust .is-ok {
+  color: var(--color-ok);
+}
+.settings-project-trust .is-alert {
+  color: var(--ui-warning);
+}
+.settings-project-trust .settings-link {
+  color: var(--color-text-3);
+}
+.skill-tag.has-icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.skill-tag.has-icon .ui-icon {
+  width: 11px;
+  height: 11px;
+}
+.skill-pager .settings-icon-button {
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--color-line);
+  border-radius: 7px;
+}
+.skill-pager .settings-icon-button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.skill-detail-head .app-button.is-danger {
+  border-color: transparent;
+  background: color-mix(in srgb, var(--ui-danger) 14%, transparent);
+}
+.mcp-enabled {
+  white-space: nowrap;
+}
+
+/* Settings → Agent: grouped list and the editor in the detail pane. */
+.agent-group {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  padding: 10px 9px 4px;
+  color: var(--color-text-3);
+  font: 400 12px/1.4 var(--ui-font);
+}
+.agent-group .is-mono {
+  font-family: var(--ui-mono);
+  font-size: 11px;
+}
+.skill-row.is-muted .skill-row-name {
+  color: var(--color-text-3);
+}
+.skill-row.is-muted .settings-icon-box {
+  opacity: 0.5;
+}
+.agent-detail-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  max-width: 100%;
+}
+.agent-path {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--color-text-3);
+  font: 400 12px/1.4 var(--ui-mono);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.agent-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  margin-top: 4px;
+}
+.agent-form-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px 40px;
+}
+.agent-form-column {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 20px;
+}
+.agent-form .mcp-field > select,
+.agent-form .mcp-field > .agent-permissions,
+.agent-form .mcp-field > .agent-tools,
+.agent-form .mcp-field > .agent-chips,
+.agent-form .mcp-field > .agent-hint,
+.agent-form .mcp-field > .agent-model-row,
+.agent-form .mcp-field > .agent-tools-text {
+  grid-column: 1 / -1;
+}
+/* Model and effort share one row: the model picker grows, effort keeps its width. */
+.agent-model-row {
+  display: flex;
+  gap: 10px;
+  min-width: 0;
+}
+.agent-model-picker.role-picker {
+  width: auto;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.agent-model-picker.role-picker:disabled {
+  cursor: default;
+  opacity: 0.7;
+}
+.agent-effort {
+  position: relative;
+  display: flex;
+  flex: 0 0 110px;
+  align-items: center;
+  gap: 7px;
+  height: 38px;
+  box-sizing: border-box;
+  padding: 0 10px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-control);
+  background: var(--color-surface-2);
+  color: var(--color-text);
+  font: 400 13px/1.4 var(--ui-font);
+  cursor: pointer;
+}
+.agent-effort:hover:not(.is-disabled) {
+  border-color: var(--color-text-3);
+}
+.agent-effort:focus-within {
+  border-color: var(--field-focus-edge);
+  box-shadow: 0 0 0 3px var(--field-focus-ring);
+}
+.agent-effort.is-disabled {
+  cursor: default;
+  opacity: 0.7;
+}
+.agent-effort > span {
+  flex: 1 1 auto;
+}
+.agent-effort .ui-icon {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  color: var(--color-text-3);
+}
+.agent-effort select {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  opacity: 0;
+  cursor: inherit;
+}
+.agent-tools-text {
+  margin: 0;
+  color: var(--color-text-3);
+  font: 400 13px/1.5 var(--ui-font);
+}
+.agent-form .mcp-field > input,
+.agent-form .mcp-field > textarea,
+.agent-form .mcp-field > select {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 38px;
+  padding: 8px 12px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-control);
+  outline: 0;
+  background: var(--color-surface-2);
+  color: var(--color-text);
+  font: 400 13px/1.5 var(--ui-font);
+}
+.agent-form .mcp-field > #agent-name {
+  font-family: var(--ui-mono);
+}
+.agent-form .mcp-field > textarea {
+  resize: vertical;
+}
+.agent-form .mcp-field > :is(input, textarea, select):focus-visible {
+  border-color: var(--color-accent);
+}
+.agent-form .mcp-field > :is(input, textarea, select):disabled {
+  color: var(--color-text-2);
+  cursor: default;
+}
+.agent-permissions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.agent-permission {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 14px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-control);
+  cursor: pointer;
+}
+.agent-permission:has(input:checked) {
+  border-color: transparent;
+  background: var(--color-surface-3);
+}
+.agent-permission:has(input:focus-visible) {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+.agent-permission:has(input:disabled) {
+  cursor: default;
+}
+.agent-permission input,
+.agent-tool input,
+.agent-add select {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: inherit;
+}
+.agent-permission input {
+  pointer-events: none;
+}
+.agent-permission strong {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--color-text);
+  font: 500 13px/1.4 var(--ui-font);
+}
+.agent-permission strong .ui-icon {
+  width: 14px;
+  height: 14px;
+}
+.agent-permission small {
+  color: var(--color-text-3);
+  font: 400 12px/1.5 var(--ui-font);
+}
+.agent-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.agent-tool {
+  position: relative;
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+  padding: 3px 9px;
+  border-radius: 6px;
+  background: var(--color-surface-2);
+  color: var(--color-text-2);
+  font: 400 12px/1.5 var(--ui-mono);
+  cursor: pointer;
+}
+.agent-tool .ui-icon {
+  display: none;
+  width: 12px;
+  height: 12px;
+}
+.agent-tool:has(input:checked) {
+  background: color-mix(in srgb, var(--color-ok) 14%, transparent);
+  color: var(--color-ok);
+}
+.agent-tool:has(input:checked) .ui-icon,
+.agent-tool.is-off .ui-icon {
+  display: block;
+}
+.agent-tool:has(input:focus-visible) {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+.agent-tool:has(input:disabled) {
+  cursor: default;
+}
+.agent-tool.is-off {
+  background: transparent;
+  color: var(--color-text-3);
+  opacity: 0.6;
+}
+.agent-hint {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin: 0;
+  color: var(--color-text-3);
+  font: 400 12px/1.5 var(--ui-font);
+}
+.agent-hint .ui-icon {
+  width: 13px;
+  height: 13px;
+  flex: none;
+}
+.agent-form .settings-segmented {
+  justify-self: start;
+}
+.agent-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+.agent-chip,
+.agent-add {
+  display: inline-flex;
+  gap: 5px;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font: 400 12px/1.5 var(--ui-mono);
+}
+.agent-chip {
+  background: var(--color-surface-2);
+  color: var(--color-text);
+}
+.agent-chip .ui-icon,
+.agent-add .ui-icon {
+  width: 12px;
+  height: 12px;
+  flex: none;
+}
+.agent-chip > .ui-icon {
+  color: var(--color-text-3);
+}
+.agent-chip button {
+  display: inline-flex;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-text-3);
+  cursor: pointer;
+}
+.agent-chip button:hover {
+  color: var(--color-text);
+}
+.agent-add {
+  position: relative;
+  border: 1px solid var(--color-line);
+  color: var(--color-text-2);
+  font-family: var(--ui-font);
+  cursor: pointer;
+}
+.agent-add:hover {
+  color: var(--color-text);
+  border-color: var(--color-line-strong);
+}
+.agent-add:focus-within {
+  border-color: var(--field-focus-edge);
+  box-shadow: 0 0 0 3px var(--field-focus-ring);
+}
+.agent-form-foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+/* The trust question in the work view. */
+.app-dialog.trust-dialog {
+  --dialog-width: 560px;
+}
+.trust-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.trust-mark {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--ui-warning) 16%, transparent);
+  color: var(--ui-warning);
+}
+.trust-mark .ui-icon {
+  width: 18px;
+  height: 18px;
+}
+.trust-head-text {
+  min-width: 0;
+}
+.app-dialog .trust-head h2 {
+  margin: 0;
+}
+.trust-path {
+  margin: 2px 0 0;
+  color: var(--color-text-3);
+  font: 400 12px/1.4 var(--ui-mono);
+  overflow-wrap: anywhere;
+}
+.trust-copy {
+  margin: 0;
+  color: var(--color-text-2);
+  font: 400 13px/1.6 var(--ui-font);
+}
+.trust-list {
+  display: flex;
+  flex-direction: column;
+  margin: 14px 0;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--color-line);
+  border-radius: 10px;
+  list-style: none;
+}
+.trust-list li {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr);
+  gap: 2px 10px;
+  padding: 10px 14px;
+  background: var(--color-surface-2);
+  color: var(--color-text-2);
+  font: 400 12px/1.5 var(--ui-font);
+}
+.trust-list li + li {
+  border-top: 1px solid var(--color-line);
+}
+.trust-list li .ui-icon {
+  width: 15px;
+  height: 15px;
+  margin-top: 2px;
+  color: var(--color-text-2);
+}
+.trust-list li > span:last-child {
+  grid-column: 2;
+}
+.trust-list .is-mono {
+  color: var(--color-text);
+  font: 500 13px/1.5 var(--ui-mono);
+}
+.trust-remember {
+  margin: 0 0 8px;
+}
+.trust-remember input {
+  accent-color: var(--color-accent);
+}
+@media (max-width: 760px) {
+  .skill-head,
+  .skill-project-bar {
+    flex-wrap: wrap;
+    padding-inline: 16px;
+  }
+  .skill-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .skill-list-pane {
+    border-right: 0;
+    border-bottom: 1px solid var(--color-line);
+  }
+  .skill-detail {
+    padding: 20px 16px;
+  }
+  .agent-form-columns,
+  .agent-permissions,
+  .mcp-row,
+  .mcp-row.is-command {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Settings → Memory: the editor fills the detail pane; the project switch sits under the picker. */
+.memory-form .mcp-field > select {
+  grid-column: 1 / -1;
+}
+.memory-form textarea {
+  font-family: var(--ui-font);
+  resize: vertical;
+}
+.memory-enabled {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  cursor: pointer;
+}

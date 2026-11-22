@@ -1,0 +1,532 @@
+/* Atria monochrome product theme */
+:root {
+  --navy-950: #0b0b0b;
+  --navy-900: #141414;
+  --navy-800: #202020;
+  --ink: #eeeeee;
+  --ink-soft: #a8a8a8;
+  --ink-faint: #727272;
+  --canvas: #171717;
+  --surface: #222222;
+  --surface-soft: #282828;
+  --line: #333333;
+  --line-strong: #464646;
+  --blue: #d7d7d7;
+  --blue-soft: #2b2b2b;
+  --purple: #b9b9b9;
+  --green: #bdbdbd;
+  --amber: #a7a7a7;
+  --shadow: 0 16px 40px rgba(0, 0, 0, 0.22);
+}
+html,
+body {
+  background: #171717;
+  color: #e9e9e9;
+}
+body::before {
+  display: none;
+}
+.brand-mark {
+  background: #242424;
+  border: 1px solid #4b4b4b;
+  box-shadow: none;
+}
+.brand-copy strong {
+  color: #f2f2f2;
+}
+.brand-copy span {
+  color: #777;
+}
+.app-topbar {
+  background: #1b1b1b;
+  border-color: #303030;
+}
+.workspace-switcher {
+  border-color: #383838;
+  color: #a6a6a6;
+  background: #222;
+}
+.workspace-switcher #workspace-path {
+  color: #7e7e7e;
+}
+.workspace-slash,
+.workspace-switcher .chevron {
+  color: #666;
+}
+.status-pip {
+  background: #d3d3d3;
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.08);
+}
+.topbar-button,
+.icon-action,
+.more-action {
+  color: #a9a9a9;
+}
+.topbar-button:hover,
+.icon-action:hover,
+.more-action:hover {
+  color: #fff;
+  background: #2b2b2b;
+}
+.profile-orb {
+  border-color: #333;
+  background: #444;
+}
+.app-layout {
+  background: #303030;
+}
+.conversation-sidebar {
+  background: #121212;
+  color: #cfcfcf;
+}
+.new-conversation {
+  border-color: #4b4b4b;
+  color: #f2f2f2;
+  background: #292929;
+  box-shadow: none;
+}
+.new-conversation:hover {
+  background: #343434;
+  border-color: #6a6a6a;
+}
+.shortcut {
+  border-color: #565656;
+  color: #aaa;
+}
+.nav-item {
+  color: #858585;
+}
+.nav-item.active,
+.nav-item:hover {
+  color: #f4f4f4;
+  background: #292929;
+}
+.nav-icon {
+  color: #aaa;
+}
+.sidebar-heading {
+  color: #737373;
+}
+.sidebar-count {
+  color: #a8a8a8;
+  background: #292929;
+}
+.conversation-item {
+  color: #929292;
+}
+.conversation-item:hover {
+  background: #212121;
+}
+.conversation-item.active {
+  border-color: #424242;
+  background: #292929;
+  box-shadow: inset 2px 0 #d0d0d0;
+}
+.conversation-item-title {
+  color: #e6e6e6;
+}
+.conversation-item-meta {
+  color: #777;
+}
+.conversation-status,
+.conversation-status.running,
+.conversation-status.waiting,
+.conversation-status.completed,
+.conversation-status.failed,
+.conversation-status.cancelled {
+  background: #aaa;
+  box-shadow: none;
+}
+.sidebar-bottom {
+  border-color: #2e2e2e;
+}
+.sidebar-status {
+  color: #777;
+}
+.sidebar-status-value {
+  color: #bdbdbd;
+}
+.sidebar-project {
+  color: #aaa;
+}
+.sidebar-project:hover {
+  background: #222;
+}
+.project-icon {
+  border-color: #444;
+  color: #c0c0c0;
+  background: #292929;
+}
+.sidebar-project strong {
+  color: #bbb;
+}
+.sidebar-project small {
+  color: #6e6e6e;
+}
+.project-chevron {
+  color: #777;
+}
+.sidebar-footer {
+  color: #5f5f5f;
+}
+.sidebar-footer button {
+  border-color: #444;
+  color: #999;
+}
+.chat-pane {
+  background: #1c1c1c;
+}
+.chat-header {
+  border-color: #303030;
+  background: #1d1d1d;
+}
+.breadcrumb {
+  color: #777;
+}
+.breadcrumb i {
+  color: #505050;
+}
+.chat-title-block h1 {
+  color: #f0f0f0;
+}
+.chat-meta {
+  color: #848484;
+}
+.task-status-mark {
+  background: #999;
+}
+.task-status-mark.running,
+.task-status-mark.completed,
+.task-status-mark.waiting {
+  background: #d1d1d1;
+  box-shadow: none;
+}
+.meta-separator {
+  color: #555;
+}
+.subtle-action {
+  border-color: #414141;
+  color: #b3b3b3;
+  background: #252525;
+}
+.subtle-action:hover {
+  border-color: #666;
+  color: #fff;
+  background: #2e2e2e;
+  box-shadow: none;
+}
+.chat-scroll {
+  background: #1c1c1c;
+}
+.chat-welcome {
+  border-color: #3b3b3b;
+  background: #242424;
+  box-shadow: var(--shadow);
+}
+.welcome-orbit {
+  border-color: #494949;
+  background: #2c2c2c;
+}
+.welcome-orbit::before,
+.welcome-orbit::after {
+  border-color: rgba(255, 255, 255, 0.1);
+}
+.eyebrow {
+  color: #858585;
+}
+.chat-welcome h2 {
+  color: #f0f0f0;
+}
+.chat-welcome p {
+  color: #a1a1a1;
+}
+.starter-prompts button {
+  border-color: #414141;
+  color: #b9b9b9;
+  background: #2b2b2b;
+}
+.starter-prompts button:hover {
+  border-color: #6a6a6a;
+  color: #f2f2f2;
+  background: #343434;
+}
+.starter-prompts button > span:last-child {
+  color: #777;
+}
+.prompt-icon {
+  color: #d4d4d4;
+  background: #3a3a3a;
+}
+.quick-stats {
+  color: #777;
+}
+.quick-stats strong {
+  color: #cfcfcf;
+}
+.stat-dot.blue,
+.stat-dot.green,
+.stat-dot.purple {
+  background: #aaa;
+}
+.chat-message {
+  border-color: #393939;
+  background: #242424;
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.14);
+}
+.chat-message.user {
+  border-color: #414141;
+  background: #292929;
+}
+.chat-message.main {
+  border-color: #454545;
+  background: #252525;
+}
+.message-avatar {
+  color: #1c1c1c;
+  background: #d7d7d7;
+}
+.main .message-avatar {
+  color: #eee;
+  border-color: #555;
+  background: #343434;
+}
+.message-copy {
+  color: #e4e4e4;
+}
+.message-meta {
+  color: #7f7f7f;
+}
+.mode-mark {
+  border-color: #4c4c4c;
+  background: #2e2e2e;
+}
+.mode-chevron {
+  color: #777;
+}
+.attach-button {
+  border-color: #444;
+  color: #aaa;
+  background: #2c2c2c;
+}
+.send-button {
+  border-color: #999;
+  color: #171717;
+  background: #e1e1e1;
+  box-shadow: none;
+}
+.send-button:hover {
+  background: #fff;
+}
+.ink-spark {
+  color: #c9c9c9;
+}
+.agent-pane {
+  background: #171717;
+}
+.agent-pane-header h2 {
+  color: #ededed;
+}
+.pane-kicker {
+  color: #737373;
+}
+.count-badge {
+  color: #d0d0d0;
+  background: #303030;
+}
+.agent-room-status {
+  color: #7d7d7d;
+}
+.agent-stage {
+  border-color: #3a3a3a;
+  background: radial-gradient(circle at 50% 12%, #292929 0, #202020 48%, #191919 100%);
+  box-shadow: inset 0 -28px 45px rgba(0, 0, 0, 0.2);
+}
+.agent-stage::before {
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.06) 1px, transparent 1px);
+}
+.stage-header,
+.stage-footer {
+  color: #777;
+}
+.stage-label i,
+.pulse-dot {
+  background: #c7c7c7;
+  box-shadow: none;
+}
+.stage-time {
+  color: #666;
+}
+.stage-orbit {
+  border-color: rgba(255, 255, 255, 0.12);
+}
+.orbit-two {
+  border-color: rgba(255, 255, 255, 0.08);
+}
+.stage-title {
+  color: #999;
+}
+.agent-card {
+  border-color: #444;
+  color: #a0a0a0;
+  background: rgba(43, 43, 43, 0.95);
+  box-shadow: 0 7px 14px rgba(0, 0, 0, 0.2);
+}
+.agent-card:hover {
+  border-color: #777;
+  box-shadow: 0 12px 20px rgba(0, 0, 0, 0.3);
+}
+.agent-card.selected {
+  border-color: #aaa;
+  box-shadow:
+    0 0 0 2px rgba(255, 255, 255, 0.1),
+    0 12px 20px rgba(0, 0, 0, 0.25);
+}
+.agent-name {
+  color: #e0e0e0;
+}
+.agent-live-dot,
+.agent-card.running .agent-live-dot,
+.agent-card.succeeded .agent-live-dot {
+  background: #c0c0c0;
+  box-shadow: none;
+}
+.book-stack i,
+.book-stack i:nth-child(2),
+.book-stack i:nth-child(3) {
+  background: #a7a7a7;
+}
+.reading-copy strong {
+  color: #bfbfbf;
+}
+.reading-copy span {
+  color: #7f7f7f;
+}
+.mini-head {
+  background: #b8b8b8;
+  box-shadow: inset -2px -1px #888;
+}
+.mini-head::before {
+  background: #454545;
+}
+.mini-body {
+  background: linear-gradient(145deg, #9c9c9c, #5a5a5a);
+}
+.agent-screen {
+  border-color: #656565;
+  background: #343434;
+}
+.agent-screen i {
+  background: #a7a7a7;
+}
+.agent-desk {
+  background: #686868;
+}
+.agent-state {
+  color: #858585;
+}
+.agent-focus {
+  border-color: #3a3a3a;
+  background: #222;
+}
+.focus-glyph {
+  color: #d0d0d0;
+  background: #303030;
+}
+.focus-empty strong {
+  color: #b4b4b4;
+}
+.focus-empty p {
+  color: #777;
+}
+.focus-agent-id,
+.focus-stat span {
+  color: #747474;
+}
+.focus-card-head h3,
+.focus-stat strong {
+  color: #d0d0d0;
+}
+.focus-status {
+  color: #bdbdbd;
+  background: #303030;
+}
+.focus-task {
+  color: #9a9a9a;
+}
+.focus-stats {
+  border-color: #363636;
+}
+.right-tabs {
+  border-color: #3a3a3a;
+  background: #242424;
+}
+.right-tab {
+  color: #858585;
+}
+.right-tab span {
+  color: #999;
+  background: #333;
+}
+.right-tab.active {
+  color: #ededed;
+  background: #353535;
+  box-shadow: 0 2px 7px rgba(0, 0, 0, 0.2);
+}
+.right-body {
+  border-color: #3a3a3a;
+  background: #222;
+}
+.timeline-row,
+.artifact-row {
+  border-color: #343434;
+}
+.timeline-dot {
+  border-color: #bdbdbd;
+  background: #222;
+}
+.timeline-row:not(:last-child) .timeline-dot::after {
+  background: #4a4a4a;
+}
+.timeline-copy strong,
+.artifact-copy strong {
+  color: #c1c1c1;
+}
+.timeline-copy span,
+.artifact-copy span {
+  color: #858585;
+}
+.artifact-row:hover {
+  background: #2b2b2b;
+}
+.artifact-icon,
+.empty-icon {
+  color: #d2d2d2;
+  background: #333;
+}
+.empty-detail {
+  color: #7c7c7c;
+}
+.empty-detail strong {
+  color: #b9b9b9;
+}
+.preview-box {
+  color: #b4b4b4;
+  background: #292929;
+}
+.toast {
+  border-color: #555;
+  color: #eee;
+  background: #303030;
+  box-shadow: 0 12px 25px rgba(0, 0, 0, 0.35);
+}
+@keyframes pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.08);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(255, 255, 255, 0);
+  }
+}

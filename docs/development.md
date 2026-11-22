@@ -56,9 +56,9 @@ Mac 开发启动与更新后重启统一通过 LaunchServices 打开指定的 Ap
 
 Finder 安装入口复制已签名的缓存包，不改内容或再次签名，保持相同权限身份。图标、Electron、工具链或包元数据变化产生新开发运行时后需要为新条目授权，旧授权不会自动迁移；旧版无后缀的 CoworkOS Dev 条目也不代表新测试包已授权。无需删除其他 App 或重置全部系统权限。
 
-前端使用原生 ES modules，没有 Vite/HMR。JS/CSS 修改后刷新；TypeScript、浏览器生成 bundle 或 Swift 修改后重新构建、退出并重启宿主。图标源、Electron 或包版本变化要重建开发运行时。生成文件不是修改入口。完整/CLI 构建会清理已删除或搬移源码对应的旧编译文件，保留原生 helper 与 Python runner。
+Web 与桌面从同一份构建产物加载首屏。修改前端模块或样式后运行 `npm run build:web-assets`，刷新即可。持续开发时在另一终端运行 `npm run watch:web-assets`，待重建完成后刷新。监听模式提供源码映射。首屏产物放在 `web/assets/markdown/generated/shell/`，随已有桌面源码更新器管理的目录一起升级和回滚。TypeScript 或 Swift 修改后重新构建并重启宿主。图标源、Electron 或包版本变化要重建开发运行时。生成文件不是修改入口。完整/CLI 构建会清理已删除或搬移源码对应的旧编译文件，保留原生 helper 与 Python runner。
 
-只迭代界面时，完成一次 `npm run build` 后可直接运行 `node dist/src/cli/dashboard.js`，省去 `npm run ui` 每次启动时的构建。保留需要的隔离环境变量；服务直接读取 `web/` 中的 HTML、CSS 和 JS，修改后刷新浏览器即可。后端改动仍需停止服务、重新构建并启动。该入口与服务、桌面使用同一实例归属：同一数据根已经后端或桌面连接时复用其地址并退出，不另开写入服务。
+只迭代界面时，完成一次 `npm run build` 后可直接运行 `node dist/src/cli/dashboard.js`，省去 `npm run ui` 每次启动时的构建。保留需要的隔离环境变量；HTML 修改后直接刷新，JS 和 CSS 使用上面的监听命令。后端改动仍需停止服务、重新构建并启动。该入口与服务、桌面使用同一实例归属：同一数据根已经后端或桌面连接时复用其地址并退出，不另开写入服务。
 
 ### 独立后端
 

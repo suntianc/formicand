@@ -1,0 +1,591 @@
+/* P4.5 entry shell: one 44 px title row across the window, then the sidebar
+   and one main panel per entry starting right below it. */
+html[data-theme] .app-layout {
+  grid-template-columns: var(--sidebar-width, 248px) minmax(0, 1fr) minmax(0, 360px);
+  grid-template-rows: 44px minmax(0, 1fr);
+  gap: 0 10px;
+  height: 100dvh;
+  min-height: 0;
+  padding: 0 10px 10px 0;
+  background: transparent;
+}
+html[data-theme] body.output-collapsed .app-layout,
+html[data-theme] .app-layout[data-entry="observe"] {
+  grid-template-columns: var(--sidebar-width, 248px) minmax(0, 1fr) minmax(0, 0px);
+  /* The empty panel track still owns a column gap; drop the padding so the
+     main panel keeps the same 10 px edge as the settings page. */
+  padding-right: 0;
+}
+html[data-theme] .app-layout[data-entry="observe"] .agent-pane {
+  display: none;
+}
+/* The title row spans the empty panel track as well, so it keeps the 10 px
+   window edge itself; the panel toggle then stays put when the panel closes. */
+@media (min-width: 1280px) {
+  html[data-theme] body.output-collapsed .app-titlebar,
+  html[data-theme] .app-layout[data-entry="observe"] .app-titlebar {
+    padding-right: 10px;
+  }
+}
+/* Two cards side by side read as one pair: the main and requirement panels sit
+   6 px apart, while the window edges and the sidebar side keep 10 px (#23). */
+@media (min-width: 1280px) {
+  html[data-theme] .app-layout > .agent-pane {
+    margin-left: -4px;
+  }
+}
+html[data-theme] .conversation-sidebar {
+  height: auto;
+  min-height: 0;
+  padding: 6px 12px 16px;
+  gap: 16px;
+  overflow: hidden;
+  background: transparent;
+}
+html[data-theme] :is(.conversation-sidebar, .chat-pane, .observe-pane, .agent-pane) {
+  min-height: 0;
+}
+html[data-theme] .agent-pane {
+  position: relative;
+  inset: auto;
+  width: auto;
+  height: auto;
+}
+/* The sidebar's own header only carries the drawer's close button. */
+html[data-theme] .sidebar-header {
+  display: none;
+}
+
+/* Title row: window controls, navigation, where the conversation lives and the
+   panel toggle, in the band macOS reserves for its traffic lights. */
+.app-titlebar {
+  display: flex;
+  grid-column: 1 / -1;
+  grid-row: 1;
+  align-items: center;
+  min-width: 0;
+  height: 44px;
+}
+.titlebar-lead {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 2px;
+  box-sizing: border-box;
+  width: var(--sidebar-width, 248px);
+  padding-left: 12px;
+}
+html[data-desktop-platform="darwin"]:not([data-desktop-fullscreen="true"]) .titlebar-lead {
+  padding-left: 84px;
+}
+.titlebar-spacer {
+  flex: 1 1 auto;
+  min-width: 14px;
+}
+.titlebar-button {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  color: var(--color-text-2);
+  background: transparent;
+  cursor: pointer;
+}
+.titlebar-button .ui-icon {
+  width: 16px;
+  height: 16px;
+}
+.titlebar-button:hover:not(:disabled) {
+  color: var(--color-text);
+  background: var(--color-surface-3);
+}
+.titlebar-button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.titlebar-context {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  /* The context starts where the main panel's content does. */
+  padding: 0 14px 0 24px;
+}
+.titlebar-context[hidden],
+.titlebar-actions[hidden] {
+  display: none;
+}
+.titlebar-project {
+  display: inline-flex;
+  flex: 0 1 auto;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  max-width: 40%;
+  color: var(--color-text-2);
+  font-size: var(--type-nav, 13px);
+  line-height: 19px;
+}
+.titlebar-project[hidden] {
+  display: none;
+}
+.titlebar-project > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.titlebar-project .ui-icon {
+  flex: 0 0 auto;
+  width: 15px;
+  height: 15px;
+}
+.titlebar-project .titlebar-separator {
+  width: 12px;
+  height: 12px;
+  color: var(--color-text-3);
+}
+.app-titlebar .session-title {
+  flex: 0 1 auto;
+  font-size: var(--type-nav, 13px);
+  font-weight: 600;
+  line-height: 19px;
+}
+.titlebar-requirement {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 280px;
+  height: 22px;
+  overflow: hidden;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 6px;
+  color: var(--color-accent);
+  background: var(--color-accent-soft);
+  font: inherit;
+  font-size: 11px;
+  line-height: 22px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.titlebar-requirement[hidden] {
+  display: none;
+}
+.titlebar-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+}
+.context-usage {
+  color: var(--muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+html[data-theme] .app-layout > :not(.app-titlebar, .sidebar-divider) {
+  grid-row: 2;
+}
+html[data-theme] .sidebar-divider {
+  top: 44px;
+}
+
+/* A collapsed sidebar keeps its zero-width track, so the panels keep their
+   columns; the title row's navigation stays where it was. */
+@media (min-width: 1280px) {
+  html[data-theme] body.sidebar-collapsed .app-layout {
+    grid-template-columns: 0 minmax(0, 1fr) minmax(0, 360px);
+  }
+  html[data-theme] body.sidebar-collapsed.output-collapsed .app-layout,
+  html[data-theme] body.sidebar-collapsed .app-layout[data-entry="observe"] {
+    grid-template-columns: 0 minmax(0, 1fr) minmax(0, 0px);
+  }
+}
+@media (min-width: 640px) and (max-width: 1279px) {
+  html[data-theme] body.sidebar-collapsed .app-layout,
+  html[data-theme] body.sidebar-collapsed.output-collapsed .app-layout,
+  html[data-theme] body.sidebar-collapsed .app-layout[data-entry="observe"] {
+    grid-template-columns: 0 minmax(0, 1fr);
+  }
+}
+html[data-theme] body.sidebar-collapsed .conversation-sidebar {
+  visibility: hidden;
+  overflow: hidden;
+  padding-right: 0;
+  padding-left: 0;
+}
+html[data-theme] body.sidebar-collapsed .sidebar-divider {
+  display: none;
+}
+html[data-theme] body.sidebar-collapsed .titlebar-lead {
+  width: auto;
+}
+
+/* Window dragging. Chromium applies drag regions in document order, so each
+   later rule carves its rectangle out of the earlier ones: the margins and the
+   title row drag the window, pane content does not, and controls inside the
+   row stay clickable. Only the chrome refuses text selection; pane content
+   selects normally. */
+html[data-desktop-platform] :is(.app-shell, .app-layout) {
+  -webkit-app-region: drag;
+  user-select: none;
+}
+html[data-desktop-platform] .conversation-sidebar,
+html[data-desktop-platform] :is(.chat-pane, .observe-pane, .agent-pane) {
+  -webkit-app-region: no-drag;
+}
+html[data-desktop-platform] :is(.chat-pane, .observe-pane, .agent-pane) {
+  user-select: text;
+}
+html[data-desktop-platform] :is(.app-titlebar, .observe-header, .requirement-panel-head) {
+  -webkit-app-region: drag;
+  user-select: none;
+}
+html[data-desktop-platform] :is(button, a, input, select, textarea, [role="button"], [role="tab"], summary) {
+  -webkit-app-region: no-drag;
+}
+
+/* Entry switch: the two product entries, one active at a time. */
+.entry-switch {
+  display: flex;
+  flex: 0 0 auto;
+  width: 100%;
+}
+.entry-switch > .entry-switch-option {
+  flex: 1 1 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 35px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  color: var(--color-text-2);
+  background: transparent;
+  font: inherit;
+  font-size: var(--type-nav);
+  line-height: 19px;
+}
+.entry-switch > .entry-switch-option .ui-icon {
+  width: 15px;
+  height: 15px;
+}
+.entry-switch > .entry-switch-option:hover {
+  color: var(--color-text);
+}
+.entry-switch > .entry-switch-option[aria-selected="true"] {
+  color: var(--color-text);
+  background: var(--segmented-active);
+  border-color: var(--selected-edge);
+  box-shadow: var(--selected-shadow);
+  font-weight: 600;
+}
+
+/* Sidebar content per entry. The settings entry sits outside both, pinned at the bottom. */
+.work-sidebar,
+.observe-nav {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.work-sidebar[hidden],
+.observe-nav[hidden] {
+  display: none;
+}
+html[data-theme] .sidebar-nav,
+html[data-theme] .observe-nav {
+  flex: 0 0 auto;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+}
+html[data-theme] .observe-nav .nav-item {
+  min-height: 36px;
+  padding: 8px;
+  gap: 10px;
+  font-size: 14px;
+}
+html[data-theme] .observe-nav .nav-item[aria-current="page"] {
+  color: var(--color-text);
+  background: var(--selected-fill);
+  box-shadow:
+    inset 0 0 0 1px var(--selected-edge),
+    var(--selected-shadow);
+}
+html[data-theme] .observe-nav {
+  flex: 1 1 auto;
+  gap: 18px;
+  min-height: 0;
+}
+.observe-views,
+.observe-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.observe-group[data-observe-scope-group] {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.observe-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.observe-group[data-observe-scope-group] .observe-list {
+  min-height: 0;
+  overflow: auto;
+}
+.observe-group-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px 4px;
+}
+.observe-group-title {
+  color: var(--color-text-3);
+  font: 400 12px/1.4 var(--ui-font);
+}
+.observe-group-spacer {
+  flex: 1 1 auto;
+}
+.observe-group-add {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 14px;
+  height: 14px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-text-3);
+  cursor: pointer;
+}
+/* Keep the 14px mark from the design while the hit area stays reachable. */
+.observe-group-add::after {
+  position: absolute;
+  inset: -6px;
+  content: "";
+}
+.observe-group-add .ui-icon {
+  width: 14px;
+  height: 14px;
+}
+.observe-group-add:hover {
+  color: var(--color-text-2);
+}
+.observe-group-add[hidden] {
+  display: none;
+}
+.observe-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 7px 8px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--color-text-2);
+  font: 400 13px/1.4 var(--ui-font);
+  text-align: left;
+  cursor: pointer;
+}
+.observe-item:hover {
+  background: var(--color-surface-2);
+}
+/* The scope's current row is a quiet wash, not the raised card the view
+   navigation above uses: the view and the scope are two separate choices. */
+.observe-item[aria-current="true"] {
+  color: var(--color-text);
+  background: var(--scope-current);
+  font-weight: 500;
+}
+/* A node's projects sit one step in, under the node they belong to. */
+.observe-item.is-nested {
+  padding-left: 26px;
+}
+.observe-item .ui-icon {
+  flex: 0 0 auto;
+  width: 15px;
+  height: 15px;
+  color: var(--color-text-2);
+}
+.observe-item-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.observe-item-spacer {
+  flex: 1 1 auto;
+}
+.observe-item-state {
+  color: var(--color-text-3);
+  font-size: 11px;
+  white-space: nowrap;
+}
+.observe-item-count {
+  color: var(--color-text-3);
+  font-size: 11px;
+}
+.observe-dot {
+  flex: 0 0 auto;
+  width: 6px;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--color-text-3);
+}
+.observe-dot.is-ok {
+  background: var(--color-ok);
+}
+.observe-dot.is-alert {
+  background: var(--color-danger);
+}
+.observe-count {
+  margin-left: auto;
+  color: var(--color-text-3);
+  font-size: 12px;
+}
+.observe-count[hidden] {
+  display: none;
+}
+html[data-theme] .work-sidebar .project-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+html[data-theme] .conversation-sidebar > .sidebar-bottom {
+  flex: 0 0 auto;
+  margin-top: auto;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+html[data-theme] .sidebar-bottom .account-row {
+  width: 100%;
+  gap: 10px;
+  padding: 8px;
+  border: 0;
+  border-radius: 8px;
+  color: var(--color-text-2);
+  background: transparent;
+  font-size: 14px;
+}
+html[data-theme] .sidebar-bottom .account-row:hover {
+  color: var(--color-text);
+  background: var(--color-surface-3);
+}
+html[data-theme] .sidebar-bottom .account-icon {
+  width: 16px;
+  height: 16px;
+}
+
+/* The conversation title, shown in the title row. */
+.session-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  margin: 0;
+  color: var(--color-text);
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.session-header-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+}
+.session-header-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 7px;
+  color: var(--color-text-2);
+  background: transparent;
+  cursor: pointer;
+}
+.session-header-button:hover:not(:disabled) {
+  color: var(--color-text);
+  background: var(--color-surface-3);
+}
+.session-header-button[hidden] {
+  display: none;
+}
+.chat-body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
+
+html[data-theme] .composer :is(#model-setup-button, .model-select, .reasoning-select) {
+  white-space: nowrap;
+}
+
+/* Observation skeleton: one panel with a view title until its content lands. */
+.observe-pane {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--panel-edge);
+  border-radius: var(--radius-panel);
+  background-color: var(--panel-fill);
+  background-image: var(--panel-sheen);
+  backdrop-filter: blur(var(--panel-blur));
+  box-shadow: var(--panel-shadow);
+}
+.observe-pane[hidden] {
+  display: none;
+}
+.observe-header {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  height: 56px;
+  padding: 0 32px;
+  border-bottom: 1px solid var(--color-line);
+}
+.observe-header h1 {
+  margin: 0;
+  color: var(--color-text);
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+.observe-body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  padding: 24px 32px;
+  overflow: auto;
+}
+.observe-view[hidden] {
+  display: none;
+}
+
+html[data-theme] #connection-state {
+  top: 56px;
+}

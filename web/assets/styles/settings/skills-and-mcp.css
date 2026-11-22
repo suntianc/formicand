@@ -1,0 +1,641 @@
+/* ------------------------------------------------------------------ skills */
+/* Like the model page: a header across the top, then the skill list and its
+   detail side by side down to the bottom edge. */
+.settings-content:has(.skill-settings:not([hidden])) {
+  padding: 0;
+}
+.settings-column:has(> .skill-settings:not([hidden])) {
+  width: 100%;
+  height: 100%;
+}
+.skill-settings {
+  flex: 1 1 auto;
+  gap: 0;
+  min-height: 0;
+}
+.skill-head {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 22px 28px;
+  border-bottom: 1px solid var(--color-line);
+}
+.skill-add .ui-icon {
+  width: 14px;
+  height: 14px;
+}
+.skill-project-bar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 28px;
+  border-bottom: 1px solid var(--color-line);
+}
+.skill-project-bar[hidden] {
+  display: none;
+}
+.skill-trust {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-text-2);
+  font: 400 13px/1.4 var(--ui-font);
+}
+.skill-body {
+  display: grid;
+  flex: 1 1 auto;
+  grid-template-columns: 320px minmax(0, 1fr);
+  min-height: 0;
+}
+.skill-list-pane {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  min-height: 0;
+  padding: 16px 12px 12px;
+  border-right: 1px solid var(--color-line);
+}
+.skill-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: var(--radius-control);
+  background: var(--color-surface-2);
+  color: var(--color-text-3);
+}
+.skill-search .ui-icon {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+}
+.skill-search input {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-text);
+  font: 400 13px/1.4 var(--ui-font);
+  outline: none;
+}
+.skill-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.skill-filter {
+  padding: 3px 9px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--color-text-2);
+  font: 500 12px/1.5 var(--ui-font);
+  cursor: pointer;
+}
+.skill-filter:hover {
+  background: var(--color-surface-2);
+}
+.skill-filter[aria-checked="true"] {
+  background: var(--color-surface-3);
+  color: var(--color-text);
+}
+.skill-list {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+.skill-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 9px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--color-text);
+  text-align: left;
+  cursor: pointer;
+}
+.skill-row:hover {
+  background: var(--color-surface-2);
+}
+.skill-row[aria-current="true"] {
+  background: var(--color-surface-3);
+}
+.skill-row-text {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+}
+.skill-row-name {
+  overflow: hidden;
+  font: 500 13px/1.4 var(--ui-mono);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.skill-row-desc {
+  overflow: hidden;
+  color: var(--color-text-3);
+  font: 400 12px/1.4 var(--ui-font);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.skill-tag {
+  flex: 0 0 auto;
+  padding: 1px 7px;
+  border-radius: 5px;
+  background: var(--color-surface-2);
+  color: var(--color-text-2);
+  font: 500 11px/1.6 var(--ui-font);
+}
+.skill-tag.is-warn {
+  background: color-mix(in srgb, var(--ui-warning) 14%, transparent);
+  color: var(--ui-warning);
+}
+.skill-empty {
+  margin: 12px 4px;
+  color: var(--color-text-3);
+  font: 400 12px/1.5 var(--ui-font);
+}
+.skill-removed-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 9px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--color-text-2);
+  font: 400 13px/1.4 var(--ui-font);
+  cursor: pointer;
+}
+.skill-removed-toggle:hover {
+  background: var(--color-surface-2);
+}
+.skill-removed-toggle > span:first-of-type {
+  flex: 1 1 auto;
+  text-align: left;
+}
+.skill-removed-toggle .ui-icon {
+  width: 14px;
+  height: 14px;
+}
+.skill-count {
+  color: var(--color-text-3);
+  font: 400 12px/1.4 var(--ui-font);
+}
+.skill-pager {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 4px 0;
+  border-top: 1px solid var(--color-line);
+  color: var(--color-text-3);
+  font: 400 12px/1.4 var(--ui-font);
+}
+/* Positioned so absolutely placed children (screen-reader labels) scroll
+   inside the detail instead of stretching the settings page below it. */
+.skill-detail {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  min-width: 0;
+  padding: 24px 28px;
+  overflow-y: auto;
+}
+.skill-detail-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.settings-icon-box.is-large {
+  width: 44px;
+  height: 44px;
+  border-radius: 11px;
+}
+.skill-detail-title {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  min-width: 0;
+}
+.skill-detail-title h2 {
+  margin: 0;
+  overflow: hidden;
+  color: var(--color-text);
+  font: 600 18px/1.3 var(--ui-mono);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.skill-detail-head .app-button .ui-icon {
+  width: 14px;
+  height: 14px;
+}
+.skill-description {
+  margin: 0;
+  color: var(--color-text-2);
+  font: 400 14px/1.6 var(--ui-font);
+}
+.skill-facts {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  margin: 0;
+  border: 1px solid var(--color-line);
+  border-radius: 10px;
+}
+.skill-facts dt,
+.skill-facts dd {
+  margin: 0;
+  padding: 11px 14px;
+  font: 400 13px/1.5 var(--ui-font);
+}
+.skill-facts dt {
+  color: var(--color-text-3);
+}
+.skill-facts dd {
+  overflow-wrap: anywhere;
+  color: var(--color-text);
+}
+.skill-facts dt:not(:first-of-type),
+.skill-facts dd:not(:first-of-type) {
+  border-top: 1px solid var(--color-line);
+}
+.skill-facts .is-mono,
+.skill-scripts .is-mono {
+  font-family: var(--ui-mono);
+}
+.skill-section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  color: var(--color-text);
+  font: 600 14px/1.4 var(--ui-font);
+}
+.skill-warning {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: var(--radius-control);
+  background: color-mix(in srgb, var(--ui-warning) 12%, transparent);
+  color: var(--ui-warning);
+  font: 400 12px/1.5 var(--ui-font);
+}
+.skill-warning[hidden] {
+  display: none;
+}
+.skill-warning .ui-icon {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+}
+.skill-scripts {
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--color-line);
+  border-radius: 10px;
+  list-style: none;
+}
+.skill-scripts li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  color: var(--color-text);
+  font-size: 13px;
+}
+.skill-scripts li + li {
+  border-top: 1px solid var(--color-line);
+}
+.skill-scripts .ui-icon {
+  width: 14px;
+  height: 14px;
+  color: var(--color-text-3);
+}
+.skill-confirm-copy {
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--color-text-2);
+  font: 400 13px/1.6 var(--ui-font);
+}
+.skill-add-dialog {
+  --dialog-width: 640px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.skill-add-note {
+  margin: -6px 0 0;
+  color: var(--color-text-2);
+  font: 400 13px/1.5 var(--ui-font);
+}
+.skill-add-source {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+.skill-add-field {
+  display: grid;
+  flex: 1 1 auto;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px 12px;
+  align-items: baseline;
+  min-width: 0;
+}
+.skill-add-field[hidden] {
+  display: none;
+}
+.skill-add-field > label {
+  color: var(--color-text);
+  font: 500 13px/1.4 var(--ui-font);
+}
+.skill-add-field > small,
+.skill-found-head > small {
+  color: var(--color-text-3);
+  font: 400 12px/1.4 var(--ui-font);
+  text-align: right;
+}
+.skill-add-input {
+  display: flex;
+  grid-column: 1 / -1;
+  gap: 8px;
+  min-width: 0;
+}
+.skill-add-input input:not([type="file"]) {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-family: var(--ui-mono);
+}
+.skill-add-source [data-skill-find] .ui-icon {
+  width: 14px;
+  height: 14px;
+}
+.skill-found-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+.skill-found-head .skill-section-title {
+  margin: 0;
+}
+.skill-chosen {
+  color: var(--color-text-2);
+  font: 400 12px/1.4 var(--ui-font);
+}
+.skill-found {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.skill-found[hidden] {
+  display: none;
+}
+.skill-found-list {
+  display: flex;
+  flex-direction: column;
+  max-height: 280px;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  border: 1px solid var(--color-line);
+  border-radius: 10px;
+  list-style: none;
+}
+.skill-found-list li + li {
+  border-top: 1px solid var(--color-line);
+}
+.skill-found-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  cursor: pointer;
+}
+.skill-found-row input {
+  accent-color: var(--color-accent);
+}
+.skill-found-row:hover {
+  background: var(--color-surface-2);
+}
+.mcp-state {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  color: var(--color-text-2);
+  font: 400 12px/1.4 var(--ui-font);
+}
+.mcp-enabled {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-text-2);
+  font: 400 13px/1 var(--ui-font);
+}
+.mcp-pair {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.mcp-pair + .mcp-pair {
+  margin-top: 6px;
+}
+.mcp-pair .is-mono {
+  font-family: var(--ui-mono);
+}
+.mcp-notice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: var(--radius-control);
+  background: var(--color-surface-2);
+  color: var(--color-text-2);
+  font: 400 12px/1.5 var(--ui-font);
+}
+.mcp-notice .ui-icon {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+}
+.mcp-notice a {
+  margin-left: 6px;
+  color: var(--color-accent);
+}
+.mcp-tools-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+.mcp-label {
+  color: var(--color-text-3);
+  font: 400 12px/1.4 var(--ui-font);
+}
+.mcp-tool-list {
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--color-line);
+  border-radius: 10px;
+  list-style: none;
+}
+.mcp-tool {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 14px;
+  color: var(--color-text);
+  font-size: 13px;
+}
+.mcp-tool + .mcp-tool {
+  border-top: 1px solid var(--color-line);
+}
+.mcp-tool .is-mono {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-family: var(--ui-mono);
+}
+.mcp-tool .settings-select {
+  flex: 0 0 auto;
+  width: auto;
+}
+.mcp-dialog {
+  --dialog-width: 660px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+}
+.mcp-dialog-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.app-dialog .mcp-dialog-head h2 {
+  margin: 0;
+}
+.mcp-kinds {
+  align-self: flex-start;
+}
+.mcp-kinds > button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.mcp-kinds .ui-icon {
+  width: 13px;
+  height: 13px;
+}
+.mcp-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px 16px;
+  align-items: start;
+}
+.mcp-row.is-command {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+}
+.mcp-row[hidden] {
+  display: none;
+}
+.mcp-row > .mcp-field[hidden] + .mcp-field,
+.mcp-row > .mcp-field:only-child {
+  grid-column: 1 / -1;
+}
+.mcp-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.mcp-field {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px 12px;
+  align-items: baseline;
+}
+.mcp-field[hidden] {
+  display: none;
+}
+.mcp-field > label:first-child,
+.mcp-field-label {
+  color: var(--color-text);
+  font: 500 13px/1.4 var(--ui-font);
+}
+.mcp-field > small {
+  color: var(--color-text-3);
+  font: 400 12px/1.4 var(--ui-font);
+  text-align: right;
+}
+.mcp-field > input,
+.mcp-field > textarea,
+.mcp-field > .mcp-pairs,
+.mcp-field > .settings-segmented,
+.mcp-field > .mcp-check,
+.mcp-field > .settings-link {
+  grid-column: 1 / -1;
+}
+.mcp-field > .settings-link {
+  justify-self: start;
+}
+.mcp-field textarea,
+.mcp-field input,
+.mcp-pair-row input {
+  font-family: var(--ui-mono);
+}
+.mcp-pairs {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.mcp-pairs:empty {
+  display: none;
+}
+.mcp-pair-row {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr) auto;
+  gap: 6px;
+  align-items: center;
+}
+.mcp-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-text-2);
+  font: 400 13px/1.4 var(--ui-font);
+}
+.mcp-test-result {
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: var(--radius-control);
+  background: var(--color-surface-2);
+  color: var(--color-text-2);
+  overflow-wrap: anywhere;
+  font: 400 12px/1.5 var(--ui-font);
+}
+.mcp-test-result.is-ok {
+  background: color-mix(in srgb, var(--color-ok) 12%, transparent);
+  color: var(--color-ok);
+}
+.mcp-test-result[hidden] {
+  display: none;
+}

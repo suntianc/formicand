@@ -4,92 +4,12 @@ import { escapeHtml as esc } from "../ui/html.js";
 import { createModal } from "../ui/modal.js";
 import { LEVEL_LABELS } from "./model-picker.js";
 import { PRESET_REGIONS, PROVIDER_PRESETS, presetById } from "../model-provider-presets.js";
+import { API_LABELS, providerLogo, requestPreview } from "./model-provider-display.js";
+import { capabilityTags, providerDetailMarkup, providerState } from "./model-provider-view.js";
 
-const API_LABELS = {
-  "openai-completions": "Chat Completions",
-  "openai-responses": "Responses",
-  "anthropic-messages": "Anthropic Messages"
-};
-const API_PATHS = {
-  "openai-completions": "/chat/completions",
-  "openai-responses": "/responses",
-  "anthropic-messages": "/v1/messages"
-};
+export { modelFamily, providerLogo, requestPreview } from "./model-provider-display.js";
+
 const LEVELS = ["off", "low", "medium", "high", "xhigh", "max"];
-
-/** The URL requests go to, as the backend builds it (`requestBaseUrl`). */
-export function requestPreview(baseUrl, api) {
-  const base = String(baseUrl || "")
-    .trim()
-    .replace(/\/+$/, "");
-  if (!base) return "";
-  if (!URL.canParse(base)) return "";
-  const path = new URL(base).pathname;
-  const root = api === "anthropic-messages" || (path !== "/" && path !== "") ? base : `${base}/v1`;
-  return `${root}${API_PATHS[api] || API_PATHS["openai-completions"]}`;
-}
-
-/** Model families a custom provider's model ids are recognized by. */
-const MODEL_FAMILIES = [
-  [/^(gpt|o\d|chatgpt|codex)/i, "openai"],
-  [/deepseek/i, "deepseek"],
-  [/claude/i, "anthropic"],
-  [/gemini|gemma/i, "gemini"],
-  [/^(glm|chatglm)/i, "zhipu"],
-  [/kimi|moonshot/i, "moonshot"],
-  [/qwen|qwq/i, "bailian"],
-  [/grok/i, "xai"],
-  [/mistral|mixtral|codestral|devstral/i, "mistral"],
-  [/minimax|abab/i, "minimax"],
-  [/hunyuan/i, "hunyuan"],
-  [/doubao|seed-/i, "volcengine"],
-  [/ernie/i, "qianfan"],
-  [/mimo/i, "xiaomimimo"]
-];
-
-/** The preset whose logo a model id belongs to, e.g. `gpt-5` or `openai/gpt-5` → openai. */
-export function modelFamily(model) {
-  const id = String(model || "").trim();
-  if (!id) return undefined;
-  const name = id.split("/").pop();
-  const match = MODEL_FAMILIES.find(([pattern]) => pattern.test(name) || pattern.test(id));
-  return match ? presetById(match[1]) : undefined;
-}
-
-/**
- * A provider's mark: its preset logo. A custom provider has none, so the mark
- * follows the model it serves (a gpt model shows OpenAI's), and a model of no
- * known family shows a plain chip mark.
- */
-export function providerLogo(provider, size = 28, model) {
-  const preset = presetById(provider?.preset) || modelFamily(model);
-  const style = `--logo-size:${size}px`;
-  if (!preset)
-    return `<span class="provider-logo is-generic" data-logo="generic" style="${style}" aria-hidden="true">${icon("cpu")}</span>`;
-  const url = `/assets/brand/providers/${preset.logo ?? preset.id}.svg`;
-  return preset.mono
-    ? `<span class="provider-logo" data-logo="${preset.id}" style="${style}" aria-hidden="true"><span class="provider-logo-mono" style="--logo:url('${url}')"></span></span>`
-    : `<span class="provider-logo" data-logo="${preset.id}" style="${style}" aria-hidden="true"><img src="${url}" alt=""></span>`;
-}
-
-const formatTokens = (value) =>
-  !value ? "" : value >= 1_000_000 ? `${Math.round(value / 100_000) / 10}M` : `${Math.round(value / 1000)}K`;
-
-function capabilityTags(model) {
-  const tags = [];
-  if (
-    model.reasoning ??
-    (model.supportsReasoningEffort || (model.reasoningLevels || []).some((l) => l !== "off"))
-  )
-    tags.push(`<span class="model-tag is-reasoning">${ui("推理")}</span>`);
-  if (model.supportsImages ?? model.images)
-    tags.push(`<span class="model-tag is-images">${ui("视觉")}</span>`);
-  // The new-model default says nothing about the model; only a known window is shown.
-  const context =
-    model.contextWindow === 256000 && !model.autoLimits?.length ? "" : formatTokens(model.contextWindow);
-  if (context) tags.push(`<span class="model-tag">${esc(context)} ${ui("上下文")}</span>`);
-  return tags.join("");
-}
 
 /**
  * Model providers.
@@ -151,8 +71,6 @@ export function installModelProviders({
 
   /* ------------------------------------------------------------ provider list */
 
-  const providerState = (provider) =>
-    !provider.enabled ? "off" : !provider.configured ? "warn" : provider.models.length ? "ok" : "idle";
   const renderList = () => {
     const items = providers().filter((provider) =>
       `${provider.name} ${provider.baseUrl}`.toLowerCase().includes(query.toLowerCase())
@@ -184,124 +102,9 @@ export function installModelProviders({
   const value = (provider, field) => draftOf(provider)[field] ?? provider[field];
   const dirty = (provider) => Object.keys(draftOf(provider)).length > 0;
 
-  const renderEmpty = () => {
-    const quick = PROVIDER_PRESETS.filter((preset) =>
-      ["deepseek", "zhipu", "moonshot", "bailian", "openai", "anthropic"].includes(preset.id)
-    );
-    detail.innerHTML = `<div class="provider-empty">
-      <span class="provider-empty-icon">${icon("cpu")}</span>
-      <h2>${ui("还没有模型供应商")}</h2>
-      <p>${ui("添加一个供应商并填入 API Key，Main 和子 Agent 才能开始工作。")}</p>
-      <div class="provider-quick">${quick
-        .map(
-          (preset) =>
-            `<button type="button" class="provider-quick-item" data-preset="${preset.id}">${providerLogo({ preset: preset.id, name: preset.name }, 30)}<span>${esc(ui(preset.name))}</span></button>`
-        )
-        .join("")}</div>
-      <button type="button" class="settings-link" data-provider-add>${icon("plus")}<span>${ui("其他供应商或自定义地址")}</span></button>
-    </div>`;
-  };
-
   const renderDetail = () => {
     const provider = selected();
-    if (!provider) return renderEmpty();
-    const api = value(provider, "api");
-    const baseUrl = value(provider, "baseUrl");
-    const state = providerState(provider);
-    const stateText = {
-      ok: ui("已配置"),
-      idle: ui("已配置，尚未添加模型"),
-      warn: ui("缺少 API Key"),
-      off: ui("未启用")
-    }[state];
-    const locked = managed() || busy;
-    detail.innerHTML = `
-      <div class="provider-head">
-        ${providerLogo(provider, 36)}
-        <div class="provider-head-text">
-          <input class="provider-name-input" data-field="name" value="${esc(value(provider, "name"))}" aria-label="${esc(ui("供应商名称"))}" maxlength="80"${locked ? " disabled" : ""}>
-          <span class="provider-head-state"><span class="provider-dot is-${state}" aria-hidden="true"></span>${esc(stateText)}</span>
-        </div>
-        <span class="settings-row-spacer"></span>
-        <span class="provider-toggle-label">${ui("启用")}</span>
-        <button type="button" class="ui-switch" role="switch" data-provider-enabled aria-checked="${provider.enabled}" aria-label="${esc(ui("启用供应商"))}"${locked ? " disabled" : ""}></button>
-        <button type="button" class="settings-icon-button" data-provider-delete aria-label="${esc(ui("删除供应商"))}" title="${esc(ui("删除供应商"))}"${locked ? " disabled" : ""}>${icon("trash")}</button>
-      </div>
-      <div class="provider-card">
-        <label class="provider-field">
-          <span class="provider-field-label">API Key<small>${ui("保存在执行主机的私有配置中")}</small></span>
-          <span class="provider-input-row">
-            <span class="provider-input"><input type="password" data-field="apiKey" autocomplete="off" spellcheck="false" value="${esc(draftOf(provider).apiKey || "")}" placeholder="${esc(provider.configured ? ui("已保存，留空保留原密钥") : ui("填写 API Key"))}"${locked ? " disabled" : ""}><button type="button" class="provider-input-icon" data-reveal aria-label="${esc(ui("显示或隐藏 API Key"))}">${icon("eye")}</button></span>
-            <button type="button" class="app-button is-secondary" data-provider-check${locked ? " disabled" : ""}>${icon("plug")}<span>${ui("检查")}</span></button>
-          </span>
-        </label>
-        <label class="provider-field">
-          <span class="provider-field-label">${ui("API 地址")}</span>
-          <span class="provider-input"><input type="url" data-field="baseUrl" spellcheck="false" value="${esc(baseUrl)}"${locked ? " disabled" : ""}></span>
-          <small class="provider-preview">${esc(requestPreview(baseUrl, api) ? ui`请求地址：${requestPreview(baseUrl, api)}` : "")}</small>
-        </label>
-        <div class="provider-field">
-          <span class="provider-field-label">${ui("接口格式")}<small>${ui("决定请求路径与消息结构")}</small></span>
-          <div class="settings-segmented" role="radiogroup" aria-label="${esc(ui("接口格式"))}">${Object.entries(
-            API_LABELS
-          )
-            .map(
-              ([id, label]) =>
-                `<button type="button" role="radio" data-api="${id}" aria-checked="${api === id}"${locked ? " disabled" : ""}>${esc(label)}</button>`
-            )
-            .join("")}</div>
-        </div>
-        <details class="provider-advanced">
-          <summary>${ui("高级")}${icon("chevron-down")}</summary>
-          <div class="provider-advanced-body">
-            <label class="provider-field is-inline"><span>${ui("思考模式格式")}</span>
-              <select class="settings-select" data-field="thinkingFormat"${locked || api !== "openai-completions" ? " disabled" : ""}>
-                ${[
-                  ["auto", ui("自动识别")],
-                  ["openai", ui("标准格式")],
-                  ["zai", ui("GLM 格式")]
-                ]
-                  .map(
-                    ([id, label]) =>
-                      `<option value="${id}"${value(provider, "thinkingFormat") === id ? " selected" : ""}>${esc(label)}</option>`
-                  )
-                  .join("")}
-              </select></label>
-            <div class="provider-field is-inline"><span>${ui("会话缓存键（prompt_cache_key）")}<small>${ui("仅在服务商确认支持时开启")}</small></span>
-              <button type="button" class="ui-switch" role="switch" data-field-switch="supportsPromptCacheKey" aria-checked="${value(provider, "supportsPromptCacheKey") === true}"${locked || api === "anthropic-messages" ? " disabled" : ""}></button></div>
-          </div>
-        </details>
-        <div class="provider-save" ${dirty(provider) ? "" : "hidden"}>
-          <span data-provider-result role="status"></span>
-          <span class="settings-row-spacer"></span>
-          <button type="button" class="app-button is-secondary" data-provider-discard>${ui("放弃")}</button>
-          <button type="button" class="app-button is-primary" data-provider-save${locked ? " disabled" : ""}>${ui("保存")}</button>
-        </div>
-        <p class="provider-check-result" data-check-result role="status"></p>
-      </div>
-      <div class="provider-models">
-        <div class="provider-models-head">
-          <h2 class="settings-group-title">${ui("模型")}</h2><span class="model-count">${provider.models.length}</span>
-          <span class="settings-row-spacer"></span>
-          <button type="button" class="app-button is-secondary" data-models-fetch${locked || !provider.configured ? " disabled" : ""}>${icon("refresh")}<span>${ui("获取模型列表")}</span></button>
-          <button type="button" class="app-button is-secondary" data-models-add${locked ? " disabled" : ""}>${icon("plus")}<span>${ui("手动添加")}</span></button>
-        </div>
-        <div class="settings-rows provider-model-rows">${
-          provider.models.length
-            ? provider.models
-                .map((model) => {
-                  return `<div class="provider-model-row" data-model-id="${esc(model.id)}">
-                    <span class="provider-model-text"><span class="provider-model-name">${esc(model.name || model.id)}</span>${model.name ? `<span class="provider-model-id">${esc(model.id)}</span>` : ""}</span>
-                    <span class="model-tags">${capabilityTags(model)}</span>
-                    <span class="settings-row-spacer"></span>
-                    <button type="button" class="settings-icon-button" data-model-settings="${esc(model.id)}" aria-label="${esc(ui`${model.id} 的参数`)}" title="${esc(ui("模型参数"))}"${locked ? " disabled" : ""}>${icon("settings")}</button>
-                    <button type="button" class="settings-icon-button" data-model-remove="${esc(model.id)}" aria-label="${esc(ui`移除 ${model.id}`)}" title="${esc(ui("移除模型"))}"${locked ? " disabled" : ""}>${icon("minus")}</button>
-                  </div>`;
-                })
-                .join("")
-            : `<div class="settings-row"><span class="settings-row-meta">${provider.configured ? ui("还没有模型，点「获取模型列表」从服务商读取，或手动添加。") : ui("填写 API Key 并保存后即可获取模型列表。")}</span></div>`
-        }</div>
-      </div>`;
+    detail.innerHTML = providerDetailMarkup(provider, provider && draftOf(provider), managed() || busy);
   };
 
   /* -------------------------------------------------------------- rendering */

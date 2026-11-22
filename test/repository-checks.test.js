@@ -183,6 +183,7 @@ test("quick verify prepares real web assets from a clean checkout", async () => 
       "verify.mjs",
       "test.mjs",
       "test-run-root.mjs",
+      "build-web-assets.mjs",
       "build-math.mjs",
       "build-document-markdown.mjs"
     ]) {
@@ -210,6 +211,10 @@ test("quick verify prepares real web assets from a clean checkout", async () => 
         "test:release:runner"
       ].map((name) => [name, noop])
     );
+    await put("web/app.js", 'import("./english.js");');
+    await put("web/english.js", 'export default "English";');
+    await put("web/shell.css", '@import "./assets/math.css";');
+    await put("web/assets/math.css", '@import "./math/generated/katex.min.css";');
     if (actual.scripts["build:web-assets"]) scripts["build:web-assets"] = actual.scripts["build:web-assets"];
     assert.deepEqual(Object.keys(scripts).sort(), [...verificationScripts].sort());
     await put("package.json", JSON.stringify({ type: "module", scripts }));
@@ -227,7 +232,10 @@ test("quick verify prepares real web assets from a clean checkout", async () => 
       "web/assets/math/generated/fonts/KaTeX_Main-Regular.woff2",
       "web/assets/mermaid/generated/mermaid.min.js",
       "web/assets/mermaid/generated/LICENSE.txt",
-      "web/assets/markdown/generated/dependencies.js"
+      "web/assets/markdown/generated/dependencies.js",
+      "web/assets/markdown/generated/shell/app.js",
+      "web/assets/markdown/generated/shell/english.js",
+      "web/assets/markdown/generated/shell/shell.css"
     ])
       assert.ok((await readFile(join(root, path))).length > 0, path);
     await rename(join(root, "node_modules"), join(root, "node_modules-disabled"));

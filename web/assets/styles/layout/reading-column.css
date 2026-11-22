@@ -1,0 +1,561 @@
+@media (max-width: 1320px) {
+  :root {
+    --conversation-width: 300px;
+    --panel-width: 440px;
+  }
+  .chat-scroll,
+  .composer-wrap {
+    padding-left: 32px;
+    padding-right: 32px;
+  }
+}
+@media (max-width: 1100px) {
+  :root {
+    --conversation-width: 270px;
+    --panel-width: 400px;
+  }
+  .chat-scroll,
+  .composer-wrap {
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+}
+@media (max-width: 900px) {
+  .app-layout,
+  .sidebar-collapsed .app-layout,
+  .output-collapsed .app-layout,
+  .sidebar-collapsed.output-collapsed .app-layout {
+    grid-template-columns: 1fr;
+  }
+  .sidebar-mobile-open .conversation-sidebar {
+    display: flex;
+    position: absolute;
+    inset: 0 auto 0 0;
+    z-index: 25;
+    width: min(320px, 85vw);
+    overflow: auto;
+    padding: 18px 13px 12px;
+    border-right: 1px solid light-dark(var(--ui-border), #444);
+    background: light-dark(var(--ui-raised), #171717);
+    box-shadow: 12px 0 30px #0008;
+  }
+  .agent-pane {
+    display: flex;
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    z-index: 12;
+    width: min(480px, 100%);
+    min-width: 0;
+    padding: 0;
+    border-left: 1px solid var(--panel-border);
+    box-shadow: -10px 0 30px #0003;
+  }
+}
+
+/* Comfortable desktop reading scale. The original shell was tuned for a
+   small laptop viewport, which made the type and controls feel undersized on
+   an external monitor. Keep the wider rails, then give the conversation a
+   tighter gutter so the welcome state and messages use the available width. */
+@media (min-width: 901px) {
+  body {
+    font-size: 16px;
+  }
+  .chat-scroll,
+  .composer-wrap {
+    padding-left: clamp(32px, 4vw, 84px);
+    padding-right: clamp(32px, 4vw, 84px);
+  }
+  .welcome-empty {
+    min-height: 410px;
+  }
+  .welcome-symbol {
+    width: 58px;
+    height: 58px;
+    margin-bottom: 20px;
+    border-radius: 14px;
+  }
+  .welcome-symbol img {
+    width: 45px;
+    height: 45px;
+  }
+  .welcome-empty h2 {
+    margin-bottom: 10px;
+    font-size: 30px;
+  }
+  .welcome-empty p {
+    font-size: 15px;
+  }
+  .welcome-empty .starter-prompts {
+    gap: 10px;
+    margin-top: 26px;
+  }
+  .starter-prompts button {
+    gap: 8px;
+    padding: 10px 13px;
+    font-size: 13px;
+  }
+  .chat-message .message-copy {
+    font-size: var(--ui-type-body);
+    line-height: var(--ui-line-body);
+  }
+  .message-meta {
+    font-size: var(--ui-type-caption);
+  }
+  .composer textarea {
+    min-height: 44px;
+    height: 54px;
+    font-size: 17px;
+  }
+  .model-select,
+  .permission-chip {
+    font-size: 15px;
+  }
+  .sidebar-section-label {
+    font-size: 15px;
+  }
+  .project-row {
+    font-size: 17px;
+  }
+  .conversation-item-title {
+    font-size: 16px;
+  }
+  .conversation-item-meta {
+    font-size: 12px;
+  }
+  .nav-item,
+  .new-conversation {
+    font-size: 16px;
+  }
+  .account-name strong {
+    font-size: 14px;
+  }
+  .account-name small {
+    font-size: 11px;
+  }
+}
+/* Global history is grouped by project/workspace in the left rail. Each
+   conversation remains in its own workspace on disk; expanding a project
+   only changes the presentation, never the task's execution root. */
+.project-list {
+  overflow: auto;
+  padding-bottom: 12px;
+}
+.project-group {
+  flex: 0 0 auto;
+  margin-bottom: 10px;
+}
+.project-row {
+  position: relative;
+}
+.project-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.project-count {
+  min-width: 20px;
+  margin-left: auto;
+  color: light-dark(var(--ui-secondary), #888);
+  font:
+    11px "DM Mono",
+    monospace;
+  text-align: right;
+}
+.project-chevron {
+  margin-left: 7px;
+  color: light-dark(var(--ui-secondary), #858585);
+  font-size: 16px;
+  line-height: 1;
+  transition: transform var(--motion-fast);
+}
+.project-group.collapsed .project-chevron {
+  transform: rotate(-90deg);
+}
+.project-group.collapsed .conversation-list {
+  display: none;
+}
+.project-group .conversation-list {
+  max-height: none;
+  flex: none;
+  min-height: 0;
+  overflow: visible;
+  padding: 0 10px 0 22px;
+}
+.project-group .conversation-item {
+  width: 100%;
+}
+/* Artifact files open into a small, persistent editor rather than replacing
+   the whole workspace with a one-shot text preview. */
+
+.artifact-browser-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 4px 0 10px;
+  color: var(--panel-secondary);
+  font-size: var(--panel-type-body);
+}
+.artifact-browser-head small {
+  color: var(--panel-faint);
+  font-size: var(--panel-type-caption);
+}
+.agent-pane .artifact-row {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  gap: 9px;
+  padding: 10px 5px;
+  border: 0;
+  border-bottom: 1px solid var(--panel-border);
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.agent-pane .artifact-row.is-open {
+  background: var(--panel-surface);
+}
+.agent-pane .artifact-row.is-open .artifact-icon {
+  color: var(--panel-text);
+  border-color: light-dark(var(--ui-border), #5a5a5a);
+}
+.agent-pane .artifact-row .artifact-copy {
+  min-width: 0;
+  flex: 1;
+}
+.artifact-open-label {
+  flex: 0 0 auto;
+  color: var(--panel-faint);
+  font-size: var(--panel-type-caption);
+}
+.artifact-row.is-open .artifact-open-label {
+  color: var(--panel-secondary);
+}
+.file-viewer {
+  display: flex;
+  min-height: 290px;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--panel-border);
+  border-radius: 9px;
+  background: light-dark(var(--ui-raised), #1e1e1e);
+}
+.file-tabs {
+  display: flex;
+  min-height: 35px;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--panel-border);
+  background: light-dark(var(--ui-raised), #252525);
+  scrollbar-width: thin;
+}
+.file-tab {
+  display: flex;
+  align-items: stretch;
+  min-width: 0;
+  flex: 0 0 auto;
+  border-right: 1px solid var(--panel-border);
+  background: transparent;
+}
+.file-tab.active {
+  background: light-dark(var(--ui-raised), #1e1e1e);
+  box-shadow: inset 0 2px #aaa;
+}
+.file-tab-main,
+.file-tab-close {
+  border: 0;
+  color: var(--panel-muted);
+  background: transparent;
+  cursor: pointer;
+}
+.file-tab-main {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 150px;
+  padding: 8px 6px 8px 10px;
+  overflow: hidden;
+  font-size: 10px;
+}
+.file-tab-main .ui-icon {
+  width: 13px;
+  height: 13px;
+  flex: 0 0 13px;
+}
+.file-tab-main span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.file-tab-close {
+  width: 25px;
+  padding: 0;
+  color: light-dark(var(--ui-secondary), #777);
+  font-size: 15px;
+  line-height: 1;
+}
+.file-tab-main:hover,
+.file-tab-close:hover {
+  color: var(--panel-text);
+}
+.file-tab.active .file-tab-main {
+  color: var(--panel-text);
+}
+.file-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  min-height: 32px;
+  padding: 0 9px;
+  border-bottom: 1px solid light-dark(var(--ui-border), #303030);
+  color: var(--panel-muted);
+  background: light-dark(var(--ui-raised), #202020);
+}
+.file-breadcrumb {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  color: light-dark(var(--ui-secondary), #aaa);
+  font:
+    10px "DM Mono",
+    monospace;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.file-language {
+  flex: 0 0 auto;
+  color: light-dark(var(--ui-secondary), #777);
+  font-size: 9px;
+}
+.file-copy {
+  flex: 0 0 auto;
+  padding: 3px 7px;
+  border: 1px solid light-dark(var(--ui-border), #444);
+  border-radius: 5px;
+  color: light-dark(var(--ui-secondary), #aaa);
+  background: light-dark(var(--ui-raised), #2b2b2b);
+  font-size: 9px;
+  cursor: pointer;
+}
+.file-copy:hover {
+  color: light-dark(var(--ui-text), #eee);
+  border-color: light-dark(var(--ui-border), #666);
+}
+.file-editor {
+  min-height: 220px;
+  flex: 1;
+  overflow: auto;
+  background: light-dark(var(--ui-raised), #1e1e1e);
+}
+.code-editor {
+  min-width: max-content;
+  padding: 10px 0 15px;
+  color: light-dark(var(--ui-secondary), #c7c7c7);
+  font:
+    11px/1.7 "DM Mono",
+    ui-monospace,
+    monospace;
+}
+.code-line {
+  display: flex;
+  min-height: 19px;
+  padding-right: 18px;
+}
+.code-line:hover {
+  background: light-dark(var(--ui-raised), #272727);
+}
+.line-number {
+  flex: 0 0 42px;
+  padding-right: 13px;
+  color: light-dark(var(--ui-secondary), #606060);
+  text-align: right;
+  user-select: none;
+}
+.code-line code {
+  white-space: pre;
+  color: light-dark(var(--ui-secondary), #c7c7c7);
+}
+
+.editor-spinner {
+  width: 12px;
+  height: 12px;
+  border: 2px solid light-dark(var(--ui-border), #555);
+  border-top-color: light-dark(var(--ui-border-hover), #ccc);
+  border-radius: 50%;
+  animation: editor-spin 0.8s linear infinite;
+}
+@keyframes editor-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+/* Transcript and composer share one reading column, centered in the current
+   conversation pane (including split application layouts). Container units
+   follow sidebar/editor resizing without recreating content or draft nodes. */
+.chat-pane .conversation-pane {
+  container-type: inline-size;
+  --conversation-reading-width: 960px;
+  --conversation-reading-gutter: clamp(16px, 4cqw, 28px);
+}
+.chat-pane .conversation-pane .chat-scroll,
+.chat-pane .conversation-pane .composer-wrap {
+  padding-inline: max(
+    var(--conversation-reading-gutter),
+    calc((100cqw - var(--conversation-reading-width)) / 2)
+  );
+}
+.chat-pane .request-error,
+.chat-pane .chat-message.human-answer {
+  width: 100%;
+  max-width: none;
+  margin-inline: 0;
+}
+.chat-pane .markdown-body img {
+  max-width: 100%;
+  height: auto;
+}
+.chat-pane .markdown-body table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+@media (min-width: 901px) {
+  .chat-message.main,
+  .live-workflow,
+  .execution-history {
+    width: 100%;
+    margin-right: 0;
+    margin-left: 0;
+  }
+  .chat-message.main .message-copy {
+    max-width: none;
+    font-size: var(--ui-type-body);
+  }
+  .chat-message.user {
+    width: min(760px, 84%);
+  }
+  .chat-message.main .message-meta {
+    font-size: var(--ui-type-caption);
+    letter-spacing: 0.1em;
+  }
+  .chat-message.main .markdown-body {
+    padding-right: 24px;
+    font-size: var(--ui-type-body);
+  }
+  .live-workflow-head {
+    padding-top: 10px;
+  }
+  .execution-history > summary strong,
+  .workflow-heading strong {
+    font-size: 15px;
+  }
+  .execution-history > summary small,
+  .execution-history > summary em,
+  .live-caption,
+  .workflow-turn-label {
+    font-size: 12px;
+  }
+  .reasoning-copy {
+    font-size: 14px;
+    line-height: 1.75;
+  }
+  .tool-step .activity-step-head strong {
+    font-size: 13px;
+  }
+  .activity-preview {
+    font-size: 13px;
+  }
+}
+/* The model label is an actual selector, not a decorative status chip. */
+.composer {
+  position: relative;
+}
+.model-select {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  padding: 4px 6px;
+  border: 0;
+  border-radius: 8px;
+  color: light-dark(var(--ui-secondary), #bdbdbd);
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+.model-select:hover,
+.model-select[aria-expanded="true"] {
+  color: light-dark(var(--ui-text), #f0f0f0);
+  background: light-dark(var(--ui-raised), #363636);
+}
+.model-select .model-name {
+  max-width: 190px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.model-menu {
+  position: absolute;
+  right: 14px;
+  bottom: 78px;
+  z-index: 25;
+  display: flex;
+  width: min(300px, calc(100vw - 40px));
+  max-height: min(360px, calc(100vh - 150px));
+  flex-direction: column;
+  overflow: auto;
+  padding: 6px;
+  border: 1px solid light-dark(var(--ui-border), #4a4a4a);
+  border-radius: 11px;
+  background: light-dark(var(--ui-raised), #292929);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.46);
+}
+.model-menu-title {
+  padding: 7px 9px 8px;
+  color: light-dark(var(--ui-secondary), #888);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.model-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 34px;
+  padding: 7px 8px;
+  border: 0;
+  border-radius: 7px;
+  color: light-dark(var(--ui-secondary), #bdbdbd);
+  background: transparent;
+  cursor: pointer;
+  font:
+    12px "DM Mono",
+    ui-monospace,
+    monospace;
+  text-align: left;
+}
+.model-option:hover,
+.model-option.active {
+  color: light-dark(var(--ui-text), #f0f0f0);
+  background: light-dark(var(--ui-raised), #3a3a3a);
+}
+.model-option-check {
+  flex: 0 0 14px;
+  width: 14px;
+  color: light-dark(var(--ui-text), #d7d7d7);
+  text-align: center;
+}
+.model-option-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

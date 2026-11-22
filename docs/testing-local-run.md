@@ -18,7 +18,7 @@ npm run verify -- --list
 npm run verify:full -- --list
 ```
 
-`verify` 按顺序执行 `build:cli`、`build:web-assets`、`lint`、`check:extensions`、`format:check`、`check:docs`、`check:source` 和 `test:release:runner`，行为测试只运行发布执行器自测。`build:web-assets` 准备 KaTeX 和 Markdown 依赖；它不构建原生桌面资源。`verify:full`（等价于 `verify -- --full`）改用一次 `build:full`，静态检查和发布执行器自测后再运行全量 Node 测试。两种模式均在第一次失败时停止，并保留原始退出码。轻量检查通过不代表相关行为或全量回归通过。
+`verify` 按顺序执行 `build:cli`、`build:web-assets`、`lint`、`check:extensions`、`format:check`、`check:docs`、`check:source` 和 `test:release:runner`，行为测试只运行发布执行器自测。`build:web-assets` 准备 KaTeX、Markdown 和 Mermaid，并构建 Web 与桌面共用的首屏 CSS 和 JavaScript。`verify:full`（等价于 `verify -- --full`）改用一次 `build:full`，静态检查和发布执行器自测后再运行全量 Node 测试。两种模式均在第一次失败时停止，并保留原始退出码。轻量检查通过不代表相关行为或全量回归通过。
 
 `format:check` 默认检查未提交变更。审查已提交差异时先用 `git rev-parse --verify '<基线>^{commit}'` 确认基线，再执行 `FORMAT_BASE=<基线> npm run format:check`，选择范围为 `<基线>...HEAD`；手动 CI 使用 `HEAD^`。默认命令在 clean 工作树可能输出 `No changed files to format`，见 [空选择陷阱](pitfalls/testing.md#提交后格式检查没有选中文件)。
 

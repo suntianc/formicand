@@ -280,9 +280,12 @@ test("the guardian implementation imports no retired monitoring modules", async 
     "monitoring-control.js",
     "goal-routing.js"
   ];
-  const source = await readFile(resolve("src/runtime/main-supervisor.ts"), "utf8");
-  const imports = [...source.matchAll(/(?:from\s+|import\s*\()\s*["']([^"']+)["']/g)].map(
-    (match) => match[1]
+  const [supervisor, guardian] = await Promise.all([
+    readFile(resolve("src/runtime/main-supervisor.ts"), "utf8"),
+    readFile(resolve("src/dashboard/main-run-guardian.ts"), "utf8")
+  ]);
+  const imports = [supervisor, guardian].flatMap((source) =>
+    [...source.matchAll(/(?:from\s+|import\s*\()\s*["']([^"']+)["']/g)].map((match) => match[1])
   );
   for (const name of forbidden)
     assert.equal(
@@ -292,9 +295,10 @@ test("the guardian implementation imports no retired monitoring modules", async 
     );
 
   const runService = await readFile(resolve("src/dashboard/run-service.ts"), "utf8");
-  assert.match(runService, /new MainSupervisor\(/, "the Run service is where the guardian runs");
-  assert.match(runService, /queueWhenFull: true/, "a full budget queues the wake");
-  assert.match(runService, /modelConfigured\(\)/, "each cycle checks the host's model connection");
+  assert.match(runService, /createMainRunGuardian\(/, "the Run service owns the guardian");
+  assert.match(guardian, /new MainSupervisor\(/, "the guardian runs the Main supervisor");
+  assert.match(guardian, /queueWhenFull: true/, "a full budget queues the wake");
+  assert.match(guardian, /modelConfigured\(\)/, "each cycle checks the host's model connection");
 
   const application = await readFile(resolve("src/dashboard/application.ts"), "utf8");
   assert.match(application, /modelConfigured: \(\) =>/, "the host supplies the model gate");

@@ -1,0 +1,361 @@
+/* Model picker (the Agent page's model field) */
+.role-picker {
+  display: flex;
+  width: 300px;
+  height: 38px;
+  align-items: center;
+  gap: 9px;
+  padding: 6px 10px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-control);
+  background: var(--color-surface-2);
+  color: var(--color-text);
+  text-align: left;
+  cursor: pointer;
+}
+.role-picker:hover:not(:disabled) {
+  border-color: var(--color-text-3);
+}
+.role-picker > .ui-icon {
+  width: 14px;
+  height: 14px;
+  color: var(--color-text-3);
+}
+/* Model and provider share one line, so a chosen model keeps the row height. */
+.role-picker-text {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+}
+.role-picker-text span {
+  overflow: hidden;
+  font: 500 13px/1.35 var(--ui-font);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.role-picker-text small {
+  overflow: hidden;
+  flex: 0 1 auto;
+  color: var(--color-text-3);
+  font: 400 12px/1.3 var(--ui-font);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.role-picker-text.is-empty span {
+  color: var(--color-text-2);
+  font-weight: 400;
+}
+.role-menu {
+  position: fixed;
+  z-index: 1200;
+  display: flex;
+  width: 340px;
+  max-height: 360px;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px;
+  border: 1px solid var(--popover-edge, var(--color-line));
+  border-radius: 12px;
+  background: var(--popover-fill, var(--ui-panel));
+  box-shadow: var(--popover-shadow, 0 12px 32px #0006);
+}
+.role-menu[hidden] {
+  display: none;
+}
+.role-menu .provider-search {
+  margin-bottom: 4px;
+  background: transparent;
+  border-bottom: 1px solid var(--color-line);
+  border-radius: 0;
+}
+.role-menu-items {
+  overflow-y: auto;
+}
+.role-menu-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 8px 4px;
+  color: var(--color-text-3);
+  font: 500 11px/1.4 var(--ui-font);
+}
+.role-menu-group small {
+  margin-left: auto;
+  color: var(--ui-warning);
+}
+.role-menu-group.is-disabled > :not(small) {
+  opacity: 0.5;
+}
+.role-menu-item {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 8px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--color-text);
+  font: 400 13px/1.4 var(--ui-font);
+  text-align: left;
+  cursor: pointer;
+}
+.role-menu-item:hover:not(:disabled),
+.role-menu-item[aria-selected="true"] {
+  background: var(--color-surface-2);
+}
+.role-menu-item:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.role-menu-item .ui-icon {
+  width: 14px;
+  height: 14px;
+}
+/* Dialogs */
+.provider-dialog.modal-card {
+  display: flex;
+  width: min(560px, calc(100vw - 40px));
+  max-height: calc(100vh - 48px);
+  flex-direction: column;
+  gap: 14px;
+  padding: 22px 24px;
+}
+.provider-dialog.is-add {
+  width: min(700px, calc(100vw - 40px));
+}
+.provider-dialog.is-model,
+.provider-dialog.is-manual {
+  width: min(440px, calc(100vw - 40px));
+}
+.provider-dialog-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.provider-dialog-head h2 {
+  flex: 1 1 auto;
+  margin: 0;
+  overflow: hidden;
+  color: var(--color-text);
+  font: 600 17px/1.4 var(--ui-font);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* A long preset list scrolls inside the dialog; the title and actions stay put. */
+.provider-dialog-body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 14px;
+  min-height: 0;
+  margin: 0 -4px;
+  padding: 0 4px;
+  overflow-y: auto;
+}
+.provider-dialog-lead {
+  margin: 0;
+  color: var(--color-text-2);
+  font: 400 13px/1.55 var(--ui-font);
+}
+.provider-dialog-foot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.provider-dialog-foot small {
+  color: var(--color-text-3);
+  font: 400 12px/1.5 var(--ui-font);
+}
+.provider-dialog-error {
+  color: var(--ui-danger);
+  font: 400 12px/1.5 var(--ui-font);
+}
+.preset-section h3 {
+  margin: 0 0 8px;
+  color: var(--color-text-3);
+  font: 500 12px/1.4 var(--ui-font);
+}
+.preset-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+.preset-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--color-line);
+  border-radius: 9px;
+  background: var(--color-surface-2);
+  color: var(--color-text);
+  font: 400 13px/1.3 var(--ui-font);
+  text-align: left;
+  cursor: pointer;
+}
+.preset-item span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.preset-item:hover {
+  border-color: var(--color-text-3);
+}
+.preset-item[aria-pressed="true"] {
+  border-color: var(--color-accent);
+}
+.provider-dialog-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.fetch-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.fetch-toolbar .provider-search {
+  flex: 1 1 auto;
+}
+/* Reading a provider's list can take seconds; the list area says so. */
+.fetch-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 160px;
+  color: var(--color-text-2);
+  font: 400 13px/1.5 var(--ui-font);
+}
+.ui-spinner,
+.provider-dialog .app-button[aria-busy="true"]::before {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+  border: 2px solid var(--color-line-strong);
+  border-top-color: var(--color-text);
+  border-radius: 50%;
+  animation: ui-spin 0.8s linear infinite;
+}
+.provider-dialog .app-button[aria-busy="true"] {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.provider-dialog .app-button[aria-busy="true"]::before {
+  width: 12px;
+  height: 12px;
+  border-color: currentColor;
+  border-right-color: transparent;
+  content: "";
+}
+@media (prefers-reduced-motion: reduce) {
+  .ui-spinner,
+  .provider-dialog .app-button[aria-busy="true"]::before {
+    animation-duration: 2.4s;
+  }
+}
+.fetch-list {
+  max-height: 340px;
+  overflow-y: auto;
+  border: 1px solid var(--color-line);
+  border-radius: 10px;
+}
+.fetch-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  cursor: pointer;
+}
+.fetch-item + .fetch-item {
+  border-top: 1px solid var(--color-line);
+}
+.fetch-item.is-added {
+  cursor: default;
+  opacity: 0.6;
+}
+.fetch-item-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.fetch-item-text small,
+.fetch-item > small {
+  color: var(--color-text-3);
+  font: 400 11px/1.4 var(--ui-font);
+}
+.level-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.level-chip input {
+  position: absolute;
+  opacity: 0;
+}
+.level-chip span {
+  display: inline-block;
+  padding: 4px 10px;
+  border: 1px solid var(--color-line);
+  border-radius: 6px;
+  color: var(--color-text-3);
+  font: 400 12px/1.4 var(--ui-font);
+  cursor: pointer;
+}
+.level-chip input:checked + span {
+  border-color: var(--color-text-3);
+  background: var(--color-surface-2);
+  color: var(--color-text);
+}
+.level-chip input:disabled + span {
+  cursor: default;
+}
+.model-auto {
+  margin-left: 6px;
+  padding: 0 6px;
+  border-radius: 5px;
+  background: var(--color-surface-2);
+}
+@media (max-width: 860px) {
+  .provider-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .provider-layout {
+    overflow-y: auto;
+  }
+  .provider-list {
+    padding: 14px 16px;
+    border-right: 0;
+    border-bottom: 1px solid var(--color-line);
+  }
+  .provider-detail {
+    padding: 20px 16px;
+    overflow: visible;
+  }
+  .model-settings-head {
+    flex-wrap: wrap;
+    padding: 18px 16px;
+  }
+  .model-settings-hint {
+    flex: 1 0 100%;
+    margin: 0;
+    text-align: left;
+  }
+  .preset-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .role-picker {
+    width: 100%;
+  }
+}
+/* The search and key fields draw their own edge; the inner input takes no halo. */
+html[data-theme] body :is(.provider-search, .provider-input) input:not([type="checkbox"]):focus-visible {
+  border: 0;
+  outline: none;
+  box-shadow: none;
+}

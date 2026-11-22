@@ -14,10 +14,19 @@ test("language switches both shell and dynamic settings, retains drafts and pers
   // A configured host keeps the ordinary composer, whose placeholder the shell translates.
   const dashboard = await startConfiguredDashboard();
   try {
+    const loaded = { script: [], stylesheet: [] };
+    page.on("request", (request) => {
+      const type = request.resourceType();
+      if (type in loaded) loaded[type].push(new URL(request.url()).pathname);
+    });
     await page.goto(dashboard.base);
     await page.locator("#composer-input").fill("保存 · 设置 · 我的草稿");
     const overview = await settings(page);
     await expect(overview.getByLabel("界面语言", { exact: true })).toHaveValue("zh-CN");
+    expect(loaded.stylesheet).toEqual(["/assets/markdown/generated/shell/shell.css"]);
+    expect(loaded.script).toContain("/assets/markdown/generated/shell/app.js");
+    expect(loaded.script).not.toContain("/assets/markdown/generated/shell/language-en.js");
+    expect(loaded.script.length).toBeLessThanOrEqual(3);
     await overview.getByLabel("界面语言", { exact: true }).selectOption("en");
     await expect(page.locator("html")).toHaveAttribute("lang", "en");
     await expect(page.locator("#composer-input")).toHaveValue("保存 · 设置 · 我的草稿");
@@ -25,6 +34,7 @@ test("language switches both shell and dynamic settings, retains drafts and pers
       "placeholder",
       "Describe what you need, for example: add --avg to summarize.sh…"
     );
+    expect(loaded.script).toContain("/assets/markdown/generated/shell/language-en.js");
     const english = await settings(page);
     await expect(english.getByLabel("Interface language", { exact: true })).toHaveValue("en");
     await page.locator('[data-settings-section="models"]').click();

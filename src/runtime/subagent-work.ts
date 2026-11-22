@@ -1,3 +1,7 @@
+import type { AgentDefinition } from "./agent-definitions.js";
+import type { BuiltinAgentSettings } from "./role-models.js";
+import type { WorkItemSite } from "../workspace/work-item-workspace.js";
+import type { ReviewScope } from "./subagent-review.js";
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { DurableScheduler, type WorkItem, type WorkStatus } from "./scheduler.js";
@@ -51,4 +55,26 @@ export async function hasUnfinishedSubagentWork(input: {
     if (record && !record.settledAt) return true;
   }
   return false;
+}
+
+export interface SubagentWorkPayload {
+  task?: string;
+  projectDirectory?: string;
+  workItemSite?: WorkItemSite;
+  /** The frozen candidate a Reviewer examines, when the dispatcher knows it. */
+  reviewSite?: unknown;
+  delegation?: { role?: string };
+  dependsOn?: string[];
+  /** The Executor session this item appends to; absent for a fresh call. */
+  continuation?: { fromCallId: string; reviewId?: string; sessionCallId?: string };
+  /** Capability grants this work item was dispatched with. */
+  capabilityGrants?: unknown[];
+  /** The custom Agent's definition, fixed when the item was dispatched. */
+  agentDefinition?: AgentDefinition;
+  /** A built-in role's skills, MCP servers and extra prompt, fixed when the item was dispatched. */
+  builtinAgent?: BuiltinAgentSettings;
+  /** What a Reviewer's findings may cite, fixed when its candidate was frozen. */
+  reviewScope?: ReviewScope;
+  /** A ticket Executor's criterion ids, each answered in its report. */
+  ticketCriteria?: string[];
 }

@@ -18,7 +18,7 @@ npm run verify -- --list
 npm run verify:full -- --list
 ```
 
-`verify` runs `build:cli`, `build:web-assets`, `lint`, `check:extensions`, `format:check`, `check:docs`, `check:source` and `test:release:runner`; the release-runner self-test is the only behavioral test it runs. `build:web-assets` prepares KaTeX and Markdown dependencies, but not native desktop resources. `verify:full` (equivalent to `verify -- --full`) uses one `build:full`, then the static checks, `test:release:runner` and the complete Node suite. Both modes stop at the first failure and preserve its exit code. Quick checks do not certify related behavior or the full suite.
+`verify` runs `build:cli`, `build:web-assets`, `lint`, `check:extensions`, `format:check`, `check:docs`, `check:source` and `test:release:runner`; the release-runner self-test is the only behavioral test it runs. `build:web-assets` prepares KaTeX, Markdown and Mermaid and builds the startup CSS and JavaScript shared by Web and Electron. `verify:full` (equivalent to `verify -- --full`) uses one `build:full`, then the static checks, `test:release:runner` and the complete Node suite. Both modes stop at the first failure and preserve its exit code. Quick checks do not certify related behavior or the full suite.
 
 `format:check` defaults to uncommitted changes. For committed changes, verify the baseline with `git rev-parse --verify '<base>^{commit}'`, then run `FORMAT_BASE=<base> npm run format:check` to select `<base>...HEAD`; manual CI uses `HEAD^`. On a clean worktree the default command may print `No changed files to format`; see the [empty-selection pitfall (Chinese)](../pitfalls/testing.md#提交后格式检查没有选中文件).
 

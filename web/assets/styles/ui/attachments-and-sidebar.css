@@ -1,0 +1,536 @@
+/* A draft's attachment is one line: what it is, its name and its size. */
+.composer .attachment-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 1 auto;
+  max-width: 260px;
+  height: 30px;
+  padding: 0 4px 0 9px;
+  border-radius: 9px;
+  font-size: 12px;
+}
+.composer .attachment-chip-icon {
+  display: inline-flex;
+  flex: 0 0 auto;
+  color: var(--ui-muted);
+}
+.composer .attachment-chip-icon .ui-icon {
+  width: 14px;
+  height: 14px;
+}
+.composer .attachment-chip .attachment-name {
+  flex: 0 1 auto;
+  width: auto;
+  min-width: 0;
+}
+.composer .attachment-chip small {
+  flex: 0 0 auto;
+  font-size: 11px;
+}
+.composer .attachment-chip [data-remove-attachment] {
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+}
+.attachment-name {
+  grid-column: 2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.attachment-chip-icon img {
+  width: 32px;
+  height: 32px;
+  object-fit: cover;
+  border-radius: 5px;
+}
+.message-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+.message-attachments a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 0;
+  max-width: 100%;
+  color: var(--ui-secondary);
+}
+.message-attachments img {
+  width: 40px;
+  height: 40px;
+  object-fit: cover;
+  border-radius: 6px;
+}
+.attachment-chip .attachment-name {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  height: auto;
+  border-radius: 0;
+  grid-column: 2;
+  grid-row: 1;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.attachment-preview[hidden] {
+  display: none;
+}
+.attachment-preview {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(20px);
+}
+.attachment-preview-card {
+  display: flex;
+  flex-direction: column;
+  width: min(900px, 100%);
+  max-height: 90vh;
+  min-height: 180px;
+  overflow: hidden;
+  border-radius: 16px;
+  background: rgba(12, 12, 12, 0.92);
+  box-shadow: 0 24px 80px #0008;
+}
+.attachment-preview-card header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 20px;
+}
+.attachment-preview-card header strong {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.attachment-preview-card button {
+  border: 0;
+  padding: 6px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+.attachment-preview-card button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.attachment-preview-card a {
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.attachment-preview-card [data-preview-content] {
+  min-height: 0;
+  overflow: auto;
+  padding: 8px 20px 20px;
+}
+.attachment-preview-card img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: auto;
+}
+.attachment-preview-card pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.6;
+}
+.attachment-preview-card footer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 20px;
+  padding: 8px 20px 16px;
+}
+.attachment-preview-card footer[hidden] {
+  display: none;
+}
+.message-attachments button {
+  border: 0;
+  background: transparent;
+  padding: 4px 8px 4px 0;
+  color: inherit;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+/* This menu sits inside the composer's blurred surface. A solid surface keeps
+   transcript text from bleeding through nested backdrop filters. */
+
+.request-retry {
+  border: 1px solid var(--ui-border);
+  border-radius: 10px;
+  padding: 12px 16px;
+  margin-bottom: 12px;
+}
+.request-retry p {
+  margin: 6px 0 0;
+}
+/* Keep row navigation and its menu as separate keyboard controls. */
+.conversation-row {
+  position: relative;
+  --sidebar-row-bg: var(--ui-hover);
+}
+.project-group .conversation-list {
+  padding-left: 28px;
+}
+.conversation-row:has(.conversation-item.active) {
+  --sidebar-row-bg: var(--ui-accent-soft);
+}
+.conversation-sidebar .conversation-row .conversation-item {
+  min-height: 36px;
+  margin: 0;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 7px;
+}
+.conversation-row:is(:hover, :has(:focus-visible)) .conversation-item,
+.conversation-row.has-menu .conversation-item {
+  background: var(--ui-hover);
+}
+.conversation-sidebar .conversation-row .conversation-item.active {
+  background: var(--ui-accent-soft);
+}
+.conversation-row + .conversation-row {
+  margin-top: 2px;
+}
+.session-menu {
+  max-width: calc(100vw - 16px);
+  max-height: calc(100dvh - 16px);
+  overflow-y: auto;
+}
+.session-menu.conversation-context-menu {
+  width: 200px;
+  padding: 5px;
+  overflow: visible;
+  border-color: var(--ui-border);
+  border-radius: 13px;
+  background: var(--ui-panel);
+}
+.conversation-context-menu .session-menu-main {
+  max-height: calc(100dvh - 28px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+.conversation-context-menu button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 32px;
+  padding: 6px 9px;
+  color: var(--ui-secondary);
+  font: var(--ui-type-control)/1.45 var(--ui-font);
+}
+.conversation-context-menu button [data-menu-label] {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+}
+.conversation-context-menu button:hover:not(:disabled),
+.conversation-context-menu button:focus-visible {
+  color: var(--ui-text);
+  background: var(--ui-hover);
+}
+.conversation-context-menu button:focus-visible {
+  outline: 2px solid var(--ui-accent);
+  outline-offset: -2px;
+}
+.conversation-context-menu .ui-icon {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+  margin: 0;
+  color: currentColor;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.conversation-context-menu .session-menu-separator {
+  height: 1px;
+  margin: 5px 10px;
+  background: var(--ui-border);
+}
+.conversation-context-menu :is([data-session-action="stop"], [data-session-action="delete"]) {
+  color: var(--ui-danger);
+}
+.project-menu .is-danger {
+  color: var(--ui-danger);
+}
+.conversation-context-menu [hidden] {
+  display: none;
+}
+.conversation-sidebar .conversation-item-title:has(.conversation-title-text) {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.conversation-item-title .conversation-title-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.conversation-item-title :is(.conversation-activity, .conversation-unread) {
+  order: -1;
+}
+.conversation-activity {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 8px;
+  border-radius: 50%;
+  background: var(--ui-secondary);
+}
+.conversation-activity:is([data-state="waiting"], [data-state="queued"]) {
+  background: var(--ui-warning);
+}
+.conversation-activity:is([data-state="running"], [data-state="leased"]) {
+  border: 1.5px solid var(--ui-secondary);
+  border-right-color: transparent;
+  background: transparent;
+  animation: ui-spin 1s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .conversation-activity {
+    animation: none;
+  }
+}
+@media (hover: none) {
+  .project-heading :is(.project-settings, .project-create) {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  .project-heading .project-row {
+    padding-right: 68px;
+  }
+}
+.conversation-unread {
+  width: 6px;
+  height: 6px;
+  flex: 0 0 6px;
+  border-radius: 50%;
+  background: var(--ui-secondary);
+}
+.conversation-item.is-unread .conversation-item-title {
+  font-weight: var(--ui-weight-medium);
+}
+.chat-actions .icon-action[hidden] {
+  display: none;
+}
+.app-runtime-tile {
+  min-width: 0;
+}
+
+.queued-messages {
+  margin: 0 0 10px;
+  padding: 0 0 10px;
+  border-bottom: 1px solid var(--ui-border);
+  max-height: 144px;
+  overflow-y: auto;
+}
+.queued-messages[hidden] {
+  display: none;
+}
+.queued-heading {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ui-text);
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+.queued-heading > span {
+  color: var(--ui-muted);
+}
+.queued-heading small {
+  margin-left: auto;
+  color: var(--ui-muted);
+  font-size: 11px;
+}
+.queued-message {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 6px 0;
+}
+.queued-message-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  color: var(--ui-text);
+}
+.queued-message button {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 8px;
+  border: 1px solid var(--ui-border);
+  border-radius: 7px;
+  background: transparent;
+  color: var(--ui-text);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.queued-message button:hover:not(:disabled) {
+  background: light-dark(#24242c0d, #ffffff0d);
+}
+.queued-message button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.queued-message .ui-icon {
+  width: 14px;
+  height: 14px;
+}
+.composer:has(.queued-messages:not([hidden])) textarea {
+  max-height: min(156px, 22dvh);
+}
+.app-layout {
+  position: relative;
+}
+.sidebar-divider {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 6px;
+  z-index: 30;
+  cursor: col-resize;
+  touch-action: none;
+  background: transparent;
+}
+.sidebar-divider:focus-visible {
+  outline: none;
+}
+.sidebar-divider::after {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 50%;
+  width: 1px;
+  background: var(--ui-border);
+  opacity: 1;
+  transform: translateX(-50%);
+  transition: background-color var(--motion-fast);
+}
+.sidebar-divider:hover::after,
+.sidebar-divider:focus-visible::after,
+.sidebar-divider.is-dragging::after {
+  width: 2px;
+  background: var(--ui-border-hover);
+}
+/* Only keyboard focus uses the accent; a drag shows no coloured line (#20). */
+.sidebar-divider:focus-visible::after {
+  background: var(--ui-accent);
+}
+
+/* Only keyboard focus uses the accent; a drag shows no coloured line (#20). */
+
+.sidebar-collapsed .sidebar-divider {
+  display: none;
+}
+/* The sidebar and the main panel meet without a rule, also while dragging:
+   the col-resize cursor and the moving edge are the feedback. Keyboard focus
+   still shows the line. */
+.sidebar-divider::after {
+  opacity: 0;
+}
+.sidebar-divider:focus-visible::after {
+  opacity: 1;
+}
+@media (max-width: 900px) {
+  .sidebar-divider {
+    display: none;
+  }
+}
+.desktop-updates {
+  display: grid;
+  gap: 12px;
+  margin-top: 20px;
+  border-top: 1px solid var(--ui-border);
+  padding-top: 20px;
+}
+.desktop-updates .profile-setting {
+  margin: 0;
+}
+.desktop-updates p {
+  margin: 0;
+  color: var(--ui-muted);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.desktop-updates [data-update-error] {
+  color: var(--ui-danger, #f87171);
+}
+.desktop-update-channel {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  color: var(--ui-muted);
+  font-size: 13px;
+}
+.desktop-update-channel select {
+  border: 1px solid var(--ui-border);
+  border-radius: 6px;
+  background: light-dark(var(--ui-raised), #18181b);
+  color: var(--ui-secondary);
+  padding: 6px 8px;
+}
+.desktop-updates > button {
+  justify-self: start;
+}
+.desktop-updates progress {
+  width: 100%;
+}
+.desktop-updates [hidden] {
+  display: none !important;
+}
+.user-message-actions .app-button.is-copied,
+.user-message-actions .app-button.is-copied:hover {
+  color: var(--ui-accent);
+  opacity: 1;
+}
+.composer .attachment-chip:has([data-upload-preview]) {
+  cursor: pointer;
+}
+.composer .attachment-chip:has([data-upload-preview]):hover {
+  border-color: var(--ui-border-hover);
+}
+/* The chip is one control: clicking it selects no text and its name shows no
+   highlight of its own; a keyboard focus rings the whole chip instead. */
+.composer .attachment-chip {
+  user-select: none;
+}
+.composer .attachment-chip .attachment-name:is(:hover, :focus, :focus-visible) {
+  outline: none;
+  color: inherit;
+  background: transparent;
+  box-shadow: none;
+}
+.composer .attachment-chip:has(.attachment-name:focus-visible) {
+  outline: 2px solid var(--ui-accent);
+  outline-offset: 1px;
+}

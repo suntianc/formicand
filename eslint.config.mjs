@@ -180,6 +180,13 @@ export default [
     rules: { "no-restricted-syntax": ["error", ...discardedErrors] }
   },
   {
+    files: ["src/**/*.ts"],
+    ignores: ["src/cli/**", "src/gui/**"],
+    rules: {
+      "no-restricted-imports": ["error", { patterns: ["**/cli/**"] }]
+    }
+  },
+  {
     files: ["src/dashboard/*routes.ts"],
     rules: {
       "no-restricted-imports": [
@@ -189,22 +196,16 @@ export default [
     }
   },
   {
-    files: ["src/dashboard/run-service.ts", "src/dashboard/task-lifecycle.ts"],
-    rules: {
-      "no-restricted-imports": ["error", { paths: ["node:http", "./http.js"], patterns: ["**/cli/**"] }]
-    }
-  },
-  {
-    files: ["src/**/*.ts"],
-    ignores: [
-      "src/cli/**",
-      "src/dashboard/*routes.ts",
-      "src/dashboard/run-service.ts",
-      "src/dashboard/task-lifecycle.ts",
-      "src/gui/**"
+    files: [
+      "src/dashboard/run-service*.ts",
+      "src/dashboard/resident-main*.ts",
+      "src/dashboard/main-run-{admission,guardian,process}.ts",
+      "src/dashboard/main-message-service.ts",
+      "src/dashboard/human-run-recovery.ts",
+      "src/dashboard/task-{lifecycle,run-control}.ts"
     ],
     rules: {
-      "no-restricted-imports": ["error", { patterns: ["**/cli/**"] }]
+      "no-restricted-imports": ["error", { paths: ["node:http", "./http.js"], patterns: ["**/cli/**"] }]
     }
   },
   {
