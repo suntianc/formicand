@@ -100,6 +100,23 @@ export function createProjectLedgerTool(options: ProjectLedgerToolOptions) {
           description: "Other names for the feature; update replaces the whole list."
         },
         history: { type: "string", maxLength: 1000, description: "update: one history line, dated today." },
+        documents: {
+          type: "object",
+          description:
+            "finish_tidy: the documents that fell behind the code since the last tidy, judged from tidy's changes and the registry in AGENTS.md (read only those the changes touch): update lists each path and why, unchanged says why none did.",
+          properties: {
+            update: {
+              type: "array",
+              maxItems: 30,
+              items: {
+                type: "object",
+                properties: { path: { type: "string" }, reason: { type: "string" } },
+                required: ["path", "reason"]
+              }
+            },
+            unchanged: { type: "string", maxLength: 1000 }
+          }
+        },
         note: { type: "string", maxLength: 2000, description: "Why this revision happened." },
         sourceKind: { type: "string", enum: ["internal", "external", "legacy"] },
         sourceReference: { type: "string", maxLength: 300, description: "Opaque external label." }
@@ -155,7 +172,8 @@ export function createProjectLedgerTool(options: ProjectLedgerToolOptions) {
           ...(input.note === undefined ? {} : { note: input.note }),
           taskId: options.taskId
         });
-      if (action === "tidy" || action === "finish_tidy") return request({ action });
+      if (action === "tidy") return request({ action });
+      if (action === "finish_tidy") return request({ action, documents: input.documents });
       if (action === "merge_requirements")
         return request({
           action,

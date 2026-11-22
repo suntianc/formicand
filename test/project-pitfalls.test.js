@@ -21,6 +21,11 @@ async function repository(root, files) {
   await git(directory, ["init", "-b", "main"]);
   await git(directory, ["config", "user.email", "fixture@example.test"]);
   await git(directory, ["config", "user.name", "Fixture"]);
+  // The document registry every requirement merge checks.
+  await writeFile(
+    join(directory, "AGENTS.md"),
+    "## 文档\n\n| 路径 | 类型 | 领域 |\n| --- | --- | --- |\n| AGENTS.md | instructions | global |\n"
+  );
   for (const [path, text] of Object.entries(files)) {
     await mkdir(join(directory, path, ".."), { recursive: true });
     await writeFile(join(directory, path), text);

@@ -40,6 +40,11 @@ async function makeRepository(directory) {
   await git(directory, ["init", "-b", "main"]);
   await git(directory, ["config", "user.email", "fixture@example.test"]);
   await git(directory, ["config", "user.name", "Fixture"]);
+  // The document registry every requirement merge checks.
+  await writeFile(
+    join(directory, "AGENTS.md"),
+    "## 文档\n\n| 路径 | 类型 | 领域 |\n| --- | --- | --- |\n| AGENTS.md | instructions | global |\n"
+  );
   await writeFile(join(directory, "baseline.txt"), "baseline\n");
   await git(directory, ["add", "."]);
   await git(directory, ["commit", "-m", "baseline"]);

@@ -710,6 +710,32 @@
             "maxLength": 1000,
             "description": "update: one history line, dated today."
           },
+          "documents": {
+            "type": "object",
+            "description": "finish_tidy: the documents that fell behind the code since the last tidy, judged from tidy's changes and the registry in AGENTS.md (read only those the changes touch): update lists each path and why, unchanged says why none did.",
+            "properties": {
+              "update": {
+                "type": "array",
+                "maxItems": 30,
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "path": {
+                      "type": "string"
+                    },
+                    "reason": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["path", "reason"]
+                }
+              },
+              "unchanged": {
+                "type": "string",
+                "maxLength": 1000
+              }
+            }
+          },
           "note": {
             "type": "string",
             "maxLength": 2000,

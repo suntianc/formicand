@@ -29,6 +29,7 @@ import type {
   DevelopmentUpdate,
   MergeConfigInput,
   LedgerTidy,
+  LedgerTidyFinished,
   RequirementCreate,
   RequirementMerge,
   RequirementQuery,
@@ -234,11 +235,11 @@ export class RemoteProjectDataService implements ProjectDataGateway {
     return result.tidy as LedgerTidy;
   }
 
-  async finishLedgerTidy(projectId: unknown): Promise<{ tidiedAt: string }> {
+  async finishLedgerTidy(projectId: unknown, documents: unknown): Promise<LedgerTidyFinished> {
     const result = await this.request(projectPath(projectId, "/ledger"), {
-      body: { action: "finish_tidy" }
+      body: { action: "finish_tidy", documents }
     });
-    return { tidiedAt: result.tidiedAt as string };
+    return result as unknown as LedgerTidyFinished;
   }
 
   async mergeRequirements(projectId: unknown, input: RequirementMerge): Promise<RequirementDetail> {

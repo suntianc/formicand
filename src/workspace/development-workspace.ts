@@ -2,6 +2,13 @@ import { execFile } from "node:child_process";
 import { mkdir, readdir, realpath, rmdir, stat } from "node:fs/promises";
 import { basename, dirname, resolve, sep } from "node:path";
 import { promisify } from "node:util";
+import { PITFALLS_DIRECTORY } from "../domain/development-merge.js";
+import {
+  type AfterApproval,
+  isDocument,
+  REGISTRY_FILE,
+  withoutRegistry
+} from "../domain/project-documents.js";
 import { ProjectDataError, ProjectDataInvalidError } from "../domain/project-ledger.js";
 
 const execute = promisify(execFile);
@@ -36,23 +43,55 @@ export async function git(repository: string, args: string[]): Promise<string> {
 }
 
 /**
- * Whether `to` is `from` plus commits that change only files under `directory`:
- * a requirement's retro writes its pitfalls on top of the approved version, and
- * that is the one change the approval carries over. The same commit is not a
- * delta; `from` must be an ancestor of `to`.
+ * Whether `to` is `from` plus commits the approval carries over, and what they
+ * changed: the retro's pitfalls under `docs/pitfalls/`, the registry table in
+ * AGENTS.md with nothing else in that file, and removals of documents added
+ * since `base`. The same commit is not a delta; `from` must be an ancestor of `to`.
  */
-export async function onlyChangesUnder(
+export async function changesAfterApproval(
   repository: string,
   from: string,
   to: string,
-  directory: string
-): Promise<boolean> {
-  if (from === to) return false;
-  if ((await git(repository, ["merge-base", from, to])) !== from) return false;
-  const files = (await git(repository, ["diff", "--name-only", "--no-renames", `${from}..${to}`]))
+  base: string
+): Promise<AfterApproval | undefined> {
+  if (from === to) return undefined;
+  if ((await git(repository, ["merge-base", from, to])) !== from) return undefined;
+  const changes = (await git(repository, ["diff", "--name-status", "--no-renames", `${from}..${to}`]))
     .split("\n")
-    .filter(Boolean);
-  return files.length > 0 && files.every((file) => file.startsWith(directory));
+    .filter(Boolean)
+    .map((line) => {
+      const [status = "", path = ""] = line.split("\t");
+      return { status, path };
+    });
+  if (!changes.length) return undefined;
+  const result: AfterApproval = { pitfalls: false, registry: false };
+  for (const { status, path } of changes) {
+    if (path.startsWith(PITFALLS_DIRECTORY)) result.pitfalls = true;
+    else if (
+      path === REGISTRY_FILE &&
+      withoutRegistry(await fileAt(repository, from, path)) ===
+        withoutRegistry(await fileAt(repository, to, path))
+    )
+      result.registry = true;
+    else if (status === "D" && isDocument(path) && (await fileAt(repository, base, path)) === undefined)
+      result.registry = true;
+    else return undefined;
+  }
+  return result;
+}
+
+/** Every Markdown document a commit holds. */
+export async function documentsAt(repository: string, commit: string): Promise<string[]> {
+  return (await git(repository, ["ls-tree", "-r", "--name-only", commit]))
+    .split("\n")
+    .filter((file) => file && isDocument(file));
+}
+
+/** The Markdown documents added or renamed between two commits. */
+export async function documentsAdded(repository: string, from: string, to: string): Promise<string[]> {
+  return (await git(repository, ["diff", "--name-only", "--diff-filter=AR", "-M", `${from}..${to}`]))
+    .split("\n")
+    .filter((file) => file && isDocument(file));
 }
 
 /**

@@ -27,7 +27,8 @@ const names = [
   "tdd",
   "code-review",
   "diagnosing-bugs",
-  "retro"
+  "retro",
+  "tidy-docs"
 ];
 const source = resolve(".");
 const require = createRequire(import.meta.url);

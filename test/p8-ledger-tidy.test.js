@@ -93,6 +93,22 @@ async function recordMerges(root, projectId, developmentId, requirementId, times
         at
       ]
     );
+  // Each delivery writes one history line naming its development.
+  for (const [index, at] of times.entries())
+    await database.execute(
+      `INSERT INTO project_data_requirement_history
+         (project_id, requirement_id, entry_id, day, text, development_id, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [
+        projectId,
+        requirementId,
+        `entry_${index}`,
+        at.slice(0, 10),
+        `第 ${index + 1} 次改动`,
+        developmentId,
+        at
+      ]
+    );
   await database.close();
 }
 
@@ -127,7 +143,28 @@ test("the tidy counts developments merged since the last one and lists the whole
     ["feature", "导出", "把条目导出成 CSV。"],
     ["misc", "杂项", "与任何功能都无关的零碎改动，比如改错别字、调一个配置、改版本号。"]
   ]);
-  const { tidiedAt } = await again.service.finishLedgerTidy(project.projectId);
+  assert.deepEqual(
+    read.changes.map((change) => [change.title, change.history]),
+    [
+      ["导出", "第 1 次改动"],
+      ["导出", "第 2 次改动"]
+    ]
+  );
+  await assert.rejects(again.service.finishLedgerTidy(project.projectId), {
+    code: "documents_verdict_missing"
+  });
+  const misc = read.catalog.find((entry) => entry.kind === "misc");
+  const updated = await again.service.finishLedgerTidy(project.projectId, {
+    update: [{ path: "README.md", reason: "导出命令改了参数" }]
+  });
+  assert.match(
+    updated.next,
+    new RegExp(`misc requirement ${misc.requirementId}[^]*README\\.md \\(导出命令改了参数\\)`)
+  );
+  const { tidiedAt, next } = await again.service.finishLedgerTidy(project.projectId, {
+    unchanged: "两次只改了内部实现"
+  });
+  assert.equal(next, undefined);
   const after = await again.service.tidyLedger(project.projectId);
   assert.equal(after.tidiedAt, tidiedAt);
   assert.equal(after.merged, 0);

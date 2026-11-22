@@ -334,7 +334,7 @@ export async function handleProjectDataRequest(
     case "tidy":
       return reply(response, 200, { tidy: await service.tidyLedger(project.projectId) });
     case "finish_tidy":
-      return reply(response, 200, await service.finishLedgerTidy(project.projectId));
+      return reply(response, 200, await service.finishLedgerTidy(project.projectId, body.documents));
     case "merge_requirements":
       return reply(response, 200, {
         requirement: await service.mergeRequirements(project.projectId, {

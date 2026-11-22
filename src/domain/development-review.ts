@@ -1,3 +1,4 @@
+import type { AfterApproval } from "./project-documents.js";
 import { ProjectDataInvalidError, ledgerIdentifier, ledgerProjectDirectory } from "./project-ledger.js";
 import { now } from "./types.js";
 
@@ -229,8 +230,8 @@ export interface ReviewQualification {
   reviewId?: string;
   kind?: ReviewKind;
   independentReview: boolean;
-  /** The candidate is the approved version plus a retro commit that touches only the pitfalls. */
-  pitfallsAfterApproval?: true;
+  /** The candidate is the approved version plus commits the approval carries over, and what they changed. */
+  afterApproval?: AfterApproval;
   reasons: string[];
 }
 
