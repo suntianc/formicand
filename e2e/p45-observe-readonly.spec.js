@@ -19,13 +19,14 @@ import { addNode, freePort, openObservation } from "./p45-observe-fixture.js";
 test.setTimeout(240_000);
 
 /** A requirement's ledger status, read without a marker because it never replays. */
-async function ledgerStatus(page, dashboard, projectId, requirementId) {
+/** Whether the ledger recorded the delivery: recording it adds the merged commit to the requirement. */
+async function deliveryRecorded(page, dashboard, projectId, requirementId) {
   const response = await page.request.get(
-    `${dashboard.base}/api/projects/${encodeURIComponent(projectId)}/ledger`
+    `${dashboard.base}/api/projects/${encodeURIComponent(projectId)}/ledger/${encodeURIComponent(requirementId)}`
   );
   expect(response.ok(), await response.text()).toBe(true);
-  const { requirements } = await response.json();
-  return requirements.find((entry) => entry.requirementId === requirementId)?.status;
+  const { requirement } = await response.json();
+  return requirement.references.some((reference) => reference.kind === "delivery");
 }
 
 test("the three observation views read a node read-only and never replay its pending delivery", async ({
@@ -73,7 +74,7 @@ test("the three observation views read a node read-only and never replay its pen
     });
     const requirementId = pending.requirement.requirementId;
     const projectPath = `/api/projects/${encodeURIComponent(remoteProject.projectId)}`;
-    expect(await ledgerStatus(page, remote, remoteProject.projectId, requirementId)).toBe("open");
+    expect(await deliveryRecorded(page, remote, remoteProject.projectId, requirementId)).toBe(false);
 
     await page.goto(local.base);
     await addNode(page, { base: remote.base, name: "远程节点", role: "internal" });
@@ -109,7 +110,7 @@ test("the three observation views read a node read-only and never replay its pen
 
     // Nothing on the observed node wrote: the delivery is still missing and the
     // requirement is still waiting for it.
-    expect(await ledgerStatus(page, remote, remoteProject.projectId, requirementId)).toBe("open");
+    expect(await deliveryRecorded(page, remote, remoteProject.projectId, requirementId)).toBe(false);
 
     // The same read without the marker is the work entry's: it completes the
     // delivery, so the assertions above were about the marker, not an empty
@@ -119,7 +120,7 @@ test("the three observation views read a node read-only and never replay its pen
     expect((await delivered.json()).deliveries.map((entry) => entry.mergeId)).toEqual([
       pending.merge.mergeId
     ]);
-    expect(await ledgerStatus(page, remote, remoteProject.projectId, requirementId)).toBe("delivered");
+    expect(await deliveryRecorded(page, remote, remoteProject.projectId, requirementId)).toBe(true);
   } finally {
     await remote?.stop();
     await local.stop();

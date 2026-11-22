@@ -103,6 +103,8 @@ export function createObserveRequirements({
   const projects = new Map();
   /** origin|projectId|requirementId → { view, at, absent } */
   const views = new Map();
+  /** origin|projectId|requirementId → { context, stamp, failed } — the ledger detail of an opened requirement. */
+  const contexts = new Map();
   const pending = new Set();
   const publishRequests = new Map();
   let tab = "all";
@@ -174,6 +176,29 @@ export function createObserveRequirements({
     } finally {
       pending.delete(key);
     }
+  }
+
+  /** What the ledger detail was read at: a merge bumps the revision, a new development does not. */
+  const contextStamp = (row) => `${row.revision}|${row.view?.development?.developmentId ?? ""}`;
+
+  /** The opened requirement's ledger: one context read per revision and development. */
+  async function loadContext(row) {
+    const key = `context|${viewKey(row)}`;
+    if (pending.has(key)) return;
+    pending.add(key);
+    try {
+      const result = await data.read(row.origin, projectPath(row.projectId, "/ledger"), {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action: "context", requirementId: row.requirementId })
+      });
+      contexts.set(viewKey(row), { context: result?.context, stamp: contextStamp(row) });
+    } catch (error) {
+      contexts.set(viewKey(row), { stamp: contextStamp(row), failed: readError(error) });
+    } finally {
+      pending.delete(key);
+    }
+    if (selected === row.key) render();
   }
 
   async function refresh({ force = false } = {}) {
@@ -428,6 +453,73 @@ export function createObserveRequirements({
     }">${esc(value || "—")}</span></div>`;
   }
 
+  /** The feature as the ledger keeps it: its summary and other names, read once the detail opens. */
+  function ledgerSection(row) {
+    const entry = contexts.get(row.key);
+    if (!entry) return "";
+    if (entry.failed) return `<p class="or-ledger-error" role="alert">${esc(entry.failed)}</p>`;
+    const requirement = entry.context?.requirement;
+    if (!requirement) return "";
+    const aliases = requirement.aliases ?? [];
+    return `${
+      requirement.summary
+        ? `<section class="or-section" data-or-section="summary"><h3 class="or-label">${esc(
+            ui("现状")
+          )}</h3><p class="or-summary">${esc(requirement.summary)}</p></section>`
+        : ""
+    }${
+      aliases.length
+        ? `<section class="or-section" data-or-section="aliases"><h3 class="or-label">${esc(
+            ui("别名")
+          )}</h3><div class="or-aliases">${aliases
+            .map((alias) => `<span class="or-alias">${esc(alias.alias)}</span>`)
+            .join("")}</div></section>`
+        : ""
+    }`;
+  }
+
+  const DEVELOPMENT_STATUS = { active: "进行中", merged: "已合入", withdrawn: "已撤回" };
+
+  /** What each development changed, and every development of this feature, newest first. */
+  function pastSection(row) {
+    const context = contexts.get(row.key)?.context;
+    if (!context) return "";
+    const history = context.history ?? [];
+    const developments = context.developments ?? [];
+    return `${
+      history.length
+        ? `<section class="or-section" data-or-section="history"><h3 class="or-label">${esc(
+            context.historyTotal > history.length
+              ? ui`历史 最近 ${history.length} / ${context.historyTotal}`
+              : ui("历史")
+          )}</h3><ul class="or-history">${[...history]
+            .reverse()
+            .map(
+              (line) =>
+                `<li><span class="or-history-day">${esc(line.day)}</span><span>${esc(line.text)}</span></li>`
+            )
+            .join("")}</ul></section>`
+        : ""
+    }${
+      developments.length
+        ? `<section class="or-section" data-or-section="developments"><h3 class="or-label">${esc(
+            ui`历次开发 ${developments.length}`
+          )}</h3><ul class="or-developments">${developments
+            .map(
+              (development) =>
+                `<li data-status="${esc(development.status)}"><span class="or-development-goal" title="${esc(
+                  development.goal
+                )}">${esc(development.goal.split("\n")[0])}</span><span class="or-spacer"></span><span class="or-development-state">${esc(
+                  development.merged
+                    ? `${ui("已合入")} · ${shortCommit(development.merged.commit)}`
+                    : ui(DEVELOPMENT_STATUS[development.status] ?? development.status)
+                )}</span></li>`
+            )
+            .join("")}</ul></section>`
+        : ""
+    }`;
+  }
+
   function criteriaSection(row) {
     const criteria = row.progress.criteria;
     if (!criteria.length) return "";
@@ -555,6 +647,8 @@ export function createObserveRequirements({
       return;
     }
     const merge = row.merge;
+    if (contexts.get(row.key)?.stamp !== contextStamp(row)) void loadContext(row);
+    const description = contexts.get(row.key)?.context?.requirement.description;
     detail.innerHTML = `<header class="or-detail-head"><span class="or-crumb">${esc(
       ui("需求详情")
     )}</span><span class="or-spacer"></span><button type="button" class="or-close" data-observe-detail-close aria-label="${esc(
@@ -563,6 +657,7 @@ export function createObserveRequirements({
       <div class="or-detail-body">
         <section class="or-identity">
           <h2 class="or-detail-title">${esc(row.title)}</h2>
+          ${description ? `<p class="or-description">${esc(description)}</p>` : ""}
           <div class="or-tags">${detailTags(row)}</div>
         </section>
         ${stepperMarkup(row)}
@@ -578,10 +673,12 @@ export function createObserveRequirements({
           )}
           ${factRow("台账", `v${row.revision} · ${ui(LEDGER_STATUS[row.status] ?? row.status ?? "")}`)}
         </div>
+        ${ledgerSection(row)}
         ${criteriaSection(row)}
         ${ticketSection(row)}
         ${reviewSection(row)}
         ${changeSection(row)}
+        ${pastSection(row)}
       </div>`;
   }
 

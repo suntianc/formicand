@@ -98,6 +98,8 @@ export interface RequirementSummary {
   createdAt: string;
   updatedAt: string;
   references: RequirementReference[];
+  /** How many developments it has had, merged or not. */
+  developments: number;
 }
 
 export interface RequirementDetail extends RequirementSummary {

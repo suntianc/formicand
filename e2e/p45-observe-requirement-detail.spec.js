@@ -28,6 +28,12 @@ test("the detail shows the recorded requirement and offers no session or diff", 
     await seedRequirement(page, dashboard, project, {
       phase: "delivered",
       title: "按分数文件汇总总分",
+      description: "把分数文件里的分数加起来输出总分。",
+      aliases: ["算总分"],
+      ledger: {
+        summary: "summarize.sh 读 CSV，输出 total；只有 header 时输出 0。",
+        history: "加了 summarize.sh"
+      },
       criteria: ["bash summarize.sh 输出 30", "只有 header 的 CSV 输出 0", "文件不存在时退出码 1"],
       findings: [
         { title: "给 summarize.sh 增加参数校验" },
@@ -47,6 +53,19 @@ test("the detail shows the recorded requirement and offers no session or diff", 
     await expect(detail).toBeVisible();
     await expect(detail.locator(".or-crumb")).toHaveText("需求详情");
     await expect(detail.locator(".or-detail-title")).toHaveText("按分数文件汇总总分");
+
+    // The feature as the ledger keeps it: what it is, how it behaves now, its
+    // other names, what each development changed and every development.
+    await expect(detail.locator(".or-description")).toHaveText("把分数文件里的分数加起来输出总分。");
+    await expect(detail.locator('[data-or-section="summary"] .or-summary')).toHaveText(
+      "summarize.sh 读 CSV，输出 total；只有 header 时输出 0。"
+    );
+    await expect(detail.locator(".or-alias")).toHaveText(["算总分"]);
+    await expect(detail.locator('[data-or-section="history"] li')).toHaveCount(1);
+    await expect(detail.locator('[data-or-section="history"] li')).toContainText("加了 summarize.sh");
+    const developments = detail.locator('[data-or-section="developments"]');
+    await expect(developments.locator(".or-label")).toHaveText("历次开发 1");
+    await expect(developments.locator(".or-development-state")).toHaveText(/^已合入 · [0-9a-f]{8}$/);
     const tags = detail.locator(".or-tag");
     await expect(tags).toHaveCount(3);
     await expect(tags.nth(0)).toHaveText("已交付");
@@ -80,16 +99,16 @@ test("the detail shows the recorded requirement and offers no session or diff", 
         .evaluateAll((nodes) => nodes.map((node) => node.dataset.checked))
     ).toEqual(["true", "true", "true"]);
 
-    // The review conclusion names the verdict and how many findings were ruled
-    // out of scope; expanding it lists the settled findings.
+    // The review conclusion names the verdict and how many blocking findings
+    // were let through; expanding it lists them with why.
     const review = detail.locator('[data-or-section="review"]');
     await expect(review.locator(".or-review-text")).toHaveText("独立审查通过");
-    await expect(review.locator(".or-review-findings")).toHaveText("3 项范围外");
+    await expect(review.locator(".or-review-findings")).toHaveText("放行 3");
     await expect(review.locator(".or-findings")).toBeHidden();
     await review.locator("[data-observe-review]").click();
     await expect(review.locator(".or-findings")).toBeVisible();
     await expect(review.locator(".or-findings li")).toHaveCount(3);
-    await expect(review.locator(".or-findings li").first()).toContainText("已驳回");
+    await expect(review.locator(".or-findings li").first()).toContainText("已放行");
 
     // The change is only the file and its line counts.
     const change = detail.locator('[data-or-section="change"]');
@@ -114,6 +133,7 @@ test("the detail shows the recorded requirement and offers no session or diff", 
     // Closing the detail returns to the list alone.
     await detail.locator("[data-observe-detail-close]").click();
     await expect(detail).toBeHidden();
+    // The project's misc requirement has no development, so it is not listed.
     await expect(page.locator("[data-observe-requirement]")).toHaveCount(1);
   } finally {
     await dashboard.stop();

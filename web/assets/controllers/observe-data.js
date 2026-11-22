@@ -87,6 +87,13 @@ function describeError(error) {
  * @param {number} [options.maxRetryDelayMs]
  * @param {() => Date} [options.now]
  */
+/**
+ * Every project carries a misc requirement for changes no feature owns. It is
+ * shown and counted only once a development hangs on it; until then it is no
+ * work to observe.
+ */
+const observed = (requirement) => requirement.kind !== "misc" || requirement.developments > 0;
+
 export function createObserveData({
   storage,
   sessionStorage,
@@ -186,7 +193,8 @@ export function createObserveData({
         if (!project?.projectId) return;
         try {
           const result = await readEntry(entry, LEDGER_PATH(project.projectId));
-          next.set(project.projectId, Array.isArray(result?.requirements) ? result.requirements : []);
+          const requirements = Array.isArray(result?.requirements) ? result.requirements : [];
+          next.set(project.projectId, requirements.filter(observed));
           // eslint-disable-next-line no-restricted-syntax -- one project's ledger may be unavailable on an older node; that project contributes no count and the other nodes still aggregate
         } catch {
           failed = true;
