@@ -31,6 +31,11 @@ async function makeRepository(directory) {
   await git(directory, ["init", "-b", "main"]);
   await git(directory, ["config", "user.email", "fixture@example.test"]);
   await git(directory, ["config", "user.name", "Fixture"]);
+  // The document registry every requirement merge checks.
+  await writeFile(
+    join(directory, "AGENTS.md"),
+    "## 文档\n\n| 路径 | 类型 | 领域 |\n| --- | --- | --- |\n| AGENTS.md | instructions | global |\n"
+  );
   await writeFile(join(directory, "baseline.txt"), "baseline\n");
   await git(directory, ["add", "."]);
   await git(directory, ["commit", "-m", "baseline"]);
@@ -117,14 +122,14 @@ test(
       "summarize.sh",
       "#!/usr/bin/env bash\nset -euo pipefail\n"
     );
-    await commitFile(development.workspace.directory, "notes.md", "# 验收记录\n");
+    await commitFile(development.workspace.directory, "notes.txt", "# 验收记录\n");
     await execution.setReviewPlan(project.projectId, {
       developmentId: development.developmentId,
       channel: "self",
       basis: "两个小文件，Main 自检",
       checks: [
         { name: "脚本可执行", command: "test -x summarize.sh", exitCode: 0, output: "" },
-        { name: "记录存在", command: "test -f notes.md", exitCode: 0, output: "" }
+        { name: "记录存在", command: "test -f notes.txt", exitCode: 0, output: "" }
       ]
     });
     const merge = await execution.requestMerge(project.projectId, {
@@ -132,7 +137,7 @@ test(
       ledger: { summaryUnchanged: "测试不改现状", history: "测试合入", descriptionUnchanged: true },
       checks: [
         { name: "组合检查 1", command: "test -f summarize.sh" },
-        { name: "组合检查 2", command: "test -f notes.md" }
+        { name: "组合检查 2", command: "test -f notes.txt" }
       ]
     });
     assert.equal(merge.state, "merged", JSON.stringify(merge));
@@ -145,14 +150,14 @@ test(
     const patch = whole.body.diff;
     assert.match(patch.patch, /diff --git a\/summarize\.sh b\/summarize\.sh/);
     assert.match(patch.patch, /\+#!\/usr\/bin\/env bash/);
-    assert.match(patch.patch, /diff --git a\/notes\.md b\/notes\.md/);
+    assert.match(patch.patch, /diff --git a\/notes\.txt b\/notes\.txt/);
     assert.equal(patch.truncated, false);
     assert.equal(patch.base, merge.combinedBase);
     assert.equal(patch.head, merge.mergeCommit);
     assert.equal(patch.candidateCommit, merge.candidate.commit);
     assert.deepEqual(
       patch.files.map((file) => file.path),
-      ["notes.md", "summarize.sh"]
+      ["notes.txt", "summarize.sh"]
     );
 
     const one = await request(projectPath(project.projectId, "/deliveries"), {
@@ -163,7 +168,7 @@ test(
     assert.equal(one.status, 200, JSON.stringify(one.body));
     assert.equal(one.body.diff.path, "summarize.sh");
     assert.match(one.body.diff.patch, /summarize\.sh/);
-    assert.doesNotMatch(one.body.diff.patch, /notes\.md/);
+    assert.doesNotMatch(one.body.diff.patch, /notes\.txt/);
 
     const unknown = await request(projectPath(project.projectId, "/deliveries"), {
       action: "diff",

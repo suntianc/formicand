@@ -1,3 +1,4 @@
+import { documentsNext, tidyDocumentsInput, type TidyDocuments } from "../domain/project-documents.js";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import {
@@ -362,6 +363,15 @@ export interface LedgerTidy {
   merged: number;
   tidiedAt?: string;
   catalog: CatalogEntry[];
+  /** What each development merged since the last tidy changed, for Main to judge which documents fell behind. */
+  changes: Array<{ requirementId: string; title: string; history: string }>;
+}
+
+/** A finished tidy: its time, Main's verdict on the documents, and the work it leaves. */
+export interface LedgerTidyFinished {
+  tidiedAt: string;
+  documents: TidyDocuments;
+  next?: string;
 }
 
 export interface RequirementUpdate {
@@ -449,7 +459,7 @@ export interface ProjectDataGateway {
   /** Which feature the user's own words are about; see `lookupRequirements`. */
   lookupRequirements(projectId: unknown, request: unknown): Promise<LookupResult>;
   tidyLedger(projectId: unknown): Promise<LedgerTidy>;
-  finishLedgerTidy(projectId: unknown): Promise<{ tidiedAt: string }>;
+  finishLedgerTidy(projectId: unknown, documents: unknown): Promise<LedgerTidyFinished>;
   mergeRequirements(projectId: unknown, input: RequirementMerge): Promise<RequirementDetail>;
   // Persistent Main sessions are business facts too: a secondary backend writes
   // them through this surface, never through SQL or a transaction callback.
@@ -1292,23 +1302,51 @@ export class ProjectDataRepository {
       "SELECT COUNT(*) AS merged FROM project_data_deliveries WHERE project_id = ? AND merged_at > ?",
       [projectId, project.ledger_tidied_at ?? ""]
     );
+    const changes = await this.transaction.query<{ requirement_id: string; title: string; text: string }>(
+      `SELECT h.requirement_id, r.title, h.text FROM project_data_requirement_history h
+        JOIN project_data_requirements r ON r.project_id = h.project_id AND r.requirement_id = h.requirement_id
+        WHERE h.project_id = ? AND h.development_id IS NOT NULL AND h.created_at > ?
+        ORDER BY h.created_at ASC, h.entry_id ASC`,
+      [projectId, project.ledger_tidied_at ?? ""]
+    );
     return {
       merged: Number(rows[0]?.merged ?? 0),
       ...(project.ledger_tidied_at ? { tidiedAt: project.ledger_tidied_at } : {}),
-      catalog: catalogOf(await this.lookupEntries(projectId))
+      catalog: catalogOf(await this.lookupEntries(projectId)),
+      changes: changes.map((row) => ({
+        requirementId: row.requirement_id,
+        title: row.title,
+        history: row.text
+      }))
     };
   }
 
-  /** Mark the tidy done: developments merged from now on count toward the next one. */
-  async finishTidy(projectIdValue: unknown): Promise<{ tidiedAt: string }> {
+  /**
+   * Mark the tidy done: developments merged from now on count toward the next
+   * one. Main hands in its verdict on the documents; an update list becomes the
+   * next development, on the misc requirement.
+   */
+  async finishTidy(projectIdValue: unknown, documentsValue: unknown): Promise<LedgerTidyFinished> {
     const projectId = ledgerProjectId(projectIdValue);
     await this.requireProject(projectId);
+    const documents = tidyDocumentsInput(documentsValue);
+    if (!documents)
+      throw new ProjectDataConflictError(
+        "完成台账维护时交上文档的结论：documents.update 列出跟不上代码的文档和原因，或 documents.unchanged 写明为什么都不用改",
+        undefined,
+        "documents_verdict_missing"
+      );
     const tidiedAt = now();
     await this.transaction.execute(
       "UPDATE project_data_projects SET ledger_tidied_at = ?, updated_at = ? WHERE project_id = ?",
       [tidiedAt, tidiedAt, projectId]
     );
-    return { tidiedAt };
+    if (!("update" in documents)) return { tidiedAt, documents };
+    const misc = await this.transaction.query<{ requirement_id: string }>(
+      "SELECT requirement_id FROM project_data_requirements WHERE project_id = ? AND kind = 'misc'",
+      [projectId]
+    );
+    return { tidiedAt, documents, next: documentsNext(documents.update, misc[0]?.requirement_id) };
   }
 
   /**
@@ -2845,8 +2883,8 @@ export class ProjectDataService implements ProjectDataGateway {
   tidyLedger(projectId: unknown) {
     return this.transaction((repository) => repository.tidy(projectId));
   }
-  finishLedgerTidy(projectId: unknown) {
-    return this.transaction((repository) => repository.finishTidy(projectId));
+  finishLedgerTidy(projectId: unknown, documents: unknown) {
+    return this.transaction((repository) => repository.finishTidy(projectId, documents));
   }
   mergeRequirements(projectId: unknown, input: RequirementMerge) {
     return this.transaction((repository) => repository.mergeRequirements(projectId, input));

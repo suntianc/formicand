@@ -78,6 +78,7 @@ import {
   type DevelopmentRecord,
   type MergeConfig
 } from "../domain/project-development.js";
+import { hasRegistryProblems, REGISTRY_FILE, registryProblems } from "../domain/project-documents.js";
 import { ProjectDataConflictError, ProjectDataNotFoundError } from "../domain/project-ledger.js";
 import { id, now } from "../domain/types.js";
 import type {
@@ -91,7 +92,9 @@ import {
   checkedOutBranch,
   developmentWorkspaceIsIntact,
   git,
-  onlyChangesUnder,
+  changesAfterApproval,
+  documentsAdded,
+  documentsAt,
   changedPagesUnder,
   fileAt,
   prepareDevelopmentWorkspace,
@@ -1708,18 +1711,18 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
     const reasons: string[] = [];
     const latest = reviews.at(-1);
     // The approved version still stands when the checkout is that version, or
-    // that version plus the retro's commit that touches only the pitfalls.
+    // that version plus the retro's pitfalls and the document registry.
     const carries = async (approved: { commit: string; tree: string }) => {
       if (approved.commit === current.commit && approved.tree === current.tree) return true;
       if (current.changes) return false;
-      const extended = await onlyChangesUnder(
+      const extended = await changesAfterApproval(
         record.workspace!.directory,
         approved.commit,
         current.commit,
-        PITFALLS_DIRECTORY
+        record.workspace!.baseCommit
       );
-      if (extended) qualification.pitfallsAfterApproval = true;
-      return extended;
+      if (extended) qualification.afterApproval = extended;
+      return extended !== undefined;
     };
     const approvedAs = (approved: { commit: string; tree: string }): ReviewCandidate => ({
       ...qualification.candidate!,
@@ -1977,13 +1980,13 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
       if (unresolved.length) reasons.push("findings_open");
     }
     // The candidate is the approved version, or that version plus the retro's
-    // commit that touches only the pitfalls.
+    // pitfalls and the document registry.
     if (approved.commit !== merge.candidate.commit || approved.tree !== merge.candidate.tree) {
       const { repository } = await requiredMergeConfig(projectId);
-      const extended =
-        merge.acceptance.retro?.outcome === "pitfalls" &&
-        (await onlyChangesUnder(repository, approved.commit, merge.candidate.commit, PITFALLS_DIRECTORY));
-      if (!extended) reasons.push("candidate_changed");
+      const base = await git(repository, ["merge-base", approved.commit, merge.targetBranch]);
+      const extended = await changesAfterApproval(repository, approved.commit, merge.candidate.commit, base);
+      if (!extended || (extended.pitfalls && merge.acceptance.retro?.outcome !== "pitfalls"))
+        reasons.push("candidate_changed");
     }
     if (!merge.acceptance.retro) reasons.push("retro_missing");
     return [...new Set(reasons)];
@@ -2071,6 +2074,42 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
   }
 
   /**
+   * The project's document registry at the candidate: present, and holding
+   * every document this requirement added, or every document when this
+   * requirement built it. Fixed on top of the approved version, the table and
+   * removals of the requirement's own new documents keep the approval.
+   */
+  async function requireRegistry(record: DevelopmentRecord, candidate: string): Promise<void> {
+    const directory = record.workspace!.directory;
+    const base = record.workspace!.baseCommit;
+    const registry = await fileAt(directory, candidate, REGISTRY_FILE);
+    const documents = await documentsAt(directory, candidate);
+    const built = registryProblems(await fileAt(directory, base, REGISTRY_FILE), [], []).missing;
+    const problems = registryProblems(
+      registry,
+      documents,
+      built ? documents : await documentsAdded(directory, base, candidate)
+    );
+    if (!hasRegistryProblems(problems)) return;
+    const fix = `在验收版本之上提交修正，只改 ${REGISTRY_FILE} 里的文档表、删掉这个需求自己新加的文档，审核结果仍然有效；要把内容并进已有文档就改了正文，走返修重新审`;
+    if (problems.missing)
+      throw conflict(
+        `这个项目还没有文档登记表：加载 tidy-docs 技能，在 ${REGISTRY_FILE} 里建“文档”表，把现有文档逐一登记，只登记、不删改。${fix}`,
+        "documents_registry_missing"
+      );
+    const parts = [
+      problems.malformed.length ? `格式不对：${problems.malformed.join("；")}` : "",
+      problems.unregistered.length ? `没有登记：${problems.unregistered.join("、")}` : "",
+      problems.stale.length ? `指向的文档已不存在：${problems.stale.join("、")}` : "",
+      problems.duplicates.length ? `同类同领域只许一份：${problems.duplicates.join("；")}` : ""
+    ].filter(Boolean);
+    throw conflict(
+      `文档登记表不符（规则见 tidy-docs 技能）：${parts.join("。")}。过程文档（计划、进度、交接）删掉，正式文档登记或并进同类同领域的那份。${fix}`,
+      "documents_unregistered"
+    );
+  }
+
+  /**
    * What the requirement's ledger says once this development is merged: Main
    * hands it in with the merge request, as it does the retro, and an earlier
    * attempt's update carries over to a retry. It is written to the requirement
@@ -2141,7 +2180,7 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
         "merge_not_qualified"
       );
     const candidate = qualification.candidate;
-    const extended = qualification.pitfallsAfterApproval === true;
+    const extended = qualification.afterApproval !== undefined;
     if (
       !extended &&
       (qualification.approved.commit !== candidate.commit || qualification.approved.tree !== candidate.tree)
@@ -2153,8 +2192,11 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
       projectId,
       record,
       input.retro,
-      extended ? { approved: qualification.approved.commit, candidate: candidate.commit } : undefined
+      qualification.afterApproval?.pitfalls
+        ? { approved: qualification.approved.commit, candidate: candidate.commit }
+        : undefined
     );
+    await requireRegistry(record, candidate.commit);
     const ledger = await requirementLedgerUpdate(projectId, record, input.ledger);
     const checks = supplied ?? (await recordedMergeChecks(service, projectId, developmentId));
     if (!checks.length) throw conflict("合入须记录在组合版本上运行的检查命令", "merge_checks_missing");
