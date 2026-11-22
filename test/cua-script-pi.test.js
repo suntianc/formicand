@@ -172,7 +172,7 @@ test(
         task = (await (await fetch(`${base}/api/tasks/cua-script-agent`)).json()).task;
         if (
           ["completed", "failed"].includes(task.status) &&
-          !dashboard.routePorts.activeRuns.has("cua-script-agent")
+          !dashboard.runs.activeRuns.has("cua-script-agent")
         )
           break;
         await delay(100);

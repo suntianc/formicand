@@ -109,4 +109,3 @@ test("an unavailable native runtime reports startup failure without hanging shut
     await rm(root, { recursive: true, force: true });
   }
 });
-

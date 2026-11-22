@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
+import childProcess, { spawn } from "node:child_process";
+import { once } from "node:events";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { syncBuiltinESMExports } from "node:module";
 import { hostname, tmpdir } from "node:os";
-import { spawn } from "node:child_process";
 import { join } from "node:path";
 import { test } from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
@@ -78,6 +80,89 @@ test("a process that exits during launch settles exactly once", async (t) => {
     assert.equal(exits[0].pid, record.pid, `${callId} settled the process it started`);
   }
 });
+
+test(
+  "a clean exit while its launch record is being written keeps the exit code",
+  { timeout: 10_000 },
+  async (t) => {
+    const root = await mkdtemp(join(tmpdir(), "atria-agent-early-exit-"));
+    const workspaceRoot = join(root, "workspace");
+    const release = join(root, "release");
+    let child;
+    const builtInSpawn = childProcess.spawn;
+    const spawnMock = t.mock.method(childProcess, "spawn", (...args) => {
+      const spawned = builtInSpawn(...args);
+      if (args[2]?.cwd === root) child = spawned;
+      return spawned;
+    });
+    syncBuiltinESMExports();
+    const exits = [];
+    const observedExit = Promise.withResolvers();
+    const host = new AgentProcessHost({
+      workspaceRoot,
+      harnessRoot: root,
+      onExit: (record) => {
+        exits.push(record);
+        observedExit.resolve();
+      }
+    });
+    t.after(async () => {
+      spawnMock.mock.restore();
+      syncBuiltinESMExports();
+      host.close();
+      child?.kill("SIGKILL");
+      await rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 });
+    });
+    await mkdir(join(root, "scripts"));
+    await writeFile(
+      join(root, "scripts", "start-pi.mjs"),
+      `import { access } from "node:fs/promises";
+     import { setTimeout as delay } from "node:timers/promises";
+     while (!(await access(${JSON.stringify(release)}).then(() => true, () => false))) await delay(5);`
+    );
+    const writes = [];
+    const writeRecord = host.writeRecord.bind(host);
+    t.mock.method(host, "writeRecord", async (record) => {
+      if (record.settledAt) return writeRecord(record);
+      if (record.exitCode === undefined) {
+        // Hold the launch write until the real child's close event.
+        const closed = once(child, "close");
+        await writeFile(release, "");
+        await closed;
+        await writeRecord(record);
+        writes.push("launch written");
+        return;
+      }
+      writes.push("exit write started");
+      return writeRecord(record);
+    });
+    await host.launch({
+      taskId: "task",
+      runId: "run",
+      callId: "run",
+      agentId: "main",
+      role: "main",
+      mode: "resident",
+      workingDirectory: root,
+      sessionDirectory: join(root, "sessions"),
+      resultPath: join(root, "result.json"),
+      env: {}
+    });
+    await observedExit.promise;
+    assert.deepEqual(writes, ["launch written", "exit write started"]);
+    const path = agentProcessRecordPath(workspaceRoot, "task", "run", "main", "main");
+    const stored = await waitFor(async () => {
+      const record = JSON.parse(await readFile(path, "utf8"));
+      return record.settledAt ? record : undefined;
+    }, "the process settlement");
+    assert.deepEqual(
+      exits.map(({ exitCode, exitSignal }) => [exitCode, exitSignal]),
+      [[0, null]]
+    );
+    assert.equal(stored.exitCode, 0);
+    assert.equal(stored.exitSignal, null);
+  }
+);
 
 test("an exit whose record now describes a newer process is not projected onto it", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "atria-agent-replaced-"));

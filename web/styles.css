@@ -76,8 +76,6 @@ button {
 .topbar-actions,
 .sidebar-status,
 .chat-meta,
-.composer-tools,
-.composer-foot,
 .agent-room-status,
 .agent-pane-header,
 .right-tabs {
@@ -728,25 +726,6 @@ button {
     monospace;
   letter-spacing: 0.08em;
 }
-.composer-wrap {
-  padding: 0 clamp(24px, 6vw, 98px) 20px;
-}
-.composer-tools,
-.composer-foot {
-  justify-content: space-between;
-  color: #8b98ac;
-  font-size: 10px;
-}
-.composer-tools {
-  padding: 0 3px 8px;
-}
-.composer-mode {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  color: #55627a;
-  font-weight: 600;
-}
 .mode-mark {
   display: grid;
   place-items: center;
@@ -765,49 +744,6 @@ button {
 .mode-chevron {
   color: #a6b0c2;
   font-size: 12px;
-}
-.composer-hint {
-  color: #9da8b9;
-  font:
-    9px "DM Mono",
-    monospace;
-}
-.composer {
-  display: flex;
-  gap: 10px;
-  padding: 13px 11px 10px 15px;
-  border: 1px solid #ccd6e6;
-  border-radius: 12px;
-  background: var(--surface);
-  box-shadow: 0 7px 22px rgba(43, 68, 117, 0.07);
-  transition:
-    border 0.2s,
-    box-shadow 0.2s;
-}
-.composer:focus-within {
-  border-color: #8fa8f7;
-  box-shadow:
-    0 0 0 3px rgba(56, 105, 244, 0.1),
-    0 8px 25px rgba(43, 68, 117, 0.1);
-}
-.composer textarea {
-  flex: 1;
-  min-height: 54px;
-  resize: none;
-  outline: 0;
-  border: 0;
-  color: var(--ink);
-  background: transparent;
-  font-size: 13px;
-  line-height: 1.6;
-}
-.composer textarea::placeholder {
-  color: #a9b3c3;
-}
-.composer-actions {
-  display: flex;
-  align-items: flex-end;
-  gap: 6px;
 }
 .attach-button,
 .send-button {
@@ -835,9 +771,6 @@ button {
 .send-button:hover {
   background: #3152c1;
   transform: translateY(-1px);
-}
-.composer-foot {
-  padding: 8px 3px 0;
 }
 .ink-spark {
   margin-right: 4px;
@@ -1522,8 +1455,7 @@ button {
     padding-right: 26px;
     padding-left: 26px;
   }
-  .chat-scroll,
-  .composer-wrap {
+  .chat-scroll {
     padding-right: 28px;
     padding-left: 28px;
   }
@@ -1564,8 +1496,7 @@ button {
   .chat-actions .icon-action:first-child {
     display: none;
   }
-  .chat-scroll,
-  .composer-wrap {
+  .chat-scroll {
     padding-right: 16px;
     padding-left: 16px;
   }
@@ -1578,9 +1509,6 @@ button {
   .quick-stats {
     gap: 14px;
     flex-wrap: wrap;
-  }
-  .composer-wrap {
-    padding-bottom: 13px;
   }
 }
 
@@ -1882,38 +1810,11 @@ body::before {
 .message-meta {
   color: #7f7f7f;
 }
-.composer-tools,
-.composer-foot {
-  color: #7e7e7e;
-}
-.composer-mode {
-  color: #bdbdbd;
-}
 .mode-mark {
   border-color: #4c4c4c;
   background: #2e2e2e;
 }
 .mode-chevron {
-  color: #777;
-}
-.composer-hint {
-  color: #777;
-}
-.composer {
-  border-color: #4b4b4b;
-  background: #242424;
-  box-shadow: 0 7px 22px rgba(0, 0, 0, 0.18);
-}
-.composer:focus-within {
-  border-color: #777;
-  box-shadow:
-    0 0 0 3px rgba(255, 255, 255, 0.06),
-    0 8px 25px rgba(0, 0, 0, 0.2);
-}
-.composer textarea {
-  color: #efefef;
-}
-.composer textarea::placeholder {
   color: #777;
 }
 .attach-button {
@@ -2647,47 +2548,6 @@ body {
 .message-meta {
   color: #7f7f7f;
 }
-.composer-wrap {
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  left: 376px;
-  padding: 0 clamp(28px, 8vw, 150px) 19px;
-  background: linear-gradient(180deg, rgba(25, 25, 25, 0), #191919 20%);
-}
-.composer-tools {
-  display: none;
-}
-.composer {
-  display: block;
-  padding: 16px 17px 11px;
-  border: 1px solid #414141;
-  border-radius: 23px;
-  background: #2b2b2b;
-  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.25);
-}
-.composer textarea {
-  display: block;
-  width: 100%;
-  min-height: 40px;
-  height: 48px;
-  color: #efefef;
-  font-size: 15px;
-}
-.composer textarea::placeholder {
-  color: #838383;
-}
-.composer-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-.composer-left,
-.composer-right {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-}
 .attach-button {
   width: 28px;
   height: 28px;
@@ -2725,11 +2585,6 @@ body {
   background: #ededed;
   box-shadow: none;
   font-size: 14px;
-}
-.composer-foot {
-  padding: 8px 2px 0;
-  color: #777;
-  font-size: 10px;
 }
 .agent-pane {
   position: absolute;
@@ -2797,9 +2652,6 @@ body {
   .sidebar-bottom {
     width: 300px;
   }
-  .composer-wrap {
-    left: 300px;
-  }
   .agent-pane {
     width: 360px;
     right: 16px;
@@ -2815,11 +2667,6 @@ body {
   }
   .conversation-sidebar {
     display: none;
-  }
-  .composer-wrap {
-    left: 0;
-    padding-right: 18px;
-    padding-left: 18px;
   }
   .agent-pane {
     display: none;
@@ -3175,16 +3022,6 @@ body {
   width: 15px;
   height: 15px;
 }
-.composer-wrap {
-  left: 0;
-  right: 0;
-  padding-right: clamp(28px, 8vw, 150px);
-  padding-left: clamp(28px, 8vw, 150px);
-}
-.composer textarea {
-  line-height: 1.45;
-  resize: none;
-}
 .ui-icon {
   flex: 0 0 auto;
   vertical-align: middle;
@@ -3210,9 +3047,6 @@ body {
   .app-layout {
     grid-template-columns: 280px minmax(480px, 1fr) 330px;
   }
-  .composer-wrap {
-    left: 0;
-  }
 }
 @media (max-width: 900px) {
   .app-layout {
@@ -3220,10 +3054,6 @@ body {
   }
   .agent-pane {
     display: none;
-  }
-  .composer-wrap {
-    left: 0;
-    right: 0;
   }
 }
 
@@ -3546,9 +3376,6 @@ body {
 .message-meta {
   font-size: 11px;
 }
-.composer textarea {
-  font-size: 16px;
-}
 .model-select,
 .permission-chip {
   font-size: 14px;
@@ -3597,9 +3424,6 @@ body {
   .source-row,
   .process-row > span:nth-child(2) {
     font-size: 14px;
-  }
-  .composer textarea {
-    font-size: 17px;
   }
 }
 .permission-chip {
@@ -3658,9 +3482,6 @@ body {
 }
 
 /* The session folder belongs beside attachments in the composer. */
-.composer-left {
-  min-width: 0;
-}
 .workspace-button {
   display: inline-flex;
   align-items: center;

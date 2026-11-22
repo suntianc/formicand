@@ -93,7 +93,7 @@ export function resolveArtifactLink(detail, absolutePath) {
     return (
       entry.taskId === taskId &&
       typeof path === "string" &&
-      // eslint-disable-next-line no-control-regex
+      // eslint-disable-next-line no-control-regex -- 产出物路径须拒绝 ASCII 控制字符。
       !/[\\\x00-\x1f\x7f]/.test(path) &&
       path.split("/").every((part) => part && part !== "." && part !== "..")
     );

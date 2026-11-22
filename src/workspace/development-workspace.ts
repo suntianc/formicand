@@ -9,17 +9,26 @@ const execute = promisify(execFile);
 export const GIT_TIMEOUT_MS = 20_000;
 const MAX_BUFFER = 4 * 1024 * 1024;
 
-interface GitFailure {
-  stderr?: string;
-  message?: string;
-  code?: string;
+export class GitCommandError extends Error {
+  constructor(
+    message: string,
+    readonly code: number | string | undefined,
+    readonly stderr: string,
+    cause: unknown
+  ) {
+    super(message, { cause });
+    this.name = "GitCommandError";
+  }
 }
 
-function gitFailure(repository: string, error: unknown): Error {
-  const detail = error as GitFailure;
-  if (detail.code === "ENOENT") return new Error("找不到 git 可执行文件，无法准备需求现场");
+function gitFailure(repository: string, error: unknown): GitCommandError {
+  const detail = error as { code?: number | string; stderr?: string; message?: string };
   const stderr = (detail.stderr ?? "").trim();
-  return new Error(`git 在 ${repository} 执行失败：${stderr || detail.message || "未知错误"}`);
+  const message =
+    detail.code === "ENOENT"
+      ? "找不到 git 可执行文件，无法准备需求现场"
+      : `git 在 ${repository} 执行失败：${stderr || detail.message || "未知错误"}`;
+  return new GitCommandError(message, detail.code, stderr, error);
 }
 
 /**
@@ -27,7 +36,27 @@ function gitFailure(repository: string, error: unknown): Error {
  * they are: by default git quotes and escapes a non-ASCII one ("docs/\344…").
  */
 export async function git(repository: string, args: string[]): Promise<string> {
-  return (await run(repository, args)).trim();
+  return (await run(repository, args)).stdout.trim();
+}
+
+/** Use with Git queries whose exit 1 means the requested condition is false. */
+export async function gitProbe(repository: string, args: string[]): Promise<string | undefined> {
+  try {
+    return await git(repository, args);
+  } catch (error) {
+    if (error instanceof GitCommandError && error.code === 1) return undefined;
+    throw error;
+  }
+}
+
+export function gitCommit(repository: string, revision: string): Promise<string | undefined> {
+  return gitProbe(repository, [
+    "rev-parse",
+    "--verify",
+    "--quiet",
+    "--end-of-options",
+    `${revision}^{commit}`
+  ]);
 }
 
 /**
@@ -35,17 +64,22 @@ export async function git(repository: string, args: string[]): Promise<string> {
  * `core.quotePath` off git quotes a name holding a quote or a backslash.
  */
 export async function gitPaths(repository: string, args: string[]): Promise<string[]> {
-  return (await run(repository, [...args.slice(0, 1), "-z", ...args.slice(1)])).split("\0").filter(Boolean);
+  const { stdout } = await run(repository, [...args.slice(0, 1), "-z", ...args.slice(1)]);
+  return stdout.split("\0").filter(Boolean);
 }
 
-async function run(repository: string, args: string[]): Promise<string> {
+async function run(
+  repository: string,
+  args: string[],
+  env?: NodeJS.ProcessEnv
+): Promise<{ stdout: string; stderr: string }> {
   try {
-    const { stdout } = await execute("git", ["-C", repository, "-c", "core.quotePath=false", ...args], {
+    return await execute("git", ["-C", repository, "-c", "core.quotePath=false", ...args], {
+      env,
       timeout: GIT_TIMEOUT_MS,
       maxBuffer: MAX_BUFFER,
       windowsHide: true
     });
-    return stdout;
   } catch (error) {
     throw gitFailure(repository, error);
   }
@@ -152,45 +186,117 @@ export async function checkedOutBranch(directory: string): Promise<string | unde
   }
 }
 
+async function legacyBranchExists(repository: string, ref: string): Promise<boolean> {
+  if ((await gitProbe(repository, ["show-ref", "--verify", "--quiet", ref])) !== undefined) return true;
+  // The older exact check uses the same exit code for missing and broken refs.
+  // Inspect only the broken-ref diagnostic, even when Git resolved a namesake tag.
+  const { stderr } = await run(repository, ["rev-parse", "--verify", "--quiet", "--end-of-options", ref], {
+    ...process.env,
+    LC_ALL: "C"
+  }).catch((error: unknown) => {
+    if (error instanceof GitCommandError && error.code === 1) return { stderr: error.stderr };
+    throw error;
+  });
+  const diagnostic = /^warning: ignoring (?:broken ref|dangling symref) .+$/m.exec(stderr)?.[0];
+  if (diagnostic) throw new Error(`git 在 ${repository} 查询分支失败：${diagnostic}`);
+  return false;
+}
+
+async function branchExists(repository: string, ref: string): Promise<boolean> {
+  try {
+    await git(repository, ["show-ref", "--exists", ref]);
+    return true;
+  } catch (error) {
+    if (!(error instanceof GitCommandError)) throw error;
+    if (error.code === 2) return false;
+    if (error.code === 129) return legacyBranchExists(repository, ref);
+    throw error;
+  }
+}
+
+/** The commit of an exact local branch. Git's other failures are operational errors. */
+export async function branchTip(repository: string, branch: string): Promise<string | undefined> {
+  const ref = `refs/heads/${branch}`;
+  if (!(await branchExists(repository, ref))) return undefined;
+  const object = await git(repository, ["show-ref", "--verify", "--hash", ref]);
+  return git(repository, ["rev-parse", "--verify", "--end-of-options", `${object}^{commit}`]);
+}
+
 /** Resolve the baseline branch's current commit; a missing branch is named. */
 export async function resolveDevelopmentBaseline(input: {
   repository: string;
   branch: string;
 }): Promise<{ branch: string; commit: string }> {
   await assertRepository(input.repository);
-  let commit: string;
-  try {
-    commit = await git(input.repository, ["rev-parse", "--verify", `refs/heads/${input.branch}^{commit}`]);
-  } catch {
-    throw invalidConfig(`项目合入配置不可用：目标分支 ${input.branch} 不存在`);
-  }
+  const commit = await branchTip(input.repository, input.branch);
+  if (!commit) throw invalidConfig(`项目合入配置不可用：目标分支 ${input.branch} 不存在`);
   return { branch: input.branch, commit };
 }
 
-async function branchCommit(repository: string, branch: string): Promise<string | undefined> {
-  try {
-    return await git(repository, ["rev-parse", "--verify", `refs/heads/${branch}^{commit}`]);
-    // eslint-disable-next-line no-restricted-syntax -- rev-parse 失败只表示该分支尚不存在，调用方据此按新分支创建现场
-  } catch {
-    return undefined;
-  }
+interface GitWorktree {
+  directory: string;
+  branch?: string;
 }
 
-async function worktreeDirectories(repository: string): Promise<string[]> {
-  const listing = await git(repository, ["worktree", "list", "--porcelain"]);
-  const directories: string[] = [];
-  for (const line of listing.split("\n"))
-    if (line.startsWith("worktree ")) directories.push(line.slice("worktree ".length));
-  return directories;
+function unquoteGitPath(path: string): string {
+  if (!path.startsWith('"')) return path;
+  const escapes: Partial<Record<string, string>> = {
+    a: "\x07",
+    b: "\b",
+    t: "\t",
+    n: "\n",
+    v: "\v",
+    f: "\f",
+    r: "\r",
+    '"': '"',
+    "\\": "\\"
+  };
+  return path
+    .slice(1, -1)
+    .replace(
+      /\\([abtnvfr"\\]|[0-3][0-7]{2})/g,
+      (_match, escaped: string) => escapes[escaped] ?? String.fromCharCode(Number.parseInt(escaped, 8))
+    );
 }
 
-async function samePath(left: string, right: string): Promise<boolean> {
+/** NUL-separated records keep whitespace and quoted paths intact. */
+export async function gitWorktrees(repository: string): Promise<GitWorktree[]> {
+  const args = ["worktree", "list", "--porcelain"];
+  let separator = "\0";
+  let listing: string;
   try {
-    return (await realpath(left)) === (await realpath(right));
-    // eslint-disable-next-line no-restricted-syntax -- 任一路径无法解析（多半已不存在）即不是同一个目录，返回 false 是结论本身
-  } catch {
-    return false;
+    ({ stdout: listing } = await run(repository, [...args, "-z"]));
+  } catch (error) {
+    // Older Git supports the porcelain listing without its NUL option.
+    if (!(error instanceof GitCommandError) || error.code !== 129) throw error;
+    separator = "\n";
+    ({ stdout: listing } = await run(repository, args));
   }
+  const worktrees: GitWorktree[] = [];
+  for (const entry of listing.split(separator + separator)) {
+    const [directory, ...fields] = entry.split(separator);
+    if (!directory.startsWith("worktree ")) continue;
+    const branch = fields.find((field) => field.startsWith("branch "));
+    const path = directory.slice("worktree ".length);
+    worktrees.push({
+      directory: separator === "\n" ? unquoteGitPath(path) : path,
+      ...(branch ? { branch: branch.slice("branch ".length) } : {})
+    });
+  }
+  return worktrees;
+}
+
+export async function isRegisteredWorktree(repository: string, directory: string): Promise<boolean> {
+  const target = await realpath(directory);
+  for (const worktree of await gitWorktrees(repository)) {
+    try {
+      if ((await realpath(worktree.directory)) === target) return true;
+      // eslint-disable-next-line no-restricted-syntax -- 旧注册可能已经失效，继续检查其余工作树以确认目标目录
+    } catch {
+      continue;
+    }
+  }
+  return false;
 }
 
 /**
@@ -205,10 +311,7 @@ export async function developmentWorkspaceIsIntact(input: {
   try {
     const directory = await stat(input.directory);
     if (!directory.isDirectory()) return false;
-    const listed = await worktreeDirectories(input.repository);
-    let registered = false;
-    for (const entry of listed) if (await samePath(entry, input.directory)) registered = true;
-    if (!registered) return false;
+    if (!(await isRegisteredWorktree(input.repository, input.directory))) return false;
     const current = await git(input.directory, ["rev-parse", "--abbrev-ref", "HEAD"]);
     return current === input.branch;
     // eslint-disable-next-line no-restricted-syntax -- 目录不存在或 git 查询失败都说明现场已不可用，false 就是结论
@@ -252,7 +355,7 @@ export async function prepareDevelopmentWorkspace(input: {
   if (target === repository || target.startsWith(`${repository}${sep}`))
     throw invalid("需求现场不能放在用户仓库目录内");
 
-  const existing = await branchCommit(input.repository, input.branch);
+  const existing = await branchTip(input.repository, input.branch);
   if (existing && existing !== input.commit)
     throw invalid(`现场分支 ${input.branch} 已存在且不在基线 ${input.commit} 上`);
 

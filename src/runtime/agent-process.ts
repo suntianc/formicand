@@ -287,7 +287,7 @@ export class AgentProcessHost {
       throw new Error(`Agent process did not start: ${failure.message}`);
     }
     const identity = await readProcessIdentity(pid);
-    record = {
+    const launched: AgentProcessRecord = {
       version: 1,
       taskId: input.taskId,
       runId: input.runId,
@@ -308,7 +308,10 @@ export class AgentProcessHost {
       wakeEndpoint: endpoint,
       ...(input.leaseToken ? { leaseToken: input.leaseToken } : {})
     };
-    await this.writeRecord(record);
+    // Publish the launch before letting the close listener write its exit.
+    // A close during this write is handled by the exit check below.
+    await this.writeRecord(launched);
+    record = launched;
     this.children.set(recordKey(record), child);
     this.onSpawn?.(record, child);
     child.stdin?.on("error", () => {

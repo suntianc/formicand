@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
 import { createServer } from "node:http";
-import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, readdir, rename, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { tmpdir } from "node:os";
 import { promisify } from "node:util";
 import { setTimeout as delay } from "node:timers/promises";
 import { after, before, test } from "node:test";
@@ -915,6 +916,105 @@ test(
     );
   }
 );
+
+test("a failed merge record keeps its published receipt when Git cannot verify the target", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "coworkos-delivery-git-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const repository = await makeRepository(join(root, "repo"));
+  await git(repository, ["config", "gc.auto", "0"]);
+  const project = {
+    projectId: "project_git_replay",
+    projectName: "Git replay",
+    projectDirectory: repository
+  };
+  const runtime = new ProjectDataRuntime({
+    config: { sqlite: { path: join(root, "authority.sqlite") } },
+    configPath: join(root, "config.json"),
+    dataRoot: root,
+    env: {}
+  });
+  t.after(() => runtime.close());
+  const gateway = await runtime.service();
+  const partitioned = Object.create(gateway);
+  partitioned.updateMerge = (projectId, mergeId, patch) => {
+    if (patch.state === "merged") throw new ProjectDataUnavailableError("fixture: lost merge response");
+    return gateway.updateMerge(projectId, mergeId, patch);
+  };
+  const backendId = "backend_git_replay";
+  const author = serviceFor({ gateway: partitioned, backendId, startedAt: "before-restart", root, project });
+  const { projectId } = project;
+  await author.setMergeConfig(projectId, { repository, targetBranch: "main" });
+  const requirement = await gateway.createRequirement(projectId, {
+    title: "Git replay",
+    summary: "Recover the recorded release."
+  });
+  const development = await author.create(projectId, {
+    requirementId: requirement.requirementId,
+    goal: "Publish a fixture change",
+    completionCriteria: ["the fixture file exists"],
+    route: "quick"
+  });
+  await commitFile(development.workspace.directory, "replay.txt", "fixture");
+  const check = { name: "file exists", command: "test -f replay.txt" };
+  await author.setReviewPlan(projectId, {
+    developmentId: development.developmentId,
+    channel: "self",
+    basis: "fixture review",
+    checks: [{ ...check, exitCode: 0, output: "" }]
+  });
+  const published = await author.requestMerge(projectId, {
+    developmentId: development.developmentId,
+    ledger: { summaryUnchanged: "fixture", history: "fixture", descriptionUnchanged: true },
+    checks: [check]
+  });
+  assert.equal(published.state, "applying", JSON.stringify(published));
+  assert.equal(await git(repository, ["rev-parse", "HEAD"]), published.mergeCommit);
+  const pending = await outboxEntries(root);
+  assert.equal(pending.length, 1);
+
+  await gateway.updateMerge(projectId, published.mergeId, {
+    expectedRevision: published.revision,
+    state: "failed"
+  });
+  const reader = serviceFor({ gateway, backendId, startedAt: "after-restart", root, project });
+  const assertPending = async () => {
+    const [merge] = await reader.queryMerges(projectId, development.developmentId);
+    assert.equal(merge.state, "failed");
+    assert.deepEqual(await outboxEntries(root), pending);
+  };
+  const unavailable = join(root, "temporarily-unavailable");
+  await rename(repository, unavailable);
+  try {
+    await assertPending();
+  } finally {
+    await rename(unavailable, repository);
+  }
+
+  // The target still resolves after advancing, but ancestry cannot run
+  // until the previously published commit's object is readable again.
+  await commitFile(repository, "later.txt", "another change");
+  const object = join(
+    repository,
+    ".git",
+    "objects",
+    published.mergeCommit.slice(0, 2),
+    published.mergeCommit.slice(2)
+  );
+  await rename(object, unavailable);
+  try {
+    await assertPending();
+  } finally {
+    await rename(unavailable, object);
+  }
+
+  const [recovered] = await reader.queryMerges(projectId, development.developmentId);
+  assert.equal(recovered.state, "merged");
+  assert.equal(recovered.mergeCommit, published.mergeCommit);
+  const deliveries = await gateway.queryDeliveries(projectId, development.developmentId);
+  assert.equal(deliveries.length, 1);
+  assert.equal(deliveries[0].state, "synced");
+  assert.deepEqual(await outboxEntries(root), []);
+});
 
 test(
   "the execution host completes a pending delivery after the shared service returns without a read",

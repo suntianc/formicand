@@ -11,7 +11,10 @@ import { createModels, createProvider, normalizeContext } from "@earendil-works/
 import { openAICompletionsApi } from "@earendil-works/pi-ai/api/openai-completions.lazy";
 import { MainRequestStore, mainRequestPath } from "../dist/src/storage/main-request-store.js";
 import { MainRequestRetry } from "../dist/src/runtime/main-request-retry.js";
-import { ModelRequestRecorder, parseModelRequestArchive } from "../dist/src/storage/model-request-recorder.js";
+import {
+  ModelRequestRecorder,
+  parseModelRequestArchive
+} from "../dist/src/storage/model-request-recorder.js";
 import { recordModelRequests } from "../dist/src/runtime/model-request-recording.js";
 import { createCoworkModel } from "../dist/src/runtime/model-profile.js";
 import { protocolStream } from "./model-protocol-fixture.mjs";

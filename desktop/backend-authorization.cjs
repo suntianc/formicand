@@ -129,7 +129,7 @@ function createBackendAuthorization({ appRoot, fetchImpl = fetch, sessionStore }
         typeof input.clientName !== "string" ||
         !input.clientName.trim() ||
         input.clientName.length > 120 ||
-        // eslint-disable-next-line no-control-regex
+        // eslint-disable-next-line no-control-regex -- 后端授权界面的客户端名称不能包含控制字符。
         /[\x00-\x1f\x7f]/u.test(input.clientName) ||
         typeof input.protocolVersion !== "string" ||
         !/^\d{1,4}\.\d{1,4}$/u.test(input.protocolVersion) ||

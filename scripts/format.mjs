@@ -1,27 +1,27 @@
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 // Keep legacy untouched files stable. A changed file must meet the common formatter.
 // CI compares against the PR base; locally include staged, unstaged and new files.
-let base = process.env.FORMAT_BASE;
-if (base) {
-  try {
-    execFileSync("git", ["rev-parse", "--verify", `${base}^{commit}`], { stdio: "ignore" });
-    // eslint-disable-next-line no-restricted-syntax -- FORMAT_BASE 指向的提交在本地可能不存在（如只 fetch 了默认分支），此时回退到 HEAD
-  } catch {
-    base = "HEAD";
+function selection() {
+  if (process.argv.includes("--all")) return [["ls-files", "--cached", "-z"]];
+  let base = process.env.FORMAT_BASE;
+  if (base) {
+    try {
+      execFileSync("git", ["rev-parse", "--verify", `${base}^{commit}`], { stdio: "ignore" });
+      // eslint-disable-next-line no-restricted-syntax -- FORMAT_BASE 可能未被浅克隆取回，此时沿用 HEAD 作为基准。
+    } catch {
+      base = "HEAD";
+    }
+    return [["diff", "--name-only", "--diff-filter=d", "-z", `${base}...HEAD`]];
   }
+  return [
+    ["diff", "--name-only", "--diff-filter=d", "-z", "HEAD"],
+    ["ls-files", "--others", "--exclude-standard", "-z"]
+  ];
 }
-const commands = base
-  ? [["diff", "--name-only", "--diff-filter=d", "-z", `${base}...HEAD`]]
-  : [
-      // git rm --cached can leave a retired/private file on disk. Existence
-      // alone must not make a repository deletion a formatting target.
-      ["diff", "--name-only", "--diff-filter=d", "-z", "HEAD"],
-      ["ls-files", "--others", "--exclude-standard", "-z"]
-    ];
 const files = [
-  ...new Set(commands.flatMap((args) => execFileSync("git", args, { encoding: "utf8" }).split("\0")))
+  ...new Set(selection().flatMap((args) => execFileSync("git", args, { encoding: "utf8" }).split("\0")))
 ].filter(
   (file) =>
     existsSync(file) &&
@@ -30,17 +30,23 @@ const files = [
     !/^task-[^/]+\//.test(file) &&
     !file.startsWith("applications/") &&
     !file.startsWith("workspace/") &&
-    /\.(?:ts|js|mjs|cjs|json|md|css|html|ya?ml)$/.test(file) &&
+    !file.startsWith("vendor/") &&
+    /\.(?:[cm]?[jt]s|[jt]sx|json|md|css|html|ya?ml)$/.test(file) &&
     file !== "package-lock.json"
 );
-if (files.length) {
-  execFileSync(
+// Bound each command line when checking a whole checkout.
+const batchSize = 100;
+for (let i = 0; i < files.length; i += batchSize) {
+  const result = spawnSync(
     process.execPath,
     [
       resolve("node_modules/prettier/bin/prettier.cjs"),
       process.argv.includes("--write") ? "--write" : "--check",
-      ...files
+      ...files.slice(i, i + batchSize)
     ],
     { stdio: "inherit" }
   );
-} else console.log("No changed files to format");
+  if (result.error) throw result.error;
+  if (result.status !== 0) process.exitCode = result.status ?? 1;
+}
+if (!files.length) console.log("No files selected for formatting");

@@ -116,7 +116,9 @@ npm run verify
 
 2026-11-09 将旧配置接入已验收的 `583cbb4` 代码时，仅为这次新增规则校准 [文件级基线](../eslint-suppressions.json)，记录 237 个文件、1037 项：多余条件 321、丢弃错误语法 641、多余类型断言 75。随后清理这些存量并清空基线：能证明冗余的条件和断言直接删除；工具参数、持久化读取、闭包写入的标记位等真实边界，以及预期内的 best-effort 清理，改为逐处 `eslint-disable-next-line <规则> -- <运行时依据>`。基线保持空对象，日常改动维持零新增；确有运行时依据的局部例外必须写明依据并接受审查，不以未使用绑定的 catch、等价吞错包装或扩充基线绕过检查。
 
-修改上述规则覆盖的代码后，运行 `npx eslint src web desktop scripts .pi --prune-suppressions` 保持基线为空，再运行常规 lint。基线由 ESLint 维护，Prettier 跳过该文件。
+修改上述规则覆盖的代码后，运行 `npm run lint -- --prune-suppressions` 保持基线为空，再运行常规 lint。基线由 ESLint 维护，Prettier 跳过该文件。
+
+`npm run lint` 同时检查 E2E 脚本，Playwright 用例允许用空对象解构声明不依赖 fixture 的回调。日常的 `format:check` 按变更选择文件；在干净工作树检查全仓已跟踪源码和文档时，运行 `npm run format:check:all`。
 
 ## 验证分层
 

@@ -149,6 +149,11 @@ export default [
     }
   },
   {
+    files: ["e2e/**/*.spec.js"],
+    // Playwright inspects fixture names in the first destructured parameter.
+    rules: { "no-empty-pattern": ["error", { allowObjectPatternsAsParameters: true }] }
+  },
+  {
     files: ["src/**/*.ts", ".pi/**/*.ts"],
     languageOptions: { parser: tseslint.parser, globals: globals.node },
     rules: {
@@ -184,14 +189,20 @@ export default [
     }
   },
   {
-    files: ["src/dashboard/run-service.ts"],
+    files: ["src/dashboard/run-service.ts", "src/dashboard/task-lifecycle.ts"],
     rules: {
       "no-restricted-imports": ["error", { paths: ["node:http", "./http.js"], patterns: ["**/cli/**"] }]
     }
   },
   {
     files: ["src/**/*.ts"],
-    ignores: ["src/cli/**", "src/dashboard/*routes.ts", "src/dashboard/run-service.ts", "src/gui/**"],
+    ignores: [
+      "src/cli/**",
+      "src/dashboard/*routes.ts",
+      "src/dashboard/run-service.ts",
+      "src/dashboard/task-lifecycle.ts",
+      "src/gui/**"
+    ],
     rules: {
       "no-restricted-imports": ["error", { patterns: ["**/cli/**"] }]
     }

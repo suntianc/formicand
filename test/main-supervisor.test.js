@@ -8,7 +8,12 @@ import { LocalWorkspaceStore } from "../dist/src/workspace/workspace-store.js";
 import { InboxStore } from "../dist/src/runtime/scheduler.js";
 import { HumanRequestStore } from "../dist/src/runtime/human.js";
 import { MainSupervisor, MainSupervisorLoop } from "../dist/src/runtime/main-supervisor.js";
-import { mainIsAlive, readHeartbeat, writeHeartbeat, HEARTBEAT_STALE_MS } from "../dist/src/runtime/main-heartbeat.js";
+import {
+  mainIsAlive,
+  readHeartbeat,
+  writeHeartbeat,
+  HEARTBEAT_STALE_MS
+} from "../dist/src/runtime/main-heartbeat.js";
 import { now } from "../dist/src/domain/types.js";
 
 const RUN = "run-1";
@@ -31,9 +36,15 @@ function inboxFor(root, taskId) {
 
 async function queueCallback(root, taskId, messageId = "callback-1") {
   await inboxFor(root, taskId).enqueue({
-    messageId, recipientAgentId: "main", kind: "callback", callId: "call-1",
-    eventId: "event-1", priority: 1, state: "ready",
-    payload: { status: "succeeded", response: "round finished" }, createdAt: now()
+    messageId,
+    recipientAgentId: "main",
+    kind: "callback",
+    callId: "call-1",
+    eventId: "event-1",
+    priority: 1,
+    state: "ready",
+    payload: { status: "succeeded", response: "round finished" },
+    createdAt: now()
   });
 }
 
@@ -42,7 +53,9 @@ function supervisorFor(root, extra = {}) {
   const launches = [];
   const supervisor = new MainSupervisor({
     workspaceRoot: root,
-    launch: (input) => { launches.push(input); },
+    launch: (input) => {
+      launches.push(input);
+    },
     ...extra
   });
   return { supervisor, launches };
@@ -148,10 +161,14 @@ test("two supervisors racing the same task start exactly one Main", async (t) =>
   const launches = [];
   // Each supervisor writes a heartbeat as a real launch would, so the loser of
   // the lock re-checks liveness and finds the winner's Main.
-  const make = () => new MainSupervisor({
-    workspaceRoot: root,
-    launch: async (input) => { launches.push(input); await writeHeartbeat(root, input.taskId, input.runId); }
-  });
+  const make = () =>
+    new MainSupervisor({
+      workspaceRoot: root,
+      launch: async (input) => {
+        launches.push(input);
+        await writeHeartbeat(root, input.taskId, input.runId);
+      }
+    });
   const [a, b] = await Promise.all([make().runCycle(), make().runCycle()]);
   assert.equal(launches.length, 1, "the task lock must make the launch decision exclusive");
   assert.equal(a.resumed + b.resumed, 1);
@@ -162,7 +179,9 @@ test("a launch failure is reported rather than crashing the cycle", async (t) =>
   await queueCallback(root, taskId);
   const supervisor = new MainSupervisor({
     workspaceRoot: root,
-    launch: () => { throw new Error("spawn refused"); }
+    launch: () => {
+      throw new Error("spawn refused");
+    }
   });
   const result = await supervisor.runCycle();
   assert.equal(result.resumed, 0);
@@ -189,7 +208,11 @@ test("heartbeat liveness distinguishes fresh, stale, dead and remote", async (t)
   const beat = await readHeartbeat(root, taskId);
   assert.equal(beat.pid, process.pid);
   assert.equal(mainIsAlive(beat), true);
-  assert.equal(mainIsAlive(beat, Date.now() + HEARTBEAT_STALE_MS * 2), false, "an unrefreshed heartbeat expires");
+  assert.equal(
+    mainIsAlive(beat, Date.now() + HEARTBEAT_STALE_MS * 2),
+    false,
+    "an unrefreshed heartbeat expires"
+  );
 
   // A pid that cannot be running: absence is detected before the window elapses.
   assert.equal(mainIsAlive({ ...beat, pid: 2 ** 31 - 1 }), false);
@@ -204,7 +227,13 @@ test("the loop can run a single cycle and stop", async (t) => {
   await queueCallback(root, taskId);
   const { supervisor, launches } = supervisorFor(root);
   const cycles = [];
-  await new MainSupervisorLoop().run(supervisor, { workspaceRoot: root, once: true, onCycle: (result) => { cycles.push(result); } });
+  await new MainSupervisorLoop().run(supervisor, {
+    workspaceRoot: root,
+    once: true,
+    onCycle: (result) => {
+      cycles.push(result);
+    }
+  });
   assert.equal(cycles.length, 1);
   assert.equal(launches.length, 1);
 });
@@ -220,7 +249,9 @@ test("a Main that keeps dying is relaunched with growing backoff", async (t) => 
   // cannot make progress.
   const supervisor = new MainSupervisor({
     workspaceRoot: root,
-    launch: (input) => { launches.push(input); },
+    launch: (input) => {
+      launches.push(input);
+    },
     nowMs: () => clock
   });
 
@@ -238,7 +269,11 @@ test("a Main that keeps dying is relaunched with growing backoff", async (t) => 
 
   // The wait grows, so a persistent failure becomes cheap instead of constant.
   clock += 61_000;
-  assert.equal((await supervisor.runCycle()).decisions[0].reason, "backoff", "the second wait is longer than the first");
+  assert.equal(
+    (await supervisor.runCycle()).decisions[0].reason,
+    "backoff",
+    "the second wait is longer than the first"
+  );
   clock += 5 * 60_000;
   assert.equal((await supervisor.runCycle()).resumed, 1);
   assert.equal(launches.length, 3);
@@ -250,7 +285,13 @@ test("backoff resets once a Main proves it can start", async (t) => {
 
   const launches = [];
   let clock = Date.now();
-  const supervisor = new MainSupervisor({ workspaceRoot: root, launch: (input) => { launches.push(input); }, nowMs: () => clock });
+  const supervisor = new MainSupervisor({
+    workspaceRoot: root,
+    launch: (input) => {
+      launches.push(input);
+    },
+    nowMs: () => clock
+  });
   await supervisor.runCycle();
   assert.equal((await supervisor.runCycle()).decisions[0].reason, "backoff");
 
@@ -261,6 +302,10 @@ test("backoff resets once a Main proves it can start", async (t) => {
 
   const { rm: removeFile } = await import("node:fs/promises");
   await removeFile(join(root, taskId, "agents", "main", "heartbeat.json"));
-  assert.equal((await supervisor.runCycle()).resumed, 1, "a fresh crash starts from an immediate attempt again");
+  assert.equal(
+    (await supervisor.runCycle()).resumed,
+    1,
+    "a fresh crash starts from an immediate attempt again"
+  );
   assert.equal(launches.length, 2);
 });

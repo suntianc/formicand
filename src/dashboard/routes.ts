@@ -23,9 +23,7 @@ import { handleSessionRequest } from "./session-routes.js";
 import { commandContent, runCommand, sendCommandOutcome, type CommandRunner } from "./management-commands.js";
 import { id } from "../domain/types.js";
 import { readAgentTrajectory } from "../runtime/agent-trajectory.js";
-import { CoordinatorRuntime } from "../runtime/coordinator-runtime.js";
 import { HumanRequestStore } from "../runtime/human.js";
-import { SubagentQuestionStore } from "../runtime/subagent-questions.js";
 import { WatcherRuntime } from "../runtime/watcher.js";
 import { LocalWorkspaceStore } from "../workspace/workspace-store.js";
 import { ProjectCatalogError } from "../workspace/project-catalog.js";
@@ -70,7 +68,7 @@ import {
 import { handleProjectCloneRequest } from "./project-clone-routes.js";
 import { handleSubagentRequest } from "./subagent-routes.js";
 import type { SubagentBackend } from "./subagent-backend.js";
-import type { createWorkspaceDirectory, TaskLocation } from "./workspace-directory.js";
+import type { createWorkspaceDirectory } from "./workspace-directory.js";
 import { normalizeReasoningEffort } from "../runtime/runtime-settings.js";
 
 type WorkspaceDirectory = ReturnType<typeof createWorkspaceDirectory>;
@@ -158,21 +156,14 @@ export interface DashboardRoutePorts {
     input: { taskId: string; messageId: string; title?: string }
   ): Promise<{ taskId: string }>;
   messageVersion(taskId: string, versionId: string): Promise<unknown>;
-  activeRuns: RunService["activeRuns"];
-  /** Whether a Main process exists, including one adopted after a restart. */
-  mainProcessRunning?: RunService["mainProcessRunning"];
   /** Whether a Main turn is running right now, resident process or not. */
-  mainTurnActive?: RunService["taskTurnActive"];
-  /** Resolve a Main this backend has not met yet before a destructive change. */
-  ensureMainProcess?: RunService["ensureMainProcess"];
-  /** End an idle resident Main; false while its turn is still producing. */
-  closeIdleMain?: RunService["closeIdleMain"];
+  mainTurnActive: RunService["taskTurnActive"];
   cancelTask: RunService["cancelTask"];
+  taskLifecycle: RunService["taskLifecycle"];
   queuedMessageAction: RunService["queuedMessageAction"];
   queueInterjection: RunService["queueInterjection"];
   interjectionTarget: RunService["interjectionTarget"];
   resumeHumanAnswers: RunService["resumeHumanAnswers"];
-  coordinator: CoordinatorRuntime;
   taskDetails(taskId: string): Promise<unknown>;
   appendRunEvent: RunServicePorts["appendRunEvent"];
 }
@@ -194,69 +185,13 @@ export function createDashboardHandler(
     startMainRun,
     pauseTask,
     stopTask,
-    activeRuns,
     cancelTask,
+    taskLifecycle,
     resumeHumanAnswers,
-    coordinator,
     taskDetails,
     taskListItem,
     appendRunEvent
   } = ports;
-  /** A Main this backend spawned or adopted after a restart owns the session. */
-  const mainRunning = async (taskId: string) =>
-    ports.ensureMainProcess
-      ? await ports.ensureMainProcess(taskId)
-      : ports.mainProcessRunning
-        ? ports.mainProcessRunning(taskId)
-        : activeRuns.has(taskId);
-  /**
-   * Archiving or deleting needs the round to be over, judged by what is
-   * actually running rather than the status field: no Subagent still at work,
-   * and a Main, if one is alive, neither producing a turn nor paused. A Main
-   * left resident after that is closed rather than counted as running.
-   *
-   * Deleting waits for that close: the files go next and nothing may still
-   * write them. Archiving only hides the session, so it answers at once: with
-   * `background` the checks run here and the close is returned, to start once
-   * the archive is written (the close settles the Task too, and running both
-   * at once could drop the archive flag).
-   */
-  const releaseFinishedMain = async (
-    location: TaskLocation,
-    refusal: string,
-    { background = false }: { background?: boolean } = {}
-  ) => {
-    const { task, workspaceRoot } = location;
-    if (task.activeRunId) {
-      const work = await ports.coordinator.waitForSubagents({
-        taskId: task.taskId,
-        runId: task.activeRunId,
-        workspaceRoot,
-        timeoutMs: 0
-      });
-      if (work.pending.length) throw new Error(refusal);
-    }
-    if (!(await mainRunning(task.taskId))) return undefined;
-    const close = ports.closeIdleMain;
-    if (task.status === "paused" || !close) throw new Error(refusal);
-    if (!background) {
-      if (!(await close(task.taskId))) throw new Error(refusal);
-      return undefined;
-    }
-    if ((await mainTurnActive(task.taskId)) === true) throw new Error(refusal);
-    return () =>
-      void close(task.taskId).catch((error: unknown) =>
-        // An idle Main the close misses still exits on its own idle timeout.
-        console.error(
-          `[cowork] closing the Main of archived ${task.taskId} failed: ${
-            error instanceof Error ? error.message : String(error)
-          }`
-        )
-      );
-  };
-  /** A turn is producing right now; an idle resident Main is not. */
-  const mainTurnActive = async (taskId: string) =>
-    ports.mainTurnActive ? await ports.mainTurnActive(taskId) : mainRunning(taskId);
   /**
    * Publish the catalog object this route just committed.
    *
@@ -1097,7 +1032,7 @@ export function createDashboardHandler(
         let wake;
         // A wake opens a turn only when none is producing: a resident Main
         // between turns is exactly the state a wake is for.
-        if (body.wake === true && !(await mainTurnActive(taskId)) && !result.duplicate) {
+        if (body.wake === true && !(await ports.mainTurnActive(taskId)) && !result.duplicate) {
           try {
             wake = await startMainRun(
               taskId,
@@ -1190,16 +1125,13 @@ export function createDashboardHandler(
         return;
       }
       if (request.method === "DELETE") {
-        const location = await locateTask(taskId);
-        await releaseFinishedMain(location, "请先停止任务，再删除会话");
-        await location.store.deleteTask(taskId);
+        await taskLifecycle.deleteTask(taskId);
         await ports.events?.taskDeleted(taskId);
         sendJson(response, 200, { taskId, deleted: true });
         return;
       }
       if (request.method === "PATCH") {
         const body = await readJsonBody(request);
-        const location = await locateTask(taskId);
         const patch: { title?: string; pinned?: boolean; archived?: boolean } = {};
         if (body.title !== undefined) {
           if (
@@ -1217,12 +1149,11 @@ export function createDashboardHandler(
             patch[field] = body[field];
           }
         }
-        const closeMain = patch.archived
-          ? await releaseFinishedMain(location, "请先停止任务，再归档会话", { background: true })
-          : undefined;
-        const updated = await location.store.updateTask(taskId, patch);
-        closeMain?.();
-        sendJson(response, 200, await publishTask(await taskListItem({ ...location, task: updated })));
+        sendJson(
+          response,
+          200,
+          await publishTask(await taskListItem(await taskLifecycle.updateTask(taskId, patch)))
+        );
         return;
       }
       if (request.method === "POST" && url.pathname.endsWith("/action")) {
@@ -1242,7 +1173,6 @@ export function createDashboardHandler(
         )
           throw new Error("unsupported task action");
         const location = await locateTask(taskId);
-        const task = location.task;
         if (action === "pause") {
           const paused = await pauseTask(taskId);
           if (paused.refused) {
@@ -1264,44 +1194,17 @@ export function createDashboardHandler(
           return;
         }
         if (action === "complete") {
-          if ((await new HumanRequestStore(location.workspaceRoot).list(taskId, "pending")).length) {
-            sendJson(response, 409, { error: "任务仍有待回答的问题" });
-            return;
-          }
-          if ((await new SubagentQuestionStore(location.workspaceRoot).list(taskId, "pending")).length) {
-            sendJson(response, 409, { error: "仍有协作者在等待回答" });
-            return;
-          }
-          const current = task;
-          if (current.activeRunId) {
-            const coordination = await coordinator.waitForSubagents({
-              taskId,
-              runId: current.activeRunId,
-              workspaceRoot: location.workspaceRoot,
-              timeoutMs: 0
-            });
-            if (coordination.pending.length || coordination.callbackPending.length) {
-              sendJson(response, 409, { error: "Task still has pending Subagent work", coordination });
-              return;
-            }
-          }
+          const result = await taskLifecycle.completeTask(taskId);
+          if (result.task)
+            sendJson(
+              response,
+              200,
+              await publishTask(await taskListItem({ ...location, task: result.task }))
+            );
+          else sendJson(response, 409, result);
+          return;
         }
-        const cancelledRunId = action === "cancel" ? task.activeRunId : undefined;
-        if (action === "cancel") ports.computer.stop(taskId, "ended");
-        const next =
-          action === "cancel"
-            ? await cancelTask(taskId)
-            : await location.store.transitionTask(taskId, action === "resume" ? "running" : "completed", {
-                reason: `ui_${action}`
-              });
-        // A cancelled Run still belongs to its session; it is never handed on.
-        // The process is already stopped, so an unreachable authority must not
-        // turn a completed cancellation into an error response.
-        if (action === "cancel" && ports.mainSessions && location.projectId && cancelledRunId)
-          await ports.mainSessions
-            .settle(location.projectId, taskId, cancelledRunId, "cancelled")
-            // eslint-disable-next-line no-restricted-syntax -- 取消已完成，主会话结算失败不能让取消响应变成错误；会话行留待下次读取对账
-            .catch(() => undefined);
+        const next = action === "cancel" ? await cancelTask(taskId) : await taskLifecycle.resumeTask(taskId);
         sendJson(response, 200, await publishTask(await taskListItem({ ...location, task: next })));
         return;
       }

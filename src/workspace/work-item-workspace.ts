@@ -1,7 +1,7 @@
 import { mkdir, readdir, realpath, rmdir, stat } from "node:fs/promises";
 import { basename, dirname, resolve, sep } from "node:path";
 import { ProjectDataInvalidError } from "../domain/project-ledger.js";
-import { assertRepository, developmentWorkspaceIsIntact, git } from "./development-workspace.js";
+import { assertRepository, branchTip, developmentWorkspaceIsIntact, git } from "./development-workspace.js";
 
 /** One work item's own checkout, forked from the requirement's integration site. */
 export interface WorkItemSite {
@@ -21,15 +21,6 @@ async function emptyDirectory(path: string): Promise<boolean> {
     // eslint-disable-next-line no-restricted-syntax -- 目录不存在或不可读时按非空处理，调用方据此拒绝复用，宁可报冲突也不覆盖别人的内容
   } catch {
     return false;
-  }
-}
-
-async function branchAt(directory: string, branch: string): Promise<string | undefined> {
-  try {
-    return await git(directory, ["rev-parse", "--verify", `refs/heads/${branch}^{commit}`]);
-    // eslint-disable-next-line no-restricted-syntax -- 工作项分支首次启动时尚不存在，rev-parse 失败返回 undefined 让调用方从集成现场 HEAD 新建
-  } catch {
-    return undefined;
   }
 }
 
@@ -79,7 +70,7 @@ export async function prepareWorkItemSite(site: WorkItemSite): Promise<void> {
   }
 
   await mkdir(dirname(site.directory), { recursive: true, mode: 0o700 });
-  const branch = await branchAt(site.developmentDirectory, site.branch);
+  const branch = await branchTip(site.developmentDirectory, site.branch);
   const base = branch ?? (await git(site.developmentDirectory, ["rev-parse", "HEAD"]));
   try {
     if (branch)

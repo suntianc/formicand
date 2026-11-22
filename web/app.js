@@ -412,7 +412,7 @@ const messageEdit = createMessageEditController({
     if (state.selected === taskId) {
       state.localMessages = [];
       await loadDetail(taskId);
-      connectEventStream(taskId);
+      if (run.status !== "failed") connectEventStream(taskId);
     }
     await refresh();
   }
@@ -676,65 +676,6 @@ const draftRecovery = createDraftRecovery({
 });
 function conversationTitle(task) {
   return task?.title || truncate(String(task?.goal || task?.taskId || ui("新的对话")).split("\n")[0], 48);
-}
-async function updateConversation(patch, taskId = state.selected) {
-  if (!taskId) return;
-  const navigation = composerSession.currentToken;
-  await api(`/api/tasks/${encodeURIComponent(taskId)}`, {
-    method: "PATCH",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(patch)
-  });
-  if (patch.archived && state.selected === taskId && composerSession.currentToken === navigation)
-    beginNewConversation();
-  await refresh();
-}
-async function removeConversation(taskId = state.selected) {
-  if (!taskId) return;
-  const navigation = composerSession.currentToken;
-  await api(`/api/tasks/${encodeURIComponent(taskId)}`, { method: "DELETE" });
-  if (state.selected === taskId && composerSession.currentToken === navigation) beginNewConversation();
-  await refresh();
-}
-function renameConversation(task = state.detail?.task) {
-  if (!task) return;
-  const panel = document.createElement("div");
-  panel.className = "modal-backdrop app-dialog-backdrop";
-  panel.hidden = true;
-  panel.innerHTML = ui`<section class="modal-card app-dialog" role="dialog" aria-modal="true" aria-labelledby="rename-conversation-title"><h2 id="rename-conversation-title">重命名会话</h2><form novalidate><label class="dialog-field">会话名称<input name="title" maxlength="100" required autocomplete="off" aria-describedby="rename-conversation-error" value="${esc(conversationTitle(task))}"></label><p class="dialog-error" role="alert" id="rename-conversation-error" hidden></p><div class="dialog-actions"><button class="app-button is-secondary" type="button" data-close>取消</button><button class="app-button is-primary" type="submit">保存</button></div></form></section>`;
-  document.body.append(panel);
-  const dialog = createModal(panel, panel.querySelector("[data-close]"), { onClose: () => panel.remove() });
-  panel.querySelector("form").addEventListener("submit", async (event) => {
-    event.preventDefault();
-    const button = panel.querySelector("[type=submit]");
-    const input = panel.querySelector("input");
-    const errorMessage = panel.querySelector("[role=alert]");
-    input.removeAttribute("aria-invalid");
-    errorMessage.hidden = true;
-    errorMessage.textContent = "";
-    if (!input.value.trim()) {
-      errorMessage.textContent = ui("请输入会话名称");
-      errorMessage.hidden = false;
-      input.setAttribute("aria-invalid", "true");
-      input.focus();
-      return;
-    }
-    button.disabled = true;
-    button.setAttribute("aria-busy", "true");
-    try {
-      await updateConversation({ title: input.value.trim() }, task.taskId);
-      dialog.close();
-      panel.remove();
-    } catch (error) {
-      errorMessage.textContent = error.message;
-      errorMessage.hidden = false;
-    } finally {
-      button.disabled = false;
-      button.removeAttribute("aria-busy");
-    }
-  });
-  dialog.open();
-  panel.querySelector("input").select();
 }
 function setModelLabel(value) {
   const label = String(value || "").trim();
@@ -1839,9 +1780,10 @@ const sessionAction = createConversationOperations({
   readState: conversationReadState,
   onReadChange: () => renderConversationList(),
   titleFor: conversationTitle,
-  rename: renameConversation,
-  update: updateConversation,
-  remove: removeConversation,
+  api,
+  refresh,
+  getNavigation: () => ({ taskId: state.selected, token: composerSession.currentToken }),
+  openNewConversation: () => beginNewConversation(),
   stop: stopTask,
   showToast
 });
@@ -2435,13 +2377,20 @@ async function launchPrompt(
     }
     if (state.selected === taskId) {
       const detail = state.detail?.task?.taskId === taskId ? state.detail : {};
+      const failed = run.status === "failed";
       state.detail = {
         ...detail,
-        task: { ...detail.task, taskId, activeRunId: run.runId, status: "running" },
-        runtime: { ...detail.runtime, active: true }
+        task: {
+          ...detail.task,
+          taskId,
+          activeRunId: run.runId,
+          status: failed ? "failed" : "running",
+          ...(failed ? { lastError: run.error } : {})
+        },
+        runtime: { ...detail.runtime, active: !failed }
       };
       renderAll();
-      connectEventStream(taskId);
+      if (!failed) connectEventStream(taskId);
     }
     return run;
   } catch (error) {

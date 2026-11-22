@@ -9,7 +9,7 @@ function isDashboardUrl(value, dashboardUrl) {
 
 /** External links leave the application only through the system browser. */
 function externalNavigationUrl(value, dashboardUrl) {
-  // eslint-disable-next-line no-control-regex
+  // eslint-disable-next-line no-control-regex -- 传给系统浏览器的 URL 须拒绝控制字符。
   if (typeof value !== "string" || value.length > 4096 || /[\x00-\x1f\x7f]/.test(value)) return;
   try {
     const target = new URL(value);

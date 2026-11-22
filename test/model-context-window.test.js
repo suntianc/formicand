@@ -29,7 +29,10 @@ test("a stored connection capacity is readable and an invalid one is rejected wi
   const root = await mkdtemp(join(tmpdir(), "atria-context-window-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const path = join(root, "config.json");
-  const created = saveProvider({}, { name: "fixture", baseUrl: "https://example.com/v1", apiKey: "local-fixture" });
+  const created = saveProvider(
+    {},
+    { name: "fixture", baseUrl: "https://example.com/v1", apiKey: "local-fixture" }
+  );
   const config = saveProviderModels(created, {
     providerId: created.modelProviders.providers[0].id,
     models: [{ id: "fixture", contextWindow: 64000 }]

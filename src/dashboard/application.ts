@@ -383,22 +383,12 @@ export function createDashboardApplication(
     ...(process.env.COWORK_SUBAGENT_POLL_MS ? { pollMs: Number(process.env.COWORK_SUBAGENT_POLL_MS) } : {})
   });
   const runs = createDashboardRunService({
-    onRunFinalized: async (location, runId) => {
+    onRunFinalized: async (location, runId, status) => {
       if (!location.projectId) return;
       // A Run keeps the session that owned it after it settles.
-      try {
-        await mainSessions.settle(
-          location.projectId,
-          location.task.taskId,
-          runId,
-          location.task.status === "failed" ? "failed" : "completed"
-        );
-      } catch (error) {
-        console.error(
-          `[cowork] session run settlement failed: ${error instanceof Error ? error.message : String(error)}`
-        );
-      }
+      await mainSessions.settle(location.projectId, location.task.taskId, runId, status);
     },
+    onTaskCancelling: (taskId) => computer.stop(taskId, "ended"),
     uploads,
     projectRoot,
     dashboardUrl,
@@ -447,7 +437,7 @@ export function createDashboardApplication(
    * uses — no second scheduler and no second Run identity.
    */
   mainCapacity.attachStarter(async (entry) => {
-    await launchMainRun({
+    const result = await launchMainRun({
       taskId: entry.taskId,
       prompt: entry.prompt,
       runId: entry.runId,
@@ -469,6 +459,7 @@ export function createDashboardApplication(
       admittedRequestId: entry.requestId,
       queueWhenFull: false
     });
+    if (result.status === "failed") throw new Error(result.error);
   });
 
   const uiRoot = process.env.COWORK_UI_DIR ?? join(projectRoot, "web");
@@ -922,17 +913,13 @@ export function createDashboardApplication(
       const location = await locateTask(taskId);
       return readArchivedMessageVersion(location.workspaceRoot, taskId, versionId);
     },
-    activeRuns,
-    mainProcessRunning: runs.mainProcessRunning,
     mainTurnActive: runs.taskTurnActive,
-    ensureMainProcess: runs.ensureMainProcess,
-    closeIdleMain: runs.closeIdleMain,
     cancelTask: runs.cancelTask,
+    taskLifecycle: runs.taskLifecycle,
     queuedMessageAction: runs.queuedMessageAction,
     queueInterjection: runs.queueInterjection,
     interjectionTarget: runs.interjectionTarget,
     resumeHumanAnswers,
-    coordinator,
     subagents,
     taskDetails,
     taskListItem,

@@ -14,9 +14,8 @@ import { createModels, createProvider, normalizeContext } from "@earendil-works/
 import { openAICompletionsApi } from "@earendil-works/pi-ai/api/openai-completions.lazy";
 const { MainRequestStore, mainRequestPath } = await import("../dist/src/storage/main-request-store.js");
 const { MainRequestRetry } = await import("../dist/src/runtime/main-request-retry.js");
-const { ModelRequestRecorder, parseModelRequestArchive } = await import(
-  "../dist/src/storage/model-request-recorder.js"
-);
+const { ModelRequestRecorder, parseModelRequestArchive } =
+  await import("../dist/src/storage/model-request-recorder.js");
 const { recordModelRequests } = await import("../dist/src/runtime/model-request-recording.js");
 const { createCoworkModel } = await import("../dist/src/runtime/model-profile.js");
 import { startDashboard } from "./dashboard-fixture.mjs";

@@ -55,7 +55,11 @@ test("a delegated agent's log keeps settled events and the timing of the boundar
       "agent_end"
     ]
   );
-  assert.deepEqual(kept[3].message, { role: "assistant", timestamp: assistant.timestamp, stopReason: "stop" });
+  assert.deepEqual(kept[3].message, {
+    role: "assistant",
+    timestamp: assistant.timestamp,
+    stopReason: "stop"
+  });
   assert.deepEqual(kept[4].message, assistant);
   assert.deepEqual(kept[7], {
     type: "turn_end",

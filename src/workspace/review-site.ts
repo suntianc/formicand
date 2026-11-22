@@ -1,7 +1,7 @@
 import { mkdir, readdir, realpath, rmdir, stat } from "node:fs/promises";
 import { basename, dirname, resolve, sep } from "node:path";
 import { ProjectDataInvalidError } from "../domain/project-ledger.js";
-import { assertRepository, git } from "./development-workspace.js";
+import { assertRepository, git, gitCommit, isRegisteredWorktree } from "./development-workspace.js";
 
 /** One Reviewer's own checkout of the frozen candidate. */
 export interface ReviewSite {
@@ -17,29 +17,10 @@ function invalid(message: string): ProjectDataInvalidError {
   return new ProjectDataInvalidError(message);
 }
 
-async function worktreeDirectories(repository: string): Promise<string[]> {
-  const listing = await git(repository, ["worktree", "list", "--porcelain"]);
-  const directories: string[] = [];
-  for (const line of listing.split("\n"))
-    if (line.startsWith("worktree ")) directories.push(line.slice("worktree ".length));
-  return directories;
-}
-
-async function samePath(left: string, right: string): Promise<boolean> {
-  try {
-    return (await realpath(left)) === (await realpath(right));
-    // eslint-disable-next-line no-restricted-syntax -- 任一路径无法解析（多半已不存在）即不是同一个目录，false 就是结论
-  } catch {
-    return false;
-  }
-}
-
 async function resolveCommit(repository: string, commit: string): Promise<string> {
-  try {
-    return await git(repository, ["rev-parse", "--verify", `${commit}^{commit}`]);
-  } catch {
-    throw invalid(`审查候选提交不存在（${commit}）`);
-  }
+  const resolved = await gitCommit(repository, commit);
+  if (!resolved) throw invalid(`审查候选提交不存在（${commit}）`);
+  return resolved;
 }
 
 /** Whether the directory is still this Reviewer's checkout of the same candidate. */
@@ -47,10 +28,7 @@ export async function reviewSiteIsIntact(site: ReviewSite): Promise<boolean> {
   try {
     const directory = await stat(site.directory);
     if (!directory.isDirectory()) return false;
-    const listed = await worktreeDirectories(site.repository);
-    let registered = false;
-    for (const entry of listed) if (await samePath(entry, site.directory)) registered = true;
-    if (!registered) return false;
+    if (!(await isRegisteredWorktree(site.repository, site.directory))) return false;
     return (
       (await git(site.directory, ["rev-parse", "HEAD"])) ===
       (await resolveCommit(site.repository, site.commit))

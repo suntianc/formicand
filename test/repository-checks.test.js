@@ -141,8 +141,9 @@ test("formatter excludes retained staged deletions locally and against a commit 
     };
     for (const [file, content] of Object.entries(retired)) await put(file, content);
     await put("src/live.js", "const live = 0;\n");
+    await put("src/unchanged.mts", "export type ID = string;\n");
     git(["init", `--template=${join(root, "empty-template")}`]);
-    git(["add", "build/retired.js", ".openai/hosting.json", "src/live.js"]);
+    git(["add", "build/retired.js", ".openai/hosting.json", "src/live.js", "src/unchanged.mts"]);
     git(["commit", "-m", "Fixture sources"]);
     const base = git(["rev-parse", "HEAD"]);
     await put(".gitignore", "build/\n.openai/\nnode_modules/\n.tmp/\nempty-*\n");
@@ -153,16 +154,18 @@ test("formatter excludes retained staged deletions locally and against a commit 
       "node_modules/prettier/bin/prettier.cjs",
       'const fs = require("node:fs"); fs.mkdirSync(require("node:path").dirname(process.env.FORMAT_SELECTION_FILE), { recursive: true }); fs.writeFileSync(process.env.FORMAT_SELECTION_FILE, JSON.stringify(process.argv.slice(2)));\n'
     );
-    const format = async (extra = {}) => {
+    const format = async (extra = {}, flags = []) => {
       await rm(env.FORMAT_SELECTION_FILE, { force: true });
       execFileSync(
         process.execPath,
-        [fileURLToPath(new URL("../scripts/format.mjs", import.meta.url)), "--write"],
+        [fileURLToPath(new URL("../scripts/format.mjs", import.meta.url)), "--write", ...flags],
         { cwd: root, env: { ...env, ...extra }, stdio: ["ignore", "pipe", "pipe"] }
       );
       const selected = JSON.parse(await readFile(env.FORMAT_SELECTION_FILE, "utf8"));
       assert.equal(selected[0], "--write");
-      assert.deepEqual(selected.slice(1).sort(), ["src/live.js", "src/new.mjs"]);
+      const expected = ["src/live.js", "src/new.mjs"];
+      if (flags.includes("--all")) expected.push("src/unchanged.mts");
+      assert.deepEqual(selected.slice(1).sort(), expected);
       for (const [file, content] of Object.entries(retired))
         assert.equal(await readFile(join(root, file), "utf8"), content);
     };
@@ -170,6 +173,7 @@ test("formatter excludes retained staged deletions locally and against a commit 
     git(["add", ".gitignore", "src/live.js", "src/new.mjs"]);
     git(["commit", "-m", "Retire preview and change sources"]);
     await format({ FORMAT_BASE: base });
+    await format({ FORMAT_BASE: base }, ["--all"]);
   });
 });
 

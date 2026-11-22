@@ -32,7 +32,7 @@ const copyAction = (title) =>
 
 const TERMINAL_LANGUAGES = new Set(["terminal", "console", "ansi", "shell-session", "output"]);
 const DIFF_LANGUAGES = new Set(["diff", "patch"]);
-// eslint-disable-next-line no-control-regex
+// eslint-disable-next-line no-control-regex -- ANSI 控制序列由 ESC 字符引入。
 const ANSI = /\u001b\[[0-9;?]*[A-Za-z]/;
 
 /** A fenced block, by its info string: language first, then an optional title. */
@@ -76,12 +76,12 @@ export function ansiToHtml(text) {
     output += `<span class="${classes.join(" ")}">`;
     open = true;
   };
-  // eslint-disable-next-line no-control-regex
+  // eslint-disable-next-line no-control-regex -- 按完整 ESC 序列拆分终端文本。
   for (const part of String(text).split(/(\u001b\[[0-9;?]*[A-Za-z])/)) {
-    // eslint-disable-next-line no-control-regex
+    // eslint-disable-next-line no-control-regex -- 读取 ESC 序列的参数和指令。
     const escape = /^\u001b\[([0-9;?]*)([A-Za-z])$/.exec(part);
     if (!escape) {
-      // eslint-disable-next-line no-control-regex
+      // eslint-disable-next-line no-control-regex -- 渲染纯文本前去掉未识别的 ESC。
       output += esc(part.replace(/\u001b/g, ""));
       continue;
     }
@@ -105,7 +105,7 @@ export function ansiToHtml(text) {
   return output;
 }
 
-// eslint-disable-next-line no-control-regex
+// eslint-disable-next-line no-control-regex -- 纯文本输出需要去掉 ANSI 控制序列。
 export const stripAnsi = (text) => String(text).replace(/\u001b\[[0-9;?]*[A-Za-z]/g, "");
 
 /**

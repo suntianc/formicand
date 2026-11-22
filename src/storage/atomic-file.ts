@@ -43,11 +43,7 @@ export async function atomicWrite(
  * temp-file-then-rename write: a crash mid-write leaves the previous file, and
  * a tear can never publish a half-written credential.
  */
-export function atomicWriteSync(
-  path: string,
-  content: string,
-  options?: { mode?: number }
-): void {
+export function atomicWriteSync(path: string, content: string, options?: { mode?: number }): void {
   mkdirSync(dirname(path), { recursive: true });
   const temporary = `${path}.tmp-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const descriptor = openSync(temporary, "wx", options?.mode);

@@ -1,0 +1,97 @@
+/* Base composer styles. Layout and theme stylesheets add their overrides. */
+.composer-wrap {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  padding: 0 clamp(28px, 8vw, 150px) 19px;
+  background: linear-gradient(180deg, rgba(25, 25, 25, 0), #191919 20%);
+}
+.composer-tools,
+.composer-foot {
+  align-items: center;
+  justify-content: space-between;
+  font-size: 10px;
+}
+.composer-tools {
+  display: none;
+  padding: 0 3px 8px;
+  color: #7e7e7e;
+}
+.composer-foot {
+  display: flex;
+  padding: 8px 2px 0;
+  color: #777;
+}
+.composer-mode {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: #bdbdbd;
+  font-weight: 600;
+}
+.composer-hint {
+  color: #777;
+  font:
+    9px "DM Mono",
+    monospace;
+}
+.composer {
+  display: block;
+  gap: 10px;
+  padding: 16px 17px 11px;
+  border: 1px solid #414141;
+  border-radius: 23px;
+  background: #2b2b2b;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.25);
+  transition:
+    border 0.2s,
+    box-shadow 0.2s;
+}
+.composer:focus-within {
+  border-color: #777;
+  box-shadow:
+    0 0 0 3px rgba(255, 255, 255, 0.06),
+    0 8px 25px rgba(0, 0, 0, 0.2);
+}
+.composer textarea {
+  display: block;
+  flex: 1;
+  width: 100%;
+  min-height: 40px;
+  height: 48px;
+  resize: none;
+  outline: 0;
+  border: 0;
+  color: #efefef;
+  background: transparent;
+  font-size: 16px;
+  line-height: 1.45;
+}
+.composer textarea::placeholder {
+  color: #838383;
+}
+.composer-actions {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+}
+.composer-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.composer-left,
+.composer-right {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.composer-left {
+  min-width: 0;
+}
+@media (min-width: 1600px) {
+  .composer textarea {
+    font-size: 17px;
+  }
+}

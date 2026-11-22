@@ -6,7 +6,18 @@ import { pipeline } from "node:stream/promises";
 import { promisify } from "node:util";
 import { now } from "../domain/types.js";
 import type { MergeCheck } from "../domain/development-merge.js";
-import { assertRepository, git, gitPaths, GIT_TIMEOUT_MS } from "./development-workspace.js";
+import {
+  assertRepository,
+  branchTip as targetTip,
+  git,
+  gitCommit,
+  gitPaths,
+  gitProbe,
+  gitWorktrees,
+  GIT_TIMEOUT_MS
+} from "./development-workspace.js";
+
+export { targetTip };
 
 const execute = promisify(execFile);
 const CHECK_TIMEOUT_MS = 10 * 60_000;
@@ -21,46 +32,19 @@ export type MergeAttempt =
 export type PublishResult =
   { status: "updated" } | { status: "moved" } | { status: "blocked"; detail: string };
 
-/** The target branch's commit, or undefined when the configured branch is gone. */
-export async function targetTip(repository: string, branch: string): Promise<string | undefined> {
-  try {
-    return await git(repository, ["rev-parse", "--verify", `refs/heads/${branch}^{commit}`]);
-    // eslint-disable-next-line no-restricted-syntax -- 配置的目标分支被删掉时 rev-parse 以非零退出，undefined 正是调用方判断分支不存在的约定
-  } catch {
-    return undefined;
-  }
-}
-
 /** Whether `ancestor` is already contained in `commit`; a target may advance past our update. */
 export async function isAncestor(repository: string, ancestor: string, commit: string): Promise<boolean> {
-  try {
-    await git(repository, ["merge-base", "--is-ancestor", ancestor, commit]);
-    return true;
-    // eslint-disable-next-line no-restricted-syntax -- merge-base --is-ancestor 用退出码 1 表示"不是祖先"，这里必须得到 false 而不是抛错
-  } catch {
-    return false;
-  }
+  return (await gitProbe(repository, ["merge-base", "--is-ancestor", ancestor, commit])) !== undefined;
 }
 
 export async function commitExists(repository: string, commit: string): Promise<boolean> {
-  try {
-    await git(repository, ["cat-file", "-e", `${commit}^{commit}`]);
-    return true;
-    // eslint-disable-next-line no-restricted-syntax -- 候选提交不在仓库里时 cat-file -e 以非零退出，false 表示这份候选不可用于合入
-  } catch {
-    return false;
-  }
+  return (await gitCommit(repository, commit)) !== undefined;
 }
 
 /** The checkout that currently has the target branch checked out, if any. */
 export async function targetWorktree(repository: string, branch: string): Promise<string | undefined> {
-  const listing = await git(repository, ["worktree", "list", "--porcelain"]);
-  let directory: string | undefined;
-  for (const line of listing.split("\n")) {
-    if (line.startsWith("worktree ")) directory = line.slice("worktree ".length);
-    if (line === `branch refs/heads/${branch}` && directory) return directory;
-  }
-  return undefined;
+  return (await gitWorktrees(repository)).find((worktree) => worktree.branch === `refs/heads/${branch}`)
+    ?.directory;
 }
 
 /**
@@ -201,11 +185,11 @@ export async function publishMerge(input: {
   const current = await targetTip(input.repository, input.targetBranch);
   if (!current) throw new Error(`合入目标分支 ${input.targetBranch} 不存在`);
   if (current !== input.expectedTarget) return { status: "moved" };
+  if (!(await isAncestor(input.repository, current, input.mergeCommit)))
+    return { status: "blocked", detail: `${input.targetBranch} 无法快进到合入提交` };
   const ref = `refs/heads/${input.targetBranch}`;
+  const worktree = await targetWorktree(input.repository, input.targetBranch);
   try {
-    if (!(await isAncestor(input.repository, current, input.mergeCommit)))
-      return { status: "blocked", detail: `${input.targetBranch} 无法快进到合入提交` };
-    const worktree = await targetWorktree(input.repository, input.targetBranch);
     if (worktree) await advanceCheckout(worktree, ref, current, input.mergeCommit);
     else await git(input.repository, ["update-ref", ref, input.mergeCommit, current]);
     return { status: "updated" };

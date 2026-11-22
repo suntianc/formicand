@@ -61,5 +61,8 @@ test("Main sitting in a wait reads as waiting before the sampled Subagent count 
   const progressed = detail(true, waitTool, {
     progress: { agents: [{ status: "running" }, { status: "queued" }, { status: "succeeded" }] }
   });
-  assert.deepEqual(runPhase({ task: task(), detail: progressed, agents: [] }), { kind: "waiting", agents: 2 });
+  assert.deepEqual(runPhase({ task: task(), detail: progressed, agents: [] }), {
+    kind: "waiting",
+    agents: 2
+  });
 });

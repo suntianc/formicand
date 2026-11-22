@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 import { promisify } from "node:util";
-import { publishMerge } from "../dist/src/workspace/project-merge.js";
+import { commitExists, isAncestor, publishMerge, targetTip } from "../dist/src/workspace/project-merge.js";
 
 const run = promisify(execFile);
 
@@ -56,6 +56,60 @@ exec "${real}" "$@"
   }
   return { root, repo, real, git, base, merged, publish, intercept };
 }
+
+test("target and ancestor queries keep Git failures separate from negative results", async (t) => {
+  const { root, repo, git, base, merged } = await fixture(t);
+  assert.equal(await targetTip(repo, "main"), base);
+  await git(["tag", "refs/heads/missing", base]);
+  assert.equal(await targetTip(repo, "missing"), undefined);
+  await git(["tag", "refs/heads/corrupt", base]);
+  await writeFile(join(repo, ".git", "refs", "heads", "corrupt"), "not-an-object\n");
+  await assert.rejects(targetTip(repo, "corrupt"), /failed to look up reference|broken ref/);
+  await writeFile(join(repo, ".git", "refs", "heads", "missing-object"), "1".repeat(40) + "\n");
+  await assert.rejects(targetTip(repo, "missing-object"), { code: 128 });
+  assert.equal(await isAncestor(repo, base, merged), true);
+  assert.equal(await isAncestor(repo, merged, base), false);
+  assert.equal(await commitExists(repo, "0".repeat(40)), false);
+  await assert.rejects(isAncestor(repo, "0".repeat(40), base), { code: 128 });
+  await assert.rejects(isAncestor(root, base, merged), { code: 128 });
+  await assert.rejects(targetTip(root, "main"), { code: 128 });
+  await assert.rejects(commitExists(root, base), { code: 128 });
+});
+
+for (const format of ["exists", "legacy"]) {
+  test(`Git trace leaves successful queries and negative results intact (${format} ref lookup)`, async (t) => {
+    const { repo, git, base, merged, intercept } = await fixture(t);
+    if (format === "legacy") await intercept(`*"show-ref --exists"*) exit 129 ;;`);
+    const trace = process.env.GIT_TRACE;
+    process.env.GIT_TRACE = "1";
+    t.after(() => {
+      if (trace === undefined) delete process.env.GIT_TRACE;
+      else process.env.GIT_TRACE = trace;
+    });
+    assert.equal(await targetTip(repo, "main"), base);
+    assert.equal(await targetTip(repo, "missing"), undefined);
+    assert.equal(await isAncestor(repo, base, merged), true);
+    assert.equal(await isAncestor(repo, merged, base), false);
+    assert.equal(await commitExists(repo, "0".repeat(40)), false);
+    await git(["tag", "refs/heads/corrupt", base]);
+    await writeFile(join(repo, ".git", "refs", "heads", "corrupt"), "not-an-object\n");
+    await assert.rejects(targetTip(repo, "corrupt"), /failed to look up reference|broken ref/);
+  });
+}
+
+test("an invalid merge commit fails publication before the target changes", async (t) => {
+  const { repo, git, base } = await fixture(t);
+  await assert.rejects(
+    publishMerge({
+      repository: repo,
+      targetBranch: "main",
+      expectedTarget: base,
+      mergeCommit: "0".repeat(40)
+    }),
+    { code: 128 }
+  );
+  assert.equal(await git(["rev-parse", "main"]), base);
+});
 
 test("two checkout switches during publication leave every branch where its owner put it", async (t) => {
   const { git, real, base, merged, publish, intercept } = await fixture(t);
@@ -118,6 +172,19 @@ test("a conflicting local file blocks publication and retry finishes an already 
   assert.equal(await git(["rev-parse", "main"]), merged);
   assert.equal(await git(["status", "--porcelain"]), "");
 });
+
+for (const format of ["NUL", "legacy"]) {
+  test(`a target in a linked worktree with a quoted path is advanced on disk (${format} listing)`, async (t) => {
+    const { root, git, merged, publish, intercept } = await fixture(t);
+    const checkout = join(root, 'linked "worktree"');
+    await git(["switch", "other"]);
+    await git(["worktree", "add", checkout, "main"]);
+    if (format === "legacy") await intercept(`*"worktree list"*"-z"*) exit 129 ;;`);
+    assert.equal((await publish()).status, "updated");
+    assert.equal(await git(["rev-parse", "main"]), merged);
+    assert.equal(await readFile(join(checkout, "b.txt"), "utf8"), "b\n");
+  });
+}
 
 test("an unchecked target can only be fast-forwarded", async (t) => {
   const { repo, git, base, merged, publish } = await fixture(t);

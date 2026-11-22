@@ -113,7 +113,8 @@ function* namedPaths(
   for (const text of strings(input))
     for (const { prefix, expand } of forms) {
       const pattern = new RegExp(`${escape(prefix)}(?=$|[/\\s'"\`;|&<>()])(${PATH_TAIL})`, "g");
-      for (const match of text.matchAll(pattern)) yield { spelled: match[0], target: resolve(expand(match[1])) };
+      for (const match of text.matchAll(pattern))
+        yield { spelled: match[0], target: resolve(expand(match[1])) };
     }
 }
 

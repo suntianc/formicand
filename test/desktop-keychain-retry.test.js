@@ -57,7 +57,11 @@ test("an explicit retry starts a fresh keychain attempt instead of looping on a 
   const encrypted = await storage.encryptString("private-synthetic-key");
   assert.equal(await storage.decryptString(encrypted), "private-synthetic-key");
   await assert.rejects(storage.decryptString(Buffer.from("corrupt-ciphertext")), /存储访问失败/);
-  assert.equal(await storage.decryptString(encrypted), "private-synthetic-key", "a bad ciphertext keeps the helper");
+  assert.equal(
+    await storage.decryptString(encrypted),
+    "private-synthetic-key",
+    "a bad ciphertext keeps the helper"
+  );
   assert.equal(await readFile(counter, "utf8"), "2", "ordinary reads do not automatically retry");
 });
 

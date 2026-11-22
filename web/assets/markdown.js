@@ -23,7 +23,7 @@ export function renderMarkdown(source, options = {}) {
       .replace(/\r\n?/g, "\n")
   );
   // Restore only after Markdown parsing so generated markup is never reinterpreted.
-  // eslint-disable-next-line no-control-regex
+  // eslint-disable-next-line no-control-regex -- NUL 分隔数学占位符，渲染后按编号恢复。
   const mathToken = /\u0000math(\d+)\u0000/g;
   return renderBlocks(math.source, options).replace(
     mathToken,
@@ -191,7 +191,7 @@ function inlineMarkdown(value, options) {
       const url = wrappedUrl || plainUrl;
       // A model-supplied filesystem path is not a browser route or a native
       // open-file grant. Only the caller can resolve a registered artifact.
-      // eslint-disable-next-line no-control-regex
+      // eslint-disable-next-line no-control-regex -- 链接目标含控制字符时按普通文本显示。
       if (/[\x00-\x1f\x7f]/.test(url)) return protect(esc(match));
       if (/^https?:\/\//i.test(url))
         return protect(
@@ -217,7 +217,7 @@ function inlineMarkdown(value, options) {
   if (options.linkify) {
     // Explicit links and inline code are already protected. Keep URL spelling
     // intact before emphasis processing, including underscores and query strings.
-    // eslint-disable-next-line no-control-regex
+    // eslint-disable-next-line no-control-regex -- 裸链接到 NUL 占位符边界结束。
     text = text.replace(/https?:\/\/[^\s<>"'`*\u0000，。；：！？、（）【】]+/gi, (match) => {
       let url = match.replace(/[.,;:!?。，；：！？、]+$/, "");
       for (const [open, close] of [
@@ -250,6 +250,6 @@ function inlineMarkdown(value, options) {
     .replace(/(?<![\p{L}\p{N}])_([^_]+)_(?![\p{L}\p{N}])/gu, "<em>$1</em>");
   // NUL sentinels protect inline code and complete links, including attributes,
   // from emphasis substitutions. Text and attributes are escaped exactly once.
-  // eslint-disable-next-line no-control-regex
+  // eslint-disable-next-line no-control-regex -- 用 NUL 分隔的编号恢复已转义的内联片段。
   return text.replace(/\u0000(\d+)\u0000/g, (_match, index) => fragments[Number(index)] || "");
 }

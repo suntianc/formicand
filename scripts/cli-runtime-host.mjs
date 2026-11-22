@@ -33,7 +33,8 @@ export async function runCliProcess({
   });
   // The wrapper and Pi share one process group, so this pipe never depends on
   // the backend: it only lets the wrapper decide what reaches the durable log.
-  const relayed = !resident && !token && compactStdoutLine ? relayCompacted(child, compactStdoutLine) : undefined;
+  const relayed =
+    !resident && !token && compactStdoutLine ? relayCompacted(child, compactStdoutLine) : undefined;
   let ready = false;
   let stopping = false;
   const stop = () => {
@@ -76,7 +77,9 @@ async function relayCompacted(child, compact) {
   let pending = "";
   const emit = (text) =>
     text
-      ? new Promise((resolve, reject) => process.stdout.write(text, (error) => (error ? reject(error) : resolve())))
+      ? new Promise((resolve, reject) =>
+          process.stdout.write(text, (error) => (error ? reject(error) : resolve()))
+        )
       : undefined;
   const kept = (lines) =>
     lines

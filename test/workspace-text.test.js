@@ -19,7 +19,9 @@ test("workspace read pages a sparse file larger than 2 GB without loading its co
   try {
     await file.write(Buffer.from("trace header\n"), 0, 13, 0);
     await file.write(ending, 0, ending.length, size - ending.length);
-  } finally { await file.close(); }
+  } finally {
+    await file.close();
+  }
   const first = await readWorkspaceText(path, 32);
   assert.equal(first.size, size);
   assert.equal(first.offset, 0);
@@ -62,9 +64,19 @@ test("UTF-8 byte pagination reconstructs Chinese and emoji without dropped chara
 test("read handles empty files, past-EOF offsets and invalid byte budgets", async (t) => {
   const path = await fixture(t);
   await writeFile(path, "");
-  assert.deepEqual(await readWorkspaceText(path, 4, 100), { content: "", truncated: false, offset: 0, size: 0 });
+  assert.deepEqual(await readWorkspaceText(path, 4, 100), {
+    content: "",
+    truncated: false,
+    offset: 0,
+    size: 0
+  });
   await writeFile(path, "done");
-  assert.deepEqual(await readWorkspaceText(path, 4, 100), { content: "", truncated: false, offset: 4, size: 4 });
+  assert.deepEqual(await readWorkspaceText(path, 4, 100), {
+    content: "",
+    truncated: false,
+    offset: 4,
+    size: 4
+  });
   await assert.rejects(() => readWorkspaceText(path, 0), /maxBytes/);
   await assert.rejects(() => readWorkspaceText(path, 4, -1), /offset/);
 });
@@ -103,7 +115,9 @@ test("search reaches the end of long JSONL records and returns context near each
     const chunk = Buffer.from("中".repeat(32 * 1024));
     for (let i = 0; i < 64; i += 1) await file.write(chunk);
     await file.write('","verdict":"MATCH_AT_THE_END"}\nshort match_at_the_end\n');
-  } finally { await file.close(); }
+  } finally {
+    await file.close();
+  }
   const matches = await searchWorkspaceText(path, "match_at_the_end", 10);
   assert.equal(matches.length, 2);
   assert.equal(matches[0].line, 1);

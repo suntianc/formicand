@@ -25,6 +25,7 @@ import { browseWorkspace } from "../../../dist/src/tools/workspace-browse.js";
 import { parseExecutorReport, type ExecutorReport } from "../../../dist/src/runtime/executor-report.js";
 import { loadConfig } from "../helpers.ts";
 import type { RuntimeToolResult } from "../helpers.ts";
+import { browseWorkspaceParameters } from "./browse-workspace.ts";
 import type { SubagentRole } from "../../../dist/src/runtime/subagent-roles.js";
 
 /**
@@ -215,22 +216,7 @@ export function registerSubagentTools(pi: ExtensionAPI, context: SubagentToolCon
       "Use browse_workspace with mode=tree to understand the Task layout and other Agents' progress.",
       "Use browse_workspace with mode=read for a known artifact, session, event or Agent file, and mode=search to locate evidence across the workspace."
     ],
-    parameters: Type.Object({
-      mode: Type.Optional(Type.Union([Type.Literal("tree"), Type.Literal("read"), Type.Literal("search")])),
-      path: Type.Optional(
-        Type.String({
-          description: "Relative path inside the Task workspace; default is the workspace root."
-        })
-      ),
-      query: Type.Optional(Type.String({ description: "Text to search for when mode=search." })),
-      offset: Type.Optional(
-        Type.Number({
-          description: "Byte offset for mode=read; use nextOffset from a truncated result to continue."
-        })
-      ),
-      depth: Type.Optional(Type.Number({ description: "Tree depth, default 2." })),
-      maxEntries: Type.Optional(Type.Number({ description: "Maximum entries or matches, default 200." }))
-    }),
+    parameters: browseWorkspaceParameters,
     async execute(_toolCallId, params): Promise<RuntimeToolResult> {
       const result = await browseWorkspace({ workspaceDirectory: context.taskWorkspace }, params);
       return { content: [{ type: "text", text: JSON.stringify(result) }], details: result };

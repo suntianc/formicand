@@ -7,6 +7,7 @@ import { browseWorkspace } from "../../../dist/src/tools/workspace-browse.js";
 import { createLoadSkillTool, type SkillMetadata } from "../../../dist/src/runtime/skill-registry.js";
 import type { CoworkToolContext } from "../extension.ts";
 import type { RuntimeToolResult } from "../helpers.ts";
+import { browseWorkspaceParameters } from "./browse-workspace.ts";
 
 /**
  * The skill loader Main and every delegated process share.
@@ -122,22 +123,7 @@ export function registerWorkspaceTools(pi: ExtensionAPI, context: CoworkToolCont
       "Use browse_workspace with mode=tree to understand the Task layout and Agent progress.",
       "Use browse_workspace with mode=read for a known artifact, session, event or Agent file, and mode=search to locate evidence across the workspace."
     ],
-    parameters: Type.Object({
-      mode: Type.Optional(Type.Union([Type.Literal("tree"), Type.Literal("read"), Type.Literal("search")])),
-      path: Type.Optional(
-        Type.String({
-          description: "Relative path inside the Task workspace; default is the workspace root."
-        })
-      ),
-      query: Type.Optional(Type.String({ description: "Text to search for when mode=search." })),
-      offset: Type.Optional(
-        Type.Number({
-          description: "Byte offset for mode=read; use nextOffset from a truncated result to continue."
-        })
-      ),
-      depth: Type.Optional(Type.Number({ description: "Tree depth, default 2." })),
-      maxEntries: Type.Optional(Type.Number({ description: "Maximum entries or matches, default 200." }))
-    }),
+    parameters: browseWorkspaceParameters,
     async execute(_toolCallId, params): Promise<RuntimeToolResult> {
       const result = await browseWorkspace(
         { workspaceDirectory: join(context.workspaceRoot, context.taskId) },

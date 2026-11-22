@@ -306,13 +306,17 @@ test("ambiguous provider text does not acquire a guessed HTTP status or request 
 
 test("a spawn failure produces one durable failure with its actual cause", async (t) => {
   const f = await fixture(t, { missingCwd: true, previous: assistant("error", "历史失败。") });
-  await f.service.startMainRun("task", "继续本次隔离请求。", "spawn-failure");
+  const receipt = await f.service.startMainRun("task", "继续本次隔离请求。", "spawn-failure");
   const task = await f.settle();
   const failures = f.records.filter((record) => record.type === "main.run_failed");
   assert.equal(task.status, "failed");
   assert.equal(failures.length, 1);
   assert.match(task.lastError, /ENOENT/);
   assert.equal(failures[0].payload.failure.kind, "main_process");
+  assert.equal(receipt.status, task.status);
+  assert.equal(receipt.runId, task.activeRunId);
+  assert.equal(receipt.error, task.lastError);
+  assert.equal(failures[0].payload.error, receipt.error);
 });
 
 test("a current interrupted response waits instead of completing its partial text", async (t) => {

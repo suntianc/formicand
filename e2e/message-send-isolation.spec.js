@@ -1,4 +1,8 @@
 import { test, expect } from "@playwright/test";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { startDashboard } from "../test/dashboard-fixture.mjs";
 
 function deferred() {
@@ -286,7 +290,9 @@ test("late creation preserves the newer saved task draft and a deliberate clear 
   }
 });
 
-test("a message on its way leaves the composer looking empty and a failure shows it again", async ({ page }) => {
+test("a message on its way leaves the composer looking empty and a failure shows it again", async ({
+  page
+}) => {
   const dashboard = await startDashboard({ modelEndpoint: "http://127.0.0.1:1/v1" });
   const gates = [deferred(), deferred()];
   let calls = 0;
@@ -320,5 +326,49 @@ test("a message on its way leaves the composer looking empty and a failure shows
   } finally {
     gates.forEach((gate) => gate.resolve());
     await dashboard.stop();
+  }
+});
+
+test("a Main spawn failure reaches the composer without a running state", async ({ page }) => {
+  const root = await mkdtemp(join(tmpdir(), "atria-spawn-failure-"));
+  const releaseDetails = deferred();
+  let dashboard;
+  try {
+    dashboard = await startDashboard({
+      modelEndpoint: "http://127.0.0.1:1/v1",
+      env: {
+        COWORK_HARNESS_ROOT: join(root, "missing-cwd"),
+        COWORK_UI_DIR: fileURLToPath(new URL("../web", import.meta.url))
+      }
+    });
+    await seed(page, dashboard);
+    const initialDetails = page.waitForResponse((response) => response.url().endsWith("/api/tasks/task-a"));
+    await select(page, "task-a");
+    await initialDetails;
+    const input = page.locator("#composer-input");
+    const send = page.locator("#send-button");
+    await expect(send).toBeEnabled();
+    // Hold the state refresh so the view must first interpret the actual run receipt.
+    await page.route("**/api/tasks/task-a", async (route) => {
+      await releaseDetails.promise;
+      await route.continue();
+    });
+    const receipt = page.waitForResponse((response) => response.url().endsWith("/api/tasks/task-a/run"));
+    await input.fill("进程启动失败时已保存的消息");
+    await send.click();
+    const response = await receipt;
+    expect(response.status()).toBe(202);
+    const run = await response.json();
+    expect(run).toMatchObject({ taskId: "task-a", status: "failed", error: expect.stringMatching(/ENOENT/) });
+    await expect(input).toHaveValue("");
+    await expect(send).toHaveAttribute("aria-label", "发送");
+    await expect(page.locator("#stop-button")).toBeHidden();
+    releaseDetails.resolve();
+    await expect(page.getByRole("alert").getByText("执行进程退出")).toBeVisible();
+    await expect(send).toBeEnabled();
+  } finally {
+    releaseDetails.resolve();
+    await dashboard?.stop();
+    await rm(root, { recursive: true, force: true });
   }
 });

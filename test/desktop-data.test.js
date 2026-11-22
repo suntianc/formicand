@@ -56,4 +56,3 @@ test("renderer shutdown waits for saved documents and refuses a timeout or wrong
   documents.acknowledge(messages[2][1], false);
   assert.equal(await failed, false);
 });
-

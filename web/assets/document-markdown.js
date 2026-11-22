@@ -6,7 +6,7 @@ export function renderDocumentMarkdown(source) {
   const math = protectMath(String(source ?? "").replaceAll("\u0000", ""));
   const prefix = `math-${crypto.randomUUID()}-`;
   // HTML parsing removes NUL characters; use private text placeholders instead.
-  // eslint-disable-next-line no-control-regex
+  // eslint-disable-next-line no-control-regex -- 将 NUL 分隔的数学占位符转换为文档渲染标记。
   const protectedSource = math.source.replace(/\u0000math(\d+)\u0000/g, `${prefix}$1-end`);
   const html = marked.parse(protectedSource, { gfm: true, breaks: false, async: false });
   const clean = DOMPurify.sanitize(html, {

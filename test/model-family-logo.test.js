@@ -14,5 +14,8 @@ test("a custom provider's mark follows the model it serves, with a plain mark fo
   assert.match(providerLogo(custom, 18, "deepseek-chat"), /data-logo="deepseek"/);
   assert.match(providerLogo(custom, 18, "my-local-model"), /data-logo="generic"/);
   // A provider made from a preset keeps its own mark whatever the model.
-  assert.match(providerLogo({ preset: "openrouter", name: "OpenRouter" }, 18, "deepseek-chat"), /data-logo="openrouter"/);
+  assert.match(
+    providerLogo({ preset: "openrouter", name: "OpenRouter" }, 18, "deepseek-chat"),
+    /data-logo="openrouter"/
+  );
 });

@@ -11,14 +11,28 @@ export interface WorkspaceTextPage {
 }
 
 const isContinuation = (byte: number): boolean => (byte & 0xc0) === 0x80;
-const characterBytes = (byte: number): number => byte < 0x80 ? 1 : byte >= 0xc2 && byte <= 0xdf ? 2 : byte >= 0xe0 && byte <= 0xef ? 3 : byte >= 0xf0 && byte <= 0xf4 ? 4 : 1;
+const characterBytes = (byte: number): number =>
+  byte < 0x80
+    ? 1
+    : byte >= 0xc2 && byte <= 0xdf
+      ? 2
+      : byte >= 0xe0 && byte <= 0xef
+        ? 3
+        : byte >= 0xf0 && byte <= 0xf4
+          ? 4
+          : 1;
 
 /** Read one bounded page. Offsets are bytes; an offset inside a UTF-8 character
  * is aligned backward and reported in the result. A budget below four bytes
  * may be exceeded only to return the first complete character and make progress. */
-export async function readWorkspaceText(path: string, maxBytes: number, offset = 0): Promise<WorkspaceTextPage> {
+export async function readWorkspaceText(
+  path: string,
+  maxBytes: number,
+  offset = 0
+): Promise<WorkspaceTextPage> {
   if (!Number.isSafeInteger(maxBytes) || maxBytes < 1) throw new Error("maxBytes must be a positive integer");
-  if (!Number.isSafeInteger(offset) || offset < 0) throw new Error("offset must be a non-negative byte offset");
+  if (!Number.isSafeInteger(offset) || offset < 0)
+    throw new Error("offset must be a non-negative byte offset");
   const file = await open(path, "r");
   try {
     const info = await file.stat();
@@ -48,7 +62,13 @@ export async function readWorkspaceText(path: string, maxBytes: number, offset =
     }
     const nextOffset = position + end;
     const truncated = nextOffset < size;
-    return { content: buffer.subarray(start, end).toString("utf8"), truncated, offset: position + start, ...(truncated ? { nextOffset } : {}), size };
+    return {
+      content: buffer.subarray(start, end).toString("utf8"),
+      truncated,
+      offset: position + start,
+      ...(truncated ? { nextOffset } : {}),
+      size
+    };
   } finally {
     await file.close();
   }
@@ -98,9 +118,14 @@ function sourceIndex(value: string, lowercaseIndex: number): number {
 
 /** Search every line without retaining a whole file or a whole JSONL record.
  * Matching is case-insensitive and returns at most one context per line. */
-export async function searchWorkspaceText(path: string, query: string, maxMatches: number): Promise<Array<{ line: number; text: string }>> {
+export async function searchWorkspaceText(
+  path: string,
+  query: string,
+  maxMatches: number
+): Promise<Array<{ line: number; text: string }>> {
   if (!query) throw new Error("workspace text search requires a query");
-  if (!Number.isSafeInteger(maxMatches) || maxMatches < 0) throw new Error("maxMatches must be a non-negative integer");
+  if (!Number.isSafeInteger(maxMatches) || maxMatches < 0)
+    throw new Error("maxMatches must be a non-negative integer");
   const matches: Array<{ line: number; text: string }> = [];
   if (maxMatches === 0) return matches;
   const needle = query.toLowerCase();
@@ -116,7 +141,10 @@ export async function searchWorkspaceText(path: string, query: string, maxMatche
   const emit = (suffixTruncated: boolean) => {
     if (context === undefined || emitted) return;
     const truncated = prefixTruncated || suffixTruncated;
-    matches.push({ line, text: `${prefixTruncated ? "… " : ""}${context}${suffixTruncated ? " …" : ""}${truncated ? " [truncated]" : ""}` });
+    matches.push({
+      line,
+      text: `${prefixTruncated ? "… " : ""}${context}${suffixTruncated ? " …" : ""}${truncated ? " [truncated]" : ""}`
+    });
     emitted = true;
     context = undefined;
     tail = "";
@@ -126,7 +154,10 @@ export async function searchWorkspaceText(path: string, query: string, maxMatche
     let segment = pendingCR + part;
     pendingCR = "";
     if (endLine && segment.endsWith("\r")) segment = segment.slice(0, -1);
-    else if (!endLine && !atEOF && segment.endsWith("\r")) { pendingCR = "\r"; segment = segment.slice(0, -1); }
+    else if (!endLine && !atEOF && segment.endsWith("\r")) {
+      pendingCR = "\r";
+      segment = segment.slice(0, -1);
+    }
     if (!emitted) {
       if (context !== undefined) {
         const rest = context + segment;
