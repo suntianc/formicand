@@ -131,11 +131,9 @@ import { insertMiscRequirement } from "../storage/project-data/migrations.js";
 import {
   catalogOf,
   lookupRequirements,
-  similarPairs,
   type CatalogEntry,
   type LookupEntry,
-  type LookupResult,
-  type SimilarPair
+  type LookupResult
 } from "../domain/ledger-lookup.js";
 import { ProjectBoardRepository } from "./project-board.js";
 import { ProjectDeliveryRepository } from "./project-delivery.js";
@@ -358,11 +356,10 @@ export interface RequirementMerge {
   taskId?: unknown;
 }
 
-/** What a ledger tidy reads: how many features are new since the last one, and which look alike. */
+/** What a ledger tidy reads: how many developments merged since the last one, and the whole catalog. */
 export interface LedgerTidy {
-  created: number;
+  merged: number;
   tidiedAt?: string;
-  pairs: SimilarPair[];
   catalog: CatalogEntry[];
 }
 
@@ -1284,24 +1281,22 @@ export class ProjectDataRepository {
     return lookupRequirements(await this.lookupEntries(projectId), ledgerRequestText(requestValue));
   }
 
-  /** Features created since the last tidy, the pairs that look alike and the whole catalog. */
+  /** Developments merged since the last tidy, and the whole catalog for Main to compare. */
   async tidy(projectIdValue: unknown): Promise<LedgerTidy> {
     const projectId = ledgerProjectId(projectIdValue);
     const project = await this.requireProject(projectId);
-    const rows = await this.transaction.query<{ created: number | string }>(
-      "SELECT COUNT(*) AS created FROM project_data_requirements WHERE project_id = ? AND kind = 'feature' AND created_at > ?",
+    const rows = await this.transaction.query<{ merged: number | string }>(
+      "SELECT COUNT(*) AS merged FROM project_data_deliveries WHERE project_id = ? AND merged_at > ?",
       [projectId, project.ledger_tidied_at ?? ""]
     );
-    const entries = await this.lookupEntries(projectId);
     return {
-      created: Number(rows[0]?.created ?? 0),
+      merged: Number(rows[0]?.merged ?? 0),
       ...(project.ledger_tidied_at ? { tidiedAt: project.ledger_tidied_at } : {}),
-      pairs: similarPairs(entries),
-      catalog: catalogOf(entries)
+      catalog: catalogOf(await this.lookupEntries(projectId))
     };
   }
 
-  /** Mark the tidy done: features created from now on count toward the next one. */
+  /** Mark the tidy done: developments merged from now on count toward the next one. */
   async finishTidy(projectIdValue: unknown): Promise<{ tidiedAt: string }> {
     const projectId = ledgerProjectId(projectIdValue);
     await this.requireProject(projectId);

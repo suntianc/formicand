@@ -3,15 +3,13 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { test } from "node:test";
-import { similarPairs } from "../dist/src/domain/ledger-lookup.js";
-import { duplicateFeature, history } from "../scripts/eval/history.mjs";
 import { developmentNext } from "../dist/src/domain/development-ticket.js";
 import { ProjectDataRuntime } from "../dist/src/workspace/project-data-service.js";
 import { SqliteDatabase } from "../dist/src/storage/project-data/sqlite-database.js";
 
 /**
- * The ledger tidy: the program counts new features and lists pairs that look
- * alike, Main folds a true duplicate into the feature that stays, and the
+ * The ledger tidy: the program counts merged developments and hands Main the
+ * whole catalog to compare, Main folds a true duplicate into the feature that stays, and the
  * folded requirement is deleted once everything it held has moved.
  */
 
@@ -27,39 +25,7 @@ const feature = (requirementId, title, summary, extra = {}) => ({
   ...extra
 });
 
-test("similar pairs find a short duplicate inside a long feature", () => {
-  // The eval's older project: thirteen features and the export rule recorded
-  // twice, once under a narrower title.
-  const entries = [...history, duplicateFeature].map((entry, index) =>
-    feature(`r${index}`, entry.title, entry.summary, {
-      description: entry.description,
-      history: entry.history,
-      status: entry.status ?? "active"
-    })
-  );
-  const exported = entries.find((entry) => entry.title === "导出给财务的 CSV");
-  const columns = entries.find((entry) => entry.title === "CSV 列");
-  const pairs = similarPairs([
-    ...entries,
-    // Neither the misc requirement nor a retired feature is folded.
-    { ...feature("r_misc", "杂项", columns.summary), kind: "misc" },
-    feature("r_old", "旧的 CSV 列", columns.summary, { status: "retired" })
-  ]);
-  assert.ok(pairs.length <= 10);
-  assert.deepEqual(
-    [pairs[0].left.requirementId, pairs[0].right.requirementId].sort(),
-    [exported.requirementId, columns.requirementId].sort()
-  );
-  assert.ok(pairs[0].shared.includes("csv"));
-  for (const pair of pairs) {
-    assert.ok(pair.similarity >= 0.5 && pair.similarity <= 1);
-    assert.ok(
-      ![pair.left.requirementId, pair.right.requirementId].some((id) => id === "r_misc" || id === "r_old")
-    );
-  }
-});
-
-test("a merged development asks for a tidy once five features are new", () => {
+test("every tenth merged development asks for a tidy", () => {
   const merged = {
     route: "quick",
     workspaceReady: true,
@@ -67,8 +33,8 @@ test("a merged development asks for a tidy once five features are new", () => {
     merge: { mergeId: "m1", state: "merged", mergeCommit: "abc" },
     delivery: { state: "synced" }
   };
-  assert.doesNotMatch(developmentNext({ ...merged, ledgerCreated: 4 }), /tidy/);
-  assert.match(developmentNext({ ...merged, ledgerCreated: 5 }), /5 features .* project_ledger tidy/);
+  assert.doesNotMatch(developmentNext({ ...merged, mergedSinceTidy: 9 }), /tidy/);
+  assert.match(developmentNext({ ...merged, mergedSinceTidy: 10 }), /10 developments .* project_ledger tidy/);
 });
 
 async function openLedger(t, root) {
@@ -105,21 +71,66 @@ const develop = (service, projectId, requirementId) =>
     baseline: { branch: "main", commit: "0".repeat(40) }
   });
 
-test("the tidy counts features created since the last one", async (t) => {
-  const { service, projectId } = await ledger(t);
-  // The misc requirement the project starts with is not a new feature.
-  assert.equal((await service.tidyLedger(projectId)).created, 0);
-  for (const title of ["导出", "导入", "搜索"]) await service.createRequirement(projectId, { title });
-  const read = await service.tidyLedger(projectId);
-  assert.equal(read.created, 3);
+/** Write merged deliveries straight into the file, as merges through the queue would. */
+async function recordMerges(root, projectId, developmentId, requirementId, times) {
+  const database = await SqliteDatabase.open(join(root, "project-data.sqlite"));
+  for (const [index, at] of times.entries())
+    await database.execute(
+      `INSERT INTO project_data_deliveries
+         (project_id, delivery_id, development_id, requirement_id, merge_id, candidate_commit, merged_commit,
+          target_branch, merged_at, state, attempts, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 'main', ?, 'synced', 1, ?, ?)`,
+      [
+        projectId,
+        `delivery_${at}_${index}`,
+        developmentId,
+        requirementId,
+        `merge_${at}_${index}`,
+        "1".repeat(40),
+        "2".repeat(40),
+        at,
+        at,
+        at
+      ]
+    );
+  await database.close();
+}
+
+test("the tidy counts developments merged since the last one and lists the whole catalog", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "coworkos-tidy-count-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const first = await openLedger(t, root);
+  const project = await first.service.ensureProject({
+    projectId: "project_tidy",
+    projectName: "待办",
+    projectDirectory: root,
+    backendId: "backend_local"
+  });
+  const exported = await first.service.createRequirement(project.projectId, {
+    title: "导出",
+    description: "把条目导出成 CSV。"
+  });
+  const development = await develop(first.service, project.projectId, exported.requirementId);
+  assert.equal((await first.service.tidyLedger(project.projectId)).merged, 0);
+  await first.runtime.close();
+  await recordMerges(root, project.projectId, development.developmentId, exported.requirementId, [
+    "2026-01-01T00:00:00.000Z",
+    "2026-01-02T00:00:00.000Z"
+  ]);
+
+  const again = await openLedger(t, root);
+  t.after(() => again.runtime.close());
+  const read = await again.service.tidyLedger(project.projectId);
+  assert.equal(read.merged, 2);
   assert.equal(read.tidiedAt, undefined);
-  assert.equal(read.catalog.length, 4);
-  const { tidiedAt } = await service.finishLedgerTidy(projectId);
-  await new Promise((done) => setTimeout(done, 5));
-  await service.createRequirement(projectId, { title: "标签" });
-  const after = await service.tidyLedger(projectId);
+  assert.deepEqual(read.catalog.map((entry) => [entry.kind, entry.title, entry.description]).sort(), [
+    ["feature", "导出", "把条目导出成 CSV。"],
+    ["misc", "杂项", "与任何功能都无关的零碎改动，比如改错别字、调一个配置、改版本号。"]
+  ]);
+  const { tidiedAt } = await again.service.finishLedgerTidy(project.projectId);
+  const after = await again.service.tidyLedger(project.projectId);
   assert.equal(after.tidiedAt, tidiedAt);
-  assert.equal(after.created, 1);
+  assert.equal(after.merged, 0);
 });
 
 test("merging moves everything to the feature that stays and deletes the duplicate", async (t) => {
@@ -220,7 +231,7 @@ test("merging moves everything to the feature that stays and deletes the duplica
   );
 });
 
-test("a version 9 ledger gains the tidy mark and counts every feature as new", async (t) => {
+test("a version 9 ledger gains the tidy mark and each requirement a description", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "coworkos-tidy-v9-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const first = await openLedger(t, root);
@@ -254,9 +265,6 @@ test("a version 9 ledger gains the tidy mark and counts every feature as new", a
   const upgraded = await again.service.getRequirement(project.projectId, exported.requirementId);
   assert.equal(upgraded.description, "export 输出 CSV。");
   assert.equal(upgraded.revisions[0].description, "export 输出 CSV。");
-  const tidy = await again.service.tidyLedger(project.projectId);
-  assert.equal(tidy.created, 1);
-  assert.equal(tidy.tidiedAt, undefined);
-  await again.service.finishLedgerTidy(project.projectId);
-  assert.equal((await again.service.tidyLedger(project.projectId)).created, 0);
+  // Never tidied: every merge so far counts toward the first tidy.
+  assert.equal((await again.service.tidyLedger(project.projectId)).tidiedAt, undefined);
 });

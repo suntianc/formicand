@@ -605,12 +605,12 @@ export interface NextStepFacts {
   delivery?: { state: string };
   /** The requirement's retro: what its records signal, and whether one is recorded. */
   retro?: { signals: RetroSignals; recorded: boolean; improvements?: RetroImprovement[] };
-  /** Features created since the ledger's last tidy. */
-  ledgerCreated?: number;
+  /** Developments merged since the ledger's last tidy, this one included. */
+  mergedSinceTidy?: number;
 }
 
-/** After this many new features, the next merge asks Main to tidy the ledger. */
-const LEDGER_TIDY_AFTER = 5;
+/** Every this many merged developments, the merge asks Main to tidy the ledger. */
+const LEDGER_TIDY_AFTER = 10;
 
 /** A review as the next step reads it; `atLimit` means its chain used its rework rounds. */
 export interface ReviewFact {
@@ -637,7 +637,7 @@ export function developmentNext(facts: NextStepFacts): string {
         ? `Merged as ${merge.mergeCommit ?? "the recorded commit"} and delivered. Report the result to the user.`
         : "Merged; the delivery record is syncing by itself. Report the result; delivery_status shows the sync.") +
       improvementStep(facts.retro?.improvements) +
-      tidyStep(facts.ledgerCreated)
+      tidyStep(facts.mergedSinceTidy)
     );
   if (merge?.state === "waiting" || merge?.state === "applying")
     return `Merge ${merge.mergeId} is ${merge.state}. Read merge_status; do not request it again.`;
@@ -668,10 +668,10 @@ export function developmentNext(facts: NextStepFacts): string {
   return `${mergeNote}Not yet qualified (${reasons.join(", ") || "unknown"}). ${work}`;
 }
 
-/** After the merge: enough new features may hide duplicates. */
-function tidyStep(created = 0): string {
-  if (created < LEDGER_TIDY_AFTER) return "";
-  return ` ${created} features were created since the ledger was last tidied, so some may duplicate older ones: tidy the ledger now with project_ledger tidy, merge_requirements for each true duplicate, then finish_tidy.`;
+/** After the merge: enough developments may have recorded one feature twice. */
+function tidyStep(merged = 0): string {
+  if (merged < LEDGER_TIDY_AFTER) return "";
+  return ` ${merged} developments merged since the ledger was last tidied: tidy it now — read project_ledger tidy, compare the whole catalog, merge_requirements for each true duplicate, then finish_tidy.`;
 }
 
 /** After the merge: the environment improvements the retro registered are the next requirements. */
