@@ -225,3 +225,45 @@ export async function ledgerTitles(post) {
   const { requirements } = await post({ action: "query", limit: 200 });
   return requirements.map((requirement) => requirement.title);
 }
+
+/**
+ * Developments merged before the run: a ledger tidy is due every tenth merge,
+ * so a task about the tidy starts with the earlier ones already counted. They
+ * are written into the backend's own SQLite file as one past development of
+ * the misc requirement with that many delivered merges.
+ */
+export async function recordEarlierMerges(file, post, projectId, count) {
+  const { SqliteDatabase } = await import("../../dist/src/storage/project-data/sqlite-database.js");
+  const { requirements } = await post({ action: "query", limit: 200 });
+  const misc = requirements.find((requirement) => requirement.kind === "misc");
+  const database = await SqliteDatabase.open(file);
+  const at = "2026-01-01T00:00:00.000Z";
+  const developmentId = "development_eval_earlier";
+  await database.execute(
+    `INSERT INTO project_data_developments
+       (project_id, development_id, requirement_id, goal, completion_criteria, route, status, revision,
+        baseline_branch, baseline_commit, created_at, updated_at)
+     VALUES (?, ?, ?, '更早的零碎改动', '[]', 'quick', 'merged', 1, 'main', ?, ?, ?)`,
+    [projectId, developmentId, misc.requirementId, "0".repeat(40), at, at]
+  );
+  for (let index = 0; index < count; index += 1)
+    await database.execute(
+      `INSERT INTO project_data_deliveries
+         (project_id, delivery_id, development_id, requirement_id, merge_id, candidate_commit, merged_commit,
+          target_branch, merged_at, state, attempts, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 'main', ?, 'synced', 1, ?, ?)`,
+      [
+        projectId,
+        `delivery_eval_${index}`,
+        developmentId,
+        misc.requirementId,
+        `merge_eval_${index}`,
+        "1".repeat(40),
+        "2".repeat(40),
+        at,
+        at,
+        at
+      ]
+    );
+  await database.close();
+}

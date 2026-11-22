@@ -20,7 +20,7 @@ import { promisify } from "node:util";
 import { setTimeout as delay } from "node:timers/promises";
 import { startDashboard } from "../../test/dashboard-fixture.mjs";
 import { tasks } from "./tasks.mjs";
-import { ledgerTitles, seedLedger } from "./history.mjs";
+import { ledgerTitles, recordEarlierMerges, seedLedger } from "./history.mjs";
 
 const run = promisify(execFile);
 const here = resolve(new URL(".", import.meta.url).pathname);
@@ -178,6 +178,13 @@ async function runTask(dashboard, task, attempt, out) {
   });
   const ledgerPost = (body) => api(dashboard.base, `/api/projects/${project.projectId}/ledger`, body);
   if (task.ledger) await seedLedger(ledgerPost, task.ledger);
+  if (task.mergedBefore)
+    await recordEarlierMerges(
+      join(dashboard.root, "project-data.sqlite"),
+      ledgerPost,
+      project.projectId,
+      task.mergedBefore
+    );
   const seeded = await ledgerTitles(ledgerPost);
   // The first conversation takes the prompt and its follow-ups; each later
   // session is a new conversation in the same project.
