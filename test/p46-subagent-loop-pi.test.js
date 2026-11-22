@@ -267,6 +267,7 @@ test(
                 arguments: {
                   action: "create",
                   requirementId: f.requirementId,
+                  request: "报表页加个导出入口",
                   goal: "报表页提供导出入口",
                   completionCriteria: ["导出文件包含实现结果"],
                   route: "quick"
@@ -573,6 +574,7 @@ test(
                 arguments: {
                   action: "create",
                   requirementId: f.requirementId,
+                  request: "报表页加个导出入口",
                   goal: "报表页提供导出入口",
                   completionCriteria: ["导出文件包含实现结果"],
                   route: "quick"
@@ -727,6 +729,7 @@ test(
                 arguments: {
                   action: "create",
                   requirementId: f.requirementId,
+                  request: "报表页加个导出入口",
                   goal: "报表页提供导出入口",
                   completionCriteria: ["导出文件包含实现结果"],
                   route: "quick"
@@ -855,6 +858,7 @@ test("closing the session stops the delegated process it started", { timeout: 18
               arguments: {
                 action: "create",
                 requirementId: f.requirementId,
+                request: "报表页加个导出入口",
                 goal: "报表页提供导出入口",
                 completionCriteria: ["导出文件包含实现结果"],
                 route: "quick"
@@ -973,6 +977,7 @@ test("a dependent item the backend owns is never recovered in-process", { timeou
               arguments: {
                 action: "create",
                 requirementId: f.requirementId,
+                request: "报表页加个导出入口",
                 goal: "报表页提供导出入口",
                 completionCriteria: ["导出文件包含实现结果"],
                 route: "quick"

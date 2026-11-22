@@ -180,8 +180,21 @@ export async function publishMerge(input: {
   const worktree = await targetWorktree(input.repository, input.targetBranch);
   if (worktree) {
     try {
+      // The checkout may have switched branches since it was found: fast-forward
+      // only while it is still on the target, and succeed only if the target moved.
+      const head = await git(worktree, ["symbolic-ref", "--quiet", "HEAD"]);
+      if (head !== `refs/heads/${input.targetBranch}`)
+        return {
+          status: "blocked",
+          detail: `${worktree} 已不在 ${input.targetBranch} 分支上，请稍后重试合入`
+        };
       await git(worktree, ["merge", "--ff-only", input.mergeCommit]);
-      return { status: "updated" };
+      const after = await targetTip(input.repository, input.targetBranch);
+      if (after === input.mergeCommit) return { status: "updated" };
+      return {
+        status: "blocked",
+        detail: `${input.targetBranch} 没有前进到合入提交（现在是 ${after ?? "不存在"}），请检查该工作区后重试合入`
+      };
     } catch (error) {
       const after = await targetTip(input.repository, input.targetBranch);
       if (after !== input.expectedTarget) return { status: "moved" };

@@ -174,6 +174,17 @@ test(
     assert.notEqual(sessionTwo.sessionId, sessionOne.sessionId);
     assert.notEqual(sessionTwo.taskId, sessionOne.taskId);
 
+    // A title the ledger refuses leaves neither a session nor a Task behind to adopt later.
+    const refused = await request(`/api/projects/${encodeURIComponent(a.projectId)}/main-sessions`, {
+      action: "create",
+      title: "长".repeat(121)
+    });
+    assert.equal(refused.status, 400, JSON.stringify(refused.body));
+    assert.deepEqual(
+      (await sessions(request, a.projectId)).map((session) => session.sessionId).sort(),
+      [sessionOne.sessionId, sessionTwo.sessionId].sort()
+    );
+
     const runOne = await request(`/api/tasks/${encodeURIComponent(sessionOne.taskId)}/run`, {
       prompt: "请完成登录改造。",
       mainSessionId: sessionOne.sessionId,
@@ -443,7 +454,7 @@ for (const engine of PROJECT_DATA_ENGINES) {
     const b = await createProject(request, f, `other-${engine}`);
     const info = await request("/api/project-data");
     assert.equal(info.status, 200);
-    assert.equal(info.body.schemaVersion, 11);
+    assert.equal(info.body.schemaVersion, 12);
     const opened = await openService(f, engine, info.body);
     t.after(() => opened.close());
 

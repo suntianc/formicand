@@ -478,11 +478,14 @@ export class SubagentDispatchService {
       runId: item.runId,
       callId: request.callId
     });
-    // A queued item whose prerequisites never finished has no process to stop;
-    // its terminal outcome is the queue row.
+    // A queued item whose prerequisites never finished has no process to stop:
+    // its outcome is the queue row and the callback Main reads next.
     const after = (await scheduler.list()).find((candidate) => candidate.stepId === request.callId);
     if (after && !["completed", "failed", "cancelled"].includes(after.status))
-      await scheduler.cancel(request.callId);
+      await this.processes.cancelUnstarted(
+        { taskId: request.taskId, runId: item.runId, callId: request.callId },
+        request.reason ?? "Cancelled before it started"
+      );
     return {
       callId: item.stepId,
       agentId: item.agentId,

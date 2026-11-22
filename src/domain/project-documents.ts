@@ -139,6 +139,21 @@ export function registryProblems(
   return { missing: false, malformed: problems, unregistered, stale, duplicates };
 }
 
+/**
+ * The problems a requirement brought: those not already there at its base.
+ * A row that went stale or a duplicate that predates it is the next tidy's
+ * work, not a reason to hold this requirement.
+ */
+export function problemsSince(problems: RegistryProblems, before: RegistryProblems): RegistryProblems {
+  const fresh = (now: string[], then: string[]) => now.filter((item) => !then.includes(item));
+  return {
+    ...problems,
+    malformed: fresh(problems.malformed, before.malformed),
+    stale: fresh(problems.stale, before.stale),
+    duplicates: fresh(problems.duplicates, before.duplicates)
+  };
+}
+
 export const hasRegistryProblems = (problems: RegistryProblems) =>
   problems.missing ||
   [problems.malformed, problems.unregistered, problems.stale, problems.duplicates].some(

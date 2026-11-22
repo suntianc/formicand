@@ -11,7 +11,7 @@ import type { SqlDatabase, SqlTransaction } from "./database.js";
  * version, without being rewritten. Date/time values are ISO text and booleans
  * are integers so one business query serves both engines.
  */
-export const PROJECT_DATA_SCHEMA_VERSION = 11;
+export const PROJECT_DATA_SCHEMA_VERSION = 12;
 
 /** The title of the requirement every project keeps for changes no feature owns. */
 export const MISC_REQUIREMENT_TITLE = "杂项";
@@ -19,12 +19,14 @@ export const MISC_REQUIREMENT_DESCRIPTION =
   "与任何功能都无关的零碎改动，比如改错别字、调一个配置、改版本号。";
 
 const PROJECT_DATA_SCHEMA: readonly string[] = [
-  // `ledger_tidied_at` is when Main last tidied the ledger; features created
-  // since then count toward the next tidy. Empty until the first one.
+  // `ledger_tidied_at` is where the last tidy read up to; what came after it
+  // counts toward the next one. `ledger_tidy_read_at` is when the tidy in
+  // progress read the ledger, and becomes the mark when it finishes.
   `CREATE TABLE IF NOT EXISTS project_data_projects (
      project_id TEXT PRIMARY KEY,
      project_name TEXT NOT NULL,
      ledger_tidied_at TEXT,
+     ledger_tidy_read_at TEXT,
      created_at TEXT NOT NULL,
      updated_at TEXT NOT NULL
    )`,
@@ -415,9 +417,10 @@ export async function migrateProjectData(database: SqlDatabase): Promise<number>
     );
     const version = Number(rows[0]?.version ?? 0);
     if (version === PROJECT_DATA_SCHEMA_VERSION) return version;
-    if (![0, 8, 9, 10].includes(version)) throw incompatibleVersion(database.label, version);
+    if (![0, 8, 9, 10, 11].includes(version)) throw incompatibleVersion(database.label, version);
     if (version === 9) await upgradeVersion9(transaction);
     if (version === 9 || version === 10) await upgradeVersion10(transaction);
+    if (version >= 9) await upgradeVersion11(transaction);
     else {
       const previous = version === 8 ? await dropVersion8(transaction) : undefined;
       for (const statement of PROJECT_DATA_SCHEMA) await transaction.execute(statement);
@@ -456,6 +459,11 @@ async function upgradeVersion9(transaction: SqlTransaction): Promise<void> {
 /** Version 11 adds a final review's acceptance mapping; no earlier review has one. */
 async function upgradeVersion10(transaction: SqlTransaction): Promise<void> {
   await transaction.execute("ALTER TABLE project_data_development_reviews ADD COLUMN mapping TEXT");
+}
+
+/** Version 12 records when a tidy read the ledger; none is in progress. */
+async function upgradeVersion11(transaction: SqlTransaction): Promise<void> {
+  await transaction.execute("ALTER TABLE project_data_projects ADD COLUMN ledger_tidy_read_at TEXT");
 }
 
 /** Version 8's tables, parents before children. */

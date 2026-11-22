@@ -80,6 +80,11 @@ export function createProjectLedgerTool(options: ProjectLedgerToolOptions) {
           description:
             "update/merge_requirements: the revision returned by the last read (merge_requirements: of into); a stale value is refused. update appends a revision."
         },
+        fromRevision: {
+          type: "integer",
+          minimum: 1,
+          description: "merge_requirements: the revision of from last read; a stale value is refused."
+        },
         title: { type: "string", maxLength: 200 },
         description: {
           type: "string",
@@ -180,6 +185,7 @@ export function createProjectLedgerTool(options: ProjectLedgerToolOptions) {
           from: input.from,
           into: input.into,
           expectedRevision: input.expectedRevision,
+          fromRevision: input.fromRevision,
           summary: input.summary,
           taskId: options.taskId
         });

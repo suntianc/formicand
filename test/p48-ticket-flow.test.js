@@ -111,7 +111,8 @@ test(
       tickets: [
         ticket("01", "src/a.txt"),
         ticket("02", "src/b.txt", { dependsOn: ["01"] }),
-        ticket("03", "src/c.txt")
+        // A Chinese path: git quotes it unless told not to.
+        ticket("03", "src/说明.txt")
       ]
     });
     set = await service.writeTickets(projectId, developmentId, {
@@ -266,7 +267,7 @@ test(
     // Two tickets in review at once: a Reviewer must say which one it examines.
     await service.ticketForDispatch("task-flow", developmentId, "02");
     await executor("call-e2", "02", { "src/b.txt": "b\n" });
-    await executor("call-e3", "03", { "src/c.txt": "c\n" });
+    await executor("call-e3", "03", { "src/说明.txt": "c\n" });
     const second = await service.startReview(projectId, "task-flow", { developmentId, ticketId: "02" });
     const third = await service.startReview(projectId, "task-flow", { developmentId, ticketId: "03" });
     await assert.rejects(service.frozenCandidateForTask("task-flow", developmentId), /用 reviewId 指明/);
@@ -274,9 +275,9 @@ test(
       (await service.frozenCandidateForTask("task-flow", developmentId, third.reviewId)).commit,
       third.candidate.commit
     );
-    for (const [frozen, callId, ticketId] of [
-      [second, "call-r3", "02"],
-      [third, "call-r4", "03"]
+    for (const [frozen, callId] of [
+      [second, "call-r3"],
+      [third, "call-r4"]
     ]) {
       const bound = await reviewer(frozen, callId);
       await service.completeReview(projectId, {
@@ -285,13 +286,31 @@ test(
         summary: "可以",
         checks: passing
       });
-      const done = await service.integrateTicket(projectId, {
-        developmentId,
-        ticketId,
-        checks: [{ name: "项目检查", command: "test -f src/cli.js" }]
-      });
-      assert.equal(done.integrated, true, JSON.stringify(done));
     }
+    // Main may bring two tickets in at once: one's failing check undoes only its own merge.
+    const [slowFailure, other] = await Promise.all([
+      service.integrateTicket(projectId, {
+        developmentId,
+        ticketId: "02",
+        checks: [{ name: "项目检查", command: "sleep 0.3; exit 3" }]
+      }),
+      service.integrateTicket(projectId, {
+        developmentId,
+        ticketId: "03",
+        checks: [{ name: "项目检查", command: "test -f src/cli.js" }]
+      })
+    ]);
+    assert.equal(slowFailure.integrated, false);
+    assert.equal(other.integrated, true, JSON.stringify(other));
+    assert.equal(await readFile(join(integration, "src", "说明.txt"), "utf8"), "c\n");
+    const kept = other.tickets.tickets.find((entry) => entry.ticketId === "03").integration.commit;
+    await git(integration, ["merge-base", "--is-ancestor", kept, "HEAD"]);
+    const retried = await service.integrateTicket(projectId, {
+      developmentId,
+      ticketId: "02",
+      checks: [{ name: "项目检查", command: "test -f src/cli.js" }]
+    });
+    assert.equal(retried.integrated, true, JSON.stringify(retried));
 
     // A hand-made commit after the last ticket is not the version the tickets produced.
     await commit(integration, { "src/extra.txt": "x\n" }, "not a ticket");
@@ -312,7 +331,17 @@ test(
       service.startReview(projectId, "task-flow", { developmentId, ticketId: "01", mapping }),
       /只有 full 路线的整体终审带对照表/
     );
-    let final = await service.startReview(projectId, "task-flow", { developmentId, mapping });
+    // Two freezes at once open one final review.
+    const freezes = await Promise.allSettled([
+      service.startReview(projectId, "task-flow", { developmentId, mapping }),
+      service.startReview(projectId, "task-flow", { developmentId, mapping })
+    ]);
+    assert.deepEqual(freezes.map((result) => result.status).sort(), ["fulfilled", "rejected"]);
+    assert.match(
+      freezes.find((result) => result.status === "rejected").reason.message,
+      /已有一份进行中的整体终审/
+    );
+    let final = freezes.find((result) => result.status === "fulfilled").value;
     assert.deepEqual(
       final.mapping.map((row) => row.rowId),
       ["M1"]
@@ -371,6 +400,18 @@ test(
     );
     qualification = await service.delivery(projectId, developmentId);
     assert.ok(qualification.reasons.includes("review_failed"), JSON.stringify(qualification.reasons));
+    // Leaving out the previous review does not reopen the failed version.
+    await assert.rejects(service.startReview(projectId, "task-flow", { developmentId, mapping }), {
+      code: "review_candidate_unchanged"
+    });
+    await assert.rejects(
+      service.startReview(projectId, "task-flow", {
+        developmentId,
+        mapping,
+        previousReviewId: review.reviewId
+      }),
+      { code: "review_previous_mismatch" }
+    );
 
     // The defect becomes a fix ticket, confirmed and brought in like the others.
     set = await service.writeTickets(projectId, developmentId, {
@@ -432,7 +473,7 @@ test(
         "test -f src/cli.js",
         "test -f src/a.txt",
         "test -f src/b.txt",
-        "test -f src/c.txt",
+        "test -f src/说明.txt",
         "test -f src/README.txt"
       ],
       "the checks each ticket passed run again on the combined version"

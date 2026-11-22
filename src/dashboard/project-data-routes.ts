@@ -341,6 +341,7 @@ export async function handleProjectDataRequest(
           from: body.from,
           into: body.into,
           expectedRevision: body.expectedRevision,
+          fromRevision: body.fromRevision,
           summary: body.summary,
           taskId: body.taskId
         })

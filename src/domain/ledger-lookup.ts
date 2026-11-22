@@ -70,7 +70,8 @@ const LIKELY_MATCHES = 2;
 const NONE_COVERAGE = 0.2;
 
 const HAN = /\p{Script=Han}/u;
-const PIECE = /[\p{Script=Han}]+|[\p{L}\p{N}]+/gu;
+/** A run of Chinese, or of other letters and digits: "CSV导出" is "CSV" and "导出". */
+const PIECE = /\p{Script=Han}+|(?:(?!\p{Script=Han})[\p{L}\p{N}])+/gu;
 
 interface Term {
   text: string;

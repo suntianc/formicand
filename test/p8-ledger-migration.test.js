@@ -200,7 +200,7 @@ for (const engine of PROJECT_DATA_ENGINES) {
       dataRoot: legacy.dataRoot
     });
     const service = await runtime.service();
-    assert.equal(service.description.schemaVersion, 11);
+    assert.equal(service.description.schemaVersion, 12);
 
     const requirements = await service.queryRequirements(project);
     assert.deepEqual(requirements.map((entry) => [entry.kind, entry.title, entry.status]).sort(), [

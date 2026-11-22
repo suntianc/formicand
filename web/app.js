@@ -646,7 +646,8 @@ const addProjectController = createAddProjectController({
     await refresh();
     projectController.select(project.projectId);
     beginNewConversation(project.projectId);
-  }
+  },
+  onListed: () => refresh()
 });
 const newSession = createNewSessionView({
   state,

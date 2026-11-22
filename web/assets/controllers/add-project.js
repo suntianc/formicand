@@ -35,7 +35,13 @@ function joinPath(parent, name) {
  * finished clone or a created folder is handed to `onCreated`; the caller
  * refreshes the catalog so the sidebar shows the project.
  */
-export function createAddProjectController({ api, command, showToast = () => {}, onCreated = () => {} }) {
+export function createAddProjectController({
+  api,
+  command,
+  showToast = () => {},
+  onCreated = () => {},
+  onListed = () => {}
+}) {
   let panel,
     dialog,
     epoch = 0,
@@ -252,14 +258,24 @@ export function createAddProjectController({ api, command, showToast = () => {},
       showState("error", ui("请填写项目名称并选择工作文件夹"));
       return;
     }
+    const runEpoch = epoch;
     setBusy(true);
     try {
       const result = await command("/api/projects", {
         method: "POST",
         body: { projectName, projectDirectory }
       });
+      // The dialog was closed or opened again meanwhile: the project is added,
+      // but what the person is doing now stays as it is.
+      if (runEpoch !== epoch) {
+        void Promise.resolve()
+          .then(() => onListed(result.project))
+          .catch((error) => showToast(error.message));
+        return;
+      }
       complete(result.project);
     } catch (failure) {
+      if (runEpoch !== epoch) return;
       setBusy(false);
       showState("error", failure.message);
     }

@@ -1465,10 +1465,9 @@ test("a closed or drifted review keeps its findings rulable and one reviewer own
   const retried = await h.attach(unchanged, reviewerOne.callId);
   assert.equal(retried.reviewer.callId, reviewerOne.callId);
   assert.equal(retried.findings[0].findingId, sourceFinding);
-  // A different Reviewer needs its own review record, not a rebind.
-  let separate = await h.start(identity);
-  separate = await h.attach(separate, reviewerTwo.callId);
-  assert.equal(separate.reviewer.callId, reviewerTwo.callId);
+  // Nor can it open a second review beside the open one: the chain has one
+  // open round, read from the stored reviews.
+  await assert.rejects(h.start(identity), (error) => error.code === "review_previous_open");
   const originalStill = await h.getReview(identityReview.reviewId);
   assert.equal(originalStill.reviewer.callId, reviewerOne.callId);
   assert.equal(originalStill.findings[0].source.callId, reviewerOne.callId);

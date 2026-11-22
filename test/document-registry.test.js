@@ -8,7 +8,12 @@ import { promisify } from "node:util";
 import { createProjectDevelopmentService } from "../dist/src/dashboard/project-development-service.js";
 import { ProjectDataRuntime } from "../dist/src/workspace/project-data-service.js";
 import { prepareWorkItemSite } from "../dist/src/workspace/work-item-workspace.js";
-import { parseRegistry, registryProblems, tidyDocumentsInput } from "../dist/src/domain/project-documents.js";
+import {
+  parseRegistry,
+  problemsSince,
+  registryProblems,
+  tidyDocumentsInput
+} from "../dist/src/domain/project-documents.js";
 
 const run = promisify(execFile);
 const git = (cwd, args) => run("git", ["-C", cwd, ...args]).then((result) => result.stdout.trim());
@@ -52,6 +57,25 @@ test("the registry table parses, and its problems are named", () => {
   assert.deepEqual(problems.stale, ["docs/old.md", "docs/api.md"]);
   assert.match(problems.duplicates.join(), /README\.md 与 docs\/old\.md（product\/global）/);
   assert.equal(registryProblems(undefined, documents, documents).missing, true);
+});
+
+test("a requirement answers only for the registry problems it brought", () => {
+  const registry = table(
+    "| README.md | product | global |",
+    "| old.md | product | api |",
+    "| guide.md | product | ui |"
+  );
+  const base = registryProblems(registry, ["AGENTS.md", "README.md", "guide.md"], []);
+  assert.deepEqual(base.stale, ["old.md"]);
+  // Only code changed: the row that went stale before is not this requirement's.
+  const unchanged = problemsSince(
+    registryProblems(registry, ["AGENTS.md", "README.md", "guide.md"], []),
+    base
+  );
+  assert.deepEqual(unchanged.stale, []);
+  // Deleting a registered document but keeping its row is.
+  const deleted = problemsSince(registryProblems(registry, ["AGENTS.md", "README.md"], []), base);
+  assert.deepEqual(deleted.stale, ["guide.md"]);
 });
 
 test("a tidy's verdict on the documents is an update list or a reason", () => {
