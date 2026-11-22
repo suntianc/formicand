@@ -144,6 +144,7 @@ test("the Main tool records and reads developments only for its own project", as
   const created = remember(
     await tool.execute({
       action: "create",
+      request: "这个功能",
       requirementId: f.requirementA.requirementId,
       goal: "同一设备 30 天内免验证",
       completionCriteria: ["同一设备第二次登录不再要求验证码", "敏感操作仍需验证"],
@@ -197,6 +198,7 @@ test("the Main tool records and reads developments only for its own project", as
   });
   const secondCreated = await secondTool.execute({
     action: "create",
+    request: "这个功能",
     requirementId: secondRequirement.body.requirement.requirementId,
     goal: "第二个需求的目标",
     completionCriteria: ["第二个需求完成"],

@@ -312,6 +312,7 @@ test(
     });
     const created = await tool.execute({
       action: "create",
+      request: "这个功能",
       requirementId,
       goal: "list 分页正确",
       completionCriteria: ["第二页从第 11 条开始"],
@@ -425,6 +426,7 @@ test("a second backend writes tickets through the authority it reads", { timeout
   });
   const { development } = await tool.execute({
     action: "create",
+    request: "这个功能",
     requirementId,
     goal: "list 分页正确",
     completionCriteria: ["第二页从第 11 条开始"],
@@ -482,6 +484,7 @@ test(
           arguments: {
             action: "create",
             requirementId,
+            request: "列表分页",
             goal: "list 分页正确",
             completionCriteria: ["第二页从第 11 条开始"],
             route: "direct"

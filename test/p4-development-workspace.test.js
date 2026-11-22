@@ -481,6 +481,7 @@ for (const engine of PROJECT_DATA_ENGINES) {
     // P1: the real production create entry succeeds through the remote gateway.
     const created = await tool.execute({
       action: "create",
+      request: "这个功能",
       requirementId: remoteRequirement.requirementId,
       goal: "secondary 在自己的检出中开发",
       completionCriteria: ["记录和现场只出现一次"],
@@ -513,6 +514,7 @@ for (const engine of PROJECT_DATA_ENGINES) {
     await assert.rejects(
       tool.execute({
         action: "create",
+        request: "这个功能",
         requirementId: remoteRequirement.requirementId,
         goal: "重复创建",
         completionCriteria: ["应返回原记录"],

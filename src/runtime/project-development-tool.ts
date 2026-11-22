@@ -151,6 +151,12 @@ export function createProjectDevelopmentTool(options: ProjectDevelopmentToolOpti
           ...ID,
           description: "get/update/ensure_workspace/review/merge/delivery_status target."
         },
+        request: {
+          type: "string",
+          maxLength: 100,
+          description:
+            "create: the user's own words naming this feature, as they said it; kept as an alias when lookup would not have found the requirement by them."
+        },
         goal: {
           type: "string",
           maxLength: 20000,
@@ -449,9 +455,13 @@ export function createProjectDevelopmentTool(options: ProjectDevelopmentToolOpti
   ): Promise<Record<string, unknown>> {
     const action = typeof input.action === "string" ? input.action : "";
     if (action === "create") {
+      // The user's words are required so the program can learn them as an alias.
+      if (typeof input.request !== "string" || !input.request.trim())
+        throw new Error("create 需要 request：用户对这个功能的原话");
       const created = await request({
         action,
         requirementId: input.requirementId,
+        request: input.request,
         goal: input.goal,
         completionCriteria: input.completionCriteria,
         route: input.route

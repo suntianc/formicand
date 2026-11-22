@@ -7,6 +7,7 @@ import {
   type BoardTransitionAction
 } from "../domain/project-board.js";
 import type { ProjectDataGateway, ProjectDataRuntime } from "../workspace/project-data-service.js";
+import { requirementContext } from "./requirement-context.js";
 
 export interface LedgerProject {
   projectId: string;
@@ -325,6 +326,15 @@ export async function handleProjectDataRequest(
           status: body.status,
           limit: body.limit
         })
+      });
+    case "lookup":
+      return reply(response, 200, {
+        lookup: await service.lookupRequirements(project.projectId, body.request)
+      });
+    case "context":
+      if (!requirementId) throw new HttpError(400, "context 需要 requirementId");
+      return reply(response, 200, {
+        context: await requirementContext(service, project.projectId, project.projectDirectory, requirementId)
       });
     case "get":
       if (!requirementId) throw new HttpError(400, "get 需要 requirementId");

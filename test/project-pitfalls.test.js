@@ -120,6 +120,7 @@ test(
       const tool = createProjectDevelopmentTool({ dashboardUrl: dashboard.base, taskId, token });
       return tool.execute({
         action: "create",
+        request: "这个功能",
         requirementId: requirement.requirementId,
         goal: "list 分页正确",
         completionCriteria: ["第二页从第 11 条开始"],
@@ -178,6 +179,7 @@ test(
     const selfChecked = async (title, change) => {
       const { development } = await tool.execute({
         action: "create",
+        request: "这个功能",
         requirementId: await requirement(title),
         goal: title,
         completionCriteria: [title],
@@ -294,6 +296,7 @@ test(
     // An improvement's own retro keeps pitfalls only.
     const { development: nested } = await tool.execute({
       action: "create",
+      request: "这个功能",
       requirementId: registered.requirementId,
       goal: improvement.title,
       completionCriteria: [improvement.title],

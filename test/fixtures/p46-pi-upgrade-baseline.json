@@ -619,6 +619,8 @@
           "action": {
             "type": "string",
             "enum": [
+              "lookup",
+              "context",
               "query",
               "get",
               "create",
@@ -629,6 +631,11 @@
               "release_board",
               "cancel_board"
             ]
+          },
+          "request": {
+            "type": "string",
+            "maxLength": 2000,
+            "description": "lookup: the user's request in their own words."
           },
           "q": {
             "type": "string",
@@ -642,7 +649,7 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 300,
-            "description": "get/update target."
+            "description": "context/get/update target."
           },
           "boardId": {
             "type": "string",
@@ -749,6 +756,11 @@
             "minLength": 1,
             "maxLength": 300,
             "description": "get/update/ensure_workspace/review/merge/delivery_status target."
+          },
+          "request": {
+            "type": "string",
+            "maxLength": 100,
+            "description": "create: the user's own words naming this feature, as they said it; kept as an alias when lookup would not have found the requirement by them."
           },
           "goal": {
             "type": "string",
