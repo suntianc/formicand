@@ -1,7 +1,13 @@
-import { runtimeLogMarks, streamRecordKey } from "../conversation.js";
+import { applyMainParkEvent, runtimeLogMarks, streamRecordKey } from "../conversation.js";
 
 /** Owns the selected conversation's SSE. */
-export function createConnectionController({ state, renderConversation, loadDetail, openStream }) {
+export function createConnectionController({
+  state,
+  renderConversation,
+  renderRunState,
+  loadDetail,
+  openStream
+}) {
   let streamOpened = false;
   let eventStream, eventStreamTaskId, eventStreamRunId, detailRefreshTimer;
   let streamAbort, streamTaskId, streamRunId;
@@ -78,6 +84,7 @@ export function createConnectionController({ state, renderConversation, loadDeta
         state.detail.task.activeRunId !== runId
       )
         return;
+      let parkChanged = false;
       const key = streamRecordKey(record);
       if (state.detail && key && !seenKeys.has(key)) {
         seenKeys.add(key);
@@ -89,10 +96,13 @@ export function createConnectionController({ state, renderConversation, loadDeta
         if (!Array.isArray(state.detail.runtimeEvents)) state.detail.runtimeEvents = [];
         state.detail.runtimeEvents.push(record);
         if (record.type === "runtime_event") {
+          parkChanged = applyMainParkEvent(state.detail, record);
+          if (parkChanged) renderRunState();
           scheduleStreamRender(taskId);
         }
       }
       if (
+        parkChanged ||
         record.type !== "runtime_event" ||
         (record.payload?.type === "tool_execution_end" && record.payload?.toolName === "askhuman")
       ) {

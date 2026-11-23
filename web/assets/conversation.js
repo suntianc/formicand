@@ -216,6 +216,27 @@ export function runtimeLogMarks(records = []) {
   return marks;
 }
 
+/** Apply a live park or wake to the detail snapshot, including SSE that raced its read. */
+export function applyMainParkEvent(detail, record) {
+  if (record.type !== "runtime_event" || record.runId !== detail.task.activeRunId) return false;
+  const event = record.payload;
+  if (
+    event.type === "tool_execution_end" &&
+    event.toolName === "sleep_until" &&
+    !event.isError &&
+    event.result?.details?.parked === true
+  ) {
+    const { wakeAt, reason } = event.result.details;
+    detail.parked = { wakeAt, reason };
+    return true;
+  }
+  if (detail.parked && event.type === "turn_start") {
+    delete detail.parked;
+    return true;
+  }
+  return false;
+}
+
 export function streamRecordKey(record) {
   if (!record || typeof record !== "object") return "";
   if (record.eventId) return `${record.runId || ""}:${record.eventId}`;

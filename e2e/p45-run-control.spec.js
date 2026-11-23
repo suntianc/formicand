@@ -24,7 +24,7 @@ function complete(response, text) {
   stream(response, {}, "stop");
   response.end("data: [DONE]\n\n");
 }
-function toolCall(response, { id, command }) {
+function toolCall(response, { id, command, name = "bash", args = { command } }) {
   response.writeHead(200, { "content-type": "text/event-stream" });
   stream(response, { role: "assistant" });
   stream(response, {
@@ -33,7 +33,7 @@ function toolCall(response, { id, command }) {
         index: 0,
         id,
         type: "function",
-        function: { name: "bash", arguments: JSON.stringify({ command }) }
+        function: { name, arguments: JSON.stringify(args) }
       }
     ]
   });
@@ -366,5 +366,47 @@ test("while Main waits for Subagents the composer stays a send box, and the mode
   } finally {
     await page.unrouteAll({ behavior: "ignoreErrors" }).catch(() => {});
     await dashboard.stop();
+  }
+});
+
+test("a confirmed timed wait survives reload and the next user turn resumes thinking", async ({ page }) => {
+  const resume = Promise.withResolvers();
+  const local = await setup(async ({ response, requests }) => {
+    if (requests.length === 1)
+      return toolCall(response, {
+        id: "park",
+        name: "sleep_until",
+        args: { reason: "等待新进展", wakeInSeconds: 900 }
+      });
+    await resume.promise;
+    complete(response, "已收到新进展。");
+  });
+  try {
+    const taskId = "browser-park";
+    await createTask(page, local, { taskId, goal: "等待新进展", projectId: local.projectId });
+    await page.goto(local.base);
+    await page.locator(`.conversation-item[data-task="${taskId}"]`).click();
+    const input = page.locator("#composer-input");
+    const label = page.locator("[data-run-label]");
+    const thinking = page.locator("#conversation .assistant-thinking");
+    await input.fill("先等待");
+    await input.press("Enter");
+    await expect(label).toHaveText("等待唤醒");
+    await expect(thinking).toHaveCount(0);
+    await waitForTask(page, local, taskId, (detail) => Boolean(detail.parked) && !detail.runtime.active);
+    await page.reload();
+    await expect(label).toHaveText("等待唤醒");
+    await expect(page.locator("#conversation")).toContainText("等待新的进展");
+    await expect(thinking).toHaveCount(0);
+    await input.fill("继续处理");
+    await input.press("Enter");
+    await expect.poll(() => local.requests.length).toBe(2);
+    await expect(label).toHaveText("Main 工作中");
+    await expect(thinking).toContainText("思考中");
+    resume.resolve();
+    await expect(page.locator("#conversation")).toContainText("已收到新进展。");
+  } finally {
+    resume.resolve();
+    await local.stop();
   }
 });

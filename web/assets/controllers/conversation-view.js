@@ -544,7 +544,9 @@ export function createConversationView({
         return cached.markup;
       }
       const active =
-        Boolean(state.detail?.runtime?.active || state.submittingTaskId === task.taskId) && isCurrent;
+        isCurrent &&
+        !state.detail?.parked &&
+        Boolean(state.detail?.runtime?.active || state.submittingTaskId === task.taskId);
       const execution = exchangeExecutionState(exchange.events);
       const interrupted = ["cancelled", "failed", "paused", "waiting"].includes(execution.terminal);
       const waiting = execution.terminal === "waiting" && task.status === "waiting";

@@ -1,5 +1,5 @@
 import { ui } from "../ui/language.js";
-import { mergeRuntimeEvents, streamRecordKey } from "../conversation.js";
+import { applyMainParkEvent, mergeRuntimeEvents, streamRecordKey } from "../conversation.js";
 import { createCoalescedRead } from "./coalesced-read.js";
 import { conversationTitle } from "./work-title.js";
 
@@ -343,9 +343,11 @@ export function createSessionCatalog({
         resetRequirements(taskId);
       }
       if (state.detail?.task?.taskId === taskId) {
-        if (state.detail.conversationVersion === detail.conversationVersion)
+        if (state.detail.conversationVersion === detail.conversationVersion) {
+          const savedCount = detail.runtimeEvents?.length || 0;
           detail.runtimeEvents = mergeRuntimeEvents(detail.runtimeEvents, state.detail.runtimeEvents);
-        else connection.close();
+          for (const record of detail.runtimeEvents.slice(savedCount)) applyMainParkEvent(detail, record);
+        } else connection.close();
       }
       connection.remember(taskId, detail.runtimeEvents);
       state.detail = detail;

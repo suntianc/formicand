@@ -116,7 +116,11 @@ export function createRunControl({
     working: () => ui("Main 工作中"),
     pausing: () => ui("正在暂停"),
     waiting: (current) =>
-      current.agents ? ui`Main 在等子助手 · ${current.agents} 个在工作` : ui("Main 在等子助手"),
+      current.agents
+        ? ui`Main 在等子助手 · ${current.agents} 个在工作`
+        : current.parked
+          ? ui("等待唤醒")
+          : ui("Main 在等子助手"),
     asking: () => ui("Main 在问你"),
     retrying: () => ui("模型重连中"),
     // Main paused its Subagents before itself; the line says so by name.
@@ -158,10 +162,11 @@ export function createRunControl({
     // Waiting for Subagents leaves the composer a send box, so stop is a
     // button here; while Main works the composer's own key stops it (Esc).
     const waiting = current.kind === "waiting";
-    stopButton.hidden = current.kind === "asking";
+    const resting = current.parked && !state.detail.runtime.active && !current.agents;
+    stopButton.hidden = current.kind === "asking" || resting;
     stopButton.classList.toggle("is-hint", !waiting);
     stopButton.querySelector("[data-run-stop-key]").hidden = waiting;
-    pauseButton.hidden = current.kind === "asking";
+    pauseButton.hidden = current.kind === "asking" || (resting && !state.detail.runtime.mainRunning);
     const pausing = current.kind === "pausing";
     pauseButton.disabled = busy || pausing;
     pauseButton.title = pausing ? ui("当前步骤结束后暂停") : ui("暂停，当前步骤结束后生效");
@@ -193,7 +198,14 @@ export function createRunControl({
     const focus = document.activeElement;
     const fromComposer = !focus || focus === document.body || focus.id === "composer-input";
     const kind = phase()?.kind;
-    if (!fromComposer || !root || root.hidden || !["working", "retrying", "waiting"].includes(kind)) return;
+    if (
+      !fromComposer ||
+      !root ||
+      root.hidden ||
+      stopButton.hidden ||
+      !["working", "retrying", "waiting"].includes(kind)
+    )
+      return;
     if (
       document.querySelector(
         '[role="dialog"]:not([hidden]):not(#run-interrupt-confirm), [role="menu"]:not([hidden])'

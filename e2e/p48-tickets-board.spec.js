@@ -1,3 +1,4 @@
+import { agentDisplayName } from "../web/assets/agent-names.js";
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { test, expect } from "@playwright/test";
@@ -65,6 +66,12 @@ test("tickets and the phase they set show in the work panel, the detail and the 
       workspace: join(dashboard.root, callId)
     });
     await tickets({ op: "start", ticketId: "01", work: work("call-1") });
+    await page.goto(`${dashboard.base}/?task=${encodeURIComponent(records.session.taskId)}`);
+    await page.locator("#output-pane-toggle").click();
+    const panel = page.locator("[data-requirement-panel]");
+    await expect(panel.locator('[data-step="development"] .rp-step-meta')).toHaveText(
+      `Executor ${agentDisplayName("agent-call-1")}`
+    );
     await tickets({ op: "review", ticketId: "01", reviewId: "review-ticket-01" });
     await tickets({ op: "verdict", ticketId: "01", passed: true });
     await tickets({
@@ -81,10 +88,6 @@ test("tickets and the phase they set show in the work panel, the detail and the 
     await tickets({ op: "start", ticketId: "02", work: work("call-2") });
     await tickets({ op: "review", ticketId: "02", reviewId: "review-ticket-02" });
 
-    // The work panel beside the conversation.
-    await page.goto(`${dashboard.base}/?task=${encodeURIComponent(records.session.taskId)}`);
-    await page.locator("#output-pane-toggle").click();
-    const panel = page.locator("[data-requirement-panel]");
     await expect(panel.locator(".rp-stepper")).toHaveAttribute("data-stage", "review");
     const rows = panel.locator(".rp-ticket");
     await expect(rows).toHaveCount(3);

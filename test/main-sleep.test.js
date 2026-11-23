@@ -53,7 +53,8 @@ async function loadExtension() {
 
 const ctx = {
   ui: { notify() {}, setStatus() {} },
-  sessionManager: { getEntries: () => [] },
+  getContextUsage: () => undefined,
+  sessionManager: { getEntries: () => [], getSessionFile: () => undefined, getBranch: () => [] },
   isIdle: () => true
 };
 
@@ -76,7 +77,8 @@ async function harness(t) {
   await store.createTask(TASK, { goal: "keep watch" });
   await store.createRun(TASK, RUN);
   const pi = fakePi();
-  (await loadExtension())(pi);
+  const register = await loadExtension();
+  await register(pi);
   return { root, store, pi };
 }
 

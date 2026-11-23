@@ -46,12 +46,14 @@ export function runPhase({ task, detail, agents = [] }) {
     return { kind: "paused", agents: working, names: live.map((agent) => agent.name || agent.agentId) };
   if ((own?.humanRequests || []).some((request) => request.status === "pending"))
     return { kind: "asking", agents: working };
-  if (!active && !working) return undefined;
+  const parked = Boolean(own?.parked && ["running", "waiting"].includes(task.status));
+  if (!active && !working && !parked) return undefined;
   if (active && task.pause) return { kind: "pausing", agents: working };
   if (active && exchangeExecutionState(own.runtimeEvents || []).retry)
     return { kind: "retrying", agents: working };
   // Main sitting in a wait for its Subagents is waiting even before any
   // count of working Subagents reaches the page.
+  if (parked) return { kind: "waiting", agents: working, parked: true };
   const waitingTool = active && WAITING_TOOLS.has(openTool(own?.runtimeEvents));
   if ((working && !active) || waitingTool) return { kind: "waiting", agents: working };
   return active ? { kind: "working", agents: working } : undefined;

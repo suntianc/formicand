@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { parseHTML } from "linkedom";
+import { applyMainParkEvent } from "../web/assets/conversation.js";
 import { createConversationView } from "../web/assets/controllers/conversation-view.js";
 import { humanAnswerTurn } from "../web/assets/human-questions.js";
 
@@ -283,7 +284,10 @@ test("a parked or unfinished round keeps its steps without folding or a heading"
   assert.match(document.querySelector(".reasoning-copy").textContent, /本轮变化已核实/);
   state.detail.runtime.active = true;
   state.detail.task.status = "running";
-  state.detail.runtimeEvents.push({ type: "turn_start" });
+  const wake = { type: "runtime_event", runId: "run", payload: { type: "turn_start" } };
+  state.detail.task.activeRunId = wake.runId;
+  state.detail.runtimeEvents.push(wake);
+  assert.ok(applyMainParkEvent(state.detail, wake));
   render();
   assert.match(document.querySelector(".assistant-thinking").textContent, /思考中/);
 });
@@ -1461,4 +1465,25 @@ test("a person's message keeps its own lines instead of being read as Markdown",
     document.querySelector(".chat-message.user ol, .chat-message.user strong, .chat-message.user b"),
     null
   );
+});
+
+test("parking hides the pending thought until the next turn starts", () => {
+  const { state, document, render } = fixture("parked");
+  state.detail.parked = { wakeAt: "2026-11-23T03:06:21Z" };
+  state.detail.runtimeEvents = [
+    { type: "tool_execution_start", toolCallId: "sleep", toolName: "sleep_until" },
+    {
+      type: "tool_execution_end",
+      toolCallId: "sleep",
+      toolName: "sleep_until",
+      result: { details: { parked: true } }
+    }
+  ];
+  render();
+  assert.match(document.querySelector("#conversation").textContent, /等待新的进展/);
+  assert.doesNotMatch(document.querySelector("#conversation").textContent, /思考中/);
+  delete state.detail.parked;
+  state.detail.runtimeEvents.push({ type: "turn_start" });
+  render();
+  assert.match(document.querySelector("#conversation").textContent, /思考中/);
 });

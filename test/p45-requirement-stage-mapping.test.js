@@ -409,3 +409,21 @@ test("with tickets the phase and criteria follow the tickets, not the last revie
   );
   assert.deepEqual(requirementTickets(allIn.tickets).merged, 2);
 });
+
+test("development names its own live Executors and assigned tickets before review", () => {
+  const input = {
+    development: development(),
+    tickets: [{ state: "in_progress", work: { agentId: "subagent_1" } }]
+  };
+  const label = () => requirementSteps(input)[1].meta;
+  assert.equal(label(), "Executor Ara");
+  input.agents = [
+    { role: "executor", developmentId: "another", status: "running", agentId: "subagent_3" },
+    { role: "reviewer", developmentId: "development-1", status: "running", agentId: "subagent_4" },
+    { role: "executor", developmentId: "development-1", status: "running", agentId: "subagent_2" }
+  ];
+  assert.match(label(), /Norma/);
+  assert.doesNotMatch(label(), /Circinus|Apus/);
+  input.tickets = [];
+  assert.equal(label(), "Executor Norma");
+});

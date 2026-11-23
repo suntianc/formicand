@@ -192,9 +192,26 @@ function roleAgent(roles, role) {
 }
 
 function executorLabel(input) {
+  const tickets = ticketList(input.tickets);
+  const assigned = tickets.filter((ticket) => ["in_progress", "rework"].includes(ticket.state));
+  const live = (input.agents || []).filter(
+    (agent) =>
+      input.development?.developmentId &&
+      agent.developmentId === input.development.developmentId &&
+      agent.role === "executor" &&
+      agent.status === "running"
+  );
+  const executors = new Set(
+    [...live.map((agent) => agent.agentId), ...assigned.map((ticket) => ticket.work?.agentId)].filter(Boolean)
+  );
+  if (executors.size) return `Executor ${[...executors].map(agentDisplayName).join("、")}`;
   const review = lastReview(input.reviews);
   const agentId = roleAgent(input.roles, "executor") ?? review?.author?.agentId;
   if (agentId) return `Executor ${agentDisplayName(agentId)}`;
+  const previous =
+    tickets.filter((ticket) => ticket.work && ticket.state !== "merged").at(-1) ??
+    tickets.findLast((ticket) => ticket.work);
+  if (previous) return `Executor ${agentDisplayName(previous.work.agentId)}`;
   // Before a delegated Executor is recorded, the session's own Main does the work.
   return input.development ? "Main" : "";
 }

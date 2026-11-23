@@ -66,3 +66,14 @@ test("Main sitting in a wait reads as waiting before the sampled Subagent count 
     agents: 2
   });
 });
+
+test("a confirmed sleep remains waiting during settlement and until wake", () => {
+  const own = { ...detail(true), parked: { wakeAt: "2026-11-23T03:06:21Z" } };
+  assert.equal(kind({ task: task(), detail: own, agents: [agent("running")] }), "waiting");
+  own.runtime.active = false;
+  assert.equal(kind({ task: task("waiting"), detail: own }), "waiting");
+  assert.equal(kind({ task: task("completed"), detail: own }), undefined);
+  delete own.parked;
+  own.runtime.active = true;
+  assert.equal(kind({ task: task(), detail: own }), "working");
+});

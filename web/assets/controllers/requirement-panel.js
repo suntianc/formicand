@@ -202,6 +202,7 @@ export function createRequirementPanel({
       merges: view?.merges,
       delivery: view?.delivery,
       roles: view?.roles,
+      agents: state.detail?.progress?.agents,
       tickets: view?.tickets,
       waitingForReply: (state.detail?.humanRequests || []).some((request) => request.status === "pending")
     });
@@ -346,7 +347,7 @@ export function createRequirementPanel({
       .join("")}</ul></section>${note}`;
   }
 
-  function bodyMarkup() {
+  function bodyMarkup(progress) {
     if (!state.selected) return "";
     // Files published by the conversation are its own records, so they stay
     // reachable even when no requirement is linked to it.
@@ -355,7 +356,6 @@ export function createRequirementPanel({
     if (loaded.error)
       return `<p class="rp-error" role="alert">${esc(loaded.error)}<button type="button" class="rp-link" data-retry>${ui("重试")}</button></p>${attachments}`;
     if (!loaded.requirement) return renderWork() + attachments;
-    const progress = progressOf();
     const values = tagValues(loaded.requirement, loaded.view, loaded.session);
     return `<div class="rp-identity"><h3 class="rp-title" title="${esc(loaded.requirement.title)}">${esc(
       loaded.requirement.title
@@ -552,7 +552,8 @@ export function createRequirementPanel({
     // A temporary workspace belongs to no project, so it has no requirement
     // records to read; the conversation's own usage still applies.
     if (state.selected && selectedProjectId()) ensure(state.selected);
-    stage = loaded?.requirement ? progressOf().label : "";
+    const progress = loaded?.requirement ? progressOf() : undefined;
+    stage = progress?.label ?? "";
     onRendered(stage);
     paintToggle();
     if (document.body.classList.contains("output-collapsed")) return;
@@ -562,6 +563,7 @@ export function createRequirementPanel({
     const model = usageModel();
     const signature = JSON.stringify([
       state.selected,
+      progress?.steps,
       loaded?.error ?? null,
       loaded?.session ?? null,
       loaded?.requirement ?? null,
@@ -584,7 +586,7 @@ export function createRequirementPanel({
       bodySignature = signature;
       const before = bodyMarks(body);
       const scrollTop = body.scrollTop;
-      body.innerHTML = bodyMarkup();
+      body.innerHTML = bodyMarkup(progress);
       body.scrollTop = scrollTop;
       bindBody();
       animateBody(body, before);
@@ -607,6 +609,16 @@ export function createRequirementPanel({
   return {
     render,
     reset,
+    // Ticket assignments can change on another backend without a local Task event.
+    refreshVisibleDevelopment() {
+      if (
+        loaded?.taskId === state.selected &&
+        loaded?.view?.development?.status === "active" &&
+        $("[data-requirement-panel]")?.getClientRects().length &&
+        !document.body.classList.contains("output-collapsed")
+      )
+        ensure(state.selected);
+    },
     /** Repaint the title-row control after its panel opened or closed. */
     paintToggle,
     /** The records the panel already read, for the caller that opens the preview drawer. */

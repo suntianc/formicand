@@ -390,6 +390,10 @@ const connection = createConnectionController({
   state,
   renderConversation,
   loadDetail,
+  renderRunState: () => {
+    runControl.render();
+    updateSendButton();
+  },
   openStream: (path, options) => management.openStream(path, options)
 });
 const connectEventStream = (taskId) => connection.connect(taskId);
@@ -721,7 +725,13 @@ void bootBackend();
 // Reserve initial navigation before starting reads that can restore a tab.
 // Automatic reads pause while hidden; explicit actions still refresh directly.
 // A catalog read stays as the bounded fallback; live changes arrive as events.
-createVisiblePoll({ run: () => refresh({ poll: true }), intervalMs: 3500 });
+createVisiblePoll({
+  run: () => {
+    requirementPanel.refreshVisibleDevelopment();
+    return refresh({ poll: true });
+  },
+  intervalMs: 3500
+});
 // List metadata supplies immediate Task version changes. This independent
 // fallback catches external history/job changes even without a Task version bump.
 createVisiblePoll({
