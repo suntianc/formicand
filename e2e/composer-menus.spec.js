@@ -33,6 +33,9 @@ async function seed(dashboard) {
   await mkdir(migrations, { recursive: true });
   await writeFile(join(migrations, "0007_add_task_index.sql"), "create index;\n");
   await writeFile(join(migrations, "0007_add_task_index.down.sql"), "drop index;\n");
+  for (let i = 1; i <= 14; i += 1) {
+    await writeFile(join(migrations, `file_${String(i).padStart(2, "0")}.js`), "export {};\n");
+  }
 }
 
 test("/ and @ leave words in the draft and send what they name to Main", async ({ page }) => {
@@ -44,6 +47,7 @@ test("/ and @ leave words in the draft and send what they name to Main", async (
     await seed(dashboard);
     await page.goto(dashboard.base);
     const input = page.locator("#composer-input");
+    const rich = page.locator(".composer-rich");
     const menu = page.locator("#composer-menu");
     await expect(input).toBeEditable();
     // The draft's project, whose files `@` searches, is known once the project list is drawn.
@@ -71,8 +75,15 @@ test("/ and @ leave words in the draft and send what they name to Main", async (
     await input.press("Enter");
     await expect(input).toHaveValue("/pg-migration ");
 
-    // `@` searches project files and MCP resources.
-    await input.pressSequentially("处理 @0007");
+    // `@` searches project files and MCP resources; ArrowDown keeps the active row above the shortcut footer.
+    await input.pressSequentially("处理 @");
+    await expect(menu).toBeVisible();
+    await expect(menu.locator(".composer-menu-item").nth(13)).toBeAttached();
+    for (let step = 0; step < 12; step += 1) await rich.press("ArrowDown");
+    const activeBox = await menu.locator(".composer-menu-item.is-active").boundingBox();
+    const keysBox = await menu.locator(".composer-menu-keys").boundingBox();
+    expect(activeBox.y + activeBox.height).toBeLessThanOrEqual(keysBox.y + 1);
+    await rich.pressSequentially("0007");
     await expect(menu.locator(".composer-menu-group")).toHaveText(["文件"]);
     await expect(menu.locator(".composer-menu-item").first()).toContainText("0007_add_task_index.sql");
     await expect(menu.locator(".composer-menu-item").first()).toContainText("src/storage/migrations/");
@@ -87,7 +98,6 @@ test("/ and @ leave words in the draft and send what they name to Main", async (
       "/pg-migration 处理 @src/storage/migrations/0007_add_task_index.sql 对照 @postgres:schema://public/tasks ";
     await expect(input).toHaveValue(full);
     // In the draft the referenced words render as inline atomic icon + name chips.
-    const rich = page.locator(".composer-rich");
     await expect(rich).toBeVisible();
     const tags = rich.locator(".reference-chip");
     await expect(tags).toHaveCount(3);

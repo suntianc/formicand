@@ -110,7 +110,7 @@ export function createComposerMenu({ input, container, api, getProjectId, comman
       handled();
       if (!items.length) return true;
       active = (active + (event.key === "ArrowDown" ? 1 : -1) + items.length) % items.length;
-      render();
+      syncActive();
       return true;
     }
     if ((event.key === "Enter" && !event.shiftKey) || event.key === "Tab") {
@@ -207,31 +207,54 @@ export function createComposerMenu({ input, container, api, getProjectId, comman
     setAria("aria-activedescendant", null);
   }
 
+  function syncActive() {
+    if (!items.length) {
+      setAria("aria-activedescendant", null);
+      return;
+    }
+    const previous = menu.querySelector(".composer-menu-item.is-active");
+    if (previous) {
+      previous.classList.remove("is-active");
+      previous.setAttribute("aria-selected", "false");
+    }
+    const current = menu.querySelector(`#composer-menu-${active}`);
+    if (current) {
+      current.classList.add("is-active");
+      current.setAttribute("aria-selected", "true");
+      current.scrollIntoView({ block: "nearest" });
+    }
+    setAria("aria-activedescendant", `composer-menu-${active}`);
+  }
+
   function render() {
     if (!trigger) return;
     if (!items.length) {
       menu.innerHTML = `<div class="composer-menu-empty">${esc(trigger.kind === "/" ? ui("没有匹配的技能、模板或命令") : ui("没有匹配的文件、Agent 或资源"))}</div>`;
     } else {
       let group;
+      const rows = items
+        .map((item, index) => {
+          const header =
+            item.group !== group
+              ? `<div class="composer-menu-group" role="presentation">${esc(item.group)}</div>`
+              : "";
+          group = item.group;
+          const itemIcon = item.iconHtml ?? icon(item.icon);
+          return `${header}<div class="composer-menu-item${index === active ? " is-active" : ""}" role="option" id="composer-menu-${index}" data-menu-index="${index}" aria-selected="${index === active}"><span class="composer-menu-icon${item.iconTone ? ` is-${item.iconTone}` : ""}" aria-hidden="true">${itemIcon}</span><span class="composer-menu-main"><span class="composer-menu-label">${marked(item.label, trigger.query)}</span>${item.detail ? `<span class="composer-menu-detail">${esc(item.detail)}</span>` : ""}</span>${item.badge ? `<span class="composer-menu-badge">${esc(item.badge)}</span>` : ""}</div>`;
+        })
+        .join("");
       menu.innerHTML =
-        items
-          .map((item, index) => {
-            const header =
-              item.group !== group
-                ? `<div class="composer-menu-group" role="presentation">${esc(item.group)}</div>`
-                : "";
-            group = item.group;
-            const itemIcon = item.iconHtml ?? icon(item.icon);
-            return `${header}<div class="composer-menu-item${index === active ? " is-active" : ""}" role="option" id="composer-menu-${index}" data-menu-index="${index}" aria-selected="${index === active}"><span class="composer-menu-icon${item.iconTone ? ` is-${item.iconTone}` : ""}" aria-hidden="true">${itemIcon}</span><span class="composer-menu-main"><span class="composer-menu-label">${marked(item.label, trigger.query)}</span>${item.detail ? `<span class="composer-menu-detail">${esc(item.detail)}</span>` : ""}</span>${item.badge ? `<span class="composer-menu-badge">${esc(item.badge)}</span>` : ""}</div>`;
-          })
-          .join("") +
+        `<div class="composer-menu-list" role="presentation">${rows}</div>` +
         `<div class="composer-menu-keys" aria-hidden="true"><span>${esc(ui("↑↓ 选择"))}</span><span>${esc(trigger.kind === "/" ? ui("↩ 插入") : ui("↩ 引用"))}</span><span>${esc(ui("Tab 补全"))}</span><span>${esc(ui("Esc 关闭"))}</span></div>`;
     }
     menu.hidden = false;
     setAria("aria-expanded", "true");
-    if (items.length) setAria("aria-activedescendant", `composer-menu-${active}`);
-    else setAria("aria-activedescendant", null);
-    menu.querySelector(".is-active")?.scrollIntoView({ block: "nearest" });
+    if (items.length) {
+      setAria("aria-activedescendant", `composer-menu-${active}`);
+      menu.querySelector(".is-active")?.scrollIntoView({ block: "nearest" });
+    } else {
+      setAria("aria-activedescendant", null);
+    }
   }
 
   function slashItems(data, query) {
@@ -365,7 +388,7 @@ export function createComposerMenu({ input, container, api, getProjectId, comman
     const next = { kind: match[2], query: match[3], start: before.length - match[3].length - 1 };
     const changed = !trigger || trigger.kind !== next.kind || trigger.start !== next.start;
     if (!changed && trigger.query === next.query) return;
-    if (changed) active = 0;
+    active = 0;
     trigger = next;
     clearTimeout(fileTimer);
     // File search runs on the backend; a short pause keeps one request per word, not per letter.
