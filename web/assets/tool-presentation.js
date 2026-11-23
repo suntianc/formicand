@@ -202,11 +202,12 @@ function delegatedAgent(args, data, detail = {}) {
  * insertion. No file/credential/network access occurs. A script's name never
  * proves its intended output exists. Optional timing requires actual evidence. */
 export function presentToolCall(call = {}, options = {}) {
+  const includeDetails = options.includeDetails !== false;
   const name = firstString(call.name, call.toolName);
   const arguments_ = call.arguments ?? call.args ?? "";
   const parsed = parse(arguments_);
   const args = record(parsed) ? parsed : {};
-  const result = unpackToolResult(call.rawResult ?? call.result);
+  const result = unpackToolResult(call.rawResult ?? call.result, { includeTechnical: includeDetails });
   const command = commands.has(name);
   const completed = call.completed === true || options.completed === true;
   const failed = call.failed === true || toolExecutionFailed({ isError: call.isError, result: result.raw });
@@ -265,10 +266,12 @@ export function presentToolCall(call = {}, options = {}) {
       ? undefined
       : measuredDuration(call, options);
   const durationLabel = durationText(durationMs);
-  const detailSections = [
-    { label: ui("参数"), text: technicalText(arguments_) },
-    { label: ui("返回结果"), text: result.technicalText }
-  ].filter((section) => section.text);
+  const detailSections = includeDetails
+    ? [
+        { label: ui("参数"), text: technicalText(arguments_) },
+        { label: ui("返回结果"), text: result.technicalText }
+      ].filter((section) => section.text)
+    : [];
   return {
     title,
     subject: concise(subject),

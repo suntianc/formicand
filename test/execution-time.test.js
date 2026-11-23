@@ -159,13 +159,14 @@ test("missing runtime identities or non-array inputs mean unknown", () => {
 
 test("duration formatting uses whole seconds and rejects invalid values", () => {
   for (const [ms, label] of [
-    [8000, "8秒"],
-    [181_000, "3分钟1秒"],
-    [180_000, "3分钟"],
-    [0, "0秒"],
-    [999, "0秒"],
-    [1999, "1秒"],
-    [3_600_000, "60分钟"]
+    [8000, "8 秒"],
+    [181_000, "3 分钟 1 秒"],
+    [180_000, "3 分钟"],
+    [0, "0 秒"],
+    [999, "0 秒"],
+    [1999, "1 秒"],
+    [3_600_000, "1 小时"],
+    [3_661_000, "1 小时 1 分钟 1 秒"]
   ]) {
     assert.equal(formatExecutionDuration(ms), label);
   }

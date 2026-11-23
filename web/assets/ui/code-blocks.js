@@ -222,7 +222,17 @@ export function installCodeBlockActions(root, { showToast, openFile } = {}) {
     });
   };
   const target = root.body || root;
-  new MutationObserver(schedule).observe(target, { childList: true, subtree: true });
+  const hasDiagram = (records) =>
+    records.some((record) =>
+      [...record.addedNodes].some(
+        (node) =>
+          node.nodeType === 1 &&
+          (node.matches?.("[data-diagram-canvas]") || node.querySelector?.("[data-diagram-canvas]"))
+      )
+    );
+  new MutationObserver((records) => {
+    if (hasDiagram(records)) schedule();
+  }).observe(target, { childList: true, subtree: true });
   new MutationObserver(schedule).observe(document.documentElement, { attributeFilter: ["data-theme"] });
   schedule();
 }

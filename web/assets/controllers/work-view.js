@@ -47,7 +47,6 @@ export function createWorkView({
     const detail = state.detail || {};
     const task = detail.task || {};
     paintTopbarContext();
-    if (detail.runtime?.model) composerModel.setLabel(detail.runtime.model);
     updateSendButton();
     renderRunControl();
     renderConversation(detail.messages || [], task);

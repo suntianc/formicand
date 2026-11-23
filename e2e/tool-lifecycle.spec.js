@@ -58,10 +58,12 @@ test("returned async tools retain real work status through progress, callbacks a
       window.lifecycleFixture = { state, render: () => view.renderConversation([user], state.detail.task) };
       window.lifecycleFixture.render();
     });
-    await expect(page.locator(".tool-step .activity-status")).toHaveText(["未答复，已继续", "已入队"]);
+    // Scheme A: running subagent row stays directly visible in L1 while ordinary tools fold into .process-segment.
     const agent = page.locator(".subagent-step");
     await expect(page.locator(".subagent-group")).toContainText("派出 1 个子助手");
     await expect(agent.locator(".subagent-status")).toHaveText("运行中");
+    for (const summary of await page.locator(".process-segment > summary").all()) await summary.click();
+    await expect(page.locator(".tool-step .activity-status")).toHaveText(["未答复，已继续", "已入队"]);
     await agent.locator("summary").first().click();
     await mkdir(".tmp/status-verification", { recursive: true });
     await page.screenshot({ path: test.info().outputPath("running.png"), fullPage: true });
@@ -83,7 +85,7 @@ test("returned async tools retain real work status through progress, callbacks a
       window.lifecycleFixture.render();
     });
     await expect(agent.locator(".subagent-status")).toHaveText("完成");
-    await expect(page.locator(".execution-history")).toHaveCount(0);
+    await expect(page.locator(".subagent-group")).toHaveCount(1);
   } finally {
     await dashboard.stop();
   }

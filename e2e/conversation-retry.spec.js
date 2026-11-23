@@ -86,12 +86,10 @@ test("real retries announce HTTP failure and a stopped request never becomes com
       timeout: 30000
     });
     await page.reload();
-    // The stopped round keeps its steps open: it never folds into 处理过程.
-    await expect(page.locator(".live-workflow").filter({ hasText: "只输出了部分内容" })).toHaveCount(1);
+    // The stopped round keeps its partial speech and stopped row visible outside 处理过程.
+    await expect(page.locator(".live-answer").filter({ hasText: "只输出了部分内容" })).toHaveCount(1);
     await expect(page.locator(".execution-history").filter({ hasText: "只输出了部分内容" })).toHaveCount(0);
-    await expect(
-      page.locator(".live-workflow").filter({ hasText: "只输出了部分内容" }).locator(".turn-stopped")
-    ).toContainText("已停止");
+    await expect(page.locator(".turn-stopped")).toContainText("已停止");
   } finally {
     release();
     await dashboard?.stop();

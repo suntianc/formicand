@@ -166,18 +166,20 @@ function normalizeProse(source, removeEmptyMarkers) {
 }
 
 // A streamed conversation redraws every frame, and each frame lays out the
-// same thoughts several times; only the one being written changes.
+// same thoughts several times; only the one being written changes. Keep the
+// streaming bucket tiny so intermediate prefixes do not linger after a turn.
 const recentReasoning = [new Map(), new Map()];
-const rememberedLimit = 200;
+const rememberedLimits = [200, 4];
 
 /** Readable Markdown for a known thinking block; never writes its original. */
 export function normalizeReasoningDisplay(reasoning, options = {}) {
   const source = String(reasoning ?? "");
-  const remembered = recentReasoning[options.streaming ? 1 : 0];
+  const bucket = options.streaming ? 1 : 0;
+  const remembered = recentReasoning[bucket];
   const known = remembered.get(source);
   if (known !== undefined) return known;
   const display = layoutReasoning(source, options);
-  if (remembered.size >= rememberedLimit) remembered.delete(remembered.keys().next().value);
+  if (remembered.size >= rememberedLimits[bucket]) remembered.delete(remembered.keys().next().value);
   remembered.set(source, display);
   return display;
 }

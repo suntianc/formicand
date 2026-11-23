@@ -328,6 +328,7 @@ test("tool outcomes and recovery summaries stay readable in both neutral themes"
         textContent: (content) => (typeof content === "string" ? content : "")
       }).renderConversation([user, answer], task);
     });
+    await page.locator(".process-segment > summary").click();
     await expect(page.locator(".tool-step.is-done")).toHaveCount(1);
     await expect(page.locator(".tool-step.is-failed")).toHaveCount(1);
     for (const colorScheme of ["dark", "light"]) {

@@ -136,6 +136,7 @@ test("partial output, empty tool completion and stopped calls retain truthful vi
   page.on("pageerror", (error) => errors.push(error.message));
   try {
     await renderFixture(page, dashboard.base);
+    await page.locator(".process-segment > summary").click();
     const tools = page.locator(".tool-step");
     await expect(page.locator(".live-workflow-head")).toHaveCount(0);
     await expect(tools.first()).toHaveClass(/is-running/);
@@ -206,13 +207,14 @@ test("partial errored thoughts stay readable and cancellation or completion clea
   try {
     await renderFixture(page, dashboard.base);
     await page.evaluate(() => window.integrityFixture.failure({ partial: true }));
+    await page.locator(".process-segment > summary").click();
     await page.locator(".reasoning-details > summary").click();
     await expect(page.locator(".reasoning-copy")).toHaveText("已经读取输入约束，还未执行工具。");
     await expect(page.locator(".reasoning-state")).toHaveText("思考已停止");
     await page.evaluate(() => window.integrityFixture.poll());
     await expect(page.locator(".reasoning-details > summary")).toBeFocused();
     await expect(page.locator(".reasoning-details")).toHaveAttribute("open", "");
-    await expect(page.locator(".execution-history, .turn-endline")).toHaveCount(0);
+    await expect(page.locator(".turn-endline")).toHaveCount(0);
     await expect(page.getByRole("alert")).toContainText("模型连接中断");
     await expect(page.locator('[data-answer-kind="final"]')).toHaveCount(0);
     await page
@@ -244,13 +246,13 @@ test("split final text stays readable during persistence and appears once after 
     await renderFixture(page, dashboard.base);
     await page.evaluate(() => window.integrityFixture.finish());
     await expect(page.locator(".live-answer")).toHaveCount(1);
-    await expect(page.locator(".execution-history")).toHaveCount(0);
+    await expect(page.locator(".process-segment")).toHaveCount(1);
     await expect(page.locator("#conversation")).toContainText("拆分回复已完成。");
+    await page.locator(".process-segment > summary").click();
     await page.locator(".reasoning-details summary").click();
     await page.evaluate(() => window.integrityFixture.finish(true));
     await expect(page.locator('[data-answer-kind="final"]')).toContainText("拆分回复已完成。");
     await expect(page.locator(".live-answer")).toHaveCount(0);
-    await page.locator(".execution-history > summary").click();
     await expect(page.locator(".execution-history .live-workflow-head")).toHaveCount(0);
     await expect(page.locator(".execution-history > summary strong")).toHaveText("处理过程");
     await expect(page.locator(".reasoning-copy")).toBeVisible();

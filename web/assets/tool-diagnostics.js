@@ -34,7 +34,7 @@ export function technicalText(value) {
   );
 }
 
-export function unpackToolResult(value) {
+export function unpackToolResult(value, { includeTechnical = true } = {}) {
   const raw = parse(value);
   const content = record(raw) ? textContent(raw.content) : typeof raw === "string" ? raw : "";
   const fromContent = parse(content);
@@ -52,7 +52,12 @@ export function unpackToolResult(value) {
       : record(raw)
         ? raw
         : {};
-  return { raw, data, text: record(fromContent) ? "" : content, technicalText: technicalText(raw) };
+  return {
+    raw,
+    data,
+    text: record(fromContent) ? "" : content,
+    technicalText: includeTechnical ? technicalText(raw) : ""
+  };
 }
 
 const clip = (value, limit = 180) => {

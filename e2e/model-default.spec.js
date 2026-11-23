@@ -77,6 +77,15 @@ for (const slowModels of [true, false]) {
         await expect.poll(() => submitted?.model).toBe(slowModels ? "new-default" : "old-model");
         if (!slowModels) {
           await page.locator('.conversation-item[data-task="old-b"]').click();
+          await expect(page.locator("#conversation")).toContainText("历史消息 old-b");
+          await expect(page.locator(".model-name")).toHaveText("old-model");
+          // Switching away and back must keep old-b's remembered model even when
+          // the idle task detail reports the host's default in detail.runtime.model.
+          await page.locator('.conversation-item[data-task="old-a"]').click();
+          await expect(page.locator("#conversation")).toContainText("历史消息 old-a");
+          await expect(page.locator(".model-name")).toHaveText("new-default");
+          await page.locator('.conversation-item[data-task="old-b"]').click();
+          await expect(page.locator("#conversation")).toContainText("历史消息 old-b");
           await expect(page.locator(".model-name")).toHaveText("old-model");
         }
       } finally {

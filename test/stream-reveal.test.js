@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { completeMarkdown } from "../web/assets/ui/stream-reveal.js";
+import { completeMarkdown, hasOpenFence } from "../web/assets/ui/stream-reveal.js";
+import { renderMarkdown } from "../web/assets/markdown.js";
 
 test("a streaming reply never shows open markdown syntax", () => {
   // Inline code and bold close until their partner arrives.
@@ -26,4 +27,31 @@ test("a table shows once its separator row arrives, and only whole rows", () => 
 test("finished markdown passes through unchanged", () => {
   const text = "完成。\n\n```js\nconst a = 1;\n```\n\n用 `--max` 看最大值。";
   assert.equal(completeMarkdown(text), text);
+});
+
+test("unclosed streaming fences stay plain without highlighting, diff duplication or mermaid canvases", () => {
+  const openTs = "说明\n\n```ts\nexport const x = 1;";
+  assert.equal(hasOpenFence(openTs), true);
+  const streamingTs = renderMarkdown(completeMarkdown(openTs), {
+    streaming: true,
+    openTailFence: hasOpenFence(openTs)
+  });
+  assert.match(streamingTs, /class="code-block is-streaming"/);
+  assert.doesNotMatch(streamingTs, /tok-keyword/);
+
+  const openMermaid = "```mermaid\ngraph TD\n  A --> B";
+  assert.equal(hasOpenFence(openMermaid), true);
+  const streamingMermaid = renderMarkdown(completeMarkdown(openMermaid), {
+    streaming: true,
+    openTailFence: hasOpenFence(openMermaid)
+  });
+  assert.doesNotMatch(streamingMermaid, /data-diagram-canvas/);
+
+  const closedMermaid = `${openMermaid}\n\`\`\``;
+  assert.equal(hasOpenFence(closedMermaid), false);
+  const settledMermaid = renderMarkdown(completeMarkdown(closedMermaid), {
+    streaming: true,
+    openTailFence: hasOpenFence(closedMermaid)
+  });
+  assert.match(settledMermaid, /data-diagram-canvas/);
 });

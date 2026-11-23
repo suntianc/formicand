@@ -1,7 +1,6 @@
 import { ui, localizeShell } from "./assets/ui/language.js";
 import { installLanguageSettings } from "./assets/controllers/language-settings.js";
 import { createMessageEditController } from "./assets/controllers/message-edit.js";
-import { antMarkSvg } from "./assets/ui/thinking-mark.js";
 import { createComposerSession } from "./assets/controllers/composer-session.js";
 import { createDraftRecovery } from "./assets/controllers/draft-recovery.js";
 import { createComposerLayout } from "./assets/controllers/composer-layout.js";
@@ -53,11 +52,6 @@ import { conversationTitle, textContent } from "./assets/controllers/work-title.
 revealScrollbarsWhileScrolling();
 
 localizeShell(document.body);
-// The run pill walks the Formicand ant while Main works.
-for (const dot of document.querySelectorAll(".run-control-dot")) {
-  dot.classList.add("ant-mark");
-  dot.innerHTML = antMarkSvg;
-}
 
 /** Asks whether to trust a project's own Agents and skills; set once the composer exists. */
 const state = {

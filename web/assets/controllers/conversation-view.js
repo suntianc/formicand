@@ -216,16 +216,28 @@ export function createConversationView({
   resolveFile,
   showToast = () => {}
 }) {
-  const streamReveal = createStreamReveal({ reducedMotion });
+  const streamReveal = createStreamReveal();
+  const activityStates = new Map();
   const markdown = (source, options = {}) =>
     renderMarkdown(source, {
       resolveLocalLink: (path) => resolveArtifactLink(state.detail, path),
       resolveFile,
       ...options
     });
+  const hasOpenActivity = (prefix) => {
+    const match = `${prefix}:`;
+    for (const [key, entry] of activityStates) if (entry?.open && key.startsWith(match)) return true;
+    return false;
+  };
+  const isHistoryOpenFor = (key) => {
+    if (state.executionHistoryOpen.has(key)) return Boolean(state.executionHistoryOpen.get(key));
+    return hasOpenActivity(key);
+  };
   const { renderLiveActivity, renderThinkingPlaceholder } = createConversationActivityView({
     markdown,
-    activityContext: () => ({ taskId: state.selected, detail: state.detail })
+    activityContext: () => ({ taskId: state.selected, detail: state.detail }),
+    isHistoryOpen: isHistoryOpenFor,
+    isActivityOpen: (key) => Boolean(activityStates.get(key)?.open)
   });
   const visibleText = (content) =>
     Array.isArray(content)
@@ -264,9 +276,9 @@ export function createConversationView({
         : ""
     }</div>`;
   };
-  const activityStates = new Map();
   const errorDetailsOpen = new Set();
   const boundNodes = new WeakSet();
+  let lastRenderArgs;
   // What the conversation's children were built from: one markup string per
   // exchange, how many top-level nodes each became, and the trailing parts.
   let lastRender;
@@ -321,10 +333,11 @@ export function createConversationView({
     }
     for (const key of thinkingStartedAt.keys()) if (!activeKeys.has(key)) thinkingStartedAt.delete(key);
   };
+  const detailsOpen = (node) => (typeof node.open === "boolean" ? node.open : node.hasAttribute("open"));
   const readable = (node) => {
-    if (!node.open) return false;
+    if (!detailsOpen(node)) return false;
     for (let parent = node.parentElement; parent; parent = parent.parentElement)
-      if (parent.tagName === "DETAILS" && !parent.open) return false;
+      if (parent.tagName === "DETAILS" && !detailsOpen(parent)) return false;
     return true;
   };
   const readingCopies = (node) =>
@@ -343,11 +356,12 @@ export function createConversationView({
   };
   const rememberActivity = (node) => {
     const saved = activityStates.get(node.dataset.activityKey);
+    const copies = readable(node) ? readingCopies(node) : [];
     activityStates.set(node.dataset.activityKey, {
-      open: Boolean(node.open),
-      positions: readable(node)
+      open: detailsOpen(node),
+      positions: copies.length
         ? Object.fromEntries(
-            readingCopies(node).map((copy, index) => [
+            copies.map((copy, index) => [
               copy.dataset.readingKey || index,
               {
                 scrollTop: copy.scrollTop || 0,
@@ -357,6 +371,33 @@ export function createConversationView({
           )
         : saved?.positions || {}
     });
+  };
+  const isLazyDisclosure = (node) =>
+    node.classList.contains("execution-history") ||
+    node.classList.contains("process-segment") ||
+    node.classList.contains("tool-details") ||
+    node.classList.contains("subagent-step") ||
+    node.classList.contains("reasoning-details") ||
+    node.classList.contains("activity-raw");
+  const hasLazyBody = (node) => {
+    if (node.classList.contains("execution-history"))
+      return Boolean(node.querySelector(":scope > .execution-timeline"));
+    if (node.classList.contains("process-segment"))
+      return Boolean(node.querySelector(":scope > .live-workflow"));
+    if (node.classList.contains("tool-details") || node.classList.contains("subagent-step"))
+      return Boolean(node.querySelector(":scope > .tool-details-body"));
+    if (node.classList.contains("reasoning-details"))
+      return Boolean(node.querySelector(":scope > .reasoning-copy"));
+    if (node.classList.contains("activity-raw"))
+      return Boolean(node.querySelector(":scope > .activity-raw-copy"));
+    return true;
+  };
+  const hasOpenHistory = (cacheKey) => isHistoryOpenFor(cacheKey);
+  const rerenderForToggle = (node) => {
+    if (!isLazyDisclosure(node) || !lastRenderArgs) return;
+    if (state.selected !== lastRenderArgs.task?.taskId) return;
+    if (detailsOpen(node) === hasLazyBody(node)) return;
+    renderConversation(lastRenderArgs.messages, lastRenderArgs.task, { preserveScroll: true });
   };
   const normalizeMessages = (messages) => {
     // Presentation repair applies only to assistant output. Original messages
@@ -432,17 +473,18 @@ export function createConversationView({
       liveClockTimer = setInterval(tick, 1000);
   }
 
-  function renderConversation(messages, task) {
+  function renderConversation(messages, task, { preserveScroll: keepScroll = false } = {}) {
+    lastRenderArgs = { messages, task };
     const scroll = $("#conversation");
     // Capture live blocks as well as saved history, including before an empty
     // conversation replaces this task. Keys include the task and request.
     for (const history of scroll.querySelectorAll(".execution-history"))
-      state.executionHistoryOpen.set(history.dataset.historyKey, history.open);
+      state.executionHistoryOpen.set(history.dataset.historyKey, detailsOpen(history));
     for (const node of scroll.querySelectorAll("details[data-activity-key]")) rememberActivity(node);
     const focused = scroll.ownerDocument.activeElement;
     const focusedDetail = focused?.tagName === "SUMMARY" ? focused.parentElement : undefined;
-    const focusedActivityKey = focusedDetail?.dataset.activityKey;
-    const focusedHistoryKey = focusedDetail?.dataset.historyKey;
+    let focusedActivityKey = focusedDetail?.dataset.activityKey;
+    let focusedHistoryKey = focusedDetail?.dataset.historyKey;
     const focusedRecovery =
       focused?.closest?.("[data-recovery-task]")?.dataset.recoveryTask === task.taskId
         ? focused?.hasAttribute?.("data-retry-request")
@@ -465,6 +507,29 @@ export function createConversationView({
       state.detail?.runtimeEvents || [],
       state.detail?.conversationVersion
     );
+    // While a sent user message is still local, its exchange key is positional
+    // ("position:N"). Once persistence confirms the message's real key, carry
+    // over any disclosures and focus the reader already opened during the run.
+    for (const [exchangeIndex, exchange] of exchanges.entries()) {
+      const provisional = `${task.taskId}:position:${exchangeIndex}`;
+      const actual = `${task.taskId}:${exchange.key}`;
+      if (provisional === actual) continue;
+      if (state.executionHistoryOpen.has(provisional)) {
+        if (!state.executionHistoryOpen.has(actual))
+          state.executionHistoryOpen.set(actual, state.executionHistoryOpen.get(provisional));
+        state.executionHistoryOpen.delete(provisional);
+      }
+      const prefix = `${provisional}:`;
+      for (const [key, value] of [...activityStates]) {
+        if (!key.startsWith(prefix)) continue;
+        const migrated = `${actual}:${key.slice(prefix.length)}`;
+        if (!activityStates.has(migrated)) activityStates.set(migrated, value);
+        activityStates.delete(key);
+      }
+      if (focusedHistoryKey === provisional) focusedHistoryKey = actual;
+      if (focusedActivityKey?.startsWith(prefix))
+        focusedActivityKey = `${actual}:${focusedActivityKey.slice(prefix.length)}`;
+    }
     const currentExchangeIndex = exchanges.findLastIndex((exchange) => !exchange.awaitingDelivery);
     const windows = state.detail?.contextWindows ?? [];
     const windowDividers = contextWindowDividers(windows, exchanges);
@@ -494,8 +559,9 @@ export function createConversationView({
     const wasAtEnd = atConversationEnd(scroll);
     const editing = Boolean(messageEdit?.editingMessageId && state.selected === task.taskId);
     const preserveScroll =
-      state.selected === task.taskId &&
-      (editing || (renderedEditTask === task.taskId && !state.detail?.runtime?.active));
+      keepScroll ||
+      (state.selected === task.taskId &&
+        (editing || (renderedEditTask === task.taskId && !state.detail?.runtime?.active)));
     const previousScrollTop = scroll.scrollTop || 0;
     let inlineEditorRendered = false;
     const nextHistoryMarkup = new Map();
@@ -521,9 +587,10 @@ export function createConversationView({
     ]);
     const parts = exchanges.map((exchange, exchangeIndex) => {
       const isCurrent = exchangeIndex === currentExchangeIndex;
-      const cacheable = !isCurrent && !editing && !exchange.awaitingDelivery && !exchange.continued;
       const cacheKey = `${task.taskId}:${exchange.key}`;
-      const historyOpen = state.executionHistoryOpen.get(cacheKey) ?? false;
+      const historyOpen = hasOpenHistory(cacheKey);
+      const cacheable =
+        !isCurrent && !editing && !exchange.awaitingDelivery && !exchange.continued && !historyOpen;
       const elapsed = cacheable ? executionElapsedMs(exchange.events, state.detail?.events) : undefined;
       const cached = historyMarkup.get(cacheKey);
       // The append-only projector retains historical exchange identities.
@@ -552,7 +619,7 @@ export function createConversationView({
         interrupted || exchange.continued ? -1 : finalAnswerIndex(exchange.messages, state.detail, isCurrent);
       const finalText = finalIndex >= 0 ? visibleText(exchange.messages[finalIndex].content).trim() : "";
       const historyKey = `${task.taskId}:${exchange.key}`;
-      const { markup: workflow, settled } = renderLiveActivity(
+      const { markup: workflow } = renderLiveActivity(
         exchange.events,
         active,
         finalIndex >= 0,
@@ -563,10 +630,6 @@ export function createConversationView({
         isCurrent,
         execution.stopped ?? (execution.terminal === "cancelled" && !(isCurrent && failure) ? {} : undefined)
       );
-      // The line under a finished round says how long the whole round took.
-      const endLine = settled
-        ? `<div class="turn-endline" role="separator" aria-label="${esc(ui`用时 ${settled}`)}"><span>${esc(ui`用时 ${settled}`)}</span></div>`
-        : "";
       const workflowIndex = !active && finalIndex >= 0 ? finalIndex : -1;
       const rendered =
         exchange.messages
@@ -597,7 +660,7 @@ export function createConversationView({
               return `<article class="chat-message user${editor ? " is-editing" : ""}" data-view-key="${esc(`${historyKey}:user:${message.id || index}`)}"><div class="message-copy">${editor ? "" : typed.uploads}${bubble ? `<div class="user-message-bubble">${bubble}</div>` : ""}${editor ? "" : userActions(message, editable)}</div></article>`;
             }
             if (index !== finalIndex) return "";
-            return `${index === workflowIndex ? workflow : ""}<article class="chat-message main" data-answer-kind="final"${message.id ? ` data-message-id="${esc(message.id)}"` : ""}><div class="message-copy"><div class="markdown-body">${markdown(text)}</div>${active ? "" : replyActions(message, isCurrent)}</div></article>${index === workflowIndex ? endLine : ""}`;
+            return `${index === workflowIndex ? workflow : ""}<article class="chat-message main" data-answer-kind="final"${message.id ? ` data-message-id="${esc(message.id)}"` : ""}><div class="message-copy"><div class="markdown-body">${markdown(text)}</div>${active ? "" : replyActions(message, isCurrent)}</div></article>`;
           })
           .map((markup, index) => markup + (windowDividers.get(exchange.messages[index]) ?? ""))
           .join("") +
@@ -705,8 +768,11 @@ export function createConversationView({
         if (!boundNodes.has(node)) {
           boundNodes.add(node);
           node.addEventListener("toggle", () => {
-            if (node.isConnected) restoreReadingPosition(node);
             remember();
+            if (node.isConnected) {
+              rerenderForToggle(node);
+              restoreReadingPosition(node);
+            }
           });
         }
         readingCopies(node).forEach((copy) => {
@@ -722,12 +788,15 @@ export function createConversationView({
         }
       });
       scroll.querySelectorAll(".execution-history").forEach((history) => {
+        const savedOpen = isHistoryOpenFor(history.dataset.historyKey);
+        history.open = savedOpen;
         if (!boundNodes.has(history)) {
           boundNodes.add(history);
           history.addEventListener("toggle", () => {
             if (history.isConnected) {
-              state.executionHistoryOpen.set(history.dataset.historyKey, history.open);
-              if (history.open)
+              state.executionHistoryOpen.set(history.dataset.historyKey, detailsOpen(history));
+              rerenderForToggle(history);
+              if (detailsOpen(history))
                 history.querySelectorAll("details[data-activity-key]").forEach(restoreReadingPosition);
             }
           });

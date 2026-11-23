@@ -265,6 +265,7 @@ test("conversation rows and steps keep their geometry on hover", async ({ page }
 
     // A hovered step only changes colour.
     await page.locator(".execution-history > summary").click();
+    await page.locator(".process-segment > summary").click();
     const step = page.locator(".tool-step").first();
     await expect(step).toBeVisible();
     await page.mouse.move(0, 0);

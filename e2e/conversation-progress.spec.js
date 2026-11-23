@@ -104,10 +104,16 @@ test("follow-up opens an assistant message before inference and animates each th
       .evaluate((node) => getComputedStyle(node).fontSize);
     releaseSubmission();
     const partialLabel = pending
-      .locator(".reasoning-step[data-view-key]")
+      .locator(".reasoning-step .assistant-thinking")
       .getByText("思考中", { exact: true });
     await expect(partialLabel).toHaveCSS("font-size", thinkingSize);
     gates[2].release();
+    const liveProcess = pending.locator(".process-segment.is-live");
+    await expect(liveProcess).toBeVisible({ timeout: 30_000 });
+    await expect(liveProcess).not.toHaveAttribute("open", "");
+    await expect(liveProcess.locator(":scope > summary")).toContainText("思考中");
+    await expect(liveProcess.locator(":scope > summary .thinking-spinner")).toHaveCount(1);
+    await liveProcess.locator(":scope > summary").click();
     await expect(pending.locator(".reasoning-details .reasoning-state")).toHaveCSS("font-size", thinkingSize);
     await expect(pending.locator(".reasoning-step")).toContainText("先查看可用工具。", { timeout: 30_000 });
     await expect(pending.locator(".reasoning-step .thinking-spinner")).toHaveCount(1);

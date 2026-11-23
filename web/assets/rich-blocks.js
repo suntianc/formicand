@@ -52,6 +52,18 @@ export function codeBlock(language, code) {
   return `<figure class="code-block" data-ui-owned="${sourceKey(`code:${language}\n${code}`)}"><figcaption class="code-block-head"><span class="code-block-language">${esc(language || "text")}</span>${action('data-code-wrap aria-pressed="false"', "wrap-text", ui("换行"), ui("自动换行"))}${copyAction(ui("复制代码"))}</figcaption><pre><code class="language-${esc(language)}">${highlightCode(language, code)}</code></pre></figure>`;
 }
 
+/**
+ * Lightweight fence while its closing marker has not arrived yet: plain text
+ * without syntax token spans, Mermaid renders or split-diff duplication, so
+ * streaming does not allocate throwaway DOM or pollute caches per token.
+ */
+export function streamingCodeBlock(info, code) {
+  const [language = ""] = String(info || "")
+    .trim()
+    .split(/\s+/);
+  return `<figure class="code-block is-streaming"><figcaption class="code-block-head"><span class="code-block-language">${esc(language || "text")}</span></figcaption><pre><code class="language-${esc(language)}">${esc(code)}</code></pre></figure>`;
+}
+
 /* Terminal output -------------------------------------------------------- */
 
 const ANSI_COLORS = ["black", "red", "green", "yellow", "blue", "magenta", "cyan", "white"];
