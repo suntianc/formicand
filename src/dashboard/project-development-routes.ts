@@ -278,11 +278,13 @@ async function handleMergeRequest(
     }
     case "request": {
       if (scope.declared) throw new HttpError(403, "合入申请须在执行主机上完成验收", "merge_owner_only");
-      return reply(response, 200, {
-        merge: task
+      return reply(
+        response,
+        200,
+        task
           ? await service.requestMergeForTask(task, body)
-          : await service.requestMerge(scope.projectId, body)
-      });
+          : { merge: await service.requestMerge(scope.projectId, body) }
+      );
     }
     case "apply": {
       if (scope.declared) throw new HttpError(403, "目标分支只能由执行后端更新", "merge_owner_only");

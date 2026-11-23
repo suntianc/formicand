@@ -203,15 +203,30 @@ test(
       return { developmentId: development.developmentId, checkout };
     };
     const mergeChecks = [{ name: "list", command: "test -f list.txt" }];
+    // Main's merge request returns while the checks run; the outcome is read back once they end.
+    const settled = async (requested) => {
+      assert.equal(requested.pending, true, JSON.stringify(requested));
+      for (;;) {
+        const { merges } = await tool.execute({
+          action: "merge_status",
+          developmentId: requested.merge.developmentId
+        });
+        const merge = merges.find((entry) => entry.mergeId === requested.merge.mergeId);
+        if (!["waiting", "applying"].includes(merge.state)) return { merge };
+        await new Promise((resolve) => setTimeout(resolve, 20));
+      }
+    };
 
     // Nothing in the records to look back on: the program records the retro itself.
     const quiet = await selfChecked("第一项", "1\n2\n");
-    const plain = await tool.execute({
-      action: "request_merge",
-      developmentId: quiet.developmentId,
-      ledger: { summaryUnchanged: "测试不改现状", history: "测试合入", descriptionUnchanged: true },
-      mergeChecks
-    });
+    const plain = await settled(
+      await tool.execute({
+        action: "request_merge",
+        developmentId: quiet.developmentId,
+        ledger: { summaryUnchanged: "测试不改现状", history: "测试合入", descriptionUnchanged: true },
+        mergeChecks
+      })
+    );
     assert.equal(plain.merge.state, "merged", JSON.stringify(plain.merge));
     assert.deepEqual(
       { outcome: plain.merge.acceptance.retro.outcome, auto: plain.merge.acceptance.retro.auto },
@@ -220,12 +235,14 @@ test(
 
     // A failed merge is a signal: the next request needs the requirement's retro.
     const noisy = await selfChecked("第二项", "1\n2\n3\n");
-    const failed = await tool.execute({
-      action: "request_merge",
-      developmentId: noisy.developmentId,
-      ledger: { summaryUnchanged: "测试不改现状", history: "测试合入", descriptionUnchanged: true },
-      mergeChecks: [{ name: "fails", command: "false" }]
-    });
+    const failed = await settled(
+      await tool.execute({
+        action: "request_merge",
+        developmentId: noisy.developmentId,
+        ledger: { summaryUnchanged: "测试不改现状", history: "测试合入", descriptionUnchanged: true },
+        mergeChecks: [{ name: "fails", command: "false" }]
+      })
+    );
     assert.equal(failed.merge.state, "check_failed");
     const { next } = await tool.execute({ action: "get", developmentId: noisy.developmentId });
     assert.match(next, /load the retro skill[^]*1 failed merges/);
@@ -269,13 +286,15 @@ test(
       /用 retro\.pitfalls 说明写了哪些坑点/
     );
     const improvement = { title: "合入检查加环境预检", content: "第一条合入检查先确认依赖已装。" };
-    const merged = await tool.execute({
-      action: "request_merge",
-      developmentId: noisy.developmentId,
-      ledger: { summaryUnchanged: "测试不改现状", history: "测试合入", descriptionUnchanged: true },
-      mergeChecks,
-      retro: { pitfalls: "新增一条：合入检查命令在组合版本上运行", improvements: [improvement] }
-    });
+    const merged = await settled(
+      await tool.execute({
+        action: "request_merge",
+        developmentId: noisy.developmentId,
+        ledger: { summaryUnchanged: "测试不改现状", history: "测试合入", descriptionUnchanged: true },
+        mergeChecks,
+        retro: { pitfalls: "新增一条：合入检查命令在组合版本上运行", improvements: [improvement] }
+      })
+    );
     assert.equal(merged.merge.state, "merged", JSON.stringify(merged.merge));
     assert.equal(merged.merge.acceptance.retro.signals.failedMerges, 1);
     assert.notEqual(merged.merge.acceptance.approvedCommit, merged.merge.candidate.commit);

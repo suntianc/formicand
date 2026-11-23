@@ -95,8 +95,11 @@ test(
       developmentRoot,
       project: async (id) => (id === projectId ? projectInfo : undefined),
       taskProject: async (id) => (id === "task-flow" ? projectInfo : undefined),
-      call: async (_taskId, callId) => calls[callId]
+      call: async (_taskId, callId) => calls[callId],
+      // Main's own calls return before their checks finish; the outcome is a notice.
+      notifyTask: async (taskId, noticeId, payload) => notices.push({ taskId, noticeId, payload })
     };
+    const notices = [];
     const service = createProjectDevelopmentService(developmentPorts);
     const otherService = createProjectDevelopmentService(developmentPorts);
     await service.setMergeConfig(projectId, { repository: repo, targetBranch: "main" });
@@ -251,13 +254,33 @@ test(
     assert.equal(await git(integration, ["rev-parse", "HEAD"]), before);
     assert.equal(await git(integration, ["status", "--porcelain"]), "");
 
-    const integrated = await service.integrateTicket(projectId, {
+    // Main's call answers once the checks start, and nothing else touches the
+    // checkout until they finish; their outcome and the next step are a notice.
+    const gate = join(root, "checks-may-finish");
+    const gatedCheck = `while [ ! -f '${gate}' ]; do sleep 0.05; done; test -f src/cli.js`;
+    const accepted = await service.integrateTicketForTask("task-flow", {
       developmentId,
       ticketId: "01",
-      checks: [{ name: "项目检查", command: "test -f src/cli.js" }]
+      checks: [{ name: "项目检查", command: gatedCheck }]
     });
-    assert.equal(integrated.integrated, true);
-    const first = integrated.tickets.tickets[0];
+    assert.deepEqual(accepted, {
+      pending: true,
+      developmentId,
+      ticketId: "01",
+      checks: ["项目检查", "01 AC1"]
+    });
+    await assert.rejects(service.integrateTicketForTask("task-flow", { developmentId, ticketId: "01" }), {
+      code: "ticket_integration_running"
+    });
+    assert.deepEqual(notices, []);
+    await writeFile(gate, "");
+    while (!notices.length) await delay(20);
+    assert.equal(notices[0].taskId, "task-flow");
+    assert.equal(notices[0].payload.type, "development.ticket_integrated");
+    assert.equal(notices[0].payload.integrated, true);
+    assert.deepEqual(notices[0].payload.failedChecks, []);
+    assert.match(notices[0].payload.next, /Tickets 02, 03 can start/);
+    const first = (await service.tickets(projectId, developmentId)).tickets[0];
     assert.equal(first.state, "merged");
     assert.deepEqual(
       first.integration.checks.map((check) => [check.name, check.exitCode]),
@@ -518,18 +541,28 @@ test(
     assert.equal(qualification.eligible, true, JSON.stringify(qualification.reasons));
     assert.equal(qualification.reviewId, again.reviewId);
     assert.match(await service.next(projectId, developmentId), /qualifies: request_merge/);
-    const merge = await service.requestMerge(projectId, {
+    // Main's request returns before the combined checks run; the merge arrives as a notice.
+    notices.length = 0;
+    const requested = await service.requestMergeForTask("task-flow", {
       developmentId,
       ledger: { summaryUnchanged: "测试不改现状", history: "测试合入", descriptionUnchanged: true }
     });
+    assert.equal(requested.pending, true);
+    assert.equal(requested.merge.state, "waiting");
+    while (!notices.length) await delay(20);
+    assert.equal(notices[0].payload.type, "development.merge_finished");
+    assert.equal(notices[0].payload.state, "merged");
+    assert.match(notices[0].payload.next, /^Merged/);
+    const merge = await service.getMerge(projectId, requested.merge.mergeId);
     assert.equal(merge.state, "merged", JSON.stringify(merge));
     assert.equal(merge.acceptance.tickets, true);
     assert.equal(merge.acceptance.reviewId, again.reviewId, "the final review the merge was accepted on");
     assert.deepEqual(
       merge.checks.map((check) => check.command),
       [
-        "test -f src/cli.js",
+        gatedCheck,
         "test -f src/a.txt",
+        "test -f src/cli.js",
         "test -f src/b.txt",
         "test -f 'src/说\"明.txt'",
         "test -f src/README.txt"

@@ -76,6 +76,24 @@ export interface ProjectDevelopmentPorts {
   taskProject(taskId: string): Promise<DevelopmentProject | undefined>;
   /** A call this Task's own durable queue recorded; never an identity the model supplied. */
   call?(taskId: string, callId: string): Promise<WorkItemCallFact | undefined>;
+  /**
+   * Wake the Task's Main with news it is waiting for, such as checks that ran
+   * after its call returned. `noticeId` makes a repeated notice a no-op.
+   */
+  notifyTask?(taskId: string, noticeId: string, payload: Record<string, unknown>): Promise<void>;
+}
+
+/** The checks that failed, with the end of their output: what Main reads first. */
+function failedChecks(checks: unknown): Record<string, unknown>[] {
+  if (!Array.isArray(checks)) return [];
+  return (checks as { name?: string; command?: string; exitCode?: number | null; output?: string }[])
+    .filter((check) => check.exitCode !== 0)
+    .map((check) => ({
+      name: check.name,
+      command: check.command,
+      exitCode: check.exitCode,
+      output: (check.output ?? "").slice(-2_000)
+    }));
 }
 
 /**
@@ -103,7 +121,8 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
     inspectWorkspace,
     currentCandidate,
     requireCall,
-    inDevelopment
+    inDevelopment,
+    integrating
   } = createDevelopmentWorkspaceService({ gateway, ports });
 
   const {
@@ -123,9 +142,17 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
     lastIntegration,
     ticketChangedPaths,
     integrateTicket,
+    integrateTicketInBackground,
     ticketForDispatch,
     ticketStarted
-  } = createDevelopmentTicketService({ gateway, inDevelopment, inspectWorkspace, taskProject, ports });
+  } = createDevelopmentTicketService({
+    gateway,
+    inDevelopment,
+    integrating,
+    inspectWorkspace,
+    taskProject,
+    ports
+  });
 
   const { changeApproach, setReviewPlan, startReview } = createDevelopmentReviewStartService({
     gateway,
@@ -532,9 +559,31 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
       return integrateTicket(projectId, input);
     },
 
+    /**
+     * Main's integration: its tool call cannot wait for a project's checks, so
+     * it returns once they start and Main is woken with their outcome.
+     */
     async integrateTicketForTask(taskId: string, input: Record<string, unknown>) {
       const found = await taskProject(taskId);
-      return integrateTicket(found.projectId, input);
+      const notify = ports.notifyTask;
+      if (!notify) return integrateTicket(found.projectId, input);
+      return integrateTicketInBackground(found.projectId, input, async (result) => {
+        const developmentId = String(result.developmentId ?? input.developmentId);
+        const tickets = result.tickets as { revision?: number } | undefined;
+        await notify(
+          taskId,
+          `ticket-integrated-${developmentId}-${result.ticketId}-${tickets?.revision ?? Date.now()}`,
+          {
+            type: "development.ticket_integrated",
+            developmentId,
+            ticketId: result.ticketId,
+            integrated: result.integrated,
+            ...(typeof result.detail === "string" ? { detail: result.detail } : {}),
+            failedChecks: failedChecks(result.checks),
+            next: await nextStep(found.projectId, developmentId)
+          }
+        );
+      });
     },
 
     ticketForDispatch,
@@ -690,9 +739,32 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
       return requestMerge(projectId, input);
     },
 
+    /** Main's merge request: like an integration, its outcome arrives as a notice. */
     async requestMergeForTask(taskId: string, input: Record<string, unknown>) {
       const found = await taskProject(taskId);
-      return requestMerge(found.projectId, input);
+      const notify = ports.notifyTask;
+      if (!notify) return { merge: await requestMerge(found.projectId, input) };
+      const applying = { started: false };
+      const merge = await requestMerge(
+        found.projectId,
+        input,
+        async (merge) => {
+          await notify(taskId, `merge-finished-${merge.mergeId}-${merge.revision}`, {
+            type: "development.merge_finished",
+            developmentId: merge.developmentId,
+            mergeId: merge.mergeId,
+            state: merge.state,
+            ...(merge.detail ? { detail: merge.detail } : {}),
+            ...(merge.reasons.length ? { reasons: merge.reasons } : {}),
+            failedChecks: failedChecks(merge.checks),
+            next: await nextStep(found.projectId, merge.developmentId)
+          });
+        },
+        () => {
+          applying.started = true;
+        }
+      );
+      return applying.started ? { merge, pending: true } : { merge };
     },
 
     async applyMerges(projectId: string) {

@@ -317,6 +317,13 @@ export function createDevelopmentWorkspaceService({
     return fact;
   }
 
+  /**
+   * Ticket integrations whose checks are still running here, by development.
+   * They hold the checkout lock until they finish; a call that would wait on
+   * that lock is refused instead, since its caller gives up long before.
+   */
+  const integrating = new Map<string, string>();
+
   /** A check and its rollback share one checkout lock with all backend processes. */
   async function inDevelopment<T>(
     projectId: string,
@@ -324,6 +331,12 @@ export function createDevelopmentWorkspaceService({
     action: (record: DevelopmentRecord) => Promise<T>
   ) {
     const developmentId = developmentIdentifier(input.developmentId, "开发记录 ID");
+    const running = integrating.get(developmentId);
+    if (running)
+      throw conflict(
+        `票 ${running} 正在并入需求现场并运行检查；完成后会通知 Main，在此之前需求现场不能操作`,
+        "ticket_integration_running"
+      );
     const { workspace } = await (await gateway()).getDevelopment(projectId, developmentId, ports.backendId);
     const directory = workspace?.directory ?? workspaceDirectory(developmentId);
     return withFileLock(
@@ -350,6 +363,7 @@ export function createDevelopmentWorkspaceService({
     inspectWorkspace,
     currentCandidate,
     requireCall,
-    inDevelopment
+    inDevelopment,
+    integrating
   };
 }

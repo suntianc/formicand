@@ -395,6 +395,13 @@ export function createProjectDevelopmentTool(options: ProjectDevelopmentToolOpti
     ): Promise<Record<string, unknown>> {
       const request = bridge();
       const result = await run(request, input, confirm);
+      // The checks outlive this call. Their outcome, with the next step, comes
+      // back as an Inbox event; the next step worked out now would be stale.
+      if (result.pending === true)
+        return {
+          ...result,
+          note: "The checks are running in the background. Their result, with the next step, arrives as a message that wakes you, so do not repeat this call: do other work or park with sleep_until."
+        };
       const developmentId = developmentOf(input, result);
       if (!developmentId) return result;
       try {
