@@ -17,15 +17,20 @@ import { runMergeChecks } from "../workspace/project-merge.js";
 import type { ProjectDevelopmentPorts } from "./project-development-service.js";
 import type { createDevelopmentWorkspaceService } from "./development-workspace-service.js";
 
+/** What a ticket integration ended with. */
+export type TicketIntegrationResult = Record<string, unknown> & { integrated: boolean; ticketId?: string };
+
 export function createDevelopmentTicketService({
   gateway,
   inDevelopment,
+  integrating,
   inspectWorkspace,
   taskProject,
   ports
 }: {
   gateway: () => Promise<ProjectDataGateway>;
   inDevelopment: ReturnType<typeof createDevelopmentWorkspaceService>["inDevelopment"];
+  integrating: ReturnType<typeof createDevelopmentWorkspaceService>["integrating"];
   inspectWorkspace: ReturnType<typeof createDevelopmentWorkspaceService>["inspectWorkspace"];
   taskProject: ReturnType<typeof createDevelopmentWorkspaceService>["taskProject"];
   ports: Pick<ProjectDevelopmentPorts, "backendId">;
@@ -106,11 +111,59 @@ export function createDevelopmentTicketService({
     return inDevelopment(projectId, input, (record) => integrateTicketNow(projectId, record, input));
   }
 
+  /**
+   * The same integration for a caller that cannot wait for the checks: it
+   * answers once the ticket is merged and its checks have started, and
+   * `settled` receives the outcome. The checkout stays locked until then.
+   */
+  function integrateTicketInBackground(
+    projectId: string,
+    input: Record<string, unknown>,
+    settled: (result: TicketIntegrationResult) => Promise<void>
+  ): Promise<Record<string, unknown>> {
+    return new Promise((resolve, reject) => {
+      let started: { developmentId: string; ticketId: string } | undefined;
+      const work = inDevelopment(projectId, input, (record) =>
+        integrateTicketNow(projectId, record, input, (ticketId, checks) => {
+          started = { developmentId: record.developmentId, ticketId };
+          integrating.set(record.developmentId, ticketId);
+          resolve({ pending: true, developmentId: record.developmentId, ticketId, checks });
+        })
+      );
+      void work
+        .then(
+          (result) => result,
+          (error: unknown): TicketIntegrationResult => {
+            if (!started) throw error;
+            return {
+              integrated: false,
+              ticketId: started.ticketId,
+              developmentId: started.developmentId,
+              detail: error instanceof Error ? error.message : String(error)
+            };
+          }
+        )
+        .then(
+          async (result) => {
+            if (!started) return resolve(result);
+            integrating.delete(started.developmentId);
+            // The outcome is already in the checkout and the tickets; a lost notice
+            // costs only Main's prompt wake, and next still reports it.
+            await settled(result).catch((error: unknown) =>
+              console.error("通知 Main 票的并入结果失败", error)
+            );
+          },
+          (error: unknown) => reject(error instanceof Error ? error : new Error(String(error)))
+        );
+    });
+  }
+
   async function integrateTicketNow(
     projectId: string,
     record: DevelopmentRecord,
-    input: Record<string, unknown>
-  ) {
+    input: Record<string, unknown>,
+    checksStarted?: (ticketId: string, checks: string[]) => void
+  ): Promise<TicketIntegrationResult> {
     const developmentId = record.developmentId;
     const service = await gateway();
     const { set, ticket } = await requireTicket(projectId, developmentId, input.ticketId);
@@ -179,6 +232,10 @@ export function createDevelopmentTicketService({
         "ticket_integration_conflict"
       );
     }
+    checksStarted?.(
+      ticket.ticketId,
+      checks.map((check) => check.name)
+    );
     const results = await runMergeChecks(directory, checks);
     const failed = results.filter((check) => check.exitCode !== 0);
     if (failed.length) {
@@ -210,7 +267,7 @@ export function createDevelopmentTicketService({
         at: now()
       }
     });
-    return { integrated: true, developmentId, tickets };
+    return { integrated: true, ticketId: ticket.ticketId, developmentId, tickets };
   }
 
   /** The tickets a delegation implements: the brief the Executor reads, after its rules are checked. */
@@ -262,6 +319,7 @@ export function createDevelopmentTicketService({
     lastIntegration,
     ticketChangedPaths,
     integrateTicket,
+    integrateTicketInBackground,
     ticketForDispatch,
     ticketStarted
   };

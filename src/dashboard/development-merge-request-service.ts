@@ -180,7 +180,20 @@ export function createDevelopmentMergeRequestService({
     return registered;
   }
 
-  async function requestMerge(projectId: string, input: Record<string, unknown>): Promise<DevelopmentMerge> {
+  /**
+   * Record a merge request and, on the backend that owns the target, apply it.
+   *
+   * Without `settled` the call waits for the merge and returns its result. With
+   * it the call returns the recorded request at once (after calling `applying`),
+   * and `settled` receives the merge once the checks on the combined version and
+   * the update are done.
+   */
+  async function requestMerge(
+    projectId: string,
+    input: Record<string, unknown>,
+    settled?: (merge: DevelopmentMerge) => Promise<void>,
+    applying?: () => void
+  ): Promise<DevelopmentMerge> {
     await project(projectId);
     const developmentId = developmentIdentifier(input.developmentId, "开发记录 ID");
     // A closed development still answers a retry of its merged candidate below.
@@ -260,11 +273,25 @@ export function createDevelopmentMergeRequestService({
     if (config.executionBackendId !== ports.backendId) return created;
     // The location that owns the target applies its own project queue; another
     // backend's request stays waiting until that location processes it.
-    const applied = await mergeService.applyMerges(projectId);
-    return (
-      applied.find((entry) => entry.mergeId === created.mergeId) ??
-      service.getMerge(projectId, created.mergeId)
-    );
+    const applied = mergeService
+      .applyMerges(projectId)
+      .then(
+        async (merges) =>
+          merges.find((entry) => entry.mergeId === created.mergeId) ??
+          service.getMerge(projectId, created.mergeId)
+      );
+    if (!settled) return applied;
+    applying?.();
+    void applied
+      .then(settled, async (error: unknown) =>
+        settled({
+          ...(await service.getMerge(projectId, created.mergeId)),
+          detail: error instanceof Error ? error.message : String(error)
+        })
+      )
+      // The merge record holds the outcome; a lost notice costs only Main's prompt wake.
+      .catch((error: unknown) => console.error("通知 Main 合入结果失败", error));
+    return created;
   }
 
   return { requestMerge };

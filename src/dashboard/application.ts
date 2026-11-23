@@ -14,6 +14,7 @@ import { mkdir, rename, stat, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import { id, now } from "../domain/types.js";
+import { InboxStore } from "../runtime/scheduler.js";
 import { coworkConfigPath, readCoworkConfig, readHostCoworkConfig } from "../runtime/config.js";
 import { normalizeReasoningEffort } from "../runtime/runtime-settings.js";
 import { availableModels as catalogModels, selectionLimits } from "../runtime/model-catalog.js";
@@ -240,6 +241,24 @@ export function createDashboardApplication(
       const location = await workspaces.locateTask(taskId).catch(() => undefined);
       if (!location) return undefined;
       return findSubagentCall({ workspaceRoot: location.workspaceRoot, taskId, callId });
+    },
+    // Checks Main started outside its turn report back the way a finished job
+    // does: an Inbox event on the Task's current Run, which wakes its Main.
+    notifyTask: async (taskId, noticeId, payload) => {
+      const { workspaceRoot: root, task } = await workspaces.locateTask(taskId);
+      if (!task.activeRunId) return;
+      await new InboxStore(
+        join(root, taskId, "runs", task.activeRunId, "agents", "main", "inbox-store.json")
+      ).enqueue({
+        messageId: noticeId,
+        recipientAgentId: "main",
+        kind: "external_event",
+        eventId: `event-${noticeId}`,
+        priority: 10,
+        state: "ready",
+        payload,
+        createdAt: now()
+      });
     },
     project: async (projectId) => {
       const project = await workspaces.projectForId(projectId);
