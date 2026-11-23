@@ -76,3 +76,43 @@ export function reconcileParts(parent, parts, start = parent.firstChild) {
   patchChildren(parent, fragment, start);
   return counts;
 }
+
+/**
+ * Patch only `oldCount` consecutive children starting at `startIndex` with the
+ * top-level nodes parsed from `markup`, leaving every sibling outside that
+ * slice untouched. Returns `{ count, nodes }`.
+ */
+export function reconcileRange(parent, markup, startIndex, oldCount) {
+  const template = parent.ownerDocument.createElement("template");
+  template.innerHTML = markup;
+  const nextNodes = [...template.content.childNodes];
+  const anchor = parent.childNodes[startIndex + oldCount] ?? null;
+  const existing = [];
+  for (let index = 0; index < oldCount; index += 1) {
+    const node = parent.childNodes[startIndex + index];
+    if (node) existing.push(node);
+  }
+  const used = new Set();
+  const nodes = [];
+  let cursor = 0;
+  for (const next of nextNodes) {
+    while (cursor < existing.length && used.has(existing[cursor])) cursor += 1;
+    let current = existing[cursor];
+    if (!matches(current, next)) {
+      const nextKey = key(next);
+      const found = nextKey ? existing.find((node) => !used.has(node) && matches(node, next)) : undefined;
+      if (found) {
+        parent.insertBefore(found, current ?? anchor);
+        current = found;
+      } else {
+        parent.insertBefore(next, current ?? anchor);
+        current = next;
+      }
+    }
+    used.add(current);
+    patchNode(current, next);
+    nodes.push(current);
+  }
+  for (const node of existing) if (!used.has(node)) node.remove();
+  return { count: nodes.length, nodes };
+}

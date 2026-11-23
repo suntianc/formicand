@@ -258,41 +258,70 @@ export function settledRuntimeEvents(
   const slimmed = new Map<number, Record<string, unknown>>();
   const deltas = new Map<string, number[]>();
   const blockEnds = new Map<string, number[]>();
+  const toolStarts = new Map<string, number[]>();
   const ended = new Set<string>();
   const progress = new Map<string, number[]>();
+  // Keep each run's highest runtime_event index so SSE `?after=` watermarks
+  // (`runtimeLogMarks`) never regress when trailing noise events are dropped.
+  const lastRuntimeByRun = new Map<string, number>();
+  records.forEach((record, index) => {
+    if (record.type === "runtime_event") lastRuntimeByRun.set(String(record.runId), index);
+  });
   const remember = (lookup: Map<string, number[]>, key: string, index: number) => {
     const open = lookup.get(key);
     if (open) open.push(index);
     else lookup.set(key, [index]);
   };
+  const slimToolCallUpdate = (index: number) => {
+    const record = records[index];
+    const payload = record.payload as Payload;
+    const { content: _content, partial: _partial, toolCall, ...update } = payload.assistantMessageEvent ?? {};
+    const call = toolCall as Record<string, unknown> | undefined;
+    const { message: _message, usage: _usage, ...restPayload } = payload;
+    slimmed.set(index, {
+      ...record,
+      payload: {
+        ...restPayload,
+        assistantMessageEvent: call
+          ? { ...update, toolCall: { type: call.type, id: call.id, name: call.name } }
+          : update
+      }
+    });
+  };
   const settle = (stream: string) => {
     for (const index of deltas.get(stream) ?? []) dropped.add(index);
-    for (const index of blockEnds.get(stream) ?? []) {
-      const record = records[index];
-      const payload = record.payload as Payload;
-      const { content: _content, toolCall, ...update } = payload.assistantMessageEvent ?? {};
-      const call = toolCall as Record<string, unknown> | undefined;
-      slimmed.set(index, {
-        ...record,
-        payload: {
-          ...payload,
-          assistantMessageEvent: call
-            ? { ...update, toolCall: { type: call.type, id: call.id, name: call.name } }
-            : update
-        }
-      });
+    for (const index of blockEnds.get(stream) ?? []) slimToolCallUpdate(index);
+    for (const index of toolStarts.get(stream) ?? []) {
+      const payload = records[index].payload as Payload;
+      const call = payload.assistantMessageEvent?.toolCall as Record<string, unknown> | undefined;
+      if (call && "arguments" in call) slimToolCallUpdate(index);
     }
     deltas.delete(stream);
     blockEnds.delete(stream);
+    toolStarts.delete(stream);
   };
   records.forEach((record, index) => {
     if (record.type !== "runtime_event") return;
-    const stream = `${String(record.runId)}:${String(record.agentId)}`;
+    const runId = String(record.runId);
+    const isRunWatermark = lastRuntimeByRun.get(runId) === index;
+    const stream = `${runId}:${String(record.agentId)}`;
     const payload = (record.payload ?? {}) as Payload;
+    // The conversation view renders neither extension prompts nor start-only
+    // system/toolResult envelopes (tool results come from tool_execution_end).
+    if (
+      !isRunWatermark &&
+      (payload.type === "extension_ui_request" ||
+        (payload.type === "message_start" &&
+          (payload.message?.role === "toolResult" || payload.message?.role === "system")))
+    ) {
+      dropped.add(index);
+      return;
+    }
     const update = payload.assistantMessageEvent?.type;
     if (payload.type === "message_update" && typeof update === "string") {
       if (update.endsWith("_delta")) remember(deltas, stream, index);
       else if (update.endsWith("_end")) remember(blockEnds, stream, index);
+      else if (update === "toolcall_start") remember(toolStarts, stream, index);
       return;
     }
     if (payload.type === "tool_execution_update" || payload.type === "tool_execution_end") {
@@ -324,15 +353,19 @@ export function settledRuntimeEvents(
   return records.flatMap((record, index) => (dropped.has(index) ? [] : [slimmed.get(index) ?? record]));
 }
 
+const ASSISTANT_START_KEYS = new Set(["role", "id", "timestamp", "stopReason", "errorMessage"]);
+const ASSISTANT_META_KEYS = ["usage", "api", "provider", "model", "responseId", "cost"] as const;
+
 /**
  * A runtime event as the conversation view needs it.
  *
  * Every Run records Pi's full system prompt (start and end) and an
  * `agent_end` carrying the whole message list again; together they are most of
  * a long conversation's history and the page reads none of it. Tool results,
- * callback starts and each update's token count repeat what other events
- * carry, and reasoning signatures are only for the provider. The events stay,
- * so identities and order are unchanged; only those bodies are dropped.
+ * callback starts, assistant start envelopes, provider metadata and each
+ * update's running snapshot/token count repeat what other events carry, and
+ * reasoning signatures are only for the provider. The events stay, so
+ * identities and order are unchanged; only those bodies are dropped.
  */
 export function viewRuntimeEvent(record: Record<string, unknown>): Record<string, unknown> {
   if (record.type !== "runtime_event") return record;
@@ -341,28 +374,52 @@ export function viewRuntimeEvent(record: Record<string, unknown>): Record<string
     const { messages: _messages, ...rest } = payload;
     return { ...record, payload: rest };
   }
-  // Each streamed update repeats the message's running token count, which
-  // the page takes from the run statistics instead.
-  if (payload?.type === "message_update" && "usage" in payload) {
-    const { usage: _usage, ...rest } = payload;
+  // Each streamed update repeats the message's running token count, message
+  // snapshot and partial block state; the page draws updates from
+  // assistantMessageEvent's own delta/content and reads stats separately.
+  if (payload?.type === "message_update") {
+    const update = payload.assistantMessageEvent as Record<string, unknown> | undefined;
+    const hasPartial = Boolean(update && "partial" in update);
+    if (!("usage" in payload) && !("message" in payload) && !hasPartial) return record;
+    const { usage: _usage, message: _message, ...rest } = payload;
+    if (hasPartial && update) {
+      const { partial: _partial, ...restUpdate } = update;
+      return { ...record, payload: { ...rest, assistantMessageEvent: restUpdate } };
+    }
     return { ...record, payload: rest };
   }
   const message = payload?.message as Record<string, unknown> | undefined;
-  // The provider's signatures let a later request resume the reasoning; the
-  // page never sends them back.
-  if (message?.role === "assistant" && Array.isArray(message.content)) {
-    const content = message.content as Array<Record<string, unknown>>;
-    if (!content.some((part) => "thinkingSignature" in part || "textSignature" in part)) return record;
-    return {
-      ...record,
-      payload: {
-        ...payload,
-        message: {
-          ...message,
-          content: content.map(({ thinkingSignature: _thinking, textSignature: _text, ...part }) => part)
-        }
-      }
-    };
+  // Assistant message_start only marks the message boundary (role/id/timestamp).
+  // Pi logs provider/model/usage and sometimes content here, all repeated later.
+  if (payload?.type === "message_start" && message?.role === "assistant") {
+    if (Object.keys(message).every((key) => ASSISTANT_START_KEYS.has(key))) return record;
+    const slim: Record<string, unknown> = { role: "assistant" };
+    if ("id" in message) slim.id = message.id;
+    if ("timestamp" in message) slim.timestamp = message.timestamp;
+    if ("stopReason" in message) slim.stopReason = message.stopReason;
+    if ("errorMessage" in message) slim.errorMessage = message.errorMessage;
+    return { ...record, payload: { ...payload, message: slim } };
+  }
+  // The provider's signatures let a later request resume the reasoning, and
+  // usage/provider metadata belong to run statistics; the conversation view
+  // reads none of them.
+  if (message?.role === "assistant") {
+    const content = Array.isArray(message.content)
+      ? (message.content as Array<Record<string, unknown>>)
+      : undefined;
+    const hasSignatures = Boolean(
+      content?.some((part) => "thinkingSignature" in part || "textSignature" in part)
+    );
+    const hasMeta = ASSISTANT_META_KEYS.some((key) => key in message);
+    if (!hasSignatures && !hasMeta) return record;
+    const nextMessage: Record<string, unknown> = { ...message };
+    if (hasMeta) for (const key of ASSISTANT_META_KEYS) delete nextMessage[key];
+    if (hasSignatures && content) {
+      nextMessage.content = content.map(
+        ({ thinkingSignature: _thinking, textSignature: _text, ...part }) => part
+      );
+    }
+    return { ...record, payload: { ...payload, message: nextMessage } };
   }
   if (payload?.type !== "message_start" && payload?.type !== "message_end") return record;
   if (message?.role === "system")

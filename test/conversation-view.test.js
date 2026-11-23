@@ -1608,3 +1608,38 @@ test("a person's message keeps its own lines instead of being read as Markdown",
     null
   );
 });
+
+test("long conversations virtualize off-screen historical rounds into height-preserving shells", () => {
+  const { document, state, render } = fixture("long-virtual", "");
+  state.detail.runtime.active = false;
+  state.detail.task.status = "completed";
+  state.detail.runtimeEvents = [];
+  const rounds = 36;
+  const messages = [];
+  for (let index = 0; index < rounds; index += 1) {
+    messages.push(
+      { role: "user", id: `u-${index}`, content: `第 ${index + 1} 轮问题`, timestamp: 1000 + index * 20 },
+      {
+        role: "assistant",
+        id: `a-${index}`,
+        content: `## 第 ${index + 1} 轮回答\n\n\`\`\`ts\nexport const v = ${index};\n\`\`\``,
+        timestamp: 1010 + index * 20,
+        stopReason: "stop"
+      }
+    );
+  }
+  render(messages);
+  const finals = document.querySelectorAll('.chat-message.main[data-answer-kind="final"]');
+  assert.equal(finals.length, rounds, "every round keeps its final article marker");
+  const virtualFinals = document.querySelectorAll(
+    '.chat-message.main.is-virtual-shell[data-answer-kind="final"]'
+  );
+  assert.equal(
+    virtualFinals.length,
+    rounds - 12,
+    "rounds outside the recent window render as lightweight shells"
+  );
+  assert.equal(finals[0].querySelector(".markdown-body"), null, "virtual shell omits heavy Markdown DOM");
+  assert.match(finals[0].getAttribute("style") || "", /min-height:\d+px/);
+  assert.ok(finals[rounds - 1].querySelector(".markdown-body"), "recent rounds render full Markdown DOM");
+});

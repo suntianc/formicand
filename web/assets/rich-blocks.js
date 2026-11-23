@@ -128,18 +128,22 @@ export const stripAnsi = (text) => String(text).replace(/\u001b\[[0-9;?]*[A-Za-z
 export function terminalBlock(code, title = "") {
   const exit = /(?:^|\s)exit=(-?\d+)(?=\s|$)/.exec(title);
   const command = title.replace(/(?:^|\s)exit=-?\d+(?=\s|$)/, "").trim();
-  const lines = String(code).replace(/\n$/, "").split("\n");
+  const raw = String(code);
+  const trailingNewline = raw.endsWith("\n");
+  const lines = (trailingNewline ? raw.slice(0, -1) : raw).split("\n");
   const hidden = Math.max(0, lines.length - TERMINAL_VISIBLE_LINES);
   const body = (from, to) =>
     lines
       .slice(from, to)
-      .map((line) => `<span class="terminal-line">${ansiToHtml(line) || " "}</span>`)
+      .map((line) => `<span class="terminal-line">${ansiToHtml(line)}</span>`)
       .join("");
-  return `<figure class="code-block terminal-block" data-ui-owned="${sourceKey(`terminal:${title}\n${code}`)}"><figcaption class="code-block-head">${icon("terminal")}<span class="code-block-language terminal-command">${esc(command || ui("终端输出"))}</span>${
+  return `<figure class="code-block terminal-block" data-ui-owned="${sourceKey(`terminal:${title}\n${code}`)}"${
+    trailingNewline ? ' data-terminal-trailing-newline="1"' : ""
+  }><figcaption class="code-block-head">${icon("terminal")}<span class="code-block-language terminal-command">${esc(command || ui("终端输出"))}</span>${
     exit
       ? `<span class="terminal-exit${exit[1] === "0" ? "" : " is-failed"}">${ui`退出码 ${exit[1]}`}</span>`
       : ""
-  }${copyAction(ui("复制输出"))}</figcaption><pre class="terminal-output"><code data-copy-text="${esc(stripAnsi(code))}">${body(0, TERMINAL_VISIBLE_LINES)}${
+  }${copyAction(ui("复制输出"))}</figcaption><pre class="terminal-output"><code>${body(0, TERMINAL_VISIBLE_LINES)}${
     hidden
       ? `<span class="terminal-rest" data-terminal-rest hidden>${body(TERMINAL_VISIBLE_LINES)}</span>`
       : ""
@@ -230,6 +234,18 @@ const diffCell = (row, side) => {
   return `<span class="diff-cell is-${row.kind}"><span class="diff-number">${number ?? ""}</span><span class="diff-text">${esc(row.text) || " "}</span></span>`;
 };
 
+/** Side-by-side rows built lazily when the reader switches a diff to split view. */
+export function renderDiffSplit(code, title = "") {
+  const diff = parseDiffText(code, title);
+  return splitRows(diff.rows)
+    .map(([left, right]) =>
+      left && left === right && (left.kind === "hunk" || left.kind === "note")
+        ? `<span class="diff-pair is-${left.kind}">${diffCell(left, "old")}</span>`
+        : `<span class="diff-pair">${diffCell(left?.kind === "add" ? undefined : left, "old")}${diffCell(right?.kind === "remove" ? undefined : right, "new")}</span>`
+    )
+    .join("");
+}
+
 export function diffBlock(code, title = "") {
   const diff = parseDiffText(code, title);
   const sign = { add: "+", remove: "-", context: " " };
@@ -240,15 +256,8 @@ export function diffBlock(code, title = "") {
         : `<span class="diff-row is-${row.kind}"><span class="diff-number">${row.oldNumber ?? ""}</span><span class="diff-number">${row.newNumber ?? ""}</span><span class="diff-sign">${sign[row.kind]}</span><span class="diff-text">${esc(row.text) || " "}</span></span>`
     )
     .join("");
-  const split = splitRows(diff.rows)
-    .map(([left, right]) =>
-      left && left === right && (left.kind === "hunk" || left.kind === "note")
-        ? `<span class="diff-pair is-${left.kind}">${diffCell(left, "old")}</span>`
-        : `<span class="diff-pair">${diffCell(left?.kind === "add" ? undefined : left, "old")}${diffCell(right?.kind === "remove" ? undefined : right, "new")}</span>`
-    )
-    .join("");
   const name = diff.path || ui("改动");
-  return `<figure class="code-block diff-block" data-ui-owned="${sourceKey(`diff:${title}\n${code}`)}" data-diff-view="inline"><figcaption class="code-block-head"><button type="button" class="diff-collapse" data-diff-collapse aria-expanded="true" title="${ui("折叠改动")}">${icon("chevron-down")}</button>${icon("file-code")}<span class="code-block-language diff-path" title="${esc(name)}">${esc(name)}</span><span class="diff-count is-add">+${diff.added}</span><span class="diff-count is-remove">-${diff.removed}</span><span class="diff-views" role="group" aria-label="${ui("改动视图")}"><button type="button" class="code-block-action" data-diff-view="inline" aria-pressed="true">${icon("square")}<span>${ui("内联")}</span></button><button type="button" class="code-block-action" data-diff-view="split" aria-pressed="false">${icon("panel-right")}<span>${ui("并排")}</span></button></span><button type="button" class="code-block-action is-icon" data-code-copy title="${ui("复制改动")}" aria-label="${ui("复制改动")}">${icon("copy")}</button></figcaption><div class="diff-body"><pre class="diff-inline"><code data-copy-text="${esc(code)}">${inline}</code></pre><div class="diff-split" hidden>${split}</div></div></figure>`;
+  return `<figure class="code-block diff-block" data-ui-owned="${sourceKey(`diff:${title}\n${code}`)}" data-diff-view="inline"><figcaption class="code-block-head"><button type="button" class="diff-collapse" data-diff-collapse aria-expanded="true" title="${ui("折叠改动")}">${icon("chevron-down")}</button>${icon("file-code")}<span class="code-block-language diff-path" title="${esc(name)}">${esc(name)}</span><span class="diff-count is-add">+${diff.added}</span><span class="diff-count is-remove">-${diff.removed}</span><span class="diff-views" role="group" aria-label="${ui("改动视图")}"><button type="button" class="code-block-action" data-diff-view="inline" aria-pressed="true">${icon("square")}<span>${ui("内联")}</span></button><button type="button" class="code-block-action" data-diff-view="split" aria-pressed="false">${icon("panel-right")}<span>${ui("并排")}</span></button></span><button type="button" class="code-block-action is-icon" data-code-copy title="${ui("复制改动")}" aria-label="${ui("复制改动")}">${icon("copy")}</button></figcaption><div class="diff-body"><pre class="diff-inline"><code data-copy-text="${esc(code)}">${inline}</code></pre><div class="diff-split" hidden></div></div></figure>`;
 }
 
 /* Diagrams --------------------------------------------------------------- */
@@ -256,7 +265,7 @@ export function diffBlock(code, title = "") {
 /** The diagram is drawn later, in the page; until then, and if it fails, the source shows. */
 export function mermaidBlock(code) {
   const key = sourceKey(`mermaid\n${code}`);
-  return `<figure class="code-block diagram-block" data-ui-owned="${key}"><figcaption class="code-block-head"><span class="code-block-language">mermaid</span><button type="button" class="code-block-action" data-diagram-source aria-pressed="false">${icon("code")}<span>${ui("源码")}</span></button><button type="button" class="code-block-action is-icon" data-block-zoom title="${ui("放大查看")}" aria-label="${ui("放大查看")}">${icon("fit")}</button></figcaption><div class="diagram-canvas" data-diagram-canvas role="img" aria-label="${ui("Mermaid 图")}"></div><pre class="diagram-source"><code data-copy-text="${esc(code)}">${esc(code)}</code></pre></figure>`;
+  return `<figure class="code-block diagram-block" data-ui-owned="${key}"><figcaption class="code-block-head"><span class="code-block-language">mermaid</span><button type="button" class="code-block-action" data-diagram-source aria-pressed="false">${icon("code")}<span>${ui("源码")}</span></button><button type="button" class="code-block-action is-icon" data-block-zoom title="${ui("放大查看")}" aria-label="${ui("放大查看")}">${icon("fit")}</button></figcaption><div class="diagram-canvas" data-diagram-canvas role="img" aria-label="${ui("Mermaid 图")}"></div><pre class="diagram-source"><code>${esc(code)}</code></pre></figure>`;
 }
 
 /* Tables ----------------------------------------------------------------- */

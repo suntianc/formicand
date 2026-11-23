@@ -56,6 +56,7 @@ export function createConnectionController({ state, renderConversation, loadDeta
     streamRunId = undefined;
     eventStreamTaskId = undefined;
     eventStreamRunId = undefined;
+    eventStreamKeys = new Set();
     if (!taskId) return;
     // Inactive tasks are reconstructed from their persisted runtime log. A
     // replay here races the detail request and can append the same history
@@ -169,6 +170,7 @@ export function createConnectionController({ state, renderConversation, loadDeta
     eventStream = undefined;
     eventStreamTaskId = undefined;
     eventStreamRunId = undefined;
+    eventStreamKeys = new Set();
     clearTimeout(detailRefreshTimer);
     detailRefreshTimer = undefined;
     if (renderFrame !== undefined) cancelAnimationFrame(renderFrame);

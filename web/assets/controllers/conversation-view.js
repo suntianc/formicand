@@ -14,10 +14,30 @@ import { resolveArtifactLink } from "../artifacts.js";
 import { escapeHtml as esc } from "../ui/html.js";
 import { icon } from "../ui/icons.js";
 import { executionElapsedMs } from "../execution-time.js";
-import { reconcileParts } from "../ui/reconcile.js";
+import { reconcileParts, reconcileRange } from "../ui/reconcile.js";
 import { animate } from "../ui/motion.js";
 import { createStreamReveal } from "../ui/stream-reveal.js";
 import { contextWindowDividers } from "../ui/context-window.js";
+import { fingerprint } from "../ui/fingerprint.js";
+
+const VIRTUALIZE_THRESHOLD = 24;
+const RECENT_LIVE_EXCHANGES = 12;
+const VIRTUAL_OVERSCAN = 6;
+const VIRTUAL_HYSTERESIS = 2;
+
+const estimateUserHeight = (text) =>
+  Math.max(52, Math.min(480, 44 + Math.ceil(Math.max(1, text.length) / 42) * 22));
+const estimateMainHeight = (text) => Math.max(140, Math.min(2800, Math.round(110 + text.length * 0.48)));
+
+function queryInRoots(roots, selector) {
+  const results = [];
+  for (const root of roots) {
+    if (!root || root.nodeType !== 1) continue;
+    if (root.matches?.(selector)) results.push(root);
+    if (root.querySelectorAll) for (const node of root.querySelectorAll(selector)) results.push(node);
+  }
+  return results;
+}
 
 const reducedMotion = () => {
   const preference = globalThis.window?.atriaPreferences?.motion?.();
@@ -313,6 +333,180 @@ export function createConversationView({
   }
   let historyMarkup = new Map();
   let renderedEditTask;
+  // Memoized history context so streaming frames do not rescan runtimeEvents
+  // or serialize artifacts/coordination/jobs on every delta.
+  let cachedContext;
+  // Long-conversation shell virtualization state (active only past threshold).
+  let virtualTaskId;
+  let virtualActive = false;
+  let virtualWindow = { start: 0, end: -1 };
+  let measuredHeights = new Map();
+  let scrollSyncFrame;
+  let scrollListenerBound = false;
+
+  const isCallbackEvent = (record) =>
+    (record?.type === "runtime_event" ? record.payload : record)?.message?.customType === "cowork-callback";
+
+  function computeHistoryContext(taskId, detail, windows) {
+    const events = detail?.runtimeEvents;
+    const prev = cachedContext;
+    const sameInputs =
+      prev &&
+      prev.taskId === taskId &&
+      prev.conversationVersion === detail?.conversationVersion &&
+      prev.storageRoot === detail?.storageRoot &&
+      prev.workspaceRoot === detail?.workspaceRoot &&
+      prev.artifacts === detail?.artifacts &&
+      prev.humanRequests === detail?.humanRequests &&
+      prev.editableMessage === detail?.editableMessage &&
+      prev.coordination === detail?.coordination &&
+      prev.progress === detail?.progress &&
+      prev.jobs === detail?.jobs &&
+      prev.windows === windows;
+    if (sameInputs && events === prev.eventsRef && (events?.length ?? 0) >= prev.eventsLen) {
+      let appendedCallbacks = false;
+      for (let index = prev.eventsLen; index < (events?.length ?? 0); index += 1) {
+        if (isCallbackEvent(events[index])) {
+          prev.callbacks.push(events[index]);
+          appendedCallbacks = true;
+        }
+      }
+      prev.eventsLen = events?.length ?? 0;
+      if (!appendedCallbacks) return prev.value;
+    }
+    const callbacks = Array.isArray(events) ? events.filter(isCallbackEvent) : [];
+    const value = fingerprint([
+      taskId,
+      detail?.conversationVersion,
+      detail?.storageRoot,
+      detail?.workspaceRoot,
+      detail?.artifacts,
+      detail?.humanRequests,
+      detail?.editableMessage,
+      detail?.coordination,
+      detail?.progress,
+      detail?.jobs,
+      windows.map((window) => window.id),
+      callbacks
+    ]);
+    cachedContext = {
+      taskId,
+      conversationVersion: detail?.conversationVersion,
+      storageRoot: detail?.storageRoot,
+      workspaceRoot: detail?.workspaceRoot,
+      artifacts: detail?.artifacts,
+      humanRequests: detail?.humanRequests,
+      editableMessage: detail?.editableMessage,
+      coordination: detail?.coordination,
+      progress: detail?.progress,
+      jobs: detail?.jobs,
+      windows,
+      eventsRef: events,
+      eventsLen: events?.length ?? 0,
+      callbacks,
+      value
+    };
+    return value;
+  }
+
+  function measureRenderedExchanges(scroll, previous) {
+    if (!previous?.exchangeKeys?.length) return;
+    let offset = previous.exchangePartOffset;
+    for (let index = 0; index < previous.exchangeKeys.length; index += 1) {
+      const count = previous.counts[previous.exchangePartOffset + index] ?? 0;
+      if (count > 0 && !previous.exchangeVirtualized[index]) {
+        let userH = 0;
+        let mainH = 0;
+        let sawHeight = false;
+        for (let step = 0; step < count; step += 1) {
+          const node = scroll.childNodes[offset + step];
+          if (!node || node.nodeType !== 1 || node.classList?.contains("is-virtual-shell")) continue;
+          const height = node.offsetHeight || 0;
+          if (height <= 0) continue;
+          sawHeight = true;
+          if (node.classList.contains("user")) userH += height;
+          else mainH += height;
+        }
+        if (sawHeight) {
+          const key = previous.exchangeKeys[index];
+          const existing = measuredHeights.get(key);
+          measuredHeights.set(key, {
+            userH: userH || existing?.userH || 0,
+            mainH: mainH || existing?.mainH || 0
+          });
+        }
+      }
+      offset += count;
+    }
+  }
+
+  function findVisibleExchangeRange(scroll, previous) {
+    const total = previous?.exchangeKeys?.length ?? 0;
+    if (!total || !(scroll.clientHeight > 0)) return undefined;
+    const viewTop = scroll.scrollTop || 0;
+    const viewBottom = viewTop + scroll.clientHeight;
+    let firstVisible = -1;
+    let lastVisible = -1;
+    let offset = previous.exchangePartOffset;
+    for (let index = 0; index < total; index += 1) {
+      const count = previous.counts[previous.exchangePartOffset + index] ?? 0;
+      let top = Infinity;
+      let bottom = -Infinity;
+      for (let step = 0; step < count; step += 1) {
+        const node = scroll.childNodes[offset + step];
+        if (!node || node.nodeType !== 1) continue;
+        const nodeTop = node.offsetTop;
+        const nodeHeight = node.offsetHeight || 0;
+        if (typeof nodeTop !== "number") continue;
+        if (nodeTop < top) top = nodeTop;
+        if (nodeTop + nodeHeight > bottom) bottom = nodeTop + nodeHeight;
+      }
+      if (bottom >= viewTop && top <= viewBottom) {
+        if (firstVisible < 0) firstVisible = index;
+        lastVisible = index;
+      } else if (firstVisible >= 0 && top > viewBottom) {
+        break;
+      }
+      offset += count;
+    }
+    if (firstVisible < 0) return undefined;
+    return { firstVisible, lastVisible };
+  }
+
+  function bindVirtualScroll(scroll) {
+    if (scrollListenerBound || !scroll?.addEventListener) return;
+    scrollListenerBound = true;
+    scroll.addEventListener(
+      "scroll",
+      () => {
+        if (!virtualActive || scrollSyncFrame !== undefined) return;
+        const schedule = globalThis.requestAnimationFrame || ((fn) => setTimeout(fn, 0));
+        scrollSyncFrame = schedule(() => {
+          scrollSyncFrame = undefined;
+          if (!virtualActive || !lastRender || !lastRenderArgs) return;
+          if (state.selected !== lastRenderArgs.task?.taskId) return;
+          const visible = findVisibleExchangeRange(scroll, lastRender);
+          if (!visible) return;
+          const total = lastRender.exchangeKeys.length;
+          // Only re-render when the visible area approaches the edge of the
+          // already-hydrated window (hysteresis prevents boundary thrashing).
+          const nearStart =
+            visible.firstVisible < virtualWindow.start + VIRTUAL_HYSTERESIS && virtualWindow.start > 0;
+          const nearEnd =
+            visible.lastVisible > virtualWindow.end - VIRTUAL_HYSTERESIS && virtualWindow.end < total - 1;
+          const outside =
+            visible.firstVisible > virtualWindow.end || visible.lastVisible < virtualWindow.start;
+          if (!nearStart && !nearEnd && !outside) return;
+          const nextStart = Math.max(0, visible.firstVisible - VIRTUAL_OVERSCAN);
+          const nextEnd = Math.min(total - 1, visible.lastVisible + VIRTUAL_OVERSCAN);
+          if (nextStart === virtualWindow.start && nextEnd === virtualWindow.end) return;
+          virtualWindow = { start: nextStart, end: nextEnd };
+          renderConversation(lastRenderArgs.messages, lastRenderArgs.task, { virtualScroll: true });
+        });
+      },
+      { passive: true }
+    );
+  }
   // The newest message sent from this page that the view has already scrolled
   // to. Sending scrolls to the end once; after that the reader's position
   // decides, so scrolling up while a reply streams is not pulled back (#24).
@@ -473,9 +667,20 @@ export function createConversationView({
       liveClockTimer = setInterval(tick, 1000);
   }
 
-  function renderConversation(messages, task, { preserveScroll: keepScroll = false } = {}) {
+  function renderConversation(
+    messages,
+    task,
+    { preserveScroll: keepScroll = false, virtualScroll = false } = {}
+  ) {
     lastRenderArgs = { messages, task };
     const scroll = $("#conversation");
+    bindVirtualScroll(scroll);
+    if (virtualTaskId !== task.taskId) {
+      virtualTaskId = task.taskId;
+      virtualActive = false;
+      virtualWindow = { start: 0, end: -1 };
+      measuredHeights = new Map();
+    }
     // Capture live blocks as well as saved history, including before an empty
     // conversation replaces this task. Keys include the task and request.
     for (const history of scroll.querySelectorAll(".execution-history"))
@@ -541,6 +746,7 @@ export function createConversationView({
     );
     const paused = task.status === "paused" ? task.pause || {} : undefined;
     if (!all.length && !failure && !paused && !messageEdit?.editingMessageId) {
+      virtualActive = false;
       if (state.detail?.loading) {
         $("#conversation").replaceChildren();
         lastRender = undefined;
@@ -563,38 +769,88 @@ export function createConversationView({
       (state.selected === task.taskId &&
         (editing || (renderedEditTask === task.taskId && !state.detail?.runtime?.active)));
     const previousScrollTop = scroll.scrollTop || 0;
+    const previous =
+      lastRender?.taskId === task.taskId &&
+      scroll.childNodes.length === lastRender.counts.reduce((sum, count) => sum + count, 0)
+        ? lastRender
+        : undefined;
+    const virtualizeEnabled = exchanges.length > VIRTUALIZE_THRESHOLD;
+    virtualActive = virtualizeEnabled;
+    // Measure currently rendered exchanges before any of them dehydrate so their
+    // virtual shells preserve exact pixel height and scrolling never jumps.
+    if (virtualizeEnabled && previous) measureRenderedExchanges(scroll, previous);
+    // Capture a visible viewport anchor before virtual scroll hydration so any
+    // height delta above the viewport keeps the reader's line stationary.
+    let scrollAnchorNode;
+    let scrollAnchorTop;
+    if (virtualScroll && scroll.clientHeight > 0 && previousScrollTop > 0) {
+      for (const child of scroll.childNodes) {
+        if (child.nodeType !== 1) continue;
+        if ((child.offsetTop ?? 0) + (child.offsetHeight ?? 0) > previousScrollTop) {
+          scrollAnchorNode = child;
+          scrollAnchorTop = child.offsetTop;
+          break;
+        }
+      }
+    }
     let inlineEditorRendered = false;
     const nextHistoryMarkup = new Map();
+    const exchangeKeys = [];
+    const exchangeVirtualized = [];
     // Only settled historical exchanges can be reused. Current/retry/edit state
-    // remains live, and replaced history is checked by value, not array identity.
-    const historyContext = JSON.stringify([
-      task.taskId,
-      state.detail?.conversationVersion,
-      state.detail?.storageRoot,
-      state.detail?.workspaceRoot,
-      state.detail?.artifacts,
-      state.detail?.humanRequests,
-      state.detail?.editableMessage,
-      state.detail?.coordination,
-      state.detail?.progress,
-      state.detail?.jobs,
-      windows.map((window) => window.id),
-      state.detail?.runtimeEvents?.filter(
-        (record) =>
-          (record.type === "runtime_event" ? record.payload : record)?.message?.customType ===
-          "cowork-callback"
-      )
-    ]);
+    // remains live, and replaced history is checked by compact structural hash.
+    const historyContext = computeHistoryContext(task.taskId, state.detail, windows);
+    const recentStart = Math.max(0, exchanges.length - RECENT_LIVE_EXCHANGES);
     const parts = exchanges.map((exchange, exchangeIndex) => {
       const isCurrent = exchangeIndex === currentExchangeIndex;
       const cacheKey = `${task.taskId}:${exchange.key}`;
+      exchangeKeys.push(cacheKey);
       const historyOpen = hasOpenHistory(cacheKey);
       const cacheable =
         !isCurrent && !editing && !exchange.awaitingDelivery && !exchange.continued && !historyOpen;
+      const inLiveWindow =
+        !virtualizeEnabled ||
+        exchangeIndex >= recentStart ||
+        (exchangeIndex >= virtualWindow.start && exchangeIndex <= virtualWindow.end);
+      const canVirtualize =
+        cacheable &&
+        !inLiveWindow &&
+        !exchange.messages.some(
+          (message) =>
+            windowDividers.has(message) ||
+            (message.role === "user" && answeredRequestFor(message, state.detail?.humanRequests))
+        );
+      if (canVirtualize) {
+        const execution = exchangeExecutionState(exchange.events);
+        const interrupted = ["cancelled", "failed", "paused", "waiting"].includes(execution.terminal);
+        const finalIndex = interrupted ? -1 : finalAnswerIndex(exchange.messages, state.detail, false);
+        if (finalIndex >= 0) {
+          exchangeVirtualized.push(true);
+          const measured = measuredHeights.get(cacheKey);
+          const userIndex = exchange.messages.findIndex(
+            (message) =>
+              message.role === "user" &&
+              !(message.delivery === "followUp" && message.pending) &&
+              visibleText(message.content).trim()
+          );
+          const userMessage = userIndex >= 0 ? exchange.messages[userIndex] : undefined;
+          const finalMessage = exchange.messages[finalIndex];
+          const userH = userMessage
+            ? measured?.userH || estimateUserHeight(visibleText(userMessage.content))
+            : 0;
+          const mainH = measured?.mainH || estimateMainHeight(visibleText(finalMessage.content));
+          const userShell = userMessage
+            ? `<article class="chat-message user is-virtual-shell" data-view-key="${esc(`${cacheKey}:user:${userMessage.id || userIndex}`)}" data-virtual-exchange="${exchangeIndex}" style="min-height:${userH}px"></article>`
+            : "";
+          const mainShell = `<article class="chat-message main is-virtual-shell" data-answer-kind="final" data-virtual-exchange="${exchangeIndex}"${finalMessage.id ? ` data-message-id="${esc(finalMessage.id)}"` : ""} style="min-height:${mainH}px"></article>`;
+          return `${userShell}${mainShell}`;
+        }
+      }
+      exchangeVirtualized.push(false);
       const elapsed = cacheable ? executionElapsedMs(exchange.events, state.detail?.events) : undefined;
       const cached = historyMarkup.get(cacheKey);
       // The append-only projector retains historical exchange identities.
-      // Avoid serializing their unchanged events on every streamed delta.
+      // Avoid traversing their unchanged events on every streamed delta.
       if (
         cacheable &&
         cached?.context === historyContext &&
@@ -605,7 +861,7 @@ export function createConversationView({
         nextHistoryMarkup.set(cacheKey, cached);
         return cached.markup;
       }
-      const signature = cacheable ? JSON.stringify([exchange, elapsed, historyOpen]) : undefined;
+      const signature = cacheable ? fingerprint([exchange, elapsed, historyOpen]) : undefined;
       if (cacheable && cached?.context === historyContext && cached.signature === signature) {
         nextHistoryMarkup.set(cacheKey, { ...cached, exchange });
         return cached.markup;
@@ -681,6 +937,7 @@ export function createConversationView({
       return rendered;
     });
     historyMarkup = nextHistoryMarkup;
+    const exchangePartOffset = windowDividers.has(undefined) ? 1 : 0;
     if (windowDividers.has(undefined)) parts.unshift(windowDividers.get(undefined));
     // A restored edit can outlive its message after another window branches
     // the conversation. Keep its draft reachable for cancellation or recovery.
@@ -692,25 +949,59 @@ export function createConversationView({
         ? `<article class="chat-message user is-editing" data-view-key="${esc(`${task.taskId}:restored-edit`)}"><div class="message-copy"><div class="user-message-bubble">${restoredEditor}${messageEdit.actions?.(task.taskId, messageEdit.editingMessageId) || ""}</div></div></article>`
         : "") + (failure ? renderFailure(task, failure) : "")
     );
-    // A streamed delta changes the last exchange only. Patch from the first
-    // part that differs; everything before it stays as it is in the page.
-    // Anything else that touched the list (another task, an empty state)
-    // shows as a node count that no longer adds up, and gets a full patch.
-    const previous =
-      lastRender?.taskId === task.taskId &&
-      scroll.childNodes.length === lastRender.counts.reduce((sum, count) => sum + count, 0)
-        ? lastRender
-        : undefined;
-    let first = 0;
-    if (previous)
-      while (first < parts.length && first < previous.parts.length && parts[first] === previous.parts[first])
-        first += 1;
-    if (!previous || first < parts.length || parts.length !== previous.parts.length) {
-      const kept = previous ? previous.counts.slice(0, first) : [];
-      const offset = kept.reduce((sum, count) => sum + count, 0);
-      const counts = reconcileParts(scroll, parts.slice(kept.length), scroll.childNodes[offset] ?? null);
-      lastRender = { taskId: task.taskId, parts, counts: [...kept, ...counts] };
-      animateArrivals(scroll, task.taskId);
+    const partSignatures = parts.map((part) => fingerprint(part));
+    let changed = false;
+    let bindRoots = [];
+    let nextCounts;
+    if (previous && parts.length === previous.partSignatures.length) {
+      // Patch only the exact part indices whose markup changed. Expanding an
+      // earlier round or hydrating/dehydrating virtual shells stays O(1) in DOM work.
+      nextCounts = [...previous.counts];
+      let offset = 0;
+      for (let index = 0; index < parts.length; index += 1) {
+        if (partSignatures[index] === previous.partSignatures[index]) {
+          offset += nextCounts[index];
+          continue;
+        }
+        changed = true;
+        const { count, nodes } = reconcileRange(scroll, parts[index], offset, nextCounts[index]);
+        nextCounts[index] = count;
+        offset += count;
+        bindRoots.push(...nodes);
+      }
+    } else {
+      let first = 0;
+      if (previous)
+        while (
+          first < parts.length &&
+          first < previous.partSignatures.length &&
+          partSignatures[first] === previous.partSignatures[first]
+        )
+          first += 1;
+      if (!previous || first < parts.length || parts.length !== previous.partSignatures.length) {
+        changed = true;
+        const kept = previous ? previous.counts.slice(0, first) : [];
+        const offset = kept.reduce((sum, count) => sum + count, 0);
+        const counts = reconcileParts(scroll, parts.slice(kept.length), scroll.childNodes[offset] ?? null);
+        nextCounts = [...kept, ...counts];
+        if (!previous) bindRoots = [scroll];
+        else {
+          for (let index = offset; index < scroll.childNodes.length; index += 1)
+            bindRoots.push(scroll.childNodes[index]);
+        }
+      }
+    }
+    if (changed) {
+      lastRender = {
+        taskId: task.taskId,
+        partSignatures,
+        counts: nextCounts,
+        exchangeKeys,
+        exchangeVirtualized,
+        exchangePartOffset
+      };
+      if (!virtualScroll && (!previous || parts.length !== previous.partSignatures.length))
+        animateArrivals(scroll, task.taskId);
       streamReveal.apply(scroll);
       syncLiveClocks(scroll);
       const ownsRecovery = () => state.selected === task.taskId && state.detail?.task?.taskId === task.taskId;
@@ -718,14 +1009,14 @@ export function createConversationView({
         ["[data-edit-message]", () => edit?.(task.taskId, state.detail?.editableMessage)],
         ["[data-retry-request]", () => retry?.(task.taskId)]
       ]) {
-        const node = scroll.querySelector(selector);
+        const node = queryInRoots(bindRoots, selector)[0];
         if (!node || boundNodes.has(node)) continue;
         boundNodes.add(node);
         node.addEventListener("click", () => {
           if (ownsRecovery()) action();
         });
       }
-      const detailsButton = scroll.querySelector("[data-error-details]");
+      const detailsButton = queryInRoots(bindRoots, "[data-error-details]")[0];
       if (detailsButton && !boundNodes.has(detailsButton)) {
         boundNodes.add(detailsButton);
         detailsButton.addEventListener("click", () => {
@@ -738,7 +1029,7 @@ export function createConversationView({
           else errorDetailsOpen.delete(task.taskId);
         });
       }
-      scroll.querySelectorAll("[data-message-artifact]").forEach((link) => {
+      queryInRoots(bindRoots, "[data-message-artifact]").forEach((link) => {
         if (boundNodes.has(link)) return;
         boundNodes.add(link);
         link.addEventListener("click", (event) => {
@@ -756,7 +1047,7 @@ export function createConversationView({
             openArtifact?.(path);
         });
       });
-      scroll.querySelectorAll("details[data-activity-key]").forEach((node) => {
+      queryInRoots(bindRoots, "details[data-activity-key]").forEach((node) => {
         const saved = activityStates.get(node.dataset.activityKey);
         if (saved) {
           node.open = saved.open;
@@ -787,7 +1078,7 @@ export function createConversationView({
             ?.focus?.({ preventScroll: true });
         }
       });
-      scroll.querySelectorAll(".execution-history").forEach((history) => {
+      queryInRoots(bindRoots, ".execution-history").forEach((history) => {
         const savedOpen = isHistoryOpenFor(history.dataset.historyKey);
         history.open = savedOpen;
         if (!boundNodes.has(history)) {
@@ -808,7 +1099,14 @@ export function createConversationView({
       const latestLocal = state.localMessages.at(-1);
       const sent = Boolean(latestLocal) && latestLocal !== followedLocal;
       followedLocal = latestLocal;
-      if (!preserveScroll && (wasAtEnd || sent)) scroll.scrollTop = scroll.scrollHeight;
+      if (virtualScroll) {
+        if (scrollAnchorNode?.isConnected && typeof scrollAnchorTop === "number") {
+          const delta = (scrollAnchorNode.offsetTop ?? scrollAnchorTop) - scrollAnchorTop;
+          if (delta !== 0) scroll.scrollTop = previousScrollTop + delta;
+        }
+      } else if (!preserveScroll && (wasAtEnd || sent)) {
+        scroll.scrollTop = scroll.scrollHeight;
+      }
     }
     messageEdit?.bind(scroll, task.taskId);
     if (preserveScroll) scroll.scrollTop = previousScrollTop;
