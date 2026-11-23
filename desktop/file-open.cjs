@@ -67,10 +67,13 @@ const QUERY = `function run(argv) {
   });
 }`;
 
+/** Sentinel appId for revealing the file directly in macOS Finder. */
+const FINDER_ID = "finder";
+
 /**
  * The desktop's "Open with" for one previewed file. The renderer never names
  * a path or a program: the file comes from the backend and the application
- * must be one this module listed for that file.
+ * must be one this module listed for that file (or the built-in Finder reveal).
  */
 function createFileOpener({ shell, nativeImage, platform = process.platform, execute = run }) {
   const iconCache = new Map();
@@ -113,8 +116,12 @@ function createFileOpener({ shell, nativeImage, platform = process.platform, exe
     return { apps: await Promise.all(apps.map(async (entry) => ({ ...entry, icon: await icon(entry.id) }))) };
   }
 
-  /** Opens with the default app when `appId` is empty, otherwise with that listed app. */
+  /** Reveals in Finder for `finder`, opens with the default app when empty, else that listed app. */
   async function open(absolutePath, appId) {
+    if (appId === FINDER_ID) {
+      shell.showItemInFolder(absolutePath);
+      return;
+    }
     if (!appId) {
       const failure = await shell.openPath(absolutePath);
       if (failure) throw new Error(failure);
@@ -129,4 +136,4 @@ function createFileOpener({ shell, nativeImage, platform = process.platform, exe
   return { list, open };
 }
 
-module.exports = { createFileOpener, EDITORS, TERMINALS };
+module.exports = { createFileOpener, EDITORS, TERMINALS, FINDER_ID };

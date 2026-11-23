@@ -3,99 +3,80 @@ import { icon } from "../ui/icons.js";
 import { ui } from "../ui/language.js";
 import { escapeHtml as esc } from "../ui/html.js";
 
-const CHOICE_KEY = "coworkos.open-with.";
+const FINDER_ID = "finder";
 
-/** The file type a remembered choice belongs to: its extension, or its whole name. */
-function fileType(path) {
-  const name = String(path).split("/").at(-1) || "";
-  const dot = name.lastIndexOf(".");
-  return (dot > 0 ? name.slice(dot + 1) : name).toLowerCase();
-}
-
-function remembered(path) {
-  try {
-    return localStorage.getItem(CHOICE_KEY + fileType(path));
-    // eslint-disable-next-line no-restricted-syntax -- storage can be blocked; the default application is used instead
-  } catch {
-    return null;
-  }
-}
-
-function remember(path, appId) {
-  try {
-    localStorage.setItem(CHOICE_KEY + fileType(path), appId);
-    // eslint-disable-next-line no-restricted-syntax -- storage can be blocked; the choice is then only not kept
-  } catch {
-    /* the next open starts from the default application again */
-  }
+/**
+ * Crisp inline macOS Finder squircle icon. Rendering inline SVG keeps the main
+ * Open button completely fixed across file switches with zero IPC wait or image
+ * decode flicker, while per-file apps load quietly in the background for the menu.
+ */
+function finderIcon() {
+  return (
+    '<svg class="open-with-icon open-with-finder" viewBox="0 0 18 18" fill="none" aria-hidden="true" focusable="false">' +
+    '<rect x="1" y="1" width="16" height="16" rx="4" fill="#2B93F7"/>' +
+    '<path d="M9.6 1H13a4 4 0 0 1 4 4v8a4 4 0 0 1-4 4H9.4c-1.15-2.6-1.45-5.35-.75-7.75h1.55C9.45 6.45 9.35 3.65 9.6 1Z" fill="#EAF4FF"/>' +
+    '<path d="M9.55 1.15c-.25 2.5-.15 5.25.6 8.05H8.6c-.7 2.4-.4 5.15.75 7.65" stroke="#1B6FD0" stroke-width="0.9" stroke-linecap="round" stroke-linejoin="round"/>' +
+    '<path d="M5.75 5.9v1.85M12.25 5.9v1.85" stroke="#183A63" stroke-width="1.35" stroke-linecap="round"/>' +
+    '<path d="M5.35 11.45c1.1 1.1 2.35 1.65 3.65 1.65s2.55-.55 3.65-1.65" stroke="#183A63" stroke-width="1.25" stroke-linecap="round"/>' +
+    "</svg>"
+  );
 }
 
 /**
- * The preview's "Open" split button, desktop only: the main half opens the
- * file with the application last chosen for its type (the system default at
- * first), the arrow lists the applications installed on this Mac that can
- * open it. The page names only the session, source and path; the host
- * resolves the file and accepts only an application it listed for it.
+ * The preview's "Open" split button, desktop only: the main half is fixed to
+ * Finder (revealing the file without flickering across file switches), and the
+ * arrow lists the applications installed on this Mac that can open it, loaded
+ * quietly in the background.
  */
-export function createOpenWith({ bridge, showToast, onChange }) {
+export function createOpenWith({ bridge, showToast }) {
   const lists = new Map();
   let menu, panel, current;
+  let openTicket = 0;
 
   function key(taskId, target) {
     return JSON.stringify([taskId, target.source, target.path, target.developmentId ?? ""]);
   }
 
-  /** The listed applications, loading them once per file. */
-  function apps(taskId, target) {
+  /** Starts loading the file's applications once in the background without redrawing the button. */
+  function loadApps(taskId, target) {
     const id = key(taskId, target);
-    const entry = lists.get(id);
-    if (entry) return entry;
-    const pending = { status: "loading", apps: [] };
-    lists.set(id, pending);
-    bridge
+    const existing = lists.get(id);
+    if (existing && existing.status !== "error") return existing;
+    const entry = { status: "loading", apps: [], promise: null };
+    entry.promise = bridge
       .apps(taskId, target)
       .then((result) => {
-        if (lists.get(id) !== pending) return;
-        lists.set(id, { status: "ready", apps: Array.isArray(result?.apps) ? result.apps : [] });
-        onChange();
+        const ready = { status: "ready", apps: Array.isArray(result?.apps) ? result.apps : [] };
+        if (lists.get(id) === entry) lists.set(id, ready);
+        return ready;
       })
-      // eslint-disable-next-line no-restricted-syntax -- without a list the main button still opens with the default application, and opening reports its own failure
+      // eslint-disable-next-line no-restricted-syntax -- a failed lookup still lets Finder open the file and retries on the next menu click
       .catch(() => {
-        if (lists.get(id) !== pending) return;
-        lists.set(id, { status: "error", apps: [] });
-        onChange();
+        const failed = { status: "error", apps: [] };
+        if (lists.get(id) === entry) lists.set(id, failed);
+        return failed;
       });
-    return pending;
-  }
-
-  /** The application the main button uses: the remembered one while it is still listed. */
-  function chosen(target, listed) {
-    const saved = remembered(target.path);
-    return (
-      (saved ? listed.find((entry) => entry.id === saved && entry.kind !== "default") : undefined) ??
-      listed.find((entry) => entry.kind === "default")
-    );
+    lists.set(id, entry);
+    return entry;
   }
 
   function appIcon(entry) {
     return entry?.icon
-      ? `<img class="open-with-icon" src="${esc(entry.icon)}" alt="" draggable="false" />`
+      ? `<img class="open-with-icon" src="${esc(entry.icon)}" alt="" decoding="sync" draggable="false" />`
       : icon("open-app");
   }
 
   /** The split button, or nothing outside the desktop or without a file. */
   function markup(taskId, target) {
     if (!bridge || !target) return "";
-    const listed = apps(taskId, target);
-    const app = chosen(target, listed.apps);
-    const label = app ? `${ui("打开")} · ${app.name}` : ui("用系统默认应用打开");
+    // Warm the app list in the background so opening the menu is instant.
+    loadApps(taskId, target);
+    const label = ui("在访达中显示");
     return `<div class="drawer-open-with"><button type="button" class="drawer-action drawer-open-main" data-open-main title="${esc(
       label
-    )}" aria-label="${esc(label)}">${appIcon(app)}<span>${ui("打开")}</span></button><button type="button" class="drawer-action is-icon drawer-open-more" data-open-more aria-haspopup="menu" aria-expanded="false" aria-label="${ui(
+    )}" aria-label="${esc(label)}">${finderIcon()}<span>${ui("打开")}</span></button><button type="button" class="drawer-action is-icon drawer-open-more" data-open-more aria-haspopup="menu" aria-expanded="false" aria-label="${ui(
       "选择打开方式"
-    )}" title="${ui("选择打开方式")}"${listed.status === "ready" && listed.apps.length ? "" : " disabled"}>${icon(
-      "chevron-down"
-    )}</button></div>`;
+    )}" title="${ui("选择打开方式")}">${icon("chevron-down")}</button></div>`;
   }
 
   async function open(taskId, target, appId) {
@@ -156,45 +137,51 @@ export function createOpenWith({ bridge, showToast, onChange }) {
       if (appId === undefined || !current) return;
       const { taskId, target } = current;
       menu.close(true);
-      remember(target.path, appId);
-      onChange();
       void open(taskId, target, appId);
     });
+  }
+
+  function showMenu(trigger, taskId, target, appsList) {
+    ensureMenu(trigger);
+    current = { taskId, target };
+    fill(appsList);
+    menu.open();
+    const anchor = trigger.getBoundingClientRect(),
+      { width, height } = panel.getBoundingClientRect();
+    panel.style.left = `${Math.max(8, Math.min(anchor.right - width, innerWidth - width - 8))}px`;
+    panel.style.top = `${Math.max(8, Math.min(anchor.bottom + 4, innerHeight - height - 8))}px`;
   }
 
   /** Wires the button rendered by `markup` inside `container`. */
   function bind(container, taskId, target) {
     if (!bridge || !target) return;
     container.querySelector("[data-open-main]")?.addEventListener("click", () => {
-      const listed = lists.get(key(taskId, target));
-      void open(taskId, target, appIdOf(chosen(target, listed?.apps ?? [])));
+      void open(taskId, target, FINDER_ID);
     });
     const more = container.querySelector("[data-open-more]");
-    more?.addEventListener("click", () => {
-      const listed = lists.get(key(taskId, target));
-      if (!listed?.apps.length) return;
-      ensureMenu(more);
-      if (!panel.hidden) return menu.close(true);
-      current = { taskId, target };
-      fill(listed.apps);
-      menu.open();
-      const anchor = more.getBoundingClientRect(),
-        { width, height } = panel.getBoundingClientRect();
-      panel.style.left = `${Math.max(8, Math.min(anchor.right - width, innerWidth - width - 8))}px`;
-      panel.style.top = `${Math.max(8, Math.min(anchor.bottom + 4, innerHeight - height - 8))}px`;
+    more?.addEventListener("click", async () => {
+      if (panel && !panel.hidden) {
+        openTicket += 1;
+        menu.close(true);
+        return;
+      }
+      const ticket = ++openTicket;
+      const loaded = loadApps(taskId, target);
+      const resolved = loaded.status === "loading" ? await loaded.promise : loaded;
+      if (ticket !== openTicket || !more.isConnected || !resolved.apps.length) return;
+      showMenu(more, taskId, target, resolved.apps);
     });
   }
 
   return {
     markup,
     bind,
-    /** A stable mark of what the button shows, for the drawer's repaint check. */
+    /** Fixed button state: background app loading never forces a drawer repaint. */
     signature(taskId, target) {
-      if (!bridge || !target) return "";
-      const listed = lists.get(key(taskId, target));
-      return JSON.stringify([listed?.status, chosen(target, listed?.apps ?? [])?.id]);
+      return bridge && target ? FINDER_ID : "";
     },
     clear() {
+      openTicket += 1;
       lists.clear();
       menu?.close();
     }
