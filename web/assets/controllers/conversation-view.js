@@ -1,3 +1,4 @@
+import { atConversationEnd } from "./conversation-layout.js";
 import { createConversationActivityView, liveClockText } from "./conversation-activity-view.js";
 import { language, ui } from "../ui/language.js";
 import { confirmCopied, copyText } from "../ui/code-blocks.js";
@@ -490,7 +491,7 @@ export function createConversationView({
       renderedEditTask = undefined;
       return;
     }
-    const nearBottom = scroll.scrollHeight - scroll.scrollTop - scroll.clientHeight < 100;
+    const wasAtEnd = atConversationEnd(scroll);
     const editing = Boolean(messageEdit?.editingMessageId && state.selected === task.taskId);
     const preserveScroll =
       state.selected === task.taskId &&
@@ -738,7 +739,7 @@ export function createConversationView({
       const latestLocal = state.localMessages.at(-1);
       const sent = Boolean(latestLocal) && latestLocal !== followedLocal;
       followedLocal = latestLocal;
-      if (!preserveScroll && (nearBottom || sent)) scroll.scrollTop = scroll.scrollHeight;
+      if (!preserveScroll && (wasAtEnd || sent)) scroll.scrollTop = scroll.scrollHeight;
     }
     messageEdit?.bind(scroll, task.taskId);
     if (preserveScroll) scroll.scrollTop = previousScrollTop;

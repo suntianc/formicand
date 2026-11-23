@@ -192,7 +192,6 @@ export function registerMainLifecycle(
   /** Unsubscribe functions for this process's wake channel, one per session. */
   const wakeSubscriptions: Array<() => void> = [];
   let idleTimer: ReturnType<typeof setTimeout> | undefined;
-  let idleCheck: Promise<void> | undefined;
   let heartbeatTimer: ReturnType<typeof setInterval> | undefined;
   let mainTimeoutTimer: ReturnType<typeof setTimeout> | undefined;
   let lastMainMessage: unknown;
@@ -284,39 +283,25 @@ export function registerMainLifecycle(
    */
   const touchMainActivity = () => {
     stopMainIdleTimer();
-    if (!resident || mainIdleTimeoutMs <= 0) return;
-    idleTimer = setTimeout(() => void runIdleCheck(), mainIdleTimeoutMs);
-    idleTimer.unref();
+    if (!resident || turnActive || mainIdleTimeoutMs <= 0) return;
+    const timer = setTimeout(async () => {
+      const idle = await canExitWhenIdle();
+      // A new turn, Inbox wake or session close invalidates this check during its reads.
+      if (idleTimer !== timer) return;
+      if (idle) sessionContext?.shutdown();
+      else touchMainActivity();
+    }, mainIdleTimeoutMs);
+    idleTimer = timer.unref();
   };
-  const runIdleCheck = (): Promise<void> => {
-    idleCheck ??= (async () => {
-      // Re-arm first: a check that finds work simply leaves the next one set.
-      touchMainActivity();
-      if (inboxDelivery.queuedCount) return;
-      if (sessionContext?.hasPendingMessages()) return;
-      const pending = await coordinator
-        .waitForSubagents({ taskId, runId: mainRunId, workspaceRoot, timeoutMs: 0 })
-        // eslint-disable-next-line no-restricted-syntax -- 协作者队列读不到时按仍有工作在跑处理，宁可多留一会儿也不丢失等待中的回调
-        .catch(() => undefined);
-      if (!pending || pending.pending.length || pending.callbackPending.length) return;
-      const paused = await pausedNow();
-      // Work that arrived during a pause stays durable for the next Main; a
-      // paused Task is idle even while it has queued messages.
-      if (!paused) {
-        const ready = (await inboxDelivery.pending()).filter((message) => message.state !== "consumed");
-        if (ready.length) return;
-      }
-      // The exit preserves state: the session file, the Task and its Inbox
-      // stay on disk, and the next message or callback starts a Main again.
-      await new LocalWorkspaceStore(workspaceRoot)
-        .transitionTask(taskId, "waiting", { runId: mainRunId, reason: "main_idle_timeout" })
-        // eslint-disable-next-line no-restricted-syntax -- 状态转换失败不改变退出决定，退出的 Run 仍会由运行服务按空闲结束结算
-        .catch(() => {});
-      sessionContext?.shutdown();
-    })().finally(() => {
-      idleCheck = undefined;
-    });
-    return idleCheck;
+  const canExitWhenIdle = async () => {
+    if (inboxDelivery.queuedCount || sessionContext?.hasPendingMessages()) return false;
+    const pending = await coordinator
+      .waitForSubagents({ taskId, runId: mainRunId, workspaceRoot, timeoutMs: 0 })
+      // eslint-disable-next-line no-restricted-syntax -- 协作者队列读不到时按仍有工作在跑处理，宁可多留一会儿也不丢失等待中的回调
+      .catch(() => undefined);
+    if (!pending || pending.pending.length || pending.callbackPending.length) return false;
+    // A paused Task keeps its queued messages for the next Main.
+    return (await pausedNow()) || (await inboxDelivery.pending()).length === 0;
   };
   /**
    * Close the Run's interval in the durable event log at a settled turn.
@@ -346,15 +331,11 @@ export function registerMainLifecycle(
   };
 
   pi.on("agent_settled", async (_event, ctx) => {
+    const settlingTurn = turnId;
+    const failedTurn = lastMainMessage as { role?: string; stopReason?: string } | undefined;
+    const modelFailed = failedTurn?.role === "assistant" && failedTurn.stopReason === "error";
     try {
       sessionContext = ctx;
-      // A model request that failed ends this process and the Run service
-      // settles the Run as failed from the exit. Keep the turn record active
-      // until that exit: reporting the turn over here would show an idle Main
-      // while the Task is still running and about to be failed.
-      const failedTurn = lastMainMessage as { role?: string; stopReason?: string } | undefined;
-      turnActive = failedTurn?.role === "assistant" && failedTurn.stopReason === "error";
-      touchMainActivity();
       await persistSession(ctx);
       const replayOnly = replayWithoutNewContext();
       await inboxDelivery.settle(replayOnly ? [] : ctx.sessionManager.getEntries());
@@ -375,7 +356,7 @@ export function registerMainLifecycle(
         // service settles that Run from the exit, so this boundary records
         // nothing. A one-turn host has no backend to project that exit: its
         // failed turn is still settled here, as it always was.
-        if (resident && failedTurn?.role === "assistant" && failedTurn.stopReason === "error") {
+        if (resident && modelFailed) {
           ctx.shutdown();
           return;
         }
@@ -444,6 +425,11 @@ export function registerMainLifecycle(
     } catch (error) {
       ctx.ui.notify(`Task settlement hook failed: ${errorMessage(error)}`, "warning");
     } finally {
+      if (turnId === settlingTurn) {
+        // A model failure stays active until the backend settles the process exit.
+        turnActive = modelFailed;
+        touchMainActivity();
+      }
       // The durable turn record is what the next turn state is read from. It is
       // written after the boundary's Task status, so a reader never sees the
       // Task settled while the record still says a turn is running; a paused
@@ -464,7 +450,7 @@ export function registerMainLifecycle(
     turnActive = true;
     turnCount += 1;
     turnId = `${process.pid}-${turnCount}`;
-    touchMainActivity();
+    stopMainIdleTimer();
     // Tell any supervisor, and a backend that adopted this process, that the
     // Task has a turn running right now. A one-turn process reports liveness
     // on the regular interval only; its turn flag is not what is read.

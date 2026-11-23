@@ -35,6 +35,8 @@ export function installAttachmentPreview({ api, mediaUrl } = {}) {
   );
   panel.querySelector("[data-preview-image-close]").addEventListener("click", () => modal.close());
   const modal = createModal(panel, panel.querySelector("[data-preview-close]"), {
+    // A transformed card would anchor the fixed image and toolbar to the card during opening.
+    animateCard: false,
     onClose() {
       sequence++;
       request?.abort();

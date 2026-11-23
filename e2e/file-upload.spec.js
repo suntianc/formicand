@@ -44,7 +44,33 @@ for (const width of [1440, 900, 640])
       await page.reload();
       await expect(page.locator("#attachment-strip")).toContainText("截图.png");
       await expect(page.locator("#attachment-strip")).toContainText("示例.txt");
+      // Sample every painted frame from the click, including the opening animation.
+      const previewFrames = page.evaluate(
+        () =>
+          new Promise((resolve) => {
+            document.addEventListener(
+              "click",
+              () => {
+                const tools = document.querySelector("[data-preview-tools]");
+                const frames = [];
+                const start = performance.now();
+                const sample = () => {
+                  const box = tools.getBoundingClientRect();
+                  if (box.width)
+                    frames.push({ top: Math.round(box.top), right: Math.round(innerWidth - box.right) });
+                  if (performance.now() - start < 350) requestAnimationFrame(sample);
+                  else resolve(frames);
+                };
+                requestAnimationFrame(sample);
+              },
+              { capture: true, once: true }
+            );
+          })
+      );
       await page.locator("#attachment-strip [data-upload-preview]").nth(1).click();
+      const frames = await previewFrames;
+      expect(frames.length).toBeGreaterThan(0);
+      expect(frames.every(({ top, right }) => top === 16 && right === 16)).toBe(true);
       await expect(page.locator("[data-preview-content] img")).toBeVisible();
       await expect
         .poll(() => page.locator("[data-preview-content] img").evaluate((img) => img.naturalWidth))

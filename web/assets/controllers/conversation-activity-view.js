@@ -209,12 +209,13 @@ export function createConversationActivityView({ markdown, activityContext }) {
     const normalized = normalizeReasoningDisplay(reasoning, { streaming: !turn.done });
     const preview = reasoningPreview(normalized);
     const label = turn.interrupted ? ui("思考已停止") : turn.done ? ui("思考完成") : ui("思考中");
+    const stateClass = turn.done ? "reasoning-state" : "reasoning-state shimmer-text";
     const spinner = turn.done
       ? ""
       : `<span class="thinking-spinner ant-mark" data-thinking-key="${esc(key)}" aria-hidden="true">${antMarkSvg}</span>`;
     return `<div class="activity-step reasoning-step" data-view-key="${esc(key)}">
     <div class="activity-step-content">
-      ${preview ? `<details class="reasoning-details" data-activity-key="${esc(key)}"><summary>${spinner}<span class="reasoning-state${turn.done ? "" : " shimmer-text"}">${label}</span><span class="reasoning-preview">${esc(preview)}</span><span class="reasoning-chevron" aria-hidden="true">${icon("chevron-right")}</span></summary><div class="reasoning-copy markdown-body">${markdown(normalized)}</div>${original !== normalized || /\*\*|```/.test(original) ? ui`<details class="activity-raw" data-activity-key="${esc(`${key}:source`)}"><summary>原始内容</summary><pre class="activity-raw-copy">${esc(original)}</pre></details>` : ""}</details>` : `<div class="activity-step-head">${spinner}<strong>${label}</strong></div>`}
+      ${preview ? `<details class="reasoning-details" data-activity-key="${esc(key)}"><summary>${spinner}<span class="${stateClass}">${label}</span><span class="reasoning-preview">${esc(preview)}</span><span class="reasoning-chevron" aria-hidden="true">${icon("chevron-right")}</span></summary><div class="reasoning-copy markdown-body">${markdown(normalized)}</div>${original !== normalized || /\*\*|```/.test(original) ? ui`<details class="activity-raw" data-activity-key="${esc(`${key}:source`)}"><summary>原始内容</summary><pre class="activity-raw-copy">${esc(original)}</pre></details>` : ""}</details>` : `<div class="activity-step-head">${spinner}<strong class="${stateClass}">${label}</strong></div>`}
     </div>
   </div>`;
   }

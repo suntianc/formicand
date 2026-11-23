@@ -1291,6 +1291,17 @@ test("retry status is visible even before content arrives and clears after recov
   assert.equal(document.querySelector(".request-retry"), null);
 });
 
+test("only a user stop displays the stopped row when replaying a round", () => {
+  for (const reason of ["idle", "paused", "ui_stop"]) {
+    const { document, state, render } = fixture();
+    state.detail.runtime.active = false;
+    state.detail.task.status = "waiting";
+    state.detail.runtimeEvents.push({ type: "main.run_stopped", payload: { reason } });
+    render();
+    assert.equal(document.querySelector(".turn-stopped") !== null, reason === "ui_stop", reason);
+  }
+});
+
 test("cancelled earlier requests stay incomplete after a later request succeeds", () => {
   const { document, state, render } = fixture("cancel-history", "正在执行");
   const partial = { role: "assistant", content: "接下来将创建文稿。", stopReason: "toolUse", timestamp: 2 };

@@ -66,7 +66,7 @@ export async function startPerfDashboard() {
       chunk(response, {}, "tool_calls");
     } else if (step.stream) {
       for (const piece of step.stream) {
-        chunk(response, { content: piece });
+        chunk(response, { content: await piece });
         await new Promise((done) => setTimeout(done, step.interval ?? 16));
       }
       chunk(response, {}, "stop");

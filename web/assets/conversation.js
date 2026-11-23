@@ -56,7 +56,8 @@ export function exchangeExecutionState(events = []) {
   for (const record of events) {
     const event = record?.type === "runtime_event" ? record.payload : record;
     // The person stopped this round; whatever settles after it, it stays stopped.
-    if (event?.type === "main.run_stopped") stopped = { subagents: Number(event.payload?.subagents) || 0 };
+    if (event?.type === "main.run_stopped" && event.payload?.reason === "ui_stop")
+      stopped = { subagents: Number(event.payload.subagents) || 0 };
     if (event?.type === "auto_retry_start") retry = event;
     if (event?.type === "auto_retry_end") retry = undefined;
     if (/^main\.run_(completed|failed|paused|waiting|cancelled)$/.test(event?.type || "")) {

@@ -8,7 +8,7 @@ test("follow-up opens an assistant message before inference and animates each th
 }) => {
   test.setTimeout(90_000);
   let requestCount = 0;
-  const gates = [0, 1].map(() => {
+  const gates = [0, 1, 2].map(() => {
     let release;
     const promise = new Promise((resolve) => {
       release = resolve;
@@ -35,7 +35,9 @@ test("follow-up opens an assistant message before inference and animates each th
       send({ content: "第一轮回答已完成。" });
       send({}, "stop");
     } else if (current === 2) {
-      send({ reasoning_content: "先查看可用工具。" });
+      send({ reasoning_content: "**" });
+      await gates[2].promise;
+      send({ reasoning_content: "先查看可用工具。**" });
       await gates[0].promise;
       send({
         tool_calls: [
@@ -90,7 +92,16 @@ test("follow-up opens an assistant message before inference and animates each th
         .locator(".thinking-spinner .ant-head")
         .evaluate((el) => getComputedStyle(el).animationName)
     ).toBe("ant-crawl");
+    const thinkingSize = await pending
+      .getByText("思考中", { exact: true })
+      .evaluate((node) => getComputedStyle(node).fontSize);
     releaseSubmission();
+    const partialLabel = pending
+      .locator(".reasoning-step[data-view-key]")
+      .getByText("思考中", { exact: true });
+    await expect(partialLabel).toHaveCSS("font-size", thinkingSize);
+    gates[2].release();
+    await expect(pending.locator(".reasoning-details .reasoning-state")).toHaveCSS("font-size", thinkingSize);
     await expect(pending.locator(".reasoning-step")).toContainText("先查看可用工具。", { timeout: 30_000 });
     await expect(pending.locator(".reasoning-step .thinking-spinner")).toHaveCount(1);
     gates[0].release();

@@ -253,17 +253,29 @@ test(
 );
 
 test(
-  "AC2: idle timeout exits with state preserved, and the next message continues the same session",
+  "AC2: a long turn completes before idle exit, and the next message continues the same session",
   { timeout: 180_000 },
   async (t) => {
+    const responseGate = Promise.withResolvers();
     const f = await fixture(t, {
       idleTimeoutMs: 1_200,
-      handle: ({ response, requests }) => complete(response, `answer ${requests.length}`)
+      handle: async ({ response, requests }) => {
+        if (requests.length === 1) await responseGate.promise;
+        complete(response, `answer ${requests.length}`);
+      }
     });
     await f.createTask("resident-idle", "Idle resident");
     const first = await f.api("/api/tasks/resident-idle/run", { prompt: "IDLE_FIRST_INPUT" });
+    try {
+      await waitFor(() => f.requests.length === 1, "the running model request");
+      await delay(2_500); // Two idle windows pass while the first reply is still in flight.
+      assert.equal((await f.detail("resident-idle")).task.status, "running");
+    } finally {
+      responseGate.resolve();
+    }
     const settled = await f.settleTurn("resident-idle");
     assert.equal(settled.task.status, "completed");
+    assert.equal((await runEvents(f, "resident-idle", first.runId, "main.run_completed")).length, 1);
     const record = await f.mainRecord("resident-idle");
     assert.equal(alive(record.pid), true);
 

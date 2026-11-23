@@ -4,7 +4,7 @@ import { animate } from "./motion.js";
 /** Keep focus inside a shell dialog and return it to the control that opened it. */
 const openPanels = [];
 
-export function createModal(panel, closeButton, { onClose = () => {} } = {}) {
+export function createModal(panel, closeButton, { onClose = () => {}, animateCard = true } = {}) {
   let previousFocus;
   const controls = () =>
     [
@@ -65,7 +65,7 @@ export function createModal(panel, closeButton, { onClose = () => {} } = {}) {
       // Closing stays instant, so focus returns at once.
       animate(panel, [{ opacity: 0 }, { opacity: 1 }], { duration: 160, easing: "ease-out" });
       const card = panel.querySelector('[role="dialog"], .modal-card');
-      if (card)
+      if (card && animateCard)
         animate(
           card,
           [

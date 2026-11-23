@@ -199,7 +199,7 @@ CoworkOS 的免依赖版本入口由 [cli-information](../scripts/cli-informatio
 
 ### 运行、委派与恢复
 
-Main 进程的名额、启动及退出分别由[准入](../src/dashboard/main-run-admission.ts)、[进程启动](../src/dashboard/main-run-process.ts)和[常驻 Main 结算](../src/dashboard/resident-main-settlement.ts)处理。Pi 扩展的[生命周期](../.pi/runtime/main-lifecycle.ts)负责回合、收件箱唤醒、心跳与关闭，[后台作业](../.pi/runtime/main-jobs.ts)向 Main 报告作业完成。委派进程返回后，[子代理结算](../src/runtime/subagent-settlement.ts)解析结果、更新队列并向 Main 投递回调。
+Main 进程的名额、启动及退出分别由[准入](../src/dashboard/main-run-admission.ts)、[进程启动](../src/dashboard/main-run-process.ts)和[常驻 Main 结算](../src/dashboard/resident-main-settlement.ts)处理。Pi 扩展的[生命周期](../.pi/runtime/main-lifecycle.ts)负责回合、收件箱唤醒、心跳与回合结算后的空闲回收，[后台作业](../.pi/runtime/main-jobs.ts)向 Main 报告作业完成。委派进程返回后，[子代理结算](../src/runtime/subagent-settlement.ts)解析结果、更新队列并向 Main 投递回调。
 
 [任务生命周期](../src/dashboard/task-lifecycle.ts)负责任务完成、恢复、归档与删除的条件检查。它与 [Run 服务](../src/dashboard/run-service.ts)共用任务串行队列。Main 启动失败的 HTTP 回执见[产品 API](product-api.md)。
 

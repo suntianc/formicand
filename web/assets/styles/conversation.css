@@ -459,7 +459,7 @@ html[data-theme] .reasoning-details > summary:not(:has(.thinking-spinner))::befo
 html[data-theme] .reasoning-step .reasoning-state {
   flex: 0 0 auto;
   color: var(--color-text-2);
-  font-size: inherit;
+  font-size: var(--ui-type-control);
 }
 html[data-theme] .reasoning-details > summary .reasoning-preview {
   flex: 0 1 auto;

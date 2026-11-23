@@ -36,7 +36,7 @@ test("a reader scrolled up while a reply streams stays where they are", async ({
     await expect.poll(fromEnd).toBeLessThan(100);
 
     // While it streams, the reader scrolls up and stays there.
-    await expect(page.locator('.chat-message.main[aria-busy="true"]')).toContainText("第 10 段");
+    await expect(page.locator('.chat-message.main[aria-busy="true"]')).toContainText("第 0 段");
     await scroll.evaluate((node) => (node.scrollTop = 0));
     for (let step = 0; step < 8; step += 1) {
       await page.waitForTimeout(150);
@@ -46,6 +46,46 @@ test("a reader scrolled up while a reply streams stays where they are", async ({
     await expect(finals).toHaveCount(7);
     expect(await scroll.evaluate((node) => node.scrollTop)).toBeLessThan(10);
   } finally {
+    await local.stop();
+  }
+});
+
+test("small upward wheel scrolls pause streaming follow until the reader returns to the end", async ({
+  page
+}) => {
+  const local = await startPerfDashboard();
+  const whileReading = Promise.withResolvers();
+  const afterReturn = Promise.withResolvers();
+  try {
+    await createTask(page, local, { taskId: "wheel", goal: "阅读流式回复", projectId: local.projectId });
+    await page.goto(local.base);
+    await page.locator('[data-task="wheel"].conversation-item').click();
+    local.queue.push({ stream: [longReply(0), whileReading.promise, afterReturn.promise] });
+    await page.locator("#composer-input").fill("请输出长回复");
+    await page.locator("#send-button").click();
+    const scroll = page.locator("#conversation");
+    const height = () => scroll.evaluate((node) => node.scrollHeight);
+    const gap = () => scroll.evaluate((node) => node.scrollHeight - node.clientHeight - node.scrollTop);
+    await expect.poll(() => scroll.evaluate((node) => node.scrollTop)).toBeGreaterThan(500);
+    const box = await scroll.boundingBox();
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    const beforeWheel = await scroll.evaluate((node) => node.scrollTop);
+    await page.mouse.wheel(0, -36);
+    await expect.poll(gap).toBeGreaterThanOrEqual(35);
+    const firstHeight = await height();
+    whileReading.resolve("\n\n" + longReply(1));
+    await expect.poll(height).toBeGreaterThan(firstHeight + 100);
+    expect(await scroll.evaluate((node) => node.scrollTop)).toBeLessThan(beforeWheel);
+
+    await page.mouse.wheel(0, 8000);
+    await expect.poll(gap).toBeLessThanOrEqual(1);
+    const resumedHeight = await height();
+    afterReturn.resolve("\n\n" + longReply(2));
+    await expect.poll(height).toBeGreaterThan(resumedHeight + 100);
+    expect(await gap()).toBeLessThanOrEqual(1);
+  } finally {
+    whileReading.resolve("");
+    afterReturn.resolve("");
     await local.stop();
   }
 });

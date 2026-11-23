@@ -196,7 +196,7 @@ The conversation shows the current version without a history entry. [Main messag
 
 ### Execution, delegation and recovery
 
-Main Run ownership passes through [admission](../../src/dashboard/main-run-admission.ts), [process launch](../../src/dashboard/main-run-process.ts) and [resident Main settlement](../../src/dashboard/resident-main-settlement.ts). The [Pi lifecycle](../../.pi/runtime/main-lifecycle.ts) owns turns, inbox wakes, heartbeats and shutdown. [Main jobs](../../.pi/runtime/main-jobs.ts) reports job completion, and [subagent settlement](../../src/runtime/subagent-settlement.ts) reads delegated results, updates the queue and delivers callbacks.
+Main Run ownership passes through [admission](../../src/dashboard/main-run-admission.ts), [process launch](../../src/dashboard/main-run-process.ts) and [resident Main settlement](../../src/dashboard/resident-main-settlement.ts). The [Pi lifecycle](../../.pi/runtime/main-lifecycle.ts) owns turns, inbox wakes, heartbeats and idle shutdown after turn settlement. [Main jobs](../../.pi/runtime/main-jobs.ts) reports job completion, and [subagent settlement](../../src/runtime/subagent-settlement.ts) reads delegated results, updates the queue and delivers callbacks.
 
 [Task lifecycle operations](../../src/dashboard/task-lifecycle.ts) check the conditions for completing, resuming, archiving and deleting a task. They share the [Run service](../../src/dashboard/run-service.ts) task queue. The [product API](../product-api.md) describes the receipt for a failed Main launch.
 
