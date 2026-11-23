@@ -196,7 +196,11 @@ export function createRunControl({
     // Esc stops a working Main from the composer or the page itself, never
     // from inside a menu, dialog or field that has its own Escape.
     const focus = document.activeElement;
-    const fromComposer = !focus || focus === document.body || focus.id === "composer-input";
+    const fromComposer =
+      !focus ||
+      focus === document.body ||
+      focus.id === "composer-input" ||
+      focus.classList?.contains("composer-rich");
     const kind = phase()?.kind;
     if (
       !fromComposer ||

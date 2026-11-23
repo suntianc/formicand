@@ -1,15 +1,24 @@
 import { escapeHtml as esc } from "../ui/html.js";
 import { icon } from "../ui/icons.js";
+import {
+  agentIcon,
+  commandIcon,
+  fileTypeIcon,
+  promptIcon,
+  resourceIcon,
+  skillIcon
+} from "../ui/reference-icons.js";
 import { ui } from "../ui/language.js";
 import { findReferences, referenceToken } from "../references.js";
-import { createComposerHighlight } from "./composer-highlight.js";
+import { createComposerRichEditor } from "./composer-rich.js";
 
 /**
  * The composer's `/` and `@` menus. `/` offers skills (the message asks Main
  * to load one first), prompt templates (chosen, they become the words of the
- * draft) and commands; `@` offers project files and MCP resources. A choice
- * leaves its word in the draft — `/skill`, `@path`, `@server:uri` — and
- * `references()` turns the words back into what the message sends.
+ * draft) and commands; `@` offers project files, Agents and MCP resources. A
+ * choice leaves its canonical word in the draft — `/skill`, `@path`, `@agent`,
+ * `@server:uri` — rendered inline as a clean icon + name chip, and `references()`
+ * turns the words back into what the message sends.
  */
 
 const SOURCE_LABELS = {
@@ -68,6 +77,7 @@ export function createComposerMenu({ input, container, api, getProjectId, comman
   input.setAttribute("aria-autocomplete", "list");
 
   const known = { skills: new Set(), servers: new Set(), files: new Set(), agents: new Set() };
+  const resourceNames = new Map();
   const agentCache = new Map();
   const slashCache = new Map();
   let resourceCache;
@@ -76,7 +86,66 @@ export function createComposerMenu({ input, container, api, getProjectId, comman
   let active = 0;
   let fileTimer;
   let generation = 0;
-  const highlight = createComposerHighlight({ input, references: (text) => findReferences(text, known) });
+
+  function setAria(name, value) {
+    for (const target of [input, editor.element]) {
+      if (value === null) target.removeAttribute(name);
+      else target.setAttribute(name, value);
+    }
+  }
+
+  function handleMenuKeydown(event) {
+    if (event.isComposing) return false;
+    if (menu.hidden) {
+      if (event.key === "Backspace" && !event.altKey && !event.metaKey && !event.ctrlKey) {
+        return deleteWord(event);
+      }
+      return false;
+    }
+    const handled = () => {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+    };
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      handled();
+      if (!items.length) return true;
+      active = (active + (event.key === "ArrowDown" ? 1 : -1) + items.length) % items.length;
+      render();
+      return true;
+    }
+    if ((event.key === "Enter" && !event.shiftKey) || event.key === "Tab") {
+      if (!items.length) {
+        if (event.key !== "Tab") close();
+        return false;
+      }
+      handled();
+      choose(active);
+      return true;
+    }
+    if (event.key === "Escape") {
+      handled();
+      close();
+      return true;
+    }
+    return false;
+  }
+
+  const editor = createComposerRichEditor({
+    input,
+    references: (text) => findReferences(text, known),
+    resourceNames,
+    onTriggerUpdate: update,
+    onKeydown: handleMenuKeydown,
+    onBlur: scheduleBlurClose
+  });
+  editor.element.setAttribute("aria-controls", menu.id);
+  editor.element.setAttribute("aria-autocomplete", "list");
+
+  function scheduleBlurClose() {
+    setTimeout(() => {
+      if (document.activeElement !== input && document.activeElement !== editor.element) close();
+    }, 150);
+  }
 
   async function slashData(projectId) {
     const key = projectId ?? "";
@@ -87,7 +156,7 @@ export function createComposerMenu({ input, container, api, getProjectId, comman
     data.then(
       (value) => {
         value.skills.forEach((skill) => known.skills.add(skill.name));
-        highlight.refresh();
+        editor.refresh();
       },
       () => slashCache.delete(key)
     );
@@ -103,7 +172,7 @@ export function createComposerMenu({ input, container, api, getProjectId, comman
     data.then(
       (value) => {
         value.agents.forEach((agent) => known.agents.add(agent.name));
-        highlight.refresh();
+        editor.refresh();
       },
       () => agentCache.delete(key)
     );
@@ -116,8 +185,11 @@ export function createComposerMenu({ input, container, api, getProjectId, comman
     resourceCache = { at: Date.now(), data };
     data.then(
       (value) => {
-        value.resources.forEach((resource) => known.servers.add(resource.server));
-        highlight.refresh();
+        value.resources.forEach((resource) => {
+          known.servers.add(resource.server);
+          if (resource.name) resourceNames.set(`${resource.server}:${resource.uri}`, resource.name);
+        });
+        editor.refresh();
       },
       () => (resourceCache = undefined)
     );
@@ -131,8 +203,8 @@ export function createComposerMenu({ input, container, api, getProjectId, comman
     items = [];
     menu.hidden = true;
     menu.innerHTML = "";
-    input.setAttribute("aria-expanded", "false");
-    input.removeAttribute("aria-activedescendant");
+    setAria("aria-expanded", "false");
+    setAria("aria-activedescendant", null);
   }
 
   function render() {
@@ -149,15 +221,16 @@ export function createComposerMenu({ input, container, api, getProjectId, comman
                 ? `<div class="composer-menu-group" role="presentation">${esc(item.group)}</div>`
                 : "";
             group = item.group;
-            return `${header}<div class="composer-menu-item${index === active ? " is-active" : ""}" role="option" id="composer-menu-${index}" data-menu-index="${index}" aria-selected="${index === active}">${icon(item.icon)}<span class="composer-menu-main"><span class="composer-menu-label">${marked(item.label, trigger.query)}</span>${item.detail ? `<span class="composer-menu-detail">${esc(item.detail)}</span>` : ""}</span>${item.badge ? `<span class="composer-menu-badge">${esc(item.badge)}</span>` : ""}</div>`;
+            const itemIcon = item.iconHtml ?? icon(item.icon);
+            return `${header}<div class="composer-menu-item${index === active ? " is-active" : ""}" role="option" id="composer-menu-${index}" data-menu-index="${index}" aria-selected="${index === active}"><span class="composer-menu-icon${item.iconTone ? ` is-${item.iconTone}` : ""}" aria-hidden="true">${itemIcon}</span><span class="composer-menu-main"><span class="composer-menu-label">${marked(item.label, trigger.query)}</span>${item.detail ? `<span class="composer-menu-detail">${esc(item.detail)}</span>` : ""}</span>${item.badge ? `<span class="composer-menu-badge">${esc(item.badge)}</span>` : ""}</div>`;
           })
           .join("") +
         `<div class="composer-menu-keys" aria-hidden="true"><span>${esc(ui("↑↓ 选择"))}</span><span>${esc(trigger.kind === "/" ? ui("↩ 插入") : ui("↩ 引用"))}</span><span>${esc(ui("Tab 补全"))}</span><span>${esc(ui("Esc 关闭"))}</span></div>`;
     }
     menu.hidden = false;
-    input.setAttribute("aria-expanded", "true");
-    if (items.length) input.setAttribute("aria-activedescendant", `composer-menu-${active}`);
-    else input.removeAttribute("aria-activedescendant");
+    setAria("aria-expanded", "true");
+    if (items.length) setAria("aria-activedescendant", `composer-menu-${active}`);
+    else setAria("aria-activedescendant", null);
     menu.querySelector(".is-active")?.scrollIntoView({ block: "nearest" });
   }
 
@@ -166,7 +239,8 @@ export function createComposerMenu({ input, container, api, getProjectId, comman
       .slice(0, GROUP_LIMIT)
       .map((skill) => ({
         group: ui("技能"),
-        icon: "book-open",
+        iconHtml: skillIcon(),
+        iconTone: "ref",
         label: `/${skill.name}`,
         detail: skill.description,
         badge: ui(SOURCE_LABELS[skill.source] ?? skill.source),
@@ -176,7 +250,7 @@ export function createComposerMenu({ input, container, api, getProjectId, comman
       .slice(0, GROUP_LIMIT)
       .map((prompt) => ({
         group: ui("指令模板"),
-        icon: "file",
+        iconHtml: promptIcon(),
         label: `/${prompt.name}`,
         detail: prompt.description,
         badge: PROMPT_SOURCES[prompt.source],
@@ -184,7 +258,7 @@ export function createComposerMenu({ input, container, api, getProjectId, comman
       }));
     const actions = ranked(commands, (command) => command.name, query).map((command) => ({
       group: ui("命令"),
-      icon: command.icon ?? "command",
+      iconHtml: command.icon ? icon(command.icon) : commandIcon(),
       label: `/${command.name}`,
       detail: command.description,
       run: command.run
@@ -197,7 +271,8 @@ export function createComposerMenu({ input, container, api, getProjectId, comman
       const slash = path.lastIndexOf("/");
       return {
         group: ui("文件"),
-        icon: "file-code",
+        iconHtml: fileTypeIcon(path),
+        iconTone: "ref",
         label: path.slice(slash + 1),
         detail: slash >= 0 ? path.slice(0, slash + 1) : "",
         insert: `@${path} `,
@@ -212,7 +287,8 @@ export function createComposerMenu({ input, container, api, getProjectId, comman
       .slice(0, GROUP_LIMIT)
       .map((resource) => ({
         group: ui("MCP 资源"),
-        icon: "database",
+        iconHtml: resourceIcon(),
+        iconTone: "ref",
         label: `${resource.server} · ${resource.name}`,
         detail: resource.uri,
         badge: resource.server,
@@ -222,7 +298,8 @@ export function createComposerMenu({ input, container, api, getProjectId, comman
       .slice(0, GROUP_LIMIT)
       .map((agent) => ({
         group: "Agent",
-        icon: "bot",
+        iconHtml: agentIcon(),
+        iconTone: "ref",
         label: agent.name,
         detail: agent.description,
         badge: agent.permission === "write" ? ui("可写") : ui("只读"),
@@ -280,8 +357,9 @@ export function createComposerMenu({ input, container, api, getProjectId, comman
   }
 
   function update() {
-    if (input.selectionStart !== input.selectionEnd || input.readOnly) return close();
-    const before = input.value.slice(0, input.selectionStart);
+    const sel = editor.getSelection();
+    if (sel.start !== sel.end || input.readOnly) return close();
+    const before = editor.getValue().slice(0, sel.start);
     const match = TRIGGER.exec(before);
     if (!match) return close();
     const next = { kind: match[2], query: match[3], start: before.length - match[3].length - 1 };
@@ -300,69 +378,37 @@ export function createComposerMenu({ input, container, api, getProjectId, comman
     const current = trigger;
     if (!item || !current) return;
     const end = current.start + 1 + current.query.length;
-    const before = input.value.slice(0, current.start);
-    const after = input.value.slice(end);
+    const text = editor.getValue();
+    const after = text.slice(end);
     close();
     if (item.run) {
-      input.value = before + after.replace(/^ /, "");
-      input.setSelectionRange(before.length, before.length);
-      input.dispatchEvent(new Event("input", { bubbles: true }));
+      const stripSpace = after.startsWith(" ") ? 1 : 0;
+      editor.replaceRange(current.start, end + stripSpace, "", { focus: true, commitAll: false });
       item.run();
       return;
     }
     if (item.file) known.files.add(item.file);
-    input.value = before + item.insert + after;
-    const caret = before.length + item.insert.length;
-    input.setSelectionRange(caret, caret);
-    input.focus();
-    input.dispatchEvent(new Event("input", { bubbles: true }));
+    editor.replaceRange(current.start, end, item.insert, { focus: true, commitAll: true });
   }
 
   /** Backspace right after a referenced word takes the whole word, as it would a chip. */
   function deleteWord(event) {
-    if (input.selectionStart !== input.selectionEnd || !input.selectionStart) return;
-    const before = input.value.slice(0, input.selectionStart);
+    const sel = editor.getSelection();
+    if (sel.start !== sel.end || !sel.start) return false;
+    const before = editor.getValue().slice(0, sel.start);
     const match = /(^|\s)([/@][^\s]+) ?$/.exec(before);
-    if (!match || !findReferences(match[2], known).length) return;
+    if (!match || !findReferences(match[2], known).length) return false;
     event.preventDefault();
     const start = before.length - match[0].length + match[1].length;
-    input.value = input.value.slice(0, start) + input.value.slice(input.selectionStart);
-    input.setSelectionRange(start, start);
-    input.dispatchEvent(new Event("input", { bubbles: true }));
+    editor.replaceRange(start, sel.start, "", { focus: true, commitAll: false });
+    return true;
   }
 
   // Capture runs before the composer's own Enter-to-send handler on the same element.
-  input.addEventListener(
-    "keydown",
-    (event) => {
-      if (event.isComposing) return;
-      if (menu.hidden) {
-        if (event.key === "Backspace" && !event.altKey && !event.metaKey && !event.ctrlKey) deleteWord(event);
-        return;
-      }
-      const handled = () => {
-        event.preventDefault();
-        event.stopImmediatePropagation();
-      };
-      if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-        handled();
-        if (!items.length) return;
-        active = (active + (event.key === "ArrowDown" ? 1 : -1) + items.length) % items.length;
-        render();
-      } else if ((event.key === "Enter" && !event.shiftKey) || event.key === "Tab") {
-        if (!items.length) return event.key === "Tab" ? undefined : close();
-        handled();
-        choose(active);
-      } else if (event.key === "Escape") {
-        handled();
-        close();
-      }
-    },
-    true
-  );
+  input.addEventListener("keydown", (event) => handleMenuKeydown(event), true);
   input.addEventListener("input", update);
   input.addEventListener("click", update);
-  input.addEventListener("blur", () => setTimeout(() => document.activeElement !== input && close(), 150));
+  input.addEventListener("blur", scheduleBlurClose);
   menu.addEventListener("mousedown", (event) => event.preventDefault());
   menu.addEventListener("click", (event) => {
     const option = event.target.closest("[data-menu-index]");

@@ -1,4 +1,13 @@
-/* The composer's `/` and `@` menus, and the words they leave in a message. */
+/* The composer's `/` and `@` menus, and the inline reference chips they insert. */
+:root {
+  --ref-chip-color: #e0b8a4;
+  --ref-chip-hover: color-mix(in srgb, var(--ref-chip-color) 12%, transparent);
+}
+html[data-theme="light"] {
+  --ref-chip-color: #9a5134;
+  --ref-chip-hover: color-mix(in srgb, var(--ref-chip-color) 10%, transparent);
+}
+
 .composer-menu {
   position: absolute;
   left: 10px;
@@ -37,11 +46,22 @@
 .composer-menu-item.is-active {
   background: var(--selected-fill);
 }
-.composer-menu-item > .ui-icon {
+.composer-menu-icon {
+  display: inline-flex;
   flex: none;
+  width: 16px;
+  height: 16px;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-2);
+}
+.composer-menu-icon.is-ref {
+  color: var(--ref-chip-color);
+}
+.composer-menu-icon > .ui-icon,
+.composer-menu-icon > .ref-icon {
   width: 15px;
   height: 15px;
-  color: var(--color-text-2);
 }
 .composer-menu-main {
   display: flex;
@@ -99,55 +119,97 @@
   color: var(--color-text-3);
   font-size: 11px;
 }
+
+/* Inline reference chip: handcrafted icon + concise name, airy and backgroundless
+   at rest (Codex style), gaining a quiet rounded tint only on hover. */
 .reference-chip {
-  padding: 0 4px;
-  border-radius: 4px;
-  background: var(--color-review-soft);
-  color: var(--color-review);
+  display: inline-flex;
+  max-width: 100%;
+  align-items: center;
+  gap: 5px;
+  padding: 1px 5px 1px 4px;
+  margin: 0 1px;
+  border-radius: 6px;
+  color: var(--ref-chip-color);
+  font-weight: 450;
+  line-height: 1.35;
+  vertical-align: baseline;
+  transition: background-color 0.12s ease;
 }
-.reference-chip.is-agent {
-  background: var(--color-warn-soft);
-  color: var(--color-warn);
+.reference-chip:hover {
+  background: var(--ref-chip-hover);
 }
-.reference-chip.is-skill {
-  background: var(--color-ok-soft);
-  color: var(--color-ok);
+.reference-chip-icon {
+  display: inline-flex;
+  flex: none;
+  width: 15px;
+  height: 15px;
+  align-items: center;
+  justify-content: center;
+  transform: translateY(0.5px);
 }
-/* In the draft the same words are tags, drawn by a layer under the textarea.
-   They take no room of their own: the tint reaches past the word by a shadow,
-   so every letter stays where the textarea puts its caret. */
-.composer-highlight {
-  position: absolute;
-  z-index: 0;
-  box-sizing: border-box;
+.reference-chip-icon > .ref-icon {
+  display: block;
+  width: 15px;
+  height: 15px;
+}
+.reference-chip-label {
   overflow: hidden;
-  border-style: solid;
-  border-color: transparent;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Dual-mode composer field: plain drafts stay on the native textarea; drafts with
+   resolved references promote cleanly to `.composer-rich` in normal flow. */
+.composer-field {
+  position: relative;
+}
+.composer-rich {
+  display: block;
+  width: calc(100% + 4px);
+  min-height: 24px;
+  max-height: min(12.8em, 30dvh);
+  overflow-y: auto;
+  margin: 0 0 10px -4px;
+  padding: 0 8px 0 4px;
+  outline: 0;
+  border: 0;
+  background: transparent;
   color: var(--color-text, #efefef);
+  caret-color: var(--color-text, #efefef);
+  font-family: inherit;
+  font-size: 15px;
+  line-height: 1.6;
   white-space: pre-wrap;
   overflow-wrap: break-word;
-  pointer-events: none;
 }
-.composer-highlight .reference-chip {
-  padding: 0;
-  border-radius: 3px;
-  box-shadow: 0 0 0 2px var(--color-review-soft);
+.composer-rich[hidden] {
+  display: none;
 }
-.composer-highlight .reference-chip.is-agent {
-  box-shadow: 0 0 0 2px var(--color-warn-soft);
+.composer-rich .reference-chip {
+  margin: 0 1px 0 -2px;
+  user-select: all;
+  cursor: default;
 }
-.composer-highlight .reference-chip.is-skill {
-  box-shadow: 0 0 0 2px var(--color-ok-soft);
+.composer-rich .reference-chip:first-child {
+  margin-left: -4px;
 }
 #composer-input.has-references {
-  position: relative;
-  z-index: 1;
-  color: transparent;
-  caret-color: var(--color-text, #efefef);
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  height: 100%;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
 }
-.composer-highlight:has(+ #composer-input.is-sent) {
+.composer-rich:has(+ #composer-input.is-sent) {
   visibility: hidden;
 }
+
 @media (max-width: 560px) {
   .composer-menu {
     left: 6px;

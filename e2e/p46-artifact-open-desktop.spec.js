@@ -70,9 +70,13 @@ test("桌面版用本机应用打开产物，并且只接受后端解析到的�
     // Record what the host hands to the system instead of launching an application.
     await native.evaluate(({ shell }) => {
       globalThis.openedPaths = [];
+      globalThis.revealedPaths = [];
       shell.openPath = async (target) => {
         globalThis.openedPaths.push(target);
         return "";
+      };
+      shell.showItemInFolder = (target) => {
+        globalThis.revealedPaths.push(target);
       };
     });
 
@@ -96,10 +100,10 @@ test("桌面版用本机应用打开产物，并且只接受后端解析到的�
     expect(Math.abs(rows.open - rows.close)).toBeLessThan(12);
     await drawer.evaluate((node) => node.style.removeProperty("width"));
     await openMain.click();
-    // The backend resolves the real path, so /var may already read as /private/var.
+    // The main button stays fixed to Finder; the backend resolves the real path.
     const expectedFile = await realpath(join(artifacts, "报告.md"));
     await expect
-      .poll(async () => (await native.evaluate(() => globalThis.openedPaths)).map((path) => path))
+      .poll(async () => (await native.evaluate(() => globalThis.revealedPaths)).map((path) => path))
       .toEqual([expectedFile]);
 
     // The arrow lists this Mac's applications for the file; the default one
@@ -108,10 +112,10 @@ test("桌面版用本机应用打开产物，并且只接受后端解析到的�
     await expect(more).toBeEnabled({ timeout: 15_000 });
     await more.click();
     const menu = page.locator(".open-with-menu");
-    await expect(menu).toBeVisible();
+    await expect(menu).toBeVisible({ timeout: 15_000 });
     await expect(menu.getByRole("menuitem", { name: "默认应用" })).toBeVisible();
     await menu.getByRole("menuitem", { name: "默认应用" }).click();
-    await expect.poll(async () => (await native.evaluate(() => globalThis.openedPaths)).length).toBe(2);
+    await expect.poll(async () => (await native.evaluate(() => globalThis.openedPaths)).length).toBe(1);
 
     // A path the backend cannot resolve, or an application the host did not
     // list for the file, is refused, not opened.
@@ -131,7 +135,7 @@ test("桌面版用本机应用打开产物，并且只接受后端解析到的�
       ];
     });
     for (const outcome of refused) expect(outcome).not.toBe("opened");
-    expect(await native.evaluate(() => globalThis.openedPaths)).toHaveLength(2);
+    expect(await native.evaluate(() => globalThis.openedPaths)).toHaveLength(1);
   } finally {
     await native?.close();
     await stopNativeBackend(root);

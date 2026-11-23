@@ -1,7 +1,10 @@
+import { referenceIcon } from "./ui/reference-icons.js";
+
 /**
  * The words `/` and `@` leave in a message, and the manifest the backend puts
  * in front of it. A skill is `/name`, a project file `@path`, an MCP resource
- * `@server:uri`. The words stay as typed; only what they name is sent as data.
+ * `@server:uri`. The words stay as typed in the wire format; in the composer
+ * and sent bubbles each reference renders as a compact inline icon + name chip.
  */
 
 const OPEN = "<atria_references>\n";
@@ -30,6 +33,38 @@ export function referenceToken(reference) {
   if (reference.kind === "file") return `@${reference.path}`;
   if (reference.kind === "agent") return `@${reference.name}`;
   return `@${reference.server}:${reference.uri}`;
+}
+
+/** Concise visible name shown beside the chip's icon (no raw `/` or `@` prefix). */
+export function referenceLabel(reference, { resourceNames } = {}) {
+  if (reference.kind === "skill" || reference.kind === "agent") return reference.name;
+  if (reference.kind === "file") {
+    const trimmedPath = String(reference.path || "").replace(/\/+$/, "");
+    const slash = trimmedPath.lastIndexOf("/");
+    return slash >= 0 ? trimmedPath.slice(slash + 1) : trimmedPath || reference.path;
+  }
+  const key = `${reference.server}:${reference.uri}`;
+  const named = reference.name || resourceNames?.get(key);
+  if (named) return named;
+  return String(reference.uri || "").replace(/^[a-z][a-z0-9+.-]*:\/\//i, "") || reference.uri;
+}
+
+/** Full path or identifier shown in the chip's hover tooltip. */
+export function referenceTitle(reference) {
+  if (reference.kind === "skill") return reference.path || `/${reference.name}`;
+  if (reference.kind === "file") return reference.path;
+  if (reference.kind === "agent") return `@${reference.name}`;
+  return `${reference.server}:${reference.uri}`;
+}
+
+/** HTML for one inline reference chip, shared by the composer and sent bubbles. */
+export function renderReferenceChip(reference, esc, { editable = false, resourceNames } = {}) {
+  const kind = reference.kind === "mcp_resource" ? "resource" : reference.kind;
+  const token = referenceToken(reference);
+  const label = referenceLabel(reference, { resourceNames });
+  const title = referenceTitle(reference);
+  const atomic = editable ? ' contenteditable="false"' : "";
+  return `<span class="reference-chip is-${kind}"${atomic} data-ref-token="${esc(token)}" data-ref-kind="${kind}" title="${esc(title)}"><span class="reference-chip-icon" aria-hidden="true">${referenceIcon(reference)}</span><span class="reference-chip-label">${esc(label)}</span></span>`;
 }
 
 /** Trailing sentence punctuation belongs to the sentence, not the path. */
@@ -67,22 +102,32 @@ export function findReferences(text, known) {
   return found;
 }
 
-/** The typed words as HTML, each referenced word marked as a chip. */
-export function markReferences(text, references, esc) {
+/** Locate every recognized reference span `{ start, end, token, reference }` in `text`. */
+export function findReferenceSpans(text, references) {
   const tokens = new Map(references.map((reference) => [referenceToken(reference), reference]));
-  if (!tokens.size) return esc(text);
-  let html = "";
-  let at = 0;
-  for (const match of text.matchAll(TOKEN)) {
+  if (!tokens.size) return [];
+  const spans = [];
+  for (const match of String(text || "").matchAll(TOKEN)) {
     const word = trimmed(match[3]);
     const token = match[2] + word;
     const reference = tokens.get(token);
     if (!reference) continue;
     const start = match.index + match[1].length;
-    html += esc(text.slice(at, start));
-    const title = reference.kind === "skill" ? reference.path || reference.name : token.slice(1);
-    html += `<span class="reference-chip is-${reference.kind === "mcp_resource" ? "resource" : reference.kind}" title="${esc(title)}">${esc(token)}</span>`;
-    at = start + token.length;
+    spans.push({ start, end: start + token.length, token, reference });
+  }
+  return spans;
+}
+
+/** The typed words as HTML, each referenced word marked as an inline chip. */
+export function markReferences(text, references, esc, options = {}) {
+  const spans = findReferenceSpans(text, references);
+  if (!spans.length) return esc(text);
+  let html = "";
+  let at = 0;
+  for (const span of spans) {
+    html += esc(text.slice(at, span.start));
+    html += renderReferenceChip(span.reference, esc, options);
+    at = span.end;
   }
   return html + esc(text.slice(at));
 }

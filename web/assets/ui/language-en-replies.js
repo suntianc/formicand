@@ -70,6 +70,7 @@ export default {
   "允许所有对话观察并操作全部应用窗口。": "Let every conversation observe and operate all app windows.",
   "此格式可下载后用系统应用打开。": "Download this format and open it with a compatible app.",
   用系统默认应用打开: "Open with the default app",
+  在访达中显示: "Reveal in Finder",
   项目里找不到这个文件: "This file is not in the project",
   "PDF 翻页": "PDF pages",
   "点击“打开 ↗”查看 PDF。": "Use “Open ↗” to view the PDF.",

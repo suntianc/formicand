@@ -86,43 +86,53 @@ test("/ and @ leave words in the draft and send what they name to Main", async (
     const full =
       "/pg-migration 处理 @src/storage/migrations/0007_add_task_index.sql 对照 @postgres:schema://public/tasks ";
     await expect(input).toHaveValue(full);
-    // In the draft the referenced words are tags, drawn under the textarea's own text.
-    const tags = page.locator(".composer-highlight .reference-chip");
-    await expect(tags).toHaveText([
-      "/pg-migration",
-      "@src/storage/migrations/0007_add_task_index.sql",
-      "@postgres:schema://public/tasks"
+    // In the draft the referenced words render as inline atomic icon + name chips.
+    const rich = page.locator(".composer-rich");
+    await expect(rich).toBeVisible();
+    const tags = rich.locator(".reference-chip");
+    await expect(tags).toHaveCount(3);
+    await expect(tags.locator(".reference-chip-label")).toHaveText([
+      "pg-migration",
+      "0007_add_task_index.sql",
+      "public.tasks"
     ]);
+    await expect(tags.nth(0)).toHaveAttribute("data-ref-token", "/pg-migration");
+    await expect(tags.nth(1)).toHaveAttribute("title", "src/storage/migrations/0007_add_task_index.sql");
+    await expect(tags.nth(1).locator("svg.ref-icon")).toBeVisible();
+    await expect(tags.nth(2)).toHaveAttribute("title", "postgres:schema://public/tasks");
     await expect(input).toHaveClass(/has-references/);
 
-    // Backspace after a referenced word takes the whole word; Esc closes a menu and keeps the words.
-    await input.press("Backspace");
+    // Backspace after a chip takes the whole chip; Esc closes a menu and keeps the words.
+    await rich.press("Backspace");
     await expect(input).toHaveValue(
       "/pg-migration 处理 @src/storage/migrations/0007_add_task_index.sql 对照 "
     );
-    await input.pressSequentially("@public");
+    await expect(tags).toHaveCount(2);
+    await rich.pressSequentially("@public");
     await expect(menu).toBeVisible();
-    await input.press("Escape");
+    await rich.press("Escape");
     await expect(menu).toBeHidden();
     await expect(input).toHaveValue(
       "/pg-migration 处理 @src/storage/migrations/0007_add_task_index.sql 对照 @public"
     );
-    await input.fill(full + "上的索引");
+    await rich.fill(full + "上的索引");
 
     // At phone width the menu stays inside the screen.
     await page.setViewportSize({ width: 390, height: 800 });
-    await input.press("End");
-    await input.pressSequentially(" /pg");
+    await rich.focus();
+    await rich.press("End");
+    await rich.pressSequentially(" /pg");
     await expect(menu).toBeVisible();
     const box = await menu.boundingBox();
     expect(box.x).toBeGreaterThanOrEqual(0);
     expect(box.x + box.width).toBeLessThanOrEqual(390);
     expect(box.y).toBeGreaterThanOrEqual(0);
-    await input.press("Escape");
-    await input.fill(full + "上的索引");
+    await rich.press("Escape");
+    await rich.fill(full + "上的索引");
     await page.setViewportSize({ width: 1280, height: 900 });
 
-    await input.press("Enter");
+    await rich.focus();
+    await rich.press("Enter");
     // Main starts a real Pi process; on a busy machine that takes longer than the default wait.
     await expect.poll(() => provider.requests.length, { timeout: 30_000 }).toBeGreaterThan(0);
     const sent = JSON.stringify(provider.requests[0].body.messages);
@@ -136,18 +146,19 @@ test("/ and @ leave words in the draft and send what they name to Main", async (
     ]);
     expect(manifest.note).toMatch(/read_mcp_resource/);
 
-    // The sent message shows the words as typed, the referenced ones marked; the manifest stays hidden.
+    // The sent message shows each reference as an inline icon + concise name chip; the manifest stays hidden.
     const message = page.locator(".chat-message.user").first();
-    await expect(message.locator(".reference-chip")).toHaveText([
-      "/pg-migration",
-      "@src/storage/migrations/0007_add_task_index.sql",
-      "@postgres:schema://public/tasks"
+    await expect(message.locator(".reference-chip .reference-chip-label")).toHaveText([
+      "pg-migration",
+      "0007_add_task_index.sql",
+      "public/tasks"
     ]);
+    await expect(message.locator(".reference-chip svg.ref-icon")).toHaveCount(3);
     await expect(message).not.toContainText("atria_references");
 
     // A command runs at once and leaves nothing in the draft.
     await expect(input).toHaveValue("");
-    await expect(page.locator(".composer-highlight")).toBeHidden();
+    await expect(rich).toBeHidden();
     await input.pressSequentially("/mod");
     // Skills in the user's own ~/.agents/skills may also match, so the command is picked by name.
     await expect(menu.locator(".composer-menu-group").last()).toHaveText("命令");
