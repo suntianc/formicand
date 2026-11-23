@@ -95,11 +95,13 @@ test("steering reaches the next model call while queued input waits until the cu
     expect(steerTurn).toBeGreaterThan(stepResult);
     const instruction = page.locator(".chat-message.user").filter({ hasText: "STEER_REQUEST" });
     await expect(instruction).toHaveCount(1);
-    await expect(page.locator('[data-answer-kind="continuation"] .process-segment')).toHaveCount(1);
+    const collapsed = page.locator(".execution-history").first();
+    await expect(collapsed).toBeVisible();
+    await expect(collapsed).not.toHaveAttribute("open", "");
     const assertOrder = async () => {
       expect(
         await page.locator("#conversation").evaluate((root) => {
-          const activity = root.querySelector('[data-answer-kind="continuation"]');
+          const activity = root.querySelector(".execution-history");
           const input = [...root.querySelectorAll(".chat-message.user")].find((node) =>
             node.textContent.includes("STEER_REQUEST")
           );
@@ -117,8 +119,11 @@ test("steering reaches the next model call while queued input waits until the cu
     await assertOrder();
     await page.reload();
     await expect(instruction).toHaveCount(1);
-    await expect(page.locator('[data-answer-kind="continuation"] .process-segment')).toHaveCount(1);
+    await expect(collapsed).toBeVisible();
+    await expect(collapsed).not.toHaveAttribute("open", "");
     await assertOrder();
+    await collapsed.locator(":scope > summary").click();
+    await expect(collapsed.locator(".process-segment")).toHaveCount(1);
     releaseSteered();
     await expect.poll(() => provider.requests.length, { timeout: 20000 }).toBe(3);
     const queued = JSON.stringify(provider.requests[2].body.messages);

@@ -143,7 +143,8 @@ export function createConversationActivityView({
     historyKey = "",
     failed = false,
     isCurrent = true,
-    stopped = undefined
+    stopped = undefined,
+    continued = false
   ) {
     const { taskId, detail } = activityContext();
     const turns = buildLiveActivity(events);
@@ -214,7 +215,8 @@ export function createConversationActivityView({
     }
     if (!activity.length) return placeholder();
     if (failed && !activity.some((item) => item.type === "tool" || item.text?.trim())) return { markup: "" };
-    const collapsible = !working && hasFinalAnswer && (!streamedAnswer || persistedAnswerMatches);
+    const collapsible =
+      !working && (continued || (hasFinalAnswer && (!streamedAnswer || persistedAnswerMatches)));
     // Main is working but nothing at the end is moving: the model is on its
     // way to the next step, so that step's row waits there.
     const tail = activity.at(-1);
@@ -374,7 +376,9 @@ export function createConversationActivityView({
 
     if (!collapsible) return { markup: renderL1() };
 
-    const settled = formatExecutionDuration(executionElapsedMs(events, detail?.events)) || undefined;
+    const settled = continued
+      ? undefined
+      : formatExecutionDuration(executionElapsedMs(events, detail?.events)) || undefined;
     const l0Open = isHistoryOpen ? Boolean(isHistoryOpen(historyKey)) : Boolean(historyOpen);
     const heading = settled ? ui`用时 ${settled}` : ui("处理过程");
     const body = l0Open ? `<div class="execution-timeline">${renderL1()}</div>` : "";
@@ -423,9 +427,7 @@ export function createConversationActivityView({
         ? ` data-live-since="${since}" data-live-label="${esc(ui("运行中"))}"`
         : "";
       const statusText = liveClock ? liveClockText(ui("运行中"), since) : right;
-      const mark = running
-        ? `<span class="tool-progress-spinner ant-mark" data-thinking-key="${esc(`${item.key}:agent`)}" aria-hidden="true">${antMarkSvg}</span>`
-        : '<span class="tool-status-dot" aria-hidden="true"></span>';
+      const mark = '<span class="tool-status-dot" aria-hidden="true"></span>';
       const text = finished && agent.outcome ? agent.outcome : agent.task;
       const sections = open ? presentation.detailSections || [] : [];
       const body = open ? renderToolDetailsBody(sections, resolved.state, resolved.detailKey) : "";

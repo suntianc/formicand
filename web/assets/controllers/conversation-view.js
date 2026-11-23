@@ -949,7 +949,8 @@ export function createConversationView({
         historyKey,
         (interrupted && !waiting && !paused) || (isCurrent && Boolean(failure)),
         isCurrent,
-        execution.stopped ?? (execution.terminal === "cancelled" && !(isCurrent && failure) ? {} : undefined)
+        execution.stopped ?? (execution.terminal === "cancelled" && !(isCurrent && failure) ? {} : undefined),
+        exchange.continued
       );
       const workflowIndex = !active && finalIndex >= 0 ? finalIndex : -1;
       const rendered =
@@ -986,8 +987,8 @@ export function createConversationView({
           .map((markup, index) => markup + (windowDividers.get(exchange.messages[index]) ?? ""))
           .join("") +
         (workflowIndex < 0
-          ? active || exchange.continued
-            ? `<article class="chat-message main" data-view-key="${esc(`${historyKey}:response`)}" data-answer-kind="${active ? "pending" : "continuation"}"${active ? ' aria-busy="true"' : ""}><div class="message-copy">${workflow || (active ? renderThinkingPlaceholder(historyKey) : "")}</div></article>`
+          ? active
+            ? `<article class="chat-message main" data-view-key="${esc(`${historyKey}:response`)}" data-answer-kind="pending" aria-busy="true"><div class="message-copy">${workflow || renderThinkingPlaceholder(historyKey)}</div></article>`
             : workflow
           : "");
       if (cacheable)

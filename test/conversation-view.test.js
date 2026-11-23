@@ -113,7 +113,7 @@ test("a mid-run instruction separates earlier activity from the continuing respo
   const rows = [...document.querySelector("#conversation").children];
   assert.deepEqual(
     rows.map((row) =>
-      row.textContent.includes("第六步")
+      row.classList.contains("execution-history")
         ? "before"
         : row.textContent.includes(instruction.content)
           ? "instruction"
@@ -123,11 +123,15 @@ test("a mid-run instruction separates earlier activity from the continuing respo
     ),
     ["request", "before", "instruction", "after"]
   );
-  assert.equal(document.querySelector(".reasoning-details"), before);
-  assert.equal(before.open, true);
+  // Pre-interjection L1 wraps into an L0 execution-history fold without duplicating run duration;
+  // because the reader already opened a step inside it, L0 stays open and keeps that step open.
+  assert.equal(rows[1].open, true);
+  assert.equal(rows[1].querySelector(":scope > summary strong").textContent, "处理过程");
+  assert.doesNotMatch(rows[1].querySelector(":scope > summary").textContent, /用时/);
+  assert.match(rows[1].textContent, /第六步/);
+  assert.equal(document.querySelector(".reasoning-details").open, true);
   assert.equal(document.querySelectorAll(".thinking-spinner").length, 1);
   assert.equal(document.querySelectorAll('[data-answer-kind="final"]').length, 0);
-  assert.doesNotMatch(rows[1].textContent, /用时/);
 
   const answer = {
     role: "assistant",
@@ -144,9 +148,50 @@ test("a mid-run instruction separates earlier activity from the continuing respo
   render([user, instruction, answer]);
   assert.equal(document.querySelectorAll('[data-answer-kind="final"]').length, 1);
   assert.equal(document.querySelectorAll("[data-thinking-key]").length, 0);
-  assert.equal(document.querySelector(".reasoning-details"), before);
-  assert.equal(before.open, true);
+  assert.equal(document.querySelectorAll(".execution-history").length, 2);
+  assert.equal(document.querySelector(".reasoning-details").open, true);
   assert.equal(document.querySelectorAll(".chat-message.user").length, 2);
+});
+
+test("interjecting while L1 is untouched collapses earlier activity into a closed L0 fold", () => {
+  const { document, state, render } = fixture("steering-collapse", "先读取配置。");
+  state.detail.runtimeEvents.push(update("thinking_end", 0, { content: "先读取配置。" }));
+  render();
+  assert.equal(document.querySelectorAll(".execution-history").length, 0);
+
+  const instruction = {
+    role: "user",
+    id: "steer-collapse",
+    content: "换个方向",
+    timestamp: 3,
+    delivery: "steer",
+    interjected: true
+  };
+  const delivered = {
+    role: "custom",
+    customType: "cowork-user-message",
+    content: "用户在你工作期间补充了一句话：换个方向",
+    timestamp: 3,
+    details: {
+      message: instruction.content,
+      delivery: "steer",
+      _coworkInbox: { messageId: instruction.id }
+    }
+  };
+  state.detail.runtimeEvents.push(
+    { type: "message_start", message: delivered },
+    { type: "message_end", message: delivered },
+    { type: "turn_start" },
+    { type: "message_start", message: { role: "assistant", timestamp: 4, content: [] } },
+    update("thinking_delta", 0, { delta: "按新方向继续。" })
+  );
+  render([user, instruction]);
+  const collapsed = document.querySelector(".execution-history");
+  assert.ok(collapsed);
+  assert.equal(collapsed.open === true, false);
+  assert.equal(collapsed.querySelector(":scope > summary strong").textContent, "处理过程");
+  assert.equal(document.querySelectorAll('[data-answer-kind="continuation"]').length, 0);
+  assert.equal(document.querySelectorAll('[data-answer-kind="pending"]').length, 1);
 });
 
 test("an accepted instruction leaves the current tool active until Pi delivers it", () => {
@@ -1296,13 +1341,15 @@ test("an async delegation row follows real progress without changing its disclos
   assert.equal(row.querySelector("strong").textContent, "Ara");
   assert.equal(row.querySelector(".subagent-role-tag").textContent, "审查");
   assert.equal(row.querySelector(".subagent-status").textContent, "运行中 36 秒");
-  assert.equal(row.querySelectorAll(".tool-progress-spinner").length, 1);
-  // Main's own turn ends while Ara works; Ara's row keeps moving.
+  assert.equal(row.querySelectorAll(".tool-progress-spinner, .ant-mark").length, 0);
+  assert.equal(row.querySelectorAll(".tool-status-dot").length, 1);
+  // Main's own turn ends while Ara works; Ara's row keeps its running state without logo animation.
   state.detail.runtime.active = false;
   render();
   row = document.querySelector(".subagent-step");
   assert.equal(row.open, true);
-  assert.equal(row.querySelectorAll(".tool-progress-spinner").length, 1);
+  assert.equal(row.classList.contains("is-running"), true);
+  assert.equal(row.querySelectorAll(".tool-progress-spinner, .ant-mark").length, 0);
   assert.equal(document.querySelectorAll(".live-workflow-head").length, 0);
   state.detail.progress.agents[0] = {
     ...state.detail.progress.agents[0],
