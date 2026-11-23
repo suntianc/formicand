@@ -85,8 +85,12 @@ export function installAttachmentPreview({ api, mediaUrl } = {}) {
             .catch(() => undefined);
       } else if (preview.image && preview.mimeType === "image/png")
         body.innerHTML = `<img src="data:image/png;base64,${preview.image.replace(/[^A-Za-z0-9+/=]/g, "")}" alt="第 ${page} 页" />`;
+      else if (preview.previewKind === "download")
+        body.innerHTML = `<p class="attachment-preview-message" role="status">${esc(
+          preview.notice || "此格式无法预览。"
+        )}可下载原文件查看。</p>`;
       else
-        body.innerHTML = `<pre>${esc(preview.text || "此文件没有可提取文字。请下载原文件查看。")}</pre>${preview.nextOffset !== null && preview.nextOffset !== undefined ? '<p class="preview-caption">显示前 12,000 个字符，完整内容保留在原文件中。</p>' : ""}`;
+        body.innerHTML = `<pre>${esc(preview.content || "此文件没有可提取文字。请下载原文件查看。")}</pre>${preview.truncated ? '<p class="preview-caption">只显示了开头部分，完整内容保留在原文件中。</p>' : ""}`;
       if (preview.pages > 1) {
         pages.hidden = false;
         pages.innerHTML = `<button type="button" class="app-button is-secondary" data-previous-page ${page === 1 ? "disabled" : ""}>上一页</button><span>${page} / ${preview.pages}</span><button type="button" class="app-button is-secondary" data-next-page ${page === preview.pages ? "disabled" : ""}>下一页</button>`;

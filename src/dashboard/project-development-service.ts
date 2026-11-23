@@ -177,7 +177,7 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
     mergeService
   });
 
-  const { deliveryView, deliveryPatch } = createDevelopmentDeliveryViewService({
+  const { deliveryView, deliveryPatch, deliveryFileLocation } = createDevelopmentDeliveryViewService({
     ports,
     mergeService,
     gateway,
@@ -407,6 +407,23 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
     ) {
       const found = await taskProject(taskId);
       return deliveryPatch(found.projectId, input, options);
+    },
+
+    async deliveryFileLocation(
+      projectId: string,
+      input: Record<string, unknown>,
+      options: DevelopmentReadOptions = {}
+    ) {
+      return deliveryFileLocation(projectId, input, options);
+    },
+
+    async deliveryFileLocationForTask(
+      taskId: string,
+      input: Record<string, unknown>,
+      options: DevelopmentReadOptions = {}
+    ) {
+      const found = await taskProject(taskId);
+      return deliveryFileLocation(found.projectId, input, options);
     },
 
     /** Record the receipt a remote execution backend produced for a real merge. */

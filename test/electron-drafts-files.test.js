@@ -2013,7 +2013,7 @@ test("selected bytes and artifacts stay with their authorized backend", { timeou
   await assert.rejects(fetch(oldUrl));
   await uploader.add([new File(["backend B bytes"], "same.txt")]);
   const preview = await client.request(`/api/uploads/${files[0].uploadId}/preview`);
-  assert.equal(preview.text, "backend B bytes");
+  assert.equal(preview.content, "backend B bytes");
   await viewer.open(artifact);
   assert.equal(await (await fetch(opened)).text(), "artifact B");
   let downloaded;

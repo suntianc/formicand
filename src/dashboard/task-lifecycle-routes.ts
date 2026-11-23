@@ -1,7 +1,5 @@
 import { type IncomingMessage, type ServerResponse } from "node:http";
 import { join } from "node:path";
-import { serveArtifact } from "./artifact-response.js";
-import { resolveTaskArtifact } from "../workspace/artifact-store.js";
 import { readJsonBody, sendJson } from "./http.js";
 import { readAgentTrajectory } from "../runtime/agent-trajectory.js";
 import { readJsonFile } from "./event-stream.js";
@@ -57,33 +55,6 @@ export async function handleTaskLifecycleRequest(
         ? join(taskWorkspace, taskId, "runs", runId, "runtime-output.log")
         : join(taskWorkspace, taskId, "runs", runId, "agents", "subagents", agentId, "agent-output.log");
     sendJson(response, 200, await readAgentTrajectory(tracePath));
-    return;
-  }
-  const artifactPathMatch = url.pathname.match(/^\/api\/tasks\/([^/]+)\/artifact-path$/);
-  if (request.method === "GET" && artifactPathMatch) {
-    const taskId = decodeURIComponent(artifactPathMatch[1]);
-    const location = await locateTask(taskId);
-    const { absolutePath } = await resolveTaskArtifact({
-      workspaceRoot: location.workspaceRoot,
-      taskId,
-      relativePath: url.searchParams.get("path") ?? ""
-    });
-    sendJson(response, 200, { absolutePath });
-    return;
-  }
-  const artifactMatch = url.pathname.match(/^\/api\/tasks\/([^/]+)\/artifact$/);
-  if (request.method === "GET" && artifactMatch) {
-    const taskId = decodeURIComponent(artifactMatch[1]);
-    const location = await locateTask(taskId);
-    const taskWorkspace = location.workspaceRoot;
-    const relative = url.searchParams.get("path") ?? "";
-    await serveArtifact(request, response, {
-      workspaceRoot: taskWorkspace,
-      taskId,
-      relativePath: relative,
-      raw: url.searchParams.get("raw") === "1",
-      download: url.searchParams.get("download") === "1"
-    });
     return;
   }
   const match = url.pathname.match(/^\/api\/tasks\/([^/]+)(?:\/action)?$/);

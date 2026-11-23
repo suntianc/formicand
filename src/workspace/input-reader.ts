@@ -54,6 +54,29 @@ export async function readStoredDocument(
     };
   }
   if (options.render && !options.supportsImages) throw new Error("当前模型不支持图片输入；可先读取PDF文字");
+  return { ...(await extractDocument(absolutePath, { ...options, offset, limit })), file, absolutePath };
+}
+
+/** What the document parser returns for one bounded read. */
+export interface ExtractedDocument {
+  text?: string;
+  image?: string;
+  mimeType?: string;
+  nextOffset?: number | null;
+  page?: number;
+  pages?: number;
+}
+
+/**
+ * Text, or one rendered PDF page, of a PDF or Office file, read by the local
+ * parser script. The original file is never modified.
+ */
+export async function extractDocument(
+  absolutePath: string,
+  options: { offset?: number; limit?: number; page?: number; render?: boolean; harnessRoot?: string } = {}
+): Promise<ExtractedDocument> {
+  const offset = Math.max(0, Math.floor(options.offset || 0)),
+    limit = Math.max(1, Math.min(20000, Math.floor(options.limit || 12000)));
   const page = Math.max(0, Math.floor(options.page || (options.render ? 1 : 0)));
   if (!Number.isFinite(page)) throw new Error("页码不合法");
   try {
@@ -73,14 +96,7 @@ export async function readStoredDocument(
       ],
       { timeout: 30000, maxBuffer: 16 * 1024 * 1024 }
     );
-    return { ...JSON.parse(stdout), file, absolutePath } as {
-      file: typeof file;
-      absolutePath: string;
-      text?: string;
-      image?: string;
-      mimeType?: string;
-      nextOffset?: number | null;
-    };
+    return JSON.parse(stdout) as ExtractedDocument;
   } catch (error) {
     const stdout = (error as { stdout?: string }).stdout;
     if (stdout) {

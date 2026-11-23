@@ -363,6 +363,14 @@ async function handleDeliveryRequest(
         : await service.deliveryPatch(scope.projectId, body, { readOnly: scope.readOnly });
       return reply(response, 200, { diff: patch });
     }
+    case "locate": {
+      // Like the diff, the path is in the checkout this backend owns.
+      if (scope.declared) throw new HttpError(403, "只能在需求现场所在后端打开文件", "delivery_owner_only");
+      const location = task
+        ? await service.deliveryFileLocationForTask(task, body, { readOnly: scope.readOnly })
+        : await service.deliveryFileLocation(scope.projectId, body, { readOnly: scope.readOnly });
+      return reply(response, 200, location);
+    }
     case "retry": {
       if (typeof body.deliveryId === "string") {
         const delivery = task

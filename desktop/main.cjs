@@ -27,6 +27,7 @@ const {
 } = require("electron");
 const { createAppearanceHost } = require("./appearance.cjs");
 const { createLanguageHost } = require("./language.cjs");
+const { createFileOpener } = require("./file-open.cjs");
 const { windowBackground, followNativeTheme } = require("./system-theme.cjs");
 const { PRODUCT_NAME } = require("./product-name.cjs");
 const { windowMaterial } = require("./window-material.cjs");
@@ -317,34 +318,67 @@ ipcMain.handle("bookman:choose-project", async (event) => {
   return result.canceled ? undefined : result.filePaths[0];
 });
 /** Open one already-published artifact in the system's default application. */
-ipcMain.handle("bookman:open-artifact", async (event, taskId, relativePath) => {
-  trust(event);
+const fileOpener = createFileOpener({ shell, app });
+/**
+ * The local file behind one previewed file. The renderer names only the
+ * session, the source and the path inside it; the backend resolves and
+ * contains the file, so no host path ever comes from the page.
+ */
+async function previewedFilePath(taskId, target) {
   if (
     typeof taskId !== "string" ||
     !/^[a-zA-Z0-9._-]{1,160}$/.test(taskId) ||
-    typeof relativePath !== "string" ||
-    !relativePath.trim()
+    !target ||
+    typeof target !== "object" ||
+    !["artifact", "project", "change"].includes(target.source) ||
+    typeof target.path !== "string" ||
+    !target.path.trim() ||
+    target.path.length > 4096 ||
+    (target.source === "change" &&
+      (typeof target.developmentId !== "string" ||
+        !target.developmentId ||
+        target.developmentId.length > 200))
   )
-    throw new Error("invalid artifact");
+    throw new Error("invalid file");
   const selected = selectedBackend;
   if (!selected) throw new Error("本地服务尚未就绪");
   const token = backendAuthorization?.requestToken(selected);
   if (!token) throw new Error("本地服务会话已失效，请重新连接");
-  // The backend resolves the artifact to a local file it already indexes; the
-  // renderer never supplies a host path.
-  const target = new URL(`/api/tasks/${encodeURIComponent(taskId)}/artifact-path`, selected.url);
-  target.searchParams.set("path", relativePath);
-  const response = await fetch(target, {
-    headers: { "x-atria-token": token },
-    redirect: "error",
-    signal: AbortSignal.timeout(15_000)
-  });
+  const task = `/api/tasks/${encodeURIComponent(taskId)}`;
+  let response;
+  if (target.source === "change") {
+    response = await fetch(new URL(`${task}/deliveries`, selected.url), {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-atria-token": token },
+      body: JSON.stringify({ action: "locate", developmentId: target.developmentId, path: target.path }),
+      redirect: "error",
+      signal: AbortSignal.timeout(15_000)
+    });
+  } else {
+    const url = new URL(`${task}/file-location`, selected.url);
+    url.searchParams.set("source", target.source);
+    url.searchParams.set("path", target.path);
+    response = await fetch(url, {
+      headers: { "x-atria-token": token },
+      redirect: "error",
+      signal: AbortSignal.timeout(15_000)
+    });
+  }
   // eslint-disable-next-line no-restricted-syntax -- an error page without JSON still fails on the status check below
   const result = await response.json().catch(() => undefined);
   if (!response.ok || typeof result?.absolutePath !== "string" || !path.isAbsolute(result.absolutePath))
-    throw new Error(result?.error?.message || "无法解析这个产出物的本地文件");
-  const failure = await shell.openPath(result.absolutePath);
-  if (failure) throw new Error(failure);
+    throw new Error(result?.error?.message || result?.error || "无法找到这个文件的本地位置");
+  return result.absolutePath;
+}
+ipcMain.handle("bookman:file-apps", async (event, taskId, target) => {
+  trust(event);
+  return fileOpener.list(await previewedFilePath(taskId, target));
+});
+ipcMain.handle("bookman:open-file", async (event, taskId, target, appId) => {
+  trust(event);
+  if (appId !== undefined && (typeof appId !== "string" || appId.length > 4096))
+    throw new Error("invalid application");
+  await fileOpener.open(await previewedFilePath(taskId, target), appId);
   return true;
 });
 ipcMain.handle("bookman:open-artifact-viewer", async (event, value, pdf) => {

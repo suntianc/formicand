@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
-import { mkdtemp, mkdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, realpath, rm, symlink, writeFile } from "node:fs/promises";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -34,13 +34,20 @@ test(
       await mkdir(candidate, { recursive: true });
       await writeFile(join(candidate, "candidate.md"), "not a final file");
       await writeFile(join(artifacts, "报告 说明.md"), "# 已验收\n");
-      await writeFile(join(artifacts, "long.txt"), "中".repeat(100000));
+      await writeFile(join(artifacts, "long.txt"), "中".repeat(400000));
       await writeFile(join(artifacts, "result.json"), '{"purpose":"user requested JSON"}');
       const binary = Buffer.from([80, 75, 3, 4, 255, 0, 128, 33]);
       await writeFile(join(artifacts, "演示 文稿.pptx"), binary);
       await writeFile(join(artifacts, "preview.pdf"), Buffer.from("%PDF-1.7\nfixture"));
       await writeFile(join(artifacts, "preview.png"), Buffer.from([137, 80, 78, 71, 0, 255]));
       await writeFile(join(root, "secret.txt"), "outside");
+      await mkdir(join(projectDirectory, "src", "hazard"), { recursive: true });
+      await mkdir(join(projectDirectory, ".git"));
+      await writeFile(join(projectDirectory, ".git", "config"), "[core]\n");
+      await writeFile(join(projectDirectory, "src", "hazard", "HazardQuery.kt"), "fun query() = 1\n");
+      await writeFile(join(projectDirectory, "src", "Other.kt"), "class Other\n");
+      await writeFile(join(projectDirectory, "blob.bin"), Buffer.from([1, 0, 2]));
+      await symlink(join(root, "secret.txt"), join(projectDirectory, "linked.txt"));
       await symlink(join(root, "secret.txt"), join(artifacts, "escape.txt"));
       const config = join(root, "config.json");
       await writeFile(config, "{}");
@@ -96,7 +103,7 @@ test(
       assert.equal(preview.content, "# 新版\n");
       const long = await (await fetch(fileUrl("long.txt"))).json();
       assert.equal(long.truncated, true);
-      assert.ok(Buffer.byteLength(long.content) <= 256 * 1024);
+      assert.ok(Buffer.byteLength(long.content) <= 1024 * 1024);
       assert.equal(long.content.includes("\uFFFD"), false);
       const binaryPreview = await (await fetch(fileUrl("演示 文稿.pptx"))).json();
       assert.equal(binaryPreview.previewKind, "download");
@@ -127,6 +134,35 @@ test(
       ]) {
         assert.equal((await fetch(fileUrl(path))).status, 400);
       }
+      const projectUrl = (name, extra = "") =>
+        `${base}/api/tasks/task/project-file?path=${encodeURIComponent(name)}${extra}`;
+      const source = await (await fetch(projectUrl("src/hazard/HazardQuery.kt"))).json();
+      assert.equal(source.previewKind, "text");
+      assert.equal(source.content, "fun query() = 1\n");
+      assert.match(source.rawUrl, /project-file\?path=src%2Fhazard%2FHazardQuery\.kt&raw=1$/);
+      assert.equal((await (await fetch(projectUrl("blob.bin"))).json()).previewKind, "download");
+      assert.equal((await fetch(projectUrl("missing.kt"))).status, 404);
+      for (const path of [".git/config", "linked.txt", "../secret.txt", "/etc/passwd"])
+        assert.equal((await fetch(projectUrl(path))).status, 400, path);
+      const resolveUrl = (reference) =>
+        `${base}/api/tasks/task/project-file/resolve?path=${encodeURIComponent(reference)}`;
+      const resolved = async (reference) => (await (await fetch(resolveUrl(reference))).json()).matches;
+      assert.deepEqual(await resolved("./src/hazard/HazardQuery.kt"), ["src/hazard/HazardQuery.kt"]);
+      assert.deepEqual(await resolved(join(projectDirectory, "src/Other.kt")), ["src/Other.kt"]);
+      assert.deepEqual(await resolved("hazard/HazardQuery.kt"), ["src/hazard/HazardQuery.kt"]);
+      assert.deepEqual(await resolved("HazardQuery.kt"), ["src/hazard/HazardQuery.kt"]);
+      assert.deepEqual(await resolved("/etc/passwd"), []);
+      const located = await (
+        await fetch(`${base}/api/tasks/task/file-location?source=project&path=src%2FOther.kt`)
+      ).json();
+      assert.equal(located.absolutePath, join(await realpath(projectDirectory), "src", "Other.kt"));
+      const artifactLocation = await fetch(
+        `${base}/api/tasks/task/file-location?source=artifact&path=${encodeURIComponent("报告 说明.md")}`
+      );
+      assert.equal(
+        (await artifactLocation.json()).absolutePath,
+        join(await realpath(artifacts), "报告 说明.md")
+      );
     } finally {
       if (child && child.exitCode === null) {
         child.kill("SIGTERM");

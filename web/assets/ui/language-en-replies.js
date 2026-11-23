@@ -41,8 +41,6 @@ export default {
   警告: "Warning",
   当心: "Caution",
   未完成: "Not done",
-  "这个文件不在本会话的产出或改动里，无法预览":
-    "This file is not among this conversation's outputs or changes, so it cannot be previewed",
   目标后端: "Target backend",
   目标项目: "Target project",
   "查询和来源链接会发送给所选服务。": "Queries and source URLs will be sent to the selected provider.",
@@ -71,5 +69,13 @@ export default {
   " 小时无进展": " h without progress",
   "允许所有对话观察并操作全部应用窗口。": "Let every conversation observe and operate all app windows.",
   "此格式可下载后用系统应用打开。": "Download this format and open it with a compatible app.",
-  用系统默认应用打开: "Open with the default app"
+  用系统默认应用打开: "Open with the default app",
+  项目里找不到这个文件: "This file is not in the project",
+  "PDF 翻页": "PDF pages",
+  "点击“打开 ↗”查看 PDF。": "Use “Open ↗” to view the PDF.",
+  " 个同名文件": " matching files",
+  选择打开方式: "Choose an app",
+  默认应用: "Default app",
+  其他应用: "Other apps",
+  文件内容已复制: "File content copied"
 };

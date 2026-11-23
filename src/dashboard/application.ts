@@ -2,6 +2,7 @@ import { createWebSearchSettings } from "./web-search-settings.js";
 import { createSkillService } from "./skill-service.js";
 import { createMcpService } from "./mcp-service.js";
 import { createComposerService } from "./composer-service.js";
+import { createProjectFileIndex } from "../workspace/project-file-index.js";
 import { createAgentService } from "./agent-service.js";
 import { createMemoryService } from "./memory-service.js";
 import { agentLocations, resolveAgent } from "../runtime/agent-definitions.js";
@@ -577,6 +578,7 @@ export function createDashboardApplication(
     runtimeValue: () => runtimeValue("COWORK_MODEL"),
     modelSettings
   });
+  const projectFiles = createProjectFileIndex();
   const routes: DashboardRoutePorts = {
     projectData,
     mainSessions,
@@ -604,8 +606,10 @@ export function createDashboardApplication(
       harnessRoot: projectRoot,
       home: data.home,
       userHome: homedir(),
-      projectForId: workspaces.projectForId
+      projectForId: workspaces.projectForId,
+      fileIndex: projectFiles
     }),
+    projectFiles,
     skills: createSkillService({
       harnessRoot: projectRoot,
       home: data.home,

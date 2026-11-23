@@ -352,6 +352,7 @@ POST bodies carry `action`:
 
 - `query` (optional `developmentId`), `get` (`deliveryId`) and `view` (`developmentId` or `requirementId`) read. The view returns `{ projectId, development, stage, plan?, reviews, qualification?, merges, delivery?, board?, diff?, roles, tickets, pendingSync? }`, where `tickets` is the requirement's ticket list, where `stage` is `developing`/`reviewing`/`merge_pending`/`merged`/`delivered`, `roles` are the recorded Executor/Reviewer work items with their durable status when this host still has them, `diff` is the committed baseline-to-candidate change read from the checkout that owns it, and `pendingSync` names a locally published merge whose shared delivery has not been accepted yet. The same view is reachable from the project route, the Task route and the `project_development` tool (`delivery_status`).
 - `diff` (`developmentId` or `requirementId`, optional `path`) returns `{ base, head, candidateCommit, mergedCommit?, path?, patch, truncated, contents }`: the unified patch of the accepted change and each changed file's text at the same commit. Only a file the delivery diff already lists may be named; a patch past 200 KB is cut and marked `truncated`; a checkout this host does not own returns 409 `delivery_patch_unavailable`, and a declared remote backend gets 403 `delivery_owner_only` because it must ask its own execution host. The work panel's preview reads this instead of running Git in the page.
+- `locate` (`developmentId` or `requirementId`, `path`) returns `{ absolutePath }` of one changed file in the checkout this backend owns, under the same rules as `diff`; a file the change deleted returns 409 `delivery_file_missing`. Only the desktop host calls it, for the preview's "Open" button.
 - `retry` (`deliveryId` or `developmentId`) re-applies the persisted delivery or completes the latest merged operation of that development; a retry cannot create a second delivery or a second target commit.
 - `sync` (`receipt`) is accepted only from the authenticated execution backend that owns the merge and is how a secondary backend records what it published. The authority verifies the receipt against its own merged row before writing anything.
 
@@ -671,7 +672,7 @@ Normal run/complete actions reject outstanding questions so an ordinary prompt c
 
 Paths are relative to `artifacts/`, support Unicode and spaces, and retain subdirectories so duplicate basenames remain distinguishable. JSON, logs, and code are valid deliverables when deliberately placed there; the UI must not filter them by extension.
 
-Conversation Markdown resolves absolute local links only against this index under `<storageRoot>/<taskId>/artifacts/`. `workspaceRoot` names the project directory and may differ; it is used only as a compatibility fallback when `storageRoot` is absent. Text, Markdown, JSON, images and PDF open in the read-only preview drawer with a download action; other types download directly. The desktop build additionally offers "open with the system default app" through a preload IPC that first asks the backend for the artifact's absolute path; the Web build shows no such entry.
+Conversation Markdown resolves absolute local links only against this index under `<storageRoot>/<taskId>/artifacts/`. `workspaceRoot` names the project directory and may differ; it is used only as a compatibility fallback when `storageRoot` is absent. Text, Markdown, JSON, Office documents, images and PDF open in the read-only preview drawer with a download action; other types download directly. The desktop build additionally offers an "Open" button whose arrow lists this Mac's applications for the file; see [Session files](#session-files). The Web build shows no such entry.
 
 The Runtime keeps indexing metadata in Task `.runtime/artifacts.json`; no model-facing registration tool is required. Private Subagent `deliverables/`, Main `work/`, `sessions/`, and `runs/` are not scanned as final outputs. Ordinary discovery never promotes candidates.
 
@@ -679,10 +680,8 @@ The Runtime keeps indexing metadata in Task `.runtime/artifacts.json`; no model-
 GET /api/tasks/:taskId/artifact?path=<URL-encoded relative path>
 GET /api/tasks/:taskId/artifact?path=<URL-encoded relative path>&raw=1
 GET /api/tasks/:taskId/artifact?path=<URL-encoded relative path>&download=1
-GET /api/tasks/:taskId/artifact-path?path=<URL-encoded relative path>
+GET /api/tasks/:taskId/artifact?path=<URL-encoded relative path>&page=<n>
 ```
-
-`artifact-path` returns `{ absolutePath }` for a file already indexed under this Task's `artifacts/`; it applies the same containment checks as preview and download, so a path outside `artifacts/` is rejected. The desktop preload uses it for "open with the system default app"; the Web build never calls it.
 
 The default response describes the preview:
 
@@ -700,11 +699,34 @@ The default response describes the preview:
 }
 ```
 
-`previewKind` is `text`, `pdf`, `image`, or `download`. Only `text` includes `content`; text preview reads at most 256 KiB, with `truncated: true` when only a prefix is shown. Render PDFs in an iframe and images as images using `rawUrl`. Office documents and other binary files use a download card, never a UTF-8 code editor. Every kind offers a download action; copying applies only to text and must identify truncated previews. The desktop build may additionally offer "用系统默认应用打开", which resolves the file through `artifact-path` and opens it with Electron `shell.openPath`; the Web build has no such action.
+`previewKind` is `text`, `office`, `pdf`, `image`, or `download`. Every file preview — artifacts, project files and uploads — is produced by the same reader with the same rules:
+
+- `text` includes `content`, at most the first 1 MiB, with `truncated: true` when only a prefix is shown. A type the name does not identify is read as text when its bytes are UTF-8 without NUL bytes, otherwise it is `download`.
+- `office` (`.docx`, `.pptx`, `.xlsx`) includes the text the local parser extracts, at most 20,000 characters, with `truncated` likewise. A damaged file, or a machine without the parser, returns `download` with a `notice` saying why.
+- `pdf` carries no content by default. `page=<n>` (from 1) adds that page rendered as `image` (base64 PNG) with `page` and the total `pages`; it needs the local PDF parser and returns 400 with the reason when the page cannot be rendered.
+- `image` is shown from `rawUrl`.
+
+Every kind offers a download action; copying applies to `text` and `office` and must identify truncated previews.
 
 `raw=1` serves complete bytes with their MIME type; `download=1` serves the same file as an attachment with a Unicode-compatible filename. Encode the entire path query value, and never resolve it against a different Task or outside `artifacts/`.
 
 Invalidate cached previews when `sha256`, `mtimeMs`, size, or the returned `version` changes, and version media URLs too. Unchanged Task polling should preserve the active preview and reading position.
+
+### Session files
+
+A file a reply names may be any file of the session's project folder, not only an artifact. A session without a project reads its own temporary folder.
+
+```text
+GET /api/tasks/:taskId/project-file?path=<URL-encoded project-relative path>[&raw=1|&download=1|&page=<n>]
+GET /api/tasks/:taskId/project-file/resolve?path=<reference as written>
+GET /api/tasks/:taskId/file-location?source=artifact|project&path=<URL-encoded relative path>
+```
+
+- `project-file` serves the same preview, raw and download responses as an artifact. The path is relative to the project folder, reached without following links, and never inside `.git`; a malformed or escaping path returns 400 and a missing file 404 `file_missing`. `version` changes whenever the file is rewritten.
+- `project-file/resolve` turns a reference as a reply wrote it — `./a`, `a/b.kt`, a bare `b.kt`, or an absolute path inside the folder — into `{ matches: string[] }`: the exact file when it exists, otherwise the listed files ending in that path, otherwise those with that file name (Git's view of the folder: tracked plus untracked, ignored files left out), shortest first, at most 20. A path outside the folder matches nothing.
+- `file-location` returns `{ absolutePath }` of an indexed artifact or a project file, under the same checks. Only the desktop host calls it, to hand the file to an application; the page never receives or sends a host path.
+
+The desktop "Open" button asks the host (`bookman:file-apps`) which applications on this Mac can open the file: the system default first, then the installed editors and IDEs the host knows (macOS registers many source extensions to other kinds of app), then the other applications LaunchServices lists, then installed terminals, which open the file's folder. `bookman:open-file` opens the file with the default application through the system, or with one of the applications the host listed for that file; anything else is refused. The page remembers the last choice per file type.
 
 ## SSE stream
 
@@ -777,7 +799,7 @@ The Runtime writes the observation to the Event Log and Main Inbox. `watcherId +
 
 - `POST /api/uploads?name=<encoded filename>` accepts a raw file body, bounded while streaming to 25 MiB. It returns `{uploadId,name,size,mimeType,kind,sha256,createdAt,relativePath}`. Content signatures and UTF-8 are checked; interrupted or rejected writes are removed.
 - `GET /api/uploads/:uploadId` returns original bytes with private/no-store headers. Images display inline; documents/text download with the original Unicode filename.
-- `GET /api/uploads/:uploadId/preview?page=1` returns image metadata, a bounded text excerpt, or a rendered PNG PDF page and total page count. Local parsing dependencies are required for PDF/Office.
+- `GET /api/uploads/:uploadId/preview[?page=<n>]` returns `{ file, ...preview }` with the same preview shape and rules as an artifact (see [Artifact files and previews](#artifact-files-and-previews)); `rawUrl` and `downloadUrl` both name the original bytes. Local parsing dependencies are required for PDF pages and Office text.
 - `POST /api/tasks/:taskId/run` and `/interject` accept optional `attachmentIds: string[]`, at most 10 IDs / 100 MiB. Original files are validated and copied to Task `inputs/` before the message reaches Main. Prompt metadata references those files; the conversation renderer displays filenames and image thumbnails. Main uses `read_attachment({id,offset?,limit?,page?,render?})` to read them explicitly.
 
 Uploads stay local until an agent reads them during the user's model run. Reading a document sends extracted content to the configured model; image reading sends pixels only when the connection accepts image input, and otherwise reports that the current model does not support images. Upload IDs are local references under the Dashboard's existing origin and desktop authentication boundary, not a public sharing mechanism.

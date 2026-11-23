@@ -106,9 +106,9 @@ for (const scheme of ["dark", "light"])
       const answer = page.locator('.chat-message.main[data-answer-kind="final"] .markdown-body');
       await expect(answer).toBeVisible({ timeout: 30_000 });
 
-      // A file chip that names nothing openable is not a button.
+      // In a session every file chip opens, looked up in the project folder.
       await expect(answer.locator(".file-chip")).toHaveCount(2);
-      await expect(answer.locator("button.file-chip")).toHaveCount(0);
+      await expect(answer.locator("button.file-chip")).toHaveCount(2);
       await expect(answer.locator(".file-chip").first()).toContainText("useChangeStages.ts:222");
 
       const table = answer.locator(".table-block");

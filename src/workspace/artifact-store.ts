@@ -12,10 +12,12 @@ import {
   unlink,
   writeFile
 } from "node:fs/promises";
-import { basename, dirname, extname, isAbsolute, join, relative, resolve, sep } from "node:path";
+import { basename, join, resolve } from "node:path";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { withFileLock } from "../storage/file-lock.js";
+import { containedDirectory, containedFile, pathParts, UnsafePath } from "./contained-path.js";
+import { mimeTypeOf } from "./file-types.js";
 
 export interface Artifact {
   artifactId: string;
@@ -59,7 +61,7 @@ interface ArtifactMetadata {
   createdAt?: string;
 }
 
-class UnsafeArtifactPath extends Error {}
+const UnsafeArtifactPath = UnsafePath;
 
 /** The file changed between the two stats that bracket hashing it. */
 class ArtifactChangedDuringIndexing extends Error {}
@@ -70,43 +72,8 @@ function safeSegment(value: string): string {
   return value;
 }
 
-function pathParts(value: string): string[] {
-  if (!value || isAbsolute(value) || /^[a-zA-Z]:/.test(value) || /[\\\x00-\x1f\x7f]/.test(value))
-    throw new UnsafeArtifactPath(`unsafe artifact path: ${value}`);
-  const parts = value.split("/");
-  if (parts.some((part) => !part || part === "." || part === ".."))
-    throw new UnsafeArtifactPath(`unsafe artifact path: ${value}`);
-  return parts;
-}
-
-function inside(root: string, path: string): boolean {
-  const suffix = relative(root, path);
-  return suffix === "" || (!isAbsolute(suffix) && suffix !== ".." && !suffix.startsWith(`..${sep}`));
-}
-
 function missing(error: unknown): boolean {
   return (error as NodeJS.ErrnoException).code === "ENOENT";
-}
-
-/** Resolve each component, rejecting links even when they point back into the task. */
-async function directory(root: string, parts: string[], create = false): Promise<string> {
-  let current = root;
-  for (const part of parts) {
-    current = join(current, part);
-    if (create) {
-      try {
-        await mkdir(current);
-      } catch (error) {
-        if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
-      }
-    }
-    const details = await lstat(current);
-    if (details.isSymbolicLink() || !details.isDirectory())
-      throw new UnsafeArtifactPath(`unsafe artifact directory: ${current}`);
-  }
-  if (!inside(root, await realpath(current)))
-    throw new UnsafeArtifactPath("artifact directory escapes task workspace");
-  return current;
 }
 
 async function taskPaths(input: TaskLocation, create = false): Promise<TaskPaths> {
@@ -114,28 +81,13 @@ async function taskPaths(input: TaskLocation, create = false): Promise<TaskPaths
   const requestedRoot = resolve(input.workspaceRoot);
   if (create) await mkdir(requestedRoot, { recursive: true });
   const root = await realpath(requestedRoot);
-  const task = await directory(root, [input.taskId], create);
+  const task = await containedDirectory(root, [input.taskId], create);
   return {
     task,
     artifacts: join(task, "artifacts"),
     runtime: join(task, ".runtime"),
     index: join(task, ".runtime", "artifacts.json")
   };
-}
-
-async function checkedFile(
-  root: string,
-  relativePath: string
-): Promise<{ absolutePath: string; stat: Stats }> {
-  const parts = pathParts(relativePath);
-  const parent = await directory(root, parts.slice(0, -1));
-  const absolutePath = join(parent, parts.at(-1)!);
-  const details = await lstat(absolutePath);
-  if (details.isSymbolicLink() || !details.isFile())
-    throw new UnsafeArtifactPath(`artifact is not a regular file: ${relativePath}`);
-  if (!inside(root, await realpath(absolutePath)))
-    throw new UnsafeArtifactPath("artifact path escapes artifacts directory");
-  return { absolutePath, stat: details };
 }
 
 async function readJson(path: string): Promise<unknown> {
@@ -198,70 +150,6 @@ async function activeRun(paths: TaskPaths): Promise<string> {
   return "workspace";
 }
 
-function mimeType(path: string): string {
-  const types: Record<string, string> = {
-    ".md": "text/markdown",
-    ".markdown": "text/markdown",
-    ".txt": "text/plain",
-    ".log": "text/plain",
-    ".json": "application/json",
-    ".jsonl": "application/x-ndjson",
-    ".csv": "text/csv",
-    ".tsv": "text/tab-separated-values",
-    ".html": "text/html",
-    ".css": "text/css",
-    ".js": "text/javascript",
-    ".mjs": "text/javascript",
-    ".pdf": "application/pdf",
-    ".png": "image/png",
-    ".jpg": "image/jpeg",
-    ".jpeg": "image/jpeg",
-    ".gif": "image/gif",
-    ".webp": "image/webp",
-    ".svg": "image/svg+xml",
-    ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-    ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    ".zip": "application/zip",
-    ".mp4": "video/mp4",
-    ".mp3": "audio/mpeg",
-    ".wav": "audio/wav"
-  };
-  const extension = extname(path).toLowerCase();
-  if (
-    [
-      ".py",
-      ".ts",
-      ".tsx",
-      ".jsx",
-      ".sh",
-      ".bash",
-      ".zsh",
-      ".yml",
-      ".yaml",
-      ".toml",
-      ".ini",
-      ".xml",
-      ".sql",
-      ".diff",
-      ".patch",
-      ".r",
-      ".rs",
-      ".go",
-      ".c",
-      ".h",
-      ".cpp",
-      ".java",
-      ".ipynb",
-      ".env"
-    ].includes(extension)
-  )
-    return "text/plain";
-  if (["Dockerfile", "Makefile", "LICENSE", ".gitignore", ".env"].includes(basename(path)))
-    return "text/plain";
-  return types[extension] ?? "application/octet-stream";
-}
-
 function unchanged(entry: CacheEntry, details: Stats): boolean {
   return (
     entry.artifact.size === details.size &&
@@ -293,10 +181,10 @@ async function indexFile(
   previous?: CacheEntry,
   metadata: ArtifactMetadata = {}
 ): Promise<{ entry: CacheEntry; absolutePath: string; stat: Stats }> {
-  const file = await checkedFile(paths.artifacts, relativePath);
+  const file = await containedFile(paths.artifacts, relativePath);
   const cached = previous && unchanged(previous, file.stat);
   const sha256 = cached ? previous.artifact.sha256 : await hashFile(file.absolutePath);
-  const after = await checkedFile(paths.artifacts, relativePath);
+  const after = await containedFile(paths.artifacts, relativePath);
   if (
     file.stat.size !== after.stat.size ||
     file.stat.mtimeMs !== after.stat.mtimeMs ||
@@ -318,7 +206,7 @@ async function indexFile(
       metadata.createdAt ??
       new Date(file.stat.birthtimeMs || file.stat.mtimeMs).toISOString(),
     displayName: metadata.displayName ?? previous?.artifact.displayName ?? basename(relativePath),
-    mimeType: metadata.mimeType ?? previous?.artifact.mimeType ?? mimeType(relativePath),
+    mimeType: metadata.mimeType ?? previous?.artifact.mimeType ?? mimeTypeOf(relativePath),
     mtimeMs: file.stat.mtimeMs
   };
   return { entry: { artifact, ctimeMs: file.stat.ctimeMs, dev: file.stat.dev, ino: file.stat.ino }, ...file };
@@ -327,7 +215,7 @@ async function indexFile(
 async function filesUnder(root: string, prefix = ""): Promise<string[]> {
   let entries;
   try {
-    await directory(root, prefix ? pathParts(prefix) : []);
+    await containedDirectory(root, prefix ? pathParts(prefix) : []);
     entries = await readdir(prefix ? join(root, prefix) : root, { withFileTypes: true });
   } catch (error) {
     if (missing(error)) return [];
@@ -348,12 +236,12 @@ export async function listTaskArtifacts(input: TaskLocation & { runId?: string }
   let paths;
   try {
     paths = await taskPaths(input);
-    await directory(paths.task, ["artifacts"]);
+    await containedDirectory(paths.task, ["artifacts"]);
   } catch (error) {
     if (missing(error)) return [];
     throw error;
   }
-  await directory(paths.task, [".runtime"], true);
+  await containedDirectory(paths.task, [".runtime"], true);
   return withFileLock(paths.index, async () => {
     const cache = await readCache(paths);
     const old = new Map(cache.entries.map((entry) => [entry.artifact.relativePath, entry]));
@@ -390,9 +278,9 @@ export async function resolveTaskArtifact(
 ): Promise<{ absolutePath: string; stat: Stats; artifact: Artifact }> {
   pathParts(input.relativePath);
   const paths = await taskPaths(input);
-  await directory(paths.task, ["artifacts"]);
-  await checkedFile(paths.artifacts, input.relativePath);
-  await directory(paths.task, [".runtime"], true);
+  await containedDirectory(paths.task, ["artifacts"]);
+  await containedFile(paths.artifacts, input.relativePath);
+  await containedDirectory(paths.task, [".runtime"], true);
   return withFileLock(paths.index, async () => {
     const cache = await readCache(paths);
     const previous = cache.entries.find((entry) => entry.artifact.relativePath === input.relativePath);
@@ -428,13 +316,13 @@ export async function publishTaskArtifact(
   if ((input.sourcePath !== undefined) === (input.content !== undefined))
     throw new Error("provide exactly one of sourcePath or content");
   const paths = await taskPaths(input, true);
-  await directory(paths.task, ["artifacts"], true);
-  await directory(paths.task, [".runtime", "artifact-staging"], true);
+  await containedDirectory(paths.task, ["artifacts"], true);
+  await containedDirectory(paths.task, [".runtime", "artifact-staging"], true);
   return withFileLock(paths.index, async () => {
-    const parent = await directory(paths.artifacts, parts.slice(0, -1), true);
+    const parent = await containedDirectory(paths.artifacts, parts.slice(0, -1), true);
     const target = join(parent, parts.at(-1)!);
     try {
-      await checkedFile(paths.artifacts, input.relativePath);
+      await containedFile(paths.artifacts, input.relativePath);
     } catch (error) {
       if (!missing(error)) throw error;
     }
@@ -455,9 +343,9 @@ export async function publishTaskArtifact(
       } finally {
         await output.close();
       }
-      await directory(paths.artifacts, parts.slice(0, -1));
+      await containedDirectory(paths.artifacts, parts.slice(0, -1));
       try {
-        await checkedFile(paths.artifacts, input.relativePath);
+        await containedFile(paths.artifacts, input.relativePath);
       } catch (error) {
         if (!missing(error)) throw error;
       }

@@ -4,6 +4,7 @@ import {
   artifactVersion,
   formatArtifactSize,
   normalizeArtifactPreview,
+  projectFileUrls,
   renderArtifactMedia
 } from "../artifacts.js";
 import { filePatchText, parseUnifiedDiff } from "../diff-view.js";
@@ -11,8 +12,13 @@ import { renderMarkdown } from "../markdown.js";
 import { icon } from "../ui/icons.js";
 import { ui } from "../ui/language.js";
 import { escapeHtml as esc } from "../ui/html.js";
+import { createOpenWith } from "./open-with.js";
 
-/** Owns artifact loading and read-only preview. It never writes a published artifact. */
+/**
+ * Owns the read-only file preview beside a conversation: published artifacts,
+ * files of the project folder, and the files of a development change. It
+ * never writes a file.
+ */
 export function createArtifactController({
   state,
   $,
@@ -30,15 +36,37 @@ export function createArtifactController({
     "application/xml",
     "application/javascript"
   ];
+  const OFFICE_TYPES = [
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+  ];
   function previewable(artifact) {
     const mime = String(artifact?.mimeType || "");
     return (
       mime === "application/pdf" ||
       mime.startsWith("image/") ||
       mime.startsWith("text/") ||
-      TEXTUAL_TYPES.includes(mime)
+      TEXTUAL_TYPES.includes(mime) ||
+      OFFICE_TYPES.includes(mime)
     );
   }
+
+  /** Files of the project folder opened in each session, in opening order. */
+  const projectTabs = new Map();
+  /** Their previews, by session and path. */
+  const projectCache = new Map();
+  /** Rendered PDF pages, and the page each PDF shows. */
+  const pdfPages = new Map();
+  const pdfPage = new Map();
+  /** A file reference that matched several project files, waiting for a choice. */
+  let choosing = null;
+  const openWith = createOpenWith({
+    bridge: globalThis.window?.bookmanDesktop?.files,
+    showToast,
+    onChange: () => renderArtifactDrawer()
+  });
+  const projectKey = (path) => `${state.selected}\0${path}`;
 
   function downloadArtifact(artifact) {
     const urls = artifactRequestUrls(state.selected, artifact.relativePath, artifactVersion(artifact));
@@ -125,11 +153,14 @@ export function createArtifactController({
       state.previewPath = path;
       state.drawerTab = { kind: "attachment", path };
       ensureArtifactLoaded(path);
-    }
+    } else if (tab === "project" && path) {
+      state.drawerTab = { kind: "project", path };
+      ensureProjectLoaded(path);
+    } else if (tab === "choose") state.drawerTab = { kind: "choose" };
     renderRightPanel();
   }
 
-  /** A file a reply names: one of this conversation's artifacts, or a file of its change. */
+  /** A file a reply names that this page already knows: an artifact, or a file of the change. */
   function fileTarget(path) {
     const clean = String(path).replace(/^\.\//, "");
     const matches = (candidate) =>
@@ -143,15 +174,80 @@ export function createArtifactController({
     if (changed) return { kind: "file", path: changed.path };
   }
 
-  /** Opens the preview a file chip points at, at its line once the text is there. */
+  /** Every reference in a session can be looked up; the project folder is asked last. */
+  function canOpenReference() {
+    return Boolean(state.selected);
+  }
+
+  /**
+   * Opens the preview a file chip points at, at its line once the text is
+   * there. A name this page does not know is looked up in the project folder:
+   * one match opens, several are offered to choose from.
+   */
   function openFileReference(path, line) {
     const target = fileTarget(path);
-    if (!target) return false;
-    state.drawerLine = line ? { path: target.path, line } : null;
-    if (target.kind === "attachment") openArtifact(target.path);
-    else openPreview({ tab: "file", path: target.path });
-    revealLine();
+    if (target) {
+      state.drawerLine = line ? { path: target.path, line } : null;
+      if (target.kind === "attachment") openArtifact(target.path);
+      else openPreview({ tab: "file", path: target.path });
+      revealLine();
+      return true;
+    }
+    const taskId = state.selected;
+    if (!taskId) return false;
+    api(`/api/tasks/${encodeURIComponent(taskId)}/project-file/resolve?path=${encodeURIComponent(path)}`, {
+      cache: "no-store"
+    })
+      .then(({ matches }) => {
+        if (state.selected !== taskId) return;
+        if (!matches?.length) return showToast(ui("项目里找不到这个文件"));
+        if (matches.length === 1) return openProjectFile(matches[0], line);
+        choosing = { taskId, reference: String(path), line, matches };
+        rememberDrawerTrigger();
+        state.drawerTab = { kind: "choose" };
+        state.artifactDrawerOpen = true;
+        renderRightPanel();
+      })
+      .catch((error) => showToast(error.message));
     return true;
+  }
+
+  /** Opens one file of the project folder in its own tab, reading it afresh. */
+  function openProjectFile(path, line) {
+    const taskId = state.selected;
+    if (!taskId || !path) return;
+    const opened = projectTabs.get(taskId) ?? [];
+    if (!opened.includes(path)) opened.push(path);
+    projectTabs.set(taskId, opened);
+    projectCache.delete(projectKey(path));
+    choosing = null;
+    state.drawerLine = line ? { path, line } : null;
+    rememberDrawerTrigger();
+    state.drawerTab = { kind: "project", path };
+    state.artifactDrawerOpen = true;
+    renderRightPanel();
+    ensureProjectLoaded(path);
+  }
+
+  function ensureProjectLoaded(path) {
+    const taskId = state.selected;
+    const key = projectKey(path);
+    if (projectCache.has(key)) return;
+    const pending = { status: "loading" };
+    projectCache.set(key, pending);
+    api(projectFileUrls(taskId, path).previewUrl, { cache: "no-store" })
+      .then((result) => {
+        if (projectCache.get(key) !== pending) return;
+        const entry = { ...normalizeArtifactPreview(result), status: "ready", signature: result.version };
+        projectCache.set(key, entry);
+        loadMedia(projectCache, key, projectFileUrls(taskId, path, result.version, result));
+        if (state.selected === taskId) renderArtifactDrawer();
+      })
+      .catch((error) => {
+        if (projectCache.get(key) !== pending) return;
+        projectCache.set(key, { status: "error", error: error.message });
+        if (state.selected === taskId) renderArtifactDrawer();
+      });
   }
 
   function revealLine() {
@@ -213,15 +309,16 @@ export function createArtifactController({
     return pending;
   }
 
-  function loadArtifactMedia(path, signature, urls) {
-    const entry = state.artifactCache.get(path);
-    if (!mediaUrl || !entry || entry.status !== "ready" || entry.signature !== signature) return;
+  /** Image and PDF bytes become an object URL once the preview says what the file is. */
+  function loadMedia(cache, key, urls) {
+    const entry = cache.get(key);
+    if (!mediaUrl || !entry || entry.status !== "ready") return;
     if (entry.mediaHref || !["pdf", "image"].includes(entry.previewKind)) return;
     void cachedMediaUrl(urls.rawUrl).then((href) => {
-      const current = state.artifactCache.get(path);
-      if (!href || !current || current.status !== "ready" || current.signature !== signature) return;
-      state.artifactCache.set(path, { ...current, mediaHref: href });
-      if (state.previewPath === path) renderArtifactDrawer();
+      const current = cache.get(key);
+      if (!href || current !== entry) return;
+      cache.set(key, { ...current, mediaHref: href });
+      renderArtifactDrawer();
     });
   }
 
@@ -238,7 +335,7 @@ export function createArtifactController({
       .then((result) => {
         if (state.selected !== taskId || state.artifactCache.get(path) !== pending) return;
         state.artifactCache.set(path, { ...normalizeArtifactPreview(result), status: "ready", signature });
-        loadArtifactMedia(path, signature, artifactRequestUrls(taskId, path, signature));
+        loadMedia(state.artifactCache, path, artifactRequestUrls(taskId, path, signature));
         if (state.previewPath === path) renderArtifactDrawer();
       })
       .catch((error) => {
@@ -270,6 +367,10 @@ export function createArtifactController({
         path: entry.relativePath,
         label: entry.displayName || fileBaseName(entry.relativePath)
       });
+    for (const path of projectTabs.get(state.selected) ?? [])
+      tabs.push({ id: `project:${path}`, kind: "project", path, label: fileBaseName(path) });
+    if (choosing?.taskId === state.selected)
+      tabs.push({ id: "choose", kind: "choose", label: fileBaseName(choosing.reference) });
     return tabs;
   }
 
@@ -279,7 +380,107 @@ export function createArtifactController({
       state.drawerTab ?? (state.previewPath ? { kind: "attachment", path: state.previewPath } : undefined);
     if (!tab) return undefined;
     if (tab.kind === "attachment") return tabs.find((entry) => entry.id === `attachment:${tab.path}`);
+    if (tab.kind === "project") return tabs.find((entry) => entry.id === `project:${tab.path}`);
     return tabs.find((entry) => entry.kind === tab.kind);
+  }
+
+  /** The preview entry behind a file tab, with the URLs its source serves it from. */
+  function fileEntry(tab) {
+    if (tab.kind === "attachment") {
+      const artifact = (state.detail?.artifacts || []).find((entry) => entry.relativePath === tab.path) || {};
+      const cached = state.artifactCache.get(tab.path);
+      return {
+        cache: state.artifactCache,
+        key: tab.path,
+        cached,
+        size: cached?.size ?? artifact.size,
+        urls: artifactRequestUrls(
+          state.selected,
+          tab.path,
+          cached?.version || artifactVersion(artifact),
+          cached
+        )
+      };
+    }
+    const cached = projectCache.get(projectKey(tab.path));
+    return {
+      cache: projectCache,
+      key: projectKey(tab.path),
+      cached,
+      size: cached?.size,
+      urls: projectFileUrls(state.selected, tab.path, cached?.version, cached)
+    };
+  }
+
+  /** What the "Open" button hands to the desktop for this tab, if anything. */
+  function openTarget(tab) {
+    if (tab.kind === "attachment") return { source: "artifact", path: tab.path };
+    if (tab.kind === "project") return { source: "project", path: tab.path };
+    const developmentId = getDelivery()?.view?.development?.developmentId;
+    if (tab.kind === "file" && tab.path && developmentId)
+      return { source: "change", path: tab.path, developmentId };
+    return undefined;
+  }
+
+  /** One rendered page of a PDF, read once per file version and page. */
+  function pdfPageEntry(file, page) {
+    const key = `${file.key}\0${file.cached?.version ?? ""}\0${page}`;
+    const entry = pdfPages.get(key);
+    if (entry) return entry;
+    const pending = { status: "loading" };
+    pdfPages.set(key, pending);
+    api(`${file.urls.previewUrl}&page=${page}`, { cache: "no-store" })
+      .then((result) => {
+        if (pdfPages.get(key) !== pending) return;
+        pdfPages.set(key, { status: "ready", image: result.image, pages: result.pages });
+        renderArtifactDrawer();
+      })
+      .catch((error) => {
+        if (pdfPages.get(key) !== pending) return;
+        pdfPages.set(key, { status: "error", error: error.message });
+        renderArtifactDrawer();
+      });
+    return pending;
+  }
+
+  function renderPdf(file, name) {
+    const page = pdfPage.get(file.key) ?? 1;
+    const entry = pdfPageEntry(file, page);
+    if (entry.status === "loading")
+      return `<div class="drawer-state"><span class="editor-spinner"></span><strong>${ui`正在打开 ${esc(
+        name
+      )}`}</strong></div>`;
+    // Without a rendered page (no PDF parser here, or a damaged file) the
+    // isolated viewer still opens it.
+    if (entry.status === "error" || !entry.image)
+      return `<div class="drawer-state"><strong>${esc(name)}</strong><p>${ui("点击“打开 ↗”查看 PDF。")}</p></div>`;
+    const pages = Number(entry.pages) || 1;
+    const pager =
+      pages > 1
+        ? `<nav class="drawer-pdf-pager" aria-label="${ui("PDF 翻页")}"><button type="button" class="drawer-action is-icon" data-pdf-page="${
+            page - 1
+          }" aria-label="${ui("上一页")}" title="${ui("上一页")}"${page <= 1 ? " disabled" : ""}>${icon(
+            "chevron-left"
+          )}</button><span>${page} / ${pages}</span><button type="button" class="drawer-action is-icon" data-pdf-page="${
+            page + 1
+          }" aria-label="${ui("下一页")}" title="${ui("下一页")}"${page >= pages ? " disabled" : ""}>${icon(
+            "chevron-right"
+          )}</button></nav>`
+        : "";
+    return `${pager}<div class="drawer-pdf-page"><img src="data:image/png;base64,${String(
+      entry.image
+    ).replace(/[^A-Za-z0-9+/=]/g, "")}" alt="${page} / ${pages}" /></div>`;
+  }
+
+  function renderChoices() {
+    return `<div class="drawer-choices" role="list">${choosing.matches
+      .map(
+        (path) =>
+          `<button type="button" role="listitem" class="drawer-choice" data-choose-file="${esc(path)}">${icon(
+            "file"
+          )}<span>${esc(path)}</span></button>`
+      )
+      .join("")}</div>`;
   }
 
   /** The committed change behind the panel's diff; fetched once per candidate. */
@@ -407,8 +608,16 @@ export function createArtifactController({
       delete drawer.dataset.tab;
       return;
     }
+    const isChange = tab.kind === "diff" || tab.kind === "file";
+    const isFile = tab.kind === "attachment" || tab.kind === "project";
     const artifact = attachments.find((entry) => entry.relativePath === tab.path) || {};
-    const cached = tab.kind === "attachment" ? state.artifactCache.get(tab.path) : undefined;
+    const file = isFile ? fileEntry(tab) : undefined;
+    const cached = file?.cached;
+    const target = openTarget(tab);
+    const pdf = cached?.status === "ready" && cached.previewKind === "pdf";
+    const pdfState = pdf
+      ? pdfPages.get(`${file.key}\0${cached.version ?? ""}\0${pdfPage.get(file.key) ?? 1}`)
+      : undefined;
     const signature = JSON.stringify([
       state.selected,
       tab.id,
@@ -419,6 +628,9 @@ export function createArtifactController({
       cached?.version,
       cached?.mediaHref,
       cached?.error,
+      pdf ? [pdfPage.get(file.key) ?? 1, pdfState?.status] : null,
+      tab.kind === "choose" ? choosing?.matches : null,
+      openWith.signature(state.selected, target),
       state.drawerDiff?.key,
       state.drawerDiff?.status
     ]);
@@ -436,49 +648,46 @@ export function createArtifactController({
     const changeMeta = commit
       ? ui`候选 ${commit} · +${totalAdds} −${totalDels}`
       : ui`+${totalAdds} −${totalDels}`;
-    const isChange = tab.kind !== "attachment";
-    const title = isChange
-      ? tab.kind === "diff"
+    const title =
+      tab.kind === "diff"
         ? ui("改动")
-        : fileBaseName(tab.path)
-      : artifact.displayName || fileBaseName(tab.path);
+        : tab.kind === "choose"
+          ? fileBaseName(choosing.reference)
+          : tab.kind === "attachment"
+            ? artifact.displayName || fileBaseName(tab.path)
+            : fileBaseName(tab.path);
     const meta = isChange
       ? `${changeMeta}${change ? ` · +${change.additions} −${change.deletions}` : ""}`
-      : `${fileLanguage(tab.path)} · ${formatArtifactSize(cached?.size ?? artifact.size)}`;
-    const urls = isChange
-      ? { previewUrl: "", rawUrl: "", downloadUrl: "" }
-      : artifactRequestUrls(state.selected, tab.path, cached?.version || artifactVersion(artifact), cached);
-    const downloadHref =
-      cached?.previewKind === "pdf" && cached.mediaHref ? cached.mediaHref : urls.downloadUrl;
-    const canCopy = !isChange && cached?.status === "ready" && cached.previewKind === "text";
+      : tab.kind === "choose"
+        ? ui`${choosing.matches.length} 个同名文件`
+        : `${tab.kind === "project" ? `${tab.path} · ` : ""}${fileLanguage(tab.path)} · ${formatArtifactSize(file.size)}`;
+    const urls = file?.urls ?? { previewUrl: "", rawUrl: "", downloadUrl: "" };
+    const downloadHref = pdf && cached.mediaHref ? cached.mediaHref : urls.downloadUrl;
+    const canCopy = isFile && cached?.status === "ready" && ["text", "office"].includes(cached.previewKind);
     const copyAction = canCopy
       ? `<button type="button" class="drawer-action is-icon" data-copy-drawer aria-label="${ui(
           "复制内容"
         )}" title="${ui("复制内容")}">${icon("copy")}</button>`
       : "";
-    // Only the desktop host can hand the file to the system's own application.
-    const canOpenSystem = !isChange && Boolean(globalThis.window?.bookmanDesktop?.openArtifact);
-    const openSystemAction = canOpenSystem
-      ? `<button type="button" class="drawer-action is-icon" data-open-system aria-label="${ui(
-          "用系统默认应用打开"
-        )}" title="${ui("用系统默认应用打开")}">${icon("open-app")}</button>`
-      : "";
-    const openAction = isChange
-      ? ""
-      : `<a class="drawer-action is-icon" data-open-artifact-viewer href="${esc(
+    const openAction = isFile
+      ? `<a class="drawer-action is-icon" data-open-artifact-viewer href="${esc(
           urls.rawUrl
         )}" target="_blank" rel="noopener noreferrer" aria-label="${ui("打开 ↗")}" title="${ui(
           "打开 ↗"
-        )}">${icon("external")}</a>`;
+        )}">${icon("external")}</a>`
+      : "";
     const downloadAction = isChange
       ? `<button type="button" class="drawer-action is-icon" data-download-diff aria-label="${ui(
           "下载"
         )}" title="${ui("下载")}">${icon("download")}</button>`
-      : `<a class="drawer-action is-icon" href="${esc(downloadHref)}" download="${esc(
-          fileBaseName(tab.path)
-        )}" aria-label="${ui("下载")}" title="${ui("下载")}">${icon("download")}</a>`;
+      : isFile
+        ? `<a class="drawer-action is-icon" href="${esc(downloadHref)}" download="${esc(
+            fileBaseName(tab.path)
+          )}" aria-label="${ui("下载")}" title="${ui("下载")}">${icon("download")}</a>`
+        : "";
     let content;
     if (isChange) content = renderDiffBody(tab, files);
+    else if (tab.kind === "choose") content = renderChoices();
     else if (!cached || cached.status === "loading")
       content = `<div class="drawer-state"><span class="editor-spinner"></span><strong>${ui`正在打开 ${esc(
         title
@@ -487,6 +696,7 @@ export function createArtifactController({
       content = `<div class="drawer-state is-error"><strong>${ui("文件读取失败")}</strong><p>${esc(
         cached.error || ui("未知错误")
       )}</p><button class="drawer-action" data-retry-artifact>${ui("重新加载")}</button></div>`;
+    else if (pdf) content = renderPdf(file, title);
     else
       content = renderArtifactDocument(cached, tab.path, {
         ...urls,
@@ -506,7 +716,10 @@ export function createArtifactController({
       isChange ? "git-commit" : "file"
     )}<div class="artifact-drawer-title"><strong>${esc(title)}</strong><span>${esc(
       meta
-    )}</span></div><span class="rp-spacer"></span><div class="drawer-actions">${openSystemAction}${copyAction}${openAction}${downloadAction}<button type="button" class="drawer-close" data-close-drawer aria-label="${ui(
+    )}</span></div><span class="rp-spacer"></span><div class="drawer-actions">${openWith.markup(
+      state.selected,
+      target
+    )}${copyAction}${openAction}${downloadAction}<button type="button" class="drawer-close" data-close-drawer aria-label="${ui(
       "关闭预览"
     )}" title="${ui("关闭预览")}">${icon("close")}</button></div></header><nav class="drawer-tabs" role="tablist" aria-label="${ui(
       "预览内容"
@@ -516,23 +729,36 @@ export function createArtifactController({
           `<button type="button" role="tab" class="drawer-tab${
             entry.id === tab.id ? " active" : ""
           }" aria-selected="${entry.id === tab.id}" data-drawer-tab="${esc(entry.id)}" ${
-            entry.kind === "attachment" ? `data-drawer-file="${esc(entry.path)}"` : ""
-          } title="${esc(entry.label)}">${esc(entry.label)}</button>`
+            entry.kind === "attachment" || entry.kind === "project"
+              ? `data-drawer-file="${esc(entry.path)}"`
+              : ""
+          } title="${esc(entry.path ?? entry.label)}">${esc(entry.label)}</button>`
       )
       .join("")}</nav><div class="artifact-drawer-body"><div class="drawer-content ${
-      cached?.previewKind === "pdf" ? "is-pdf" : ""
+      pdf ? "is-pdf" : ""
     }">${previewNote}${content}</div></div>`;
     drawer.querySelector(".drawer-content").scrollTop = scrollTop;
     revealLine();
+    openWith.bind(drawer, state.selected, target);
     for (const node of drawer.querySelectorAll("[data-drawer-tab]"))
       node.addEventListener("click", () => {
         const id = node.dataset.drawerTab;
         if (id === "diff") openPreview({ tab: "diff" });
         else if (id === "file") openPreview({ tab: "file" });
+        else if (id === "choose") openPreview({ tab: "choose" });
+        else if (id.startsWith("project:"))
+          openPreview({ tab: "project", path: id.slice("project:".length) });
         else openPreview({ tab: "attachment", path: id.slice("attachment:".length) });
       });
     for (const node of drawer.querySelectorAll("[data-diff-select]"))
       node.addEventListener("click", () => openPreview({ tab: "file", path: node.dataset.diffSelect }));
+    for (const node of drawer.querySelectorAll("[data-choose-file]"))
+      node.addEventListener("click", () => openProjectFile(node.dataset.chooseFile, choosing?.line));
+    for (const node of drawer.querySelectorAll("[data-pdf-page]"))
+      node.addEventListener("click", () => {
+        pdfPage.set(file.key, Number(node.dataset.pdfPage));
+        renderArtifactDrawer();
+      });
     drawer.querySelector("[data-download-diff]")?.addEventListener("click", () => {
       const data = state.drawerDiff;
       if (data?.status !== "ready") return;
@@ -540,33 +766,29 @@ export function createArtifactController({
       const text = selected ? filePatchText(data.files, selected) : data.patch;
       downloadText(text, selected ? `${fileBaseName(selected)}.diff` : "changes.diff");
     });
-    drawer.querySelector("[data-open-system]")?.addEventListener("click", () => {
-      globalThis.window?.bookmanDesktop
-        ?.openArtifact(state.selected, tab.path)
-        .catch((error) => showToast(error.message));
-    });
     drawer.querySelector("[data-close-drawer]")?.addEventListener("click", () => closeArtifactDrawer(true));
     drawer.querySelector("[data-open-artifact-viewer]")?.addEventListener("click", (event) => {
       event.preventDefault();
       void openArtifactViewer(urls.rawUrl).catch((error) => showToast(error.message));
     });
     drawer.querySelector("[data-retry-artifact]")?.addEventListener("click", () => {
-      state.artifactCache.delete(tab.path);
+      file.cache.delete(file.key);
       renderArtifactDrawer();
     });
     drawer.querySelector("[data-copy-drawer]")?.addEventListener("click", async () => {
-      const preview = state.artifactCache.get(tab.path);
-      if (preview?.previewKind !== "text") return;
+      const preview = file.cache.get(file.key);
+      if (!["text", "office"].includes(preview?.previewKind)) return;
       try {
         if (!navigator.clipboard?.writeText) throw new Error("Clipboard unavailable");
         await navigator.clipboard.writeText(preview.content);
-        showToast(preview.truncated ? ui("已复制当前预览内容") : ui("产出物内容已复制"));
+        showToast(preview.truncated ? ui("已复制当前预览内容") : ui("文件内容已复制"));
         // eslint-disable-next-line no-restricted-syntax -- the browser refuses clipboard writes outside a secure context or without permission; the toast reports that copy is unavailable
       } catch {
         showToast(ui("当前环境不支持复制"));
       }
     });
-    if (!isChange && !cached) ensureArtifactLoaded(tab.path);
+    if (tab.kind === "attachment" && !cached) ensureArtifactLoaded(tab.path);
+    if (tab.kind === "project" && !cached) ensureProjectLoaded(tab.path);
   }
 
   function renderArtifactDocument(preview, path, urls) {
@@ -577,6 +799,8 @@ export function createArtifactController({
     });
     if (media !== null) return media;
     const text = preview.content;
+    if (preview.previewKind === "office")
+      return `<div class="artifact-code-wrap">${renderCodeEditor(text, path)}</div>`;
     const language = fileLanguage(path);
     if (language === "Markdown")
       return `<article class="artifact-markdown markdown-body">${renderMarkdown(text)}</article>`;
@@ -606,7 +830,9 @@ export function createArtifactController({
 
   return {
     fileTarget,
+    canOpenReference,
     openFileReference,
+    openProjectFile,
     fileBaseName,
     artifactSource,
     openArtifact,
@@ -618,6 +844,9 @@ export function createArtifactController({
     openPreview,
     resetMedia() {
       mediaUrls.clear();
+      projectCache.clear();
+      pdfPages.clear();
+      openWith.clear();
     }
   };
 }

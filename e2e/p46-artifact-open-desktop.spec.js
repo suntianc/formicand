@@ -6,7 +6,7 @@ import { developmentExecutable } from "./desktop-runtime-helper.js";
 import { stopNativeBackend } from "../test/native-backend-fixture.mjs";
 import { dismissModelSetup } from "./model-provider-ui.js";
 
-test("桌面版用系统默认应用打开产物，并且只接受后端解析到的本地文件", async () => {
+test("桌面版用本机应用打开产物，并且只接受后端解析到的本地文件和列出的应用", async () => {
   test.skip(process.platform !== "darwin", "Native desktop acceptance requires macOS");
   test.setTimeout(180_000);
   const root = await mkdtemp(join(tmpdir(), "atria-p46-artifact-desktop-"));
@@ -84,26 +84,45 @@ test("桌面版用系统默认应用打开产物，并且只接受后端解析�
     await panel.locator('[data-artifact="报告.md"]').click();
     const drawer = page.locator("#artifact-drawer");
     await expect(drawer).toBeVisible();
-    const openSystem = drawer.locator("[data-open-system]");
-    await expect(openSystem).toBeVisible();
-    await openSystem.click();
+    const openMain = drawer.locator("[data-open-main]");
+    await expect(openMain).toBeVisible();
+    await openMain.click();
     // The backend resolves the real path, so /var may already read as /private/var.
     const expectedFile = await realpath(join(artifacts, "报告.md"));
     await expect
       .poll(async () => (await native.evaluate(() => globalThis.openedPaths)).map((path) => path))
       .toEqual([expectedFile]);
 
-    // A path the backend cannot resolve for this artifact is refused, not opened.
+    // The arrow lists this Mac's applications for the file; the default one
+    // goes through the system as well.
+    const more = drawer.locator("[data-open-more]");
+    await expect(more).toBeEnabled({ timeout: 15_000 });
+    await more.click();
+    const menu = page.locator(".open-with-menu");
+    await expect(menu).toBeVisible();
+    await expect(menu.getByRole("menuitem", { name: "默认应用" })).toBeVisible();
+    await menu.getByRole("menuitem", { name: "默认应用" }).click();
+    await expect.poll(async () => (await native.evaluate(() => globalThis.openedPaths)).length).toBe(2);
+
+    // A path the backend cannot resolve, or an application the host did not
+    // list for the file, is refused, not opened.
     const refused = await page.evaluate(async () => {
-      try {
-        await window.bookmanDesktop.openArtifact("desktop-artifact", "../../config.json");
-        return "opened";
-      } catch (error) {
-        return error.message;
-      }
+      const attempt = async (target, appId) => {
+        try {
+          await window.bookmanDesktop.files.open("desktop-artifact", target, appId);
+          return "opened";
+        } catch (error) {
+          return error.message;
+        }
+      };
+      return [
+        await attempt({ source: "artifact", path: "../../config.json" }),
+        await attempt({ source: "artifact", path: "报告.md" }, "/System/Applications/Calculator.app"),
+        await attempt({ source: "elsewhere", path: "报告.md" })
+      ];
     });
-    expect(refused).not.toBe("opened");
-    expect(await native.evaluate(() => globalThis.openedPaths)).toHaveLength(1);
+    for (const outcome of refused) expect(outcome).not.toBe("opened");
+    expect(await native.evaluate(() => globalThis.openedPaths)).toHaveLength(2);
   } finally {
     await native?.close();
     await stopNativeBackend(root);

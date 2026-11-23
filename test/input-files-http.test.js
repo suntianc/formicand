@@ -81,7 +81,8 @@ test(
     assert.equal(download.headers.get("x-content-type-options"), "nosniff");
     assert.deepEqual(Buffer.from(await download.arrayBuffer()), original);
     const preview = await (await fetch(`${dashboard.base}/api/uploads/${id}/preview`)).json();
-    assert.equal(preview.text, original.toString());
+    assert.equal(preview.content, original.toString());
+    assert.equal(preview.previewKind, "text");
     assert.equal(preview.absolutePath, undefined);
     const post = (path, body) =>
       fetch(dashboard.base + path, {

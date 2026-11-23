@@ -1,7 +1,7 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { sendJson } from "./http.js";
 import { InputStore, MAX_UPLOAD_BYTES } from "../workspace/input-store.js";
-import { readStoredDocument } from "../workspace/input-reader.js";
+import { readFilePreview } from "../workspace/file-preview.js";
 export async function handleUploadRequest(
   request: IncomingMessage,
   response: ServerResponse,
@@ -19,19 +19,23 @@ export async function handleUploadRequest(
   }
   const preview = url.pathname.match(/^\/api\/uploads\/(upload-[a-f0-9-]{36})\/preview$/);
   if (preview && request.method === "GET") {
-    const input = await store.read(preview[1]);
-    if (input.file.kind === "image") {
-      sendJson(response, 200, { file: input.file });
-      return true;
-    }
-    const document = await readStoredDocument(input, {
-      limit: 12000,
-      render: input.file.kind === "pdf",
-      page: input.file.kind === "pdf" ? Number(url.searchParams.get("page") || 1) : undefined,
-      supportsImages: true
+    const { file, absolutePath } = await store.read(preview[1]);
+    const page = url.searchParams.get("page");
+    const raw = `/api/uploads/${file.uploadId}`;
+    sendJson(response, 200, {
+      file,
+      path: file.name,
+      ...(await readFilePreview({
+        absolutePath,
+        name: file.name,
+        size: file.size,
+        mimeType: file.mimeType,
+        ...(page === null ? {} : { page: Math.max(1, Math.floor(Number(page)) || 1) })
+      })),
+      version: file.sha256,
+      rawUrl: raw,
+      downloadUrl: raw
     });
-    const { absolutePath: _, ...payload } = document;
-    sendJson(response, 200, payload);
     return true;
   }
   const match = url.pathname.match(/^\/api\/uploads\/(upload-[a-f0-9-]{36})$/);
