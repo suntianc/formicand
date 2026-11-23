@@ -7,6 +7,7 @@ import {
   fileReference,
   linkedFileReference,
   parseDiffText,
+  renderDiffSplit,
   sourceKey,
   stripAnsi
 } from "../web/assets/rich-blocks.js";
@@ -63,7 +64,13 @@ test("a unified diff without git headers still numbers its lines", () => {
   assert.equal(block.querySelector(".diff-path").textContent, "x.ts");
   assert.equal(block.querySelector(".diff-count.is-add").textContent, "+1");
   assert.ok(block.querySelector(".diff-split").hasAttribute("hidden"));
-  assert.equal(block.querySelectorAll(".diff-split .diff-pair").length, 2, "hunk row and one paired change");
+  assert.equal(
+    block.querySelectorAll(".diff-split .diff-pair").length,
+    0,
+    "split view stays empty until requested"
+  );
+  const splitDom = dom(renderDiffSplit(block.querySelector(".diff-inline code").dataset.copyText));
+  assert.equal(splitDom.querySelectorAll(".diff-pair").length, 2, "hunk row and one paired change");
 });
 
 test("terminal output keeps colours, drops other escapes and folds long output", () => {
@@ -81,7 +88,11 @@ test("terminal output keeps colours, drops other escapes and folds long output",
   assert.equal(block.querySelectorAll(":scope pre > code > .terminal-line").length, 12);
   assert.equal(block.querySelectorAll("[data-terminal-rest] .terminal-line").length, 8);
   assert.equal(block.querySelector("[data-terminal-more]").textContent, "展开其余 8 行");
-  assert.equal(block.querySelector("[data-copy-text]").dataset.copyText, lines);
+  assert.equal(block.querySelector("[data-copy-text]"), null, "terminal output does not duplicate text");
+  assert.equal(
+    [...block.querySelectorAll(".terminal-line")].map((line) => line.textContent).join("\n"),
+    lines
+  );
   // ANSI in an ordinary fence is still terminal output.
   assert.ok(dom(renderMarkdown("```\n\u001b[31mred\u001b[0m\n```")).querySelector(".terminal-block"));
 });
@@ -124,7 +135,8 @@ test("tables, task lists, callouts and diagrams render as their own blocks", () 
   assert.equal(document.querySelector("blockquote").querySelectorAll("p").length, 1);
   const diagram = document.querySelector(".diagram-block");
   assert.ok(diagram.querySelector("[data-diagram-canvas]"));
-  assert.equal(diagram.querySelector("[data-copy-text]").dataset.copyText, "graph LR; A-->B");
+  assert.equal(diagram.querySelector("[data-copy-text]"), null, "diagram source is stored once");
+  assert.equal(diagram.querySelector(".diagram-source code").textContent, "graph LR; A-->B");
 });
 
 test("a block's ownership key follows its source only", () => {

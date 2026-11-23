@@ -87,18 +87,44 @@
 /* Disclosure: a <details> eases its content's height open and closed instead
    of jumping. A details inserted already open does not animate (there is no
    earlier style to start from), so a re-render keeps its rows still. The
-   attachments menu is a popover, not a disclosure, and stays instant. */
-details:not(.inline-edit-attachments-menu) {
+   attachments menu is a popover, and lazy conversation disclosures mount and
+   unmount their bodies on toggle (transitioning content-visibility on them
+   would keep newly mounted inner controls unfocusable for a frame). */
+details:not(
+  .inline-edit-attachments-menu,
+  .execution-history,
+  .process-segment,
+  .tool-details,
+  .subagent-step,
+  .reasoning-details,
+  .activity-raw
+) {
   interpolate-size: allow-keywords;
 }
-details:not(.inline-edit-attachments-menu)::details-content {
+details:not(
+    .inline-edit-attachments-menu,
+    .execution-history,
+    .process-segment,
+    .tool-details,
+    .subagent-step,
+    .reasoning-details,
+    .activity-raw
+  )::details-content {
   block-size: 0;
   overflow-y: clip;
   transition:
     block-size var(--motion-base) var(--ease-standard),
     content-visibility var(--motion-base) allow-discrete;
 }
-details:not(.inline-edit-attachments-menu)[open]::details-content {
+details:not(
+    .inline-edit-attachments-menu,
+    .execution-history,
+    .process-segment,
+    .tool-details,
+    .subagent-step,
+    .reasoning-details,
+    .activity-raw
+  )[open]::details-content {
   block-size: auto;
 }
 

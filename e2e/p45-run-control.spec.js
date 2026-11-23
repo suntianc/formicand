@@ -396,6 +396,8 @@ test("a confirmed timed wait survives reload and the next user turn resumes thin
     await waitForTask(page, local, taskId, (detail) => Boolean(detail.parked) && !detail.runtime.active);
     await page.reload();
     await expect(label).toHaveText("等待唤醒");
+    await expect(thinking).toHaveCount(0);
+    await page.locator("#conversation .process-segment > summary").click();
     await expect(page.locator("#conversation")).toContainText("等待新的进展");
     await expect(thinking).toHaveCount(0);
     await input.fill("继续处理");

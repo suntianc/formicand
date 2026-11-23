@@ -1,6 +1,7 @@
 import { ui } from "./language.js";
 import { icon } from "./icons.js";
 import { animate } from "./motion.js";
+import { renderDiffSplit } from "../rich-blocks.js";
 
 /** Writes text to the clipboard; false when the browser refuses. */
 export async function copyText(text) {
@@ -62,6 +63,10 @@ function tableMarkdown(table) {
 function blockText(block) {
   const table = block.querySelector("table");
   if (table) return tableMarkdown(table);
+  if (block.classList.contains("terminal-block")) {
+    const lines = [...block.querySelectorAll(".terminal-line")].map((line) => line.textContent);
+    return lines.join("\n") + (block.dataset.terminalTrailingNewline ? "\n" : "");
+  }
   const code = block.querySelector("[data-copy-text]") || block.querySelector("code");
   return code?.dataset.copyText ?? code?.textContent ?? "";
 }
@@ -88,7 +93,8 @@ let diagramSequence = 0;
 let configuredTheme;
 async function drawDiagram(canvas) {
   const block = canvas.closest(".diagram-block");
-  const source = block?.querySelector("[data-copy-text]")?.dataset.copyText;
+  const sourceNode = block?.querySelector(".diagram-source code") || block?.querySelector("[data-copy-text]");
+  const source = sourceNode?.dataset?.copyText ?? sourceNode?.textContent;
   if (!block || source === undefined) return;
   canvas.dataset.drawn = "pending";
   block.classList.remove("is-failed");
@@ -195,8 +201,13 @@ export function installCodeBlockActions(root, { showToast, openFile } = {}) {
     } else if (button.hasAttribute("data-diff-view")) {
       const view = button.dataset.diffView;
       block.dataset.diffView = view;
+      const split = block.querySelector(".diff-split");
+      if (view === "split" && split && !split.childElementCount) {
+        const raw = block.querySelector(".diff-inline code")?.dataset.copyText ?? "";
+        split.innerHTML = renderDiffSplit(raw);
+      }
       block.querySelector(".diff-inline").hidden = view !== "inline";
-      block.querySelector(".diff-split").hidden = view !== "split";
+      if (split) split.hidden = view !== "split";
       for (const option of block.querySelectorAll("button[data-diff-view]"))
         option.setAttribute("aria-pressed", String(option === button));
     } else if (button.hasAttribute("data-diff-collapse")) {
@@ -222,7 +233,17 @@ export function installCodeBlockActions(root, { showToast, openFile } = {}) {
     });
   };
   const target = root.body || root;
-  new MutationObserver(schedule).observe(target, { childList: true, subtree: true });
+  const hasDiagram = (records) =>
+    records.some((record) =>
+      [...record.addedNodes].some(
+        (node) =>
+          node.nodeType === 1 &&
+          (node.matches?.("[data-diagram-canvas]") || node.querySelector?.("[data-diagram-canvas]"))
+      )
+    );
+  new MutationObserver((records) => {
+    if (hasDiagram(records)) schedule();
+  }).observe(target, { childList: true, subtree: true });
   new MutationObserver(schedule).observe(document.documentElement, { attributeFilter: ["data-theme"] });
   schedule();
 }

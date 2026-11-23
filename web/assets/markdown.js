@@ -7,6 +7,7 @@ import {
   fileChip,
   fileReference,
   linkedFileReference,
+  streamingCodeBlock,
   tableBlock
 } from "./rich-blocks.js";
 
@@ -71,7 +72,12 @@ function renderBlocks(source, options) {
     const fence = line.match(/^\s*(`{3,}|~{3,})(.*)$/);
     if (codeLines) {
       if (fence && fence[1][0] === codeFence[0] && fence[1].length >= codeFence.length && !fence[2].trim()) {
-        output.push(fencedBlock(codeInfo, codeLines.join("\n")));
+        const tailOpen = Boolean(options.openTailFence && lineIndex === lines.length - 1);
+        output.push(
+          tailOpen
+            ? streamingCodeBlock(codeInfo, codeLines.join("\n"))
+            : fencedBlock(codeInfo, codeLines.join("\n"))
+        );
         codeLines = null;
         codeInfo = codeFence = "";
       } else codeLines.push(line);
@@ -156,7 +162,12 @@ function renderBlocks(source, options) {
     }
     paragraph.push(line);
   }
-  if (codeLines) output.push(fencedBlock(codeInfo, codeLines.join("\n")));
+  if (codeLines)
+    output.push(
+      options.openTailFence || options.streaming
+        ? streamingCodeBlock(codeInfo, codeLines.join("\n"))
+        : fencedBlock(codeInfo, codeLines.join("\n"))
+    );
   flushParagraph();
   flushList();
   return output.join("");

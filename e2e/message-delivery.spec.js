@@ -95,7 +95,7 @@ test("steering reaches the next model call while queued input waits until the cu
     expect(steerTurn).toBeGreaterThan(stepResult);
     const instruction = page.locator(".chat-message.user").filter({ hasText: "STEER_REQUEST" });
     await expect(instruction).toHaveCount(1);
-    await expect(page.locator('[data-answer-kind="continuation"] .tool-step')).toHaveCount(1);
+    await expect(page.locator('[data-answer-kind="continuation"] .process-segment')).toHaveCount(1);
     const assertOrder = async () => {
       expect(
         await page.locator("#conversation").evaluate((root) => {
@@ -117,7 +117,7 @@ test("steering reaches the next model call while queued input waits until the cu
     await assertOrder();
     await page.reload();
     await expect(instruction).toHaveCount(1);
-    await expect(page.locator('[data-answer-kind="continuation"] .tool-step')).toHaveCount(1);
+    await expect(page.locator('[data-answer-kind="continuation"] .process-segment')).toHaveCount(1);
     await assertOrder();
     releaseSteered();
     await expect.poll(() => provider.requests.length, { timeout: 20000 }).toBe(3);

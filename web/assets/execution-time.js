@@ -91,8 +91,12 @@ export function executionElapsedMs(runtimeEvents, lifecycleEvents) {
 export function formatExecutionDuration(ms) {
   if (typeof ms !== "number" || !Number.isFinite(ms) || ms < 0) return "";
   const totalSeconds = Math.floor(ms / 1000);
-  const minutes = Math.floor(totalSeconds / 60);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
   const seconds = totalSeconds % 60;
-  if (!minutes) return ui`${seconds}秒`;
-  return ui`${minutes}分钟${seconds ? ui`${seconds}秒` : ""}`;
+  const parts = [];
+  if (hours) parts.push(ui`${hours} 小时`);
+  if (minutes) parts.push(ui`${minutes} 分钟`);
+  if (seconds || !parts.length) parts.push(ui`${seconds} 秒`);
+  return parts.join(" ");
 }

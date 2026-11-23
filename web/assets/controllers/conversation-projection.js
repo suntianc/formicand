@@ -1,4 +1,5 @@
 import { buildConversationExchanges } from "../conversation.js";
+import { fingerprint } from "../ui/fingerprint.js";
 
 /** Reuse settled grouping while the current exchange receives append-only deltas. */
 export function createConversationProjection(normalize = (messages) => messages) {
@@ -13,11 +14,11 @@ export function createConversationProjection(normalize = (messages) => messages)
   return (messages, localMessages, events, version) => {
     // The page replaces both lists rather than editing them, and a change
     // made elsewhere arrives with a new conversation version, so the same
-    // lists need no second serialization on each streamed frame.
+    // lists need no second traversal on each streamed frame.
     const nextSignature =
       messages === seenMessages && localMessages === seenLocal && version === seenVersion
         ? signature
-        : JSON.stringify([messages, localMessages]);
+        : fingerprint([messages, localMessages]);
     seenMessages = messages;
     seenLocal = localMessages;
     seenVersion = version;

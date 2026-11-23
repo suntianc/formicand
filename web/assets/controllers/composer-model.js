@@ -396,8 +396,8 @@ export function createComposerModel({
     const taskModel = modelState.connectionProfileId ? modelState.defaultModel : task?.model;
     modelState.model =
       modelState.modelByTask.get(taskId) ||
-      taskModel ||
       detail?.runtime?.model ||
+      taskModel ||
       modelState.defaultModel ||
       modelState.model;
     modelState.profileId = modelState.profileByTask.get(taskId) ?? null;

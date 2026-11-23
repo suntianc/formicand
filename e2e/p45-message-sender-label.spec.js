@@ -73,6 +73,8 @@ test("assistant replies render as body text without a sender label, keeping thin
     await expect(reply.locator(".message-meta")).toHaveCount(0);
     await expect(reply.locator(".message-avatar")).toHaveCount(0);
     await expect(page.locator("#conversation")).not.toContainText("FORMICAND");
+    await page.locator(".execution-history > summary").click();
+    await page.locator(".process-segment > summary").click();
     await expect(page.locator(".live-workflow")).toHaveCount(1);
     await expect(page.locator(".reasoning-step")).toHaveCount(1);
     await expect(page.locator(".tool-step")).toHaveCount(1);
@@ -121,7 +123,7 @@ test("a streaming reply shows its state without a sender label", async ({ page }
     await expect(pending).toHaveCount(1);
     await expect(pending.locator(".message-meta")).toHaveCount(0);
     await expect(pending.locator(".message-avatar")).toHaveCount(0);
-    await expect(pending.locator(".reasoning-step")).toHaveCount(1);
+    await expect(pending.locator(".process-segment.is-live")).toHaveCount(1);
     await expect(pending).toContainText("思考中");
     await expect(page.locator("#conversation")).not.toContainText("FORMICAND");
   } finally {

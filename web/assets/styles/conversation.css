@@ -13,9 +13,7 @@ html[data-theme="light"] {
 
 /* ------------------------------------------------------------ working ant */
 
-html[data-theme]
-  :is(.thinking-spinner, .tool-progress-spinner, .workflow-progress-spinner, .run-control-dot).ant-mark,
-.stream-trail.ant-mark {
+html[data-theme] :is(.thinking-spinner, .tool-progress-spinner, .workflow-progress-spinner).ant-mark {
   position: relative;
   display: inline-grid;
   place-items: center;
@@ -97,12 +95,6 @@ html[data-theme] .tool-step .activity-status .tool-progress-spinner.ant-mark {
   width: 12px !important;
   height: 12px !important;
 }
-.stream-trail.ant-mark {
-  display: inline-grid;
-  margin-left: 6px;
-  vertical-align: -2px;
-  color: var(--color-text-3);
-}
 
 /* A label that is working gets a light swept across it twice, then rests:
    the sweep repaints the words every frame, so it does not run for a whole
@@ -128,24 +120,6 @@ html[data-theme] .tool-step .activity-status .tool-progress-spinner.ant-mark {
   }
   to {
     background-position: -150% 0;
-  }
-}
-
-/* ------------------------------------------------------------ streaming */
-
-/* New words fade in as they arrive; the delay spreads one network piece over
-   a short span so text flows instead of landing in blocks. */
-.stream-fade {
-  animation: stream-fade 220ms ease-out both;
-}
-@keyframes stream-fade {
-  from {
-    opacity: 0;
-    filter: blur(2px);
-  }
-  to {
-    opacity: 1;
-    filter: blur(0);
   }
 }
 
@@ -507,55 +481,165 @@ html[data-theme] .reasoning-details > summary .reasoning-chevron {
   margin-left: 0;
 }
 
-/* A finished turn folds into one line: 处理过程 · 操作数 · 子助手数 ›, opening onto a guide rail. */
+/* Four-level disclosure hierarchy (Codex-style):
+   L0 (.execution-history): whole settled round collapses to "用时 X ›" above final answer
+   L1 (.execution-timeline / live message): mid-round speech + .process-segment + .subagent-group
+   L2 (.process-segment[open] > .live-workflow): indented step rail with left vertical bar
+   L3 (.tool-details / .subagent-step / .reasoning-details): args, outputs & full thought */
+html[data-theme] .execution-history {
+  margin: 0 0 14px;
+  white-space: normal;
+}
 html[data-theme] .execution-history > summary {
   gap: 6px;
+  min-width: 0;
+  min-height: 26px;
+  padding: 2px 0;
   color: var(--color-text-2);
 }
 html[data-theme] .execution-history > summary strong {
+  flex: 0 0 auto;
   font-weight: 500;
 }
-html[data-theme] .execution-history > summary small {
-  order: 1;
-  margin-left: 0;
-  color: var(--color-text-3);
-}
-html[data-theme] .execution-history > summary small::before {
-  content: "· ";
-}
-html[data-theme] .execution-history > summary .history-failures {
+html[data-theme] .execution-history > summary .history-failures,
+html[data-theme] .process-segment > summary .history-failures {
   order: 2;
+  flex: 0 0 auto;
+  margin: 0;
+  color: var(--color-text-3);
+  font-size: 12px;
+  font-style: normal;
 }
-html[data-theme] .execution-history > summary .history-failures::before {
+html[data-theme] .execution-history > summary .history-failures::before,
+html[data-theme] .process-segment > summary .history-failures::before {
   content: "· ";
 }
-html[data-theme] .execution-history > summary .history-chevron {
+html[data-theme] .execution-history > summary .history-chevron,
+html[data-theme] .process-segment > summary .process-chevron {
   order: 3;
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  color: var(--color-text-3);
+  transition:
+    color 0.14s ease,
+    opacity 0.14s ease,
+    transform 0.15s;
 }
-html[data-theme] .execution-history:not([open]) > summary .history-chevron {
+html[data-theme] .execution-history:not([open]) > summary .history-chevron,
+html[data-theme] .process-segment:not([open]) > summary .process-chevron {
   transform: rotate(-90deg);
 }
-html[data-theme] .execution-history[open] > .live-workflow {
+html[data-theme] .process-segment:not([open]) > summary .process-chevron {
+  opacity: 0;
+}
+html[data-theme] .process-segment > summary:is(:hover, :focus-visible) .process-chevron,
+html[data-theme] .process-segment[open] > summary .process-chevron {
+  opacity: 1;
+}
+@media (hover: none) {
+  html[data-theme] .process-segment:not([open]) > summary .process-chevron {
+    opacity: 1;
+  }
+}
+html[data-theme] .execution-history[open] > .execution-timeline {
+  margin: 8px 0 4px;
+}
+html[data-theme] .process-segment {
+  margin: 0 0 14px;
+  white-space: normal;
+}
+html[data-theme] .process-segment > summary {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  min-height: 26px;
+  padding: 2px 0;
+  color: var(--color-text-3);
+  font-size: var(--ui-type-control);
+  cursor: pointer;
+  list-style: none;
+  transition: color 0.14s ease;
+}
+html[data-theme] .process-segment > summary::-webkit-details-marker {
+  display: none;
+}
+html[data-theme] .process-segment > summary:is(:hover, :focus-visible),
+html[data-theme]
+  .process-segment
+  > summary:is(:hover, :focus-visible)
+  :is(.process-segment-icon, .process-live-state, .process-chevron, small, .history-failures) {
+  color: var(--color-text);
+}
+html[data-theme] .process-segment > summary:is(:hover, :focus-visible) .shimmer-text {
+  background: none;
+  -webkit-background-clip: border-box;
+  background-clip: border-box;
+  color: var(--color-text) !important;
+}
+html[data-theme] .process-segment > summary:focus-visible {
+  outline: 2px solid var(--ui-accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+html[data-theme] .process-segment.is-live > summary .process-live-state {
+  flex: 0 0 auto;
+  color: var(--color-text-2);
+  font-size: var(--ui-type-control);
+  font-weight: 500;
+  transition: color 0.14s ease;
+}
+html[data-theme] .process-segment > summary .process-segment-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 15px;
+  width: 15px;
+  height: 15px;
+  color: var(--color-text-3);
+  transition: color 0.14s ease;
+}
+html[data-theme] .process-segment > summary .process-segment-icon .ui-icon {
+  width: 14px;
+  height: 14px;
+}
+html[data-theme] .process-segment > summary .process-segment-label {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+html[data-theme] .process-segment > summary small {
+  order: 1;
+  flex: 0 0 auto;
+  color: var(--color-text-3);
+  font-size: 12px;
+}
+html[data-theme] .process-segment > summary small::before {
+  content: "· ";
+}
+html[data-theme] .process-segment[open] > .live-workflow {
+  margin-top: 6px;
   margin-left: 7px;
   padding-left: 14px;
   border-left: 1px solid var(--color-line-strong);
 }
-/* The line under a finished round's answer: how long the whole round took. */
-html[data-theme] .turn-endline {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin: 4px 0 8px;
-  color: var(--color-text-3);
-  font-size: 12px;
-  font-variant-numeric: tabular-nums;
+html[data-theme] .live-answer {
+  margin: 0 0 14px;
+  padding: 0;
 }
-
-html[data-theme] .turn-endline::before,
-html[data-theme] .turn-endline::after {
-  content: "";
-  flex: 1 1 auto;
-  border-top: 1px solid var(--color-line);
+html[data-theme] :is(.execution-timeline, .chat-message.main .message-copy) > .subagent-group {
+  margin: 0 0 14px;
+}
+html[data-theme]
+  :is(.execution-timeline, .chat-message.main .message-copy)
+  > :is(.execution-history, .process-segment, .live-answer, .subagent-group, .turn-stopped):last-child {
+  margin-bottom: 0;
+}
+html[data-theme] .chat-pane .markdown-body > :first-child {
+  margin-top: 0;
 }
 
 /* Where the conversation moved to a new context window: a dashed rule like

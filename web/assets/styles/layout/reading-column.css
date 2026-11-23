@@ -428,6 +428,11 @@
 @media (min-width: 901px) {
   .chat-message.main,
   .live-workflow,
+  .live-answer,
+  .process-segment,
+  .execution-timeline,
+  .subagent-group,
+  .turn-stopped,
   .execution-history {
     width: 100%;
     margin-right: 0;

@@ -62,6 +62,7 @@ export function createConnectionController({
     streamRunId = undefined;
     eventStreamTaskId = undefined;
     eventStreamRunId = undefined;
+    eventStreamKeys = new Set();
     if (!taskId) return;
     // Inactive tasks are reconstructed from their persisted runtime log. A
     // replay here races the detail request and can append the same history
@@ -179,6 +180,7 @@ export function createConnectionController({
     eventStream = undefined;
     eventStreamTaskId = undefined;
     eventStreamRunId = undefined;
+    eventStreamKeys = new Set();
     clearTimeout(detailRefreshTimer);
     detailRefreshTimer = undefined;
     if (renderFrame !== undefined) cancelAnimationFrame(renderFrame);

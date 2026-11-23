@@ -38,36 +38,31 @@ html[data-theme] .composer-tray .run-control {
 .run-control[hidden] {
   display: none !important;
 }
-/* The mark says which state: a soft pulse while Main works, a still ring
-   while it waits, an amber dot when it asks, a pause glyph when paused. */
+/* The mark says which state: clean text while Main works, a still ring while
+   it waits, an amber dot when it asks or retries, a pause glyph when paused. */
 .run-control-dot {
   flex: none;
   width: 7px;
   height: 7px;
   border-radius: 50%;
   background: var(--color-accent);
-  animation: run-control-pulse 1.6s ease-in-out infinite;
 }
-@keyframes run-control-pulse {
-  50% {
-    opacity: 0.35;
-  }
+.run-control[data-state="working"] .run-control-dot {
+  display: none;
 }
-/* The ant walks only while Main does its own work or reconnects. */
 html[data-theme]
-  .run-control:is([data-state="waiting"], [data-state="asking"], [data-state="pausing"])
+  .run-control:is(
+    [data-state="waiting"],
+    [data-state="asking"],
+    [data-state="pausing"],
+    [data-state="retrying"]
+  )
   .run-control-dot {
   flex: 0 0 14px;
   width: 14px !important;
   height: 14px !important;
   border-radius: 50%;
   background: radial-gradient(circle closest-side, var(--mark) 3.5px, transparent 4px);
-  animation: none;
-}
-html[data-theme]
-  .run-control:is([data-state="waiting"], [data-state="asking"], [data-state="pausing"])
-  :is(.ant-mark-svg, .ant-body) {
-  display: none;
 }
 html[data-theme] .run-control[data-state="waiting"] .run-control-dot {
   background: radial-gradient(
@@ -78,11 +73,8 @@ html[data-theme] .run-control[data-state="waiting"] .run-control-dot {
     transparent 4.6px
   );
 }
-.run-control:is([data-state="asking"], [data-state="pausing"]) {
+.run-control:is([data-state="asking"], [data-state="pausing"], [data-state="retrying"]) {
   --mark: var(--color-warn);
-}
-.run-control[data-state="retrying"] .run-control-dot {
-  color: var(--color-warn);
 }
 .run-control-paused-icon {
   display: none;

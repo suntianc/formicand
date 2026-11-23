@@ -12,6 +12,16 @@ const update = (type, contentIndex, value = {}) => ({
   type: "message_update",
   assistantMessageEvent: { type, contentIndex, ...value }
 });
+const expandHistory = (document, render, messages) => {
+  for (const node of document.querySelectorAll(".execution-history")) node.open = true;
+  render(messages);
+  for (const node of document.querySelectorAll(".process-segment")) node.open = true;
+  render(messages);
+};
+const expandDetails = (document, selector, render, messages) => {
+  for (const node of document.querySelectorAll(selector)) node.open = true;
+  render(messages);
+};
 
 test("a submitted human reply uses a compact disclosure and preserves its open state on refresh", () => {
   const { document, state, render } = fixture("human-answer-disclosure", "");
@@ -70,6 +80,7 @@ test("a mid-run instruction separates earlier activity from the continuing respo
   const { document, state, render } = fixture("steering-order", "补充前的第六步。");
   state.detail.runtimeEvents.push(update("thinking_end", 0, { content: "补充前的第六步。" }));
   render();
+  expandHistory(document, render);
   const before = document.querySelector(".reasoning-details");
   before.open = true;
   const instruction = {
@@ -106,7 +117,7 @@ test("a mid-run instruction separates earlier activity from the continuing respo
         ? "before"
         : row.textContent.includes(instruction.content)
           ? "instruction"
-          : row.textContent.includes("继续执行。")
+          : row.querySelector(".process-segment.is-live")
             ? "after"
             : "request"
     ),
@@ -116,7 +127,7 @@ test("a mid-run instruction separates earlier activity from the continuing respo
   assert.equal(before.open, true);
   assert.equal(document.querySelectorAll(".thinking-spinner").length, 1);
   assert.equal(document.querySelectorAll('[data-answer-kind="final"]').length, 0);
-  assert.doesNotMatch(rows[1].textContent, /处理过程|用时/);
+  assert.doesNotMatch(rows[1].textContent, /用时/);
 
   const answer = {
     role: "assistant",
@@ -147,8 +158,13 @@ test("an accepted instruction leaves the current tool active until Pi delivers i
     args: { command: "node check.mjs" }
   });
   render();
+  // Collapsed by default while running: summary reflects the coarse running action.
+  const segment = document.querySelector(".process-segment.is-live");
+  assert.ok(segment);
+  assert.equal(segment.open === true, false);
+  assert.match(segment.querySelector("summary").textContent, /运行命令中/);
+  expandHistory(document, render);
   const tool = document.querySelector(".tool-details");
-  const progress = document.querySelector(".workflow-progress-spinner");
   render([
     user,
     {
@@ -161,11 +177,10 @@ test("an accepted instruction leaves the current tool active until Pi delivers i
     }
   ]);
   assert.equal(document.querySelector(".tool-details"), tool);
-  assert.equal(document.querySelector(".workflow-progress-spinner"), progress);
   assert.match(document.querySelector(".tool-step").textContent, /执行中/);
   assert.equal(document.querySelectorAll('[data-answer-kind="pending"]').length, 1);
   const rows = [...document.querySelector("#conversation").children];
-  assert.match(rows[1].textContent, /node check.mjs/);
+  assert.match(rows[1].textContent, /check\.mjs/);
   assert.match(rows[2].textContent, /等当前调用返回后修改/);
 });
 
@@ -220,10 +235,11 @@ test("retrying keeps the original request and attachment when its timestamp matc
 
 test("continuous thought deltas retain the disclosure, spinner and existing paragraph nodes", () => {
   const { document, state, render } = fixture("stable-thought", "先核对输入。");
+  expandHistory(document, render);
+  expandDetails(document, ".reasoning-details", render);
   const detail = document.querySelector(".reasoning-details");
   const spinner = detail.querySelector(".thinking-spinner");
   const paragraph = detail.querySelector(".reasoning-copy p");
-  detail.open = true;
   for (const delta of ["然后读取", "约束", "，继续检查。"]) {
     state.detail.runtimeEvents.push(update("thinking_delta", 0, { delta }));
     render();
@@ -237,6 +253,7 @@ test("continuous thought deltas retain the disclosure, spinner and existing para
 
 test("between steps the next step's thinking row waits at the end of the steps", () => {
   const { document, state, render } = fixture("model-gaps");
+  expandHistory(document, render);
   const waiting = () =>
     document.querySelector(".workflow-rail > .reasoning-step:last-child .assistant-thinking");
   state.detail.runtimeEvents.push(update("thinking_end", 0, { content: "先核对第一部分。" }));
@@ -252,6 +269,7 @@ test("between steps the next step's thinking row waits at the end of the steps",
   render();
   // A running tool is the moving row; nothing waits after it.
   assert.equal(waiting(), null);
+  assert.match(document.querySelector(".process-segment > summary").textContent, /读取文件中/);
   assert.match(document.querySelector(".tool-action").textContent, /读取附件/);
   assert.equal(document.querySelectorAll(".tool-progress-spinner").length, 1);
   state.detail.runtimeEvents.push({
@@ -269,7 +287,7 @@ test("between steps the next step's thinking row waits at the end of the steps",
   assert.equal(document.querySelectorAll("[data-thinking-key]").length, 0);
 });
 
-test("a parked or unfinished round keeps its steps without folding or a heading", () => {
+test("a parked or unfinished round folds its steps without a turn endline or active spinners", () => {
   const { document, state, render } = fixture("parked-run", "本轮变化已核实。");
   state.detail.runtimeEvents.push(update("thinking_end", 0, { content: "本轮变化已核实。" }), {
     type: "main.run_waiting"
@@ -278,9 +296,11 @@ test("a parked or unfinished round keeps its steps without folding or a heading"
   state.detail.task.status = "waiting";
   state.detail.parked = { wakeAt: "2099-01-01T00:00:00Z", reason: "等待新变化" };
   render();
-  // What Main is waiting for is the composer's status line, not a heading here.
-  assert.equal(document.querySelectorAll(".live-workflow-head, .execution-history, .turn-endline").length, 0);
+  assert.equal(document.querySelectorAll(".live-workflow-head, .turn-endline").length, 0);
   assert.equal(document.querySelectorAll("[data-thinking-key]").length, 0);
+  assert.equal(document.querySelector(".process-segment").open === true, false);
+  expandHistory(document, render);
+  expandDetails(document, ".reasoning-details", render);
   assert.match(document.querySelector(".reasoning-copy").textContent, /本轮变化已核实/);
   state.detail.runtime.active = true;
   state.detail.task.status = "running";
@@ -318,6 +338,9 @@ test("unknown tool names remain identifiable and HTML in a tool name is escaped"
     toolName: "mcp__slides__inspect<img src=x onerror=alert(1)>"
   });
   render();
+  assert.match(document.querySelector(".process-segment > summary").textContent, /执行操作中/);
+  assert.equal(document.querySelector(".process-segment > summary img"), null);
+  expandHistory(document, render);
   assert.match(document.querySelector(".tool-action").textContent, /mcp__slides__inspect/);
   assert.equal(document.querySelector(".tool-action img"), null);
   assert.doesNotMatch(document.querySelector(".tool-action").textContent, /执行工具/);
@@ -378,25 +401,23 @@ test("consecutive successful file and command calls compact into an expandable g
   add(4, "bash");
   add(5, "bash", true);
   render();
-  const group = document.querySelector(".tool-group-details");
-  assert.equal(group.open === true, false);
-  assert.equal(
-    group.querySelector("summary").textContent,
-    "读取了 2 个文件 · 编辑了 1 个文件 · 运行了 1 条命令"
-  );
-  assert.equal(group.querySelectorAll(".tool-step").length, 4);
+  const segment = document.querySelector(".process-segment");
+  assert.equal(segment.open === true, false);
+  assert.match(segment.querySelector("summary").textContent, /1 次调用未成功/);
+  assert.equal(segment.querySelectorAll(".tool-step").length, 0, "collapsed segment omits inner rows");
+  expandHistory(document, render);
+  assert.equal(segment.querySelectorAll(".tool-step").length, 5);
   assert.equal(document.querySelectorAll(".workflow-rail > .tool-step.is-failed").length, 1);
-  group.open = true;
-  const firstTool = group.querySelector(".tool-details");
+  const firstTool = segment.querySelector(".tool-details");
   firstTool.open = true;
   state.detail.runtimeEvents.push(
     update("thinking_start", 6),
     update("thinking_delta", 6, { delta: "失败需要检查。" })
   );
   render();
-  assert.equal(document.querySelector(".tool-group-details"), group);
-  assert.equal(group.open, true);
-  assert.equal(group.querySelector(".tool-details"), firstTool);
+  assert.equal(document.querySelector(".process-segment"), segment);
+  assert.equal(segment.open, true);
+  assert.equal(segment.querySelector(".tool-details"), firstTool);
   assert.equal(firstTool.open, true);
 });
 
@@ -418,20 +439,26 @@ test("compaction does not hide running commands or merge calls across reasoning"
     { type: "tool_execution_start", toolCallId: "running", toolName: "bash" }
   );
   render();
-  assert.equal(document.querySelectorAll(".tool-group").length, 1);
+  assert.match(document.querySelector(".process-segment.is-live > summary").textContent, /运行命令中/);
+  expandHistory(document, render);
+  assert.equal(document.querySelectorAll(".workflow-rail > .tool-step").length, 3);
   assert.equal(document.querySelectorAll(".workflow-rail > .tool-step.is-running").length, 1);
   assert.equal(document.querySelectorAll(".reasoning-step").length, 2);
 });
 
-test("a collapsed thought shows its real first sentence and leaves the rest inside the disclosure", () => {
+test("a collapsed thought shows its real first sentence and mounts its body only when expanded", () => {
   const thought = "先读取项目说明，确认约束。然后检查入口与工具。";
-  const { document } = fixture("preview", thought);
+  const { document, render } = fixture("preview", thought);
+  assert.match(document.querySelector(".process-segment.is-live > summary").textContent, /思考中/);
+  expandHistory(document, render);
   const detail = document.querySelector(".reasoning-details");
   assert.match(detail.querySelector("summary").textContent, /先读取项目说明，确认约束。/);
   assert.doesNotMatch(detail.querySelector("summary").textContent, /然后检查|查看思考过程|实时更新/);
   assert.equal(detail.open === true, false);
-  assert.equal(detail.querySelector(".reasoning-copy").textContent, thought);
+  assert.equal(detail.querySelector(".reasoning-copy"), null);
   assert.equal(document.querySelectorAll(".reasoning-step .activity-step-head").length, 0);
+  expandDetails(document, ".reasoning-details", render);
+  assert.equal(detail.querySelector(".reasoning-copy").textContent, thought);
 });
 
 test("tool rows show delegation purpose and avoid repeating an already visible success status", () => {
@@ -448,6 +475,7 @@ test("tool rows show delegation purpose and avoid repeating an already visible s
     });
   }
   render();
+  expandHistory(document, render);
   assert.equal(document.querySelectorAll(".tool-step").length, 1);
   assert.equal(document.querySelector(".tool-step .tool-context"), null);
   const group = document.querySelector(".subagent-group");
@@ -476,7 +504,8 @@ test("all tool diagnostic sections retain independent reading positions through 
     }
   );
   render();
-  document.querySelector(".tool-details").open = true;
+  expandHistory(document, render);
+  expandDetails(document, ".tool-details", render);
   const parameters = document.querySelector('[data-reading-key="参数"]');
   const returned = document.querySelector('[data-reading-key="返回结果"]');
   parameters.scrollTop = 91;
@@ -507,6 +536,7 @@ test("a rejected finish acknowledgement remains waiting in the visible tool row"
     }
   );
   render();
+  expandHistory(document, render);
   assert.equal(document.querySelector(".activity-status").textContent, "等待中");
   assert.equal(document.querySelector(".tool-step").classList.contains("is-done"), false);
   assert.equal(document.querySelectorAll(".tool-progress-spinner").length, 0);
@@ -528,9 +558,11 @@ test("command exit evidence marks a failed tool while counting its returned call
     }
   );
   render();
+  expandHistory(document, render);
   assert.equal(document.querySelector(".activity-status").textContent, "调用失败");
   assert.equal(document.querySelector(".tool-step").classList.contains("is-failed"), true);
   assert.equal(document.querySelector(".tool-context").textContent, "Python 语法错误");
+  expandDetails(document, ".tool-details", render);
   assert.match(document.querySelector(".tool-details-body").textContent, /SyntaxError: invalid syntax/);
 });
 
@@ -573,7 +605,8 @@ test("zero-output HTTP stream failure shows a safe recovery card instead of an e
 
 test("a latest stopped assistant error exposes recovery before task status polling catches up and retains partial thought", () => {
   const { document, state, render } = fixture("partial-error", "已经读取输入约束。");
-  document.querySelector(".reasoning-details").open = true;
+  expandHistory(document, render);
+  expandDetails(document, ".reasoning-details", render);
   const error = {
     role: "assistant",
     timestamp: 2,
@@ -592,7 +625,7 @@ test("a latest stopped assistant error exposes recovery before task status polli
   assert.equal(document.querySelector(".reasoning-details").open, true);
   assert.equal(document.querySelector(".reasoning-copy").textContent, "已经读取输入约束。");
   assert.match(document.querySelector(".reasoning-state").textContent, /思考已停止/);
-  assert.equal(document.querySelectorAll(".execution-history, .turn-endline").length, 0);
+  assert.equal(document.querySelectorAll(".turn-endline").length, 0);
   assert.equal(document.querySelectorAll('[data-answer-kind="final"]').length, 0);
 });
 
@@ -821,11 +854,15 @@ test("cancelled, aborted, successful completion and an active retry do not repor
 test("the actual model's bold planning heading is plain in the summary and formatted when expanded", () => {
   const thought =
     "**Planning project inspection and testing**\nI should read the project instructions first.";
-  const { document } = fixture("markdown-preview", thought);
+  const { document, render } = fixture("markdown-preview", thought);
+  assert.match(document.querySelector(".process-segment.is-live > summary").textContent, /思考中/);
+  expandHistory(document, render);
   assert.equal(
     document.querySelector(".reasoning-preview").textContent,
     "Planning project inspection and testing"
   );
+  assert.equal(document.querySelector(".reasoning-details").open === true, false);
+  expandDetails(document, ".reasoning-details", render);
   assert.equal(
     document.querySelector(".reasoning-copy strong").textContent,
     "Planning project inspection and testing"
@@ -834,13 +871,14 @@ test("the actual model's bold planning heading is plain in the summary and forma
     document.querySelector(".reasoning-copy").textContent,
     /I should read the project instructions first\./
   );
+  expandDetails(document, ".activity-raw", render);
   assert.equal(document.querySelector(".activity-raw-copy").textContent, thought);
-  assert.equal(document.querySelector(".reasoning-details").open === true, false);
 });
 
 test("later streamed sentences do not replace the preview or the user's expansion choice", () => {
   const { document, state, render } = fixture("preview-stream", "先核对文件路径。");
-  document.querySelector(".reasoning-details").open = true;
+  expandHistory(document, render);
+  expandDetails(document, ".reasoning-details", render);
   for (const character of "接着检查文件权限与内容。") {
     state.detail.runtimeEvents.push(update("thinking_delta", 0, { delta: character }));
     render();
@@ -861,16 +899,20 @@ test("empty thought blocks have a running indication without an empty or invente
   assert.equal(document.querySelectorAll(".thinking-spinner").length, 1);
   state.detail.runtimeEvents.push(update("thinking_delta", 0, { delta: "真正的第一句。后续过程。" }));
   render();
+  assert.match(document.querySelector(".process-segment.is-live > summary").textContent, /思考中/);
+  expandHistory(document, render);
   assert.equal(document.querySelector(".reasoning-preview")?.textContent, "真正的第一句。");
 });
 
 test("long or HTML-like thinking stays plain in the preview and complete in the expanded body", () => {
   const thought = `<img src=x onerror=alert(1)> ${"核对输入".repeat(30)}。后续说明。`;
-  const { document } = fixture("preview-plain", thought);
+  const { document, render } = fixture("preview-plain", thought);
+  expandHistory(document, render);
   const preview = document.querySelector(".reasoning-preview");
   assert.equal(preview.querySelector("img"), null);
   assert.equal(Array.from(preview.textContent).length, 88);
   assert.equal(preview.textContent.endsWith("…"), true);
+  expandDetails(document, ".reasoning-details", render);
   assert.equal(document.querySelector(".reasoning-copy").textContent, thought);
 });
 
@@ -895,18 +937,22 @@ test("a recovered final snapshot derives its preview and keeps thought text out 
   state.detail.runtime.active = false;
   state.detail.task.status = "completed";
   render([user, answer]);
-  assert.equal(document.querySelector(".reasoning-preview")?.textContent, "const path = 'local.txt';");
-  assert.equal(document.querySelector(".reasoning-copy pre code").textContent, "const path = 'local.txt';");
-  assert.match(document.querySelector(".reasoning-copy").textContent, /读取后继续检查。/);
-  assert.equal(document.querySelector(".activity-raw-copy").textContent, thought);
-  assert.equal(answer.content[0].thinking, thought);
   assert.equal(document.querySelector(".execution-history").open === true, false);
   assert.doesNotMatch(document.querySelector('[data-answer-kind="final"]').textContent, /const path|读取后/);
+  expandHistory(document, render, [user, answer]);
+  assert.equal(document.querySelector(".reasoning-preview")?.textContent, "const path = 'local.txt';");
+  expandDetails(document, ".reasoning-details", render, [user, answer]);
+  assert.equal(document.querySelector(".reasoning-copy pre code").textContent, "const path = 'local.txt';");
+  assert.match(document.querySelector(".reasoning-copy").textContent, /读取后继续检查。/);
+  expandDetails(document, ".activity-raw", render, [user, answer]);
+  assert.equal(document.querySelector(".activity-raw-copy").textContent, thought);
+  assert.equal(answer.content[0].thinking, thought);
 });
 
 test("an expanded live thought stays open through deltas and a user's collapse survives polling", () => {
   const { document, state, render } = fixture();
-  document.querySelector(".reasoning-details").open = true;
+  expandHistory(document, render);
+  expandDetails(document, ".reasoning-details", render);
   state.detail.runtimeEvents.push(update("thinking_delta", 0, { delta: "再核对第二部分。" }));
   render();
   assert.equal(document.querySelector(".reasoning-details").open, true);
@@ -916,9 +962,10 @@ test("an expanded live thought stays open through deltas and a user's collapse s
   assert.equal(document.querySelector(".reasoning-details").open, false);
 });
 
-test("thought blocks retain independent expansion before and after a tool and completion folds only the outer history", () => {
+test("thought blocks retain independent expansion before and after a tool and preserve choices on completion", () => {
   const { document, state, render } = fixture();
-  document.querySelector(".reasoning-details").open = true;
+  expandHistory(document, render);
+  expandDetails(document, ".reasoning-details", render);
   state.detail.runtimeEvents.push(
     update("thinking_end", 0, { content: "先核对第一部分。" }),
     update("toolcall_end", 1, {
@@ -935,7 +982,7 @@ test("thought blocks retain independent expansion before and after a tool and co
     blocks.map((node) => node.open === true),
     [true, false]
   );
-  assert.equal(document.querySelectorAll(".thinking-spinner").length, 1);
+  assert.equal(document.querySelectorAll(".reasoning-step .thinking-spinner").length, 1);
   const answer = {
     role: "assistant",
     timestamp: 2,
@@ -954,8 +1001,8 @@ test("thought blocks retain independent expansion before and after a tool and co
   state.detail.runtime.active = false;
   state.detail.task.status = "completed";
   render([user, answer]);
-  assert.equal(document.querySelector(".execution-history").open === true, false);
-  document.querySelector(".execution-history").open = true;
+  // User had expanded the process while running; it stays open across completion.
+  assert.equal(document.querySelector(".execution-history").open, true);
   blocks = [...document.querySelectorAll(".reasoning-details")];
   assert.deepEqual(
     blocks.map((node) => node.open === true),
@@ -968,21 +1015,26 @@ test("thought blocks retain independent expansion before and after a tool and co
 test("leaving a thought for an empty conversation preserves its expansion without leaking into another task", () => {
   const { document, state, render } = fixture();
   const first = state.detail;
-  document.querySelector(".reasoning-details").open = true;
+  expandHistory(document, render);
+  expandDetails(document, ".reasoning-details", render);
   state.selected = "reasoning-two";
   state.detail = { ...first, task: { ...first.task, taskId: state.selected } };
   render([]);
   render();
+  assert.equal(document.querySelector(".process-segment").open === true, false);
+  expandHistory(document, render);
   assert.equal(document.querySelector(".reasoning-details").open === true, false);
   state.selected = "reasoning-one";
   state.detail = first;
   render();
+  assert.equal(document.querySelector(".process-segment").open, true);
   assert.equal(document.querySelector(".reasoning-details").open, true);
 });
 
 test("thought reading positions and independent follow-up choices survive updates", () => {
   const { document, state, render } = fixture();
-  document.querySelector(".reasoning-details").open = true;
+  expandHistory(document, render);
+  expandDetails(document, ".reasoning-details", render);
   const copy = document.querySelector(".reasoning-copy");
   copy.scrollTop = 37;
   copy.scrollLeft = 12;
@@ -1008,6 +1060,7 @@ test("thought reading positions and independent follow-up choices survive update
     update("thinking_delta", 0, { delta: "合成追问思考。" })
   );
   render([user, answer, followUp]);
+  expandHistory(document, render, [user, answer, followUp]);
   const blocks = [...document.querySelectorAll(".reasoning-details")];
   assert.deepEqual(
     blocks.map((node) => node.open === true),
@@ -1031,6 +1084,8 @@ test("an interrupted thought retains its text without a spinner or a completed l
   state.detail.runtime.active = false;
   state.detail.task.status = "waiting";
   render([user, stopped]);
+  expandHistory(document, render, [user, stopped]);
+  expandDetails(document, ".reasoning-details", render, [user, stopped]);
   assert.match(document.querySelector(".reasoning-step").textContent, /思考已停止/);
   assert.match(document.querySelector(".reasoning-copy").textContent, /先核对第一部分。/);
   assert.equal(document.querySelectorAll(".thinking-spinner").length, 0);
@@ -1056,8 +1111,8 @@ test("a final answer split into text blocks appears once after persistence catch
   state.detail.runtime.active = false;
   state.detail.task.status = "completed";
   render([user]);
-  assert.match(document.querySelector(".live-workflow").textContent, /核对完成。/);
-  assert.equal(document.querySelectorAll(".execution-history").length, 0);
+  assert.match(document.querySelector(".live-answer").textContent, /核对完成。/);
+  assert.equal(document.querySelectorAll(".process-segment").length, 1);
   render([user, answer]);
   assert.equal(document.querySelectorAll(".execution-history").length, 1);
   assert.equal(document.querySelectorAll(".execution-history .live-workflow-head").length, 0);
@@ -1065,7 +1120,7 @@ test("a final answer split into text blocks appears once after persistence catch
   assert.equal(document.querySelector('[data-answer-kind="final"]').textContent.includes("核对完成。"), true);
 });
 
-test("a finished round folds into 处理过程 with its counts and ends with a 用时 line", () => {
+test("a finished round folds into a top 用时 summary without a bottom endline and expands L0 -> L1 -> L2", () => {
   const { document, state, render } = fixture("folded-round", "");
   const answer = {
     role: "assistant",
@@ -1097,17 +1152,28 @@ test("a finished round folds into 处理过程 with its counts and ends with a �
   state.detail.task.status = "completed";
   render([user, answer]);
   const summary = document.querySelector(".execution-history > summary");
-  assert.equal(summary.querySelector("strong").textContent, "处理过程");
-  assert.equal(summary.querySelector("small").textContent, "2 项操作 · 2 个子助手");
+  assert.equal(summary.querySelector("strong").textContent, "用时 3 分钟 12 秒");
   const rows = [...document.querySelector("#conversation").children].map((node) => node.className);
-  assert.deepEqual(rows.slice(-3), ["execution-history", "chat-message main", "turn-endline"]);
-  assert.equal(document.querySelector(".turn-endline").textContent, "用时 3分钟12秒");
-  document.querySelector(".execution-history").open = true;
+  assert.deepEqual(rows.slice(-2), ["execution-history", "chat-message main"]);
+  assert.equal(document.querySelector(".turn-endline"), null);
+  assert.equal(document.querySelector(".execution-timeline"), null, "collapsed L0 omits inner DOM");
+  assert.equal(document.querySelector(".subagent-group"), null, "collapsed L0 omits subagents");
+  // Expand L0 -> L1 shows process summary + subagent group, but L2 tool rows stay unmounted.
+  expandDetails(document, ".execution-history", render, [user, answer]);
+  assert.equal(
+    document.querySelector(".process-segment > summary .process-segment-label").textContent,
+    "读取了 1 个文件 · 运行了 1 条命令"
+  );
+  assert.equal(document.querySelector(".process-segment .tool-step"), null);
   assert.match(document.querySelector(".subagent-group").textContent, /派出 2 个子助手/);
+  // Expand L1 process segment -> L2 mounts individual tool rows.
+  expandDetails(document, ".process-segment", render, [user, answer]);
+  assert.equal(document.querySelectorAll(".process-segment .tool-step").length, 2);
 });
 
 test("tool progress, empty completion and interruption render their actual lifecycle", () => {
   const { document, state, render } = fixture();
+  expandHistory(document, render);
   state.detail.runtimeEvents.push(
     update("toolcall_end", 1, {
       toolCall: { id: "inspect", name: "read", arguments: { path: "fixture.txt" } }
@@ -1129,7 +1195,7 @@ test("tool progress, empty completion and interruption render their actual lifec
   assert.equal(document.querySelectorAll(".activity-status")[1].textContent, "已停止");
 });
 
-test("the final response leaves an earlier identical update in the execution history", () => {
+test("the final response folds mid-round speech and process segments inside L0 and reveals them in L1", () => {
   const { document, state, render } = fixture();
   const updateMessage = {
     role: "assistant",
@@ -1150,10 +1216,15 @@ test("the final response leaves an earlier identical update in the execution his
   state.detail.runtime.active = false;
   state.detail.task.status = "completed";
   render([user, updateMessage, answer]);
+  // L0 collapsed: mid-round speech and process segments are folded inside .execution-history.
   assert.equal(document.querySelectorAll(".execution-history").length, 1);
-  assert.equal(document.querySelectorAll(".live-answer").length, 1);
-  assert.equal(document.querySelector(".live-answer").textContent, "已经核对完成。");
+  assert.equal(document.querySelectorAll(".live-answer").length, 0);
   assert.equal(document.querySelectorAll('[data-answer-kind="final"]').length, 1);
+  // L0 expanded -> L1 shows process segment, mid-round speech, and next process segment.
+  expandDetails(document, ".execution-history", render, [user, updateMessage, answer]);
+  assert.equal(document.querySelectorAll(".execution-timeline > .process-segment").length, 2);
+  assert.equal(document.querySelectorAll(".execution-timeline > .live-answer").length, 1);
+  assert.equal(document.querySelector(".live-answer").textContent, "已经核对完成。");
 });
 
 test("saved plain text from a stopped request remains visible without runtime logs", () => {
@@ -1219,11 +1290,12 @@ test("an async delegation row follows real progress without changing its disclos
     agents: [{ callId: "call-one", status: "running", role: "reviewer", elapsedMs: 36_000 }]
   };
   render();
+  // Scheme A: running Subagents stay directly visible in L1 without expanding a process fold.
   let row = document.querySelector(".subagent-step");
   row.open = true;
   assert.equal(row.querySelector("strong").textContent, "Ara");
   assert.equal(row.querySelector(".subagent-role-tag").textContent, "审查");
-  assert.equal(row.querySelector(".subagent-status").textContent, "运行中 36秒");
+  assert.equal(row.querySelector(".subagent-status").textContent, "运行中 36 秒");
   assert.equal(row.querySelectorAll(".tool-progress-spinner").length, 1);
   // Main's own turn ends while Ara works; Ara's row keeps moving.
   state.detail.runtime.active = false;
@@ -1231,7 +1303,7 @@ test("an async delegation row follows real progress without changing its disclos
   row = document.querySelector(".subagent-step");
   assert.equal(row.open, true);
   assert.equal(row.querySelectorAll(".tool-progress-spinner").length, 1);
-  assert.equal(document.querySelectorAll(".live-workflow-head, .execution-history").length, 0);
+  assert.equal(document.querySelectorAll(".live-workflow-head").length, 0);
   state.detail.progress.agents[0] = {
     ...state.detail.progress.agents[0],
     status: "succeeded",
@@ -1240,7 +1312,7 @@ test("an async delegation row follows real progress without changing its disclos
     lastAssistantText: "机构名称全部核对无误。另附两处拼写建议。"
   };
   render();
-  assert.equal(row.querySelector(".subagent-status").textContent, "完成 1分钟24秒");
+  assert.equal(row.querySelector(".subagent-status").textContent, "完成 1 分钟 24 秒");
   // Once done the row says what came back instead of what was asked.
   assert.equal(row.querySelector(".tool-subject").textContent, "机构名称全部核对无误。");
   assert.equal(row.querySelectorAll(".tool-progress-spinner").length, 0);
@@ -1249,7 +1321,7 @@ test("an async delegation row follows real progress without changing its disclos
   render();
   assert.equal(document.querySelector(".subagent-step"), row);
   assert.equal(row.open, true);
-  assert.equal(row.querySelector(".subagent-status").textContent, "完成 1分钟24秒");
+  assert.equal(row.querySelector(".subagent-status").textContent, "完成 1 分钟 24 秒");
 });
 
 test("an ended question and queued message use action-specific labels", () => {
@@ -1265,6 +1337,7 @@ test("an ended question and queued message use action-specific labels", () => {
       { type: "tool_execution_end", toolCallId: name, result: { details: data } }
     );
   render();
+  expandHistory(document, render);
   assert.deepEqual(
     [...document.querySelectorAll(".activity-status")].map((node) => node.textContent),
     ["未答复，已继续", "已入队"]
@@ -1322,9 +1395,8 @@ test("cancelled earlier requests stay incomplete after a later request succeeds"
     { type: "main.run_completed", runId: "second" }
   );
   render([user, partial, followup, answer]);
-  const workflows = document.querySelectorAll(".live-workflow");
-  assert.match(workflows[0].querySelector(".turn-stopped").textContent, /已停止/);
-  assert.equal(workflows[0].closest(".execution-history"), null);
+  assert.match(document.querySelector(".turn-stopped").textContent, /已停止/);
+  assert.equal(document.querySelector(".turn-stopped").closest(".execution-history"), null);
   assert.equal(document.querySelectorAll(".turn-stopped").length, 1);
   assert.match(document.querySelector('[data-answer-kind="final"]').textContent, /已创建/);
 });
@@ -1442,14 +1514,88 @@ test("a running Subagent's time counts from when it was handed out, not from the
     }
   );
   render();
+  // Scheme A: running Subagent row and live clock are directly visible in L1.
   const status = document.querySelector(".subagent-step .subagent-status");
   assert.equal(status.dataset.liveSince, String(Date.parse(startedAt)));
-  assert.match(status.textContent, /运行中 1分钟[5-9]秒/);
+  assert.match(status.textContent, /运行中 1 分钟 [5-9] 秒/);
   // Once it finishes nothing counts any more, and the page's clock stops itself.
   state.detail.progress.agents[0].status = "succeeded";
   state.detail.runtime.active = false;
   render();
   assert.equal(document.querySelector("[data-live-since]"), null);
+});
+
+test("running process stays collapsed with coarse live action, expands L1 -> L2 -> L3, and breaks onto new lines for mid-round speech", () => {
+  const { document, state, render } = fixture("codex-streaming", "先检查目录结构。");
+  // Collapsed while thinking: coarse live state "思考中", no inner DOM.
+  let segment = document.querySelector(".process-segment.is-live");
+  assert.ok(segment);
+  assert.equal(segment.open === true, false);
+  assert.equal(segment.querySelector(".live-workflow"), null);
+  assert.equal(segment.querySelector("summary .process-live-state").textContent, "思考中");
+
+  // Tool starts: summary updates in place to the coarse tool category ("读取文件中").
+  state.detail.runtimeEvents.push(
+    update("thinking_end", 0, { content: "先检查目录结构。" }),
+    update("toolcall_end", 1, { toolCall: { id: "r1", name: "read", arguments: { path: "web/app.js" } } }),
+    { type: "tool_execution_start", toolCallId: "r1", toolName: "read", args: { path: "web/app.js" } }
+  );
+  render();
+  assert.equal(document.querySelector(".process-segment.is-live"), segment);
+  assert.equal(segment.querySelector(".live-workflow"), null);
+  assert.equal(segment.querySelector("summary .process-live-state").textContent, "读取文件中");
+  assert.equal(segment.querySelector("summary small").textContent, "1 项操作");
+
+  // Tool finishes and agent speaks mid-round: speech breaks onto a new line,
+  // earlier process settles to category counts, and subsequent work starts a fresh collapsed row.
+  state.detail.runtimeEvents.push(
+    { type: "tool_execution_end", toolCallId: "r1", toolName: "read", result: { content: [] } },
+    update("text_delta", 2, { delta: "我已经看完入口文件，接下来修改渲染逻辑。" }),
+    update("text_end", 2, { content: "我已经看完入口文件，接下来修改渲染逻辑。" }),
+    { type: "turn_start" },
+    { type: "message_start", message: { role: "assistant", timestamp: 3, content: [] } },
+    update("toolcall_end", 0, {
+      toolCall: { id: "e1", name: "edit", arguments: { path: "web/assets/controllers/conversation-view.js" } }
+    }),
+    {
+      type: "tool_execution_start",
+      toolCallId: "e1",
+      toolName: "edit",
+      args: { path: "web/assets/controllers/conversation-view.js" }
+    }
+  );
+  render();
+  const blocks = [...document.querySelector('[data-answer-kind="pending"] .message-copy').children];
+  assert.deepEqual(
+    blocks.map((node) =>
+      node.classList.contains("process-segment")
+        ? node.classList.contains("is-live")
+          ? "live-process"
+          : "settled-process"
+        : node.classList.contains("live-answer")
+          ? "speech"
+          : node.className
+    ),
+    ["settled-process", "speech", "live-process"]
+  );
+  assert.equal(blocks[0].querySelector("summary .process-segment-label").textContent, "读取了 1 个文件");
+  assert.equal(blocks[1].textContent.trim(), "我已经看完入口文件，接下来修改渲染逻辑。");
+  assert.equal(blocks[2].querySelector("summary .process-live-state").textContent, "编辑文件中");
+  assert.equal(blocks[0].querySelector(".live-workflow"), null);
+  assert.equal(blocks[2].querySelector(".live-workflow"), null);
+
+  // Clicking/toggling the second process row mounts L2 steps on demand; toggling L2 tool mounts L3 details.
+  blocks[2].open = true;
+  blocks[2].dispatchEvent(new document.defaultView.Event("toggle"));
+  const tool = blocks[2].querySelector(".live-workflow .tool-details");
+  assert.ok(tool);
+  assert.equal(tool.querySelector(".tool-details-body"), null);
+  tool.open = true;
+  tool.dispatchEvent(new document.defaultView.Event("toggle"));
+  assert.ok(blocks[2].querySelector(".tool-details-body"));
+  blocks[2].open = false;
+  blocks[2].dispatchEvent(new document.defaultView.Event("toggle"));
+  assert.equal(blocks[2].querySelector(".live-workflow"), null);
 });
 
 test("a person's message keeps its own lines instead of being read as Markdown", () => {
@@ -1480,10 +1626,47 @@ test("parking hides the pending thought until the next turn starts", () => {
     }
   ];
   render();
+  assert.doesNotMatch(document.querySelector("#conversation").textContent, /思考中/);
+  expandDetails(document, ".process-segment", render);
   assert.match(document.querySelector("#conversation").textContent, /等待新的进展/);
   assert.doesNotMatch(document.querySelector("#conversation").textContent, /思考中/);
   delete state.detail.parked;
   state.detail.runtimeEvents.push({ type: "turn_start" });
   render();
   assert.match(document.querySelector("#conversation").textContent, /思考中/);
+});
+
+test("long conversations virtualize off-screen historical rounds into height-preserving shells", () => {
+  const { document, state, render } = fixture("long-virtual", "");
+  state.detail.runtime.active = false;
+  state.detail.task.status = "completed";
+  state.detail.runtimeEvents = [];
+  const rounds = 36;
+  const messages = [];
+  for (let index = 0; index < rounds; index += 1) {
+    messages.push(
+      { role: "user", id: `u-${index}`, content: `第 ${index + 1} 轮问题`, timestamp: 1000 + index * 20 },
+      {
+        role: "assistant",
+        id: `a-${index}`,
+        content: `## 第 ${index + 1} 轮回答\n\n\`\`\`ts\nexport const v = ${index};\n\`\`\``,
+        timestamp: 1010 + index * 20,
+        stopReason: "stop"
+      }
+    );
+  }
+  render(messages);
+  const finals = document.querySelectorAll('.chat-message.main[data-answer-kind="final"]');
+  assert.equal(finals.length, rounds, "every round keeps its final article marker");
+  const virtualFinals = document.querySelectorAll(
+    '.chat-message.main.is-virtual-shell[data-answer-kind="final"]'
+  );
+  assert.equal(
+    virtualFinals.length,
+    rounds - 12,
+    "rounds outside the recent window render as lightweight shells"
+  );
+  assert.equal(finals[0].querySelector(".markdown-body"), null, "virtual shell omits heavy Markdown DOM");
+  assert.match(finals[0].getAttribute("style") || "", /min-height:\d+px/);
+  assert.ok(finals[rounds - 1].querySelector(".markdown-body"), "recent rounds render full Markdown DOM");
 });
