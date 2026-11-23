@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { startDashboard } from "../test/dashboard-fixture.mjs";
+import { modelProtocolFixture } from "../test/model-protocol-fixture.mjs";
 
 const headings = ["核对脚本路径", "检查 Python 语法", "确认执行结果"];
 
@@ -700,5 +701,46 @@ test("bulky tool arguments and outputs load on demand when L3 expands and clear 
     expect(toolCalls).toHaveLength(2);
   } finally {
     await dashboard.stop();
+  }
+});
+
+test("first turn shows duration immediately after finish_task and keeps it while turn two runs", async ({
+  page
+}) => {
+  let step = 0;
+  let releaseTurn2;
+  const turn2Gate = new Promise((resolve) => {
+    releaseTurn2 = resolve;
+  });
+  const provider = await modelProtocolFixture("openai-completions", async () => {
+    step += 1;
+    if (step === 1) return { name: "finish_task", arguments: { summary: "第一轮完成" } };
+    if (step === 2) return { text: "第一轮最终回复" };
+    await turn2Gate;
+    return { text: "<thinking>第二轮思考过程</thinking>\n\n第二轮最终回复" };
+  });
+  const dashboard = await startDashboard({ modelEndpoint: provider.baseUrl });
+  try {
+    await page.goto(dashboard.base);
+    await page.locator("#composer-input").fill("第一条消息");
+    await page.locator("#send-button").click();
+
+    const firstSummary = page.locator(".execution-history > summary > strong").first();
+    await expect(firstSummary).toHaveText(/^用时 /, { timeout: 30000 });
+
+    // Sending a second turn on the same resident Run must not blank turn 1's duration.
+    await page.locator("#composer-input").fill("第二条消息");
+    await page.locator("#send-button").click();
+    await expect(page.locator("#stop-button")).toBeVisible({ timeout: 15000 });
+    await expect(firstSummary).toHaveText(/^用时 /);
+
+    releaseTurn2();
+    const secondSummary = page.locator(".execution-history > summary > strong").nth(1);
+    await expect(secondSummary).toHaveText(/^用时 /, { timeout: 30000 });
+    await expect(firstSummary).toHaveText(/^用时 /);
+  } finally {
+    releaseTurn2?.();
+    await dashboard.stop();
+    await provider.close();
   }
 });

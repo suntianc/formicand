@@ -213,9 +213,8 @@ export function registerMainLifecycle(
       await taskStore.updateTask(taskId, {
         pause: { ...current.pause, pausedAt: new Date().toISOString() }
       });
-    await taskStore.transitionTask(taskId, "paused", { runId: mainRunId, reason: "ui_pause" });
-    // The Turn stopped at this boundary; the Run keeps the pause on
-    // record even though a resident process stays alive for the resume.
+    // The Turn stopped at this boundary; write it before transitioning the
+    // Task so any reader observing `paused` already sees the closed interval.
     try {
       await new JsonlEventStore(join(workspaceRoot, taskId, "runs", mainRunId, "run_events.jsonl")).append({
         eventId: `pause-${randomUUID()}`,
@@ -226,10 +225,11 @@ export function registerMainLifecycle(
         occurredAt: new Date().toISOString(),
         payload: { reason: "ui_pause", requestedAt: pause.requestedAt }
       });
-      // eslint-disable-next-line no-restricted-syntax -- 暂停已写入 Task；事件只是记录，写不进去不影响暂停
+      // eslint-disable-next-line no-restricted-syntax -- 暂停事件写不进去不能阻断 Task 进入 paused 状态
     } catch {
       /* the Task's pause is the durable fact */
     }
+    await taskStore.transitionTask(taskId, "paused", { runId: mainRunId, reason: "ui_pause" });
     await updateRuntime({
       runtimePhase: "waiting",
       runtimeLastEvent: { type: "main_turn_settled", summary: "paused" }
@@ -380,6 +380,10 @@ export function registerMainLifecycle(
             hasFinalAnswer: isFinalAssistantMessage(lastMainMessage)
           });
           if (!assessment.ready) {
+            await appendRunBoundary("main.run_waiting", {
+              coordination: pending,
+              reason: assessment.reason
+            });
             await taskStore.transitionTask(taskId, "waiting", {
               runId: mainRunId,
               reason: assessment.reason,
@@ -387,16 +391,16 @@ export function registerMainLifecycle(
                 signal: isFinalAssistantMessage(lastMainMessage) ? "natural_stop" : "interrupted"
               }
             });
-            await appendRunBoundary("main.run_waiting", {
-              coordination: pending,
-              reason: assessment.reason
-            });
             await updateRuntime({
               runtimePhase: "waiting",
               runtimePendingDelegations: pending.pending.length + pending.callbackPending.length,
               runtimeLastEvent: { type: "main_turn_settled", summary: assessment.reason }
             });
           } else {
+            await appendRunBoundary("main.run_completed", {
+              coordination: pending,
+              reason: "main_turn_settled"
+            });
             const completed = await taskStore.transitionTask(taskId, "completed", {
               runId: mainRunId,
               reason: "main_turn_settled",
@@ -404,10 +408,6 @@ export function registerMainLifecycle(
                 signal: task.completion?.signal === "finish_task" ? "finish_task" : "natural_stop",
                 verifiedAt: new Date().toISOString()
               }
-            });
-            await appendRunBoundary("main.run_completed", {
-              coordination: pending,
-              reason: "main_turn_settled"
             });
             await updateRuntime({
               runtimePhase: "completed",
@@ -418,6 +418,13 @@ export function registerMainLifecycle(
               }
             });
           }
+        } else if (task.status === "completed" && !task.pause && task.completion?.signal === "finish_task") {
+          // finish_task transitioned the Task mid-turn while the model still had
+          // to write its closing answer. Close the Run's ledger interval here so
+          // this turn (and later turns on the same resident Run) keep its duration.
+          await appendRunBoundary("main.run_completed", {
+            reason: "finish_task"
+          });
         }
       } catch (error) {
         ctx.ui.notify(`Task lifecycle update failed: ${errorMessage(error)}`, "warning");
@@ -436,7 +443,7 @@ export function registerMainLifecycle(
       // Task is reported idle by the backend's read of this same record.
       if (resident) {
         // eslint-disable-next-line no-restricted-syntax -- 心跳只是存活与回合提示，写入失败由下一次写入重写
-        void writeMainHeartbeat().catch(() => {});
+        await writeMainHeartbeat().catch(() => {});
       }
     }
   });

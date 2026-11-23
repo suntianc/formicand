@@ -86,7 +86,12 @@ export function executionElapsedMs(runtimeEvents, lifecycleEvents) {
         return null;
       }
     }
-    if (started !== null || !intervals.length) return null;
+    if (!intervals.length) return null;
+    // A later turn in progress on the same resident Run leaves an open tail
+    // after earlier turns have already closed. Keep a settled turn's duration
+    // while its events all precede that open tail; untimed legacy logs and the
+    // active turn itself stay unknown until the open interval closes.
+    if (started !== null && (!times.length || times.some((time) => time >= started))) return null;
     const own = times.length
       ? intervals.filter(([from, to]) => times.some((time) => time >= from && time <= to))
       : intervals;

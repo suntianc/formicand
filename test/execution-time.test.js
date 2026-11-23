@@ -245,6 +245,16 @@ test("resident Main turns woken from waiting or after an earlier stop still repo
     boundary("resident", "completed", 45_000)
   ];
   assert.equal(executionElapsedMs(stamped("resident", 31_000, 44_000), stoppedLedger), 15_000);
+
+  // While a second turn is still running on the same resident Run, the first
+  // settled turn keeps its own closed duration instead of falling back until turn 2 ends.
+  const activeSecondTurnLedger = [
+    boundary("resident", "spawned", 0),
+    boundary("resident", "completed", 8000),
+    turnEvent("resident", "main.turn_delivered", 20_000)
+  ];
+  assert.equal(executionElapsedMs(stamped("resident", 1000, 7000), activeSecondTurnLedger), 8000);
+  assert.equal(executionElapsedMs(stamped("resident", 21_000), activeSecondTurnLedger), null);
 });
 
 test("readTaskTimingEvents preserves boundaries across older Runs and past the 30-line tail", async (t) => {
