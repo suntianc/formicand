@@ -42,6 +42,34 @@ export function reasoningPreview(reasoning) {
   return "";
 }
 
+// True when a thought contains more than its single-line preview (extra lines,
+// another sentence on the first line, truncation, or a fenced code block).
+export function hasReasoningMore(reasoning, preview = reasoningPreview(reasoning)) {
+  if (!preview) return false;
+  let fence;
+  let seenFirst = false;
+  for (const rawLine of normalizeReasoningDisplay(reasoning).split(/\r?\n/)) {
+    let line = rawLine.trim();
+    const delimiter = /^(`{3,}|~{3,})/.exec(line)?.[1];
+    if (delimiter) {
+      fence = fence && delimiter[0] === fence[0] ? undefined : delimiter;
+      continue;
+    }
+    if (!fence)
+      line = plainReasoningLine(
+        line.replace(/^(?:>\s*)+/, "").replace(/^(?:#{1,6}\s+|(?:[-*+]|\d+[.)])\s+)/, "")
+      );
+    if (!line || /^[\s#>*_`~=-]+$/.test(line)) continue;
+    if (!seenFirst) {
+      seenFirst = true;
+      if (fence || line !== preview) return true;
+      continue;
+    }
+    return true;
+  }
+  return false;
+}
+
 // Streaming deltas, block endings and message snapshots describe the same
 // content blocks. Keep their identity within each assistant message so later
 // snapshots update the transcript without appending the reasoning again.

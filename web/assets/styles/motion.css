@@ -95,9 +95,7 @@ details:not(
   .execution-history,
   .process-segment,
   .tool-details,
-  .subagent-step,
-  .reasoning-details,
-  .activity-raw
+  .subagent-step
 ) {
   interpolate-size: allow-keywords;
 }
@@ -106,9 +104,7 @@ details:not(
     .execution-history,
     .process-segment,
     .tool-details,
-    .subagent-step,
-    .reasoning-details,
-    .activity-raw
+    .subagent-step
   )::details-content {
   block-size: 0;
   overflow-y: clip;
@@ -121,9 +117,7 @@ details:not(
     .execution-history,
     .process-segment,
     .tool-details,
-    .subagent-step,
-    .reasoning-details,
-    .activity-raw
+    .subagent-step
   )[open]::details-content {
   block-size: auto;
 }

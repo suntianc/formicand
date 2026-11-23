@@ -289,49 +289,50 @@ test("streaming thought expansion, keyboard focus and reading position survive d
   const dashboard = await startDashboard();
   try {
     const apiRequests = await renderSyntheticThought(page, dashboard.base);
-    await page.locator(".process-segment > summary").click();
-    const thoughts = page.locator(".reasoning-details");
-    await thoughts.first().locator("summary").click();
-    await thoughts
-      .first()
+    const segment = page.locator("details.process-segment");
+    const segmentSummary = segment.locator(":scope > summary");
+    await segmentSummary.focus();
+    await page.keyboard.press("Enter");
+    await expect(segment).toHaveAttribute("open", "");
+    await expect(page.locator(".reasoning-details, .activity-raw")).toHaveCount(0);
+    await segment
       .locator(".reasoning-copy")
+      .first()
       .evaluate((node) => {
         node.scrollTop = 52;
       });
     await page.evaluate(() => window.thoughtFixture.delta());
-    await expect(thoughts.first()).toHaveAttribute("open", "");
-    await expect(thoughts.first().locator("summary")).toBeFocused();
+    await expect(segment).toHaveAttribute("open", "");
+    await expect(segmentSummary).toBeFocused();
     expect(
-      await thoughts
-        .first()
+      await segment
         .locator(".reasoning-copy")
+        .first()
         .evaluate((node) => node.scrollTop)
     ).toBe(52);
     await page.evaluate(() => window.thoughtFixture.poll());
-    await expect(thoughts.first().locator("summary")).toBeFocused();
+    await expect(segmentSummary).toBeFocused();
     await page.keyboard.press("Enter");
-    await expect(thoughts.first()).not.toHaveAttribute("open", "");
+    await expect(segment).not.toHaveAttribute("open", "");
     await page.evaluate(() => window.thoughtFixture.poll());
-    await expect(thoughts.first()).not.toHaveAttribute("open", "");
-    await expect(thoughts.first().locator("summary")).toBeFocused();
+    await expect(segment).not.toHaveAttribute("open", "");
+    await expect(segmentSummary).toBeFocused();
     await page.keyboard.press("Enter");
     await expect
       .poll(() =>
-        thoughts
-          .first()
+        segment
           .locator(".reasoning-copy")
+          .first()
           .evaluate((node) => node.scrollTop)
       )
       .toBe(52);
     await page.evaluate(() => window.thoughtFixture.toolThenThought());
-    await expect(thoughts).toHaveCount(2);
-    await expect(thoughts.first()).toHaveAttribute("open", "");
-    await expect(thoughts.last()).not.toHaveAttribute("open", "");
-    await thoughts.last().locator("summary").click();
-    await expect(page.locator(".reasoning-step").first()).toContainText("思考完成");
-    await expect(page.locator(".reasoning-step").last()).toContainText("思考中");
+    await expect(page.locator(".reasoning-copy")).toHaveCount(2);
+    await expect(segment).toHaveAttribute("open", "");
+    await expect(page.locator(".reasoning-step").first()).toContainText("检查项 1");
+    await expect(page.locator(".reasoning-step").last()).toContainText("文件读取已结束");
     await expect(page.locator(".tool-step")).toContainText("读取文件");
-    await expect(page.locator(".reasoning-step .thinking-spinner")).toHaveCount(1);
+    await expect(page.locator(".process-segment.is-live > summary .thinking-spinner")).toHaveCount(1);
     const compactThought = await page.locator(".reasoning-step").last().boundingBox();
     expect(compactThought.height).toBeLessThan(150);
     await page
@@ -340,18 +341,17 @@ test("streaming thought expansion, keyboard focus and reading position survive d
     await page.evaluate(() => window.thoughtFixture.finish());
     const history = page.locator(".execution-history");
     await expect(history).toHaveAttribute("open", "");
-    await expect(thoughts.first()).toHaveAttribute("open", "");
-    await expect(thoughts.last()).toHaveAttribute("open", "");
+    await expect(segment).toHaveAttribute("open", "");
+    await expect(page.locator(".reasoning-copy")).toHaveCount(2);
     await history.locator(":scope > summary").click();
     await expect(history).not.toHaveAttribute("open", "");
     await history.locator(":scope > summary").click();
-    await expect(thoughts.first()).toHaveAttribute("open", "");
-    await expect(thoughts.last()).toHaveAttribute("open", "");
+    await expect(segment).toHaveAttribute("open", "");
     await expect
       .poll(() =>
-        thoughts
-          .first()
+        segment
           .locator(".reasoning-copy")
+          .first()
           .evaluate((node) => node.scrollTop)
       )
       .toBe(52);
@@ -417,10 +417,20 @@ test("collapsed thinking uses one real sentence and dense streaming keeps its ro
       await page.screenshot({ path: test.info().outputPath(`preview-active-${width}.png`) });
       await summary.focus();
       await page.keyboard.press("Enter");
-      const preview = await page.locator(".reasoning-preview").textContent();
+      await expect(page.locator(".reasoning-copy")).toBeVisible();
+      await expect(page.locator(".reasoning-details, .activity-raw")).toHaveCount(0);
+      await page.evaluate(() => window.thoughtFixture.append("。更多后续思考。"));
+      await expect(summary).toBeFocused();
+      await expect(page.locator("details.process-segment")).toHaveAttribute("open", "");
+      await page.keyboard.press("Enter");
+      await expect(page.locator("details.process-segment")).not.toHaveAttribute("open", "");
+      await page.evaluate(() => window.thoughtFixture.endThought());
+      await page.evaluate(() => window.thoughtFixture.stop());
+      const label = page.locator(".process-segment-label");
+      const preview = await label.textContent();
       expect(Array.from(preview).length).toBe(88);
       expect(preview.endsWith("…")).toBe(true);
-      const previewLayout = await page.locator(".reasoning-preview").evaluate((node) => ({
+      const previewLayout = await label.evaluate((node) => ({
         whiteSpace: getComputedStyle(node).whiteSpace,
         textOverflow: getComputedStyle(node).textOverflow,
         width: node.getBoundingClientRect().width,
@@ -433,22 +443,7 @@ test("collapsed thinking uses one real sentence and dense streaming keeps its ro
         body: JSON.stringify({ ...result, preview, previewLayout }, null, 2),
         contentType: "application/json"
       });
-      const thoughtSummary = page.locator(".reasoning-details > summary");
-      await thoughtSummary.focus();
-      await page.keyboard.press("Enter");
-      await expect(page.locator(".reasoning-copy")).toBeVisible();
-      await page.evaluate(() => window.thoughtFixture.append("。更多后续思考。"));
-      await expect(thoughtSummary).toBeFocused();
-      await expect(page.locator(".reasoning-details")).toHaveAttribute("open", "");
-      await page.keyboard.press("Enter");
-      await expect(page.locator(".reasoning-details")).not.toHaveAttribute("open", "");
-      await page.evaluate(() => window.thoughtFixture.finish("aborted"));
       await expect(page.locator(".thinking-spinner")).toHaveCount(0);
-      expect(
-        await page
-          .locator(".reasoning-step")
-          .evaluateAll((nodes) => nodes.map((node) => node.getAnimations({ subtree: true }).length))
-      ).toEqual([0, 0]);
       expect(apiRequests).toEqual([]);
       await page.screenshot({ path: test.info().outputPath(`preview-${width}.png`) });
       await page.unrouteAll({ behavior: "wait" });
@@ -458,7 +453,7 @@ test("collapsed thinking uses one real sentence and dense streaming keeps its ro
   }
 });
 
-test("reduced motion keeps the same real thought preview and running status without a rotating animation", async ({
+test("reduced motion keeps the same real thought prose and running status without a rotating animation", async ({
   page
 }) => {
   const dashboard = await startDashboard();
@@ -475,9 +470,8 @@ test("reduced motion keeps the same real thought preview and running status with
     expect(await spinner.evaluate((node) => node.getAnimations().length)).toBe(0);
     await page.evaluate(() => window.thoughtFixture.delta());
     await page.locator(".process-segment > summary").click();
-    await expect(page.locator(".reasoning-preview")).toHaveText("先检查输入约束。");
-    await page.locator(".reasoning-details > summary").click();
     await expect(page.locator(".reasoning-copy")).toBeVisible();
+    await expect(page.locator(".reasoning-copy")).toContainText("先检查输入约束。再读取工具结果。");
     expect(await spinner.evaluate((node) => node.getAnimations().length)).toBe(0);
     expect(apiRequests).toEqual([]);
   } finally {
@@ -494,12 +488,16 @@ test("the actual model's Markdown planning heading is plain when folded and form
       "**Planning project inspection and testing**\nI should read the project instructions first.";
     const apiRequests = await renderSyntheticThought(page, dashboard.base, thought);
     await expect(page.locator(".process-live-state")).toHaveText("思考中");
-    await page.locator(".process-segment > summary").click();
-    await expect(page.locator(".reasoning-preview")).toHaveText("Planning project inspection and testing");
-    await expect(page.locator(".reasoning-copy")).toHaveCount(0);
     await page.evaluate(() => window.thoughtFixture.delta());
-    await expect(page.locator(".reasoning-preview")).toHaveText("Planning project inspection and testing");
-    await page.locator(".reasoning-details > summary").click();
+    await page.evaluate(() => {
+      window.thoughtFixture.endThought();
+      window.thoughtFixture.stop();
+    });
+    await expect(page.locator(".process-segment-label")).toHaveText(
+      "Planning project inspection and testing"
+    );
+    await expect(page.locator(".reasoning-copy")).toHaveCount(0);
+    await page.locator(".process-segment > summary").click();
     await expect(page.locator(".reasoning-copy strong")).toHaveText(
       "Planning project inspection and testing"
     );
@@ -508,8 +506,7 @@ test("the actual model's Markdown planning heading is plain when folded and form
     );
     await expect(page.locator(".reasoning-copy")).toContainText("新的片段：保留正在阅读的位置。");
     await expect(page.locator(".reasoning-copy")).not.toContainText("**");
-    await page.locator(".activity-raw > summary").click();
-    await expect(page.locator(".activity-raw-copy")).toHaveText(thought + "\n新的片段：保留正在阅读的位置。");
+    await expect(page.locator(".reasoning-details, .activity-raw")).toHaveCount(0);
     await page.screenshot({ path: test.info().outputPath("thinking-markdown-after.png") });
     expect(apiRequests).toEqual([]);
   } finally {
@@ -517,7 +514,9 @@ test("the actual model's Markdown planning heading is plain when folded and form
   }
 });
 
-test("the first completed sentence stays stable while later thought and tools arrive", async ({ page }) => {
+test("mixed thinking and tools render flat prose inline when opened and stay out of the final answer", async ({
+  page
+}) => {
   const dashboard = await startDashboard();
   try {
     const apiRequests = await renderSyntheticThought(
@@ -532,11 +531,14 @@ test("the first completed sentence stays stable while later thought and tools ar
     await expect(page.locator(".execution-history")).not.toHaveAttribute("open", "");
     await page.locator(".execution-history > summary").click();
     await page.locator(".process-segment > summary").click();
-    await expect(page.locator(".reasoning-preview").first()).toHaveText("Inspect the local file.");
-    await expect(page.locator(".reasoning-preview").last()).toHaveText(
+    await expect(page.locator(".reasoning-copy")).toHaveCount(2);
+    await expect(page.locator(".reasoning-copy").first()).toContainText(
+      "Inspect the local file. Keep the answer separate."
+    );
+    await expect(page.locator(".reasoning-copy").last()).toHaveText(
       "文件读取已结束，继续核对内容与要求是否一致。"
     );
-    await expect(page.locator(".reasoning-copy")).toHaveCount(0);
+    await expect(page.locator(".reasoning-details, .activity-raw")).toHaveCount(0);
     await expect(page.locator('[data-answer-kind="final"]')).toHaveText(/合成输入核对完成。/);
     await expect(page.locator('[data-answer-kind="final"]')).not.toContainText("Inspect the local file");
     expect(apiRequests).toEqual([]);
@@ -554,9 +556,10 @@ test("interrupted reasoning retains partial text and distinguishes an ended pre-
       const apiRequests = await renderSyntheticThought(page, dashboard.base);
       await page.evaluate(() => window.thoughtFixture.toolThenThought());
       await page.locator(".process-segment > summary").click();
-      await page.locator(".reasoning-details").last().locator("summary").click();
       await page.evaluate((reason) => window.thoughtFixture.finish(reason), stopReason);
-      await expect(page.locator(".reasoning-step").first()).toContainText("思考完成");
+      await expect(page.locator(".reasoning-step").first()).not.toContainText("思考已停止");
+      await expect(page.locator(".reasoning-step").first()).not.toHaveClass(/is-interrupted/);
+      await expect(page.locator(".reasoning-step").last()).toHaveClass(/is-interrupted/);
       await expect(page.locator(".reasoning-step").last()).toContainText("思考已停止");
       await expect(page.locator(".reasoning-copy").last()).toBeVisible();
       await expect(page.locator(".reasoning-copy").last()).toContainText("文件读取已结束");

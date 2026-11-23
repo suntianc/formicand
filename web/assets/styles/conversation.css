@@ -342,7 +342,7 @@ html[data-theme] .workflow-rail > .tool-step {
 html[data-theme] .workflow-rail > .live-answer {
   padding: 8px 0 10px;
 }
-html[data-theme] :is(.tool-details, .reasoning-details) > summary,
+html[data-theme] .tool-details > summary,
 html[data-theme] .reasoning-step .activity-step-head {
   display: flex;
   align-items: center;
@@ -412,8 +412,7 @@ html[data-theme] .tool-step .tool-context {
 html[data-theme] .tool-step .tool-context.is-failure {
   -webkit-line-clamp: 3;
 }
-html[data-theme] .tool-step .tool-details-body,
-html[data-theme] .reasoning-details > .reasoning-copy {
+html[data-theme] .tool-step .tool-details-body {
   margin-left: 24px;
 }
 
@@ -453,39 +452,40 @@ html[data-theme] .tool-group-body > .tool-step {
   padding: 4px 0;
 }
 
-/* A thought reads like a step: its mark, what it is on, then its state. */
-html[data-theme] .reasoning-details > summary .thinking-spinner {
-  order: -2;
+/* A thought renders directly as muted narrative prose inside the workflow rail
+   without a secondary fold; interrupted thoughts keep a quiet amber marker. */
+html[data-theme] .workflow-rail > .reasoning-step .reasoning-copy.markdown-body {
+  margin: 0;
+  padding: 2px 0;
+  color: var(--color-text-3);
+  font-size: var(--ui-type-control);
+  line-height: 1.65;
 }
-html[data-theme] .reasoning-details > summary:not(:has(.thinking-spinner))::before {
+html[data-theme] .workflow-rail > .reasoning-step .reasoning-copy.markdown-body strong {
+  color: var(--color-text-2);
+  font-weight: 500;
+}
+html[data-theme] .reasoning-step.is-interrupted .activity-step-head::before {
   content: "";
   flex: 0 0 16px;
   height: 16px;
-  background: radial-gradient(circle closest-side, var(--dot, var(--mark-thought)) 2.5px, transparent 3.2px);
+  background: radial-gradient(circle closest-side, var(--mark-stopped) 2.5px, transparent 3.2px);
 }
-html[data-theme] .reasoning-step.is-interrupted {
-  --dot: var(--mark-stopped);
-}
-/* The state leads the row and keeps one size from the first wait to the end,
-   so "思考中" never changes size or place; what the thought is about follows. */
 html[data-theme] .reasoning-step .reasoning-state {
   flex: 0 0 auto;
   color: var(--color-text-2);
   font-size: var(--ui-type-control);
 }
-html[data-theme] .reasoning-details > summary .reasoning-preview {
-  flex: 0 1 auto;
-  color: var(--color-text-3);
-}
-html[data-theme] .reasoning-details > summary .reasoning-chevron {
-  margin-left: 0;
+html[data-theme] .reasoning-step.is-interrupted .reasoning-state {
+  color: var(--mark-stopped);
+  font-size: 12px;
 }
 
-/* Four-level disclosure hierarchy (Codex-style):
+/* Disclosure hierarchy (Codex-style):
    L0 (.execution-history): whole settled round collapses to "用时 X ›" above final answer
    L1 (.execution-timeline / live message): mid-round speech + .process-segment + .subagent-group
-   L2 (.process-segment[open] > .live-workflow): indented step rail with left vertical bar
-   L3 (.tool-details / .subagent-step / .reasoning-details): args, outputs & full thought */
+   L2 (.process-segment[open] > .live-workflow): indented step rail with flat reasoning prose & tool rows
+   L3 (.tool-details / .subagent-step): tool args, outputs & subagent details */
 html[data-theme] .execution-history {
   margin: 0 0 14px;
   white-space: normal;
@@ -602,7 +602,17 @@ html[data-theme] .process-segment.is-live > summary .process-live-state {
   font-weight: 500;
   transition: color 0.14s ease;
 }
-html[data-theme] .process-segment > summary .process-segment-icon {
+html[data-theme] .process-segment.is-thought-only {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  min-height: 26px;
+  padding: 2px 0;
+  color: var(--color-text-3);
+  font-size: var(--ui-type-control);
+}
+html[data-theme] :is(.process-segment > summary, .process-segment.is-thought-only) .process-segment-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -612,11 +622,14 @@ html[data-theme] .process-segment > summary .process-segment-icon {
   color: var(--color-text-3);
   transition: color 0.14s ease;
 }
-html[data-theme] .process-segment > summary .process-segment-icon .ui-icon {
+html[data-theme]
+  :is(.process-segment > summary, .process-segment.is-thought-only)
+  .process-segment-icon
+  .ui-icon {
   width: 14px;
   height: 14px;
 }
-html[data-theme] .process-segment > summary .process-segment-label {
+html[data-theme] :is(.process-segment > summary, .process-segment.is-thought-only) .process-segment-label {
   flex: 0 1 auto;
   min-width: 0;
   overflow: hidden;

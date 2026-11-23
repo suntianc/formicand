@@ -594,7 +594,7 @@ export function createConversationView({
     return true;
   };
   const readingCopies = (node) =>
-    [...node.querySelectorAll(".reasoning-copy, .tool-copy, .activity-raw-copy")].filter(
+    [...node.querySelectorAll(".reasoning-copy, .tool-copy")].filter(
       (copy) => copy.closest("details[data-activity-key]") === node
     );
   const restoreReadingPosition = (node) => {
@@ -629,9 +629,7 @@ export function createConversationView({
     node.classList.contains("execution-history") ||
     node.classList.contains("process-segment") ||
     node.classList.contains("tool-details") ||
-    node.classList.contains("subagent-step") ||
-    node.classList.contains("reasoning-details") ||
-    node.classList.contains("activity-raw");
+    node.classList.contains("subagent-step");
   const hasLazyBody = (node) => {
     if (node.classList.contains("execution-history"))
       return Boolean(node.querySelector(":scope > .execution-timeline")) || node.dataset.l0Expanded === "1";
@@ -639,10 +637,6 @@ export function createConversationView({
       return Boolean(node.querySelector(":scope > .live-workflow"));
     if (node.classList.contains("tool-details") || node.classList.contains("subagent-step"))
       return Boolean(node.querySelector(":scope > .tool-details-body"));
-    if (node.classList.contains("reasoning-details"))
-      return Boolean(node.querySelector(":scope > .reasoning-copy"));
-    if (node.classList.contains("activity-raw"))
-      return Boolean(node.querySelector(":scope > .activity-raw-copy"));
     return true;
   };
   const hasOpenHistory = (cacheKey) => isHistoryOpenFor(cacheKey);

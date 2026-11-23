@@ -1,7 +1,12 @@
 import { ui } from "../ui/language.js";
 import { outstandingWork } from "../tool-lifecycle.js";
 import { presentToolCall } from "../tool-presentation.js";
-import { buildLiveActivity, reasoningPreview, normalizeReasoningDisplay } from "../activity.js";
+import {
+  buildLiveActivity,
+  hasReasoningMore,
+  reasoningPreview,
+  normalizeReasoningDisplay
+} from "../activity.js";
 import { exchangeExecutionState } from "../conversation.js";
 import { escapeHtml as esc } from "../ui/html.js";
 import { icon } from "../ui/icons.js";
@@ -278,8 +283,7 @@ export function createConversationActivityView({
             ? renderReasoningStep(
                 item.text,
                 { done: !active || item.done, interrupted: (!active || item.done) && !item.complete },
-                item.key,
-                item.rawText
+                item.key
               )
             : renderToolStep(item.call, active, item.key, taskId, detail, presentations.get(item.call))
         )
@@ -332,6 +336,27 @@ export function createConversationActivityView({
                 )
               : "";
           }
+          if (!segmentLive && !segmentCalls.length) {
+            const interruptedThought = segmentItems.some(
+              (item) => item.type === "reasoning" && !item.complete
+            );
+            const firstThought = segmentItems.find(
+              (item) =>
+                item.type === "reasoning" &&
+                reasoningPreview(normalizeReasoningDisplay(item.text, { streaming: false }))
+            );
+            const thoughtPreview = firstThought
+              ? reasoningPreview(normalizeReasoningDisplay(firstThought.text, { streaming: false }))
+              : "";
+            if (
+              !interruptedThought &&
+              segmentItems.length === 1 &&
+              thoughtPreview &&
+              !hasReasoningMore(firstThought.text, thoughtPreview)
+            ) {
+              return `<div class="process-segment is-thought-only" data-view-key="${esc(segmentKey)}"><span class="process-segment-icon" aria-hidden="true">${icon("brain")}</span><span class="process-segment-label" title="${esc(thoughtPreview)}">${esc(thoughtPreview)}</span></div>`;
+            }
+          }
           const segmentOpen = Boolean(isActivityOpen(segmentKey));
           let summary;
           if (segmentLive) {
@@ -364,7 +389,15 @@ export function createConversationActivityView({
               const interruptedThought = segmentItems.some(
                 (item) => item.type === "reasoning" && !item.complete
               );
-              titleText = interruptedThought ? ui("思考已停止") : ui("思考完成");
+              const firstThought = segmentItems.find(
+                (item) =>
+                  item.type === "reasoning" &&
+                  reasoningPreview(normalizeReasoningDisplay(item.text, { streaming: false }))
+              );
+              const thoughtPreview = firstThought
+                ? reasoningPreview(normalizeReasoningDisplay(firstThought.text, { streaming: false }))
+                : "";
+              titleText = interruptedThought ? ui("思考已停止") : thoughtPreview || ui("思考完成");
             }
             const showFailed = !collapsible && segmentFailed > 0;
             const label = [titleText, showFailed ? ui`${segmentFailed} 次调用未成功` : ""]
@@ -470,29 +503,23 @@ export function createConversationActivityView({
     return `<div class="activity-step subagent-group" data-view-key="${esc(group.key)}"><div class="activity-step-content"><div class="activity-step-head"><span class="tool-status-dot" aria-hidden="true"></span><strong>${esc(ui`派出 ${group.items.length} 个子助手`)}</strong></div><div class="subagent-nest">${rows.join("")}</div></div></div>`;
   }
 
-  function renderReasoningStep(reasoning, turn, key, rawReasoning = reasoning) {
-    const original = String(rawReasoning || "");
+  function renderReasoningStep(reasoning, turn, key) {
     const normalized = normalizeReasoningDisplay(reasoning, { streaming: !turn.done });
-    const preview = reasoningPreview(normalized);
-    const label = turn.interrupted ? ui("思考已停止") : turn.done ? ui("思考完成") : ui("思考中");
-    const stateClass = turn.done ? "reasoning-state" : "reasoning-state shimmer-text";
-    // The sweep keeps its phase across repaints, so it runs its two passes once.
-    const sweepKey = turn.done ? "" : ` data-thinking-key="${esc(`${key}:label`)}"`;
-    const spinner = turn.done
-      ? ""
-      : `<span class="thinking-spinner ant-mark" data-thinking-key="${esc(key)}" aria-hidden="true">${antMarkSvg}</span>`;
-    const open = Boolean(isActivityOpen(key));
-    const rawKey = `${key}:source`;
-    const rawOpen = Boolean(isActivityOpen(rawKey));
-    const hasRaw = original !== normalized || /\*\*|```/.test(original);
-    const body = open
-      ? `<div class="reasoning-copy markdown-body">${markdown(normalized)}</div>${hasRaw ? ui`<details class="activity-raw" data-activity-key="${esc(rawKey)}"${rawOpen ? " open" : ""}><summary>原始内容</summary>${rawOpen ? `<pre class="activity-raw-copy">${esc(original)}</pre>` : ""}</details>` : ""}`
+    const hasText = Boolean(reasoningPreview(normalized));
+    if (!hasText) {
+      if (turn.done && !turn.interrupted) return "";
+      const label = turn.interrupted ? ui("思考已停止") : ui("思考中");
+      const stateClass = turn.done ? "reasoning-state" : "reasoning-state shimmer-text";
+      const sweepKey = turn.done ? "" : ` data-thinking-key="${esc(`${key}:label`)}"`;
+      const spinner = turn.done
+        ? ""
+        : `<span class="thinking-spinner ant-mark" data-thinking-key="${esc(key)}" aria-hidden="true">${antMarkSvg}</span>`;
+      return `<div class="activity-step reasoning-step${turn.interrupted ? " is-interrupted" : ""}" data-view-key="${esc(key)}"><div class="activity-step-content"><div class="activity-step-head">${spinner}<strong class="${stateClass}"${sweepKey}>${esc(label)}</strong></div></div></div>`;
+    }
+    const stoppedHead = turn.interrupted
+      ? `<div class="activity-step-head"><span class="reasoning-state">${esc(ui("思考已停止"))}</span></div>`
       : "";
-    return `<div class="activity-step reasoning-step${turn.interrupted ? " is-interrupted" : ""}" data-view-key="${esc(key)}">
-    <div class="activity-step-content">
-      ${preview ? `<details class="reasoning-details" data-activity-key="${esc(key)}"${open ? " open" : ""}><summary>${spinner}<span class="${stateClass}"${sweepKey}>${label}</span><span class="reasoning-preview">${esc(preview)}</span><span class="reasoning-chevron" aria-hidden="true">${icon("chevron-right")}</span></summary>${body}</details>` : `<div class="activity-step-head">${spinner}<strong class="${stateClass}"${sweepKey}>${label}</strong></div>`}
-    </div>
-  </div>`;
+    return `<div class="activity-step reasoning-step${turn.interrupted ? " is-interrupted" : ""}" data-view-key="${esc(key)}"><div class="activity-step-content">${stoppedHead}<div class="reasoning-copy markdown-body" data-reading-key="${esc(key)}">${markdown(normalized)}</div></div></div>`;
   }
 
   // Before the first token, the turn shows the row its first thought will

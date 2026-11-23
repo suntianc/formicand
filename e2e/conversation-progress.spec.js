@@ -114,12 +114,12 @@ test("follow-up opens an assistant message before inference and animates each th
     await expect(liveProcess.locator(":scope > summary")).toContainText("思考中");
     await expect(liveProcess.locator(":scope > summary .thinking-spinner")).toHaveCount(1);
     await liveProcess.locator(":scope > summary").click();
-    await expect(pending.locator(".reasoning-details .reasoning-state")).toHaveCSS("font-size", thinkingSize);
+    await expect(pending.locator(".reasoning-copy")).toHaveCSS("font-size", thinkingSize);
     await expect(pending.locator(".reasoning-step")).toContainText("先查看可用工具。", { timeout: 30_000 });
-    await expect(pending.locator(".reasoning-step .thinking-spinner")).toHaveCount(1);
+    await expect(liveProcess.locator(":scope > summary .thinking-spinner")).toHaveCount(1);
     gates[0].release();
     await expect(pending.locator(".reasoning-step")).toHaveCount(2, { timeout: 30_000 });
-    await expect(pending.locator(".reasoning-step").first()).toContainText("思考完成");
+    await expect(pending.locator(".reasoning-step").first()).toContainText("先查看可用工具。");
     await expect(pending.locator(".reasoning-step").first().locator(".thinking-spinner")).toHaveCount(0);
     await expect(pending.locator(".reasoning-step").last().locator(".thinking-spinner")).toBeVisible();
     gates[1].release();

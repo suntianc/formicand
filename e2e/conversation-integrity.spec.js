@@ -148,7 +148,7 @@ test("partial output, empty tool completion and stopped calls retain truthful vi
     await expect(tools.last().locator(".activity-status")).toHaveText("已停止");
     await expect(page.locator(".tool-step.is-running")).toHaveCount(0);
     await expect(page.locator(".thinking-spinner")).toHaveCount(0);
-    await page.locator(".reasoning-details summary").click();
+    await expect(page.locator(".reasoning-copy")).toBeVisible();
     await page.locator("#conversation").screenshot({ path: testInfo.outputPath("stopped-tools-1440.png") });
     await page.setViewportSize({ width: 320, height: 900 });
     await expect(tools.last().locator(".activity-status")).toBeVisible();
@@ -207,13 +207,14 @@ test("partial errored thoughts stay readable and cancellation or completion clea
   try {
     await renderFixture(page, dashboard.base);
     await page.evaluate(() => window.integrityFixture.failure({ partial: true }));
-    await page.locator(".process-segment > summary").click();
-    await page.locator(".reasoning-details > summary").click();
+    const segment = page.locator("details.process-segment");
+    await segment.locator(":scope > summary").focus();
+    await page.keyboard.press("Enter");
     await expect(page.locator(".reasoning-copy")).toHaveText("已经读取输入约束，还未执行工具。");
     await expect(page.locator(".reasoning-state")).toHaveText("思考已停止");
     await page.evaluate(() => window.integrityFixture.poll());
-    await expect(page.locator(".reasoning-details > summary")).toBeFocused();
-    await expect(page.locator(".reasoning-details")).toHaveAttribute("open", "");
+    await expect(segment.locator(":scope > summary")).toBeFocused();
+    await expect(segment).toHaveAttribute("open", "");
     await expect(page.locator(".turn-endline")).toHaveCount(0);
     await expect(page.getByRole("alert")).toContainText("模型连接中断");
     await expect(page.locator('[data-answer-kind="final"]')).toHaveCount(0);
@@ -246,16 +247,15 @@ test("split final text stays readable during persistence and appears once after 
     await renderFixture(page, dashboard.base);
     await page.evaluate(() => window.integrityFixture.finish());
     await expect(page.locator(".live-answer")).toHaveCount(1);
-    await expect(page.locator(".process-segment")).toHaveCount(1);
+    await expect(page.locator(".process-segment.is-thought-only")).toHaveText("工具读取后确认了结果。");
     await expect(page.locator("#conversation")).toContainText("拆分回复已完成。");
-    await page.locator(".process-segment > summary").click();
-    await page.locator(".reasoning-details summary").click();
     await page.evaluate(() => window.integrityFixture.finish(true));
     await expect(page.locator('[data-answer-kind="final"]')).toContainText("拆分回复已完成。");
     await expect(page.locator(".live-answer")).toHaveCount(0);
     await expect(page.locator(".execution-history .live-workflow-head")).toHaveCount(0);
     await expect(page.locator(".execution-history > summary strong")).toHaveText("处理过程");
-    await expect(page.locator(".reasoning-copy")).toBeVisible();
+    await page.locator(".execution-history > summary").click();
+    await expect(page.locator(".process-segment.is-thought-only")).toHaveText("工具读取后确认了结果。");
     await page.locator("#conversation").screenshot({ path: testInfo.outputPath("split-final-1440.png") });
     await page.evaluate(() => window.integrityFixture.stoppedPlainText());
     await expect(page.locator("#conversation")).toContainText("保留中断前已经写好的正文。");

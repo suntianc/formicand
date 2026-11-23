@@ -77,12 +77,11 @@ test("a context divider keeps its chronological position and shows nothing of th
 });
 
 test("a mid-run instruction separates earlier activity from the continuing response", () => {
-  const { document, state, render } = fixture("steering-order", "补充前的第六步。");
-  state.detail.runtimeEvents.push(update("thinking_end", 0, { content: "补充前的第六步。" }));
+  const { document, state, render } = fixture("steering-order", "补充前的第六步。\n详细检查内容。");
+  state.detail.runtimeEvents.push(update("thinking_end", 0, { content: "补充前的第六步。\n详细检查内容。" }));
   render();
   expandHistory(document, render);
-  const before = document.querySelector(".reasoning-details");
-  before.open = true;
+  const before = document.querySelector("details.process-segment");
   const instruction = {
     role: "user",
     id: "steer-one",
@@ -125,7 +124,7 @@ test("a mid-run instruction separates earlier activity from the continuing respo
   );
   // While the round is still running, earlier L1 stays chronological above the interjection
   // and keeps the reader's expanded step open without an intermediate L0 fold.
-  assert.equal(document.querySelector(".reasoning-details"), before);
+  assert.equal(document.querySelector("details.process-segment"), before);
   assert.equal(before.open, true);
   assert.equal(document.querySelectorAll(".execution-history").length, 0);
   assert.equal(document.querySelectorAll(".thinking-spinner").length, 1);
@@ -151,7 +150,7 @@ test("a mid-run instruction separates earlier activity from the continuing respo
   // L0 stays expanded with L1 interleaved around the interjection bubble.
   assert.equal(document.querySelectorAll(".execution-history").length, 1);
   assert.equal(document.querySelector(".execution-history").open, true);
-  assert.equal(document.querySelector(".reasoning-details").open, true);
+  assert.equal(document.querySelector("details.process-segment").open, true);
   assert.equal(document.querySelectorAll(".chat-message.user").length, 2);
 });
 
@@ -460,14 +459,13 @@ test("retrying keeps the original request and attachment when its timestamp matc
 test("continuous thought deltas retain the disclosure, spinner and existing paragraph nodes", () => {
   const { document, state, render } = fixture("stable-thought", "先核对输入。");
   expandHistory(document, render);
-  expandDetails(document, ".reasoning-details", render);
-  const detail = document.querySelector(".reasoning-details");
+  const detail = document.querySelector("details.process-segment");
   const spinner = detail.querySelector(".thinking-spinner");
   const paragraph = detail.querySelector(".reasoning-copy p");
   for (const delta of ["然后读取", "约束", "，继续检查。"]) {
     state.detail.runtimeEvents.push(update("thinking_delta", 0, { delta }));
     render();
-    assert.equal(document.querySelector(".reasoning-details"), detail);
+    assert.equal(document.querySelector("details.process-segment"), detail);
     assert.equal(detail.querySelector(".thinking-spinner"), spinner);
     assert.equal(detail.querySelector(".reasoning-copy p"), paragraph);
     assert.equal(detail.open, true);
@@ -512,19 +510,19 @@ test("between steps the next step's thinking row waits at the end of the steps",
 });
 
 test("a parked or unfinished round folds its steps without a turn endline or active spinners", () => {
-  const { document, state, render } = fixture("parked-run", "本轮变化已核实。");
-  state.detail.runtimeEvents.push(update("thinking_end", 0, { content: "本轮变化已核实。" }), {
-    type: "main.run_waiting"
-  });
+  const { document, state, render } = fixture("parked-run", "本轮变化已核实。\n准备进入等待状态。");
+  state.detail.runtimeEvents.push(
+    update("thinking_end", 0, { content: "本轮变化已核实。\n准备进入等待状态。" }),
+    { type: "main.run_waiting" }
+  );
   state.detail.runtime.active = false;
   state.detail.task.status = "waiting";
   state.detail.parked = { wakeAt: "2099-01-01T00:00:00Z", reason: "等待新变化" };
   render();
   assert.equal(document.querySelectorAll(".live-workflow-head, .turn-endline").length, 0);
   assert.equal(document.querySelectorAll("[data-thinking-key]").length, 0);
-  assert.equal(document.querySelector(".process-segment").open === true, false);
+  assert.equal(document.querySelector("details.process-segment").open === true, false);
   expandHistory(document, render);
-  expandDetails(document, ".reasoning-details", render);
   assert.match(document.querySelector(".reasoning-copy").textContent, /本轮变化已核实/);
   state.detail.runtime.active = true;
   state.detail.task.status = "running";
@@ -670,19 +668,41 @@ test("compaction does not hide running commands or merge calls across reasoning"
   assert.equal(document.querySelectorAll(".reasoning-step").length, 2);
 });
 
-test("a collapsed thought shows its real first sentence and mounts its body only when expanded", () => {
+test("a collapsed multi-sentence thought uses its first sentence as the single-layer summary and renders flat prose on open", () => {
   const thought = "先读取项目说明，确认约束。然后检查入口与工具。";
-  const { document, render } = fixture("preview", thought);
+  const { document, state, render } = fixture("preview", thought);
   assert.match(document.querySelector(".process-segment.is-live > summary").textContent, /思考中/);
+  state.detail.runtimeEvents.push(update("thinking_end", 0, { content: thought }));
+  state.detail.runtime.active = false;
+  state.detail.task.status = "waiting";
+  render();
+  const segment = document.querySelector("details.process-segment");
+  assert.equal(segment.querySelector(".process-segment-label").textContent, "先读取项目说明，确认约束。");
+  assert.doesNotMatch(
+    segment.querySelector("summary").textContent,
+    /然后检查|查看思考过程|实时更新|思考完成/
+  );
+  assert.equal(segment.open === true, false);
+  assert.equal(segment.querySelector(".reasoning-copy"), null);
   expandHistory(document, render);
-  const detail = document.querySelector(".reasoning-details");
-  assert.match(detail.querySelector("summary").textContent, /先读取项目说明，确认约束。/);
-  assert.doesNotMatch(detail.querySelector("summary").textContent, /然后检查|查看思考过程|实时更新/);
-  assert.equal(detail.open === true, false);
-  assert.equal(detail.querySelector(".reasoning-copy"), null);
-  assert.equal(document.querySelectorAll(".reasoning-step .activity-step-head").length, 0);
-  expandDetails(document, ".reasoning-details", render);
-  assert.equal(detail.querySelector(".reasoning-copy").textContent, thought);
+  assert.equal(document.querySelectorAll(".reasoning-details, .activity-raw").length, 0);
+  assert.equal(segment.querySelector(".reasoning-copy").textContent, thought);
+});
+
+test("a single-line completed thought renders as one static line with no nested disclosure", () => {
+  const { document, state, render } = fixture("single-line-thought", "**Checking current catalog**");
+  state.detail.runtimeEvents.push(update("thinking_end", 0, { content: "**Checking current catalog**" }));
+  state.detail.runtime.active = false;
+  state.detail.task.status = "waiting";
+  render();
+  const row = document.querySelector(".process-segment.is-thought-only");
+  assert.ok(row);
+  assert.equal(row.tagName, "DIV");
+  assert.equal(row.querySelector(".process-segment-label").textContent, "Checking current catalog");
+  assert.equal(
+    document.querySelectorAll("details.process-segment, .reasoning-details, .activity-raw").length,
+    0
+  );
 });
 
 test("tool rows show delegation purpose and avoid repeating an already visible success status", () => {
@@ -830,7 +850,6 @@ test("zero-output HTTP stream failure shows a safe recovery card instead of an e
 test("a latest stopped assistant error exposes recovery before task status polling catches up and retains partial thought", () => {
   const { document, state, render } = fixture("partial-error", "已经读取输入约束。");
   expandHistory(document, render);
-  expandDetails(document, ".reasoning-details", render);
   const error = {
     role: "assistant",
     timestamp: 2,
@@ -846,7 +865,7 @@ test("a latest stopped assistant error exposes recovery before task status polli
   state.detail.task.status = "waiting";
   render([user, error]);
   assert.match(document.querySelector('[role="alert"]')?.textContent || "", /模型连接中断/);
-  assert.equal(document.querySelector(".reasoning-details").open, true);
+  assert.equal(document.querySelector("details.process-segment").open, true);
   assert.equal(document.querySelector(".reasoning-copy").textContent, "已经读取输入约束。");
   assert.match(document.querySelector(".reasoning-state").textContent, /思考已停止/);
   assert.equal(document.querySelectorAll(".turn-endline").length, 0);
@@ -1078,15 +1097,18 @@ test("cancelled, aborted, successful completion and an active retry do not repor
 test("the actual model's bold planning heading is plain in the summary and formatted when expanded", () => {
   const thought =
     "**Planning project inspection and testing**\nI should read the project instructions first.";
-  const { document, render } = fixture("markdown-preview", thought);
+  const { document, state, render } = fixture("markdown-preview", thought);
   assert.match(document.querySelector(".process-segment.is-live > summary").textContent, /思考中/);
-  expandHistory(document, render);
+  state.detail.runtimeEvents.push(update("thinking_end", 0, { content: thought }));
+  state.detail.runtime.active = false;
+  state.detail.task.status = "waiting";
+  render();
   assert.equal(
-    document.querySelector(".reasoning-preview").textContent,
+    document.querySelector(".process-segment-label").textContent,
     "Planning project inspection and testing"
   );
-  assert.equal(document.querySelector(".reasoning-details").open === true, false);
-  expandDetails(document, ".reasoning-details", render);
+  assert.equal(document.querySelector("details.process-segment").open === true, false);
+  expandHistory(document, render);
   assert.equal(
     document.querySelector(".reasoning-copy strong").textContent,
     "Planning project inspection and testing"
@@ -1095,19 +1117,16 @@ test("the actual model's bold planning heading is plain in the summary and forma
     document.querySelector(".reasoning-copy").textContent,
     /I should read the project instructions first\./
   );
-  expandDetails(document, ".activity-raw", render);
-  assert.equal(document.querySelector(".activity-raw-copy").textContent, thought);
+  assert.equal(document.querySelectorAll(".reasoning-details, .activity-raw").length, 0);
 });
 
-test("later streamed sentences do not replace the preview or the user's expansion choice", () => {
+test("later streamed sentences keep the process disclosure open and append cleanly into flat prose", () => {
   const { document, state, render } = fixture("preview-stream", "先核对文件路径。");
   expandHistory(document, render);
-  expandDetails(document, ".reasoning-details", render);
   for (const character of "接着检查文件权限与内容。") {
     state.detail.runtimeEvents.push(update("thinking_delta", 0, { delta: character }));
     render();
-    assert.equal(document.querySelector(".reasoning-preview")?.textContent, "先核对文件路径。");
-    assert.equal(document.querySelector(".reasoning-details").open, true);
+    assert.equal(document.querySelector("details.process-segment").open, true);
   }
   assert.equal(
     document.querySelector(".reasoning-copy").textContent,
@@ -1117,30 +1136,35 @@ test("later streamed sentences do not replace the preview or the user's expansio
 
 test("empty thought blocks have a running indication without an empty or invented preview", () => {
   const { document, state, render } = fixture("preview-empty", " \n ");
-  assert.equal(document.querySelectorAll(".reasoning-details").length, 0);
-  assert.equal(document.querySelectorAll(".reasoning-preview").length, 0);
+  assert.equal(document.querySelectorAll("details.process-segment").length, 0);
   assert.match(document.querySelector(".reasoning-step").textContent, /思考中/);
   assert.equal(document.querySelectorAll(".thinking-spinner").length, 1);
   state.detail.runtimeEvents.push(update("thinking_delta", 0, { delta: "真正的第一句。后续过程。" }));
   render();
   assert.match(document.querySelector(".process-segment.is-live > summary").textContent, /思考中/);
-  expandHistory(document, render);
-  assert.equal(document.querySelector(".reasoning-preview")?.textContent, "真正的第一句。");
+  state.detail.runtimeEvents.push(update("thinking_end", 0, { content: "真正的第一句。后续过程。" }));
+  state.detail.runtime.active = false;
+  state.detail.task.status = "waiting";
+  render();
+  assert.equal(document.querySelector(".process-segment-label")?.textContent, "真正的第一句。");
 });
 
-test("long or HTML-like thinking stays plain in the preview and complete in the expanded body", () => {
+test("long or HTML-like thinking stays plain in the summary and complete in the expanded body", () => {
   const thought = `<img src=x onerror=alert(1)> ${"核对输入".repeat(30)}。后续说明。`;
-  const { document, render } = fixture("preview-plain", thought);
+  const { document, state, render } = fixture("preview-plain", thought);
+  state.detail.runtimeEvents.push(update("thinking_end", 0, { content: thought }));
+  state.detail.runtime.active = false;
+  state.detail.task.status = "waiting";
+  render();
+  const label = document.querySelector(".process-segment-label");
+  assert.equal(label.querySelector("img"), null);
+  assert.equal(Array.from(label.textContent).length, 88);
+  assert.equal(label.textContent.endsWith("…"), true);
   expandHistory(document, render);
-  const preview = document.querySelector(".reasoning-preview");
-  assert.equal(preview.querySelector("img"), null);
-  assert.equal(Array.from(preview.textContent).length, 88);
-  assert.equal(preview.textContent.endsWith("…"), true);
-  expandDetails(document, ".reasoning-details", render);
   assert.equal(document.querySelector(".reasoning-copy").textContent, thought);
 });
 
-test("a recovered final snapshot derives its preview and keeps thought text out of the final answer", () => {
+test("a recovered final snapshot derives its summary and keeps thought text out of the final answer", () => {
   const { document, state, render } = fixture("preview-history", "");
   const thought = "```js\nconst path = 'local.txt';\n```\n读取后继续检查。";
   const answer = {
@@ -1163,33 +1187,30 @@ test("a recovered final snapshot derives its preview and keeps thought text out 
   render([user, answer]);
   assert.equal(document.querySelector(".execution-history").open === true, false);
   assert.doesNotMatch(document.querySelector('[data-answer-kind="final"]').textContent, /const path|读取后/);
-  expandHistory(document, render, [user, answer]);
-  assert.equal(document.querySelector(".reasoning-preview")?.textContent, "const path = 'local.txt';");
-  expandDetails(document, ".reasoning-details", render, [user, answer]);
+  expandDetails(document, ".execution-history", render, [user, answer]);
+  assert.equal(document.querySelector(".process-segment-label")?.textContent, "const path = 'local.txt';");
+  expandDetails(document, "details.process-segment", render, [user, answer]);
   assert.equal(document.querySelector(".reasoning-copy pre code").textContent, "const path = 'local.txt';");
   assert.match(document.querySelector(".reasoning-copy").textContent, /读取后继续检查。/);
-  expandDetails(document, ".activity-raw", render, [user, answer]);
-  assert.equal(document.querySelector(".activity-raw-copy").textContent, thought);
+  assert.equal(document.querySelectorAll(".reasoning-details, .activity-raw").length, 0);
   assert.equal(answer.content[0].thinking, thought);
 });
 
 test("an expanded live thought stays open through deltas and a user's collapse survives polling", () => {
   const { document, state, render } = fixture();
   expandHistory(document, render);
-  expandDetails(document, ".reasoning-details", render);
   state.detail.runtimeEvents.push(update("thinking_delta", 0, { delta: "再核对第二部分。" }));
   render();
-  assert.equal(document.querySelector(".reasoning-details").open, true);
+  assert.equal(document.querySelector("details.process-segment").open, true);
   assert.match(document.querySelector(".reasoning-copy").textContent, /先核对第一部分。再核对第二部分。/);
-  document.querySelector(".reasoning-details").open = false;
+  document.querySelector("details.process-segment").open = false;
   render();
-  assert.equal(document.querySelector(".reasoning-details").open, false);
+  assert.equal(document.querySelector("details.process-segment").open, false);
 });
 
-test("thought blocks retain independent expansion before and after a tool and preserve choices on completion", () => {
+test("thought blocks render flat inline before and after a tool and preserve segment expansion on completion", () => {
   const { document, state, render } = fixture();
   expandHistory(document, render);
-  expandDetails(document, ".reasoning-details", render);
   state.detail.runtimeEvents.push(
     update("thinking_end", 0, { content: "先核对第一部分。" }),
     update("toolcall_end", 1, {
@@ -1201,12 +1222,12 @@ test("thought blocks retain independent expansion before and after a tool and pr
     update("thinking_delta", 2, { delta: "根据工具结果核对第二部分。" })
   );
   render();
-  let blocks = [...document.querySelectorAll(".reasoning-details")];
-  assert.deepEqual(
-    blocks.map((node) => node.open === true),
-    [true, false]
-  );
-  assert.equal(document.querySelectorAll(".reasoning-step .thinking-spinner").length, 1);
+  const copies = [...document.querySelectorAll(".reasoning-copy")];
+  assert.equal(copies.length, 2);
+  assert.match(copies[0].textContent, /先核对第一部分。/);
+  assert.match(copies[1].textContent, /根据工具结果核对第二部分。/);
+  assert.equal(document.querySelectorAll(".reasoning-details, .activity-raw").length, 0);
+  assert.equal(document.querySelectorAll(".process-segment.is-live > summary .thinking-spinner").length, 1);
   const answer = {
     role: "assistant",
     timestamp: 2,
@@ -1227,11 +1248,8 @@ test("thought blocks retain independent expansion before and after a tool and pr
   render([user, answer]);
   // User had expanded the process while running; it stays open across completion.
   assert.equal(document.querySelector(".execution-history").open, true);
-  blocks = [...document.querySelectorAll(".reasoning-details")];
-  assert.deepEqual(
-    blocks.map((node) => node.open === true),
-    [true, false]
-  );
+  assert.equal(document.querySelector("details.process-segment").open, true);
+  assert.equal(document.querySelectorAll(".reasoning-copy").length, 2);
   assert.equal(document.querySelectorAll(".thinking-spinner").length, 0);
   assert.equal(document.querySelectorAll('[data-answer-kind="final"]').length, 1);
 });
@@ -1240,25 +1258,20 @@ test("leaving a thought for an empty conversation preserves its expansion withou
   const { document, state, render } = fixture();
   const first = state.detail;
   expandHistory(document, render);
-  expandDetails(document, ".reasoning-details", render);
   state.selected = "reasoning-two";
   state.detail = { ...first, task: { ...first.task, taskId: state.selected } };
   render([]);
   render();
-  assert.equal(document.querySelector(".process-segment").open === true, false);
-  expandHistory(document, render);
-  assert.equal(document.querySelector(".reasoning-details").open === true, false);
+  assert.equal(document.querySelector("details.process-segment").open === true, false);
   state.selected = "reasoning-one";
   state.detail = first;
   render();
-  assert.equal(document.querySelector(".process-segment").open, true);
-  assert.equal(document.querySelector(".reasoning-details").open, true);
+  assert.equal(document.querySelector("details.process-segment").open, true);
 });
 
 test("thought reading positions and independent follow-up choices survive updates", () => {
   const { document, state, render } = fixture();
   expandHistory(document, render);
-  expandDetails(document, ".reasoning-details", render);
   const copy = document.querySelector(".reasoning-copy");
   copy.scrollTop = 37;
   copy.scrollLeft = 12;
@@ -1284,8 +1297,7 @@ test("thought reading positions and independent follow-up choices survive update
     update("thinking_delta", 0, { delta: "合成追问思考。" })
   );
   render([user, answer, followUp]);
-  expandHistory(document, render, [user, answer, followUp]);
-  const blocks = [...document.querySelectorAll(".reasoning-details")];
+  const blocks = [...document.querySelectorAll("details.process-segment")];
   assert.deepEqual(
     blocks.map((node) => node.open === true),
     [true, false]
@@ -1309,7 +1321,6 @@ test("an interrupted thought retains its text without a spinner or a completed l
   state.detail.task.status = "waiting";
   render([user, stopped]);
   expandHistory(document, render, [user, stopped]);
-  expandDetails(document, ".reasoning-details", render, [user, stopped]);
   assert.match(document.querySelector(".reasoning-step").textContent, /思考已停止/);
   assert.match(document.querySelector(".reasoning-copy").textContent, /先核对第一部分。/);
   assert.equal(document.querySelectorAll(".thinking-spinner").length, 0);

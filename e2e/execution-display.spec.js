@@ -348,41 +348,26 @@ test("provider thinking envelopes, failure evidence, raw details and keyboard st
   try {
     const requests = await executionFixture(page, dashboard.base);
     const liveSegment = page.locator(".process-segment.is-live");
+    const liveSummary = liveSegment.locator(":scope > summary");
     await expect(liveSegment).not.toHaveAttribute("open", "");
-    await expect(liveSegment.locator(":scope > summary")).toContainText("运行命令中");
-    await liveSegment.locator(":scope > summary").click();
+    await expect(liveSummary).toContainText("运行命令中");
+    await liveSummary.focus();
+    await page.keyboard.press("Enter");
     await expect(liveSegment).toHaveAttribute("open", "");
     await expect(page.locator(".tool-subject").first()).toBeVisible();
     await expectCompactClean(page);
-    const thought = page.locator(".reasoning-details").first();
-    const thoughtSummary = thought.locator(":scope > summary");
-    await expect(thoughtSummary.locator(".reasoning-preview")).toHaveText(headings[0]);
-    await expect(thought.locator(".reasoning-copy")).toHaveCount(0);
-    await thoughtSummary.focus();
-    await page.keyboard.press("Enter");
-    await expect(thought).toHaveAttribute("open", "");
-    await expect(thought.locator(".reasoning-copy > p")).toHaveText(headings);
-    const sizes = await thought
+    await expect(page.locator(".reasoning-details, .activity-raw")).toHaveCount(0);
+    await expect(liveSegment.locator(".reasoning-copy > p")).toHaveText(headings);
+    const sizes = await liveSegment
       .locator(".reasoning-copy > p")
       .evaluateAll((nodes) => nodes.map((node) => parseFloat(getComputedStyle(node).fontSize)));
     expect(sizes).toEqual([14, 14, 14]);
     await page.evaluate(() => window.executionFixture.append());
-    await expect(thoughtSummary).toBeFocused();
-    await expect(thought).toHaveAttribute("open", "");
+    await expect(liveSummary).toBeFocused();
+    await expect(liveSegment).toHaveAttribute("open", "");
     await page.evaluate(() => window.executionFixture.poll());
-    await expect(thoughtSummary).toBeFocused();
+    await expect(liveSummary).toBeFocused();
 
-    const rawThought = thought.locator(".activity-raw");
-    await rawThought.locator(":scope > summary").focus();
-    await page.keyboard.press("Enter");
-    await expect(rawThought.locator(".activity-raw-copy")).toContainText(
-      "<thinking>**核对脚本路径****检查 Python 语法****确认执行结果**"
-    );
-    await page.evaluate(() => window.executionFixture.append("\n继续保留原始片段。"));
-    await expect(rawThought).toHaveAttribute("open", "");
-    await expect(rawThought.locator(":scope > summary")).toBeFocused();
-    await page.keyboard.press("Enter");
-    await expect(rawThought).not.toHaveAttribute("open", "");
     await page.evaluate(() => window.executionFixture.missingFile());
     await expect(page.locator(".tool-step").first()).toHaveClass(/is-failed/);
     await expect(page.locator(".tool-context").first()).toHaveText("文件或目录不存在");
@@ -418,14 +403,15 @@ test("provider thinking envelopes, failure evidence, raw details and keyboard st
     await expect(page.locator('[data-answer-kind="final"]')).toContainText(
       "已按实际工具返回定位路径和语法问题"
     );
-    await expect(thought).toHaveAttribute("open", "");
+    const segment = page.locator("details.process-segment").first();
+    await expect(segment).toHaveAttribute("open", "");
     await expect(tool).toHaveAttribute("open", "");
     await history.locator(":scope > summary").focus();
     await page.keyboard.press("Enter");
     await expect(history).not.toHaveAttribute("open", "");
     await page.keyboard.press("Enter");
     await expect(history).toHaveAttribute("open", "");
-    await expect(thought).toHaveAttribute("open", "");
+    await expect(segment).toHaveAttribute("open", "");
     await expect(tool).toHaveAttribute("open", "");
     await page.evaluate(() => window.executionFixture.poll());
     await expect(history.locator(":scope > summary")).toBeFocused();
@@ -463,7 +449,6 @@ for (const width of [1440, 768, 320]) {
       await history.locator(":scope > summary").click();
       await page.locator(".process-segment > summary").click();
       await saveEvidence(page, `completed-rows-${width}`);
-      await page.locator(".reasoning-details > summary").first().click();
       await page.locator(".tool-details > summary").first().click();
       await expect(page.locator(".reasoning-copy > p")).toHaveText(headings);
       await expect(page.locator(".tool-context").first()).toHaveText("文件或目录不存在");
@@ -490,7 +475,8 @@ for (const width of [1440, 768, 320]) {
       expect(layout.paragraphs.map((paragraph) => paragraph.fontSize)).toEqual(["14px", "14px", "14px"]);
       for (const selector of [
         ".execution-history > summary",
-        ".reasoning-details > summary",
+        ".process-segment > summary",
+        ".reasoning-copy",
         ".tool-details > summary",
         ".tool-details-body",
         ".tool-context"
@@ -557,18 +543,18 @@ test("reduced motion retains actual busy state and tool progress without rotatin
     const requests = await executionFixture(page, dashboard.base);
     await expect(page.locator('[data-answer-kind="pending"]')).toHaveAttribute("aria-busy", "true");
     await page.locator(".process-segment > summary").click();
-    await expect(page.locator(".reasoning-state").first()).toHaveText("思考中");
+    await expect(page.locator(".process-live-state")).toHaveText("运行命令中");
     await expect(page.locator(".tool-step .activity-status").first()).toHaveText("执行中");
     const spinners = page.locator(".thinking-spinner, .tool-progress-spinner");
-    await expect(spinners).toHaveCount(3);
+    await expect(spinners).toHaveCount(2);
     expect(await spinners.evaluateAll((nodes) => nodes.map((node) => node.getAnimations().length))).toEqual([
-      0, 0, 0
+      0, 0
     ]);
     await page.evaluate(() => window.executionFixture.append());
-    await expect(page.locator(".reasoning-preview").first()).toHaveText(headings[0]);
+    await expect(page.locator(".reasoning-copy > p").first()).toHaveText(headings[0]);
     await expect(page.locator('[data-answer-kind="pending"]')).toHaveAttribute("aria-busy", "true");
     const layout = await saveEvidence(page, "reduced-motion-active");
-    expect(layout.spinnerAnimations).toEqual([[], [], []]);
+    expect(layout.spinnerAnimations).toEqual([[], []]);
     await completeFixture(page);
     await expect(page.locator(".thinking-spinner, .tool-progress-spinner")).toHaveCount(0);
     await expect(page.locator('[data-answer-kind="pending"]')).toHaveCount(0);
