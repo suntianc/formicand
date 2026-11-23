@@ -127,7 +127,7 @@ export function agentEditorMarkup({
           <span class="mcp-field-label">模型与推理强度</span>${draft.builtin ? hint("model") : `<small>${esc(ui("不选则可写跟 executor、只读跟 reviewer"))}</small>`}
           <div class="agent-model-row">
             <button type="button" class="role-picker agent-model-picker" data-agent-model aria-haspopup="listbox" aria-label="${esc(ui("模型"))}"${disabled}>${modelLabel}${icon("chevrons-up-down")}</button>
-            <label class="agent-effort${locked ? " is-disabled" : ""}">${icon("brain")}<span>${esc(effortShown)}</span>${icon("chevron-down")}<select data-agent-effort aria-label="${esc(ui("推理强度"))}"${disabled}>
+            <label class="agent-effort${locked ? " is-disabled" : ""}"><span>${esc(effortShown)}</span>${icon("chevron-down")}<select data-agent-effort aria-label="${esc(ui("推理强度"))}"${disabled}>
               <option value=""${draft.thinking ? "" : " selected"}>${esc(draft.builtin ? ui("默认") : ui("沿用"))}</option>
               ${[...new Set([...levels, ...(draft.thinking ? [draft.thinking] : [])])]
                 .map(

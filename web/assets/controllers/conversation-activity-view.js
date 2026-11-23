@@ -354,7 +354,7 @@ export function createConversationActivityView({
               thoughtPreview &&
               !hasReasoningMore(firstThought.text, thoughtPreview)
             ) {
-              return `<div class="process-segment is-thought-only" data-view-key="${esc(segmentKey)}"><span class="process-segment-icon" aria-hidden="true">${icon("brain")}</span><span class="process-segment-label" title="${esc(thoughtPreview)}">${esc(thoughtPreview)}</span></div>`;
+              return `<div class="process-segment is-thought-only" data-view-key="${esc(segmentKey)}"><span class="process-segment-icon" aria-hidden="true">${icon("activity")}</span><span class="process-segment-label" title="${esc(thoughtPreview)}">${esc(thoughtPreview)}</span></div>`;
             }
           }
           const segmentOpen = Boolean(isActivityOpen(segmentKey));
@@ -375,7 +375,7 @@ export function createConversationActivityView({
             const label = [stateText, countText].filter(Boolean).join(" · ");
             summary = `<summary aria-label="${esc(label)}">${spinner}<strong class="process-live-state${shimmer ? " shimmer-text" : ""}"${shimmer ? ` data-thinking-key="${esc(`${segmentKey}:label`)}"` : ""}>${esc(stateText)}</strong>${countText ? `<small>${esc(countText)}</small>` : ""}${segmentFailed ? ui`<em class="history-failures">${segmentFailed} 次调用未成功</em>` : ""}<span class="process-chevron" aria-hidden="true">${icon("chevron-down")}</span></summary>`;
           } else {
-            let leadIcon = "brain";
+            let leadIcon = "activity";
             let titleText;
             if (segmentCalls.length) {
               const counts = new Map();
