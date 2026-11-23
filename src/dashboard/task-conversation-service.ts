@@ -10,10 +10,13 @@ import { mainContextUsagePath, type SessionContextUsage } from "../runtime/sessi
 import { conversationWindows } from "../runtime/session-handoff.js";
 import {
   messagesWithRuntimeHistory,
+  readRunRuntimeEvents,
   readTaskRuntimeEvents,
   settledRuntimeEvents,
+  viewConversationMessage,
   viewRuntimeEvent
 } from "../runtime/conversation-history.js";
+import { extractToolCallDetail } from "../runtime/tool-event-summary.js";
 import { conversationMessages } from "../runtime/conversation-view.js";
 import { MainRequestStore, mainRequestPath } from "../storage/main-request-store.js";
 import { CoordinatorRuntime } from "../runtime/coordinator-runtime.js";
@@ -187,7 +190,7 @@ export function createTaskConversationService({
       events,
       runtimeEvents: settledRuntimeEvents(runtimeEvents).map(viewRuntimeEvent),
       artifacts,
-      messages,
+      messages: messages.map(viewConversationMessage),
       contextWindows: conversationWindows(sessionEntries),
       editableMessage,
       ...(editableMessageError ? { editableMessageError } : {}),
@@ -241,5 +244,27 @@ export function createTaskConversationService({
     return readArchivedMessageVersion(location.workspaceRoot, taskId, versionId);
   }
 
-  return { taskDetails, forkConversation, messageVersion };
+  /** Fetch one tool call's full arguments and output on demand from durable run logs. */
+  async function toolCallDetail(
+    taskId: string,
+    { callId, runId }: { callId: string; runId?: string }
+  ): Promise<unknown> {
+    const location = await locateTask(taskId);
+    const taskWorkspace = location.workspaceRoot;
+    if (runId) {
+      const runEvents = await readRunRuntimeEvents(taskWorkspace, taskId, runId);
+      const found = extractToolCallDetail(runEvents, callId);
+      if (found) return { taskId, ...found };
+    }
+    const messageVersions = await readMessageVersions(taskWorkspace, taskId);
+    const allEvents = versionRuntimeEvents(
+      await readTaskRuntimeEvents(taskWorkspace, taskId),
+      messageVersions
+    );
+    const found = extractToolCallDetail(allEvents, callId);
+    if (!found) throw new HttpError(404, "未找到该工具调用记录");
+    return { taskId, ...found };
+  }
+
+  return { taskDetails, forkConversation, messageVersion, toolCallDetail };
 }

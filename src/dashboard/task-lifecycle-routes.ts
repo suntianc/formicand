@@ -19,12 +19,40 @@ export async function handleTaskLifecycleRequest(
     | "cancelTask"
     | "taskLifecycle"
     | "taskDetails"
+    | "toolCallDetail"
     | "taskListItem"
     | "events"
     | "compactMainContext"
   >
 ): Promise<void> {
-  const { locateTask, pauseTask, stopTask, cancelTask, taskLifecycle, taskDetails, taskListItem } = ports;
+  const {
+    locateTask,
+    pauseTask,
+    stopTask,
+    cancelTask,
+    taskLifecycle,
+    taskDetails,
+    toolCallDetail,
+    taskListItem
+  } = ports;
+  const toolCallMatch = url.pathname.match(/^\/api\/tasks\/([^/]+)\/tool-call$/);
+  if (request.method === "GET" && toolCallMatch) {
+    const taskId = decodeURIComponent(toolCallMatch[1]);
+    const safeId = /^[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?$/;
+    if (!safeId.test(taskId)) throw new Error("unsafe task id");
+    const callId = (url.searchParams.get("callId") ?? "").trim();
+    if (!callId || callId.length > 256 || /[\0\r\n]/.test(callId)) {
+      sendJson(response, 400, { error: "无效的工具调用标识" });
+      return;
+    }
+    const rawRunId = url.searchParams.get("runId")?.trim() || undefined;
+    if (rawRunId && !safeId.test(rawRunId)) {
+      sendJson(response, 400, { error: "无效的运行标识" });
+      return;
+    }
+    sendJson(response, 200, await toolCallDetail(taskId, { callId, runId: rawRunId }));
+    return;
+  }
   const trajectoryMatch = url.pathname.match(/^\/api\/tasks\/([^/]+)\/agents\/([^/]+)\/trajectory$/);
   if (request.method === "GET" && trajectoryMatch) {
     const taskId = decodeURIComponent(trajectoryMatch[1]);

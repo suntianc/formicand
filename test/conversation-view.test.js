@@ -1670,3 +1670,157 @@ test("long conversations virtualize off-screen historical rounds into height-pre
   assert.match(finals[0].getAttribute("style") || "", /min-height:\d+px/);
   assert.ok(finals[rounds - 1].querySelector(".markdown-body"), "recent rounds render full Markdown DOM");
 });
+
+test("expanding L3 loads omitted tool details on demand, retries errors and discards stale responses on task switch", async () => {
+  const requests = [];
+  const state = {
+    selected: "task-a",
+    localMessages: [],
+    executionHistoryOpen: new Map(),
+    detail: {
+      task: { taskId: "task-a", status: "completed" },
+      runtime: { active: false },
+      runtimeEvents: [
+        { type: "runtime_event", runId: "run-a", payload: { type: "turn_start" } },
+        {
+          type: "runtime_event",
+          runId: "run-a",
+          payload: {
+            type: "tool_execution_start",
+            toolCallId: "big-call",
+            toolName: "read",
+            args: { path: "notes.md" },
+            detailOmitted: true
+          }
+        },
+        {
+          type: "runtime_event",
+          runId: "run-a",
+          payload: {
+            type: "tool_execution_end",
+            toolCallId: "big-call",
+            toolName: "read",
+            isError: false,
+            result: {},
+            detailOmitted: true
+          }
+        },
+        {
+          type: "runtime_event",
+          runId: "run-a",
+          payload: {
+            type: "message_end",
+            message: { role: "assistant", content: [{ type: "text", text: "完成" }], stopReason: "stop" }
+          }
+        },
+        { type: "runtime_event", runId: "run-a", payload: { type: "turn_end" } }
+      ]
+    }
+  };
+  const { document } = parseHTML('<main id="conversation"></main>');
+  const view = createConversationView({
+    state,
+    $: (selector) => document.querySelector(selector),
+    textContent,
+    loadToolDetail: (taskId, callId, runId) => {
+      const deferred = Promise.withResolvers();
+      requests.push({ taskId, callId, runId, ...deferred });
+      return deferred.promise;
+    }
+  });
+  const messages = [
+    { role: "user", id: "u1", content: "看文件", timestamp: 1 },
+    { role: "assistant", id: "a1", content: "完成", timestamp: 2, stopReason: "stop" }
+  ];
+  view.renderConversation(messages, state.detail.task);
+  assert.equal(requests.length, 0, "collapsed L0/L1/L2 triggers no detail fetch");
+
+  expandHistory(document, (m) => view.renderConversation(m, state.detail.task), messages);
+  assert.equal(requests.length, 0, "collapsed L3 still triggers no detail fetch");
+
+  const tool = document.querySelector(".tool-details");
+  tool.open = true;
+  tool.dispatchEvent(new document.defaultView.Event("toggle"));
+  assert.equal(requests.length, 1);
+  assert.deepEqual(
+    { taskId: requests[0].taskId, callId: requests[0].callId, runId: requests[0].runId },
+    { taskId: "task-a", callId: "big-call", runId: "run-a" }
+  );
+  assert.match(document.querySelector(".tool-details-body").textContent, /正在加载详情/);
+
+  // Failure renders retry control; clicking retry re-requests.
+  requests[0].reject(new Error("boom"));
+  await Promise.resolve();
+  await Promise.resolve();
+  const retryButton = document.querySelector("[data-tool-detail-retry]");
+  assert.ok(retryButton, "failed fetch exposes retry control");
+  retryButton.click();
+  assert.equal(requests.length, 2);
+
+  // Switching to another conversation invalidates the in-flight response.
+  state.selected = "task-b";
+  state.detail = {
+    task: { taskId: "task-b", status: "completed" },
+    runtime: { active: false },
+    runtimeEvents: []
+  };
+  view.renderConversation([], state.detail.task);
+  requests[1].resolve({
+    arguments: { path: "notes.md", offset: 1 },
+    result: { content: [{ type: "text", text: "FULL_SECRET_BODY" }] }
+  });
+  await Promise.resolve();
+  await Promise.resolve();
+  assert.doesNotMatch(document.querySelector("#conversation").textContent, /FULL_SECRET_BODY/);
+
+  // Returning to task-a fetches cleanly (cache was cleared on switch) and renders full body.
+  state.selected = "task-a";
+  state.detail = {
+    task: { taskId: "task-a", status: "completed" },
+    runtime: { active: false },
+    runtimeEvents: [
+      { type: "runtime_event", runId: "run-a", payload: { type: "turn_start" } },
+      {
+        type: "runtime_event",
+        runId: "run-a",
+        payload: {
+          type: "tool_execution_start",
+          toolCallId: "big-call",
+          toolName: "read",
+          args: { path: "notes.md" },
+          detailOmitted: true
+        }
+      },
+      {
+        type: "runtime_event",
+        runId: "run-a",
+        payload: {
+          type: "tool_execution_end",
+          toolCallId: "big-call",
+          toolName: "read",
+          isError: false,
+          result: {},
+          detailOmitted: true
+        }
+      },
+      {
+        type: "runtime_event",
+        runId: "run-a",
+        payload: {
+          type: "message_end",
+          message: { role: "assistant", content: [{ type: "text", text: "完成" }], stopReason: "stop" }
+        }
+      },
+      { type: "runtime_event", runId: "run-a", payload: { type: "turn_end" } }
+    ]
+  };
+  view.renderConversation(messages, state.detail.task);
+  assert.equal(requests.length, 3, "reopening task-a re-fetches after cache release");
+  requests[2].resolve({
+    arguments: { path: "notes.md", offset: 1 },
+    result: { content: [{ type: "text", text: "FULL_TOOL_OUTPUT_LINE" }] }
+  });
+  await Promise.resolve();
+  await Promise.resolve();
+  assert.match(document.querySelector(".tool-details-body").textContent, /FULL_TOOL_OUTPUT_LINE/);
+});

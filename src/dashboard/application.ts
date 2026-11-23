@@ -589,7 +589,7 @@ export function createDashboardApplication(
     () => options.computerDriver ?? computerDriver
   );
   const modelSettings = createModelSettings(projectRoot, runtimeConfig);
-  const { taskDetails, forkConversation, messageVersion } = createTaskConversationService({
+  const { taskDetails, forkConversation, messageVersion, toolCallDetail } = createTaskConversationService({
     workspaces,
     coordinator,
     runs,
@@ -694,6 +694,7 @@ export function createDashboardApplication(
     resumeHumanAnswers,
     subagents,
     taskDetails,
+    toolCallDetail,
     taskListItem,
     appendRunEvent
   };

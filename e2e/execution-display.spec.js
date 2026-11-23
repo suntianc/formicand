@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
-import { writeFile } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
+import { join } from "node:path";
 import { startDashboard } from "../test/dashboard-fixture.mjs";
 
 const headings = ["核对脚本路径", "检查 Python 语法", "确认执行结果"];
@@ -572,6 +573,131 @@ test("reduced motion retains actual busy state and tool progress without rotatin
     await expect(page.locator('[data-answer-kind="pending"]')).toHaveCount(0);
     await expect(page.locator(".execution-history > summary > strong")).toHaveText("用时 3 分钟 1 秒");
     expect(requests).toEqual({ api: [], external: [] });
+  } finally {
+    await dashboard.stop();
+  }
+});
+
+test("bulky tool arguments and outputs load on demand when L3 expands and clear on task switch", async ({
+  page
+}) => {
+  const dashboard = await startDashboard();
+  try {
+    const taskId = "lazy-tool-e2e";
+    const otherTaskId = "lazy-tool-other";
+    const runId = "run-lazy-1";
+    for (const id of [taskId, otherTaskId]) {
+      const created = await page.request.post(`${dashboard.base}/api/tasks`, {
+        data: { taskId: id, goal: id, projectId: dashboard.projectId }
+      });
+      expect(created.status()).toBe(201);
+    }
+    const bigArgMarker = "UNIQUE_LARGE_ARG_MARKER_991";
+    const bigOutMarker = "UNIQUE_LARGE_OUT_MARKER_773";
+    const bigContent = `${bigArgMarker}\n${"arg-payload-line\n".repeat(400)}`;
+    const bigOutput = `${bigOutMarker}\n${"output-payload-line\n".repeat(400)}`;
+    const runDir = join(dashboard.workspaceRoot, taskId, "runs", runId);
+    const contextDir = join(dashboard.workspaceRoot, taskId, "agents", "main", "context");
+    await mkdir(runDir, { recursive: true });
+    await mkdir(contextDir, { recursive: true });
+    await writeFile(join(runDir, "run.json"), JSON.stringify({ createdAt: "2026-11-23T00:00:00Z" }));
+    const userMessage = { role: "user", id: "u-lazy", content: "请生成大文件", timestamp: 1700000001000 };
+    const finalMessage = {
+      role: "assistant",
+      id: "a-lazy",
+      content: [{ type: "text", text: "已经写入完成。" }],
+      timestamp: 1700000005000,
+      stopReason: "stop"
+    };
+    const logLines = [
+      { type: "turn_start" },
+      { type: "message_start", message: userMessage },
+      { type: "message_end", message: userMessage },
+      {
+        type: "message_end",
+        message: {
+          role: "assistant",
+          timestamp: 1700000002000,
+          stopReason: "toolUse",
+          content: [
+            {
+              type: "toolCall",
+              id: "call-lazy-write",
+              name: "write",
+              arguments: { path: "docs/large.md", content: bigContent }
+            }
+          ]
+        }
+      },
+      {
+        type: "tool_execution_start",
+        toolCallId: "call-lazy-write",
+        toolName: "write",
+        args: { path: "docs/large.md", content: bigContent }
+      },
+      {
+        type: "tool_execution_end",
+        toolCallId: "call-lazy-write",
+        toolName: "write",
+        isError: false,
+        result: {
+          content: [{ type: "text", text: "preview" }],
+          details: { archivedOutput: { content: [{ type: "text", text: bigOutput }] } }
+        }
+      },
+      { type: "turn_end", message: { role: "assistant", timestamp: 1700000003000, stopReason: "toolUse" } },
+      { type: "turn_start" },
+      { type: "message_start", message: { role: "assistant", timestamp: 1700000004000, content: [] } },
+      { type: "message_end", message: finalMessage },
+      { type: "turn_end", message: finalMessage }
+    ];
+    await writeFile(join(runDir, "runtime-output.log"), `${logLines.map(JSON.stringify).join("\n")}\n`);
+    await writeFile(join(contextDir, "messages.json"), JSON.stringify([userMessage, finalMessage]));
+    await writeFile(
+      join(dashboard.workspaceRoot, taskId, "task.json"),
+      JSON.stringify({
+        taskId,
+        goal: taskId,
+        projectId: dashboard.projectId,
+        projectDirectory: dashboard.projectDirectory,
+        status: "completed",
+        activeRunId: runId,
+        createdAt: "2026-11-23T00:00:00Z",
+        updatedAt: "2026-11-23T00:00:05Z"
+      })
+    );
+
+    const toolCalls = [];
+    page.on("request", (request) => {
+      if (request.url().includes("/tool-call?")) toolCalls.push(request.url());
+    });
+    const detailPromise = page.waitForResponse((response) => response.url().endsWith(`/api/tasks/${taskId}`));
+    await page.goto(dashboard.base);
+    await page.locator(`.conversation-item[data-task="${taskId}"]`).click();
+    const detailResponse = await detailPromise;
+    const detailBody = await detailResponse.text();
+    expect(detailBody).not.toContain(bigArgMarker);
+    expect(detailBody).not.toContain(bigOutMarker);
+
+    await expect(page.locator('.chat-message.main[data-answer-kind="final"]')).toContainText(
+      "已经写入完成。"
+    );
+    expect(toolCalls).toHaveLength(0);
+
+    await page.locator(".execution-history > summary").click();
+    await page.locator(".process-segment > summary").click();
+    expect(toolCalls).toHaveLength(0);
+
+    await page.locator(".tool-details > summary").click();
+    await expect(page.locator(".tool-details-body")).toContainText(bigArgMarker);
+    await expect(page.locator(".tool-details-body")).toContainText(bigOutMarker);
+    expect(toolCalls).toHaveLength(1);
+
+    await page.locator(`.conversation-item[data-task="${otherTaskId}"]`).click();
+    await expect(page.locator(".welcome-empty")).toBeVisible();
+    await page.locator(`.conversation-item[data-task="${taskId}"]`).click();
+    await expect(page.locator(".tool-details-body")).toContainText(bigOutMarker);
+    expect(toolCalls).toHaveLength(2);
   } finally {
     await dashboard.stop();
   }

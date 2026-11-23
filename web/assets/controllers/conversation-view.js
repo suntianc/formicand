@@ -234,10 +234,63 @@ export function createConversationView({
   openArtifact,
   fork,
   resolveFile,
+  loadToolDetail,
   showToast = () => {}
 }) {
   const streamReveal = createStreamReveal();
   const activityStates = new Map();
+  // Session-scoped on-demand L3 tool detail cache. Cleared on task switch so
+  // large tool arguments/outputs never accumulate across conversations.
+  const TOOL_DETAIL_CACHE_LIMIT = 32;
+  let toolDetailTaskId;
+  let toolDetailEpoch = 0;
+  const toolDetails = new Map();
+  const resetToolDetails = (taskId) => {
+    if (toolDetailTaskId === taskId) return;
+    toolDetailTaskId = taskId;
+    toolDetailEpoch += 1;
+    toolDetails.clear();
+  };
+  const toolDetailFor = loadToolDetail
+    ? (taskId, call) => {
+        if (!taskId || !call?.id) return undefined;
+        if (toolDetailTaskId !== taskId) resetToolDetails(taskId);
+        const detailKey = `${call.runId || ""}:${call.id}:${call.completed ? "done" : "live"}`;
+        const cached = toolDetails.get(detailKey);
+        if (cached) {
+          toolDetails.delete(detailKey);
+          toolDetails.set(detailKey, cached);
+          return cached;
+        }
+        const epoch = toolDetailEpoch;
+        const entry = { status: "loading", detailKey };
+        toolDetails.set(detailKey, entry);
+        if (toolDetails.size > TOOL_DETAIL_CACHE_LIMIT) {
+          const oldest = toolDetails.keys().next().value;
+          if (oldest !== undefined) toolDetails.delete(oldest);
+        }
+        Promise.resolve(loadToolDetail(taskId, call.id, call.runId)).then(
+          (data) => {
+            if (epoch !== toolDetailEpoch || state.selected !== taskId) return;
+            toolDetails.set(detailKey, {
+              status: "ready",
+              detailKey,
+              arguments: data?.arguments,
+              result: data?.result
+            });
+            if (lastRenderArgs?.task?.taskId === taskId)
+              renderConversation(lastRenderArgs.messages, lastRenderArgs.task, { preserveScroll: true });
+          },
+          () => {
+            if (epoch !== toolDetailEpoch || state.selected !== taskId) return;
+            toolDetails.set(detailKey, { status: "error", detailKey });
+            if (lastRenderArgs?.task?.taskId === taskId)
+              renderConversation(lastRenderArgs.messages, lastRenderArgs.task, { preserveScroll: true });
+          }
+        );
+        return entry;
+      }
+    : undefined;
   const markdown = (source, options = {}) =>
     renderMarkdown(source, {
       resolveLocalLink: (path) => resolveArtifactLink(state.detail, path),
@@ -257,7 +310,8 @@ export function createConversationView({
     markdown,
     activityContext: () => ({ taskId: state.selected, detail: state.detail }),
     isHistoryOpen: isHistoryOpenFor,
-    isActivityOpen: (key) => Boolean(activityStates.get(key)?.open)
+    isActivityOpen: (key) => Boolean(activityStates.get(key)?.open),
+    toolDetailFor
   });
   const visibleText = (content) =>
     Array.isArray(content)
@@ -604,6 +658,14 @@ export function createConversationView({
   };
   const projectExchanges = createConversationProjection(normalizeMessages);
   $("#conversation")?.addEventListener("click", async (event) => {
+    const detailRetry = event.target.closest?.("[data-tool-detail-retry]");
+    if (detailRetry) {
+      const retryKey = detailRetry.dataset.toolDetailRetry;
+      if (retryKey) toolDetails.delete(retryKey);
+      if (lastRenderArgs && state.selected === lastRenderArgs.task?.taskId)
+        renderConversation(lastRenderArgs.messages, lastRenderArgs.task, { preserveScroll: true });
+      return;
+    }
     const userCopy = event.target.closest?.("[data-user-copy]");
     if (userCopy) {
       const typed = userCopy.closest(".chat-message.user")?.querySelector(".user-text")?.textContent ?? "";
@@ -675,6 +737,7 @@ export function createConversationView({
     lastRenderArgs = { messages, task };
     const scroll = $("#conversation");
     bindVirtualScroll(scroll);
+    resetToolDetails(task.taskId);
     if (virtualTaskId !== task.taskId) {
       virtualTaskId = task.taskId;
       virtualActive = false;

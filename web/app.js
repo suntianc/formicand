@@ -357,6 +357,12 @@ const conversationView = createConversationView({
   edit: (taskId, target) => messageEdit.begin(taskId, target),
   fork: (taskId, messageId) => workSessions.forkConversation(taskId, messageId),
   resolveFile: () => canOpenReference(),
+  loadToolDetail: (taskId, callId, runId) =>
+    api(
+      `/api/tasks/${encodeURIComponent(taskId)}/tool-call?callId=${encodeURIComponent(callId)}${
+        runId ? `&runId=${encodeURIComponent(runId)}` : ""
+      }`
+    ),
   showToast
 });
 installSelectionGlide();

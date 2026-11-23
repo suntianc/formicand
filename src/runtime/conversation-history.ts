@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { liveRuntimeOutput, runtimeLogEvents, type PositionedEvent } from "./runtime-output.js";
 import { readQueuedUserTurn } from "./queued-user-turn.js";
 import { conversationMessages, type ConversationMessage } from "./conversation-view.js";
+import { summarizeToolArgs, summarizeToolPartialResult, summarizeToolResult } from "./tool-event-summary.js";
 
 export function runtimeEventRecord(
   taskId: string,
@@ -50,6 +51,17 @@ async function readRuntimeLog(path: string): Promise<PositionedEvent[]> {
   }
   const open = liveRuntimeOutput(path)?.openDeltas(parsed.next) ?? [];
   return open.length ? [...parsed.events, ...open] : parsed.events;
+}
+
+/** Read one Run's runtime events (including live open deltas) without scanning other Runs. */
+export async function readRunRuntimeEvents(
+  workspaceRoot: string,
+  taskId: string,
+  runId: string
+): Promise<Array<Record<string, unknown>>> {
+  const path = join(workspaceRoot, taskId, "runs", runId, "runtime-output.log");
+  const events = await readRuntimeLog(path);
+  return events.map(({ index, event }) => runtimeEventRecord(taskId, runId, index, event));
 }
 
 /** A conversation outlives its active run. Replay every run in creation order,
@@ -357,6 +369,37 @@ const ASSISTANT_START_KEYS = new Set(["role", "id", "timestamp", "stopReason", "
 const ASSISTANT_META_KEYS = ["usage", "api", "provider", "model", "responseId", "cost"] as const;
 
 /**
+ * Strip provider signatures and bulky toolCall arguments from conversation
+ * messages returned to the browser; full tool arguments are fetched on demand.
+ */
+export function viewConversationMessage(message: ConversationMessage): ConversationMessage {
+  if (message.role !== "assistant" || !Array.isArray(message.content)) return message;
+  let changed = false;
+  const nextContent: unknown[] = [];
+  for (const raw of message.content) {
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+      nextContent.push(raw);
+      continue;
+    }
+    let part = raw as Record<string, unknown>;
+    if ("thinkingSignature" in part || "textSignature" in part) {
+      const { thinkingSignature: _thinking, textSignature: _text, ...stripped } = part;
+      part = stripped;
+      changed = true;
+    }
+    if (part.type === "toolCall" && part.arguments !== undefined) {
+      const summarized = summarizeToolArgs(part.arguments);
+      if (summarized.omitted) {
+        part = { ...part, arguments: summarized.args, detailOmitted: true };
+        changed = true;
+      }
+    }
+    nextContent.push(part);
+  }
+  return changed ? { ...message, content: nextContent } : message;
+}
+
+/**
  * A runtime event as the conversation view needs it.
  *
  * Every Run records Pi's full system prompt (start and end) and an
@@ -388,6 +431,35 @@ export function viewRuntimeEvent(record: Record<string, unknown>): Record<string
     }
     return { ...record, payload: rest };
   }
+  // Tool calls keep small args/results inline and replace bulky bodies with
+  // summaries; the UI fetches full arguments and outputs on demand at L3.
+  if (payload?.type === "tool_execution_start") {
+    const summarized = summarizeToolArgs(payload.args);
+    if (!summarized.omitted) return record;
+    return { ...record, payload: { ...payload, args: summarized.args, detailOmitted: true } };
+  }
+  if (payload?.type === "tool_execution_update") {
+    const summarized = summarizeToolPartialResult(payload.partialResult);
+    if (!summarized.omitted) return record;
+    return {
+      ...record,
+      payload: { ...payload, partialResult: summarized.partialResult, detailOmitted: true }
+    };
+  }
+  if (payload?.type === "tool_execution_end") {
+    const summarizedArgs = "args" in payload ? summarizeToolArgs(payload.args) : undefined;
+    const summarizedResult = summarizeToolResult(payload.result, payload.isError === true);
+    if (!summarizedArgs?.omitted && !summarizedResult.omitted) return record;
+    return {
+      ...record,
+      payload: {
+        ...payload,
+        ...(summarizedArgs?.omitted ? { args: summarizedArgs.args } : {}),
+        ...(summarizedResult.omitted ? { result: summarizedResult.result } : {}),
+        detailOmitted: true
+      }
+    };
+  }
   const message = payload?.message as Record<string, unknown> | undefined;
   // Assistant message_start only marks the message boundary (role/id/timestamp).
   // Pi logs provider/model/usage and sometimes content here, all repeated later.
@@ -401,24 +473,38 @@ export function viewRuntimeEvent(record: Record<string, unknown>): Record<string
     return { ...record, payload: { ...payload, message: slim } };
   }
   // The provider's signatures let a later request resume the reasoning, and
-  // usage/provider metadata belong to run statistics; the conversation view
-  // reads none of them.
+  // usage/provider metadata belong to run statistics; bulky toolCall arguments
+  // are summarized here too and fetched on demand when L3 expands.
   if (message?.role === "assistant") {
     const content = Array.isArray(message.content)
       ? (message.content as Array<Record<string, unknown>>)
       : undefined;
-    const hasSignatures = Boolean(
-      content?.some((part) => "thinkingSignature" in part || "textSignature" in part)
-    );
+    let contentChanged = false;
+    let nextContent: Array<Record<string, unknown>> | undefined;
+    if (content) {
+      nextContent = [];
+      for (const part of content) {
+        let current = part;
+        if ("thinkingSignature" in current || "textSignature" in current) {
+          const { thinkingSignature: _thinking, textSignature: _text, ...stripped } = current;
+          current = stripped;
+          contentChanged = true;
+        }
+        if (current.type === "toolCall" && current.arguments !== undefined) {
+          const summarized = summarizeToolArgs(current.arguments);
+          if (summarized.omitted) {
+            current = { ...current, arguments: summarized.args, detailOmitted: true };
+            contentChanged = true;
+          }
+        }
+        nextContent.push(current);
+      }
+    }
     const hasMeta = ASSISTANT_META_KEYS.some((key) => key in message);
-    if (!hasSignatures && !hasMeta) return record;
+    if (!contentChanged && !hasMeta) return record;
     const nextMessage: Record<string, unknown> = { ...message };
     if (hasMeta) for (const key of ASSISTANT_META_KEYS) delete nextMessage[key];
-    if (hasSignatures && content) {
-      nextMessage.content = content.map(
-        ({ thinkingSignature: _thinking, textSignature: _text, ...part }) => part
-      );
-    }
+    if (contentChanged && nextContent) nextMessage.content = nextContent;
     return { ...record, payload: { ...payload, message: nextMessage } };
   }
   if (payload?.type !== "message_start" && payload?.type !== "message_end") return record;

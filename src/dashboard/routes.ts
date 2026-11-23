@@ -144,6 +144,7 @@ export interface DashboardRoutePorts {
   interjectionTarget: RunService["interjectionTarget"];
   resumeHumanAnswers: RunService["resumeHumanAnswers"];
   taskDetails(taskId: string): Promise<unknown>;
+  toolCallDetail(taskId: string, input: { callId: string; runId?: string }): Promise<unknown>;
   appendRunEvent: RunServicePorts["appendRunEvent"];
 }
 

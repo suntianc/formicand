@@ -72,7 +72,7 @@ export function buildLiveActivity(events) {
     }
     return item;
   };
-  const ensureCall = (id, index, name) => {
+  const ensureCall = (id, index, name, runId) => {
     const existing = (id && callsById.get(id)) || message?.blocks.get(blockKey("tool", index, id));
     const item = existing || ensureBlock("tool", index, id);
     item.call ||= { id, name, arguments: "", result: "", subagent: false, statusLabel: ui("调用中") };
@@ -81,10 +81,11 @@ export function buildLiveActivity(events) {
       callsById.set(id, item);
     }
     if (name) item.call.name = name;
+    if (runId && !item.call.runId) item.call.runId = runId;
     item.call.subagent = /subagent/i.test(String(item.call.name || ""));
     return item.call;
   };
-  const applySnapshot = (snapshot) => {
+  const applySnapshot = (snapshot, runId) => {
     if (snapshot?.role !== "assistant") return;
     const content =
       typeof snapshot.content === "string" ? [{ type: "text", text: snapshot.content }] : snapshot.content;
@@ -102,8 +103,9 @@ export function buildLiveActivity(events) {
         item.complete ||= !["error", "aborted", "length"].includes(snapshot.stopReason);
       }
       if (part?.type === "toolCall") {
-        const call = ensureCall(part.id, index, part.name);
+        const call = ensureCall(part.id, index, part.name, runId);
         if (part.arguments !== undefined) call.arguments = prettyValue(part.arguments);
+        if (part.detailOmitted) call.detailOmitted = true;
       }
     });
   };
@@ -156,7 +158,8 @@ export function buildLiveActivity(events) {
         const call = ensureCall(
           update.toolCall?.id || update.id,
           index,
-          update.toolCall?.name || update.toolName
+          update.toolCall?.name || update.toolName,
+          record?.runId
         );
         if (update.type === "toolcall_delta") call.arguments += String(update.delta || "");
         if (update.type === "toolcall_end") {
@@ -167,8 +170,9 @@ export function buildLiveActivity(events) {
       }
     }
     if (["tool_execution_start", "tool_execution_update", "tool_execution_end"].includes(type)) {
-      const call = ensureCall(source.toolCallId, undefined, source.toolName);
+      const call = ensureCall(source.toolCallId, undefined, source.toolName, record?.runId);
       const at = recordedToolTime(source, record);
+      if (source.detailOmitted) call.detailOmitted = true;
       if (source.args !== undefined) call.arguments = prettyValue(source.args);
       if (type === "tool_execution_start") {
         call.statusLabel = ui("执行中");
@@ -190,9 +194,9 @@ export function buildLiveActivity(events) {
         }
       }
     }
-    if (type === "message_end") applySnapshot(source.message);
+    if (type === "message_end") applySnapshot(source.message, record?.runId);
     if (type === "turn_end") {
-      applySnapshot(source.message);
+      applySnapshot(source.message, record?.runId);
       if (turn) turn.done = true;
     }
   }

@@ -95,8 +95,45 @@ export function createConversationActivityView({
   markdown,
   activityContext,
   isHistoryOpen,
-  isActivityOpen = () => false
+  isActivityOpen = () => false,
+  toolDetailFor
 }) {
+  function resolveExpandedCall(call, taskId) {
+    if (!call?.detailOmitted || !call.id || !toolDetailFor) return { call, state: "inline" };
+    const loaded = toolDetailFor(taskId, call);
+    if (!loaded) return { call, state: "inline" };
+    if (loaded.status === "ready") {
+      return {
+        call: {
+          ...call,
+          ...(loaded.arguments !== undefined ? { arguments: loaded.arguments } : {}),
+          ...(loaded.result !== undefined ? { rawResult: loaded.result, result: loaded.result } : {})
+        },
+        state: "ready"
+      };
+    }
+    return { call, state: loaded.status, detailKey: loaded.detailKey };
+  }
+
+  function renderToolDetailsBody(sections, detailState, detailKey) {
+    if (detailState === "loading") {
+      return `<div class="tool-details-body"><div class="tool-detail-state" role="status">${esc(ui("正在加载详情…"))}</div></div>`;
+    }
+    const errorNotice =
+      detailState === "error"
+        ? `<div class="tool-detail-state is-error"><span>${esc(ui("无法加载完整记录"))}</span>${
+            detailKey
+              ? `<button type="button" class="tool-detail-retry" data-tool-detail-retry="${esc(detailKey)}">${esc(ui("重试"))}</button>`
+              : ""
+          }</div>`
+        : "";
+    return `<div class="tool-details-body">${errorNotice}${sections
+      .map(
+        (section) =>
+          `<section><span class="activity-data-label">${esc(section.label)}</span><pre class="tool-copy" data-reading-key="${esc(section.label)}">${esc(section.text)}</pre></section>`
+      )
+      .join("")}</div>`;
+  }
   function renderLiveActivity(
     events,
     active,
@@ -351,13 +388,14 @@ export function createConversationActivityView({
   function renderSubagentGroup(group, presentations, detail, taskId, active) {
     const rows = group.items.map((item) => {
       const open = Boolean(isActivityOpen(item.key));
+      const resolved = open ? resolveExpandedCall(item.call, taskId) : undefined;
       const presentation = open
-        ? presentToolCall(item.call, {
+        ? presentToolCall(resolved.call, {
             active,
             workspaceRoot: detail?.storageRoot || detail?.workspaceRoot,
             taskId,
             detail,
-            includeDetails: true
+            includeDetails: resolved.state !== "loading"
           })
         : presentations.get(item.call);
       const agent = presentation.agent;
@@ -390,9 +428,7 @@ export function createConversationActivityView({
         : '<span class="tool-status-dot" aria-hidden="true"></span>';
       const text = finished && agent.outcome ? agent.outcome : agent.task;
       const sections = open ? presentation.detailSections || [] : [];
-      const body = open
-        ? `<div class="tool-details-body">${sections.map((section) => `<section><span class="activity-data-label">${esc(section.label)}</span><pre class="tool-copy" data-reading-key="${esc(section.label)}">${esc(section.text)}</pre></section>`).join("")}</div>`
-        : "";
+      const body = open ? renderToolDetailsBody(sections, resolved.state, resolved.detailKey) : "";
       return `<details class="tool-details subagent-step is-${finished ? "done" : status === "failed" ? "failed" : running ? "running" : "waiting"}" data-activity-key="${esc(item.key)}" data-view-key="${esc(item.key)}"${open ? " open" : ""}><summary class="activity-step-head">${mark}<span class="tool-action"><strong>${esc(agent.name)}</strong><span class="subagent-role-tag">${esc(agent.role)}</span>${text ? `<span class="tool-subject" title="${esc(text)}">${esc(text)}</span>` : ""}</span><span class="subagent-status"${liveClock}>${esc(statusText)}</span><span class="tool-chevron" aria-hidden="true">${icon("chevron-right")}</span></summary>${body}</details>`;
     });
     return `<div class="activity-step subagent-group" data-view-key="${esc(group.key)}"><div class="activity-step-content"><div class="activity-step-head"><span class="tool-status-dot" aria-hidden="true"></span><strong>${esc(ui`派出 ${group.items.length} 个子助手`)}</strong></div><div class="subagent-nest">${rows.join("")}</div></div></div>`;
@@ -435,13 +471,14 @@ export function createConversationActivityView({
 
   function renderToolStep(call, active, key, taskId, detail, summaryPresentation) {
     const open = Boolean(isActivityOpen(key));
+    const resolved = open ? resolveExpandedCall(call, taskId) : undefined;
     const presentation = open
-      ? presentToolCall(call, {
+      ? presentToolCall(resolved.call, {
           active,
           workspaceRoot: detail?.storageRoot || detail?.workspaceRoot,
           taskId,
           detail,
-          includeDetails: true
+          includeDetails: resolved.state !== "loading"
         })
       : summaryPresentation ||
         presentToolCall(call, {
@@ -477,9 +514,7 @@ export function createConversationActivityView({
       statusClass === "running"
         ? `<span class="tool-progress-spinner ant-mark" data-thinking-key="${esc(`${key}:tool`)}" aria-hidden="true">${antMarkSvg}</span>`
         : '<span class="tool-status-dot" aria-hidden="true"></span>';
-    const body = open
-      ? `<div class="tool-details-body">${sections.map((section) => `<section><span class="activity-data-label">${esc(section.label)}</span><pre class="tool-copy" data-reading-key="${esc(section.label)}">${esc(section.text)}</pre></section>`).join("")}</div>`
-      : "";
+    const body = open ? renderToolDetailsBody(sections, resolved.state, resolved.detailKey) : "";
     return `<div class="activity-step tool-step is-${statusClass}" data-view-key="${esc(key)}">
     <div class="activity-step-content">
       <details class="tool-details" data-activity-key="${esc(key)}"${open ? " open" : ""}><summary class="activity-step-head"><span class="tool-action"><strong>${esc(name)}</strong>${subject ? `<span class="tool-subject" title="${esc(subject)}">${esc(subject)}</span>` : ""}</span><span class="activity-status ${statusClass}">${indicator}${esc(status)}</span>${presentation.durationLabel ? `<span class="tool-duration">${esc(presentation.durationLabel)}</span>` : ""}<span class="tool-chevron" aria-hidden="true">${icon("chevron-right")}</span></summary>${body}</details>${context ? `<p class="tool-context${failed ? " is-failure" : ""}">${esc(context)}</p>` : ""}

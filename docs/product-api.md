@@ -442,6 +442,7 @@ POST /api/tasks/:taskId/interject/:messageId/steer
 POST /api/tasks/:taskId/interject/:messageId/cancel
 POST /api/tasks/:taskId/action
 GET  /api/tasks/:taskId/stream
+GET  /api/tasks/:taskId/tool-call?callId=<toolCallId>[&runId=<runId>]
 GET  /api/tasks/:taskId/agents/:agentId/trajectory
 ```
 

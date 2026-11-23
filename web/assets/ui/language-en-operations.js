@@ -93,6 +93,8 @@ export default {
   做完的步骤和结果已保留: "Finished steps and results are kept",
   从中断的步骤继续: "Continue from the interrupted step",
   查看详情: "View details",
+  "正在加载详情…": "Loading details…",
+  无法加载完整记录: "Could not load full details",
   思考完成: "Thinking complete",
   思考中: "Thinking",
   原始内容: "Original content",
