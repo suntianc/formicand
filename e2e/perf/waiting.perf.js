@@ -28,17 +28,34 @@ async function cpuTimes(cdp) {
   return totals;
 }
 
-/** Each process type's share of one core over `WINDOW_MS`, in percent. */
-async function sample(page, cdp) {
+/** The page's layout and style recalculation counts so far. */
+async function lifecycle(pageCdp) {
+  const { metrics } = await pageCdp.send("Performance.getMetrics");
+  const value = (name) => metrics.find((metric) => metric.name === name)?.value ?? 0;
+  return { layouts: value("LayoutCount"), styles: value("RecalcStyleCount") };
+}
+
+/**
+ * Each process type's share of one core over `WINDOW_MS`, in percent, and how
+ * often the page was laid out and restyled meanwhile: a mark that animates on
+ * the main thread relays the page every frame, which costs with its size.
+ */
+async function sample(page, cdp, pageCdp) {
   const before = await cpuTimes(cdp);
+  const pageBefore = await lifecycle(pageCdp);
   await page.waitForTimeout(WINDOW_MS);
   const after = await cpuTimes(cdp);
-  return Object.fromEntries(
-    Object.keys(after).map((type) => [
-      type,
-      Math.round(((after[type] - (before[type] ?? 0)) / (WINDOW_MS / 1000)) * 1000) / 10
-    ])
-  );
+  const pageAfter = await lifecycle(pageCdp);
+  return {
+    ...Object.fromEntries(
+      Object.keys(after).map((type) => [
+        type,
+        Math.round(((after[type] - (before[type] ?? 0)) / (WINDOW_MS / 1000)) * 1000) / 10
+      ])
+    ),
+    layouts: pageAfter.layouts - pageBefore.layouts,
+    styles: pageAfter.styles - pageBefore.styles
+  };
 }
 
 test(`waiting on a ${ROUNDS}-round conversation costs about what idling does`, async ({ page }) => {
@@ -67,8 +84,10 @@ test(`waiting on a ${ROUNDS}-round conversation costs about what idling does`, a
     // An experiment's extra rules, applied to the page as it stands.
     if (process.env.PERF_CSS) await page.addStyleTag({ content: process.env.PERF_CSS });
     const cdp = await page.context().browser().newBrowserCDPSession();
+    const pageCdp = await page.context().newCDPSession(page);
+    await pageCdp.send("Performance.enable");
     await page.waitForTimeout(SETTLE_MS);
-    report.idle = await sample(page, cdp);
+    report.idle = await sample(page, cdp, pageCdp);
     if (process.env.PERF_SHOT) await page.screenshot({ path: process.env.PERF_SHOT });
 
     local.queue.push({ hold: new Promise((done) => (release = done)) });
@@ -78,7 +97,7 @@ test(`waiting on a ${ROUNDS}-round conversation costs about what idling does`, a
     await expect(page.locator("#run-control")).toBeVisible();
     // The marks have finished whatever they do when the wait begins.
     await page.waitForTimeout(SETTLE_MS);
-    report.waiting = await sample(page, cdp);
+    report.waiting = await sample(page, cdp, pageCdp);
 
     release();
     await expect(finals).toHaveCount(ROUNDS + 1);

@@ -2,12 +2,13 @@
  * The Formicand ant as a working indicator: head, thorax and abdomen swell in
  * turn, as if it were walking. Drawn from the logo's own geometry in the text
  * color; styles live in styles/conversation.css (`.ant-mark`).
+ *
+ * The still feelers are SVG; the three body parts that move are plain boxes
+ * placed over them. A transform on an SVG shape cannot run on the compositor,
+ * so it relaid the whole page every frame; on a box it never reaches the page.
  */
-const SHAPES =
+const FEELERS =
   '<g transform="translate(2.545 2.545)">' +
-  '<circle class="ant-body ant-head" cx="36.3151" cy="36.3151" r="9.45"/>' +
-  '<circle class="ant-body ant-thorax" cx="54.8288" cy="54.8288" r="14.175"/>' +
-  '<circle class="ant-body ant-abdomen" cx="80.9459" cy="80.9459" r="20.189"/>' +
   '<circle class="ant-feeler" cx="76.7366" cy="26.9299" r="5.155"/>' +
   '<circle class="ant-feeler" cx="26.9299" cy="76.7366" r="5.155"/>' +
   '<path class="ant-feeler" transform="translate(48.4495 28.7755)" d="M-.389 3.049l20.337-4.723 .777 3.348-20.336 4.722z"/>' +
@@ -16,5 +17,7 @@ const SHAPES =
   '<path class="ant-feeler" transform="translate(35.0664 77.3704)" d="M.133-1.713l22.754 1.773-.267 3.426-22.753-1.773z"/>' +
   "</g>";
 
-/** The mark's SVG; the caller's element sizes it. */
-export const antMarkSvg = `<svg class="ant-mark-svg" viewBox="16 16 96 96" aria-hidden="true" focusable="false">${SHAPES}</svg>`;
+/** The mark: its SVG feelers and the three moving parts; the caller's element sizes it. */
+export const antMarkSvg =
+  `<svg class="ant-mark-svg" viewBox="16 16 96 96" aria-hidden="true" focusable="false">${FEELERS}</svg>` +
+  '<span class="ant-body ant-head"></span><span class="ant-body ant-thorax"></span><span class="ant-body ant-abdomen"></span>';
