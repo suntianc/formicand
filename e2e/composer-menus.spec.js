@@ -86,6 +86,14 @@ test("/ and @ leave words in the draft and send what they name to Main", async (
     const full =
       "/pg-migration 处理 @src/storage/migrations/0007_add_task_index.sql 对照 @postgres:schema://public/tasks ";
     await expect(input).toHaveValue(full);
+    // In the draft the referenced words are tags, drawn under the textarea's own text.
+    const tags = page.locator(".composer-highlight .reference-chip");
+    await expect(tags).toHaveText([
+      "/pg-migration",
+      "@src/storage/migrations/0007_add_task_index.sql",
+      "@postgres:schema://public/tasks"
+    ]);
+    await expect(input).toHaveClass(/has-references/);
 
     // Backspace after a referenced word takes the whole word; Esc closes a menu and keeps the words.
     await input.press("Backspace");
@@ -122,11 +130,7 @@ test("/ and @ leave words in the draft and send what they name to Main", async (
       JSON.parse(`"${/<atria_references>\\n(.*?)\\n<\/atria_references>/.exec(sent)[1]}"`)
     );
     expect(manifest.references).toEqual([
-      {
-        kind: "skill",
-        name: "pg-migration",
-        path: join(dashboard.env.ATRIA_HOME, "skills", "pg-migration", "SKILL.md")
-      },
+      { kind: "skill", name: "pg-migration" },
       { kind: "file", path: "src/storage/migrations/0007_add_task_index.sql" },
       { kind: "mcp_resource", server: "postgres", uri: "schema://public/tasks" }
     ]);
@@ -143,8 +147,12 @@ test("/ and @ leave words in the draft and send what they name to Main", async (
 
     // A command runs at once and leaves nothing in the draft.
     await expect(input).toHaveValue("");
+    await expect(page.locator(".composer-highlight")).toBeHidden();
     await input.pressSequentially("/mod");
-    await expect(menu.locator(".composer-menu-group")).toHaveText(["命令"]);
+    // Skills in the user's own ~/.agents/skills may also match, so the command is picked by name.
+    await expect(menu.locator(".composer-menu-group").last()).toHaveText("命令");
+    await input.press("ArrowUp");
+    await expect(menu.locator(".composer-menu-item.is-active")).toContainText("/model");
     await input.press("Enter");
     await expect(page.locator("#model-menu")).toBeVisible();
     await expect(input).toHaveValue("");

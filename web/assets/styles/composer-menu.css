@@ -113,6 +113,41 @@
   background: var(--color-ok-soft);
   color: var(--color-ok);
 }
+/* In the draft the same words are tags, drawn by a layer under the textarea.
+   They take no room of their own: the tint reaches past the word by a shadow,
+   so every letter stays where the textarea puts its caret. */
+.composer-highlight {
+  position: absolute;
+  z-index: 0;
+  box-sizing: border-box;
+  overflow: hidden;
+  border-style: solid;
+  border-color: transparent;
+  color: var(--color-text, #efefef);
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  pointer-events: none;
+}
+.composer-highlight .reference-chip {
+  padding: 0;
+  border-radius: 3px;
+  box-shadow: 0 0 0 2px var(--color-review-soft);
+}
+.composer-highlight .reference-chip.is-agent {
+  box-shadow: 0 0 0 2px var(--color-warn-soft);
+}
+.composer-highlight .reference-chip.is-skill {
+  box-shadow: 0 0 0 2px var(--color-ok-soft);
+}
+#composer-input.has-references {
+  position: relative;
+  z-index: 1;
+  color: transparent;
+  caret-color: var(--color-text, #efefef);
+}
+.composer-highlight:has(+ #composer-input.is-sent) {
+  visibility: hidden;
+}
 @media (max-width: 560px) {
   .composer-menu {
     left: 6px;
