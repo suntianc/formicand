@@ -42,11 +42,13 @@ async function seed(page, dashboard, { extraTasks = 0 } = {}) {
   }
   await page.goto(dashboard.base);
   await expect(page.locator(".project-group")).toHaveCount(2);
-  await expect(page.locator(".conversation-item")).toHaveCount(3 + extraTasks);
+  const expectedVisible = Math.min(2 + extraTasks, 5) + 1;
+  await expect(page.locator(".conversation-item")).toHaveCount(expectedVisible);
   // A 640-1023 window folds the tree into the icon rail; its project opens it.
   const group = page.locator(`[data-project="${projects[0].projectId}"]`);
-  const current = page.locator('[data-task="sidebar-current"]');
-  if (!(await current.isVisible())) await group.locator(".project-row").focus();
+  const firstTask = group.locator(".conversation-item").first();
+  if (!(await firstTask.isVisible())) await group.locator(".project-row").focus();
+  const current = extraTasks > 0 ? firstTask : page.locator('[data-task="sidebar-current"]');
   await current.click();
   await page.locator("#composer-input").fill("保留当前会话的未发送草稿");
   return {
@@ -156,34 +158,29 @@ test("hidden sidebar actions ignore pointer hits and keyboard Tab reveals each a
   }
 });
 
-test("project disclosure keeps its leading slot and turns right when the project collapses", async ({
+test("project disclosure keeps its folder slot without a chevron arrow when the project collapses", async ({
   page
 }) => {
   const dashboard = await startDashboard({ defaultProject: false });
   try {
     const sidebar = await seed(page, dashboard);
     const disclosure = sidebar.group.locator(".project-disclosure"),
-      chevron = disclosure.locator(".project-chevron"),
+      folder = disclosure.locator(".project-folder svg use"),
       name = sidebar.group.locator(".project-name");
     await expect(disclosure).toHaveCount(1);
+    await expect(disclosure.locator(".project-chevron")).toHaveCount(0);
+    await expect(folder).toHaveAttribute("href", "#i-folder-open");
     const disclosureBox = await disclosure.boundingBox(),
       nameBox = await name.boundingBox();
     expect(disclosureBox.x + disclosureBox.width).toBeLessThanOrEqual(nameBox.x);
     await sidebar.project.click();
     await expect(sidebar.project).toHaveAttribute("aria-expanded", "false");
     await expect(sidebar.group.locator(".conversation-list")).toBeHidden();
-    await expect(chevron).toHaveCSS("transform", "none");
-    await expect
-      .poll(() =>
-        chevron.locator("svg").evaluate((node) => {
-          const matrix = new DOMMatrixReadOnly(getComputedStyle(node).transform);
-          return Math.round((Math.atan2(matrix.b, matrix.a) * 180) / Math.PI);
-        })
-      )
-      .toBe(-90);
+    await expect(folder).toHaveAttribute("href", "#i-folder");
     await expectStableBox(name, nameBox);
     await sidebar.project.click();
     await expect(sidebar.project).toHaveAttribute("aria-expanded", "true");
+    await expect(folder).toHaveAttribute("href", "#i-folder-open");
     await expect(sidebar.task).toBeVisible();
     await expect(sidebar.task).not.toHaveClass(/active/);
   } finally {
@@ -270,6 +267,10 @@ test("a menu opened from the last sidebar row stays inside the window", async ({
   const dashboard = await startDashboard({ defaultProject: false });
   try {
     const sidebar = await seed(page, dashboard, { extraTasks: 18 });
+    // Expand all 5-item pages so the sidebar fills the window down to the last row.
+    const more = sidebar.group.locator("[data-project-more]");
+    while (await more.count()) await more.click();
+    await expect(sidebar.group.locator(".conversation-row")).toHaveCount(20);
     const row = sidebar.group.locator(".conversation-row").last(),
       trigger = row.locator(".conversation-item"),
       panel = page.locator("#session-menu");

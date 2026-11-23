@@ -737,13 +737,16 @@
                 ><span class="new-label">搜索</span><kbd class="shortcut">⌘P</kbd>
               </button>
             </div>
-            <div class="sidebar-section-label">
-              <span class="sidebar-section-title">项目 <span id="conversation-count" hidden>0</span></span
-              ><button id="new-project" type="button" aria-label="添加项目" title="添加项目">
-                <svg class="ui-icon"><use href="#i-plus" /></svg>
-              </button>
+            <div class="sidebar-scroll" data-sidebar-scroll>
+              <section class="pinned-section" id="pinned-section" aria-label="置顶会话" hidden></section>
+              <div class="sidebar-section-label">
+                <span class="sidebar-section-title">项目 <span id="conversation-count" hidden>0</span></span
+                ><button id="new-project" type="button" aria-label="添加项目" title="添加项目">
+                  <svg class="ui-icon"><use href="#i-plus" /></svg>
+                </button>
+              </div>
+              <div class="project-list" id="project-list" aria-label="项目、Main 会话与子 Agent"></div>
             </div>
-            <div class="project-list" id="project-list" aria-label="项目、Main 会话与子 Agent"></div>
           </div>
           <nav class="observe-nav" data-entry-panel="observe" aria-label="观测视图" hidden>
             <div class="observe-views">

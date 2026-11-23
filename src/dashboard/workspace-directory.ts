@@ -126,13 +126,9 @@ export function createWorkspaceDirectory(
     }
     const projects = [...grouped.values()]
       // A removed project and its conversations leave the list; nothing on disk is deleted.
+      // Keep projects in their stable catalog order so active conversations never jump projects around.
       .filter((project) => !project.removedAt);
     for (const project of projects) project.tasks.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
-    projects.sort((a, b) => {
-      const aUpdated = a.tasks[0]?.updatedAt ?? a.updatedAt;
-      const bUpdated = b.tasks[0]?.updatedAt ?? b.updatedAt;
-      return bUpdated.localeCompare(aUpdated) || a.projectName.localeCompare(b.projectName);
-    });
     const tasks = [...temporaryTasks, ...projects.flatMap((project) => project.tasks)].sort((a, b) =>
       b.updatedAt.localeCompare(a.updatedAt)
     );

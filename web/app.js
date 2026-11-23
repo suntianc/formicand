@@ -422,7 +422,8 @@ const projectController = createProjectController({
     // The project list has just been drawn: a draft's project may only be known now.
     void trustPrompt.check();
     if (!sessionMenu.isOpen) return;
-    const trigger = $("#project-list").querySelector(
+    const sidebarList = $("[data-sidebar-scroll]") || $("#project-list");
+    const trigger = sidebarList.querySelector(
       `.conversation-item[data-task="${CSS.escape(sessionMenu.taskId)}"]`
     );
     if (trigger) sessionMenu.rebind(trigger);
@@ -558,7 +559,11 @@ const sessionMenu = createConversationMenu({
 });
 
 window.addEventListener("resize", () => sessionMenu.reposition());
-$("#project-list").addEventListener("scroll", () => sessionMenu.reposition(), true);
+($("[data-sidebar-scroll]") || $("#project-list")).addEventListener(
+  "scroll",
+  () => sessionMenu.reposition(),
+  true
+);
 window.addEventListener("storage", (event) => {
   if (event.key !== "atria.conversations.unread.v1" && event.key !== null) return;
   conversationReadState.reload();

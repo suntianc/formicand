@@ -61,9 +61,11 @@ test("project rows keep disclosure, titles and actions aligned across widths and
           expect(create.x).toBe((await first.locator(".project-create").boundingBox()).x);
         }
         await first.hover();
-        await expect(first.locator(".project-chevron")).toBeVisible();
+        await expect(first.locator(".project-chevron")).toHaveCount(0);
+        await expect(first.locator(".project-folder svg use")).toHaveAttribute("href", "#i-folder-open");
         await first.locator(".project-row").click();
         await expect(first.locator(".project-row")).toHaveAttribute("aria-expanded", "false");
+        await expect(first.locator(".project-folder svg use")).toHaveAttribute("href", "#i-folder");
         await first.locator(".project-row").press("Enter");
         await expect(first.locator(".project-row")).toHaveAttribute("aria-expanded", "true");
         await first.locator(".project-row").press("Tab");

@@ -22,6 +22,15 @@
   html[data-theme] .new-conversation :is(.new-label, .shortcut) {
     display: none;
   }
+  html[data-theme] .pinned-section {
+    display: none;
+  }
+  html[data-theme] .sidebar-scroll {
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    overflow-x: hidden;
+  }
   html[data-theme] .sidebar-section-label {
     width: 24px;
     height: 1px;

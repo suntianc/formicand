@@ -194,3 +194,55 @@ test("the catalog reports a pending question only while Main can still be waitin
     false
   );
 });
+
+test("projects show latest 5 unpinned conversations, paginate by 5, hide arrows and isolate pinned section", (t) => {
+  const records = new Map();
+  const f = fixture(t, records);
+  const makeTask = (n, extra = {}) => ({
+    taskId: `t-${n}`,
+    projectId: "a",
+    goal: `会话 ${n}`,
+    status: "completed",
+    updatedAt: new Date(Date.UTC(2026, 9, 1, 0, n)).toISOString(),
+    ...extra
+  });
+  const tasks = [
+    ...Array.from({ length: 12 }, (_, index) => makeTask(index + 1)),
+    makeTask(99, { pinned: true, goal: "置顶任务" })
+  ];
+  f.controller.accept({ projects: [project("a", tasks)], tasks });
+  f.controller.render();
+
+  // No chevron arrow inside project row; expanded shows folder-open, collapsed shows folder.
+  assert.equal(f.$(".project-chevron"), null);
+  assert.equal(f.$(".project-folder use").getAttribute("href"), "#i-folder-open");
+
+  // Pinned conversation renders in its own section above projects and is not duplicated in the project.
+  const pinnedSection = f.$("#pinned-section");
+  assert.equal(pinnedSection.hidden, false);
+  assert.deepEqual(
+    [...pinnedSection.querySelectorAll(".conversation-item")].map((node) => node.dataset.task),
+    ["t-99"]
+  );
+  assert.equal(f.$('[data-project="a"] [data-task="t-99"]'), null);
+
+  // Collapsing pinned section persists and toggles class.
+  pinnedSection.querySelector("[data-pinned-toggle]").click();
+  assert.match(f.$("#pinned-section").getAttribute("class"), /collapsed/);
+  assert.equal(records.get("atria.collapsed-pinned.v1"), "1");
+
+  // Project defaults to latest 5 unpinned conversations (t-12 down to t-8).
+  const visibleIds = () =>
+    [...f.$('[data-project="a"]').querySelectorAll(".conversation-item")].map((node) => node.dataset.task);
+  assert.deepEqual(visibleIds(), ["t-12", "t-11", "t-10", "t-9", "t-8"]);
+  assert.equal(f.$('[data-project-more="a"]').textContent, "展开剩余");
+
+  // Clicking 展开剩余 reveals 5 more, then the remaining 2 and hides the button.
+  f.$('[data-project-more="a"]').click();
+  assert.deepEqual(visibleIds(), ["t-12", "t-11", "t-10", "t-9", "t-8", "t-7", "t-6", "t-5", "t-4", "t-3"]);
+  assert.ok(f.$('[data-project-more="a"]'));
+
+  f.$('[data-project-more="a"]').click();
+  assert.equal(visibleIds().length, 12);
+  assert.equal(f.$('[data-project-more="a"]'), null);
+});
