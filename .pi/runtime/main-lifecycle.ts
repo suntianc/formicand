@@ -473,11 +473,20 @@ export function registerMainLifecycle(
     // into a running one. An explicit new run transitions it first.
     const taskStore = new LocalWorkspaceStore(workspaceRoot);
     const startedTask = await taskStore.readTask(taskId);
-    if (startedTask.status !== "cancelled")
+    if (startedTask.status !== "cancelled") {
+      if (resident && startedTask.status !== "running") {
+        // Waking from waiting/paused/completed via Inbox (e.g. Subagent callback
+        // or sleep wakeup) opens a new execution interval in the Run ledger.
+        await appendRunBoundary("main.turn_started", {
+          turnId,
+          previousStatus: startedTask.status
+        });
+      }
       await taskStore.transitionTask(taskId, "running", {
         runId: mainRunId,
         reason: "main_turn_started"
       });
+    }
     // Resuming: Main's turn has started, so its Subagents go on from where
     // they were held. A turn the pause has not lifted keeps them held.
     if (startedTask.status !== "cancelled" && !startedTask.pause)

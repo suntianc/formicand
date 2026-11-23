@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { test } from "node:test";
 import { executionElapsedMs, formatExecutionDuration } from "../web/assets/execution-time.js";
+import { readTaskTimingEvents } from "../dist/src/runtime/conversation-history.js";
 
 const origin = Date.parse("2026-10-08T00:00:00.000Z");
 const runtime = (...runIds) => runIds.map((runId) => ({ type: "runtime_event", runId, payload: {} }));
@@ -209,4 +213,74 @@ test("each turn of a resident Main counts its own interval, not the Run's first"
     ]),
     5000
   );
+});
+
+test("resident Main turns woken from waiting or after an earlier stop still report duration", () => {
+  const stamped = (runId, ...ms) =>
+    ms.map((at) => ({ type: "runtime_event", runId, payload: { message: { timestamp: origin + at } } }));
+  const turnEvent = (runId, type, ms) => ({
+    eventId: `${runId}-${type}-${ms}`,
+    runId,
+    type,
+    occurredAt: new Date(origin + ms).toISOString()
+  });
+
+  // Waiting on a subagent closes the first interval; main.turn_started opens the wakeup interval.
+  const wokenLedger = [
+    boundary("resident", "spawned", 0),
+    boundary("resident", "waiting", 10_000),
+    turnEvent("resident", "main.turn_started", 60_000),
+    boundary("resident", "completed", 85_000),
+    boundary("resident", "stopped", 200_000)
+  ];
+  assert.equal(executionElapsedMs(stamped("resident", 1000, 9000), wokenLedger), 10_000);
+  assert.equal(executionElapsedMs(stamped("resident", 61_000, 84_000), wokenLedger), 25_000);
+
+  // Stopping an earlier turn closes its interval so later turns on the same Run keep their duration.
+  const stoppedLedger = [
+    boundary("resident", "spawned", 0),
+    boundary("resident", "stopped", 12_000),
+    turnEvent("resident", "main.turn_delivered", 30_000),
+    turnEvent("resident", "main.turn_started", 30_100),
+    boundary("resident", "completed", 45_000)
+  ];
+  assert.equal(executionElapsedMs(stamped("resident", 31_000, 44_000), stoppedLedger), 15_000);
+});
+
+test("readTaskTimingEvents preserves boundaries across older Runs and past the 30-line tail", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "cowork-timing-events-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const taskId = "task-timing";
+  const oldRun = join(root, taskId, "runs", "run-1");
+  const curRun = join(root, taskId, "runs", "run-2");
+  await mkdir(oldRun, { recursive: true });
+  await mkdir(curRun, { recursive: true });
+  await writeFile(join(oldRun, "run.json"), JSON.stringify({ createdAt: new Date(origin).toISOString() }));
+  await writeFile(
+    join(curRun, "run.json"),
+    JSON.stringify({ createdAt: new Date(origin + 60_000).toISOString() })
+  );
+  await writeFile(
+    join(oldRun, "run_events.jsonl"),
+    [boundary("run-1", "spawned", 0), boundary("run-1", "completed", 9_000)]
+      .map((item) => JSON.stringify(item))
+      .join("\n") + "\n"
+  );
+  const filler = Array.from({ length: 40 }, (_, i) => ({
+    eventId: `noise-${i}`,
+    runId: "run-2",
+    type: "subagent.dispatched",
+    occurredAt: new Date(origin + 61_000 + i * 100).toISOString()
+  }));
+  await writeFile(
+    join(curRun, "run_events.jsonl"),
+    [boundary("run-2", "spawned", 60_000), ...filler, boundary("run-2", "completed", 80_000)]
+      .map((item) => JSON.stringify(item))
+      .join("\n") + "\n"
+  );
+
+  const ledger = await readTaskTimingEvents(root, taskId);
+  assert.equal(ledger.length, 4);
+  assert.equal(executionElapsedMs(runtime("run-1"), ledger), 9_000);
+  assert.equal(executionElapsedMs(runtime("run-2"), ledger), 20_000);
 });

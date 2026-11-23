@@ -142,6 +142,82 @@ export async function readTaskRuntimeEvents(
   });
 }
 
+const TIMING_BOUNDARY_TYPES = new Set([
+  "main.run_spawned",
+  "main.turn_delivered",
+  "main.turn_started",
+  "main.run_completed",
+  "main.run_failed",
+  "main.run_paused",
+  "main.run_waiting",
+  "main.run_stopped"
+]);
+
+/**
+ * Slim lifecycle timing boundaries across every Run of a Task.
+ *
+ * The conversation view computes per-exchange durations from these ledger
+ * boundaries. Reading only the active Run's last 30 lines drops earlier Runs
+ * and truncates older turns in long resident Runs, turning "用时 X" into a
+ * timeless fallback.
+ */
+export async function readTaskTimingEvents(
+  workspaceRoot: string,
+  taskId: string
+): Promise<Array<Record<string, unknown>>> {
+  const directory = join(workspaceRoot, taskId, "runs");
+  let entries;
+  try {
+    entries = await readdir(directory, { withFileTypes: true });
+    // eslint-disable-next-line no-restricted-syntax -- 新建任务还没有 runs 目录，缺目录表示尚未产生任何 Run 边界
+  } catch {
+    return [];
+  }
+  const perRun = await Promise.all(
+    entries
+      .filter((entry) => entry.isDirectory())
+      .map(async (entry) => {
+        const runPath = join(directory, entry.name);
+        const [metadata, ledger] = await Promise.all([
+          // eslint-disable-next-line no-restricted-syntax -- 早期 Run 可能缺少 run.json，回退到 runId 排序
+          readFile(join(runPath, "run.json"), "utf8").catch(() => "{}"),
+          // eslint-disable-next-line no-restricted-syntax -- 新建 Run 可能尚未落盘 run_events.jsonl
+          readFile(join(runPath, "run_events.jsonl"), "utf8").catch(() => "")
+        ]);
+        let createdAt = "";
+        try {
+          createdAt = JSON.parse(metadata).createdAt || "";
+          // eslint-disable-next-line no-restricted-syntax -- 元数据解析失败只影响排序，不影响读取边界事件
+        } catch {
+          /* older runs may lack metadata */
+        }
+        const events = ledger.split(/\r?\n/).flatMap((line) => {
+          if (!line.trim()) return [];
+          try {
+            const value = JSON.parse(line) as Record<string, unknown>;
+            if (typeof value.type !== "string" || !TIMING_BOUNDARY_TYPES.has(value.type)) return [];
+            const payload = value.payload as { queuedWhilePaused?: unknown } | undefined;
+            return [
+              {
+                ...(typeof value.eventId === "string" ? { eventId: value.eventId } : {}),
+                runId: typeof value.runId === "string" ? value.runId : entry.name,
+                type: value.type,
+                occurredAt: value.occurredAt,
+                ...(payload?.queuedWhilePaused ? { payload: { queuedWhilePaused: true } } : {})
+              }
+            ];
+            // eslint-disable-next-line no-restricted-syntax -- 追加写日志末行可能不完整，跳过损坏行继续读取其余边界
+          } catch {
+            return [];
+          }
+        });
+        return { runId: entry.name, createdAt, events };
+      })
+  );
+  perRun.sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.runId.localeCompare(b.runId));
+  return perRun.flatMap((run) => run.events);
+}
+
 /** Recover older messages from immutable run logs when an earlier version
  * replaced messages.json with a fresh Pi session on each follow-up. */
 export function messagesWithRuntimeHistory(
