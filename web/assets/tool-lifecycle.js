@@ -55,7 +55,9 @@ export function toolLifecycle(name, args, data, { completed, active, detail = {}
   }
   if (name === "askhuman") {
     const request = (detail.humanRequests || []).find((entry) =>
-      data.requestId ? entry.requestId === data.requestId : !completed && entry.question === args.question
+      data.requestId
+        ? entry.requestId === data.requestId
+        : !completed && entry.question === (args.questions?.[0]?.question ?? args.question)
     );
     const status = request?.status || data.status;
     if (status === "pending") return phase("waiting", "等待答复");

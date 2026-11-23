@@ -55,22 +55,62 @@ test("the Dashboard and the transcript agree on the shape of a resumed answer", 
 
 test("questions allow an explicit option, free text or a supplemented option, without preselecting a decision", () => {
   const question = { question: "选择报告格式", options: ["Markdown", "PDF"] };
+  const answer = (choices, text = "") => humanAnswer(question, { parts: [{ choices, text }] });
   assert.equal(humanAnswer(question), "");
-  assert.equal(humanAnswer(question, { choice: 0 }), "Markdown");
-  assert.equal(humanAnswer(question, { text: "  Word  " }), "Word");
-  assert.equal(humanAnswer(question, { choice: 1, text: "需要目录" }), "PDF\n\n补充说明：需要目录");
-  assert.equal(humanAnswer(question, { choice: 8 }), "");
+  assert.equal(answer([0]), "Markdown");
+  assert.equal(answer([], "  Word  "), "Word");
+  assert.equal(answer([1], "需要目录"), "PDF\n\n补充说明：需要目录");
+  assert.equal(answer([8]), "");
   const html = renderHumanQuestion(question);
   assert.doesNotMatch(html, / checked/);
   assert.match(html, /type="submit" disabled/);
   assert.match(html, /name="human-text"/);
-  assert.match(renderHumanQuestion({ question: "目标受众？" }, { text: "开发者" }), /提交并继续/);
+  assert.match(
+    html,
+    /<kbd aria-hidden="true">1<\/kbd>[\s\S]*<kbd aria-hidden="true">3<\/kbd>/,
+    "options and the typed answer are numbered for the keyboard"
+  );
+  assert.doesNotMatch(
+    renderHumanQuestion({ question: "目标受众？" }, { parts: [{ text: "开发者" }] }),
+    /type="submit" disabled/
+  );
+});
+
+test("a multiple-choice question joins its choices, and several questions are answered together", () => {
+  const pages = {
+    question: "改哪些页面？",
+    options: ["登录", "注册", "设置"],
+    multiple: true,
+    recommended: [0, 1]
+  };
+  assert.equal(humanAnswer(pages, { parts: [{ choices: [0, 2] }] }), "登录、设置");
+  const html = renderHumanQuestion(pages, { parts: [{ choices: [0, 2] }] });
+  assert.equal(html.match(/type="checkbox"/g).length, 3);
+  assert.equal(html.match(/推荐/g).length, 2, "every recommended option is marked");
+  assert.match(html, /已选 2 项/);
+
+  const request = {
+    ...pages,
+    questions: [pages, { question: "什么时候上线？", label: "上线时间", options: ["本周", "下周"] }]
+  };
+  assert.equal(humanAnswer(request, { parts: [{ choices: [0] }] }), "", "every question needs an answer");
+  assert.equal(
+    humanAnswer(request, { parts: [{ choices: [0] }, { choices: [1], text: "周三前" }] }),
+    "1. 改哪些页面？\n登录\n\n2. 什么时候上线？\n下周\n\n补充说明：周三前"
+  );
+  const first = renderHumanQuestion(request, { step: 0, parts: [{ choices: [0] }] });
+  assert.match(first, /data-human-move="1"/, "the first of several moves on instead of sending");
+  assert.doesNotMatch(first, /type="submit"/);
+  const second = renderHumanQuestion(request, { step: 1, parts: [{ choices: [0] }] });
+  assert.match(second, /human-step is-answered[\s\S]*登录/, "an answered step shows its answer");
+  assert.match(second, /type="submit" disabled/);
+  assert.match(second, /type="radio"/);
 });
 
 test("question, option, draft and error content remain plain text", () => {
   const html = renderHumanQuestion(
     { question: '<img src=x onerror="fail()">', context: "<script>bad()</script>", options: ["<iframe>"] },
-    { text: "</textarea><script>bad()</script>" },
+    { parts: [{ text: "</textarea><script>bad()</script>" }] },
     { error: "<img>" }
   );
   assert.doesNotMatch(html, /<script>|<iframe>|<img/);
@@ -90,12 +130,15 @@ test("a recommended option is offered, and is what an unanswered question falls 
     runId: "run-1",
     question: "报告要什么格式？",
     options: ["Markdown", "PDF"],
-    recommended: 1
+    recommended: [1]
   });
-  assert.equal(request.recommended, 1);
+  assert.deepEqual(request.recommended, [1]);
   const html = renderHumanQuestion(request);
-  assert.match(html, /推荐/, "the recommended option is marked in the UI");
-  assert.match(html, /is-recommended/);
+  assert.match(
+    html,
+    /PDF<\/span><em class="human-option-mark">推荐/,
+    "the recommended option is marked in the UI"
+  );
 
   // An index that points at nothing is dropped rather than stored, so neither
   // the UI nor the timeout path has to guard against it.
@@ -103,7 +146,7 @@ test("a recommended option is offered, and is what an unanswered question falls 
     taskId: "task-1",
     runId: "run-1",
     question: "随便说点什么？",
-    recommended: 0
+    recommended: [0]
   });
   assert.equal(noOptions.recommended, undefined);
   const outOfRange = await store.create({
@@ -111,7 +154,7 @@ test("a recommended option is offered, and is what an unanswered question falls 
     runId: "run-1",
     question: "选一个",
     options: ["甲"],
-    recommended: 5
+    recommended: [5]
   });
   assert.equal(outOfRange.recommended, undefined);
   assert.doesNotMatch(renderHumanQuestion(outOfRange), /推荐/);
@@ -130,7 +173,7 @@ test("askhuman waits for the answer, and a delivered answer is not replayed from
     runId: "run-1",
     question: "继续吗？",
     options: ["继续"],
-    recommended: 0
+    recommended: [0]
   });
 
   // Answered while the tool is still waiting.
@@ -276,11 +319,11 @@ test("blank choices do not change the question's recommended decision", async (t
     runId: "run",
     question: "格式？",
     options: [" ", " Markdown ", "PDF"],
-    recommended: 1
+    recommended: [1]
   });
   assert.deepEqual(request.options, ["Markdown", "PDF"]);
   assert.equal(
-    request.options[request.recommended],
+    request.options[request.recommended[0]],
     "Markdown",
     "cleaning an empty choice must preserve which choice was recommended"
   );
@@ -289,7 +332,7 @@ test("blank choices do not change the question's recommended decision", async (t
     runId: "run",
     question: "格式？",
     options: [" ", "PDF"],
-    recommended: 0
+    recommended: [0]
   });
   assert.equal(blank.recommended, undefined, "an empty recommendation must not become a different choice");
 });

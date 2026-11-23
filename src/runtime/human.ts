@@ -46,21 +46,37 @@ export interface TicketsProposal {
 
 export type HumanProposal = AgentProposal | TicketsProposal;
 
-export interface HumanRequest {
-  requestId: string;
-  taskId: string;
-  runId: string;
+/** One question with its choices. */
+export interface HumanQuestion {
   question: string;
+  /** A few words naming the question on its step, when several are asked together. */
+  label?: string;
   context?: string;
   options?: string[];
+  /** Any number of `options` may be chosen, not just one. */
+  multiple?: boolean;
   /**
-   * Zero-based index into `options`: the choice the model would make itself.
+   * Zero-based indexes into `options`: the choice the model would make itself,
+   * one index unless `multiple`.
    *
    * It is what the model proceeds on when nobody answers in time, so it is a
    * commitment rather than a hint — and showing it lets the person accept the
    * obvious answer without reading every option.
    */
-  recommended?: number;
+  recommended?: number[];
+}
+
+/**
+ * A request holds its first question at the top level and, when the model asks
+ * several at once, all of them in `questions`; one answer covers them all.
+ */
+export interface HumanRequest extends HumanQuestion {
+  requestId: string;
+  taskId: string;
+  runId: string;
+  questions?: HumanQuestion[];
+  /** When the model stops waiting and proceeds on its recommendation. */
+  expiresAt?: string;
   status: HumanRequestStatus;
   answer?: string;
   createdAt: string;
@@ -83,33 +99,23 @@ export class HumanRequestStore {
   constructor(private readonly workspaceRoot: string) {}
 
   async create(
-    input: Pick<
-      HumanRequest,
-      "taskId" | "runId" | "question" | "context" | "options" | "recommended" | "proposal"
-    >,
+    input: HumanQuestion &
+      Pick<HumanRequest, "taskId" | "runId" | "proposal" | "expiresAt"> & { questions?: HumanQuestion[] },
     requestId?: string
   ): Promise<HumanRequest> {
-    const choices = input.options
-      ?.map((option, index) => ({ text: option.trim(), index }))
-      .filter((option) => option.text);
-    const recommended = Number.isInteger(input.recommended)
-      ? choices?.findIndex((option) => option.index === input.recommended)
-      : undefined;
+    const questions = (input.questions?.length ? input.questions : [input]).map(normalizeQuestion);
+    if (questions.some((entry) => !entry.question)) throw new Error("human question must not be empty");
     const request: HumanRequest = {
       requestId: requestId ? safe(requestId) : id("human"),
       taskId: safe(input.taskId),
       runId: safe(input.runId),
-      question: input.question.trim(),
-      context: input.context?.trim() || undefined,
-      options: choices?.map((option) => option.text),
-      // Kept only when it points at a real option, so the UI and the timeout
-      // path never have to guard against an index that is not there.
-      ...(recommended !== undefined && recommended >= 0 ? { recommended } : {}),
+      ...questions[0],
+      ...(questions.length > 1 ? { questions } : {}),
+      ...(input.expiresAt ? { expiresAt: input.expiresAt } : {}),
       ...(input.proposal ? { proposal: input.proposal } : {}),
       status: "pending",
       createdAt: now()
     };
-    if (!request.question) throw new Error("human question must not be empty");
     const path = this.path(request.taskId, request.requestId);
     await mkdir(join(this.workspaceRoot, request.taskId, "human", "requests"), { recursive: true });
     try {
@@ -313,6 +319,35 @@ export class HumanRequestStore {
   private path(taskId: string, requestId: string): string {
     return join(this.workspaceRoot, safe(taskId), "human", "requests", `${safe(requestId)}.json`);
   }
+}
+
+/**
+ * Blank options are dropped, and a recommendation is kept only where it points
+ * at a real option, so the UI and the timeout path never guard against an
+ * index that is not there.
+ */
+function normalizeQuestion(input: HumanQuestion): HumanQuestion {
+  const choices = (input.options ?? [])
+    .map((option, index) => ({ text: option.trim(), index }))
+    .filter((option) => option.text);
+  const recommended = [...new Set(input.recommended ?? [])]
+    .map((index) => choices.findIndex((option) => option.index === index))
+    .filter((index) => index >= 0)
+    .slice(0, input.multiple ? undefined : 1);
+  return {
+    question: input.question.trim(),
+    ...(input.label?.trim() ? { label: input.label.trim() } : {}),
+    ...(input.context?.trim() ? { context: input.context.trim() } : {}),
+    ...(choices.length ? { options: choices.map((option) => option.text) } : {}),
+    ...(input.multiple && choices.length ? { multiple: true } : {}),
+    ...(recommended.length ? { recommended } : {})
+  };
+}
+
+/** What the model proceeds on for one question when nobody answers in time. */
+export function recommendedAnswer(question: HumanQuestion): string | undefined {
+  const chosen = (question.recommended ?? []).map((index) => question.options?.[index]).filter(Boolean);
+  return chosen.length ? chosen.join("、") : undefined;
 }
 
 function answerMessage(request: HumanRequest, state: "ready" | "consumed" = "ready"): InboxMessage {

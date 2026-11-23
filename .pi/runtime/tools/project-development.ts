@@ -28,7 +28,7 @@ export function registerProjectDevelopmentTool(pi: ExtensionAPI, context: Cowork
                 : `修改已确认的票 ${String(proposal.tickets[0]?.ticketId ?? "")}：${proposal.requirementTitle}`,
             options: [confirm, "拒绝"],
             // A timeout proceeds on the recommended option: nothing is frozen or changed.
-            recommended: 1,
+            recommended: [1],
             proposal
           },
           signal,

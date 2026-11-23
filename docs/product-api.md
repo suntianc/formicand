@@ -650,7 +650,7 @@ The field is additive: nothing persisted gains a key (the metrics are derived, s
 
 ### Human questions and continuation
 
-`humanRequests` contains durable `askhuman` questions (`requestId`, `taskId`, `runId`, `question`, optional `context` and `options`, `status`, and answer timestamps). Pending questions appear in the composer area, with explicit single-choice options and a free-text field. No option is preselected or submitted automatically. Drafts survive polling, Task navigation and page reload in the same browser tab. Multiple questions are navigable and the paused run resumes once all pending questions are answered.
+`humanRequests` contains durable `askhuman` questions (`requestId`, `taskId`, `runId`, `question`, optional `label`, `context`, `options`, `multiple` and `recommended` option indexes, `expiresAt` when Main stops waiting, `status`, and answer timestamps). A request that asks several questions at once also lists all of them in `questions`, and gets one answer covering each. Pending questions take the composer's place: numbered options the keyboard can pick (single or multiple choice), a typed answer as the last row, a countdown to when Main proceeds on its recommendation, and for several questions one step per question, sent together. No option is preselected or submitted automatically. Drafts survive polling, Task navigation and page reload in the same browser tab. Separate pending requests are navigable and the paused run resumes once all of them are answered.
 
 ```text
 POST /api/tasks/:taskId/human/:requestId/answer   { "answer": "User's selected or written answer" }

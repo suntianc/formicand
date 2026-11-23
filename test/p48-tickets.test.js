@@ -525,7 +525,7 @@ test(
     assert.ok(question, "the proposal reaches the page as a question");
     assert.equal(question.proposal.kind, "tickets");
     assert.deepEqual(question.options, ["确认这些票", "拒绝"]);
-    assert.equal(question.recommended, 1, "silence freezes nothing");
+    assert.deepEqual(question.recommended, [1], "silence freezes nothing");
     const card = renderHumanQuestion(question);
     assert.match(card, /ticket-proposal/);
     assert.match(card, /node --test test\/page\.test\.js/);

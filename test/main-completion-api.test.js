@@ -184,10 +184,14 @@ test("askhuman waits for the answer and continues the same turn with it", { time
           [
             "askhuman",
             {
-              question: "报告使用哪种语言？",
-              context: "这会决定报告的写作语言。",
-              options: ["中文", "英文"],
-              recommended: 0
+              questions: [
+                {
+                  question: "报告使用哪种语言？",
+                  context: "这会决定报告的写作语言。",
+                  options: ["中文", "英文"],
+                  recommended: [0]
+                }
+              ]
             }
           ]
         ]
@@ -206,7 +210,11 @@ test("askhuman waits for the answer and continues the same turn with it", { time
   );
   const question = detail.humanRequests[0];
   assert.deepEqual(question.options, ["中文", "英文"]);
-  assert.equal(question.recommended, 0, "the recommended option is recorded for the UI and the timeout path");
+  assert.deepEqual(
+    question.recommended,
+    [0],
+    "the recommended option is recorded for the UI and the timeout path"
+  );
   assert.equal(detail.runtime.active, true, "the run stays alive while the tool waits");
   assert.equal(
     (await f.detail()).humanRequests[0].requestId,
@@ -280,7 +288,12 @@ test(
         requests.push(body);
         if (requests.length === 1) {
           return reply({
-            calls: [["askhuman", { question: "要继续吗？", options: ["继续", "停下"], recommended: 0 }]]
+            calls: [
+              [
+                "askhuman",
+                { questions: [{ question: "要继续吗？", options: ["继续", "停下"], recommended: [0] }] }
+              ]
+            ]
           });
         }
         reply({ text: "没有收到确认，我按推荐选项继续了。" });
@@ -319,8 +332,11 @@ test(
       if (requests === 1) {
         return reply({
           calls: [
-            ["askhuman", { question: "报告格式？", options: ["Markdown", "PDF"], recommended: 0 }],
-            ["askhuman", { question: "报告面向谁？" }]
+            [
+              "askhuman",
+              { questions: [{ question: "报告格式？", options: ["Markdown", "PDF"], recommended: [0] }] }
+            ],
+            ["askhuman", { questions: [{ question: "报告面向谁？" }] }]
           ]
         });
       }
@@ -371,7 +387,12 @@ test("an answer given after the process stopped still resumes the run", { timeou
       requests += 1;
       if (requests === 1)
         return reply({
-          calls: [["askhuman", { question: "继续撰写？", options: ["继续", "暂停"], recommended: 0 }]]
+          calls: [
+            [
+              "askhuman",
+              { questions: [{ question: "继续撰写？", options: ["继续", "暂停"], recommended: [0] }] }
+            ]
+          ]
         });
       reply({ text: "已根据回答继续并完成。" });
     },

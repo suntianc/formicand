@@ -54,12 +54,13 @@ test("Main drafts an Agent, the user confirms it on the card, and Main delegates
 
     const card = page.locator("#human-questions .agent-proposal");
     await expect(card).toBeVisible({ timeout: 30_000 });
-    await expect(card.locator("h3")).toHaveText("创建 Agent：db-migrator");
+    await expect(card.locator("h3")).toHaveText("db-migrator");
+    await expect(card).toContainText("创建 Agent");
     await expect(card).toContainText(join(dashboard.env.ATRIA_HOME, "agents", "db-migrator.md"));
     await expect(card).toContainText("涉及表结构变更时派给它");
     await expect(card).toContainText("可写");
     await expect(card).toContainText("先在临时库演练。");
-    await expect(card.getByRole("button", { name: "发送修改意见" })).toBeDisabled();
+    await expect(card.getByRole("button", { name: "发送修改意见" })).toBeHidden();
     const file = join(dashboard.env.ATRIA_HOME, "agents", "db-migrator.md");
     expect(existsSync(file), "nothing is written before the user confirms").toBe(false);
 

@@ -126,6 +126,7 @@ function argumentSubject(args, options, limit = 150) {
       args.pattern,
       args.task,
       args.question,
+      args.questions?.[0]?.question,
       args.summary,
       args.message,
       args.url,

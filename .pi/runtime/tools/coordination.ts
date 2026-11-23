@@ -4,6 +4,7 @@ import { clearSleep, readSleep, writeSleep } from "../../../dist/src/runtime/mai
 import { isSteeredHumanMessage } from "../../../dist/src/runtime/main-inbox-delivery.js";
 import { readSubagentProgress } from "../../../dist/src/runtime/progress.js";
 import { configuredHumanAnswerTimeout } from "../../../dist/src/runtime/runtime-settings.js";
+import { recommendedAnswer } from "../../../dist/src/runtime/human.js";
 import { assessTaskCompletion } from "../../../dist/src/runtime/task-completion.js";
 import { LocalWorkspaceStore } from "../../../dist/src/workspace/workspace-store.js";
 import { createSubagentClient } from "../../../dist/src/runtime/subagent-client.js";
@@ -22,51 +23,64 @@ export function registerCoordinationTools(pi: ExtensionAPI, context: CoworkToolC
     promptSnippet: "Ask the user for a decision or missing information",
     promptGuidelines: [
       "Use askhuman only when the answer changes the task or a safe autonomous choice is not possible.",
-      "Include the smallest useful question, enough context to decide, and a short list of options when appropriate.",
-      "Mark one option as recommended. The wait is bounded, and on a timeout that is the option you proceed on — so it has to be a choice you are willing to act on unattended.",
-      "On a timeout, act on the recommended option and say in your reply that you did so without an answer, so the user can correct it."
+      "Ask the smallest useful questions, with enough context to decide and a short list of options when appropriate. Questions you need answered together go in one call; the user answers them one after another and sends them at once.",
+      "Mark the option you would choose as recommended (several when multiple). The wait is bounded, and on a timeout that is what you proceed on — so it has to be a choice you are willing to act on unattended.",
+      "On a timeout, act on the recommended options and say in your reply that you did so without an answer, so the user can correct it."
     ],
     parameters: Type.Object({
-      question: Type.String({ description: "A concrete question the user can answer." }),
-      context: Type.Optional(
-        Type.String({ description: "Short context explaining why the decision is needed." })
-      ),
-      options: Type.Optional(Type.Array(Type.String({ description: "Optional answer choices." }))),
-      recommended: Type.Optional(
-        Type.Number({
-          description:
-            "Zero-based index into options: the choice you would make yourself, and the one you proceed on if nobody answers in time."
-        })
+      questions: Type.Array(
+        Type.Object({
+          question: Type.String({ description: "A concrete question the user can answer." }),
+          label: Type.Optional(
+            Type.String({
+              description: "Two to four words naming the question, shown on its step when you ask several."
+            })
+          ),
+          context: Type.Optional(
+            Type.String({ description: "Short context explaining why the decision is needed." })
+          ),
+          options: Type.Optional(Type.Array(Type.String({ description: "Optional answer choices." }))),
+          multiple: Type.Optional(
+            Type.Boolean({ description: "true when any number of the options may be chosen." })
+          ),
+          recommended: Type.Optional(
+            Type.Array(Type.Number(), {
+              description:
+                "Zero-based indexes into options: what you would choose yourself, one unless multiple, and what you proceed on if nobody answers in time."
+            })
+          )
+        }),
+        { minItems: 1, maxItems: 4 }
       )
     }),
     async execute(_toolCallId, params, signal, _onUpdate, ctx): Promise<RuntimeToolResult> {
-      const options = Array.isArray(params.options)
-        ? params.options.filter((option): option is string => typeof option === "string")
-        : undefined;
-      const recommended =
-        typeof params.recommended === "number" &&
-        options &&
-        params.recommended >= 0 &&
-        params.recommended < options.length
-          ? params.recommended
+      const strings = (value: unknown) =>
+        Array.isArray(value)
+          ? value.filter((entry): entry is string => typeof entry === "string")
           : undefined;
+      const questions = (Array.isArray(params.questions) ? params.questions : []).map((entry) => ({
+        question: typeof entry.question === "string" ? entry.question : "",
+        label: typeof entry.label === "string" ? entry.label : undefined,
+        context: typeof entry.context === "string" ? entry.context : undefined,
+        options: strings(entry.options),
+        multiple: entry.multiple === true,
+        recommended: Array.isArray(entry.recommended)
+          ? entry.recommended.filter((index): index is number => Number.isInteger(index))
+          : undefined
+      }));
+      if (!questions.length) throw new Error("askhuman requires at least one question");
       const { request, settled } = await askHumanAndWait(
         context,
-        {
-          // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- askhuman 的 question 由模型以 JSON 参数传入，运行期可能缺失；空串回退让 humanStore.create 始终收到字符串
-          question: String(params.question ?? ""),
-          context: typeof params.context === "string" ? params.context : undefined,
-          options,
-          recommended
-        },
+        { ...questions[0], ...(questions.length > 1 ? { questions } : {}) },
         signal,
         ctx
       );
+      const asked = request.questions ?? [request];
       if (settled.status === "answered") {
         const payload = {
           status: "answered",
           requestId: request.requestId,
-          question: request.question,
+          questions: asked.map((entry) => entry.question),
           answer: settled.request.answer
         };
         return { content: [{ type: "text", text: JSON.stringify(payload) }], details: payload };
@@ -75,14 +89,14 @@ export function registerCoordinationTools(pi: ExtensionAPI, context: CoworkToolC
         const payload = { status: "cancelled", requestId: request.requestId, question: request.question };
         return { content: [{ type: "text", text: JSON.stringify(payload) }], details: payload };
       }
-      const fallback = request.recommended !== undefined ? request.options?.[request.recommended] : undefined;
+      const fallback = asked.map((entry) => ({ question: entry.question, answer: recommendedAnswer(entry) }));
+      const proceed = fallback.filter((entry) => entry.answer);
       const payload = {
         status: "timeout",
         requestId: request.requestId,
-        question: request.question,
-        ...(fallback ? { recommendedOption: fallback } : {}),
-        instruction: fallback
-          ? `用户没有及时回答。按你推荐的选项「${fallback}」继续，并在最终回复里说明这是在没有确认的情况下做的选择。`
+        ...(proceed.length ? { recommended: proceed } : {}),
+        instruction: proceed.length
+          ? "用户没有及时回答。按你推荐的选项继续；没有推荐的问题选择最合理的做法。在最终回复里说明这是在没有确认的情况下做的选择。"
           : "用户没有及时回答。选择最合理的做法继续，并在最终回复里说明这是在没有确认的情况下做的选择。"
       };
       return { content: [{ type: "text", text: JSON.stringify(payload) }], details: payload };
@@ -660,10 +674,12 @@ export async function askHumanAndWait(
 ) {
   const releaseAnswers = context.inboxDelivery.holdHumanAnswers();
   try {
+    const timeoutMs = configuredHumanAnswerTimeout(context.runtimeEnv);
     const request = await context.humanStore.create({
       ...input,
       taskId: context.taskId,
-      runId: context.mainRunId
+      runId: context.mainRunId,
+      expiresAt: new Date(Date.now() + timeoutMs).toISOString()
     });
     await new LocalWorkspaceStore(context.workspaceRoot).transitionTask(context.taskId, "waiting", {
       runId: context.mainRunId,
@@ -675,7 +691,7 @@ export async function askHumanAndWait(
     });
     ctx.ui.notify(`Waiting for human answer · ${request.requestId}`, "info");
     const settled = await context.humanStore.waitForAnswer(context.taskId, request.requestId, {
-      timeoutMs: configuredHumanAnswerTimeout(context.runtimeEnv),
+      timeoutMs,
       isCancelled: async () => signal?.aborted === true
     });
     if (settled.status === "answered") {

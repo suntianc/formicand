@@ -38,15 +38,84 @@ export function answeredRequestFor(message, humanRequests = []) {
   );
 }
 
-export function humanAnswer(request, draft = {}) {
-  const choice = Number.isInteger(draft.choice) ? request.options?.[draft.choice] : undefined;
-  const text = String(draft.text || "").trim();
+/** Every question in a request, in the order they are answered. */
+export const questionsOf = (request) => request.questions ?? [request];
+
+function partAnswer(question, part = {}) {
+  const choice = (part.choices ?? [])
+    .map((index) => question.options?.[index])
+    .filter(Boolean)
+    .join("、");
+  const text = String(part.text || "").trim();
   return choice && text ? ui`${choice}\n\n补充说明：${text}` : choice || text;
 }
 
 /**
- * A change Main asks the user to approve: the whole Agent definition, then
- * confirm, reject, or edit it in settings. Typed changes go back to Main.
+ * The one answer a request gets: a proposal's typed change, or every
+ * question's choices and words, numbered when there are several. Empty until
+ * each question has an answer.
+ */
+export function humanAnswer(request, draft = {}) {
+  if (request.proposal) return String(draft.text || "").trim();
+  const questions = questionsOf(request);
+  const answers = questions.map((question, index) => partAnswer(question, draft.parts?.[index]));
+  if (answers.some((answer) => !answer)) return "";
+  if (answers.length === 1) return answers[0];
+  return answers.map((answer, index) => `${index + 1}. ${questions[index].question}\n${answer}`).join("\n\n");
+}
+
+const pagesFor = (index, total) =>
+  total > 1
+    ? ui`<span class="human-question-pages"><button type="button" data-human-page="-1" aria-label="上一个问题" ${index === 0 ? "disabled" : ""}>${icon("chevron-left")}</button><span>${index + 1} / ${total}</span><button type="button" data-human-page="1" aria-label="下一个问题" ${index === total - 1 ? "disabled" : ""}>${icon("chevron-right")}</button></span>`
+    : "";
+
+/** How long until Main proceeds without an answer; the controller ticks it. */
+function countdown(request) {
+  if (!request.expiresAt) return "";
+  const recommended = questionsOf(request).some((question) => question.recommended?.length);
+  const settled = request.status === "unanswered";
+  return `<span class="human-countdown" data-expires="${esc(request.expiresAt)}" data-recommended="${recommended ? 1 : 0}" data-settled="${settled ? 1 : 0}"></span>`;
+}
+
+export function countdownText(expiresAt, recommended, settled, at = Date.now()) {
+  const left = Math.ceil((Date.parse(expiresAt) - at) / 1000);
+  if (settled || !(left > 0)) return recommended ? ui("已按推荐继续") : ui("Main 已自行决定");
+  const pad = (value) => String(value).padStart(2, "0");
+  const minutes = Math.floor(left / 60);
+  const time =
+    minutes >= 60
+      ? `${Math.floor(minutes / 60)}:${pad(minutes % 60)}:${pad(left % 60)}`
+      : `${minutes}:${pad(left % 60)}`;
+  return recommended ? ui`${time} 后按推荐继续` : ui`${time} 后 Main 自行决定`;
+}
+
+const feedbackField = (draft, busy, placeholder) =>
+  `<label class="sr-only" for="human-answer-text">${esc(ui("修改意见"))}</label><textarea id="human-answer-text" class="human-feedback" name="human-text" rows="1" placeholder="${esc(placeholder)}" ${busy ? "disabled" : ""}>${esc(draft.text || "")}</textarea>`;
+
+/** The footer every confirmation shares: a typed change, reject, confirm. */
+function confirmFooter(request, draft, { busy, error }, extra = "") {
+  const confirm = request.options?.[0] ?? ui("确认");
+  const reject = request.options?.[1] ?? ui("拒绝");
+  const typed = String(draft.text || "").trim();
+  return ui`<div class="human-card-footer"><p class="human-error" role="status">${esc(error)}</p>${extra}
+    <button class="human-secondary" type="button" data-human-answer="${esc(reject)}" ${busy ? "disabled" : ""}>${esc(reject)}</button>
+    <button class="human-secondary" type="submit" data-human-feedback ${typed ? "" : "hidden"} ${busy ? "disabled" : ""}>发送修改意见</button>
+    <button class="human-submit" type="button" data-human-answer="${esc(confirm)}" ${busy ? "disabled" : ""}>${icon("check")}<span>${esc(confirm)}</span></button></div>`;
+}
+
+const confirmHead = (mark, label, index, total) =>
+  ui`<div class="human-confirm-head">${icon(mark)}<span>${esc(label)}</span>${pagesFor(index, total)}<span class="proposal-waiting">${icon("circle-alert")}等你确认</span></div>`;
+
+const AGENT_ACTION = {
+  create: "创建 Agent",
+  update: "修改 Agent",
+  disable: "停用 Agent",
+  enable: "启用 Agent"
+};
+
+/**
+ * A change Main asks the user to approve: the Agent's name and file, what it
+ * may use in two rows, its prompt folded. Typed changes go back to Main.
  */
 function renderAgentProposal(request, draft, { busy, error, index, total }) {
   const { proposal } = request;
@@ -54,52 +123,48 @@ function renderAgentProposal(request, draft, { busy, error, index, total }) {
   const chips = (list, mark = "", tone = "") =>
     list
       .map((name) => `<span class="proposal-chip${tone}">${mark ? icon(mark) : ""}${esc(name)}</span>`)
-      .join("") || esc(ui("无"));
-  const tagged = (mark, label, note) =>
-    `<span class="proposal-tag">${icon(mark)}${esc(label)}</span><span class="proposal-aside">${esc(note)}</span>`;
-  const rows = [
-    [
-      ui("范围"),
-      proposal.scope === "project"
-        ? tagged("folder", ui("项目"), ui("只在这个项目可用"))
-        : tagged("globe", ui("全局"), ui("所有项目可用"))
-    ],
-    [ui("使用说明"), esc(definition.description)],
-    [
-      ui("权限"),
-      definition.permission === "read"
-        ? tagged("eye", ui("只读"), ui("独立副本里检查，结论文字交回"))
-        : tagged("pencil", ui("可写"), ui("在隔离现场修改代码"))
-    ],
-    [ui("模型"), esc(definition.model || ui("沿用角色的模型"))],
-    [ui("工具"), definition.tools ? chips(definition.tools) : esc(ui("按权限的默认工具"))],
-    [ui("技能"), definition.skills ? chips(definition.skills, "book-open") : esc(ui("全部技能"))],
-    ["MCP", chips(definition.mcp ?? [], "plug", " is-ok")],
-    ...(definition.prompt
-      ? [[ui("附加提示词"), `<span class="proposal-prompt">${esc(definition.prompt)}</span>`]]
-      : [])
-  ];
-  const confirm = request.options?.[0] ?? ui("确认");
-  return ui`<form class="human-question-form agent-proposal">${total > 1 ? ui`<div class="human-card-heading"><div class="human-question-pages"><button type="button" data-human-page="-1" aria-label="上一个问题" ${index === 0 ? "disabled" : ""}>‹</button><span>${index + 1} / ${total}</span><button type="button" data-human-page="1" aria-label="下一个问题" ${index === total - 1 ? "disabled" : ""}>›</button></div></div>` : ""}
-    <div class="proposal-head"><span class="proposal-mark">${icon(definition.permission === "read" ? "scan-eye" : "wrench")}</span><span class="proposal-head-text"><h3 id="human-question-title">${esc(request.question)}</h3><span class="proposal-path">写入 ${esc(proposal.displayPath ?? proposal.path)}</span></span><span class="proposal-waiting">${icon("circle-alert")}等你确认</span></div>
-    <div class="human-card-body"><dl class="proposal-facts">${rows.map(([label, value]) => `<dt>${label}</dt><dd>${value}</dd>`).join("")}</dl>
-    <fieldset ${busy ? "disabled" : ""}><legend class="sr-only">修改意见</legend><label class="human-text-label" for="human-answer-text">也可以直接写修改意见，比如「改成只读」</label><textarea id="human-answer-text" name="human-text" rows="2">${esc(draft.text || "")}</textarea></fieldset></div>
-    <div class="human-card-footer"><p class="human-error" role="status">${esc(error)}</p><span class="proposal-note">${icon("info")}确认后下一次派单即可使用</span>
-    <button class="human-secondary" type="button" data-human-answer="${esc(request.options?.[1] ?? ui("拒绝"))}" ${busy ? "disabled" : ""}>拒绝</button>
-    <button class="human-secondary" type="button" data-human-edit ${busy ? "disabled" : ""}>${icon("external")}<span>在设置里修改</span></button>
-    <button class="human-secondary" type="submit" ${busy || !String(draft.text || "").trim() ? "disabled" : ""}>发送修改意见</button>
-    <button class="human-submit" type="button" data-human-answer="${esc(confirm)}" ${busy ? "disabled" : ""}>${icon("check")}<span>${esc(confirm)}</span></button></div></form>`;
+      .join("") || `<span class="proposal-plain">${esc(ui("无"))}</span>`;
+  const fact = (label, value) =>
+    `<span class="proposal-fact"><span class="proposal-key">${label}</span>${value}</span>`;
+  const plain = (text) => `<span class="proposal-plain">${esc(text)}</span>`;
+  const tag = (mark, label) => `<span class="proposal-tag">${icon(mark)}${esc(label)}</span>`;
+  return ui`<form class="human-question-form human-confirm agent-proposal" aria-labelledby="human-question-title">
+    ${confirmHead("bot", ui(AGENT_ACTION[proposal.action] ?? "Agent"), index, total)}
+    <div class="human-card-body"><div class="proposal-title"><h3 id="human-question-title" class="is-mono">${esc(definition.name)}</h3><span class="proposal-summary">${esc(definition.description)}</span><span class="proposal-path" title="${esc(proposal.displayPath ?? proposal.path)}">${esc(proposal.displayPath ?? proposal.path)}</span></div>
+    <div class="proposal-facts">${fact(ui("范围"), proposal.scope === "project" ? tag("folder", ui("项目")) : tag("globe", ui("全局")))}${fact(ui("权限"), definition.permission === "read" ? tag("eye", ui("只读")) : tag("pencil", ui("可写")))}${fact(ui("模型"), plain(definition.model || ui("沿用角色的模型")))}</div>
+    <div class="proposal-facts">${fact(ui("工具"), definition.tools ? chips(definition.tools) : plain(ui("按权限的默认工具")))}${fact("MCP", chips(definition.mcp ?? [], "", " is-ok"))}${fact(ui("技能"), definition.skills ? chips(definition.skills) : plain(ui("全部技能")))}</div>
+    ${definition.prompt ? ui`<details class="proposal-prompt"><summary><span class="proposal-key">提示词</span><span class="proposal-prompt-preview">${esc(definition.prompt)}</span>${icon("chevron-down")}</summary><p>${esc(definition.prompt)}</p></details>` : ""}</div>
+    ${confirmFooter(request, draft, { busy, error }, `${feedbackField(draft, busy, ui("写修改意见，比如「改成只读」"))}<button class="human-secondary" type="button" data-human-edit ${busy ? "disabled" : ""}>${ui("在设置里修改")}</button>`)}</form>`;
+}
+
+/** The order tickets can run in: each step after the ones it depends on. */
+export function ticketFlow(tickets) {
+  const depth = new Map();
+  const level = (ticket, seen = new Set()) => {
+    if (depth.has(ticket.ticketId)) return depth.get(ticket.ticketId);
+    if (seen.has(ticket.ticketId)) return 0;
+    seen.add(ticket.ticketId);
+    const parents = (ticket.dependsOn ?? [])
+      .map((id) => tickets.find((entry) => entry.ticketId === id))
+      .filter(Boolean);
+    const value = parents.length ? 1 + Math.max(...parents.map((parent) => level(parent, seen))) : 0;
+    depth.set(ticket.ticketId, value);
+    return value;
+  };
+  const steps = [];
+  for (const ticket of tickets) (steps[level(ticket)] ??= []).push(ticket.ticketId);
+  return steps.filter(Boolean);
 }
 
 /**
  * Tickets Main asks the user to confirm before their acceptance criteria are
- * frozen, or one change to a frozen ticket with the reason for it. Typed
- * changes go back to Main; nothing is frozen until the user confirms.
+ * frozen, or one change to a frozen ticket with the reason for it: the order
+ * they run in, then each ticket folded to its scope until opened.
  */
 function renderTicketProposal(request, draft, { busy, error, index, total }) {
   const { proposal } = request;
   const previous = proposal.previous;
-  const none = esc(ui("无"));
+  const none = `<span class="proposal-plain">${esc(ui("无"))}</span>`;
   const lines = (items) =>
     items?.length
       ? `<ul class="ticket-lines">${items.map((item) => `<li>${esc(item)}</li>`).join("")}</ul>`
@@ -119,35 +184,86 @@ function renderTicketProposal(request, draft, { busy, error, index, total }) {
       .join("")}</ol>`;
   const changed = (field) =>
     previous && JSON.stringify(previous[field]) !== JSON.stringify(proposal.tickets[0]?.[field]);
-  const row = (field, label, value) => {
-    const mark = changed(field) ? ` <span class="proposal-tag">${esc(ui("已修改"))}</span>` : "";
-    return `<dt>${label}${mark}</dt><dd>${value}</dd>`;
-  };
-  const ticket = (
-    entry
-  ) => `<section class="ticket-card"><h4><span class="proposal-chip">${esc(entry.ticketId)}</span>${esc(entry.title)}</h4>
-    <dl class="proposal-facts">${[
-      row("scope", ui("改动范围"), chips(entry.scope)),
+  const mark = (field) => (changed(field) ? ` <span class="proposal-tag">${esc(ui("已修改"))}</span>` : "");
+  const row = (field, label, value) => `<dt>${label}${mark(field)}</dt><dd>${value}</dd>`;
+  const scope = (items = []) =>
+    items
+      .slice(0, 2)
+      .map((item) => `<span class="proposal-chip">${icon("folder")}${esc(item)}</span>`)
+      .join("") + (items.length > 2 ? `<span class="proposal-plain">+${items.length - 2}</span>` : "");
+  const ticket = (entry, position) => `<details class="ticket-card" ${position === 0 ? "open" : ""}>
+    <summary>${icon("chevron-right")}<span class="proposal-chip">${esc(entry.ticketId)}</span><span class="ticket-title">${esc(entry.title)}</span><span class="ticket-scope">${scope(entry.scope)}</span><span class="ticket-count">${esc(ui`${(entry.criteria ?? []).length} 条验收`)}</span></summary>
+    <dl class="ticket-detail">${[
       row("criteria", ui("验收标准"), criteria(entry.criteria)),
+      // The folded row already shows up to two paths.
+      ...((entry.scope ?? []).length > 2 || changed("scope")
+        ? [row("scope", ui("改动范围"), chips(entry.scope))]
+        : []),
       row("preserve", ui("保留不变"), lines(entry.preserve)),
       row("outOfScope", ui("本次不做"), lines(entry.outOfScope)),
       ...(entry.dependsOn?.length || changed("dependsOn")
         ? [row("dependsOn", ui("先完成"), chips(entry.dependsOn))]
         : [])
-    ].join("")}</dl></section>`;
-  const confirm = request.options?.[0] ?? ui("确认");
-  const pages =
-    total > 1
-      ? ui`<div class="human-card-heading"><div class="human-question-pages"><button type="button" data-human-page="-1" aria-label="上一个问题" ${index === 0 ? "disabled" : ""}>‹</button><span>${index + 1} / ${total}</span><button type="button" data-human-page="1" aria-label="下一个问题" ${index === total - 1 ? "disabled" : ""}>›</button></div></div>`
+    ].join("")}</dl></details>`;
+  const steps = ticketFlow(proposal.tickets);
+  const flow =
+    proposal.tickets.length > 1
+      ? `<span class="ticket-flow" title="${esc(ui("箭头前的先做，加号连着的可以同时做"))}">${steps
+          .map((group) =>
+            group.map((id) => `<span class="proposal-chip">${esc(id)}</span>`).join("<span>+</span>")
+          )
+          .join(icon("arrow-right"))}</span>`
       : "";
-  return ui`<form class="human-question-form agent-proposal ticket-proposal">${pages}
-    <div class="proposal-head"><span class="proposal-mark">${icon("list-checks")}</span><span class="proposal-head-text"><h3 id="human-question-title">${esc(request.question)}</h3></span><span class="proposal-waiting">${icon("circle-alert")}等你确认</span></div>
-    <div class="human-card-body">${proposal.reason ? `<p class="human-question-context">${esc(ui`修改理由：${proposal.reason}`)}</p>` : ""}<div class="ticket-list">${proposal.tickets.map(ticket).join("")}</div>
-    <fieldset ${busy ? "disabled" : ""}><legend class="sr-only">修改意见</legend><label class="human-text-label" for="human-answer-text">也可以直接写修改意见，比如「验收标准 2 要在 Windows 上也检查」</label><textarea id="human-answer-text" name="human-text" rows="2">${esc(draft.text || "")}</textarea></fieldset></div>
-    <div class="human-card-footer"><p class="human-error" role="status">${esc(error)}</p><span class="proposal-note">${icon("info")}确认后验收标准不再改动，要改须再经你确认</span>
-    <button class="human-secondary" type="button" data-human-answer="${esc(request.options?.[1] ?? ui("拒绝"))}" ${busy ? "disabled" : ""}>拒绝</button>
-    <button class="human-secondary" type="submit" ${busy || !String(draft.text || "").trim() ? "disabled" : ""}>发送修改意见</button>
-    <button class="human-submit" type="button" data-human-answer="${esc(confirm)}" ${busy ? "disabled" : ""}>${icon("check")}<span>${esc(confirm)}</span></button></div></form>`;
+  return ui`<form class="human-question-form human-confirm ticket-proposal" aria-labelledby="human-question-title">
+    ${confirmHead("list-checks", proposal.action === "revise" ? ui("修改已确认的票") : ui("确认要做的票"), index, total)}
+    <div class="human-card-body"><div class="proposal-title"><h3 id="human-question-title">${esc(proposal.requirementTitle)}</h3>${flow}</div>
+    ${proposal.reason ? `<p class="human-question-context">${esc(ui`修改理由：${proposal.reason}`)}</p>` : ""}<div class="ticket-list">${proposal.tickets.map(ticket).join("")}</div></div>
+    ${confirmFooter(request, draft, { busy, error }, feedbackField(draft, busy, ui("写修改意见，比如「02 和 03 合成一张」")))}</form>`;
+}
+
+/**
+ * Main's own questions: numbered options the keyboard can pick, the last row
+ * typed, and when there are several, steps answered one after another and
+ * sent together.
+ */
+function renderAsk(request, draft, { busy, error, index, total }) {
+  const questions = questionsOf(request);
+  const step = Math.min(Math.max(0, draft.step ?? 0), questions.length - 1);
+  const question = questions[step];
+  const part = draft.parts?.[step] ?? {};
+  const options = question.options ?? [];
+  const many = questions.length > 1;
+  const last = step === questions.length - 1;
+  const kind = question.multiple ? "checkbox" : "radio";
+  const steps = many
+    ? `<div class="human-steps" role="tablist" aria-label="${esc(ui("问题"))}">${questions
+        .map((entry, at) => {
+          const answer = partAnswer(entry, draft.parts?.[at]);
+          const state = at === step ? "is-current" : answer ? "is-answered" : "";
+          return `<button type="button" role="tab" class="human-step ${state}" data-human-step="${at}" aria-selected="${at === step}"><span class="human-step-mark">${answer && at !== step ? icon("check") : at + 1}</span><span class="human-step-label">${esc(entry.label || entry.question)}</span>${answer && at !== step ? `<span class="human-step-answer">${esc(answer.split("\n")[0])}</span>` : ""}</button>`;
+        })
+        .join("")}</div>`
+    : "";
+  const option = (text, at) => {
+    const recommended = question.recommended?.includes(at);
+    const checked = part.choices?.includes(at);
+    return `<label class="human-option${checked ? " is-checked" : ""}"><kbd aria-hidden="true">${at + 1}</kbd><input type="${kind}" name="human-choice" value="${at}" ${checked ? "checked" : ""}/><span class="human-option-text">${esc(text)}</span>${recommended ? ui('<em class="human-option-mark">推荐</em>') : ""}<span class="human-option-box" aria-hidden="true">${kind === "checkbox" ? icon("check") : ""}</span></label>`;
+  };
+  const count = (part.choices ?? []).length;
+  const hint = options.length
+    ? question.multiple
+      ? ui("数字键勾选")
+      : ui("数字键选择")
+    : ui("Shift+回车换行");
+  const forward = many && !last;
+  return ui`<form class="human-question-form human-ask" aria-labelledby="human-question-title">${steps}
+    <div class="human-card-body"><div class="human-ask-title"><h3 id="human-question-title">${esc(question.question)}</h3>${question.multiple ? ui('<span class="proposal-tag">可多选</span>') : ""}<span class="human-ask-aside">${pagesFor(index, total)}${countdown(request)}</span></div>
+    ${question.context ? `<p class="human-question-context">${esc(question.context)}</p>` : ""}
+    <fieldset ${busy ? "disabled" : ""}><legend class="sr-only">你的回答</legend><div class="human-options" role="${question.multiple ? "group" : "radiogroup"}" aria-labelledby="human-question-title">${options.map(option).join("")}
+    <label class="human-option human-option-other">${options.length ? `<kbd aria-hidden="true">${options.length + 1}</kbd>` : ""}<textarea id="human-answer-text" name="human-text" rows="1" aria-label="${esc(options.length ? ui("其他回答或补充说明") : ui("你的回答"))}" placeholder="${esc(options.length ? ui("其他回答，或补充说明…") : ui("你的回答"))}">${esc(part.text || "")}</textarea></label></div></fieldset></div>
+    <div class="human-card-footer"><span class="human-hint">${esc(hint)} · ${esc(forward ? ui("回车下一个") : ui("回车发送"))}</span><p class="human-error" role="status">${esc(error)}</p>${question.multiple ? `<span class="human-count" data-human-count>${esc(ui`已选 ${count} 项`)}</span>` : ""}
+    ${many ? `<button class="human-secondary" type="button" data-human-move="-1" ${step === 0 || busy ? "disabled" : ""}>${icon("arrow-left")}<span>${esc(ui("上一个"))}</span></button>` : ""}
+    ${forward ? `<button class="human-submit" type="button" data-human-move="1" ${busy ? "disabled" : ""}><span>${esc(ui("下一个"))}</span>${icon("arrow-right")}</button>` : `<button class="human-submit" type="submit" ${busy || !humanAnswer(request, draft) ? "disabled" : ""}>${busy ? esc(ui("正在提交…")) : `${icon("arrow-up")}<span>${esc(ui("发送"))}</span>`}</button>`}</div></form>`;
 }
 
 export function renderHumanQuestion(
@@ -159,11 +275,7 @@ export function renderHumanQuestion(
     return renderAgentProposal(request, draft, { busy, error, index, total });
   if (request.proposal?.kind === "tickets")
     return renderTicketProposal(request, draft, { busy, error, index, total });
-  return ui`<form class="human-question-form"><div class="human-card-heading"><span class="human-waiting-dot"></span><strong>需要你的回复</strong>${total > 1 ? ui`<div class="human-question-pages"><button type="button" data-human-page="-1" aria-label="上一个问题" ${index === 0 ? "disabled" : ""}>‹</button><span>${index + 1} / ${total}</span><button type="button" data-human-page="1" aria-label="下一个问题" ${index === total - 1 ? "disabled" : ""}>›</button></div>` : ""}</div>
-    <div class="human-card-body"><h3 id="human-question-title">${esc(request.question)}</h3>${request.context ? `<p class="human-question-context">${esc(request.context)}</p>` : ""}
-    <fieldset ${busy ? "disabled" : ""}><legend class="sr-only">你的回答</legend>${request.options?.length ? ui`<div class="human-options" role="radiogroup" aria-label="回答选项">${request.options.map((option, index) => `<label class="human-option${index === request.recommended ? " is-recommended" : ""}"><input type="radio" name="human-choice" value="${index}" ${draft.choice === index ? "checked" : ""}/><span>${esc(option)}</span>${index === request.recommended ? ui('<em class="human-option-mark" title="没有回复时 Formicand 会按这个继续">推荐</em>') : ""}</label>`).join("")}</div>` : ""}
-    <label class="human-text-label" for="human-answer-text">${request.options?.length ? ui("其他回答或补充说明") : ui("你的回答")}</label><textarea id="human-answer-text" name="human-text" rows="2">${esc(draft.text || "")}</textarea></fieldset></div>
-    <div class="human-card-footer"><p class="human-error" role="status">${esc(error)}</p><button class="human-submit" type="submit" ${busy || !humanAnswer(request, draft) ? "disabled" : ""}>${busy ? ui("正在提交…") : ui("提交并继续")}</button></div></form>`;
+  return renderAsk(request, draft, { busy, error, index, total });
 }
 
 /** Keep form DOM and drafts stable across polling, navigation and restarts. */
@@ -201,9 +313,15 @@ export function createHumanQuestions(root, { submit, resume, onVisibility, onErr
       let draft = {};
       try {
         const saved = JSON.parse(localStorage.getItem(key) ?? "null");
-        if (saved && typeof saved.text === "string") {
-          draft = { text: saved.text };
-          if (Number.isSafeInteger(saved.choice) && saved.choice >= 0) draft.choice = saved.choice;
+        const index = (value) => Number.isSafeInteger(value) && value >= 0;
+        if (saved && typeof saved === "object") {
+          if (typeof saved.text === "string") draft.text = saved.text;
+          if (index(saved.step)) draft.step = saved.step;
+          if (Array.isArray(saved.parts))
+            draft.parts = saved.parts.map((part) => ({
+              choices: Array.isArray(part?.choices) ? part.choices.filter(index) : [],
+              text: typeof part?.text === "string" ? part.text : ""
+            }));
         }
         // eslint-disable-next-line no-restricted-syntax -- 存储被禁用或草稿 JSON 损坏时读取与解析都会抛出，此时不预选任何答案
       } catch {
@@ -218,9 +336,13 @@ export function createHumanQuestions(root, { submit, resume, onVisibility, onErr
     if (!root.contains(active) || active === root) return;
     let selector;
     if (active.matches("textarea")) selector = "textarea";
-    else if (active.matches('input[name="human-choice"]')) selector = `input[value="${active.value}"]`;
+    else if (active.matches('input[name="human-choice"]'))
+      selector = `input[name="human-choice"][value="${active.value}"]`;
     else if (active.matches("[data-human-page]"))
       selector = `[data-human-page="${active.dataset.humanPage}"]`;
+    else if (active.matches("[data-human-step]"))
+      selector = `[data-human-step="${active.dataset.humanStep}"]`;
+    else if (active.matches("[data-human-move]")) selector = ".human-card-footer .human-submit";
     else if (active.matches(".human-submit")) selector = ".human-submit";
     if (!selector) return;
     retainedFocus.set(key, {
@@ -301,21 +423,88 @@ export function createHumanQuestions(root, { submit, resume, onVisibility, onErr
       })
     );
     const form = root.querySelector("form");
+    const steps = request.proposal ? 1 : questionsOf(request).length;
+    const goTo = (step) => {
+      const current = draftFor(key);
+      const next = { ...current, step: Math.min(Math.max(0, step), steps - 1) };
+      drafts.set(key, next);
+      persist(key, next);
+      signature = undefined;
+      render();
+      root.querySelector('input[name="human-choice"], textarea')?.focus({ preventScroll: true });
+    };
     const saveDraft = () => {
-      const checked = form.querySelector('input[name="human-choice"]:checked');
-      const draft = { text: form.querySelector("textarea").value };
-      if (checked) draft.choice = Number(checked.value);
+      const current = draftFor(key);
+      const text = form.querySelector("textarea")?.value ?? "";
+      let draft;
+      if (request.proposal) draft = { text };
+      else {
+        const step = Math.min(current.step ?? 0, steps - 1);
+        const parts = Array.from(
+          { length: steps },
+          (_, at) => current.parts?.[at] ?? { choices: [], text: "" }
+        );
+        const choices = [...form.querySelectorAll('input[name="human-choice"]:checked')].map((input) =>
+          Number(input.value)
+        );
+        parts[step] = { choices, text };
+        draft = { step, parts };
+        form
+          .querySelectorAll(".human-option")
+          .forEach((label) =>
+            label.classList.toggle("is-checked", Boolean(label.querySelector("input:checked")))
+          );
+        const count = form.querySelector("[data-human-count]");
+        if (count) count.textContent = ui`已选 ${choices.length} 项`;
+      }
       drafts.set(key, draft);
       persist(key, draft);
       form.querySelector(".human-error").textContent =
         errors.get(key) || (storageErrors.has(key) ? storageMessage : "");
-      form.querySelector('[type="submit"]').disabled = busy.has(key) || !humanAnswer(request, draft);
+      const submit = form.querySelector('.human-submit[type="submit"]');
+      if (submit) submit.disabled = busy.has(key) || !humanAnswer(request, draft);
+      const feedback = form.querySelector("[data-human-feedback]");
+      if (feedback) feedback.hidden = !text.trim();
     };
     form.addEventListener("input", saveDraft);
     form.addEventListener("change", saveDraft);
     form.addEventListener("submit", (event) => {
       event.preventDefault();
-      void send(taskId, key, request);
+      if (humanAnswer(request, draftFor(key))) void send(taskId, key, request);
+    });
+    form
+      .querySelectorAll("[data-human-step]")
+      .forEach((button) => button.addEventListener("click", () => goTo(Number(button.dataset.humanStep))));
+    form
+      .querySelectorAll("[data-human-move]")
+      .forEach((button) =>
+        button.addEventListener("click", () =>
+          goTo((draftFor(key).step ?? 0) + Number(button.dataset.humanMove))
+        )
+      );
+    // Numbers pick an option (the one after the last is the typed answer);
+    // Enter moves on or sends, Shift+Enter is a new line.
+    form.addEventListener("keydown", (event) => {
+      if (event.isComposing || event.altKey || event.ctrlKey || event.metaKey) return;
+      const typing = event.target.matches("textarea");
+      const choices = [...form.querySelectorAll('input[name="human-choice"]')];
+      if (!typing && /^[1-9]$/.test(event.key) && choices.length) {
+        const at = Number(event.key) - 1;
+        if (at < choices.length) {
+          event.preventDefault();
+          choices[at].click();
+          choices[at].focus({ preventScroll: true });
+        } else if (at === choices.length) {
+          event.preventDefault();
+          form.querySelector("textarea")?.focus();
+        }
+        return;
+      }
+      if (event.key !== "Enter" || event.shiftKey || event.target.matches("button, summary")) return;
+      event.preventDefault();
+      const forward = form.querySelector('[data-human-move="1"]');
+      if (forward) forward.click();
+      else form.requestSubmit();
     });
     // A proposal's buttons answer directly: confirm, reject, or edit it in settings.
     form
@@ -327,6 +516,7 @@ export function createHumanQuestions(root, { submit, resume, onVisibility, onErr
       void send(taskId, key, request, ui("我会在设置里自己修改，这次不要保存"));
       onEditProposal?.(request.proposal);
     });
+    tick();
     restoreFocus(key, ownedFocus);
   }
   async function send(taskId, key, request, chosen) {
@@ -352,6 +542,16 @@ export function createHumanQuestions(root, { submit, resume, onVisibility, onErr
       render();
     }
   }
+  const tick = () => {
+    if (root.hidden) return;
+    for (const node of root.querySelectorAll("[data-expires]"))
+      node.textContent = countdownText(
+        node.dataset.expires,
+        node.dataset.recommended === "1",
+        node.dataset.settled === "1"
+      );
+  };
+  setInterval(tick, 1000);
   return {
     update(value) {
       detail = value;
