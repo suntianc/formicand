@@ -87,7 +87,9 @@ html[data-theme] .tool-step .activity-status .tool-progress-spinner.ant-mark {
   color: var(--color-text-3);
 }
 
-/* A label that is working gets a light sweeping across it. */
+/* A label that is working gets a light swept across it twice, then rests:
+   the sweep repaints the words every frame, so it does not run for a whole
+   wait. The label's phase survives repaints (data-thinking-key). */
 .shimmer-text {
   background: linear-gradient(
     90deg,
@@ -101,7 +103,7 @@ html[data-theme] .tool-step .activity-status .tool-progress-spinner.ant-mark {
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent !important;
-  animation: shimmer-sweep 2.2s linear infinite;
+  animation: shimmer-sweep 2.2s linear 2;
 }
 @keyframes shimmer-sweep {
   from {

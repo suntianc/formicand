@@ -30,8 +30,10 @@ html[data-theme] .observe-header {
     padding-right: 10px;
   }
   /* The panel leaves the grid and floats over the conversation, so opening it
-     never squeezes the reading column. */
+     never squeezes the reading column. Floating, it is solid: the words under
+     a clear panel would show through, and a blur re-ran on every frame. */
   html[data-theme] .agent-pane {
+    background-color: var(--side-fill-solid);
     position: fixed;
     top: 44px;
     right: 10px;

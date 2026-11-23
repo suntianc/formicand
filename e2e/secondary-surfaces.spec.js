@@ -173,7 +173,7 @@ test("attachment previews retain file content and styled page controls at deskto
       const current = Number(new URL(route.request().url()).searchParams.get("page"));
       if (current === 3) return route.fulfill({ status: 503, json: { error: "预览暂时不可用" } });
       preview ??= await (await route.fetch()).json();
-      return route.fulfill({ json: { ...preview, pages: 3, text: `第 ${current} 页：预览正文` } });
+      return route.fulfill({ json: { ...preview, pages: 3, content: `第 ${current} 页：预览正文` } });
     });
     for (const [width, theme] of [
       [1440, "light"],
