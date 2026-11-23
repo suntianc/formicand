@@ -75,9 +75,11 @@ export function numberPastedImages(images, attachedNames) {
 /** Prefer editable text over a rich-text source's image representation. */
 export function createComposerClipboard({ input, addFiles, attachedNames = () => [] }) {
   const paste = (event) => {
+    const isRich = event.target?.classList?.contains?.("composer-rich");
     if (event.defaultPrevented || event.clipboardData?.getData("text/plain")) return;
     const text = clipboardHtmlText(event.clipboardData?.getData("text/html"), input.ownerDocument);
     if (text) {
+      if (isRich) return;
       event.preventDefault();
       input.setRangeText(text, input.selectionStart, input.selectionEnd, "end");
       input.dispatchEvent(new Event("input", { bubbles: true }));
@@ -91,6 +93,16 @@ export function createComposerClipboard({ input, addFiles, attachedNames = () =>
     event.preventDefault();
     void addFiles(numberPastedImages(images, attachedNames()));
   };
+  const host = input.closest?.(".composer");
+  const richPaste = (event) => {
+    if (event.target !== input && event.target?.classList?.contains?.("composer-rich")) paste(event);
+  };
   input.addEventListener("paste", paste);
-  return { dispose: () => input.removeEventListener("paste", paste) };
+  host?.addEventListener("paste", richPaste);
+  return {
+    dispose: () => {
+      input.removeEventListener("paste", paste);
+      host?.removeEventListener("paste", richPaste);
+    }
+  };
 }
