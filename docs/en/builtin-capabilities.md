@@ -36,4 +36,4 @@ npm run verify:full
 
 Build and installation no longer download or generate CAD, Blender or PPTist resources. Release notes describe their historical versions; this page and the source define the current capabilities.
 
-Applications and the workbench were removed in P4.6. Agents use generic file tools for ordinary text and Markdown files; attachments are read through uploads, `read_attachment`, preview and download, and deliverables are published with `publish_artifact` and used from the work entry as a read-only preview, a download, or the desktop "open with the system default app" action.
+Applications and the workbench were removed in P4.6. Agents use generic file tools for ordinary text and Markdown files; attachments are read through uploads, `read_attachment`, preview and download, and deliverables are published with `publish_artifact` and used from the work entry as a read-only preview, a download, or the desktop "Open" button (choose an application on this Mac); project files a reply names open in the same read-only preview.

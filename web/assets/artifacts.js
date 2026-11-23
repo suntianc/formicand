@@ -41,10 +41,18 @@ export function invalidateArtifactCache(cache, artifacts) {
 }
 
 export function artifactRequestUrls(taskId, path, version, result = {}) {
-  const endpoint = `/api/tasks/${encodeURIComponent(taskId)}/artifact`;
+  return fileRequestUrls(`/api/tasks/${encodeURIComponent(taskId)}/artifact`, path, version, result);
+}
+
+/** A file of the session's project folder, read through the same preview contract. */
+export function projectFileUrls(taskId, path, version, result = {}) {
+  return fileRequestUrls(`/api/tasks/${encodeURIComponent(taskId)}/project-file`, path, version, result);
+}
+
+function fileRequestUrls(endpoint, path, version, result) {
   const base = `${endpoint}?path=${encodeURIComponent(path)}`;
   const versioned = (value, mode) => {
-    // The API only serves task-local files. Keep links local even if malformed
+    // The API only serves session files. Keep links local even if malformed
     // metadata reaches the viewer, and version media URLs as well as text.
     const fallback = new URL(base, "http://artifact.local");
     let url = fallback;
@@ -112,20 +120,22 @@ export function resolveArtifactLink(detail, absolutePath) {
 }
 
 export function normalizeArtifactPreview(result = {}) {
-  const previewKind = ["text", "pdf", "image", "download"].includes(result.previewKind)
+  const previewKind = ["text", "office", "pdf", "image", "download"].includes(result.previewKind)
     ? result.previewKind
     : "download";
+  // Only text, or the text extracted from an Office file, reaches the editor
+  // or the clipboard; binary payloads never do.
+  const textual = previewKind === "text" || previewKind === "office";
   return {
     ...result,
     previewKind,
-    // Binary payloads must never reach the text editor or clipboard.
-    content: previewKind === "text" ? String(result.content ?? "") : undefined,
-    truncated: previewKind === "text" && Boolean(result.truncated)
+    content: textual ? String(result.content ?? "") : undefined,
+    truncated: textual && Boolean(result.truncated)
   };
 }
 
 export function renderArtifactMedia(preview, { name, typeLabel, rawUrl, downloadUrl }) {
-  if (preview.previewKind === "text") return null;
+  if (preview.previewKind === "text" || preview.previewKind === "office") return null;
   if ((preview.previewKind === "pdf" || preview.previewKind === "image") && !rawUrl)
     return '<div class="drawer-state"><span class="editor-spinner"></span><strong>正在读取文件…</strong></div>';
   if (preview.previewKind === "pdf")

@@ -647,7 +647,6 @@ export default {
   正在打开: "Opening",
   未知错误: "Unknown error",
   已复制当前预览内容: "Preview content copied",
-  产出物内容已复制: "Artifact content copied",
   当前环境不支持复制: "Copying is not supported here",
   节点读取只接受相对路径: "Node reads accept relative paths only",
   无法连接节点: "Cannot reach the node",

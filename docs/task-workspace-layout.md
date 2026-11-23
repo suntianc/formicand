@@ -102,7 +102,7 @@ Task 首次写入时创建布局与 `agents/main/work/`，在 Main 首次模型�
 
 只供下载的最终文件写入 `artifacts/`；中间材料放 Agent 私有 `work/`，Subagent 候选输出放 `deliverables/`，由 Main 验收后用 `publish_artifact` 发布到正式交付目录。对话中的绝对文件链接按 Task 的 `storageRoot` 和已登记产出物解析，项目目录不作为产出物根。
 
-文本、Markdown、JSON、图片和 PDF 在预览抽屉中只读展示并提供下载；其他格式直接下载。桌面构建额外提供「用系统默认应用打开」，由 preload 经 `GET /api/tasks/:taskId/artifact-path` 解析已索引文件后调用 Electron `shell.openPath`；Web 构建不显示该入口。产物目录只保留最终字节，编辑与版本历史不属于当前产品范围。
+文本、Markdown、JSON、Office 文档、图片和 PDF 在预览抽屉中只读展示并提供下载；其他格式直接下载。桌面构建额外提供「打开」按钮，箭头列出本机能打开该文件的应用，由宿主经 `GET /api/tasks/:taskId/file-location` 解析已索引文件后打开；Web 构建不显示该入口。产物目录只保留最终字节，编辑与版本历史不属于当前产品范围。
 
 ## 全局索引与桌面数据
 

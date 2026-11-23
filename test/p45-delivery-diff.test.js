@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
@@ -177,6 +177,23 @@ test(
     });
     assert.equal(unknown.status, 409, JSON.stringify(unknown.body));
     assert.equal(unknown.body.code, "delivery_patch_path_unknown");
+
+    const located = await request(projectPath(project.projectId, "/deliveries"), {
+      action: "locate",
+      developmentId: development.developmentId,
+      path: "notes.txt"
+    });
+    assert.equal(located.status, 200, JSON.stringify(located.body));
+    assert.equal(
+      located.body.absolutePath,
+      join(await realpath(development.workspace.directory), "notes.txt")
+    );
+    const outside = await request(projectPath(project.projectId, "/deliveries"), {
+      action: "locate",
+      developmentId: development.developmentId,
+      path: "baseline.txt"
+    });
+    assert.equal(outside.body.code, "delivery_patch_path_unknown");
 
     // A requirement that never had a development has no patch to read.
     const other = (

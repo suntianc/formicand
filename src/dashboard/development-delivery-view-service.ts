@@ -17,6 +17,7 @@ import { git } from "../workspace/development-workspace.js";
 import { createDevelopmentMergeService } from "./project-development-merge-service.js";
 import type { DevelopmentReadOptions, ProjectDevelopmentPorts } from "./project-development-service.js";
 import type { createDevelopmentWorkspaceService } from "./development-workspace-service.js";
+import { ProjectFileMissing, resolveProjectFile } from "../workspace/project-files.js";
 import type { createDevelopmentReadinessService } from "./development-readiness-service.js";
 /** Longest patch text one preview reads; a larger change is cut and marked truncated. */
 const DELIVERY_PATCH_LIMIT = 200_000;
@@ -316,5 +317,33 @@ export function createDevelopmentDeliveryViewService({
     };
   }
 
-  return { deliveryView, deliveryPatch };
+  /**
+   * Where one changed file sits in the checkout this backend owns, for the
+   * desktop to hand to an application. Only a file the delivery diff lists.
+   */
+  async function deliveryFileLocation(
+    projectId: string,
+    input: { developmentId?: unknown; requirementId?: unknown; path?: unknown },
+    options: DevelopmentReadOptions = {}
+  ): Promise<{ absolutePath: string }> {
+    await project(projectId);
+    const { record, plan, reviews, merges, delivery } = await resolvedDelivery(projectId, input, options);
+    const workspace = record.workspace;
+    if (!workspace || workspace.state !== "ready")
+      throw conflict("需求现场不在这台设备上，无法打开文件", "delivery_patch_unavailable");
+    const diff = await deliveryDiff(record, delivery, merges, plan, reviews);
+    if (!diff) throw conflict("这台设备读不到需求现场，无法打开文件", "delivery_patch_unavailable");
+    const path = typeof input.path === "string" ? input.path : "";
+    if (!diff.files.some((file) => file.path === path))
+      throw conflict("该文件不在这次改动中", "delivery_patch_path_unknown");
+    try {
+      return { absolutePath: (await resolveProjectFile(workspace.directory, path)).absolutePath };
+    } catch (error) {
+      if (error instanceof ProjectFileMissing)
+        throw conflict("这个文件在需求现场里已不存在", "delivery_file_missing");
+      throw error;
+    }
+  }
+
+  return { deliveryView, deliveryPatch, deliveryFileLocation };
 }

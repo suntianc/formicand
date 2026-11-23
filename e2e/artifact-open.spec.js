@@ -171,7 +171,10 @@ test("artifact open displays authorized bytes for each isolated backend", async 
         );
       });
       await drawer.locator('[data-drawer-file="document.pdf"]').click();
-      await expect(drawer.locator(".drawer-content")).toContainText("点击“打开 ↗”查看 PDF。");
+      // A page renders where the PDF parser is installed; otherwise the viewer is offered.
+      await expect(
+        drawer.locator(".drawer-pdf-page img").or(drawer.getByText("点击“打开 ↗”查看 PDF。"))
+      ).toBeVisible();
       const response = await pdfResponse;
       expect(response.headers()["content-type"]).toBe("application/pdf");
       const blobContents = await page.evaluate(async () => {
@@ -231,7 +234,7 @@ test("点击产物只读预览并可下载，不可预览的直接下载，且�
     await panel.locator('[data-artifact="方案.md"]').click();
     await expect(drawer).toBeVisible();
     await expect(drawer.locator(".artifact-markdown")).toContainText("只读预览。");
-    await expect(drawer.locator("[data-open-system]")).toHaveCount(0);
+    await expect(drawer.locator("[data-open-main]")).toHaveCount(0);
     const preview = page.waitForEvent("download");
     await drawer.getByRole("link", { name: "下载", exact: true }).click();
     expect((await preview).suggestedFilename()).toBe("方案.md");

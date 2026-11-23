@@ -341,7 +341,7 @@ const {
   closeArtifactDrawer,
   renderArtifactDrawer,
   openPreview,
-  fileTarget,
+  canOpenReference,
   openFileReference
 } = artifacts;
 const requirementPanel = createRequirementPanel({
@@ -362,14 +362,14 @@ const conversationView = createConversationView({
   messageEdit,
   edit: (taskId, target) => messageEdit.begin(taskId, target),
   fork: (taskId, messageId) => workSessions.forkConversation(taskId, messageId),
-  resolveFile: (path) => Boolean(fileTarget(path)),
+  resolveFile: () => canOpenReference(),
   showToast
 });
 installSelectionGlide();
 installCodeBlockActions(document, {
   showToast,
   openFile: (path, line) => {
-    if (!openFileReference(path, line)) showToast(ui("这个文件不在本会话的产出或改动里，无法预览"));
+    if (!openFileReference(path, line)) showToast(ui("项目里找不到这个文件"));
   }
 });
 const runControl = createRunControl({

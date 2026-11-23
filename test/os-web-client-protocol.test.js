@@ -299,7 +299,12 @@ test("opening a PDF reads the bound backend's file through its authorized sessio
     delete document.querySelector("#artifact-drawer").dataset.signature;
     controller.renderArtifactDrawer();
     assert.equal(document.querySelector("#artifact-drawer iframe"), null);
-    assert.match(document.querySelector("#artifact-drawer").textContent, /点击“打开 ↗”查看 PDF/);
+    // The fixture is no real PDF, so no page renders and the viewer is offered.
+    await waitFor(
+      "PDF fallback",
+      () => /点击“打开 ↗”查看 PDF/.test(document.querySelector("#artifact-drawer").textContent),
+      5000
+    );
     document
       .querySelector('#artifact-drawer a[target="_blank"]')
       .dispatchEvent(new window.Event("click", { bubbles: true, cancelable: true }));

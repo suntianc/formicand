@@ -27,7 +27,8 @@ for (const width of [1440, 900, 640])
       await page.locator("[data-upload-preview]").click();
       await expect(page.locator(".attachment-preview")).toBeVisible();
       await expect(page.locator("[data-preview-content]")).toContainText("完整 UTF-8 😀");
-      await expect(page.locator("[data-preview-content]")).toContainText("12,000");
+      // The shared reader shows text up to 1 MiB, so this whole file is there.
+      await expect(page.locator("[data-preview-content]")).toContainText("FILE_END");
       const original = await (
         await page.request.get(
           new URL(await page.locator("[data-preview-download]").getAttribute("href"), dashboard.base).href

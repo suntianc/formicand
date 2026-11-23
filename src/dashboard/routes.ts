@@ -46,6 +46,7 @@ import type { SkillService } from "./skill-service.js";
 import { handleMcpRequest } from "./mcp-routes.js";
 import type { McpService } from "./mcp-service.js";
 import { handleComposerRequest } from "./composer-routes.js";
+import type { ProjectFileIndex } from "../workspace/project-file-index.js";
 import { handleAgentRequest } from "./agent-routes.js";
 import { handleMemoryRequest } from "./memory-routes.js";
 import type { MemoryService } from "./memory-service.js";
@@ -63,6 +64,7 @@ import { handleProjectCatalogRequest } from "./project-catalog-routes.js";
 import { handleModelSettingsRequest } from "./model-settings-routes.js";
 import { handleTaskConversationRequest } from "./task-conversation-routes.js";
 import { handleTaskLifecycleRequest } from "./task-lifecycle-routes.js";
+import { handleTaskFileRequest } from "./task-file-routes.js";
 
 export interface DashboardRoutePorts {
   backendInfo(): { backendId: string; pid: number; startedAt: string };
@@ -86,6 +88,8 @@ export interface DashboardRoutePorts {
   skills?: SkillService;
   mcp?: McpService;
   composer?: ComposerService;
+  /** The listing of project files behind `@` and file-reference lookup. */
+  projectFiles: ProjectFileIndex;
   agents?: AgentService;
   /** Main's memory and Settings → Memory; absent in partial handlers. */
   memories?: MemoryService;
@@ -439,6 +443,7 @@ export function createDashboardHandler(
         return;
       }
       if (await handleTaskConversationRequest(request, response, url, ports, principal)) return;
+      if (await handleTaskFileRequest(request, response, url, ports)) return;
       await handleTaskLifecycleRequest(request, response, url, ports);
     } catch (error) {
       if (response.headersSent) response.destroy();
