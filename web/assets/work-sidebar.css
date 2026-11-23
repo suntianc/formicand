@@ -296,6 +296,9 @@ html[data-theme] .conversation-list {
   padding: 0;
   overflow: visible;
 }
+html[data-theme] :is(.conversation-list, .pinned-list) > * {
+  flex-shrink: 0;
+}
 html[data-theme] .project-group.collapsed .conversation-list {
   display: none;
 }

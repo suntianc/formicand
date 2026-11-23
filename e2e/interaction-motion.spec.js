@@ -81,6 +81,20 @@ test("interactions move: arrivals, copy, disclosures, dialogs and sidebar rows",
     await expect.poll(async () => (await details.boundingBox()).height).toBeGreaterThan(closed + 190);
     expect(heights.some((height) => height > closed + 1 && height < closed + 199)).toBe(true);
 
+    // A project group folds and unfolds smoothly in the sidebar.
+    await reset(page);
+    const projectButton = page.locator("[data-project-id]").first();
+    const projectList = projectButton.locator("../..").locator(".conversation-list");
+    await projectButton.click();
+    await expect(projectButton).toHaveAttribute("aria-expanded", "false");
+    await expect(projectList).toBeHidden();
+    expect((await animated(page)).some((entry) => entry.classes.includes("conversation-list"))).toBe(true);
+    await reset(page);
+    await projectButton.click();
+    await expect(projectButton).toHaveAttribute("aria-expanded", "true");
+    await expect(projectList).toBeVisible();
+    expect((await animated(page)).some((entry) => entry.classes.includes("conversation-list"))).toBe(true);
+
     // A dialog's card rises in over a fading backdrop.
     await reset(page);
     const settings = page.locator("[data-project-settings]").first();
@@ -108,8 +122,14 @@ test("reduced motion keeps every interaction still", async ({ page }) => {
     await page.locator("#composer-input").fill("第二条消息");
     await page.locator("#send-button").click();
     await expect(page.locator(".chat-message.main")).toHaveCount(2, { timeout: 30000 });
+    const projectButton = page.locator("[data-project-id]").first();
+    const projectList = projectButton.locator("../..").locator(".conversation-list");
+    await projectButton.click();
+    await expect(projectList).toBeHidden();
+    await projectButton.click();
+    await expect(projectList).toBeVisible();
     const moved = (await animated(page)).filter((entry) =>
-      /chat-message|conversation-row|modal-card/.test(entry.classes)
+      /chat-message|conversation-row|conversation-list|modal-card/.test(entry.classes)
     );
     expect(moved).toEqual([]);
   } finally {

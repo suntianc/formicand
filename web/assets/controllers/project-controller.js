@@ -1,7 +1,7 @@
 import { ui } from "../ui/language.js";
 import { icon } from "../ui/icons.js";
 import { createModal } from "../ui/modal.js";
-import { animate, reducedMotion } from "../ui/motion.js";
+import { animate, motionDuration, reducedMotion } from "../ui/motion.js";
 import { createMenu } from "../ui/menu.js";
 import { escapeHtml as esc } from "../ui/html.js";
 
@@ -139,6 +139,58 @@ export function createProjectController({
 
   const ROW_MS = 200;
   const ROW_EASE = "cubic-bezier(0.2, 0, 0, 1)";
+  const foldAnimations = new Map();
+  /** Captures a collapsible list's live height and opacity before a re-render. */
+  function captureFold(key, element) {
+    if (typeof element?.animate !== "function" || reducedMotion() || iconRail.matches) return null;
+    const active = foldAnimations.get(key);
+    const height = element.getBoundingClientRect().height;
+    const opacity = height > 0 ? Number.parseFloat(window.getComputedStyle?.(element)?.opacity ?? "1") : 0;
+    if (active) {
+      foldAnimations.delete(key);
+      active.cancel();
+    }
+    return {
+      key,
+      fromHeight: height,
+      fromOpacity: Number.isFinite(opacity) ? opacity : height > 0 ? 1 : 0
+    };
+  }
+  /** Eases a project or pinned list between its previous height and its new state. */
+  function playFold({ key, fromHeight, fromOpacity, collapsed, findTarget }) {
+    if (reducedMotion() || iconRail.matches) return;
+    const target = findTarget?.();
+    if (!target) return;
+    let toHeight = 0;
+    let toOpacity = 0;
+    if (collapsed) {
+      if (fromHeight <= 0) return;
+      target.style.display = "flex";
+      target.style.overflow = "hidden";
+      target.style.pointerEvents = "none";
+    } else {
+      toHeight = target.scrollHeight || target.getBoundingClientRect().height;
+      toOpacity = 1;
+      if (toHeight <= 0 || Math.abs(toHeight - fromHeight) < 1) return;
+      target.style.overflow = "hidden";
+    }
+    const animation = animate(
+      target,
+      [
+        { height: `${fromHeight}px`, opacity: fromOpacity },
+        { height: `${toHeight}px`, opacity: toOpacity }
+      ],
+      { duration: motionDuration("--motion-base", ROW_MS), easing: ROW_EASE }
+    );
+    foldAnimations.set(key, animation);
+    const clear = () => {
+      if (foldAnimations.get(key) === animation) foldAnimations.delete(key);
+      target.style.removeProperty("display");
+      target.style.removeProperty("overflow");
+      target.style.removeProperty("pointer-events");
+    };
+    animation.finished.then(clear, clear);
+  }
   /**
    * A conversation that joins the list grows into place and one that leaves
    * (archived, deleted) shrinks away, as a still copy of its row, instead of
@@ -194,7 +246,7 @@ export function createProjectController({
 
   const byRecent = (a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || "");
 
-  function render() {
+  function render({ fold } = {}) {
     const root = $("#project-list");
     const pinnedRoot = $("#pinned-section");
     const scrollHost = $("[data-sidebar-scroll]") || root;
@@ -283,8 +335,9 @@ export function createProjectController({
       root.conversationMarkup = markup;
       root.innerHTML = markup;
     }
+    if (fold) playFold(fold);
     scrollHost.scrollTop = scrollTop;
-    animateRowChanges(scrollHost, rowsBefore);
+    if (!fold) animateRowChanges(scrollHost, rowsBefore);
 
     const bindRows = (scope) => {
       scope.querySelectorAll("[data-session-toggle]").forEach((node) =>
@@ -327,9 +380,16 @@ export function createProjectController({
     if (pinnedChanged) {
       bindRows(pinnedRoot);
       pinnedRoot.querySelector("[data-pinned-toggle]")?.addEventListener("click", () => {
+        const snapshot = captureFold("pinned", pinnedRoot.querySelector(".pinned-list"));
         pinnedCollapsed = !pinnedCollapsed;
         rememberPinnedCollapsed();
-        render();
+        render({
+          fold: snapshot && {
+            ...snapshot,
+            collapsed: pinnedCollapsed,
+            findTarget: () => pinnedRoot.querySelector(".pinned-list")
+          }
+        });
       });
     }
     if (rootChanged) {
@@ -337,9 +397,18 @@ export function createProjectController({
       root.querySelectorAll("[data-project-more]").forEach((node) =>
         node.addEventListener("click", () => {
           const id = node.dataset.projectMore;
+          const findTarget = () =>
+            root.querySelector(`[data-project="${CSS.escape(id)}"] > .conversation-list`);
+          const snapshot = captureFold(`project:${id}`, findTarget());
           const currentLimit = projectLimits.get(id) ?? PROJECT_PAGE_SIZE;
           projectLimits.set(id, currentLimit + PROJECT_PAGE_SIZE);
-          render();
+          render({
+            fold: snapshot && {
+              ...snapshot,
+              collapsed: false,
+              findTarget
+            }
+          });
         })
       );
       root
@@ -366,10 +435,19 @@ export function createProjectController({
           const id = node.dataset.projectId;
           select(id);
           if (!state.selected) beginConversation(id);
+          const findTarget = () =>
+            root.querySelector(`[data-project="${CSS.escape(id)}"] > .conversation-list`);
+          const snapshot = captureFold(`project:${id}`, findTarget());
           if (state.collapsedProjects.has(id)) state.collapsedProjects.delete(id);
           else state.collapsedProjects.add(id);
           rememberCollapsed();
-          render();
+          render({
+            fold: snapshot && {
+              ...snapshot,
+              collapsed: state.collapsedProjects.has(id),
+              findTarget
+            }
+          });
         })
       );
     }
