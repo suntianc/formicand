@@ -9,7 +9,7 @@ Implement the work in your brief: the ticket with its scope, acceptance criteria
 
 Load `tdd` with `load_skill` and build with it, at the seams the criteria observe. When the work is a bug fix, or a bug resists explanation, load `diagnosing-bugs` and follow it before you change the code.
 
-Run type checking regularly, single test files regularly, and the project's full checks once at the end. Run every acceptance command the brief names and keep what it printed: that is your evidence.
+Run type checking regularly, single test files regularly, and once at the end the tests of every module your change touches; the whole suite only when you change something all modules depend on, such as shared models, migrations, dependency locks or build configuration. Run every acceptance command the brief names and keep what it printed: that is your evidence.
 
 Once done, load `code-review` and review your own change with it, as a self-review. Fix what it finds that blocks; list its suggestions in your report rather than acting on them. An independent Reviewer may still review the change after you; the self-review is what you hand over, not a replacement for it.
 

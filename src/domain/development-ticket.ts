@@ -749,7 +749,7 @@ function ticketSteps(facts: NextStepFacts): string {
   const passed = by("passed");
   if (passed.length)
     steps.push(
-      `Tickets ${ids(passed)} passed review: integrate_ticket brings each into the requirement checkout and runs the project's checks and its acceptance commands.`
+      `Tickets ${ids(passed)} passed review: integrate_ticket brings each into the requirement checkout and runs the checks you pass, the tests of the modules it changes, with its acceptance commands.`
     );
   const atLimit = facts.ticketsAtLimit ?? [];
   for (const { ticketId, reviewId } of atLimit)

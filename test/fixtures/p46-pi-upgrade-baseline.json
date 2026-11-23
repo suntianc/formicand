@@ -1210,7 +1210,7 @@
               "required": ["name", "command"],
               "additionalProperties": false
             },
-            "description": "request_merge: commands to run on the target-plus-candidate version; omit to reuse the recorded checks. integrate_ticket: the project's checks, run with the ticket's acceptance commands."
+            "description": "request_merge: commands to run on the target-plus-candidate version; omit to reuse the recorded checks. integrate_ticket: the tests of the modules this ticket changes, run with its acceptance commands; the whole suite only when it changes something all modules depend on, such as shared models, migrations, dependency locks or build configuration."
           },
           "retro": {
             "type": "object",
