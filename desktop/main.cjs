@@ -318,7 +318,7 @@ ipcMain.handle("bookman:choose-project", async (event) => {
   return result.canceled ? undefined : result.filePaths[0];
 });
 /** Open one already-published artifact in the system's default application. */
-const fileOpener = createFileOpener({ shell, app });
+const fileOpener = createFileOpener({ shell, nativeImage });
 /**
  * The local file behind one previewed file. The renderer names only the
  * session, the source and the path inside it; the backend resolves and
