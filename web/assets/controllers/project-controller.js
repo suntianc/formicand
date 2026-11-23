@@ -31,14 +31,19 @@ export function createProjectController({
     dialogEpoch = 0,
     saving = false;
   const localProjects = new Map(),
-    localTasks = new Map();
+    localTasks = new Map(),
+    projectLimits = new Map();
+  const PROJECT_PAGE_SIZE = 5;
   const selectedKey = "atria.selected-project.v1";
   const collapsedKey = "atria.collapsed-projects.v1";
+  const pinnedCollapsedKey = "atria.collapsed-pinned.v1";
+  let pinnedCollapsed = false;
   try {
     state.selectedProjectId ||= storage?.getItem(selectedKey) || null;
     const remembered = JSON.parse(storage?.getItem(collapsedKey) || "null");
     if (Array.isArray(remembered))
       for (const id of remembered) if (typeof id === "string") state.collapsedProjects.add(id);
+    pinnedCollapsed = storage?.getItem(pinnedCollapsedKey) === "1";
     // eslint-disable-next-line no-restricted-syntax -- the remembered selection and folds are optional; blocked storage just leaves the defaults
   } catch {
     /* optional persistence */
@@ -51,9 +56,20 @@ export function createProjectController({
       /* optional persistence */
     }
   }
+  function rememberPinnedCollapsed() {
+    try {
+      storage?.setItem(pinnedCollapsedKey, pinnedCollapsed ? "1" : "0");
+      // eslint-disable-next-line no-restricted-syntax -- a full or blocked storage keeps the fold for this session only
+    } catch {
+      /* optional persistence */
+    }
+  }
   // Below this width the sidebar is an icon rail, where every project shows
   // its tree only while open, so the project icon answers for its questions.
   const railWindow = window.matchMedia?.("(max-width: 1023px)") ?? { matches: false };
+  // In the 640–1023 icon rail there is no text column for a standalone Pinned
+  // section, so each project's hover tree keeps its pinned sessions reachable.
+  const iconRail = window.matchMedia?.("(min-width: 640px) and (max-width: 1023px)") ?? { matches: false };
   const projects = () => state.projects || [];
   // Only Subagents still at work hang under their session. Finished ones stay
   // in the conversation and the progress panel; keeping them here made every
@@ -176,27 +192,42 @@ export function createProjectController({
     }
   }
 
+  const byRecent = (a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || "");
+
   function render() {
     const root = $("#project-list");
-    const focused = root.contains(document.activeElement) ? document.activeElement : null;
+    const pinnedRoot = $("#pinned-section");
+    const scrollHost = $("[data-sidebar-scroll]") || root;
+    const focused = scrollHost.contains(document.activeElement) ? document.activeElement : null;
     const focusTask = focused?.dataset.task,
       focusQuick = focused?.dataset.quickTask
         ? [focused.dataset.quickTask, focused.dataset.quickAction]
         : null,
-      focusToggle = focused?.dataset.sessionToggle;
-    const focusProject = focused?.closest("[data-project]")?.dataset.project;
-    const focusAction = focused?.hasAttribute("data-project-create")
+      focusToggle = focused?.dataset.sessionToggle,
+      focusMore = focused?.dataset.projectMore,
+      focusPinnedToggle = focused?.hasAttribute?.("data-pinned-toggle") ?? false;
+    const focusProject = focused?.closest?.("[data-project]")?.dataset.project;
+    const focusAction = focused?.hasAttribute?.("data-project-create")
       ? "[data-project-create]"
-      : focused?.hasAttribute("data-project-settings")
+      : focused?.hasAttribute?.("data-project-settings")
         ? "[data-project-settings]"
         : ".project-row";
-    const scrollTop = root.scrollTop;
+    const scrollTop = scrollHost.scrollTop;
     $("#conversation-count").textContent = state.tasks.filter(visibleTask).length;
     const selected = current();
     if (selected && !find(state.selectedProjectId)) select(selected.projectId, { automatic: true });
+
+    const separatePinned = !iconRail.matches;
+    const pinned = separatePinned
+      ? state.tasks.filter((task) => task.pinned && visibleTask(task)).sort(byRecent)
+      : [];
+    const pinnedMarkup = pinned.length
+      ? `<button class="pinned-heading" type="button" data-pinned-toggle aria-expanded="${!pinnedCollapsed}"><span>${esc(ui("置顶"))}</span><span class="pinned-chevron" aria-hidden="true">${icon(pinnedCollapsed ? "chevron-right" : "chevron-down")}</span></button><div class="pinned-list">${pinned.map(taskRow).join("")}</div>`
+      : "";
+
     const temporary = state.tasks
-      .filter((task) => task.temporaryWorkspaceRoot && visibleTask(task))
-      .sort((a, b) => Number(Boolean(b.pinned)) - Number(Boolean(a.pinned)));
+      .filter((task) => task.temporaryWorkspaceRoot && (!separatePinned || !task.pinned) && visibleTask(task))
+      .sort((a, b) => Number(Boolean(b.pinned)) - Number(Boolean(a.pinned)) || byRecent(a, b));
     const temporaryMarkup = temporary.length
       ? ui`<section class="temporary-conversations"><div class="editor-empty-label">临时会话</div>${temporary.map(taskRow).join("")}</section>`
       : "";
@@ -205,89 +236,143 @@ export function createProjectController({
       (projects()
         .map((project) => {
           const id = project.projectId,
-            tasks = (project.tasks || []).filter(visibleTask),
+            allVisible = (project.tasks || []).filter(visibleTask),
+            projectTasks = (
+              separatePinned ? allVisible.filter((task) => !task.pinned) : [...allVisible]
+            ).sort(
+              (a, b) =>
+                (separatePinned ? 0 : Number(Boolean(b.pinned)) - Number(Boolean(a.pinned))) || byRecent(a, b)
+            ),
             collapsed = state.collapsedProjects.has(id);
-          const question = (collapsed || railWindow.matches) && tasks.some((task) => task.pendingQuestion);
+          let limit = projectLimits.get(id) ?? PROJECT_PAGE_SIZE;
+          const selectedIndex = state.selected
+            ? projectTasks.findIndex((task) => task.taskId === state.selected)
+            : -1;
+          if (selectedIndex >= limit) {
+            limit = Math.ceil((selectedIndex + 1) / PROJECT_PAGE_SIZE) * PROJECT_PAGE_SIZE;
+            projectLimits.set(id, limit);
+          }
+          const shown = projectTasks.slice(0, limit);
+          const remaining = projectTasks.length - shown.length;
+          const moreButton =
+            remaining > 0
+              ? `<button class="project-more" type="button" data-project-more="${esc(id)}" aria-label="${esc(ui("展开剩余会话"))}" title="${esc(ui`还有 ${remaining} 个会话`)}">${esc(ui("展开剩余"))}</button>`
+              : "";
+          const listBody =
+            shown.map(taskRow).join("") + moreButton ||
+            (allVisible.length ? "" : ui('<div class="project-empty" data-project-empty>还没有对话</div>'));
+          const question =
+            (collapsed || railWindow.matches) && projectTasks.some((task) => task.pendingQuestion);
           return ui`<section class="project-group ${collapsed ? "collapsed" : ""} ${state.selectedProjectId === id ? "is-selected" : ""}" data-project="${esc(id)}">
-        <div class="project-heading"><button class="project-row" type="button" data-project-id="${esc(id)}" aria-expanded="${!collapsed}" title="${esc(project.projectDirectory || project.workspaceRoot || "")}"><span class="project-disclosure" aria-hidden="true"><span class="project-chevron">${icon("chevron-down")}</span><span class="project-folder">${icon(collapsed ? "folder" : "folder-open")}</span></span><span class="project-name">${esc(project.projectName)}</span>${question ? `<span class="project-question" role="img" aria-label="${esc(ui("有待回答的问题"))}"></span>` : ""}${collapsed && tasks.length ? `<span class="project-count">${tasks.length}</span>` : ""}</button><button class="project-settings" type="button" data-project-settings="${esc(id)}" aria-haspopup="menu" aria-expanded="false" aria-label="项目操作：${esc(project.projectName)}" title="项目操作">${icon("more")}</button><button class="project-create" type="button" data-project-create="${esc(id)}" aria-label="在 ${esc(project.projectName)} 中新建会话" title="在此项目新建会话">${icon("plus")}</button></div>
-        <div class="conversation-list" aria-label="${esc(project.projectName)}中的对话"><div class="project-rail-head"><span class="project-rail-name">${esc(project.projectName)}</span><button class="project-rail-action" type="button" data-rail-settings="${esc(id)}" aria-haspopup="menu" aria-expanded="false" aria-label="${esc(ui("项目操作"))}" title="${esc(ui("项目操作"))}">${icon("more")}</button><button class="project-rail-action" type="button" data-rail-create="${esc(id)}" aria-label="${esc(ui("新建会话"))}" title="${esc(ui("在此项目新建会话"))}">${icon("plus")}</button></div>${
-          tasks
-            .sort((a, b) => Number(Boolean(b.pinned)) - Number(Boolean(a.pinned)))
-            .map(taskRow)
-            .join("") || ui('<div class="project-empty" data-project-empty>还没有对话</div>')
-        }</div></section>`;
+        <div class="project-heading"><button class="project-row" type="button" data-project-id="${esc(id)}" aria-expanded="${!collapsed}" title="${esc(project.projectDirectory || project.workspaceRoot || "")}"><span class="project-disclosure" aria-hidden="true"><span class="project-folder">${icon(collapsed ? "folder" : "folder-open")}</span></span><span class="project-name">${esc(project.projectName)}</span>${question ? `<span class="project-question" role="img" aria-label="${esc(ui("有待回答的问题"))}"></span>` : ""}${collapsed && projectTasks.length ? `<span class="project-count">${projectTasks.length}</span>` : ""}</button><button class="project-settings" type="button" data-project-settings="${esc(id)}" aria-haspopup="menu" aria-expanded="false" aria-label="项目操作：${esc(project.projectName)}" title="项目操作">${icon("more")}</button><button class="project-create" type="button" data-project-create="${esc(id)}" aria-label="在 ${esc(project.projectName)} 中新建会话" title="在此项目新建会话">${icon("plus")}</button></div>
+        <div class="conversation-list" aria-label="${esc(project.projectName)}中的对话"><div class="project-rail-head"><span class="project-rail-name">${esc(project.projectName)}</span><button class="project-rail-action" type="button" data-rail-settings="${esc(id)}" aria-haspopup="menu" aria-expanded="false" aria-label="${esc(ui("项目操作"))}" title="${esc(ui("项目操作"))}">${icon("more")}</button><button class="project-rail-action" type="button" data-rail-create="${esc(id)}" aria-label="${esc(ui("新建会话"))}" title="${esc(ui("在此项目新建会话"))}">${icon("plus")}</button></div>${listBody}</div></section>`;
         })
         .join("") || (temporary.length ? "" : ui('<div class="sidebar-empty-state">还没有项目</div>')));
-    if (root.conversationMarkup === markup) return;
-    const rowsBefore = root.conversationMarkup === undefined ? undefined : rowsById(root);
-    root.conversationMarkup = markup;
-    root.innerHTML = markup;
-    root.scrollTop = scrollTop;
-    animateRowChanges(root, rowsBefore);
-    root.querySelectorAll("[data-session-toggle]").forEach((node) =>
-      node.addEventListener("click", () => {
-        const id = node.dataset.sessionToggle;
-        if (state.collapsedSessions?.has(id)) state.collapsedSessions.delete(id);
-        else state.collapsedSessions?.add(id);
-        render();
-      })
-    );
-    root.querySelectorAll("[data-task]").forEach((node) =>
-      node.addEventListener("click", () => {
-        const task = state.tasks.find((entry) => entry.taskId === node.dataset.task);
-        const project = projectForTask(task);
-        if (project) select(project.projectId);
-        selectConversation(node.dataset.task);
-      })
-    );
-    // The context menu opens from the row itself: right click at the pointer,
-    // Shift+F10 or the Menu key beside the row.
-    root.querySelectorAll(".conversation-item[data-task]").forEach((node) => {
-      node.addEventListener("contextmenu", (event) => {
-        event.preventDefault();
-        openTaskMenu(node, node.dataset.task, { at: { x: event.clientX, y: event.clientY } });
-      });
-      node.addEventListener("keydown", (event) => {
-        if ((event.key === "F10" && event.shiftKey) || event.key === "ContextMenu") {
+
+    const rootChanged = root.conversationMarkup !== markup;
+    const pinnedChanged = Boolean(pinnedRoot && pinnedRoot.pinnedMarkup !== pinnedMarkup);
+    if (!rootChanged && !pinnedChanged) return;
+    const rowsBefore = root.conversationMarkup === undefined ? undefined : rowsById(scrollHost);
+    if (pinnedChanged) {
+      pinnedRoot.pinnedMarkup = pinnedMarkup;
+      pinnedRoot.hidden = !pinned.length;
+      pinnedRoot.classList.toggle("collapsed", pinnedCollapsed);
+      pinnedRoot.innerHTML = pinnedMarkup;
+    }
+    if (rootChanged) {
+      root.conversationMarkup = markup;
+      root.innerHTML = markup;
+    }
+    scrollHost.scrollTop = scrollTop;
+    animateRowChanges(scrollHost, rowsBefore);
+
+    const bindRows = (scope) => {
+      scope.querySelectorAll("[data-session-toggle]").forEach((node) =>
+        node.addEventListener("click", () => {
+          const id = node.dataset.sessionToggle;
+          if (state.collapsedSessions?.has(id)) state.collapsedSessions.delete(id);
+          else state.collapsedSessions?.add(id);
+          render();
+        })
+      );
+      scope.querySelectorAll("[data-task]").forEach((node) =>
+        node.addEventListener("click", () => {
+          const task = state.tasks.find((entry) => entry.taskId === node.dataset.task);
+          const project = projectForTask(task);
+          if (project) select(project.projectId);
+          selectConversation(node.dataset.task);
+        })
+      );
+      // The context menu opens from the row itself: right click at the pointer,
+      // Shift+F10 or the Menu key beside the row.
+      scope.querySelectorAll(".conversation-item[data-task]").forEach((node) => {
+        node.addEventListener("contextmenu", (event) => {
           event.preventDefault();
-          openTaskMenu(node, node.dataset.task);
-        }
+          openTaskMenu(node, node.dataset.task, { at: { x: event.clientX, y: event.clientY } });
+        });
+        node.addEventListener("keydown", (event) => {
+          if ((event.key === "F10" && event.shiftKey) || event.key === "ContextMenu") {
+            event.preventDefault();
+            openTaskMenu(node, node.dataset.task);
+          }
+        });
       });
-    });
-    root.querySelectorAll("[data-quick-action]").forEach((node) =>
-      node.addEventListener("click", (event) => {
-        event.stopPropagation();
-        quickTaskAction(node.dataset.quickAction, node.dataset.quickTask);
-      })
-    );
-    root
-      .querySelectorAll("[data-project-create]")
-      .forEach((node) => node.addEventListener("click", () => beginConversation(node.dataset.projectCreate)));
-    root
-      .querySelectorAll("[data-project-settings]")
-      .forEach((node) =>
-        node.addEventListener("click", () => openProjectMenu(node, node.dataset.projectSettings))
+      scope.querySelectorAll("[data-quick-action]").forEach((node) =>
+        node.addEventListener("click", (event) => {
+          event.stopPropagation();
+          quickTaskAction(node.dataset.quickAction, node.dataset.quickTask);
+        })
       );
-    // The icon rail repeats the same two project commands inside its hover tree.
-    root
-      .querySelectorAll("[data-rail-create]")
-      .forEach((node) => node.addEventListener("click", () => beginConversation(node.dataset.railCreate)));
-    root
-      .querySelectorAll("[data-rail-settings]")
-      .forEach((node) =>
-        node.addEventListener("click", () => openProjectMenu(node, node.dataset.railSettings))
-      );
-    root.querySelectorAll("[data-project-id]").forEach((node) =>
-      node.addEventListener("click", () => {
-        const id = node.dataset.projectId;
-        select(id);
-        if (!state.selected) beginConversation(id);
-        if (state.collapsedProjects.has(id)) state.collapsedProjects.delete(id);
-        else state.collapsedProjects.add(id);
-        rememberCollapsed();
+    };
+    if (pinnedChanged) {
+      bindRows(pinnedRoot);
+      pinnedRoot.querySelector("[data-pinned-toggle]")?.addEventListener("click", () => {
+        pinnedCollapsed = !pinnedCollapsed;
+        rememberPinnedCollapsed();
         render();
-      })
-    );
+      });
+    }
+    if (rootChanged) {
+      bindRows(root);
+      root.querySelectorAll("[data-project-more]").forEach((node) =>
+        node.addEventListener("click", () => {
+          const id = node.dataset.projectMore;
+          const currentLimit = projectLimits.get(id) ?? PROJECT_PAGE_SIZE;
+          projectLimits.set(id, currentLimit + PROJECT_PAGE_SIZE);
+          render();
+        })
+      );
+      root
+        .querySelectorAll("[data-project-create]")
+        .forEach((node) =>
+          node.addEventListener("click", () => beginConversation(node.dataset.projectCreate))
+        );
+      root
+        .querySelectorAll("[data-project-settings]")
+        .forEach((node) =>
+          node.addEventListener("click", () => openProjectMenu(node, node.dataset.projectSettings))
+        );
+      // The icon rail repeats the same two project commands inside its hover tree.
+      root
+        .querySelectorAll("[data-rail-create]")
+        .forEach((node) => node.addEventListener("click", () => beginConversation(node.dataset.railCreate)));
+      root
+        .querySelectorAll("[data-rail-settings]")
+        .forEach((node) =>
+          node.addEventListener("click", () => openProjectMenu(node, node.dataset.railSettings))
+        );
+      root.querySelectorAll("[data-project-id]").forEach((node) =>
+        node.addEventListener("click", () => {
+          const id = node.dataset.projectId;
+          select(id);
+          if (!state.selected) beginConversation(id);
+          if (state.collapsedProjects.has(id)) state.collapsedProjects.delete(id);
+          else state.collapsedProjects.add(id);
+          rememberCollapsed();
+          render();
+        })
+      );
+    }
     // The icon rail's hover tree is a fixed panel, so it follows the icon it
     // belongs to. Delegated, because every render replaces the rows.
     if (!root.dataset.railPinned) {
@@ -306,18 +391,23 @@ export function createProjectController({
       // A question dot belongs to the folded project in the rail and to the
       // session in a wide tree, so crossing the breakpoint re-renders the rows.
       railWindow.addEventListener?.("change", () => render());
+      iconRail.addEventListener?.("change", () => render());
     }
     onRendered();
-    const focusSelector = focusQuick
-      ? `[data-quick-task="${CSS.escape(focusQuick[0])}"][data-quick-action="${focusQuick[1]}"]`
-      : focusToggle
-        ? `[data-session-toggle="${CSS.escape(focusToggle)}"]`
-        : focusTask
-          ? `[data-task="${CSS.escape(focusTask)}"]`
-          : focusProject
-            ? `[data-project="${CSS.escape(focusProject)}"] ${focusAction}`
-            : null;
-    if (focusSelector) root.querySelector(focusSelector)?.focus({ preventScroll: true });
+    const focusSelector = focusPinnedToggle
+      ? "[data-pinned-toggle]"
+      : focusMore
+        ? `[data-project-more="${CSS.escape(focusMore)}"]`
+        : focusQuick
+          ? `[data-quick-task="${CSS.escape(focusQuick[0])}"][data-quick-action="${focusQuick[1]}"]`
+          : focusToggle
+            ? `[data-session-toggle="${CSS.escape(focusToggle)}"]`
+            : focusTask
+              ? `[data-task="${CSS.escape(focusTask)}"]`
+              : focusProject
+                ? `[data-project="${CSS.escape(focusProject)}"] ${focusAction}`
+                : null;
+    if (focusSelector) scrollHost.querySelector(focusSelector)?.focus({ preventScroll: true });
   }
   function upsert(project) {
     const previous = find(project.projectId);
@@ -507,6 +597,7 @@ export function createProjectController({
         const removedTasks = new Set((project.tasks || []).map((task) => task.taskId));
         state.projects = projects().filter((entry) => entry.projectId !== project.projectId);
         localProjects.delete(project.projectId);
+        projectLimits.delete(project.projectId);
         state.collapsedProjects.delete(project.projectId);
         if (state.selectedProjectId === project.projectId) state.selectedProjectId = null;
         const current = state.selected;
@@ -548,6 +639,7 @@ export function createProjectController({
     reset() {
       localProjects.clear();
       localTasks.clear();
+      projectLimits.clear();
       state.selectedProjectId = null;
       try {
         storage?.removeItem(selectedKey);

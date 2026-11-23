@@ -60,3 +60,26 @@ test("a Task without a project is left off the list and on disk, while explicit 
   assert.equal(await readFile(directory.projectCatalog.filePath, "utf8"), indexBefore);
   await access(join(storage, "unassigned", "task.json"));
 });
+
+test("project order stays fixed when conversations in a later project are updated", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "atria-project-order-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const storage = join(root, "workspace");
+  const dirA = join(root, "alpha");
+  const dirB = join(root, "beta");
+  await mkdir(dirA);
+  await mkdir(dirB);
+  const directory = createWorkspaceDirectory(storage, join(root, "global.json"), () => "fixture");
+  const projectA = await directory.createProject({ projectName: "Alpha", projectDirectory: dirA });
+  const projectB = await directory.createProject({ projectName: "Beta", projectDirectory: dirB });
+  await directory.createProjectTask("task-a", projectA.projectId, { goal: "早期会话" });
+  await new Promise((done) => setTimeout(done, 15));
+  await directory.createProjectTask("task-b", projectB.projectId, { goal: "最新会话" });
+
+  const payload = await directory.globalTaskPayload();
+  assert.deepEqual(
+    payload.projects.map((entry) => entry.projectId),
+    [projectA.projectId, projectB.projectId],
+    "updating a task in Beta must not reorder Beta ahead of Alpha"
+  );
+});
