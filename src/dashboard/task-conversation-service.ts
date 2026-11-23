@@ -12,6 +12,7 @@ import {
   messagesWithRuntimeHistory,
   readRunRuntimeEvents,
   readTaskRuntimeEvents,
+  readTaskTimingEvents,
   settledRuntimeEvents,
   viewConversationMessage,
   viewRuntimeEvent
@@ -109,9 +110,31 @@ export function createTaskConversationService({
     const { waitedMs: _waited, ...coordination } = runId
       ? await coordinator.waitForSubagents({ taskId, runId, workspaceRoot: taskWorkspace, timeoutMs: 0 })
       : { calls: [], pending: [], callbackPending: [], timedOut: false, waitedMs: 0 };
-    const events = runId
-      ? await readJsonLines(join(taskWorkspace, taskId, "runs", runId, "run_events.jsonl"), 30)
-      : [];
+    const [currentRunEvents, timingEvents] = await Promise.all([
+      runId ? readJsonLines(join(taskWorkspace, taskId, "runs", runId, "run_events.jsonl"), 30) : [],
+      readTaskTimingEvents(taskWorkspace, taskId)
+    ]);
+    const recentById = new Map<string, Record<string, unknown>>();
+    for (const item of currentRunEvents) {
+      if (typeof item.eventId === "string") recentById.set(item.eventId, item);
+    }
+    const seenIds = new Set<string>();
+    const events: Array<Record<string, unknown>> = [];
+    for (const item of timingEvents) {
+      const id = typeof item.eventId === "string" ? item.eventId : undefined;
+      if (id) {
+        if (seenIds.has(id)) continue;
+        seenIds.add(id);
+        events.push(recentById.get(id) ?? item);
+      } else {
+        events.push(item);
+      }
+    }
+    for (const item of currentRunEvents) {
+      const id = typeof item.eventId === "string" ? item.eventId : undefined;
+      if (id && seenIds.has(id)) continue;
+      events.push(item);
+    }
     const messageVersions = await readMessageVersions(taskWorkspace, taskId);
     const contextUsage = await readJsonFile<SessionContextUsage | null>(
       mainContextUsagePath(taskWorkspace, taskId),

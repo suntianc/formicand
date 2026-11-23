@@ -287,6 +287,7 @@ contextBridge.exposeInMainWorld("bookmanDesktop", {
   chooseProject: () => ipcRenderer.invoke("bookman:choose-project"),
   // A previewed file is named by session, source and path; the host resolves it.
   files: {
+    defaultIcon: () => ipcRenderer.invoke("bookman:file-default-icon"),
     apps: (taskId, target) => ipcRenderer.invoke("bookman:file-apps", taskId, target),
     open: (taskId, target, appId) => ipcRenderer.invoke("bookman:open-file", taskId, target, appId)
   },

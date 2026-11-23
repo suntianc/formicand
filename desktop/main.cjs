@@ -319,6 +319,7 @@ ipcMain.handle("bookman:choose-project", async (event) => {
 });
 /** Open one already-published artifact in the system's default application. */
 const fileOpener = createFileOpener({ shell, nativeImage });
+void fileOpener.defaultIcon();
 /**
  * The local file behind one previewed file. The renderer names only the
  * session, the source and the path inside it; the backend resolves and
@@ -370,6 +371,10 @@ async function previewedFilePath(taskId, target) {
     throw new Error(result?.error?.message || result?.error || "无法找到这个文件的本地位置");
   return result.absolutePath;
 }
+ipcMain.handle("bookman:file-default-icon", async (event) => {
+  trust(event);
+  return { icon: await fileOpener.defaultIcon(), platform: process.platform };
+});
 ipcMain.handle("bookman:file-apps", async (event, taskId, target) => {
   trust(event);
   return fileOpener.list(await previewedFilePath(taskId, target));

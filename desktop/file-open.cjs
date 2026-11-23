@@ -67,8 +67,9 @@ const QUERY = `function run(argv) {
   });
 }`;
 
-/** Sentinel appId for revealing the file directly in macOS Finder. */
+/** Sentinel appId for revealing the file directly in macOS Finder or system file manager. */
 const FINDER_ID = "finder";
+const FINDER_APP = "/System/Library/CoreServices/Finder.app";
 
 /**
  * The desktop's "Open with" for one previewed file. The renderer never names
@@ -133,7 +134,13 @@ function createFileOpener({ shell, nativeImage, platform = process.platform, exe
     await execute("open", ["-a", chosen.id, target], { timeout: 15_000 });
   }
 
-  return { list, open };
+  /** Native Finder icon on macOS (cached once), empty on Windows/Linux where the UI shows a folder icon. */
+  async function defaultIcon() {
+    if (platform !== "darwin") return "";
+    return icon(FINDER_APP);
+  }
+
+  return { list, open, defaultIcon };
 }
 
-module.exports = { createFileOpener, EDITORS, TERMINALS, FINDER_ID };
+module.exports = { createFileOpener, EDITORS, TERMINALS, FINDER_ID, FINDER_APP };

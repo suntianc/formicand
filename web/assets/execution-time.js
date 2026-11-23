@@ -1,8 +1,14 @@
 import { ui } from "./ui/language.js";
 // A Run starts with its process, and a resident Main starts each later turn
 // when a message is delivered to it.
-const STARTS = new Set(["main.run_spawned", "main.turn_delivered"]);
-const STOPS = new Set(["main.run_completed", "main.run_failed", "main.run_paused", "main.run_waiting"]);
+const STARTS = new Set(["main.run_spawned", "main.turn_delivered", "main.turn_started"]);
+const STOPS = new Set([
+  "main.run_completed",
+  "main.run_failed",
+  "main.run_paused",
+  "main.run_waiting",
+  "main.run_stopped"
+]);
 
 function ledgerTime(value) {
   // Ledger timestamps carry a timezone. Do not let Date.parse turn a budget,
@@ -51,7 +57,7 @@ export function executionElapsedMs(runtimeEvents, lifecycleEvents) {
     if (event.payload?.queuedWhilePaused) continue;
     const time = ledgerTime(event.occurredAt);
     if (time === null) return null;
-    runs.get(event.runId).boundaries.push({ time, start });
+    runs.get(event.runId).boundaries.push({ time, start, type: event.type });
   }
 
   let elapsed = 0;
@@ -68,7 +74,10 @@ export function executionElapsedMs(runtimeEvents, lifecycleEvents) {
       if (seen.has(key)) continue;
       seen.add(key);
       if (boundary.start) {
-        if (started !== null) return null;
+        if (started !== null) {
+          if (boundary.type === "main.turn_started") continue;
+          return null;
+        }
         started = boundary.time;
       } else if (started !== null) {
         intervals.push([started, boundary.time]);
