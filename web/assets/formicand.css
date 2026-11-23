@@ -39,8 +39,8 @@
   --panel-shadow: 0 10px 40px #00000066;
   --panel-blur: 24px;
   --side-fill: #141417cc;
+  --side-fill-solid: #141417;
   --side-edge: #ffffff14;
-  --side-blur: 32px;
   --composer-fill: #1d1d21;
   --composer-edge: #ffffff1f;
   --composer-shadow: 0 6px 20px #00000066;
@@ -119,6 +119,7 @@ html[data-theme="light"] {
   --panel-edge: #0000000f;
   --panel-shadow: 0 10px 40px #0000001a;
   --side-fill: #fafafbc7;
+  --side-fill-solid: #fafafb;
   --side-edge: #ffffffe6;
   --composer-fill: #ffffff;
   --composer-edge: #0000001a;
@@ -236,13 +237,17 @@ html[data-theme] .conversation-sidebar {
   height: auto;
   min-height: 0;
 }
+/* The main panels are not frosted: behind them is the page's flat colour or
+   the system's own window material, which a backdrop filter cannot see, so
+   the blur changed nothing on screen. It cost a re-blur of the whole panel on
+   every frame anything inside it moved, about 80% of a core in the GPU
+   process while Main waited (e2e/perf/waiting.perf.js). */
 html[data-theme] .chat-pane {
   overflow: hidden;
   border: 1px solid var(--panel-edge);
   border-radius: var(--radius-panel);
   background-color: var(--panel-fill);
   background-image: var(--panel-sheen);
-  backdrop-filter: blur(var(--panel-blur));
   box-shadow: var(--panel-shadow);
 }
 html[data-theme] .agent-pane {
@@ -252,7 +257,6 @@ html[data-theme] .agent-pane {
   border-radius: var(--radius-panel);
   background-color: var(--side-fill);
   background-image: var(--panel-sheen);
-  backdrop-filter: blur(var(--side-blur));
   box-shadow: var(--panel-shadow);
 }
 html[data-theme] :is(.agent-pane-header, .chat-header) {

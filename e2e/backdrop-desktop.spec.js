@@ -46,7 +46,8 @@ const expectClearPage = (value, theme) => {
     expect(layer.image).toBe("none");
   }
   for (const panel of [value.conversation, value.taskPanel]) {
-    expect(panel.blur).toContain("blur(");
+    // The system material shows through; a page blur cannot see it, so none is applied.
+    expect(panel.blur).toBe("none");
     expect(panel.image).toContain("linear-gradient");
   }
 };

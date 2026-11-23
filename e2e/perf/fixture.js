@@ -52,7 +52,12 @@ export async function startPerfDashboard() {
     const step = queue.shift() ?? { text: "多余的请求。" };
     response.writeHead(200, { "content-type": "text/event-stream" });
     chunk(response, { role: "assistant" });
-    if (step.tool) {
+    if (step.hold) {
+      // Main stays thinking with the request open until the test lets go.
+      await step.hold;
+      chunk(response, { content: step.text ?? "好了。" });
+      chunk(response, {}, "stop");
+    } else if (step.tool) {
       chunk(response, {
         tool_calls: [
           {

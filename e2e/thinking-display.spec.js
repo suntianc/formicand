@@ -252,6 +252,16 @@ test("progress animates before tokens, during retries and between tools until co
       });
       await page.evaluate(() => window.thoughtFixture.poll());
       expect(await progress.evaluate((node) => node === window.savedProgressNode)).toBe(true);
+      // The label's light sweeps twice and rests, and a repaint does not start it again;
+      // the ant keeps walking for the whole wait.
+      const sweep = waiting.locator(".shimmer-text");
+      const sweeping = () => sweep.evaluate((node) => node.getAnimations().length);
+      await expect.poll(sweeping, { timeout: 8_000 }).toBe(0);
+      await page.evaluate(() => window.thoughtFixture.poll());
+      expect(await sweeping()).toBe(0);
+      expect(await progress.evaluate((node) => node.getAnimations({ subtree: true }).length)).toBeGreaterThan(
+        0
+      );
       await page.evaluate(() => window.thoughtFixture.attachmentTool());
       await expect(page.locator(".tool-action")).toContainText("读取附件");
       await expect(waiting).toHaveCount(0);

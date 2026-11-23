@@ -54,15 +54,15 @@ const lightTokens = {
 const dark = {
   page: "rgb(11, 11, 12)",
   brand: "rgb(237, 237, 239)",
-  conversation: { color: "rgba(22, 22, 25, 0.82)", blur: "blur(24px)" },
-  taskPanel: { color: "rgba(20, 20, 23, 0.8)", blur: "blur(32px)" }
+  conversation: { color: "rgba(22, 22, 25, 0.82)", blur: "none" },
+  taskPanel: { color: "rgba(20, 20, 23, 0.8)", blur: "none" }
 };
 
 const light = {
   page: "rgb(242, 242, 244)",
   brand: "rgb(24, 24, 27)",
-  conversation: { color: "rgba(255, 255, 255, 0.82)", blur: "blur(24px)" },
-  taskPanel: { color: "rgba(250, 250, 251, 0.78)", blur: "blur(32px)" }
+  conversation: { color: "rgba(255, 255, 255, 0.82)", blur: "none" },
+  taskPanel: { color: "rgba(250, 250, 251, 0.78)", blur: "none" }
 };
 
 const tokens = (page) =>
@@ -106,7 +106,8 @@ const expectSolidBackdrop = (value, theme) => {
   // The shell only forwards the page behind it, so its own background stays clear.
   expect(value.shell.color).toBe("rgba(0, 0, 0, 0)");
   expect(value.brand).toBe(theme.brand);
-  // Layers (#30): the conversation nearly solid, the task panel clearer.
+  // Layers (#30): the conversation nearly solid, the task panel clearer. Neither is
+  // blurred: over a flat page a blur showed nothing and re-ran on every frame.
   for (const [panel, glass] of [
     [value.conversation, theme.conversation],
     [value.taskPanel, theme.taskPanel]
