@@ -144,7 +144,7 @@ export function createConversationActivityView({
     failed = false,
     isCurrent = true,
     stopped = undefined,
-    { foldWithoutAnswer = false, omitDuration = false } = {}
+    { rawL1 = false } = {}
   ) {
     const { taskId, detail } = activityContext();
     const turns = buildLiveActivity(events);
@@ -157,7 +157,11 @@ export function createConversationActivityView({
       markup:
         (active
           ? renderThinkingPlaceholder(historyKey, retry ? ui("正在恢复模型连接…") : undefined, !retry)
-          : "") + retryBanner
+          : "") + retryBanner,
+      hasActivity: false,
+      collapsible: false,
+      streamedAnswer: "",
+      persistedAnswerMatches: false
     });
     if (!turns.length) return placeholder();
     const calls = turns.flatMap((turn) => turn.calls);
@@ -213,10 +217,22 @@ export function createConversationActivityView({
         previous.text += item.text;
       else activity.push({ ...item });
     }
-    if (!activity.length) return placeholder();
-    if (failed && !activity.some((item) => item.type === "tool" || item.text?.trim())) return { markup: "" };
-    const collapsible =
-      !working && (foldWithoutAnswer || (hasFinalAnswer && (!streamedAnswer || persistedAnswerMatches)));
+    if (!activity.length)
+      return {
+        ...placeholder(),
+        streamedAnswer,
+        persistedAnswerMatches,
+        collapsible: !working && hasFinalAnswer && (!streamedAnswer || persistedAnswerMatches)
+      };
+    if (failed && !activity.some((item) => item.type === "tool" || item.text?.trim()))
+      return {
+        markup: "",
+        hasActivity: false,
+        collapsible: false,
+        streamedAnswer,
+        persistedAnswerMatches
+      };
+    const collapsible = !working && hasFinalAnswer && (!streamedAnswer || persistedAnswerMatches);
     // Main is working but nothing at the end is moving: the model is on its
     // way to the next step, so that step's row waits there.
     const tail = activity.at(-1);
@@ -374,18 +390,36 @@ export function createConversationActivityView({
       return `${segmentMarkup}${trailingThinking}${stoppedRow}${retryBanner}`;
     };
 
-    if (!collapsible) return { markup: renderL1() };
+    if (rawL1 || !collapsible)
+      return {
+        markup: renderL1(),
+        hasActivity: true,
+        collapsible,
+        streamedAnswer,
+        persistedAnswerMatches
+      };
 
-    const settled = omitDuration
-      ? undefined
-      : formatExecutionDuration(executionElapsedMs(events, detail?.events)) || undefined;
+    const settled = formatExecutionDuration(executionElapsedMs(events, detail?.events)) || undefined;
     const l0Open = isHistoryOpen ? Boolean(isHistoryOpen(historyKey)) : Boolean(historyOpen);
     const heading = settled ? ui`用时 ${settled}` : ui("处理过程");
     const body = l0Open ? `<div class="execution-timeline">${renderL1()}</div>` : "";
     return {
       markup: `<details class="execution-history" data-task="${esc(taskId)}" data-history-key="${esc(historyKey)}"${l0Open ? " open" : ""}><summary aria-label="${esc(heading)}"><strong>${esc(heading)}</strong><span class="history-chevron" aria-hidden="true">${icon("chevron-down")}</span></summary>${body}</details>`,
+      hasActivity: true,
+      collapsible: true,
+      streamedAnswer,
+      persistedAnswerMatches,
       settled
     };
+  }
+
+  /** L0 fold header for a multi-input round whose interleaved L1 blocks follow below when opened. */
+  function renderRoundFold(historyKey, roundEvents, open, leadBody = "") {
+    const { taskId, detail } = activityContext();
+    const settled = formatExecutionDuration(executionElapsedMs(roundEvents, detail?.events)) || undefined;
+    const heading = settled ? ui`用时 ${settled}` : ui("处理过程");
+    const body = open && leadBody ? `<div class="execution-timeline">${leadBody}</div>` : "";
+    return `<details class="execution-history" data-task="${esc(taskId)}" data-history-key="${esc(historyKey)}"${open ? ' data-l0-expanded="1" open' : ""}><summary aria-label="${esc(heading)}"><strong>${esc(heading)}</strong><span class="history-chevron" aria-hidden="true">${icon("chevron-down")}</span></summary>${body}</details>`;
   }
 
   /** The Subagents one step sent out: a header row, then one indented row each. */
@@ -524,5 +558,5 @@ export function createConversationActivityView({
   </div>`;
   }
 
-  return { renderLiveActivity, renderThinkingPlaceholder };
+  return { renderLiveActivity, renderRoundFold, renderThinkingPlaceholder };
 }

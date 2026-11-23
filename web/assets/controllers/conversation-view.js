@@ -7,7 +7,12 @@ import { splitUploadedFiles } from "../uploaded-files.js";
 import { markReferences, splitReferences } from "../references.js";
 import { modelErrorDiagnostic, modelPolicyRejection, requestErrorMessage } from "../request-error.js";
 import { assistantDisplayContent } from "../activity.js";
-import { finalAnswerIndex, isMachineTurn, exchangeExecutionState } from "../conversation.js";
+import {
+  finalAnswerIndex,
+  isMachineTurn,
+  exchangeExecutionState,
+  groupConversationRounds
+} from "../conversation.js";
 import { answeredRequestFor } from "../human-questions.js";
 import { renderMarkdown } from "../markdown.js";
 import { resolveArtifactLink } from "../artifacts.js";
@@ -306,7 +311,7 @@ export function createConversationView({
     if (state.executionHistoryOpen.has(key)) return Boolean(state.executionHistoryOpen.get(key));
     return hasOpenActivity(key);
   };
-  const { renderLiveActivity, renderThinkingPlaceholder } = createConversationActivityView({
+  const { renderLiveActivity, renderRoundFold, renderThinkingPlaceholder } = createConversationActivityView({
     markdown,
     activityContext: () => ({ taskId: state.selected, detail: state.detail }),
     isHistoryOpen: isHistoryOpenFor,
@@ -629,7 +634,7 @@ export function createConversationView({
     node.classList.contains("activity-raw");
   const hasLazyBody = (node) => {
     if (node.classList.contains("execution-history"))
-      return Boolean(node.querySelector(":scope > .execution-timeline"));
+      return Boolean(node.querySelector(":scope > .execution-timeline")) || node.dataset.l0Expanded === "1";
     if (node.classList.contains("process-segment"))
       return Boolean(node.querySelector(":scope > .live-workflow"));
     if (node.classList.contains("tool-details") || node.classList.contains("subagent-step"))
@@ -837,7 +842,8 @@ export function createConversationView({
       scroll.childNodes.length === lastRender.counts.reduce((sum, count) => sum + count, 0)
         ? lastRender
         : undefined;
-    const virtualizeEnabled = exchanges.length > VIRTUALIZE_THRESHOLD;
+    const rounds = groupConversationRounds(exchanges, state.detail, currentExchangeIndex, windowDividers);
+    const virtualizeEnabled = rounds.length > VIRTUALIZE_THRESHOLD;
     virtualActive = virtualizeEnabled;
     // Measure currently rendered exchanges before any of them dehydrate so their
     // virtual shells preserve exact pixel height and scrolling never jumps.
@@ -860,30 +866,65 @@ export function createConversationView({
     const nextHistoryMarkup = new Map();
     const exchangeKeys = [];
     const exchangeVirtualized = [];
-    // Only settled historical exchanges can be reused. Current/retry/edit state
+    // Only settled historical rounds can be reused. Current/retry/edit state
     // remains live, and replaced history is checked by compact structural hash.
     const historyContext = computeHistoryContext(task.taskId, state.detail, windows);
-    const recentStart = Math.max(0, exchanges.length - RECENT_LIVE_EXCHANGES);
-    const parts = exchanges.map((exchange, exchangeIndex) => {
-      const isCurrent = exchangeIndex === currentExchangeIndex;
-      const cacheKey = `${task.taskId}:${exchange.key}`;
+    const recentStart = Math.max(0, rounds.length - RECENT_LIVE_EXCHANGES);
+
+    const renderUserBubble = (message, viewKey, extraClass = "") => {
+      const text = visibleText(message.content);
+      if (!text.trim()) return "";
+      if (message.delivery === "followUp" && message.pending) return "";
+      // An answer the person gave to Formicand's own question is not a new
+      // request. It has to travel to the model as a user turn for the run to
+      // continue, but showing it as one made the transcript read as if they
+      // had asked for something twice. It is rendered where it belongs:
+      // attached to the question it answers.
+      const answered = answeredRequestFor(message, state.detail?.humanRequests);
+      if (answered) {
+        const key = `${task.taskId}:human-answer:${answered.requestId}`;
+        return ui`<article class="chat-message human-answer" data-view-key="${esc(key)}"><div class="message-copy"><details class="human-answer-details" data-activity-key="${esc(key)}"><summary title="已回答，点击查看问题和回复">${icon("help")}<span>回答问题</span>${icon("check", "human-answer-check")}<span class="sr-only">已回答</span></summary><div class="human-answer-content"><div class="human-answer-question">${esc(answered.question)}</div><div class="human-answer-value markdown-body">${markdown(answered.answer)}</div></div></details></div></article>`;
+      }
+      const editor = messageEdit?.markup(task.taskId, message.id) || "";
+      if (editor) inlineEditorRendered = true;
+      const editable = message.id && message.id === state.detail?.editableMessage?.messageId;
+      const typed = renderUserText(text, markdown);
+      // An attachment-only message has no words, so no empty bubble under its cards.
+      const bubble = editor
+        ? `<div class="markdown-body">${typed.body}</div>${editor}${messageEdit.actions?.(task.taskId, message.id) || ""}`
+        : typed.body && `<div class="markdown-body">${typed.body}</div>`;
+      const cls = `chat-message user${editor ? " is-editing" : ""}${extraClass ? ` ${extraClass}` : ""}`;
+      return `<article class="${cls}" data-view-key="${esc(viewKey)}"><div class="message-copy">${editor ? "" : typed.uploads}${bubble ? `<div class="user-message-bubble">${bubble}</div>` : ""}${editor ? "" : userActions(message, editable)}</div></article>`;
+    };
+
+    const renderFinalBubble = (message, active, isCurrent) => {
+      const text = visibleText(message.content);
+      if (!text.trim()) return "";
+      return `<article class="chat-message main" data-answer-kind="final"${message.id ? ` data-message-id="${esc(message.id)}"` : ""}><div class="message-copy"><div class="markdown-body">${markdown(text)}</div>${active ? "" : replyActions(message, isCurrent)}</div></article>`;
+    };
+
+    const parts = rounds.map((round, roundIndex) => {
+      const isCurrent = round.isCurrent;
+      const cacheKey = `${task.taskId}:${round.key}`;
       exchangeKeys.push(cacheKey);
       const historyOpen = hasOpenHistory(cacheKey);
       const cacheable =
-        !isCurrent && !editing && !exchange.awaitingDelivery && !exchange.continued && !historyOpen;
+        !isCurrent && !editing && !round.exchanges.some((entry) => entry.awaitingDelivery) && !historyOpen;
       const inLiveWindow =
         !virtualizeEnabled ||
-        exchangeIndex >= recentStart ||
-        (exchangeIndex >= virtualWindow.start && exchangeIndex <= virtualWindow.end);
+        roundIndex >= recentStart ||
+        (roundIndex >= virtualWindow.start && roundIndex <= virtualWindow.end);
       const canVirtualize =
         cacheable &&
+        round.exchanges.length === 1 &&
         !inLiveWindow &&
-        !exchange.messages.some(
+        !round.lead.messages.some(
           (message) =>
             windowDividers.has(message) ||
             (message.role === "user" && answeredRequestFor(message, state.detail?.humanRequests))
         );
       if (canVirtualize) {
+        const exchange = round.lead;
         const execution = exchangeExecutionState(exchange.events);
         const interrupted = ["cancelled", "failed", "paused", "waiting"].includes(execution.terminal);
         const finalIndex = interrupted ? -1 : finalAnswerIndex(exchange.messages, state.detail, false);
@@ -903,109 +944,218 @@ export function createConversationView({
             : 0;
           const mainH = measured?.mainH || estimateMainHeight(visibleText(finalMessage.content));
           const userShell = userMessage
-            ? `<article class="chat-message user is-virtual-shell" data-view-key="${esc(`${cacheKey}:user:${userMessage.id || userIndex}`)}" data-virtual-exchange="${exchangeIndex}" style="min-height:${userH}px"></article>`
+            ? `<article class="chat-message user is-virtual-shell" data-view-key="${esc(`${cacheKey}:user:${userMessage.id || userIndex}`)}" data-virtual-exchange="${roundIndex}" style="min-height:${userH}px"></article>`
             : "";
-          const mainShell = `<article class="chat-message main is-virtual-shell" data-answer-kind="final" data-virtual-exchange="${exchangeIndex}"${finalMessage.id ? ` data-message-id="${esc(finalMessage.id)}"` : ""} style="min-height:${mainH}px"></article>`;
+          const mainShell = `<article class="chat-message main is-virtual-shell" data-answer-kind="final" data-virtual-exchange="${roundIndex}"${finalMessage.id ? ` data-message-id="${esc(finalMessage.id)}"` : ""} style="min-height:${mainH}px"></article>`;
           return `${userShell}${mainShell}`;
         }
       }
       exchangeVirtualized.push(false);
-      const elapsed = cacheable ? executionElapsedMs(exchange.events, state.detail?.events) : undefined;
+      const elapsed = cacheable ? executionElapsedMs(round.events, state.detail?.events) : undefined;
       const cached = historyMarkup.get(cacheKey);
+      const singleExchange = round.exchanges.length === 1 ? round.lead : undefined;
       // The append-only projector retains historical exchange identities.
       // Avoid traversing their unchanged events on every streamed delta.
       if (
         cacheable &&
+        singleExchange &&
         cached?.context === historyContext &&
-        cached.exchange === exchange &&
+        cached.exchange === singleExchange &&
         cached.open === historyOpen &&
         cached.elapsed === elapsed
       ) {
         nextHistoryMarkup.set(cacheKey, cached);
         return cached.markup;
       }
-      const signature = cacheable ? fingerprint([exchange, elapsed, historyOpen]) : undefined;
+      const signature = cacheable ? fingerprint([round.exchanges, elapsed, historyOpen]) : undefined;
       if (cacheable && cached?.context === historyContext && cached.signature === signature) {
-        nextHistoryMarkup.set(cacheKey, { ...cached, exchange });
+        nextHistoryMarkup.set(cacheKey, { ...cached, exchange: singleExchange });
         return cached.markup;
       }
       const active =
         isCurrent &&
         !state.detail?.parked &&
         Boolean(state.detail?.runtime?.active || state.submittingTaskId === task.taskId);
-      const execution = exchangeExecutionState(exchange.events);
-      const interrupted = ["cancelled", "failed", "paused", "waiting"].includes(execution.terminal);
-      const waiting = execution.terminal === "waiting" && task.status === "waiting";
+
+      // Single-exchange round: standard L0 -> L1 -> L2 -> L3 rendering.
+      if (singleExchange) {
+        const exchange = singleExchange;
+        const execution = exchangeExecutionState(exchange.events);
+        const interrupted = ["cancelled", "failed", "paused", "waiting"].includes(execution.terminal);
+        const waiting = execution.terminal === "waiting" && task.status === "waiting";
+        const finalIndex = interrupted ? -1 : finalAnswerIndex(exchange.messages, state.detail, isCurrent);
+        const finalText = finalIndex >= 0 ? visibleText(exchange.messages[finalIndex].content).trim() : "";
+        const historyKey = `${task.taskId}:${exchange.key}`;
+        const stopped =
+          execution.stopped ??
+          (execution.terminal === "cancelled" && !(isCurrent && failure) ? {} : undefined);
+        const { markup: workflow } = renderLiveActivity(
+          exchange.events,
+          active,
+          finalIndex >= 0,
+          finalText,
+          historyOpen,
+          historyKey,
+          (interrupted && !waiting && !paused) || (isCurrent && Boolean(failure)),
+          isCurrent,
+          stopped
+        );
+        const workflowIndex = !active && finalIndex >= 0 ? finalIndex : -1;
+        const rendered =
+          exchange.messages
+            .map((message, index) => {
+              if (message.role === "user")
+                return renderUserBubble(message, `${historyKey}:user:${message.id || index}`);
+              if (index !== finalIndex) return "";
+              return `${index === workflowIndex ? workflow : ""}${renderFinalBubble(message, active, isCurrent)}`;
+            })
+            .map((markup, index) => markup + (windowDividers.get(exchange.messages[index]) ?? ""))
+            .join("") +
+          (workflowIndex < 0
+            ? active
+              ? `<article class="chat-message main" data-view-key="${esc(`${historyKey}:response`)}" data-answer-kind="pending" aria-busy="true"><div class="message-copy">${workflow || renderThinkingPlaceholder(historyKey)}</div></article>`
+              : workflow
+            : "");
+        if (cacheable)
+          nextHistoryMarkup.set(cacheKey, {
+            context: historyContext,
+            signature,
+            markup: rendered,
+            exchange,
+            open: historyOpen,
+            elapsed
+          });
+        return rendered;
+      }
+
+      // Multi-input round (mid-run interjections or waiting-state follow-ups):
+      // Live while active (chronological L1 around each user bubble). Once the
+      // tail settles with a final answer, one L0 fold summarizes the whole
+      // round above the interjected user bubbles, and expanding L0 interleaves
+      // each segment's L1 back into its exact chronological position.
+      const tail = round.tail;
+      const tailExecution = exchangeExecutionState(tail.events);
+      const tailInterrupted = ["cancelled", "failed", "paused", "waiting"].includes(tailExecution.terminal);
+      const tailWaiting = tailExecution.terminal === "waiting" && task.status === "waiting";
+      const tailStopped =
+        tailExecution.stopped ??
+        (tailExecution.terminal === "cancelled" && !(isCurrent && failure) ? {} : undefined);
       const finalIndex =
-        interrupted || exchange.continued ? -1 : finalAnswerIndex(exchange.messages, state.detail, isCurrent);
-      const finalText = finalIndex >= 0 ? visibleText(exchange.messages[finalIndex].content).trim() : "";
-      const historyKey = `${task.taskId}:${exchange.key}`;
-      const stopped =
-        execution.stopped ?? (execution.terminal === "cancelled" && !(isCurrent && failure) ? {} : undefined);
-      // Any earlier round superseded by a later user turn folds its L1 workflow
-      // into L0 unless it ended in a stop/cancellation/failure that stays inline.
-      const superseded =
-        !isCurrent &&
-        !exchange.awaitingDelivery &&
-        !stopped &&
-        !["cancelled", "failed"].includes(execution.terminal);
-      const { markup: workflow } = renderLiveActivity(
-        exchange.events,
-        active,
+        tailInterrupted || tail.awaitingDelivery
+          ? -1
+          : finalAnswerIndex(tail.messages, state.detail, isCurrent);
+      const finalText = finalIndex >= 0 ? visibleText(tail.messages[finalIndex].content).trim() : "";
+      const roundKey = cacheKey;
+      const segmentKeyFor = (ex, segIndex) => (segIndex === 0 ? roundKey : `${roundKey}:ex:${ex.key}`);
+      const tailIndex = round.exchanges.length - 1;
+      const tailActive = active && round.indices[tailIndex] === currentExchangeIndex;
+      const tailResult = renderLiveActivity(
+        tail.events,
+        tailActive,
         finalIndex >= 0,
         finalText,
-        historyOpen,
-        historyKey,
-        (interrupted && !waiting && !paused) || (isCurrent && Boolean(failure)),
+        false,
+        segmentKeyFor(tail, tailIndex),
+        (tailInterrupted && !tailWaiting && !paused) || (isCurrent && Boolean(failure)),
         isCurrent,
-        stopped,
-        { foldWithoutAnswer: superseded, omitDuration: exchange.continued }
+        tailStopped,
+        { rawL1: true }
       );
-      const workflowIndex = !active && finalIndex >= 0 ? finalIndex : -1;
-      const rendered =
-        exchange.messages
+      const roundCollapsible = !active && tailResult.collapsible && finalIndex >= 0;
+
+      const renderExchangeUsers = (ex, segIndex, extraClass = "") =>
+        ex.messages
           .map((message, index) => {
-            const user = message.role === "user";
-            const text = visibleText(message.content);
-            if (!text.trim()) return "";
-            if (user) {
-              if (message.delivery === "followUp" && message.pending) return "";
-              // An answer the person gave to Formicand's own question is not a new
-              // request. It has to travel to the model as a user turn for the run to
-              // continue, but showing it as one made the transcript read as if they
-              // had asked for something twice. It is rendered where it belongs:
-              // attached to the question it answers.
-              const answered = answeredRequestFor(message, state.detail?.humanRequests);
-              if (answered) {
-                const key = `${task.taskId}:human-answer:${answered.requestId}`;
-                return ui`<article class="chat-message human-answer" data-view-key="${esc(key)}"><div class="message-copy"><details class="human-answer-details" data-activity-key="${esc(key)}"><summary title="已回答，点击查看问题和回复">${icon("help")}<span>回答问题</span>${icon("check", "human-answer-check")}<span class="sr-only">已回答</span></summary><div class="human-answer-content"><div class="human-answer-question">${esc(answered.question)}</div><div class="human-answer-value markdown-body">${markdown(answered.answer)}</div></div></details></div></article>`;
-              }
-              const editor = messageEdit?.markup(task.taskId, message.id) || "";
-              if (editor) inlineEditorRendered = true;
-              const editable = message.id && message.id === state.detail?.editableMessage?.messageId;
-              const typed = renderUserText(text, markdown);
-              // An attachment-only message has no words, so no empty bubble under its cards.
-              const bubble = editor
-                ? `<div class="markdown-body">${typed.body}</div>${editor}${messageEdit.actions?.(task.taskId, message.id) || ""}`
-                : typed.body && `<div class="markdown-body">${typed.body}</div>`;
-              return `<article class="chat-message user${editor ? " is-editing" : ""}" data-view-key="${esc(`${historyKey}:user:${message.id || index}`)}"><div class="message-copy">${editor ? "" : typed.uploads}${bubble ? `<div class="user-message-bubble">${bubble}</div>` : ""}${editor ? "" : userActions(message, editable)}</div></article>`;
-            }
-            if (index !== finalIndex) return "";
-            return `${index === workflowIndex ? workflow : ""}<article class="chat-message main" data-answer-kind="final"${message.id ? ` data-message-id="${esc(message.id)}"` : ""}><div class="message-copy"><div class="markdown-body">${markdown(text)}</div>${active ? "" : replyActions(message, isCurrent)}</div></article>`;
+            if (message.role !== "user") return "";
+            const bubble = renderUserBubble(
+              message,
+              `${segmentKeyFor(ex, segIndex)}:user:${message.id || index}`,
+              extraClass
+            );
+            return bubble + (windowDividers.get(message) ?? "");
           })
-          .map((markup, index) => markup + (windowDividers.get(exchange.messages[index]) ?? ""))
-          .join("") +
-        (workflowIndex < 0
-          ? active
-            ? `<article class="chat-message main" data-view-key="${esc(`${historyKey}:response`)}" data-answer-kind="pending" aria-busy="true"><div class="message-copy">${workflow || renderThinkingPlaceholder(historyKey)}</div></article>`
-            : workflow
-          : "");
+          .join("");
+
+      let rendered = "";
+      if (roundCollapsible) {
+        const segmentResults = round.exchanges.map((ex, segIndex) =>
+          segIndex === tailIndex
+            ? tailResult
+            : renderLiveActivity(
+                ex.events,
+                false,
+                false,
+                "",
+                false,
+                segmentKeyFor(ex, segIndex),
+                false,
+                false,
+                undefined,
+                {
+                  rawL1: true
+                }
+              )
+        );
+        const hasAnyActivity = segmentResults.some((result) => result.hasActivity);
+        const leadUsers = renderExchangeUsers(round.lead, 0);
+        const fold = hasAnyActivity
+          ? renderRoundFold(roundKey, round.events, historyOpen, historyOpen ? segmentResults[0].markup : "")
+          : "";
+        const middle = round.exchanges
+          .slice(1)
+          .map((ex, offset) => {
+            const segIndex = offset + 1;
+            const userMarkup = renderExchangeUsers(ex, segIndex, historyOpen ? "" : "is-round-interjection");
+            const segMarkup =
+              historyOpen && segmentResults[segIndex].hasActivity && segmentResults[segIndex].markup
+                ? `<div class="execution-timeline execution-continuation">${segmentResults[segIndex].markup}</div>`
+                : "";
+            return `${userMarkup}${segMarkup}`;
+          })
+          .join("");
+        const finalMessage = tail.messages[finalIndex];
+        const finalMarkup =
+          renderFinalBubble(finalMessage, false, isCurrent) + (windowDividers.get(finalMessage) ?? "");
+        rendered = `${leadUsers}${fold}${middle}${finalMarkup}`;
+      } else {
+        rendered = round.exchanges
+          .map((ex, segIndex) => {
+            const exIndex = round.indices[segIndex];
+            const exActive = active && exIndex === currentExchangeIndex;
+            const exKey = segmentKeyFor(ex, segIndex);
+            const userMarkup = renderExchangeUsers(ex, segIndex);
+            if (ex.awaitingDelivery) return userMarkup;
+            const segResult =
+              segIndex === tailIndex
+                ? tailResult
+                : renderLiveActivity(
+                    ex.events,
+                    exActive,
+                    false,
+                    "",
+                    false,
+                    exKey,
+                    false,
+                    exActive,
+                    undefined,
+                    {
+                      rawL1: true
+                    }
+                  );
+            const body = exActive
+              ? `<article class="chat-message main" data-view-key="${esc(`${exKey}:response`)}" data-answer-kind="pending" aria-busy="true"><div class="message-copy">${segResult.markup || renderThinkingPlaceholder(exKey)}</div></article>`
+              : segResult.markup
+                ? `<article class="chat-message main" data-view-key="${esc(`${exKey}:response`)}" data-answer-kind="continuation"><div class="message-copy">${segResult.markup}</div></article>`
+                : "";
+            return `${userMarkup}${body}`;
+          })
+          .join("");
+      }
       if (cacheable)
         nextHistoryMarkup.set(cacheKey, {
           context: historyContext,
           signature,
           markup: rendered,
-          exchange,
           open: historyOpen,
           elapsed
         });

@@ -113,7 +113,7 @@ test("a mid-run instruction separates earlier activity from the continuing respo
   const rows = [...document.querySelector("#conversation").children];
   assert.deepEqual(
     rows.map((row) =>
-      row.classList.contains("execution-history")
+      row.textContent.includes("第六步")
         ? "before"
         : row.textContent.includes(instruction.content)
           ? "instruction"
@@ -123,15 +123,14 @@ test("a mid-run instruction separates earlier activity from the continuing respo
     ),
     ["request", "before", "instruction", "after"]
   );
-  // Pre-interjection L1 wraps into an L0 execution-history fold without duplicating run duration;
-  // because the reader already opened a step inside it, L0 stays open and keeps that step open.
-  assert.equal(rows[1].open, true);
-  assert.equal(rows[1].querySelector(":scope > summary strong").textContent, "处理过程");
-  assert.doesNotMatch(rows[1].querySelector(":scope > summary").textContent, /用时/);
-  assert.match(rows[1].textContent, /第六步/);
-  assert.equal(document.querySelector(".reasoning-details").open, true);
+  // While the round is still running, earlier L1 stays chronological above the interjection
+  // and keeps the reader's expanded step open without an intermediate L0 fold.
+  assert.equal(document.querySelector(".reasoning-details"), before);
+  assert.equal(before.open, true);
+  assert.equal(document.querySelectorAll(".execution-history").length, 0);
   assert.equal(document.querySelectorAll(".thinking-spinner").length, 1);
   assert.equal(document.querySelectorAll('[data-answer-kind="final"]').length, 0);
+  assert.doesNotMatch(rows[1].textContent, /用时/);
 
   const answer = {
     role: "assistant",
@@ -148,98 +147,230 @@ test("a mid-run instruction separates earlier activity from the continuing respo
   render([user, instruction, answer]);
   assert.equal(document.querySelectorAll('[data-answer-kind="final"]').length, 1);
   assert.equal(document.querySelectorAll("[data-thinking-key]").length, 0);
-  assert.equal(document.querySelectorAll(".execution-history").length, 2);
+  // One L0 fold summarizes the whole round; because the reader had opened a step inside it,
+  // L0 stays expanded with L1 interleaved around the interjection bubble.
+  assert.equal(document.querySelectorAll(".execution-history").length, 1);
+  assert.equal(document.querySelector(".execution-history").open, true);
   assert.equal(document.querySelector(".reasoning-details").open, true);
   assert.equal(document.querySelectorAll(".chat-message.user").length, 2);
 });
 
-test("interjecting while L1 is untouched collapses earlier activity into a closed L0 fold", () => {
+test("a settled multi-interjection round collapses into one L0 fold above stacked interjections and interleaves L1 when expanded", () => {
   const { document, state, render } = fixture("steering-collapse", "先读取配置。");
   state.detail.runtimeEvents.push(update("thinking_end", 0, { content: "先读取配置。" }));
   render();
   assert.equal(document.querySelectorAll(".execution-history").length, 0);
 
-  const instruction = {
+  const steer1 = {
     role: "user",
-    id: "steer-collapse",
-    content: "换个方向",
+    id: "steer-one",
+    content: "插话测试",
     timestamp: 3,
     delivery: "steer",
     interjected: true
   };
-  const delivered = {
+  const steer2 = {
+    role: "user",
+    id: "steer-two",
+    content: "可以了",
+    timestamp: 5,
+    delivery: "steer",
+    interjected: true
+  };
+  const deliver = (msg) => ({
     role: "custom",
     customType: "cowork-user-message",
-    content: "用户在你工作期间补充了一句话：换个方向",
-    timestamp: 3,
-    details: {
-      message: instruction.content,
-      delivery: "steer",
-      _coworkInbox: { messageId: instruction.id }
-    }
-  };
-  state.detail.runtimeEvents.push(
-    { type: "message_start", message: delivered },
-    { type: "message_end", message: delivered },
-    { type: "turn_start" },
-    { type: "message_start", message: { role: "assistant", timestamp: 4, content: [] } },
-    update("thinking_delta", 0, { delta: "按新方向继续。" })
-  );
-  render([user, instruction]);
-  const collapsed = document.querySelector(".execution-history");
-  assert.ok(collapsed);
-  assert.equal(collapsed.open === true, false);
-  assert.equal(collapsed.querySelector(":scope > summary strong").textContent, "处理过程");
-  assert.equal(document.querySelectorAll('[data-answer-kind="continuation"]').length, 0);
-  assert.equal(document.querySelectorAll('[data-answer-kind="pending"]').length, 1);
-});
-
-test("a superseded waiting or tool-only round folds its L1 workflow into L0 when a later user turn follows", () => {
-  const { document, state, render } = fixture("superseded-waiting", "先检查进度。");
-  const progressUpdate = {
-    role: "assistant",
-    timestamp: 2,
-    stopReason: "toolUse",
-    content: [{ type: "text", text: "三块已完成一块，正在继续推进。" }]
-  };
-  const followup = { role: "user", id: "later-turn", content: "怎么样了？", timestamp: 5 };
-  const finalAnswer = {
+    content: `用户在你工作期间补充了一句话：${msg.content}`,
+    timestamp: msg.timestamp,
+    details: { message: msg.content, delivery: "steer", _coworkInbox: { messageId: msg.id } }
+  });
+  const answer = {
     role: "assistant",
     timestamp: 6,
     stopReason: "stop",
+    content: [{ type: "text", text: "收到，插话测试结束。" }]
+  };
+  state.detail.runtimeEvents.push(
+    { type: "message_start", message: deliver(steer1) },
+    { type: "message_end", message: deliver(steer1) },
+    { type: "turn_start" },
+    { type: "message_start", message: { role: "assistant", timestamp: 4, content: [] } },
+    update("thinking_start", 0),
+    update("thinking_end", 0, { content: "收到插话继续检查。" }),
+    { type: "message_start", message: deliver(steer2) },
+    { type: "message_end", message: deliver(steer2) },
+    { type: "turn_start" },
+    { type: "message_start", message: { role: "assistant", timestamp: 6, content: [] } },
+    { type: "message_end", message: answer },
+    { type: "turn_end", message: answer }
+  );
+  state.detail.runtime.active = false;
+  state.detail.task.status = "completed";
+  render([user, steer1, steer2, answer]);
+
+  // Collapsed (Codex style): User 0 -> ONE L0 fold -> User 1 -> User 2 -> Final answer.
+  const collapsedChildren = [...document.querySelector("#conversation").children];
+  assert.deepEqual(
+    collapsedChildren.map((node) =>
+      node.classList.contains("execution-history")
+        ? "l0"
+        : node.dataset.answerKind === "final"
+          ? "final"
+          : node.textContent.includes("插话测试")
+            ? "steer1"
+            : node.textContent.includes("可以了")
+              ? "steer2"
+              : "lead"
+    ),
+    ["lead", "l0", "steer1", "steer2", "final"]
+  );
+  assert.equal(collapsedChildren[1].open === true, false);
+  assert.equal(document.querySelectorAll(".execution-timeline").length, 0);
+
+  // Expanding L0 interleaves each segment's L1 around its interjection bubble.
+  expandDetails(document, ".execution-history", render, [user, steer1, steer2, answer]);
+  const expandedChildren = [...document.querySelector("#conversation").children];
+  assert.deepEqual(
+    expandedChildren.map((node) =>
+      node.classList.contains("execution-history")
+        ? "l0-open"
+        : node.classList.contains("execution-continuation")
+          ? "l1-mid"
+          : node.dataset.answerKind === "final"
+            ? "final"
+            : node.textContent.includes("插话测试")
+              ? "steer1"
+              : node.textContent.includes("可以了")
+                ? "steer2"
+                : "lead"
+    ),
+    ["lead", "l0-open", "steer1", "l1-mid", "steer2", "final"]
+  );
+  assert.equal(expandedChildren[1].querySelectorAll(".process-segment").length, 1);
+  assert.equal(expandedChildren[3].querySelectorAll(".process-segment").length, 1);
+});
+
+test("a superseded waiting/tool round merges with the follow-up turn into one L0 fold and isolates cross-run preludes", () => {
+  const origin = Date.parse("2026-10-08T00:00:00.000Z");
+  const { document, state, render } = fixture("superseded-waiting", "先检查进度。");
+  const firstUser = { role: "user", id: "first-turn", content: "进度咋样了", timestamp: origin + 1000 };
+  const progressUpdate = {
+    role: "assistant",
+    timestamp: origin + 2000,
+    stopReason: "toolUse",
+    content: [{ type: "text", text: "三块已完成一块，正在继续推进。" }]
+  };
+  const followup = { role: "user", id: "later-turn", content: "怎么样了？", timestamp: origin + 5000 };
+  const finalAnswer = {
+    role: "assistant",
+    timestamp: origin + 6000,
+    stopReason: "stop",
     content: [{ type: "text", text: "全部已完成并合入。" }]
+  };
+  const nextUser = {
+    role: "user",
+    id: "next-run-user",
+    content: "推送到远程吧",
+    timestamp: origin + 605_000
+  };
+  const nextAnswer = {
+    role: "assistant",
+    timestamp: origin + 610_000,
+    stopReason: "stop",
+    content: [{ type: "text", text: "已推送。" }]
   };
   state.detail.task.status = "completed";
   state.detail.runtime.active = false;
-  state.detail.runtimeEvents.push(
-    update("thinking_end", 0, { content: "先检查进度。" }),
-    { type: "message_end", message: progressUpdate },
-    update("toolcall_end", 1, {
-      toolCall: { id: "cmd-1", name: "bash", arguments: { command: "git status" } }
-    }),
-    { type: "tool_execution_end", toolCallId: "cmd-1", result: { content: [] } },
+  state.detail.runtimeEvents = [
+    { type: "runtime_event", runId: "run-1", payload: { type: "turn_start" } },
+    { type: "runtime_event", runId: "run-1", payload: { type: "message_start", message: firstUser } },
+    {
+      type: "runtime_event",
+      runId: "run-1",
+      payload: {
+        type: "message_start",
+        message: { role: "assistant", timestamp: origin + 2000, content: [] }
+      }
+    },
+    { type: "runtime_event", runId: "run-1", payload: update("thinking_start", 0) },
+    {
+      type: "runtime_event",
+      runId: "run-1",
+      payload: update("thinking_end", 0, { content: "先检查进度。" })
+    },
+    { type: "runtime_event", runId: "run-1", payload: { type: "message_end", message: progressUpdate } },
+    {
+      type: "runtime_event",
+      runId: "run-1",
+      payload: update("toolcall_end", 1, {
+        toolCall: { id: "cmd-1", name: "bash", arguments: { command: "git status" } }
+      })
+    },
+    {
+      type: "runtime_event",
+      runId: "run-1",
+      payload: { type: "tool_execution_end", toolCallId: "cmd-1", result: { content: [] } }
+    },
     { type: "main.run_waiting", runId: "run-1" },
-    { type: "message_start", message: followup },
-    { type: "message_end", message: followup },
-    { type: "turn_start" },
-    { type: "message_start", message: { role: "assistant", timestamp: 6, content: [] } },
-    update("thinking_start", 0),
-    update("thinking_end", 0, { content: "整理最终结果。" }),
-    { type: "message_end", message: finalAnswer },
-    { type: "turn_end", message: finalAnswer }
-  );
-  render([user, progressUpdate, followup, finalAnswer]);
+    { type: "runtime_event", runId: "run-1", payload: { type: "message_start", message: followup } },
+    { type: "runtime_event", runId: "run-1", payload: { type: "message_end", message: followup } },
+    { type: "runtime_event", runId: "run-1", payload: { type: "turn_start" } },
+    {
+      type: "runtime_event",
+      runId: "run-1",
+      payload: {
+        type: "message_start",
+        message: { role: "assistant", timestamp: origin + 6000, content: [] }
+      }
+    },
+    { type: "runtime_event", runId: "run-1", payload: update("thinking_start", 0) },
+    {
+      type: "runtime_event",
+      runId: "run-1",
+      payload: update("thinking_end", 0, { content: "整理最终结果。" })
+    },
+    { type: "runtime_event", runId: "run-1", payload: { type: "message_end", message: finalAnswer } },
+    { type: "runtime_event", runId: "run-1", payload: { type: "turn_end", message: finalAnswer } },
+    // Next Run's startup events must not bleed into run-1's duration.
+    { type: "runtime_event", runId: "run-2", payload: { type: "agent_start" } },
+    { type: "runtime_event", runId: "run-2", payload: { type: "turn_start" } },
+    { type: "runtime_event", runId: "run-2", payload: { type: "message_start", message: nextUser } },
+    { type: "runtime_event", runId: "run-2", payload: { type: "message_end", message: nextUser } },
+    {
+      type: "runtime_event",
+      runId: "run-2",
+      payload: {
+        type: "message_start",
+        message: { role: "assistant", timestamp: origin + 610_000, content: [] }
+      }
+    },
+    { type: "runtime_event", runId: "run-2", payload: update("thinking_start", 0) },
+    {
+      type: "runtime_event",
+      runId: "run-2",
+      payload: update("thinking_end", 0, { content: "执行推送。" })
+    },
+    { type: "runtime_event", runId: "run-2", payload: { type: "message_end", message: nextAnswer } },
+    { type: "runtime_event", runId: "run-2", payload: { type: "turn_end", message: nextAnswer } }
+  ];
+  state.detail.events = [
+    { runId: "run-1", type: "main.run_spawned", occurredAt: "2026-10-08T00:00:00.000Z" },
+    { runId: "run-1", type: "main.run_completed", occurredAt: "2026-10-08T00:00:10.000Z" },
+    { runId: "run-2", type: "main.run_spawned", occurredAt: "2026-10-08T00:10:00.000Z" },
+    { runId: "run-2", type: "main.run_completed", occurredAt: "2026-10-08T00:10:30.000Z" }
+  ];
+  render([firstUser, progressUpdate, followup, finalAnswer, nextUser, nextAnswer]);
 
-  const histories = document.querySelectorAll(".execution-history");
+  const histories = [...document.querySelectorAll(".execution-history")];
   assert.equal(histories.length, 2);
-  assert.equal(histories[0].open === true, false);
-  assert.equal(histories[1].open === true, false);
-  // None of the superseded round's L1 rows leak outside L0.
+  // First round combines user + followup under one 10s L0 fold (without run-2's 30s bleeding in).
+  assert.equal(histories[0].querySelector(":scope > summary strong").textContent, "用时 10 秒");
+  assert.equal(histories[1].querySelector(":scope > summary strong").textContent, "用时 30 秒");
   assert.equal(
     document.querySelectorAll("#conversation > .process-segment, #conversation > .live-answer").length,
     0
   );
-  assert.equal(document.querySelectorAll('[data-answer-kind="final"]').length, 1);
+  assert.equal(document.querySelectorAll('[data-answer-kind="final"]').length, 2);
 });
 
 test("an accepted instruction leaves the current tool active until Pi delivers it", () => {

@@ -102,6 +102,13 @@ export function buildConversationExchanges(messages, events) {
   const groups = [];
   let group;
   let prelude = [];
+  let pendingRun = null;
+  const flushPendingRun = () => {
+    if (!pendingRun) return;
+    if (group) group.events.push(...pendingRun.events);
+    else prelude.push(...pendingRun.events);
+    pendingRun = null;
+  };
   for (const record of events || []) {
     const event = record?.type === "runtime_event" ? record.payload : record;
     const incoming = event?.message;
@@ -118,8 +125,11 @@ export function buildConversationExchanges(messages, events) {
       // A supervisor wake-up opens no exchange, so its activity belongs to the
       // exchange already in progress rather than to a group with no request.
       if (isMachineTurn(userMessage)) {
-        if (group) group.events.push(record);
-        else prelude.push(record);
+        flushPendingRun();
+        if (group) {
+          if (record?.runId) group.runId = record.runId;
+          group.events.push(record);
+        } else prelude.push(record);
         continue;
       }
       // Pi emits both start and end for the same user message.
@@ -131,16 +141,43 @@ export function buildConversationExchanges(messages, events) {
             ? group.user.timestamp === userMessage.timestamp
             : messageText(group.user) === messageText(userMessage));
       if (event.type === "message_start" || !sameUser) {
-        group = { user: userMessage, events: prelude };
+        const leading = pendingRun ? [...prelude, ...pendingRun.events] : prelude;
+        group = { user: userMessage, runId: record?.runId, events: leading };
         prelude = [];
+        pendingRun = null;
         groups.push(group);
         groupedIds.add(userMessage.id);
         groupedTimestamps.add(userMessage.timestamp);
       }
     }
-    if (group) group.events.push(record);
-    else prelude.push(record);
+    if (group) {
+      if (record?.runId && group.runId && record.runId !== group.runId) {
+        // A new Run starts with startup events (agent_start, turn_start, system)
+        // before its first user turn. Hold them until we see whether the new Run
+        // opens a fresh user exchange or continues the current one (retry/wake),
+        // so the previous Run's exchange never inherits the next Run's runId.
+        const continuesCurrent =
+          (incoming?.role === "assistant" && ["message_start", "message_end"].includes(event?.type)) ||
+          event?.type === "message_update" ||
+          event?.type === "tool_execution_start" ||
+          event?.type === "tool_execution_end";
+        if (continuesCurrent) {
+          flushPendingRun();
+          group.runId = record.runId;
+          group.events.push(record);
+        } else {
+          if (pendingRun && pendingRun.runId !== record.runId) flushPendingRun();
+          pendingRun ??= { runId: record.runId, events: [] };
+          pendingRun.events.push(record);
+        }
+      } else {
+        if (pendingRun) flushPendingRun();
+        if (record?.runId && !group.runId) group.runId = record.runId;
+        group.events.push(record);
+      }
+    } else prelude.push(record);
   }
+  flushPendingRun();
   const matched = new Set();
   const take = (lookup, key) => {
     const bucket = lookup.get(key);
@@ -195,6 +232,52 @@ export function buildConversationExchanges(messages, events) {
             { type: "turn_end", message }
           ])
   }));
+}
+
+/**
+ * Group exchanges that belong to one continuous work round: when a user steers
+ * or follows up before the previous exchange settles into a final answer (and
+ * the previous exchange was not stopped, cancelled or failed), they share one
+ * round so L0 collapses the entire round under a single summary while keeping
+ * every user bubble visible and interleaved in chronological order when opened.
+ */
+export function groupConversationRounds(exchanges, detail, currentExchangeIndex, windowDividers) {
+  const rounds = [];
+  for (let index = 0; index < exchanges.length; index += 1) {
+    const exchange = exchanges[index];
+    const current = rounds.at(-1);
+    const hasLeadingDivider =
+      windowDividers &&
+      exchange.messages.some((message) => message.role === "user" && windowDividers.has(message));
+    if (current && !hasLeadingDivider) {
+      const prev = current.exchanges.at(-1);
+      const prevExec = exchangeExecutionState(prev.events);
+      const prevStopped = prevExec.stopped ?? (prevExec.terminal === "cancelled" ? {} : undefined);
+      const prevBlocked =
+        prev.awaitingDelivery || Boolean(prevStopped) || ["cancelled", "failed"].includes(prevExec.terminal);
+      const prevFinal = prevBlocked || prev.continued ? -1 : finalAnswerIndex(prev.messages, detail, false);
+      if (!prevBlocked && prevFinal < 0) {
+        current.exchanges.push(exchange);
+        current.indices.push(index);
+        current.endIndex = index;
+        continue;
+      }
+    }
+    rounds.push({
+      key: exchange.key,
+      startIndex: index,
+      endIndex: index,
+      indices: [index],
+      exchanges: [exchange]
+    });
+  }
+  return rounds.map((round) => {
+    const tail = round.exchanges.at(-1);
+    const isCurrent = round.indices.includes(currentExchangeIndex);
+    const events =
+      round.exchanges.length === 1 ? tail.events : round.exchanges.flatMap((entry) => entry.events);
+    return { ...round, lead: round.exchanges[0], tail, isCurrent, events };
+  });
 }
 
 /** The position of a runtime event in its run's log, from its event id. */

@@ -545,6 +545,18 @@ html[data-theme] .process-segment[open] > summary .process-chevron {
 html[data-theme] .execution-history[open] > .execution-timeline {
   margin: 8px 0 4px;
 }
+html[data-theme] .execution-timeline.execution-continuation {
+  margin: 0 0 18px;
+}
+html[data-theme] .chat-pane .chat-message.user.is-round-interjection {
+  margin-bottom: 14px;
+}
+html[data-theme] .chat-pane .chat-message.user.is-round-interjection:is(:hover, :focus-within) {
+  z-index: 2;
+}
+html[data-theme] .chat-pane .chat-message.user.is-round-interjection + .chat-message.main {
+  margin-top: 12px;
+}
 html[data-theme] .process-segment {
   margin: 0 0 14px;
   white-space: normal;
