@@ -940,6 +940,15 @@ export function createConversationView({
         interrupted || exchange.continued ? -1 : finalAnswerIndex(exchange.messages, state.detail, isCurrent);
       const finalText = finalIndex >= 0 ? visibleText(exchange.messages[finalIndex].content).trim() : "";
       const historyKey = `${task.taskId}:${exchange.key}`;
+      const stopped =
+        execution.stopped ?? (execution.terminal === "cancelled" && !(isCurrent && failure) ? {} : undefined);
+      // Any earlier round superseded by a later user turn folds its L1 workflow
+      // into L0 unless it ended in a stop/cancellation/failure that stays inline.
+      const superseded =
+        !isCurrent &&
+        !exchange.awaitingDelivery &&
+        !stopped &&
+        !["cancelled", "failed"].includes(execution.terminal);
       const { markup: workflow } = renderLiveActivity(
         exchange.events,
         active,
@@ -949,8 +958,8 @@ export function createConversationView({
         historyKey,
         (interrupted && !waiting && !paused) || (isCurrent && Boolean(failure)),
         isCurrent,
-        execution.stopped ?? (execution.terminal === "cancelled" && !(isCurrent && failure) ? {} : undefined),
-        exchange.continued
+        stopped,
+        { foldWithoutAnswer: superseded, omitDuration: exchange.continued }
       );
       const workflowIndex = !active && finalIndex >= 0 ? finalIndex : -1;
       const rendered =

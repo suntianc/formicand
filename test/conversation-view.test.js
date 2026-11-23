@@ -194,6 +194,54 @@ test("interjecting while L1 is untouched collapses earlier activity into a close
   assert.equal(document.querySelectorAll('[data-answer-kind="pending"]').length, 1);
 });
 
+test("a superseded waiting or tool-only round folds its L1 workflow into L0 when a later user turn follows", () => {
+  const { document, state, render } = fixture("superseded-waiting", "先检查进度。");
+  const progressUpdate = {
+    role: "assistant",
+    timestamp: 2,
+    stopReason: "toolUse",
+    content: [{ type: "text", text: "三块已完成一块，正在继续推进。" }]
+  };
+  const followup = { role: "user", id: "later-turn", content: "怎么样了？", timestamp: 5 };
+  const finalAnswer = {
+    role: "assistant",
+    timestamp: 6,
+    stopReason: "stop",
+    content: [{ type: "text", text: "全部已完成并合入。" }]
+  };
+  state.detail.task.status = "completed";
+  state.detail.runtime.active = false;
+  state.detail.runtimeEvents.push(
+    update("thinking_end", 0, { content: "先检查进度。" }),
+    { type: "message_end", message: progressUpdate },
+    update("toolcall_end", 1, {
+      toolCall: { id: "cmd-1", name: "bash", arguments: { command: "git status" } }
+    }),
+    { type: "tool_execution_end", toolCallId: "cmd-1", result: { content: [] } },
+    { type: "main.run_waiting", runId: "run-1" },
+    { type: "message_start", message: followup },
+    { type: "message_end", message: followup },
+    { type: "turn_start" },
+    { type: "message_start", message: { role: "assistant", timestamp: 6, content: [] } },
+    update("thinking_start", 0),
+    update("thinking_end", 0, { content: "整理最终结果。" }),
+    { type: "message_end", message: finalAnswer },
+    { type: "turn_end", message: finalAnswer }
+  );
+  render([user, progressUpdate, followup, finalAnswer]);
+
+  const histories = document.querySelectorAll(".execution-history");
+  assert.equal(histories.length, 2);
+  assert.equal(histories[0].open === true, false);
+  assert.equal(histories[1].open === true, false);
+  // None of the superseded round's L1 rows leak outside L0.
+  assert.equal(
+    document.querySelectorAll("#conversation > .process-segment, #conversation > .live-answer").length,
+    0
+  );
+  assert.equal(document.querySelectorAll('[data-answer-kind="final"]').length, 1);
+});
+
 test("an accepted instruction leaves the current tool active until Pi delivers it", () => {
   const { document, state, render } = fixture("steering-in-flight", "");
   state.detail.runtimeEvents.push({

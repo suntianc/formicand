@@ -144,7 +144,7 @@ export function createConversationActivityView({
     failed = false,
     isCurrent = true,
     stopped = undefined,
-    continued = false
+    { foldWithoutAnswer = false, omitDuration = false } = {}
   ) {
     const { taskId, detail } = activityContext();
     const turns = buildLiveActivity(events);
@@ -216,7 +216,7 @@ export function createConversationActivityView({
     if (!activity.length) return placeholder();
     if (failed && !activity.some((item) => item.type === "tool" || item.text?.trim())) return { markup: "" };
     const collapsible =
-      !working && (continued || (hasFinalAnswer && (!streamedAnswer || persistedAnswerMatches)));
+      !working && (foldWithoutAnswer || (hasFinalAnswer && (!streamedAnswer || persistedAnswerMatches)));
     // Main is working but nothing at the end is moving: the model is on its
     // way to the next step, so that step's row waits there.
     const tail = activity.at(-1);
@@ -376,7 +376,7 @@ export function createConversationActivityView({
 
     if (!collapsible) return { markup: renderL1() };
 
-    const settled = continued
+    const settled = omitDuration
       ? undefined
       : formatExecutionDuration(executionElapsedMs(events, detail?.events)) || undefined;
     const l0Open = isHistoryOpen ? Boolean(isHistoryOpen(historyKey)) : Boolean(historyOpen);
