@@ -72,14 +72,16 @@ const QUERY = `function run(argv) {
  * a path or a program: the file comes from the backend and the application
  * must be one this module listed for that file.
  */
-function createFileOpener({ shell, app, platform = process.platform, execute = run }) {
+function createFileOpener({ shell, nativeImage, platform = process.platform, execute = run }) {
   const iconCache = new Map();
 
   async function icon(appPath) {
     if (iconCache.has(appPath)) return iconCache.get(appPath);
     let value = "";
     try {
-      value = (await app.getFileIcon(appPath, { size: "normal" })).toDataURL();
+      // `app.getFileIcon` answers by extension on macOS, so every app came back as the generic one.
+      const image = await nativeImage.createThumbnailFromPath(appPath, { width: 64, height: 64 });
+      value = image.resize({ width: 36, height: 36, quality: "best" }).toDataURL();
       // eslint-disable-next-line no-restricted-syntax -- an app whose icon cannot be read is still listed, by name only
     } catch {
       value = "";
