@@ -92,6 +92,13 @@ test("follow-up opens an assistant message before inference and animates each th
         .locator(".thinking-spinner .ant-head")
         .evaluate((el) => getComputedStyle(el).animationName)
     ).toBe("ant-crawl");
+    // The parts that move are boxes, not SVG shapes: Electron relays the whole page
+    // every frame an SVG shape's transform animates, about two thirds of a core.
+    expect(
+      await pending
+        .locator(".thinking-spinner .ant-body")
+        .evaluateAll((parts) => parts.map((part) => part.tagName))
+    ).toEqual(["SPAN", "SPAN", "SPAN"]);
     const thinkingSize = await pending
       .getByText("思考中", { exact: true })
       .evaluate((node) => getComputedStyle(node).fontSize);
