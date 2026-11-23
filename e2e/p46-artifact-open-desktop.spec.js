@@ -86,6 +86,15 @@ test("桌面版用本机应用打开产物，并且只接受后端解析到的�
     await expect(drawer).toBeVisible();
     const openMain = drawer.locator("[data-open-main]");
     await expect(openMain).toBeVisible();
+    // A long name on a narrow drawer shortens the title; the actions stay on one row.
+    const rows = await drawer.evaluate((node) => {
+      node.style.width = "520px";
+      node.querySelector(".artifact-drawer-title strong").textContent = "名".repeat(80);
+      const top = (selector) => Math.round(node.querySelector(selector).getBoundingClientRect().top);
+      return { open: top("[data-open-main]"), close: top("[data-close-drawer]") };
+    });
+    expect(Math.abs(rows.open - rows.close)).toBeLessThan(12);
+    await drawer.evaluate((node) => node.style.removeProperty("width"));
     await openMain.click();
     // The backend resolves the real path, so /var may already read as /private/var.
     const expectedFile = await realpath(join(artifacts, "报告.md"));

@@ -65,6 +65,8 @@ html[data-theme] .artifact-drawer-head {
   align-items: center;
   gap: 10px;
   margin-left: auto;
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
 }
 .drawer-action.is-icon {
   display: grid;
