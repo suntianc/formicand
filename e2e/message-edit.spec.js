@@ -52,7 +52,7 @@ for (const pause of ["restart", "stop"]) {
     const provider = await modelProtocolFixture("openai-completions", async (_body, requests) => {
       if (requests.length === 1) {
         await questionGate;
-        return { name: "askhuman", arguments: { question: "你想查询哪个城市今天的天气？" } };
+        return { name: "askhuman", arguments: { questions: [{ question: "你想查询哪个城市今天的天气？" }] } };
       }
       return { text: "北京天气的新回复。" };
     });

@@ -48,13 +48,25 @@ function validateEntries(entries, limit = maximumBytes) {
       throw new Error("草稿内容不是有效 JSON，请保留当前窗口");
     }
     if (key.startsWith(humanPrefix)) {
+      // A confirmation keeps its typed change; questions keep the step shown
+      // and, per question, the chosen option indexes and typed words.
+      const index = (value) => Number.isSafeInteger(value) && value >= 0;
+      const part = (entry) =>
+        entry &&
+        typeof entry === "object" &&
+        !Array.isArray(entry) &&
+        Array.isArray(entry.choices) &&
+        entry.choices.every(index) &&
+        typeof entry.text === "string" &&
+        Object.keys(entry).every((field) => field === "choices" || field === "text");
       if (
         !draft ||
         typeof draft !== "object" ||
         Array.isArray(draft) ||
-        typeof draft.text !== "string" ||
-        (draft.choice !== undefined && (!Number.isSafeInteger(draft.choice) || draft.choice < 0)) ||
-        Object.keys(draft).some((field) => field !== "text" && field !== "choice")
+        (draft.text !== undefined && typeof draft.text !== "string") ||
+        (draft.step !== undefined && !index(draft.step)) ||
+        (draft.parts !== undefined && !(Array.isArray(draft.parts) && draft.parts.every(part))) ||
+        Object.keys(draft).some((field) => !["text", "step", "parts"].includes(field))
       )
         throw new Error("人工回复草稿格式不正确，请保留当前窗口");
     } else if (isSessionMarker(key)) {

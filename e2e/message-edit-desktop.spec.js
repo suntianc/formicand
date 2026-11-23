@@ -17,7 +17,7 @@ test("native edit restores an attachment-only message and survives relaunch with
   const provider = await modelProtocolFixture("openai-completions", (body) => {
     const context = JSON.stringify(body.messages);
     if (context.includes("NATIVE_STOP_QUESTION"))
-      return { name: "askhuman", arguments: { question: "要查哪个城市？" } };
+      return { name: "askhuman", arguments: { questions: [{ question: "要查哪个城市？" }] } };
     if (context.includes("NATIVE_AFTER_STOP")) return { text: "NATIVE_AFTER_STOP_ANSWER" };
     return { text: ++calls === 1 ? "NATIVE_OLD_ANSWER" : "NATIVE_NEW_ANSWER" };
   });

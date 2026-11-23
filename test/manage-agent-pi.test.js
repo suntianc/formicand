@@ -129,7 +129,7 @@ test(
     assert.equal(questions.length, 1);
     assert.equal(questions[0].question, "创建 Agent：db-migrator");
     assert.deepEqual(questions[0].options, ["确认创建", "拒绝"]);
-    assert.equal(questions[0].recommended, 1, "a timeout does not write");
+    assert.deepEqual(questions[0].recommended, [1], "a timeout does not write");
     assert.deepEqual(questions[0].proposal, {
       kind: "agent",
       action: "create",

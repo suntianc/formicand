@@ -220,7 +220,7 @@ export function registerAgentTools(pi: ExtensionAPI, context: CoworkToolContext)
           question: `${QUESTION[proposal.action]}：${proposal.definition.name}`,
           options: [confirm, "拒绝"],
           // A timeout proceeds on the recommended option: not writing.
-          recommended: 1,
+          recommended: [1],
           proposal
         },
         signal,

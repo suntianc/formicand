@@ -700,5 +700,27 @@ export default {
   后端返回的会话与本地记录不一致: "The backend session does not match the local record",
   "本地会话已失效，草稿与已提交内容保留；重新授权后可继续。":
     "The local session expired. Your draft and submitted content are kept; reauthorize to continue.",
-  "本地会话已失效，任务事件订阅已停止。": "The local session expired, so task events stopped."
+  "本地会话已失效，任务事件订阅已停止。": "The local session expired, so task events stopped.",
+  已按推荐继续: "Went ahead with the recommendation",
+  "Main 已自行决定": "Main decided on its own",
+  后按推荐继续: "left, then the recommendation",
+  "后 Main 自行决定": "left, then Main decides",
+  提示词: "Prompt",
+  "写修改意见，比如「改成只读」": "Write a change, such as “make it read-only”",
+  条验收: "criteria",
+  "箭头前的先做，加号连着的可以同时做":
+    "Tickets before an arrow go first; tickets joined by + can run together",
+  修改已确认的票: "Change a confirmed ticket",
+  确认要做的票: "Confirm the tickets",
+  "写修改意见，比如「02 和 03 合成一张」": "Write a change, such as “merge 02 and 03”",
+  问题: "Questions",
+  数字键勾选: "Numbers tick",
+  数字键选择: "Numbers choose",
+  "Shift+回车换行": "Shift+Enter for a new line",
+  可多选: "Choose any",
+  "其他回答，或补充说明…": "Another answer, or a note…",
+  回车下一个: "Enter for next",
+  回车发送: "Enter to send",
+  上一个: "Back",
+  下一个: "Next"
 };

@@ -314,10 +314,14 @@ test(
             return {
               name: "askhuman",
               arguments: {
-                question: "是否把导出格式从 CSV 改为 PDF？",
-                context: "审查建议改为 PDF；这改变已确认的导出范围。",
-                options: ["保持现有 CSV 范围", "改为 PDF"],
-                recommended: 0
+                questions: [
+                  {
+                    question: "是否把导出格式从 CSV 改为 PDF？",
+                    context: "审查建议改为 PDF；这改变已确认的导出范围。",
+                    options: ["保持现有 CSV 范围", "改为 PDF"],
+                    recommended: [0]
+                  }
+                ]
               }
             };
           }

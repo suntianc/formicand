@@ -144,7 +144,16 @@ test("human reply records validate choices without capturing other data", async 
   const path = join(root, "composer-drafts.json");
   const original = draft("compatible composer");
   const humanKey = "atria.human.v1:task-id:request-id";
-  const entries = { ...original, [humanKey]: JSON.stringify({ text: "人工回复 😀", choice: 1 }) };
+  const entries = {
+    ...original,
+    [humanKey]: JSON.stringify({
+      step: 1,
+      parts: [
+        { choices: [0, 2], text: "" },
+        { choices: [], text: "人工回复 😀" }
+      ]
+    })
+  };
   const store = createComposerDraftStore(root);
   await store.load();
   await store.save(entries, "http://127.0.0.1:43800");
@@ -156,8 +165,9 @@ test("human reply records validate choices without capturing other data", async 
   for (const record of [
     null,
     { text: 3 },
-    { text: "draft", choice: -1 },
-    { text: "draft", choice: 0.5 },
+    { step: -1 },
+    { parts: [{ choices: [0.5], text: "" }] },
+    { parts: [{ choices: [], text: "draft", apiKey: "must-not-persist" }] },
     { text: "draft", apiKey: "must-not-persist" }
   ])
     await assert.rejects(restored.save({ ...original, [humanKey]: JSON.stringify(record) }), /人工回复/);

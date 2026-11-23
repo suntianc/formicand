@@ -701,7 +701,7 @@ async function runSmoke() {
     runId: humanDetail.task.activeRunId,
     question: "请选择导出格式",
     options: ["Markdown", "PDF"],
-    recommended: 0
+    recommended: [0]
   });
   await focusConversation(page, humanTask);
   const humanReply = "保留重启后的中文回复 😀 和显式选择";
@@ -720,7 +720,7 @@ async function runSmoke() {
       response.url().endsWith(`/human/${humanRequest.requestId}/answer`) &&
       response.request().method() === "POST"
   );
-  await page.getByRole("button", { name: "提交并继续", exact: true }).click();
+  await page.getByRole("button", { name: "发送", exact: true }).click();
   const humanResponse = await humanSubmission;
   expect(humanResponse.ok()).toBe(true);
   expect((await humanResponse.json()).resume.status).toBe("running");

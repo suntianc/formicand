@@ -47,14 +47,14 @@ test("human replies use the shared palette and retain answers through a visible 
             question: "希望如何保留报告中的内容？",
             context: "你可以先选择一个方案，再补充自己的要求。",
             options: ["保留完整内容和格式", "只保留要点"],
-            recommended: 0
+            recommended: [0]
           }
         ]
       });
     });
     const card = page.locator("#human-questions");
     const answer = card.getByRole("textbox");
-    const submit = card.getByRole("button", { name: "提交并继续", exact: true });
+    const submit = card.getByRole("button", { name: "发送", exact: true });
     for (const theme of ["light", "dark"]) {
       await page.emulateMedia({ colorScheme: theme });
       await expect(page.locator("html")).toHaveAttribute("data-theme", theme);

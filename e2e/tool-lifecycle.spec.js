@@ -16,7 +16,12 @@ test("returned async tools retain real work status through progress, callbacks a
       const user = { role: "user", content: "四缸发动机协作状态验收", timestamp: 1 };
       const runtimeEvents = [{ type: "turn_start" }, { type: "message_start", message: user }];
       for (const [id, name, args, data] of [
-        ["question", "askhuman", { question: "使用机械联动还是动力学仿真？" }, { status: "timeout" }],
+        [
+          "question",
+          "askhuman",
+          { questions: [{ question: "使用机械联动还是动力学仿真？" }] },
+          { status: "timeout" }
+        ],
         [
           "dispatch",
           "call_subagent",

@@ -156,7 +156,7 @@ async function questionFixture(page, base) {
       question: "请选择验收报告格式",
       context: "确认后继续当前任务。",
       options: ["Markdown", "PDF"],
-      recommended: 0,
+      recommended: [0],
       status: "pending"
     };
     let detail = { task: { taskId: "human-task", status: "running" }, humanRequests: [request] };
@@ -225,7 +225,7 @@ test("human drafts keep focus through timeout and failed submission without repl
   try {
     await questionFixture(page, dashboard.base);
     const answer = page.getByRole("textbox", { name: "其他回答或补充说明" });
-    const submit = page.getByRole("button", { name: "提交并继续", exact: true });
+    const submit = page.getByRole("button", { name: "发送", exact: true });
     await page.getByRole("radio", { name: "PDF", exact: true }).check();
     await answer.fill("保留原回答和插入位置");
     await answer.evaluate((node) => node.setSelectionRange(2, 5));
@@ -258,7 +258,7 @@ test("a late rejected submission cannot take focus from another task", async ({ 
     const answer = page.getByRole("textbox", { name: "其他回答或补充说明" });
     await page.getByRole("radio", { name: "PDF", exact: true }).check();
     await answer.fill("提交中的回复");
-    await page.getByRole("button", { name: "提交并继续", exact: true }).click();
+    await page.getByRole("button", { name: "发送", exact: true }).click();
     await page.evaluate(() => window.humanFixture.changeTask("human-other"));
     await answer.fill("另一任务的回复");
     await answer.evaluate((node) => node.setSelectionRange(1, 3));
@@ -282,7 +282,7 @@ test("long human questions scroll inside the card and keep the submission contro
     await questionFixture(page, dashboard.base);
     await page.evaluate(() => window.humanFixture.longQuestion());
     const card = page.locator("#human-questions");
-    const submit = page.getByRole("button", { name: "提交并继续", exact: true });
+    const submit = page.getByRole("button", { name: "发送", exact: true });
     await expect(card).toBeVisible();
     await expect(submit).toBeInViewport();
     const geometry = await card.evaluate((node) => {
@@ -380,7 +380,7 @@ test("desktop human draft and explicit choice survive a new origin and are remov
       "重启后继续完整的人工回复 😀"
     );
     await expect(restored.getByRole("radio", { name: "PDF", exact: true })).toBeChecked();
-    await restored.getByRole("button", { name: "提交并继续" }).click();
+    await restored.getByRole("button", { name: "发送" }).click();
     await restored.evaluate(() => window.humanFixture.answered());
     await expect(restored.locator("#human-questions")).toBeHidden();
     await restored.evaluate(() => window.__sendHumanNative("bookman:prepare-close", "human-accepted-close"));

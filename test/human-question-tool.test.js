@@ -47,7 +47,13 @@ test("aborting askhuman releases its wait promptly and clears the pending questi
   const controller = new AbortController();
   controller.abort();
   const started = Date.now();
-  const result = await f.tool.execute("ask", { question: "继续吗？" }, controller.signal, undefined, f.ctx);
+  const result = await f.tool.execute(
+    "ask",
+    { questions: [{ question: "继续吗？" }] },
+    controller.signal,
+    undefined,
+    f.ctx
+  );
   assert.equal(result.details.status, "cancelled");
   assert.ok(Date.now() - started < 700, "Escape must not wait out the configured human timeout");
   assert.deepEqual(await f.human.list("task", "pending"), []);
@@ -57,12 +63,41 @@ test("askhuman timeout and rendered recommendation use the same normalized optio
   const f = await fixture(t, 0);
   const result = await f.tool.execute(
     "ask",
-    { question: "格式？", options: [" ", "Markdown", "PDF"], recommended: 1 },
+    { questions: [{ question: "格式？", options: [" ", "Markdown", "PDF"], recommended: [1] }] },
     undefined,
     undefined,
     f.ctx
   );
   const [question] = await f.human.list("task");
-  assert.equal(question.options[question.recommended], "Markdown");
-  assert.equal(result.details.recommendedOption, "Markdown");
+  assert.equal(question.options[question.recommended[0]], "Markdown");
+  assert.deepEqual(result.details.recommended, [{ question: "格式？", answer: "Markdown" }]);
+  assert.ok(Date.parse(question.expiresAt) > 0, "the page can count down to when Main proceeds");
+});
+
+test("several questions are one request with one answer, and a timeout lists each recommendation", async (t) => {
+  const f = await fixture(t, 0);
+  const result = await f.tool.execute(
+    "ask",
+    {
+      questions: [
+        {
+          question: "改哪些页面？",
+          label: "页面",
+          options: ["登录", "注册", "设置"],
+          multiple: true,
+          recommended: [0, 1]
+        },
+        { question: "什么时候上线？", options: ["本周", "下周"] }
+      ]
+    },
+    undefined,
+    undefined,
+    f.ctx
+  );
+  const [request] = await f.human.list("task");
+  assert.equal(request.question, "改哪些页面？");
+  assert.equal(request.questions.length, 2);
+  assert.deepEqual(request.questions[0].recommended, [0, 1]);
+  assert.equal(request.questions[0].multiple, true);
+  assert.deepEqual(result.details.recommended, [{ question: "改哪些页面？", answer: "登录、注册" }]);
 });
