@@ -213,7 +213,7 @@ export function createConversationActivityView({ markdown, activityContext }) {
     const spinner = turn.done
       ? ""
       : `<span class="thinking-spinner ant-mark" data-thinking-key="${esc(key)}" aria-hidden="true">${antMarkSvg}</span>`;
-    return `<div class="activity-step reasoning-step" data-view-key="${esc(key)}">
+    return `<div class="activity-step reasoning-step${turn.interrupted ? " is-interrupted" : ""}" data-view-key="${esc(key)}">
     <div class="activity-step-content">
       ${preview ? `<details class="reasoning-details" data-activity-key="${esc(key)}"><summary>${spinner}<span class="${stateClass}">${label}</span><span class="reasoning-preview">${esc(preview)}</span><span class="reasoning-chevron" aria-hidden="true">${icon("chevron-right")}</span></summary><div class="reasoning-copy markdown-body">${markdown(normalized)}</div>${original !== normalized || /\*\*|```/.test(original) ? ui`<details class="activity-raw" data-activity-key="${esc(`${key}:source`)}"><summary>原始内容</summary><pre class="activity-raw-copy">${esc(original)}</pre></details>` : ""}</details>` : `<div class="activity-step-head">${spinner}<strong class="${stateClass}">${label}</strong></div>`}
     </div>

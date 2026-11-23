@@ -328,6 +328,19 @@ html[data-theme] .workflow-rail {
   flex-direction: column;
   gap: 2px;
 }
+/* Each kind of step keeps one mark color: a thought violet, a batch of reads
+   and commands blue, a finished call green, a failure red, a stop amber. */
+html[data-theme] {
+  --mark-thought: #a78bfa;
+  --mark-batch: var(--color-review);
+  --mark-done: var(--color-ok);
+  --mark-failed: var(--color-danger, #e5484d);
+  --mark-stopped: var(--color-warn);
+  --mark-idle: var(--color-text-3);
+}
+html[data-theme="light"] {
+  --mark-thought: #7c5cc4;
+}
 html[data-theme] .workflow-rail > .activity-step,
 html[data-theme] .workflow-rail > .tool-step {
   min-height: 0;
@@ -370,7 +383,7 @@ html[data-theme] .tool-step.is-done .tool-status-dot {
   height: 12px;
   flex-basis: 12px;
   border-radius: 0;
-  background: var(--color-text-3);
+  background: var(--mark-done);
   -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12l5 5 9-10'/%3E%3C/svg%3E")
     center / contain no-repeat;
   mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12l5 5 9-10'/%3E%3C/svg%3E")
@@ -417,14 +430,17 @@ html[data-theme] :is(.tool-group-details, .tool-step.is-failed .tool-details) > 
   content: "";
   flex: 0 0 16px;
   height: 16px;
-  background: radial-gradient(circle closest-side, var(--dot, var(--color-text-3)) 2.5px, transparent 3.2px);
+  background: radial-gradient(circle closest-side, var(--dot, var(--mark-batch)) 2.5px, transparent 3.2px);
 }
 html[data-theme] .tool-step.is-failed .tool-details > summary::before {
-  --dot: var(--color-danger, #e5484d);
+  --dot: var(--mark-failed);
   order: -2;
 }
 html[data-theme] .tool-step.is-failed .tool-status-dot {
   display: none;
+}
+html[data-theme] .tool-step.is-stopped .tool-status-dot {
+  background: var(--mark-stopped);
 }
 html[data-theme] .tool-group-details > summary {
   min-height: 26px;
@@ -452,7 +468,10 @@ html[data-theme] .reasoning-details > summary:not(:has(.thinking-spinner))::befo
   content: "";
   flex: 0 0 16px;
   height: 16px;
-  background: radial-gradient(circle closest-side, var(--color-text-3) 2.5px, transparent 3.2px);
+  background: radial-gradient(circle closest-side, var(--dot, var(--mark-thought)) 2.5px, transparent 3.2px);
+}
+html[data-theme] .reasoning-step.is-interrupted {
+  --dot: var(--mark-stopped);
 }
 /* The state leads the row and keeps one size from the first wait to the end,
    so "思考中" never changes size or place; what the thought is about follows. */
@@ -562,10 +581,22 @@ html[data-theme] .subagent-step:not(.is-running) .tool-status-dot {
   width: 16px;
   height: 16px;
   border-radius: 0;
-  background: radial-gradient(circle closest-side, var(--dot, var(--color-text-3)) 2.5px, transparent 3.2px);
+  background: radial-gradient(circle closest-side, var(--dot, var(--mark-idle)) 2.5px, transparent 3.2px);
+}
+html[data-theme] .subagent-group {
+  --dot: var(--mark-batch);
+}
+html[data-theme] .subagent-step.is-done {
+  --dot: var(--mark-done);
+}
+html[data-theme] .subagent-step.is-waiting {
+  --dot: var(--mark-idle);
+}
+html[data-theme] .turn-stopped {
+  --dot: var(--mark-stopped);
 }
 html[data-theme] .subagent-step.is-failed {
-  --dot: var(--color-danger, #e5484d);
+  --dot: var(--mark-failed);
 }
 html[data-theme] .subagent-nest {
   margin-left: 7px;

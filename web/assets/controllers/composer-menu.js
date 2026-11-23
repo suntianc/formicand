@@ -2,6 +2,7 @@ import { escapeHtml as esc } from "../ui/html.js";
 import { icon } from "../ui/icons.js";
 import { ui } from "../ui/language.js";
 import { findReferences, referenceToken } from "../references.js";
+import { createComposerHighlight } from "./composer-highlight.js";
 
 /**
  * The composer's `/` and `@` menus. `/` offers skills (the message asks Main
@@ -75,6 +76,7 @@ export function createComposerMenu({ input, container, api, getProjectId, comman
   let active = 0;
   let fileTimer;
   let generation = 0;
+  const highlight = createComposerHighlight({ input, references: (text) => findReferences(text, known) });
 
   async function slashData(projectId) {
     const key = projectId ?? "";
@@ -83,7 +85,10 @@ export function createComposerMenu({ input, container, api, getProjectId, comman
     const data = api(`/api/composer/slash${projectId ? `?projectId=${encodeURIComponent(projectId)}` : ""}`);
     slashCache.set(key, { at: Date.now(), data });
     data.then(
-      (value) => value.skills.forEach((skill) => known.skills.add(skill.name)),
+      (value) => {
+        value.skills.forEach((skill) => known.skills.add(skill.name));
+        highlight.refresh();
+      },
       () => slashCache.delete(key)
     );
     return data;
@@ -96,7 +101,10 @@ export function createComposerMenu({ input, container, api, getProjectId, comman
     const data = api(`/api/composer/agents${projectId ? `?projectId=${encodeURIComponent(projectId)}` : ""}`);
     agentCache.set(key, { at: Date.now(), data });
     data.then(
-      (value) => value.agents.forEach((agent) => known.agents.add(agent.name)),
+      (value) => {
+        value.agents.forEach((agent) => known.agents.add(agent.name));
+        highlight.refresh();
+      },
       () => agentCache.delete(key)
     );
     return data;
@@ -107,7 +115,10 @@ export function createComposerMenu({ input, container, api, getProjectId, comman
     const data = api("/api/composer/resources");
     resourceCache = { at: Date.now(), data };
     data.then(
-      (value) => value.resources.forEach((resource) => known.servers.add(resource.server)),
+      (value) => {
+        value.resources.forEach((resource) => known.servers.add(resource.server));
+        highlight.refresh();
+      },
       () => (resourceCache = undefined)
     );
     return data;
