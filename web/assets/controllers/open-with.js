@@ -6,32 +6,38 @@ import { escapeHtml as esc } from "../ui/html.js";
 const FINDER_ID = "finder";
 
 /**
- * Crisp inline macOS Finder squircle icon. Rendering inline SVG keeps the main
- * Open button completely fixed across file switches with zero IPC wait or image
- * decode flicker, while per-file apps load quietly in the background for the menu.
- */
-function finderIcon() {
-  return (
-    '<svg class="open-with-icon open-with-finder" viewBox="0 0 18 18" fill="none" aria-hidden="true" focusable="false">' +
-    '<rect x="1" y="1" width="16" height="16" rx="4" fill="#2B93F7"/>' +
-    '<path d="M9.6 1H13a4 4 0 0 1 4 4v8a4 4 0 0 1-4 4H9.4c-1.15-2.6-1.45-5.35-.75-7.75h1.55C9.45 6.45 9.35 3.65 9.6 1Z" fill="#EAF4FF"/>' +
-    '<path d="M9.55 1.15c-.25 2.5-.15 5.25.6 8.05H8.6c-.7 2.4-.4 5.15.75 7.65" stroke="#1B6FD0" stroke-width="0.9" stroke-linecap="round" stroke-linejoin="round"/>' +
-    '<path d="M5.75 5.9v1.85M12.25 5.9v1.85" stroke="#183A63" stroke-width="1.35" stroke-linecap="round"/>' +
-    '<path d="M5.35 11.45c1.1 1.1 2.35 1.65 3.65 1.65s2.55-.55 3.65-1.65" stroke="#183A63" stroke-width="1.25" stroke-linecap="round"/>' +
-    "</svg>"
-  );
-}
-
-/**
  * The preview's "Open" split button, desktop only: the main half is fixed to
- * Finder (revealing the file without flickering across file switches), and the
- * arrow lists the applications installed on this Mac that can open it, loaded
- * quietly in the background.
+ * revealing the file in the OS file manager (native Finder icon on macOS loaded
+ * once at startup, folder icon on Windows/Linux), and the arrow lists installed
+ * applications loaded quietly in the background without repainting the drawer.
  */
-export function createOpenWith({ bridge, showToast }) {
+export function createOpenWith({ bridge, showToast, onChange }) {
   const lists = new Map();
   let menu, panel, current;
   let openTicket = 0;
+  let defaultAppIcon = "";
+  let platform = "";
+  let renderedOnce = false;
+
+  if (bridge?.defaultIcon) {
+    Promise.resolve(bridge.defaultIcon())
+      .then((result) => {
+        const nextIcon = typeof result?.icon === "string" ? result.icon : "";
+        const nextPlatform = typeof result?.platform === "string" ? result.platform : "";
+        const changed = nextIcon !== defaultAppIcon || nextPlatform !== platform;
+        defaultAppIcon = nextIcon;
+        platform = nextPlatform;
+        if (nextIcon && typeof Image === "function") {
+          const preload = new Image();
+          preload.src = nextIcon;
+          // eslint-disable-next-line no-restricted-syntax -- decoding hint is best-effort; fallback rendering still displays the cached data URL
+          void preload.decode?.().catch(() => {});
+        }
+        if (changed && renderedOnce) onChange?.();
+      })
+      // eslint-disable-next-line no-restricted-syntax -- without the native Finder icon the button falls back to the folder icon
+      .catch(() => {});
+  }
 
   function key(taskId, target) {
     return JSON.stringify([taskId, target.source, target.path, target.developmentId ?? ""]);
@@ -50,7 +56,7 @@ export function createOpenWith({ bridge, showToast }) {
         if (lists.get(id) === entry) lists.set(id, ready);
         return ready;
       })
-      // eslint-disable-next-line no-restricted-syntax -- a failed lookup still lets Finder open the file and retries on the next menu click
+      // eslint-disable-next-line no-restricted-syntax -- a failed lookup still lets the file manager open the file and retries on the next menu click
       .catch(() => {
         const failed = { status: "error", apps: [] };
         if (lists.get(id) === entry) lists.set(id, failed);
@@ -58,6 +64,12 @@ export function createOpenWith({ bridge, showToast }) {
       });
     lists.set(id, entry);
     return entry;
+  }
+
+  function mainIcon() {
+    return defaultAppIcon
+      ? `<img class="open-with-icon open-with-finder" src="${esc(defaultAppIcon)}" alt="" decoding="sync" draggable="false" />`
+      : icon("folder", "open-with-folder");
   }
 
   function appIcon(entry) {
@@ -69,12 +81,13 @@ export function createOpenWith({ bridge, showToast }) {
   /** The split button, or nothing outside the desktop or without a file. */
   function markup(taskId, target) {
     if (!bridge || !target) return "";
+    renderedOnce = true;
     // Warm the app list in the background so opening the menu is instant.
     loadApps(taskId, target);
-    const label = ui("在访达中显示");
+    const label = platform === "darwin" ? ui("在访达中显示") : ui("在文件夹中显示");
     return `<div class="drawer-open-with"><button type="button" class="drawer-action drawer-open-main" data-open-main title="${esc(
       label
-    )}" aria-label="${esc(label)}">${finderIcon()}<span>${ui("打开")}</span></button><button type="button" class="drawer-action is-icon drawer-open-more" data-open-more aria-haspopup="menu" aria-expanded="false" aria-label="${ui(
+    )}" aria-label="${esc(label)}">${mainIcon()}<span>${ui("打开")}</span></button><button type="button" class="drawer-action is-icon drawer-open-more" data-open-more aria-haspopup="menu" aria-expanded="false" aria-label="${ui(
       "选择打开方式"
     )}" title="${ui("选择打开方式")}">${icon("chevron-down")}</button></div>`;
   }
@@ -178,7 +191,7 @@ export function createOpenWith({ bridge, showToast }) {
     bind,
     /** Fixed button state: background app loading never forces a drawer repaint. */
     signature(taskId, target) {
-      return bridge && target ? FINDER_ID : "";
+      return bridge && target ? `${FINDER_ID}:${platform}:${defaultAppIcon ? "1" : "0"}` : "";
     },
     clear() {
       openTicket += 1;
