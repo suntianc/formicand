@@ -5,7 +5,7 @@ import { resolve } from "node:path";
 import { readSessionExportMetadata, writeSessionExport } from "../../dist/src/storage/session-export.js";
 import { recordingProducer, sanitizeRecording } from "../../dist/src/storage/model-request-recorder.js";
 
-const repository = "https://github.com/RUC-NLPIR/CoworkOS";
+const repository = "https://github.com/suntianc/coworkos";
 const ownedCommands = new Set(["export", "share", "bug", "changelog", "help"]);
 export function atriaCommandInput(text: string) {
   const trimmed = text.trim();

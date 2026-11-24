@@ -11,14 +11,8 @@ eslint-suppressions.json
 benchmarks
 agents
 
-src/software/cad/runtime-source.generated.ts
-
-src/software/cad/api-reference.generated.ts
-
-vendor/pptist/
 vendor/workloop-skills/
 docs/hero/react-bits/
-web/assets/pptist/generated/
 web/assets/math/generated/
 web/assets/mermaid/generated/
 web/assets/markdown/generated/
