@@ -537,9 +537,8 @@
   background: var(--ui-raised);
   font-family: var(--ui-mono);
   font-size: 0.86em;
-  line-height: 1;
+  line-height: 20px;
   text-decoration: none;
-  vertical-align: 0.05em;
 }
 :is(button, a).file-chip {
   cursor: pointer;
@@ -586,6 +585,12 @@
   font-size: 11px;
   letter-spacing: -0.5px;
 }
+/* The chip sits on the sentence's baseline through its name: with the icon
+   first, the icon's bottom edge would stand in for the baseline and lift the
+   whole chip above the surrounding text. */
+:is(.file-chip-name, .link-chip-title) {
+  align-self: baseline;
+}
 .file-chip-name {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -609,9 +614,8 @@
   color: var(--ui-text);
   background: var(--ui-raised);
   font-size: 0.9em;
-  line-height: 1;
+  line-height: 20px;
   text-decoration: none;
-  vertical-align: 0.05em;
   transition: border-color var(--motion-fast) var(--ease-standard);
 }
 .link-chip:hover {
