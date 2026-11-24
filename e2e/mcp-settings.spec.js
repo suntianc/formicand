@@ -19,7 +19,7 @@ test("a local server is tested, saved, tuned, switched off and deleted", async (
     const list = settings.locator("[data-mcp-list]");
     await expect(list).toContainText("还没有 MCP 服务");
 
-    await settings.getByRole("button", { name: "添加服务" }).click();
+    await settings.getByRole("button", { name: "新建", exact: true }).click();
     const dialog = page.getByRole("dialog", { name: "添加 MCP 服务" });
     await dialog.getByLabel("名称").fill("echoes");
     await dialog.getByLabel("命令").fill(process.execPath);
@@ -89,7 +89,7 @@ test("pasted JSON imports several servers and problems are listed with their rea
   try {
     await page.goto(dashboard.base);
     const settings = await openSettings(page, "mcp");
-    await settings.getByRole("button", { name: "粘贴 JSON 导入" }).click();
+    await settings.getByRole("button", { name: "粘贴 JSON" }).click();
     const dialog = page.getByRole("dialog", { name: "添加 MCP 服务" });
     await dialog.getByLabel("JSON").fill(
       JSON.stringify({
@@ -115,7 +115,7 @@ test("pasted JSON imports several servers and problems are listed with their rea
     await list.getByRole("button", { name: /broken/ }).click();
     await expect(settings.locator("[data-mcp-detail]").getByRole("button", { name: "登录" })).toHaveCount(0);
 
-    await settings.getByRole("button", { name: "粘贴 JSON 导入" }).click();
+    await settings.getByRole("button", { name: "粘贴 JSON" }).click();
     await dialog.getByLabel("JSON").fill(JSON.stringify({ echoes: { command: "x" } }));
     await dialog.getByRole("button", { name: "导入" }).click();
     await expect(dialog.locator("[data-mcp-editor-error]")).toContainText("已存在同名服务：echoes");

@@ -32,11 +32,6 @@ const FIELD_LABEL = {
   mcp: "MCP",
   prompt: "附加提示词"
 };
-const SCOPE_NOTE = {
-  global: "Main 按「使用说明」决定派给谁；同名时项目覆盖全局",
-  project: "项目 Agent 存在 .atria/agents/，跟着项目走；同名时覆盖全局"
-};
-
 export function createAgentSettings({
   panel,
   api,
@@ -80,9 +75,8 @@ export function createAgentSettings({
         <button type="button" role="radio" data-agent-scope-value="project" aria-checked="false">项目</button>
       </div>
       <span class="settings-group-spacer"></span>
-      <span class="settings-head-note">${icon("info")}<span data-agent-note></span></span>
       ${askMain ? `<button class="app-button is-secondary" type="button" data-agent-ask>${icon("sparkles")}<span>${ui("让 Main 帮我写")}</span></button>` : ""}
-      <button class="app-button is-primary skill-add" type="button" data-agent-new>${icon("plus")}<span>新建 Agent</span></button>
+      <button class="app-button is-primary skill-add" type="button" data-agent-new>${icon("plus")}<span>新建</span></button>
     </div>
     <div class="skill-body">
       <div class="skill-list-pane">
@@ -391,7 +385,6 @@ export function createAgentSettings({
   function render() {
     for (const button of panel.querySelectorAll("[data-agent-scope-value]"))
       button.setAttribute("aria-checked", String(button.dataset.agentScopeValue === view.scope));
-    $("[data-agent-note]").textContent = ui(SCOPE_NOTE[view.scope]);
     $("[data-agent-new]").disabled = view.scope === "project" && view.data.project?.trust !== "trusted";
     renderAgentProjectBar($, {
       scope: view.scope,

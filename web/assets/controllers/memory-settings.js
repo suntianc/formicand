@@ -42,7 +42,6 @@ export function createMemorySettings({ panel, api, projects = () => [], onSectio
         <button type="button" role="radio" data-memory-scope-value="project" aria-checked="false">项目</button>
       </div>
       <span class="settings-group-spacer"></span>
-      <span class="settings-head-note">${icon("info")}<span data-memory-note></span></span>
       <button class="app-button is-primary skill-add" type="button" data-memory-add>${icon("plus")}<span>新建记忆</span></button>
     </div>
     <div class="skill-body">
@@ -198,10 +197,6 @@ export function createMemorySettings({ panel, api, projects = () => [], onSectio
   function render() {
     for (const button of panel.querySelectorAll("[data-memory-scope-value]"))
       button.setAttribute("aria-checked", String(button.dataset.memoryScopeValue === view.scope));
-    $("[data-memory-note]").textContent =
-      view.scope === "project"
-        ? ui("只在这个项目里用；关闭后 Main 看不到也写不了")
-        : ui("跟着你走，所有项目的 Main 都会用到");
     $("[data-memory-add]").disabled = view.scope === "project" && !view.projectId;
     renderProjectBar();
     renderList();

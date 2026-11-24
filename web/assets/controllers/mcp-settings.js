@@ -80,11 +80,10 @@ export function createMcpSettings({ panel, api, onSection, showToast = () => {} 
   const post = (path, json) => api(path, { method: "POST", json });
 
   panel.innerHTML = ui`<div class="skill-head">
-      <h1 class="settings-page-title">MCP 服务</h1>
+      <h1 class="settings-page-title">MCP</h1>
       <span class="settings-group-spacer"></span>
-      <span class="settings-head-note">${icon("info")}<span>保存在 ~/.atria/mcp.json，所有项目共用；每个 Agent 再单独选用</span></span>
-      <button class="app-button is-secondary" type="button" data-mcp-import>${icon("copy")}<span>粘贴 JSON 导入</span></button>
-      <button class="app-button is-primary" type="button" data-mcp-add>${icon("plus")}<span>添加服务</span></button>
+      <button class="app-button is-secondary" type="button" data-mcp-import>${icon("clipboard-paste")}<span>粘贴 JSON</span></button>
+      <button class="app-button is-primary" type="button" data-mcp-add>${icon("plus")}<span>新建</span></button>
     </div>
     <div class="skill-body">
       <div class="skill-list-pane">

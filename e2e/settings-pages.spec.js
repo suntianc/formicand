@@ -33,7 +33,7 @@ test("the ten sections switch from one navigation, return to the entry and no se
       ["models", "模型"],
       ["agents", "Agent"],
       ["skills", "技能"],
-      ["mcp", "MCP 服务"],
+      ["mcp", "MCP"],
       ["memory", "记忆"],
       ["capacity", "运行名额"],
       ["members", "成员与通道"],

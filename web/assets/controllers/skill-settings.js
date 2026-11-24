@@ -64,7 +64,6 @@ export function createSkillSettings({ panel, api, projects = () => [], onSection
         <button type="button" role="radio" data-skill-scope-value="project" aria-checked="false">项目</button>
       </div>
       <span class="settings-group-spacer"></span>
-      <span class="settings-head-note">${icon("info")}<span data-skill-note></span></span>
       <button class="app-button is-primary skill-add" type="button" data-skill-add>${icon("plus")}<span data-skill-add-label>添加技能</span></button>
     </div>
     <div class="skill-body">
@@ -261,10 +260,6 @@ export function createSkillSettings({ panel, api, projects = () => [], onSection
   function render() {
     for (const button of panel.querySelectorAll("[data-skill-scope-value]"))
       button.setAttribute("aria-checked", String(button.dataset.skillScopeValue === view.scope));
-    $("[data-skill-note]").textContent =
-      view.scope === "project"
-        ? ui("项目技能存在 .atria/skills/ 和 .agents/skills/，跟着项目走；同名时覆盖全局")
-        : ui("Main 与所有 Agent 共用；同名时项目覆盖全局；从索引移除不改动文件");
     $("[data-skill-add-label]").textContent = view.scope === "project" ? ui("添加到此项目") : ui("添加技能");
     $("[data-skill-add]").disabled = view.scope === "project" && view.data.project?.trust !== "trusted";
     renderProjectBar();
