@@ -138876,43 +138876,15 @@
                 },
                 {
                   "type": "frame",
-                  "id": "dJGKr",
-                  "name": "Hint",
-                  "gap": 6,
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "icon",
-                      "id": "hrvUv",
-                      "name": "i-info",
-                      "width": 14,
-                      "height": 14,
-                      "icon": "info",
-                      "library": "lucide",
-                      "fill": "$v2-text-3"
-                    },
-                    {
-                      "type": "text",
-                      "id": "q2YX6Z",
-                      "name": "HintText",
-                      "fill": "$v2-text-3",
-                      "content": "Main 与所有 Agent 共用；同名时项目覆盖全局；从索引移除不改动文件",
-                      "fontFamily": "Noto Sans SC",
-                      "fontSize": 12,
-                      "fontWeight": "normal"
-                    }
-                  ]
-                },
-                {
-                  "type": "frame",
                   "id": "QWTaO",
                   "name": "Button 添加技能",
+                  "height": 28,
                   "fill": "$v2-primary",
-                  "cornerRadius": 8,
-                  "gap": 6,
+                  "cornerRadius": 7,
+                  "gap": 5,
                   "padding": [
-                    7,
-                    12
+                    0,
+                    10
                   ],
                   "alignItems": "center",
                   "children": [
@@ -138920,8 +138892,8 @@
                       "type": "icon",
                       "id": "upvvT",
                       "name": "i-plus",
-                      "width": 14,
-                      "height": 14,
+                      "width": 13,
+                      "height": 13,
                       "icon": "plus",
                       "library": "lucide",
                       "fill": "$v2-on-primary"
@@ -138933,7 +138905,7 @@
                       "fill": "$v2-on-primary",
                       "content": "添加技能",
                       "fontFamily": "Noto Sans SC",
-                      "fontSize": 13,
+                      "fontSize": 12,
                       "fontWeight": "500"
                     }
                   ]
@@ -140250,71 +140222,47 @@
                         },
                         {
                           "type": "frame",
-                          "id": "VVL78",
-                          "name": "Button 检查更新",
+                          "id": "Vuyfs",
+                          "name": "IconBtn 检查更新",
+                          "width": 28,
+                          "height": 28,
                           "fill": "$v2-secondary",
-                          "cornerRadius": 8,
-                          "gap": 6,
-                          "padding": [
-                            7,
-                            12
-                          ],
+                          "cornerRadius": 7,
+                          "justifyContent": "center",
                           "alignItems": "center",
                           "children": [
                             {
                               "type": "icon",
-                              "id": "BNL8T",
-                              "name": "i-refresh-cw",
+                              "id": "x3sjx",
+                              "name": "i",
                               "width": 14,
                               "height": 14,
                               "icon": "refresh-cw",
                               "library": "lucide",
-                              "fill": "$v2-text"
-                            },
-                            {
-                              "type": "text",
-                              "id": "s7N8Hu",
-                              "name": "Label",
-                              "fill": "$v2-text",
-                              "content": "检查更新",
-                              "fontFamily": "Noto Sans SC",
-                              "fontSize": 13,
-                              "fontWeight": "500"
+                              "fill": "$v2-text-2"
                             }
                           ]
                         },
                         {
                           "type": "frame",
-                          "id": "SwU9M",
-                          "name": "Button 删除",
-                          "fill": "$v2-danger-soft",
-                          "cornerRadius": 8,
-                          "gap": 6,
-                          "padding": [
-                            7,
-                            12
-                          ],
+                          "id": "q43Sz",
+                          "name": "IconBtn 删除",
+                          "width": 28,
+                          "height": 28,
+                          "fill": "$v2-secondary",
+                          "cornerRadius": 7,
+                          "justifyContent": "center",
                           "alignItems": "center",
                           "children": [
                             {
                               "type": "icon",
-                              "id": "XWJFg",
-                              "name": "i-trash-2",
+                              "id": "keEKf",
+                              "name": "i",
                               "width": 14,
                               "height": 14,
                               "icon": "trash-2",
                               "library": "lucide",
                               "fill": "$v2-danger"
-                            },
-                            {
-                              "type": "text",
-                              "id": "i8euh",
-                              "name": "Label",
-                              "fill": "$v2-danger",
-                              "content": "删除",
-                              "fontFamily": "Noto Sans SC",
-                              "fontSize": 13,
-                              "fontWeight": "500"
                             }
                           ]
                         }
@@ -140562,42 +140510,6 @@
                           "name": "Spacer",
                           "width": "fill_container",
                           "height": 1
-                        }
-                      ]
-                    },
-                    {
-                      "type": "frame",
-                      "id": "wAtXC",
-                      "name": "ScriptNote",
-                      "width": "fill_container",
-                      "fill": "$v2-warn-soft",
-                      "cornerRadius": 8,
-                      "gap": 8,
-                      "padding": [
-                        9,
-                        12
-                      ],
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "icon",
-                          "id": "GYzQd",
-                          "name": "i-triangle-alert",
-                          "width": 14,
-                          "height": 14,
-                          "icon": "triangle-alert",
-                          "library": "lucide",
-                          "fill": "$v2-warn"
-                        },
-                        {
-                          "type": "text",
-                          "id": "Qcs1f",
-                          "name": "T",
-                          "fill": "$v2-warn",
-                          "content": "模型加载此技能后，可能按说明运行下列脚本。只安装你信任的来源。",
-                          "fontFamily": "Noto Sans SC",
-                          "fontSize": 12,
-                          "fontWeight": "normal"
                         }
                       ]
                     },
