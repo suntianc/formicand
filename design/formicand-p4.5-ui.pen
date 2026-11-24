@@ -178683,30 +178683,74 @@
                 },
                 {
                   "type": "frame",
-                  "id": "dQJQs",
-                  "name": "WebLink",
-                  "gap": 2,
+                  "id": "O9flvG",
+                  "name": "WebChip web.dev",
+                  "fill": "$v2-chip",
+                  "cornerRadius": 6,
+                  "stroke": "$v2-line",
+                  "strokeWidth": 1,
+                  "strokeAlignment": "inner",
+                  "gap": 6,
+                  "padding": [
+                    2,
+                    8,
+                    2,
+                    4
+                  ],
                   "alignItems": "center",
                   "children": [
                     {
+                      "type": "frame",
+                      "id": "LnWXM",
+                      "name": "Favicon",
+                      "width": 16,
+                      "height": 16,
+                      "fill": "#4285F4",
+                      "cornerRadius": 4,
+                      "justifyContent": "center",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "yWoqM",
+                          "name": "g",
+                          "fill": "#FFFFFF",
+                          "content": "W",
+                          "fontFamily": "Noto Sans SC",
+                          "fontSize": 10,
+                          "fontWeight": "700"
+                        }
+                      ]
+                    },
+                    {
                       "type": "text",
-                      "id": "SdVth",
-                      "name": "u",
-                      "fill": "$v2-review",
+                      "id": "s9Jhay",
+                      "name": "Title",
+                      "fill": "$v2-text",
                       "content": "Modern Web Guidance",
                       "fontFamily": "Noto Sans SC",
-                      "fontSize": 15,
+                      "fontSize": 13,
+                      "fontWeight": "500"
+                    },
+                    {
+                      "type": "text",
+                      "id": "bJEZr",
+                      "name": "Domain",
+                      "fill": "$v2-text-3",
+                      "content": "web.dev",
+                      "fontFamily": "Noto Sans SC",
+                      "fontSize": 12,
                       "fontWeight": "normal"
                     },
                     {
                       "type": "icon",
-                      "id": "M54aQW",
-                      "name": "i",
-                      "width": 13,
-                      "height": 13,
+                      "id": "SUXia",
+                      "name": "out",
+                      "width": 12,
+                      "height": 12,
                       "icon": "arrow-up-right",
                       "library": "lucide",
-                      "fill": "$v2-review"
+                      "fill": "$v2-text-3"
                     }
                   ]
                 },
@@ -179633,6 +179677,200 @@
                           "fontWeight": "500"
                         }
                       ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "r7kg2",
+              "name": "WebStates",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 10,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "aaog1",
+                  "name": "Head",
+                  "fill": "$v2-text",
+                  "content": "网页链接",
+                  "fontFamily": "Noto Sans SC",
+                  "fontSize": 15,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "frame",
+                  "id": "NBIlI",
+                  "name": "Row 正常",
+                  "gap": 8,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "iKkti",
+                      "name": "WebChip github.com",
+                      "fill": "$v2-chip",
+                      "cornerRadius": 6,
+                      "stroke": "$v2-line",
+                      "strokeWidth": 1,
+                      "strokeAlignment": "inner",
+                      "gap": 6,
+                      "padding": [
+                        2,
+                        8,
+                        2,
+                        4
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "y61vl",
+                          "name": "Favicon",
+                          "width": 16,
+                          "height": 16,
+                          "fill": "#24292F",
+                          "cornerRadius": 4,
+                          "justifyContent": "center",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "ldWTR",
+                              "name": "g",
+                              "fill": "#FFFFFF",
+                              "content": "G",
+                              "fontFamily": "Noto Sans SC",
+                              "fontSize": 10,
+                              "fontWeight": "700"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "text",
+                          "id": "I55ai",
+                          "name": "Title",
+                          "fill": "$v2-text",
+                          "content": "Pull request #128 · formicand/cowork",
+                          "fontFamily": "Noto Sans SC",
+                          "fontSize": 13,
+                          "fontWeight": "500"
+                        },
+                        {
+                          "type": "text",
+                          "id": "Yi0l8",
+                          "name": "Domain",
+                          "fill": "$v2-text-3",
+                          "content": "github.com",
+                          "fontFamily": "Noto Sans SC",
+                          "fontSize": 12,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "icon",
+                          "id": "JuPHM",
+                          "name": "out",
+                          "width": 12,
+                          "height": 12,
+                          "icon": "arrow-up-right",
+                          "library": "lucide",
+                          "fill": "$v2-text-3"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "id": "wQvJG",
+                      "name": "n",
+                      "fill": "$v2-text-3",
+                      "content": "读到图标和标题",
+                      "fontFamily": "Noto Sans SC",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "zWDOn",
+                  "name": "Row 读取中",
+                  "gap": 8,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "cPTaB",
+                      "name": "WebChip docs.python.org",
+                      "fill": "$v2-chip",
+                      "cornerRadius": 6,
+                      "stroke": "$v2-line",
+                      "strokeWidth": 1,
+                      "strokeAlignment": "inner",
+                      "gap": 6,
+                      "padding": [
+                        2,
+                        8,
+                        2,
+                        4
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "jWpAG",
+                          "name": "Favicon",
+                          "width": 16,
+                          "height": 16,
+                          "fill": "$v2-hover",
+                          "cornerRadius": 4,
+                          "justifyContent": "center",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "icon",
+                              "id": "uBE9X",
+                              "name": "globe",
+                              "width": 12,
+                              "height": 12,
+                              "icon": "globe",
+                              "library": "lucide",
+                              "fill": "$v2-text-2"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "text",
+                          "id": "F6GjY",
+                          "name": "Title",
+                          "fill": "$v2-text-2",
+                          "content": "docs.python.org/3/library/os.html",
+                          "fontFamily": "Noto Sans SC",
+                          "fontSize": 13,
+                          "fontWeight": "500"
+                        },
+                        {
+                          "type": "icon",
+                          "id": "yQtZx",
+                          "name": "out",
+                          "width": 12,
+                          "height": 12,
+                          "icon": "arrow-up-right",
+                          "library": "lucide",
+                          "fill": "$v2-text-3"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "id": "L3sc3",
+                      "name": "n",
+                      "fill": "$v2-text-3",
+                      "content": "还没读到 / 读不到：地球图标 + 原链接",
+                      "fontFamily": "Noto Sans SC",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
                     }
                   ]
                 }
