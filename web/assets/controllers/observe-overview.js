@@ -5,6 +5,7 @@ import { formatStamp } from "../ui/time-format.js";
 import { createVisiblePoll } from "../ui/visible-poll.js";
 import { escapeHtml as esc } from "../ui/html.js";
 import { formatSpan } from "./observe-runs.js";
+import { taskGoalText } from "./work-title.js";
 
 /**
  * The observation overview: what every connected node is doing, read-only.
@@ -577,7 +578,7 @@ export function createObserveOverview({ root, data, onOpenView = () => {}, now =
                     row.requirement?.title ||
                     row.session?.title ||
                     row.task.title ||
-                    row.task.goal ||
+                    taskGoalText(row.task.goal) ||
                     row.task.taskId;
                   const stage = row.stage;
                   return `<div class="oo-row" role="row" data-observe-running-row data-task-id="${esc(

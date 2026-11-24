@@ -35,6 +35,7 @@ import { projectRoleSettings, resolveModelRole } from "../runtime/role-models.js
 import { createWorkspaceDirectory } from "./workspace-directory.js";
 import { HttpError } from "./http.js";
 import { copyMainConversation } from "../runtime/conversation-fork.js";
+import { stripReferencesBlock } from "../runtime/composer-references.js";
 
 import type { CoworkConfig } from "../runtime/config.js";
 import type { RunService } from "./run-service.js";
@@ -73,7 +74,7 @@ export function createTaskConversationService({
     input: { taskId: string; messageId: string; title?: string }
   ) {
     const source = await locateTask(sourceTaskId);
-    const metadata = { goal: source.task.goal };
+    const metadata = { goal: source.task.goal ? stripReferencesBlock(source.task.goal) : source.task.goal };
     const temporaryRoot = source.task.temporaryWorkspaceRoot;
     if (temporaryRoot) await workspaces.createTemporaryTask(input.taskId, metadata, temporaryRoot);
     else await workspaces.createProjectTask(input.taskId, source.projectId, metadata);

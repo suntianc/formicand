@@ -8,6 +8,7 @@ import {
 import { configuredWebTools } from "../../dist/src/runtime/web-search-config.js";
 import { builtinAgentSettings } from "../../dist/src/runtime/role-models.js";
 import { readQueuedUserTurn } from "../../dist/src/runtime/queued-user-turn.js";
+import { stripReferencesBlock } from "../../dist/src/runtime/composer-references.js";
 import type {
   BeforeAgentStartEvent,
   ExtensionAPI,
@@ -483,7 +484,7 @@ async function registerMainExtension(pi: ExtensionAPI) {
     const messages = event.messages.filter((message) => !isMainContinuationMessage(message));
     recentContext = messages.slice(-8);
     const firstUser = messages.find((message) => message.role === "user");
-    const goal = firstUser ? textFromMessage(firstUser).trim() : "";
+    const goal = firstUser ? stripReferencesBlock(textFromMessage(firstUser)).trim() : "";
     if (goal) {
       const store = new LocalWorkspaceStore(workspaceRoot);
       const task = await store.readTask(taskId);

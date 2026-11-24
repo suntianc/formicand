@@ -12,6 +12,7 @@ import { mainIsAlive, readHeartbeat } from "../runtime/main-heartbeat.js";
 import { projectExecutionIsAlive } from "../workspace/project-execution.js";
 import { ProjectCatalogError } from "../workspace/project-catalog.js";
 import { roleCompletion } from "../runtime/model-connection.js";
+import { stripReferencesBlock } from "../runtime/composer-references.js";
 import { now, type TaskRecord } from "../domain/types.js";
 import { type RunServicePorts, type SerializeTask } from "./run-service-contracts.js";
 import type { ResidentMain } from "./resident-main.js";
@@ -78,7 +79,9 @@ export function createTaskRunControl({
       for (const taskId of ids) {
         const location = await locateTask(taskId);
         // A refusal names the conversation, so the person knows which one to stop.
-        const name = (location.task.title ?? location.task.goal ?? "").trim().slice(0, 40);
+        const name = stripReferencesBlock(location.task.title ?? location.task.goal ?? "")
+          .trim()
+          .slice(0, 40);
         const refuse = (what: string) =>
           new ProjectCatalogError(
             `请先停止项目中的${what}，再${change}${name ? `（会话「${name}」）` : ""}`,

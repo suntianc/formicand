@@ -1,7 +1,12 @@
 import { ui } from "../ui/language.js";
+import { splitReferences } from "../references.js";
 
+export function taskGoalText(goal) {
+  return splitReferences(goal || "").text.trim();
+}
 export function conversationTitle(task) {
-  return task?.title || truncate(String(task?.goal || task?.taskId || ui("新的对话")).split("\n")[0], 48);
+  const fallback = taskGoalText(task?.goal);
+  return task?.title || truncate(String(fallback || task?.taskId || ui("新的对话")).split("\n")[0], 48);
 }
 export function textContent(content) {
   if (typeof content === "string") return content;

@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { saveAcceptedMainMessage } from "../runtime/main-message-edit.js";
 import { readQueuedUserTurn } from "../runtime/queued-user-turn.js";
+import { stripReferencesBlock } from "../runtime/composer-references.js";
 import { mainInputPath, saveMainInput, type MainInput } from "../runtime/main-continuation.js";
 import { join } from "node:path";
 import { HumanRequestStore } from "../runtime/human.js";
@@ -83,7 +84,7 @@ export function createResidentMainTurnDelivery({
     // the API answers with the status the Task actually has.
     const staysPaused = !continuation && Boolean(task.pause);
     await location.store.updateTask(resident.taskId, {
-      ...(!continuation ? { goal: task.goal || prompt.slice(0, 4_000) } : {}),
+      ...(!continuation ? { goal: task.goal || stripReferencesBlock(prompt).slice(0, 4_000) } : {}),
       model,
       activeRunId: resident.runId,
       ...(task.pause && !staysPaused ? { pause: undefined } : {})

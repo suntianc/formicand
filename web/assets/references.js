@@ -8,7 +8,8 @@ import { referenceIcon } from "./ui/reference-icons.js";
  */
 
 const OPEN = "<atria_references>\n";
-const CLOSE = "\n</atria_references>\n\n";
+const CLOSE_TAG = "\n</atria_references>";
+const CLOSE = `${CLOSE_TAG}\n\n`;
 const TOKEN = /(^|[\s(（])([/@])([^\s，。、；！？（）()]+)/g;
 const SERVER_URI = /^([A-Za-z0-9_-]{1,64}):(.+)$/;
 
@@ -16,12 +17,17 @@ const SERVER_URI = /^([A-Za-z0-9_-]{1,64}):(.+)$/;
 export function splitReferences(source) {
   const text = String(source || "");
   if (!text.startsWith(OPEN)) return { text, references: [] };
-  const end = text.indexOf(CLOSE, OPEN.length);
-  if (end < 0) return { text, references: [] };
+  const closeAt = text.indexOf(CLOSE, OPEN.length);
+  const tagAt = closeAt >= 0 ? closeAt : text.indexOf(CLOSE_TAG, OPEN.length);
+  if (tagAt < 0) return { text, references: [] };
+  const after =
+    closeAt >= 0
+      ? text.slice(closeAt + CLOSE.length)
+      : text.slice(tagAt + CLOSE_TAG.length).replace(/^\n+/, "");
   try {
-    const manifest = JSON.parse(text.slice(OPEN.length, end));
+    const manifest = JSON.parse(text.slice(OPEN.length, tagAt));
     if (manifest?.version !== 1 || !Array.isArray(manifest.references)) return { text, references: [] };
-    return { text: text.slice(end + CLOSE.length), references: manifest.references };
+    return { text: after, references: manifest.references };
     // eslint-disable-next-line no-restricted-syntax -- 开头清单不保证是合法 JSON，解析失败时整段按正文处理
   } catch {
     return { text, references: [] };

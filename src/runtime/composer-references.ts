@@ -29,7 +29,8 @@ export type ResolvedReference =
   | { kind: "mcp_resource"; server: string; uri: string };
 
 const OPEN = "<atria_references>\n";
-const CLOSE = "\n</atria_references>\n\n";
+const CLOSE_TAG = "\n</atria_references>";
+const CLOSE = `${CLOSE_TAG}\n\n`;
 
 const NOTE =
   "The user attached these references to the message below with / and @ in the composer. " +
@@ -63,5 +64,7 @@ export function referencesBlock(
 export function stripReferencesBlock(text: string): string {
   if (!text.startsWith(OPEN)) return text;
   const end = text.indexOf(CLOSE, OPEN.length);
-  return end < 0 ? text : text.slice(end + CLOSE.length);
+  if (end >= 0) return text.slice(end + CLOSE.length);
+  const tagEnd = text.indexOf(CLOSE_TAG, OPEN.length);
+  return tagEnd < 0 ? text : text.slice(tagEnd + CLOSE_TAG.length).replace(/^\n+/, "");
 }

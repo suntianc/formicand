@@ -165,6 +165,25 @@ test("/ and @ leave words in the draft and send what they name to Main", async (
     ]);
     await expect(message.locator(".reference-chip svg.ref-icon")).toHaveCount(3);
     await expect(message).not.toContainText("atria_references");
+    // The conversation title uses the person's words rather than the hidden manifest.
+    await expect(page.locator("#topbar-task")).toContainText("/pg-migration");
+    await expect(page.locator("#topbar-task")).not.toContainText("atria_references");
+    await expect(page.locator(".conversation-item.active")).toContainText("/pg-migration");
+    await expect(page.locator(".conversation-item.active")).not.toContainText("atria_references");
+
+    // Editing the first message with references keeps the title free of the manifest too.
+    await expect(page.locator(".chat-message.main").first()).toBeVisible({ timeout: 30_000 });
+    const editButton = page.getByRole("button", { name: "编辑消息" });
+    await expect(editButton).toBeVisible({ timeout: 30_000 });
+    await editButton.click();
+    const editor = page.locator("[data-inline-message-edit]");
+    await editor.fill("/pg-migration 复核 @src/storage/migrations/0007_add_task_index.sql");
+    await page.getByRole("button", { name: "发送编辑后的消息", exact: true }).click();
+    await expect.poll(() => provider.requests.length, { timeout: 30_000 }).toBeGreaterThan(1);
+    await expect(page.locator("#topbar-task")).toContainText("/pg-migration 复核");
+    await expect(page.locator("#topbar-task")).not.toContainText("atria_references");
+    await expect(page.locator(".conversation-item.active")).toContainText("/pg-migration 复核");
+    await expect(page.locator(".conversation-item.active")).not.toContainText("atria_references");
 
     // A command runs at once and leaves nothing in the draft.
     await expect(input).toHaveValue("");

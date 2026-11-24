@@ -86,11 +86,21 @@ export function mainSessionRunState(value: unknown): MainSessionRunState {
   return value as MainSessionRunState;
 }
 
+const REFERENCES_OPEN = "<atria_references>\n";
+const REFERENCES_CLOSE_TAG = "\n</atria_references>";
+
+/** Strip a leading `<atria_references>` manifest (see `composer-references.ts`). */
+function stripReferencesPrefix(text: string): string {
+  if (!text.startsWith(REFERENCES_OPEN)) return text;
+  const end = text.indexOf(REFERENCES_CLOSE_TAG, REFERENCES_OPEN.length);
+  return end < 0 ? text : text.slice(end + REFERENCES_CLOSE_TAG.length).replace(/^\n+/, "");
+}
+
 /** The title a conversation gets when it is adopted without an explicit one. */
 export function mainSessionTitleFromGoal(goal: unknown, taskId: string): string {
   const text =
     typeof goal === "string"
-      ? goal
+      ? stripReferencesPrefix(goal)
           .split("\n")[0]
           .replace(/[\0-\x08\x0b\x0c\x0e-\x1f\x7f]/g, " ")
           .trim()

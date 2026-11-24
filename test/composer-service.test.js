@@ -6,6 +6,7 @@ import { join, resolve } from "node:path";
 import { test } from "node:test";
 import { createComposerService, fuzzyScore } from "../dist/src/dashboard/composer-service.js";
 import { referencesBlock, stripReferencesBlock } from "../dist/src/runtime/composer-references.js";
+import { mainSessionTitleFromGoal } from "../dist/src/domain/main-session.js";
 import { decideProjectTrust } from "../dist/src/runtime/project-trust.js";
 import { writeMcpServers } from "../dist/src/runtime/mcp-config.js";
 
@@ -147,7 +148,13 @@ test("references keep what resolves and the manifest goes in front of the words"
   assert.match(message, /^<atria_references>\n\{"version":1,"note":"[^"]*load it with load_skill by name/);
   assert.ok(!message.includes("SKILL.md"), "Main loads the skill by name, not by its file");
   assert.equal(stripReferencesBlock(message), "用 /pg-migration 处理 @a.sql");
+  assert.equal(stripReferencesBlock(referencesBlock(project, resolved.slice(0, 1)).trim()), "");
   assert.equal(stripReferencesBlock("没有清单"), "没有清单");
+  assert.equal(mainSessionTitleFromGoal(message, "task-1"), "用 /pg-migration 处理 @a.sql");
+  assert.equal(
+    mainSessionTitleFromGoal(referencesBlock(project, resolved.slice(0, 1)).trim(), "task-1"),
+    "task-1"
+  );
   assert.equal(referencesBlock(project, []), "");
 });
 

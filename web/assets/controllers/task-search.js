@@ -3,7 +3,7 @@ import { icon } from "../ui/icons.js";
 import { createModal } from "../ui/modal.js";
 import { formatStamp } from "../ui/time-format.js";
 import { escapeHtml as esc } from "../ui/html.js";
-import { conversationTitle } from "./work-title.js";
+import { conversationTitle, taskGoalText } from "./work-title.js";
 
 const statusLabel = {
   created: ui("已创建"),
@@ -45,7 +45,7 @@ export function createTaskSearch({ $, tasks, selectConversation }) {
       const draw = () => {
         const query = input.value.trim().toLowerCase();
         const matches = tasks().filter((task) =>
-          `${task.title || ""} ${task.goal || ""} ${task.taskId}`.toLowerCase().includes(query)
+          `${task.title || ""} ${taskGoalText(task.goal)} ${task.taskId}`.toLowerCase().includes(query)
         );
         results.innerHTML = matches.length
           ? matches

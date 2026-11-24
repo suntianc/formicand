@@ -13,6 +13,7 @@ import {
   MainMessageEditConflict
 } from "../runtime/main-message-edit.js";
 import { readQueuedUserTurn } from "../runtime/queued-user-turn.js";
+import { stripReferencesBlock } from "../runtime/composer-references.js";
 import { mainInputPath, readMainInput, saveMainInput } from "../runtime/main-continuation.js";
 import { appendFile, realpath } from "node:fs/promises";
 import { join, resolve } from "node:path";
@@ -259,7 +260,7 @@ export function createMainRunProcess({
       await location.store.transitionTask(taskId, "running", { runId, reason: "dashboard_run_restart" });
     }
     await location.store.updateTask(taskId, {
-      goal: edit?.goalForTask ?? (task.goal || prompt.slice(0, 4_000)),
+      goal: edit?.goalForTask ?? (task.goal || stripReferencesBlock(prompt).slice(0, 4_000)),
       model,
       activeRunId: runId,
       ...(task.pause ? { pause: undefined } : {})

@@ -656,7 +656,7 @@ export async function prepareMessageEdit(
     await writeFile(temporary, JSON.stringify(next), { mode: 0o600 });
     await rename(temporary, path);
     const firstUser = branch.find((entry) => userText(entry) !== undefined);
-    const goalForTask = firstUser ? undefined : prompt.slice(0, 4000);
+    const goalForTask = firstUser ? undefined : stripReferencesBlock(prompt).slice(0, 4000);
     const prepared = {
       sessionFile,
       goalForTask,

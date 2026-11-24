@@ -14,6 +14,7 @@ import type { ComposerService } from "./composer-service.js";
 import {
   composerReferencesSchema,
   referencesBlock,
+  stripReferencesBlock,
   type ComposerReference
 } from "../runtime/composer-references.js";
 import { normalizeReasoningEffort } from "../runtime/runtime-settings.js";
@@ -91,7 +92,7 @@ export async function handleTaskConversationRequest(
         command: "tasks.create",
         content: commandContent(body),
         apply: async () => {
-          const goal = typeof body.goal === "string" ? body.goal.trim() : "";
+          const goal = typeof body.goal === "string" ? stripReferencesBlock(body.goal).trim() : "";
           if (goal.includes("\0")) throw new Error("消息包含不支持的二进制字符");
           if (!goal) throw new Error("goal must not be empty");
           const requested = typeof body.taskId === "string" ? body.taskId : id("task");

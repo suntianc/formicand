@@ -13,6 +13,7 @@ import {
   laneDuration
 } from "./observe-run-activity.js";
 import { createObserveRunMarkup } from "./observe-run-markup.js";
+import { taskGoalText } from "./work-title.js";
 
 export { formatSpan, formatStall, STALL_THRESHOLD_MS } from "./observe-run-activity.js";
 
@@ -306,7 +307,7 @@ export function createObserveRuns({
           lastProgress,
           startedAt:
             nowMsOf(capacityEntry?.startedAt) ?? nowMsOf(task.createdAt) ?? nowMsOf(activity?.from) ?? at,
-          title: session?.title || task.title || task.goal || task.taskId,
+          title: session?.title || task.title || taskGoalText(task.goal) || task.taskId,
           requirementTitle: session?.currentRequirementTitle ?? "",
           orderAt: nowMsOf(session?.createdAt) ?? nowMsOf(task.createdAt) ?? nowMsOf(activity?.from) ?? at
         };

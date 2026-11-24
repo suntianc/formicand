@@ -38,6 +38,7 @@ import {
 } from "../dist/src/runtime/main-message-edit.js";
 import { mainInputPath, saveMainInput } from "../dist/src/runtime/main-continuation.js";
 import { queuedUserTurn } from "../dist/src/runtime/queued-user-turn.js";
+import { referencesBlock } from "../dist/src/runtime/composer-references.js";
 import { mainContextPaths, persistMainContext } from "../dist/src/runtime/main-context.js";
 import { HumanRequestStore } from "../dist/src/runtime/human.js";
 import { createDashboardRunService } from "../dist/src/dashboard/run-service.js";
@@ -236,6 +237,22 @@ test("editing the first turn creates an empty model prefix and preserves old ses
   const branch = await prepareMessageEdit(f.root, "task", f.request, "replacement", "new-run");
   assert.deepEqual(SessionManager.open(branch.sessionFile).buildSessionContext().messages, []);
   assert.match(await readFile(originalFile, "utf8"), /old response/);
+});
+test("editing the first turn with / or @ references strips the manifest from goalForTask", async (t) => {
+  const f = await fixture(t, true);
+  const manifest = referencesBlock("/tmp/project", [
+    { kind: "skill", name: "pg-migration", path: "/tmp/SKILL.md" }
+  ]);
+  const branch = await prepareMessageEdit(
+    f.root,
+    "task",
+    f.request,
+    `${manifest}/pg-migration 检查迁移`,
+    "new-run"
+  );
+  assert.equal(branch.goalForTask, "/pg-migration 检查迁移");
+  const contextState = JSON.parse(await readFile(mainContextPaths(f.root, "task").state, "utf8"));
+  assert.equal(contextState.runtimeGoal, "/pg-migration 检查迁移");
 });
 test("stale message or version cannot branch, and internal/human inputs are not editable", async (t) => {
   const f = await fixture(t);

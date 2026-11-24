@@ -14,9 +14,11 @@ import {
   markReferences,
   referenceLabel,
   referenceTitle,
-  renderReferenceChip
+  renderReferenceChip,
+  splitReferences
 } from "../web/assets/references.js";
 import { serializeRichNode } from "../web/assets/controllers/composer-rich.js";
+import { conversationTitle, taskGoalText } from "../web/assets/controllers/work-title.js";
 
 test("handcrafted file-type icons map extensions and dotfiles to bespoke badges with unique masks", () => {
   const jsA = fileTypeIcon("src/agents.mjs");
@@ -89,4 +91,19 @@ test("serializeRichNode restores canonical reference tokens, normalizes NBSP and
   root.innerHTML = `${skillChip}\u00a0${fileChip}\u00a0整理<br>第二行<br><br data-sentinel="true">`;
 
   assert.equal(serializeRichNode(root), "/tidy-docs @src/agents.mjs 整理\n第二行\n");
+});
+
+test("conversationTitle and taskGoalText hide a leading references manifest", () => {
+  const manifest = `<atria_references>\n${JSON.stringify({
+    version: 1,
+    note: "manifest",
+    references: [{ kind: "skill", name: "tidy-docs" }]
+  })}\n</atria_references>`;
+  assert.equal(
+    conversationTitle({ taskId: "task-1", goal: `${manifest}\n\n/tidy-docs 整理文档\n第二行` }),
+    "/tidy-docs 整理文档"
+  );
+  assert.equal(taskGoalText(`${manifest}\n\n/tidy-docs 整理文档`), "/tidy-docs 整理文档");
+  assert.equal(splitReferences(manifest).text, "");
+  assert.equal(conversationTitle({ taskId: "task-1", goal: manifest }), "task-1");
 });

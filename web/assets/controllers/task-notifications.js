@@ -1,4 +1,5 @@
 import { ui } from "../ui/language.js";
+import { taskGoalText } from "./work-title.js";
 
 /** Observe the existing catalog subscription; snapshots establish and repair the baseline. */
 export function createTaskNotifications({ notify }) {
@@ -17,7 +18,7 @@ export function createTaskNotifications({ notify }) {
         taskId: task.taskId,
         completionId,
         title: ui("任务已完成"),
-        body: task.title || task.goal || task.taskId
+        body: task.title || taskGoalText(task.goal) || task.taskId
       });
       // eslint-disable-next-line no-restricted-syntax -- the desktop host may refuse the notification (permission or focus rules); task state updates continue regardless
       pending?.catch?.(() => {});
