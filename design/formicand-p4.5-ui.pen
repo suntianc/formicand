@@ -182132,7 +182132,7 @@
               "id": "SQhKz",
               "name": "ColTitle",
               "fill": "$v2-text-3",
-              "content": "改后：每条一行，点开看全文，超过 5 条收起",
+              "content": "改后：每条一行，超过 5 条收起",
               "fontFamily": "Noto Sans SC",
               "fontSize": 13,
               "fontWeight": "normal"
@@ -182254,9 +182254,9 @@
                     {
                       "type": "frame",
                       "id": "dQ3Us",
-                      "name": "Check 展开",
+                      "name": "Check",
                       "width": "fill_container",
-                      "fill": "$v2-hover",
+                      "fill": "#00000000",
                       "cornerRadius": 6,
                       "gap": 10,
                       "padding": [
@@ -182286,12 +182286,10 @@
                         },
                         {
                           "type": "text",
-                          "id": "W93jsx",
+                          "id": "Hd1PZ",
                           "name": "Text",
                           "fill": "$v2-text",
-                          "textGrowth": "fixed-width",
-                          "width": "fill_container",
-                          "content": "sumDurations 任一项非法时抛 TypeError，消息含第几项（1 起）与原始文本",
+                          "content": "sumDurations 任一项非法时抛 TypeError，消…",
                           "lineHeight": 1.5,
                           "fontFamily": "Noto Sans SC",
                           "fontSize": 13,
