@@ -178513,7 +178513,7 @@
                       "height": 14,
                       "icon": "image",
                       "library": "lucide",
-                      "fill": "$v2-text-2"
+                      "fill": "$v2-ok"
                     },
                     {
                       "type": "text",
@@ -178523,7 +178523,7 @@
                       "content": "桌面列表",
                       "fontFamily": "Noto Sans SC",
                       "fontSize": 13,
-                      "fontWeight": "normal"
+                      "fontWeight": "500"
                     }
                   ]
                 },
@@ -178551,7 +178551,7 @@
                       "height": 14,
                       "icon": "image",
                       "library": "lucide",
-                      "fill": "$v2-text-2"
+                      "fill": "$v2-ok"
                     },
                     {
                       "type": "text",
@@ -178561,7 +178561,7 @@
                       "content": "处理记录侧栏",
                       "fontFamily": "Noto Sans SC",
                       "fontSize": 13,
-                      "fontWeight": "normal"
+                      "fontWeight": "500"
                     }
                   ]
                 },
@@ -178589,7 +178589,7 @@
                       "height": 14,
                       "icon": "image",
                       "library": "lucide",
-                      "fill": "$v2-text-2"
+                      "fill": "$v2-ok"
                     },
                     {
                       "type": "text",
@@ -178599,7 +178599,7 @@
                       "content": "手机列表",
                       "fontFamily": "Noto Sans SC",
                       "fontSize": 13,
-                      "fontWeight": "normal"
+                      "fontWeight": "500"
                     }
                   ]
                 }
@@ -178647,7 +178647,7 @@
                       "height": 14,
                       "icon": "sheet",
                       "library": "lucide",
-                      "fill": "$v2-text-2"
+                      "fill": "$v2-code-type"
                     },
                     {
                       "type": "text",
@@ -178657,7 +178657,7 @@
                       "content": "耗时明细",
                       "fontFamily": "Noto Sans SC",
                       "fontSize": 13,
-                      "fontWeight": "normal"
+                      "fontWeight": "500"
                     }
                   ]
                 }
@@ -178764,7 +178764,7 @@
                       "height": 14,
                       "icon": "file-text",
                       "library": "lucide",
-                      "fill": "$v2-text-2"
+                      "fill": "$v2-review"
                     },
                     {
                       "type": "text",
@@ -178774,6 +178774,311 @@
                       "content": "retro-timing.tsv",
                       "fontFamily": "JetBrains Mono",
                       "fontSize": 13,
+                      "fontWeight": "500"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "oRG7i",
+              "name": "DeliverList",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 10,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "H2yoFJ",
+                  "name": "Head",
+                  "fill": "$v2-text",
+                  "content": "交付物",
+                  "fontFamily": "Noto Sans SC",
+                  "fontSize": 15,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "frame",
+                  "id": "A0dLV1",
+                  "name": "Item gtools-loading-export.zip",
+                  "gap": 8,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "IYGfb",
+                      "name": "Chip",
+                      "fill": "$v2-chip",
+                      "cornerRadius": 6,
+                      "stroke": "$v2-line",
+                      "strokeWidth": 1,
+                      "strokeAlignment": "inner",
+                      "gap": 5,
+                      "padding": [
+                        2,
+                        7
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon",
+                          "id": "crTN5",
+                          "name": "i",
+                          "width": 14,
+                          "height": 14,
+                          "icon": "file-archive",
+                          "library": "lucide",
+                          "fill": "#D4A25A"
+                        },
+                        {
+                          "type": "text",
+                          "id": "A5Wtg",
+                          "name": "L",
+                          "fill": "$v2-text",
+                          "content": "gtools-loading-export.zip",
+                          "fontFamily": "JetBrains Mono",
+                          "fontSize": 13,
+                          "fontWeight": "500"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "id": "ADBTV",
+                      "name": "Desc",
+                      "fill": "$v2-text-2",
+                      "content": "— 完整资源包",
+                      "fontFamily": "Noto Sans SC",
+                      "fontSize": 15,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "GnZds",
+                  "name": "Item gtools-loading.json",
+                  "gap": 8,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "bALo1",
+                      "name": "Chip",
+                      "fill": "$v2-chip",
+                      "cornerRadius": 6,
+                      "stroke": "$v2-line",
+                      "strokeWidth": 1,
+                      "strokeAlignment": "inner",
+                      "gap": 5,
+                      "padding": [
+                        2,
+                        7
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon",
+                          "id": "m6dcut",
+                          "name": "i",
+                          "width": 14,
+                          "height": 14,
+                          "icon": "braces",
+                          "library": "lucide",
+                          "fill": "$v2-warn"
+                        },
+                        {
+                          "type": "text",
+                          "id": "BeDiK",
+                          "name": "L",
+                          "fill": "$v2-text",
+                          "content": "gtools-loading.json",
+                          "fontFamily": "JetBrains Mono",
+                          "fontSize": 13,
+                          "fontWeight": "500"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "id": "vqGCR",
+                      "name": "Desc",
+                      "fill": "$v2-text-2",
+                      "content": "— Lottie 动画，约 28 KB",
+                      "fontFamily": "Noto Sans SC",
+                      "fontSize": 15,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "XBQRE",
+                  "name": "Item gtools-loading.gif",
+                  "gap": 8,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "unNkF",
+                      "name": "Chip",
+                      "fill": "$v2-chip",
+                      "cornerRadius": 6,
+                      "stroke": "$v2-line",
+                      "strokeWidth": 1,
+                      "strokeAlignment": "inner",
+                      "gap": 5,
+                      "padding": [
+                        2,
+                        7
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon",
+                          "id": "R5t8Nu",
+                          "name": "i",
+                          "width": 14,
+                          "height": 14,
+                          "icon": "image",
+                          "library": "lucide",
+                          "fill": "$v2-ok"
+                        },
+                        {
+                          "type": "text",
+                          "id": "mhbos",
+                          "name": "L",
+                          "fill": "$v2-text",
+                          "content": "gtools-loading.gif",
+                          "fontFamily": "JetBrains Mono",
+                          "fontSize": 13,
+                          "fontWeight": "500"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "id": "N6Ejm",
+                      "name": "Desc",
+                      "fill": "$v2-text-2",
+                      "content": "— 512×512 透明 GIF",
+                      "fontFamily": "Noto Sans SC",
+                      "fontSize": 15,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "UWm1f",
+                  "name": "Item summarize.sh",
+                  "gap": 8,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "x54pIR",
+                      "name": "Chip",
+                      "fill": "$v2-chip",
+                      "cornerRadius": 6,
+                      "stroke": "$v2-line",
+                      "strokeWidth": 1,
+                      "strokeAlignment": "inner",
+                      "gap": 5,
+                      "padding": [
+                        2,
+                        7
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon",
+                          "id": "qf01F",
+                          "name": "i",
+                          "width": 14,
+                          "height": 14,
+                          "icon": "file-code",
+                          "library": "lucide",
+                          "fill": "$v2-code-function"
+                        },
+                        {
+                          "type": "text",
+                          "id": "KH0hv",
+                          "name": "L",
+                          "fill": "$v2-text",
+                          "content": "summarize.sh",
+                          "fontFamily": "JetBrains Mono",
+                          "fontSize": 13,
+                          "fontWeight": "500"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "id": "F84TfI",
+                      "name": "Desc",
+                      "fill": "$v2-text-2",
+                      "content": "— 汇总脚本",
+                      "fontFamily": "Noto Sans SC",
+                      "fontSize": 15,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "LBZCC",
+                  "name": "Item 接入说明.md",
+                  "gap": 8,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "RsPam",
+                      "name": "Chip",
+                      "fill": "$v2-chip",
+                      "cornerRadius": 6,
+                      "stroke": "$v2-line",
+                      "strokeWidth": 1,
+                      "strokeAlignment": "inner",
+                      "gap": 5,
+                      "padding": [
+                        2,
+                        7
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon",
+                          "id": "Y5qnpA",
+                          "name": "i",
+                          "width": 14,
+                          "height": 14,
+                          "icon": "file-text",
+                          "library": "lucide",
+                          "fill": "$v2-review"
+                        },
+                        {
+                          "type": "text",
+                          "id": "TQBK3",
+                          "name": "L",
+                          "fill": "$v2-text",
+                          "content": "接入说明.md",
+                          "fontFamily": "JetBrains Mono",
+                          "fontSize": 13,
+                          "fontWeight": "500"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "id": "Bt3LZ",
+                      "name": "Desc",
+                      "fill": "$v2-text-2",
+                      "content": "— 尺寸与兼容性说明",
+                      "fontFamily": "Noto Sans SC",
+                      "fontSize": 15,
                       "fontWeight": "normal"
                     }
                   ]
