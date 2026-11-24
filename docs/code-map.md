@@ -197,7 +197,7 @@ Main 的定时等待由任务详情的 `parked` 和实时停泊、唤醒事件�
 
 外观偏好由 [共用控制器](../web/assets/controllers/appearance.js) 在首屏前解析，默认跟随系统，设置支持跟随系统、深色、浅色；浏览器通过 `matchMedia` 监听系统变化，桌面以宿主有效外观同步。[共用主题](../web/assets/system-theme.css) 消费有效外观，`light-dark()` 随 color-scheme 同步。[桌面外观](../desktop/appearance.cjs) 负责可信 IPC、独立偏好持久化、nativeTheme 及系统更新通知，[窗口主题](../desktop/system-theme.cjs) 负责首屏和动态背景，[窗口材质](../desktop/window-material.cjs) 在 macOS 启用原生 vibrancy，Web 页面背景按深浅主题取纯色，桌面页面保持透明，复核 [浏览器纯色背景与玻璃面板](../e2e/backdrop.spec.js) 与 [桌面窗口材质](../e2e/backdrop-desktop.spec.js)。先验证 [浏览器切换、文字对比度和草稿](../e2e/system-theme.spec.js)、[桌面偏好和信任边界](../test/desktop-appearance.test.js)、[原生退出重启](../e2e/appearance-desktop.spec.js) 与 [窗口背景](../test/desktop-system-theme.test.js)，同步 [外观配置](configuration.md#外观)。
 
-修改重发的崩溃事务由 [`main-message-edit-transaction.ts`](../src/runtime/main-message-edit-transaction.ts) 管理；被替换消息之后、同一 Run 中尚未回答的问题通过 [Human Store](../src/runtime/human.ts) 关闭，启动前回滚会恢复问题，启动就绪后的恢复保留新分支及问题关闭状态。Dashboard 工作区列举/定位调用恢复，Run 服务在完整输入持久化后标记启动阶段。[`main-message-edit.test.js`](../test/main-message-edit.test.js) 使用独立 SDK 子进程 SIGKILL 验证准备、输入持久化、Task 更新和启动阶段的重启恢复；[真实 Pi 回归](../test/main-message-edit-pi.test.js) 验证等待提问时退出、重启后编辑重发与迟到回答。
+修改重发的崩溃事务由 [`main-message-edit-transaction.ts`](../src/runtime/main-message-edit-transaction.ts) 管理；被替换消息之后、同一 Run 中尚未回答的问题通过 [Human Store](../src/runtime/human.ts) 关闭，启动前的回滚记录为 `rolling_back` 并恢复原问题。启动就绪的编辑按子进程归属恢复，归档同步可在重启后继续。Dashboard 工作区列举/定位调用恢复，Run 服务在完整输入持久化后标记启动阶段。[`main-message-edit.test.js`](../test/main-message-edit.test.js) 使用独立 SDK 子进程 SIGKILL 验证准备、输入持久化、Task 更新和启动阶段的重启恢复；[真实 Pi 回归](../test/main-message-edit-pi.test.js) 验证等待提问时退出、重启后编辑重发与迟到回答。
 
 ### 运行、委派与恢复
 

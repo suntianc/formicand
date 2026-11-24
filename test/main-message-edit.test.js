@@ -33,7 +33,6 @@ import {
   readArchivedMessageVersion,
   messageVersionSummaries,
   alignMessageVersionSession,
-  rejectAcceptedMainMessage,
   saveAcceptedMainMessage,
   versionRuntimeEvents
 } from "../dist/src/runtime/main-message-edit.js";
@@ -329,6 +328,26 @@ test("editing retires only unresolved questions from the replaced tail and rollb
   assert.equal((await human.read("task", unrelated.requestId)).status, "pending");
   assert.equal((await human.read("task", answered.requestId)).answer, "accepted decision");
   assert.equal((await human.read("task", cancelled.requestId)).status, "cancelled");
+  if (process.platform !== "win32") {
+    // The question rename is visible even if its directory sync fails. Replaying must retry the sync.
+    await childProcess(`
+      import fs from "node:fs/promises";
+      import { syncBuiltinESMExports } from "node:module";
+      import assert from "node:assert/strict";
+      const open = fs.open;
+      const root = ${JSON.stringify(f.root)};
+      fs.open = (p, ...args) => {
+        if (p === ${JSON.stringify(join(f.root, "task", "human", "requests"))})
+          throw Object.assign(new Error("fixture question directory"), { code: "EIO" });
+        return open(p, ...args);
+      };
+      syncBuiltinESMExports();
+      const { rollbackMessageEditTransaction } = await import(${JSON.stringify(new URL("../dist/src/runtime/main-message-edit-transaction.js", import.meta.url).href)});
+      for (let attempt = 0; attempt < 2; attempt++)
+        await assert.rejects(rollbackMessageEditTransaction(root, "task"), { code: "EIO" });
+      await fs.access(${JSON.stringify(join(f.root, "task", "sessions", "main", "edit-transaction.json"))});
+    `);
+  }
   await edit.rollback();
   assert.equal((await human.read("task", pending.requestId)).status, "pending");
   assert.equal((await human.read("task", unanswered.requestId)).status, "unanswered");
@@ -405,7 +424,6 @@ test("rejected pre-spawn edit remains rejected after rollback and reopening real
       payload: { reason: "desktop_shutdown_before_spawn" }
     }) + "\n"
   );
-  await rejectAcceptedMainMessage(f.root, "task", next.messageId);
   await prepared.rollback();
   const latest = await latestEditableMessage(f.root, "task", "old-run");
   assert.equal(latest?.target.messageId, f.request.messageId);
@@ -796,6 +814,12 @@ test("edit transaction rollback failure releases live lock for same-process reco
     const root = ${JSON.stringify(f.root)};
     const baseline = ${JSON.stringify(baseline)};
     let failSync = false;
+    let failAfterRename = false;
+    const origRename = fsPromises.rename;
+    fsPromises.rename = async function (src, dst) {
+      await origRename(src, dst);
+      if (failAfterRename && src === txPath) failSync = true;
+    };
     let dirSyncSuccessCount = 0;
     const origOpen = fsPromises.open;
     fsPromises.open = async function (p, flags, ...rest) {
@@ -843,7 +867,7 @@ test("edit transaction rollback failure releases live lock for same-process reco
     // Scenario B: Start a new edit in the same process -> finishMessageEditTransaction() renames journal
     // then fails in syncDirectory() -> clear fault -> retry finish() MUST execute directory sync.
     await beginMessageEditTransaction(root, "task", "finish-sync-run", baseline, { editId: "e2", prompt: "p2" });
-    failSync = true;
+    failAfterRename = true;
     let finishError = null;
     try {
       await finishMessageEditTransaction(root, "task");
@@ -857,18 +881,13 @@ test("edit transaction rollback failure releases live lock for same-process reco
 
     // Also verify recoverMessageEditTransaction() drains pendingArchiveSync if finish() failed after rename.
     await beginMessageEditTransaction(root, "task", "recover-sync-run", baseline, { editId: "e3", prompt: "p3" });
-    failSync = true;
+    failAfterRename = true;
     let finishError2 = null;
     try {
       await finishMessageEditTransaction(root, "task");
     } catch (err) {
       finishError2 = err.code ?? err.message;
     }
-    failSync = false;
-    const syncsBeforeRecoverDrain = dirSyncSuccessCount;
-    await recoverMessageEditTransaction(root, "task");
-    const syncsDuringRecoverDrain = dirSyncSuccessCount - syncsBeforeRecoverDrain;
-
     console.log(JSON.stringify({
       rollbackError,
       txStillActiveAfterRollbackFail,
@@ -877,8 +896,7 @@ test("edit transaction rollback failure releases live lock for same-process reco
       reqAfterRecover,
       finishError,
       syncsDuringRetryFinish,
-      finishError2,
-      syncsDuringRecoverDrain
+      finishError2
     }));
   `);
   const res = JSON.parse(output.trim());
@@ -897,10 +915,29 @@ test("edit transaction rollback failure releases live lock for same-process reco
     `retrying finish() after post-rename sync failure must run dir sync, got ${res.syncsDuringRetryFinish}`
   );
   assert.equal(res.finishError2, "EIO");
-  assert.ok(
-    res.syncsDuringRecoverDrain >= 1,
-    `recoverMessageEditTransaction() must drain pending archive dir sync, got ${res.syncsDuringRecoverDrain}`
-  );
+  // The writer exited after rename. A fresh backend must complete the barrier before clearing its marker.
+  await assert.rejects(readFile(txPath), { code: "ENOENT" });
+  assert.equal(await readFile(txPath + ".archive-pending", "utf8"), "recover-sync-run");
+  await childProcess(`
+    import fs from "node:fs/promises";
+    import { syncBuiltinESMExports } from "node:module";
+    import assert from "node:assert/strict";
+    const open = fs.open;
+    let dirSyncs = 0;
+    fs.open = async (path, flags, ...args) => {
+      const handle = await open(path, flags, ...args);
+      if (path === ${JSON.stringify(sessionsDir)} && flags === "r") {
+        const sync = handle.sync.bind(handle);
+        handle.sync = async () => { await sync(); dirSyncs++; };
+      }
+      return handle;
+    };
+    syncBuiltinESMExports();
+    const { recoverMessageEditTransaction } = await import(${modUrl});
+    await recoverMessageEditTransaction(${JSON.stringify(f.root)}, "task");
+    assert.ok(dirSyncs > 0);
+  `);
+  await assert.rejects(readFile(txPath + ".archive-pending"), { code: "ENOENT" });
 });
 
 test("launch_ready recovery archives journal without forcing waiting while the edited Run process is still alive", async (t) => {
@@ -1004,11 +1041,54 @@ test("launch_ready recovery archives journal without forcing waiting while the e
   const eventsText = await readFile(join(f.root, "task", "task_events.jsonl"), "utf8");
   assert.doesNotMatch(eventsText, /message_edit_launch_recovered/);
 
-  // Once the process actually dies, launch_ready recovery transitions the orphan Run to waiting.
+  // A restarted backend with no OS start time and no first heartbeat must keep the journal.
+  const archivedPath = join(f.root, "task", "sessions", "main", "edit-transaction-live-edit-run.json");
+  const recordPath = join(procDir, "process.json");
+  const record = JSON.parse(await readFile(recordPath, "utf8"));
+  await writeFile(recordPath, JSON.stringify({ ...record, startedAt: "" }));
+  await writeFile(txPath, await readFile(archivedPath));
+  await childProcess(`
+    const { recoverMessageEditTransaction } = await import(${modUrl});
+    await recoverMessageEditTransaction(${JSON.stringify(f.root)}, "task");
+  `);
+  assert.equal(JSON.parse(await readFile(txPath)).phase, "launch_ready");
+  assert.equal((await store.readTask("task")).status, "running");
+  const locate = () =>
+    childProcess(`
+    const { createWorkspaceDirectory } = await import(${wsDirUrl});
+    const root = ${JSON.stringify(f.root)};
+    const directory = createWorkspaceDirectory(root, root + "/global/workspaces.json", () => undefined);
+    console.log((await directory.locateTask("task")).task.status);
+  `);
+  await writeFile(recordPath, JSON.stringify({ ...record, runId: "different-run" }));
+  await assert.rejects(locate(), /编辑运行的进程记录无法核对/);
+  assert.equal(JSON.parse(await readFile(txPath)).phase, "launch_ready");
+
+  const foreignHost = hostname() + "-other";
+  await writeFile(
+    recordPath,
+    JSON.stringify({ ...record, host: foreignHost, launchedAt: new Date(0).toISOString() })
+  );
+  assert.equal((await locate()).trim(), "running");
+  assert.equal(JSON.parse(await readFile(txPath)).phase, "launch_ready");
+  const beatDir = join(f.root, "task", "agents", "main");
+  await mkdir(beatDir, { recursive: true });
+  await writeFile(
+    join(beatDir, "heartbeat.json"),
+    JSON.stringify({
+      runId: record.runId,
+      pid: record.pid,
+      host: foreignHost,
+      updatedAt: new Date(0).toISOString()
+    })
+  );
+  assert.equal((await locate()).trim(), "waiting");
+
+  await writeFile(txPath, await readFile(archivedPath));
+  await store.transitionTask("task", "running", { runId: record.runId });
+  await writeFile(recordPath, JSON.stringify({ ...record, startedAt: "" }));
   keeper.kill("SIGKILL");
   await new Promise((done) => keeper.once("exit", done));
-  const archivedPath = join(f.root, "task", "sessions", "main", "edit-transaction-live-edit-run.json");
-  await writeFile(txPath, await readFile(archivedPath, "utf8"));
   const deadOut = await childProcess(`
     const { recoverMessageEditTransaction } = await import(${modUrl});
     console.log(JSON.stringify({ recovered: await recoverMessageEditTransaction(${JSON.stringify(f.root)}, "task") }));
@@ -1068,7 +1148,7 @@ test("rollback interrupted after restoring task.json from launch_ready persists 
         const root = ${JSON.stringify(f.root)};
         let taskRestored = false;
         let injectedOnce = false;
-        let failSync = false;
+        let failSync = true;
         const origRename = fsPromises.rename;
         const origOpen = fsPromises.open;
         fsPromises.rename = async function (src, dst, ...rest) {
@@ -1098,6 +1178,14 @@ test("rollback interrupted after restoring task.json from launch_ready persists 
         syncBuiltinESMExports();
         const { rollbackMessageEditTransaction } = await import(${modUrl});
         const { createWorkspaceDirectory } = await import(${wsDirUrl});
+        // Rename makes rolling_back visible, but the first directory sync fails.
+        const rollback = () => rollbackMessageEditTransaction(root, "task");
+        const { default: assert } = await import("node:assert/strict");
+        await assert.rejects(rollback(), { code: "EIO" });
+        await assert.rejects(rollback(), { code: "EIO" });
+        assert.equal(taskRestored, false);
+        assert.equal(JSON.parse(await fsPromises.readFile(taskJsonPath)).activeRunId, "aborted-launch-run");
+        failSync = false;
         let rollbackErr = null;
         try {
           await rollbackMessageEditTransaction(root, "task");

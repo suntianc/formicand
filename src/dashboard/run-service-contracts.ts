@@ -29,7 +29,6 @@ export interface MainLaunchSubmission {
   profileId?: string;
   thinkingLevel?: PiThinkingLevel;
   onPrepared?: (rollback: () => Promise<void>) => void;
-  onAcceptedInput?: (messageId: string) => void;
   onRunAccepted?: (location: TaskLocation, runId: string) => Promise<void>;
   source?: "composer" | "human" | "inbox";
   /** Which entry point asked, so the queue can report where a demand came from. */

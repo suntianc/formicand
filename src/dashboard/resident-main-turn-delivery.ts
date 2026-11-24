@@ -125,7 +125,6 @@ export function createResidentMainTurnDelivery({
       };
       await saveMainInput(mainInputPath(taskWorkspace, resident.taskId, resident.runId), body);
       await saveAcceptedMainMessage(taskWorkspace, resident.taskId, body);
-      submission?.onAcceptedInput?.(messageId);
       await inbox.enqueue({
         messageId,
         recipientAgentId: "main",

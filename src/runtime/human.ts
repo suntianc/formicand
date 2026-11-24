@@ -1,7 +1,7 @@
 import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { id, now, type InboxMessage } from "../domain/types.js";
-import { atomicWrite } from "../storage/atomic-file.js";
+import { atomicWrite, syncDirectory } from "../storage/atomic-file.js";
 import { withFileLock } from "../storage/file-lock.js";
 import { InboxStore } from "./scheduler.js";
 import type { AgentDefinition } from "./agent-definitions.js";
@@ -268,9 +268,11 @@ export class HumanRequestStore {
     const path = this.path(taskId, requestId);
     await withFileLock(path, async () => {
       const request = await this.read(taskId, requestId);
-      if (request.status !== "cancelled" || request.superseded?.runId !== runId) return;
-      const { superseded, ...original } = request;
-      await atomicWrite(path, json({ ...original, status: superseded.status }));
+      if (request.status === "cancelled" && request.superseded?.runId === runId) {
+        const { superseded, ...original } = request;
+        await atomicWrite(path, json({ ...original, status: superseded.status }));
+      }
+      await syncDirectory(dirname(path));
     });
   }
 

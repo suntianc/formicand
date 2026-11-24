@@ -63,7 +63,8 @@ import { readProjectAssignment } from "../workspace/project-assignment.js";
 export function createWorkspaceDirectory(
   initialRoot: string,
   globalIndexPath: string,
-  runtimeValue: (name: "COWORK_MODEL") => string | undefined
+  runtimeValue: (name: "COWORK_MODEL") => string | undefined,
+  ownsMainProcess?: (root: string, taskId: string, runId: string) => boolean
 ) {
   let workspaceRoot = initialRoot;
   const temporaryWorkspaces = new TemporaryWorkspaceStore(dirname(globalIndexPath));
@@ -146,7 +147,8 @@ export function createWorkspaceDirectory(
       // eslint-disable-next-line no-restricted-syntax -- 已注册的旧工作区根目录可能被删除，该根的列表读取失败按空处理，其它根仍要汇总
       const tasks = await store.listTasks().catch(() => []);
       for (let task of tasks) {
-        if (await recoverMessageEditTransaction(root, task.taskId)) task = await store.readTask(task.taskId);
+        if (await recoverMessageEditTransaction(root, task.taskId, ownsMainProcess))
+          task = await store.readTask(task.taskId);
         locations.push({ workspaceRoot: root, store, task });
       }
     }
@@ -229,8 +231,8 @@ export function createWorkspaceDirectory(
   async function locateTask(taskId: string): Promise<TaskLocation> {
     for (const root of await knownWorkspaceRoots()) {
       const taskStore = new LocalWorkspaceStore(root);
+      await recoverMessageEditTransaction(root, taskId, ownsMainProcess);
       try {
-        await recoverMessageEditTransaction(root, taskId);
         const task = await taskStore.readTask(taskId);
         if (task.temporaryWorkspaceRoot)
           return {

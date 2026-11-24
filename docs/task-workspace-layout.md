@@ -91,7 +91,7 @@ Task 首次写入时创建布局与 `agents/main/work/`，在 Main 首次模型�
 
 新版本将历史正文和活动单独写入私有 `sessions/main/message-versions/<versionId>.json`（权限 600）；版本索引只保存历史文件名、当前对应消息、分组、预览和活动数量。缺少独立历史文件的版本索引按损坏记录拒绝并保留原文件；备份应同时包含这些历史文件。项目目录变更会复制当前选定 Pi 分支到新 CWD，再原子更新版本索引中的 session 指针，版本 ID 和旧记录不变。
 
-`sessions/main/request-retry.json` 是唯一主动写入的版本 1 私有恢复槽，保存实际序列化 body、发送 endpoint、原模型/上下文和会话 ID、Task/Run/request 身份、执行环境、写入时的 Pi 版本（`piVersion`）、body SHA-256 与整槽校验和，状态为 pending/failed/completed。它保留原始用户正文、附件像素和成功工具结果，权限为 600；认证 headers 与配置密钥不保存。重放关联使用 `retryOf`，跨进程文件锁保护保存、结算、物化及请求身份比对。活动回合内的 `completed` 结算仅写入约 180 B 的 `sessions/main/request-retry.state.json` 侧车（绑定主文件 `snapshotChecksum` 并独立校验，损坏时 fail-closed），`failed` 结算直接写回主文件；在 `askhuman` 发布 pending 提问前、回合结算、优雅退出及后端退出结算边界会调用 `materialize()` 将侧车状态写回原生 v1 主文件并清除侧车（孤立侧车一并清理）。若需降级到不支持侧车或 6 路径事务的旧版，须在新版停止接收新写入后依次确认：在途 `edit-transaction.json` 已由新版按阶段恢复消失、`request-retry.state.json` 已清除且 `request-retry.json` 通过 v1 校验、状态与实际请求进度一致（尚未结算的请求保留合法 `pending` 及其重试能力）。版本不一致时不重放；重试写下的新快照用 `replaySkipped` 记录 `pi_version_mismatch` 与旧版本。缺少 `piVersion` 的快照按损坏记录处理。
+`sessions/main/request-retry.json` 是唯一主动写入的版本 1 私有恢复槽，保存实际序列化 body、发送 endpoint、原模型/上下文和会话 ID、Task/Run/request 身份、执行环境、写入时的 Pi 版本（`piVersion`）、body SHA-256 与整槽校验和，状态为 pending/failed/completed。它保留原始用户正文、附件像素和成功工具结果，权限为 600；认证 headers 与配置密钥不保存。重放关联使用 `retryOf`，跨进程文件锁保护保存、结算、物化及请求身份比对。活动回合内的 `completed` 结算仅写入约 180 B 的 `sessions/main/request-retry.state.json` 侧车（绑定主文件 `snapshotChecksum` 并独立校验，损坏时 fail-closed），`failed` 结算直接写回主文件；在 `askhuman` 发布 pending 提问前、回合结算、优雅退出及后端退出结算边界会调用 `materialize()` 将侧车状态写回原生 v1 主文件并清除侧车（孤立侧车一并清理）。模型已返回成功时，结算落盘重试沿用 `completed`。物化重试在侧车已删除时仍同步父目录。若需降级到不支持侧车或 6 路径事务的旧版，须在新版停止接收新写入后依次确认：在途 `edit-transaction.json` 已由新版按阶段恢复且 `edit-transaction.json.archive-pending` 已清除、`request-retry.state.json` 已清除且 `request-retry.json` 通过 v1 校验、状态与实际请求进度一致（尚未结算的请求保留合法 `pending` 及其重试能力）。版本不一致时不重放；重试写下的新快照用 `replaySkipped` 记录 `pi_version_mismatch` 与旧版本。缺少 `piVersion` 的快照按损坏记录处理。
 
 新输入清除活动槽。
 
@@ -172,4 +172,6 @@ Main 的 `read_attachment` 工具按格式读取，支持文字分页、PDF 页�
 
 `prepared` 阶段崩溃后，Dashboard 重新列举或定位 Task 时恢复这些原始字节，拒绝未启动的新输入，保留分支、Run 和失败输入证据。
 
-`launch_ready` 阶段已完整持久化新输入、Task/Run 和新分支；此后 spawn 可能执行过文件或外部动作，恢复会保留已接受的新版本并把孤立的 running Run 置为 waiting，不回滚外部动作。幂等重复请求返回真实 Task 状态，不将 waiting 声称为 running。事务结束后 journal 归档为 `edit-transaction-<runId>.json`，备份须包含这些私有恢复证据。
+`launch_ready` 阶段已完整持久化新输入、Task/Run 和新分支；此后 spawn 可能执行过文件或外部动作，恢复会保留已接受的新版本并把孤立的 running Run 置为 waiting，不回滚外部动作。幂等重复请求返回真实 Task 状态，不将 waiting 声称为 running。当前后端以登记的子进程确认 Run 归属。重启后用 Run 心跳或操作系统进程身份核对；本机 PID 仍活跃但启动时间无法核实时保留事务，等下次查询再核对。异机 Run 以心跳判断存活；缺少该 Run 的心跳时保留事务，匹配的异机心跳过期后可转为 waiting。事务结束后 journal 归档为 `edit-transaction-<runId>.json`，归档重命名前先持久写入同目录的 `edit-transaction.json.archive-pending` 标记，目录同步成功后清除。新版重启会补完未完成的归档同步。备份须包含这些私有恢复证据。
+
+确认尚未启动并决定撤回 `launch_ready` 编辑时，先持久写入 `rolling_back`。恢复此阶段先同步 journal 目录，再拒绝输入、恢复原 Task 和请求快照，并同步已恢复的人工提问目录，最后归档。降级时先让新版完成回滚、归档同步与请求物化。

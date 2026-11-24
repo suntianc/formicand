@@ -113,7 +113,12 @@ export function createDashboardApplication(
    * the backend identity so a restart can answer a retry with the saved result.
    */
   const commands = new FileCommandRunner(join(dirname(globalIndexPath), "operations"));
-  const workspaces = createWorkspaceDirectory(workspaceRoot, globalIndexPath, runtimeValue);
+  const workspaces = createWorkspaceDirectory(
+    workspaceRoot,
+    globalIndexPath,
+    runtimeValue,
+    (root, taskId, runId): boolean => runs.ownsMainProcess(root, taskId, runId)
+  );
   /**
    * The shared project ledger's one authority.
    *

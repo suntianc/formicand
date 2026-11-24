@@ -480,6 +480,7 @@ test("directory sync failure prevents materialize() from removing the sidecar an
       const statePath = process.argv[2];
       const dir = dirname(filePath);
       let failDirSync = true;
+      let failUnlinkSync = false;
       const ops = [];
       const origOpen = fsPromises.open;
       const origRm = fsPromises.rm;
@@ -500,7 +501,7 @@ test("directory sync failure prevents materialize() from removing the sidecar an
         return handle;
       };
       fsPromises.rm = async function (p, ...rest) {
-        if (String(p) === statePath) ops.push("rm:sidecar");
+        if (String(p) === statePath) { ops.push("rm:sidecar"); failDirSync = failUnlinkSync; }
         return origRm.call(this, p, ...rest);
       };
       syncBuiltinESMExports();
@@ -513,6 +514,13 @@ test("directory sync failure prevents materialize() from removing the sidecar an
         firstErrorCode = err.code ?? err.message;
       }
       const sidecarAfterFailure = await fsPromises.readFile(statePath, "utf8").then(() => true, () => false);
+      failDirSync = false;
+      failUnlinkSync = true;
+      const { default: assert } = await import("node:assert/strict");
+      await assert.rejects(store.materialize(), { code: "EPERM" });
+      await assert.rejects(fsPromises.readFile(statePath), { code: "ENOENT" });
+      // The unlink already took effect. A new store must retry the missing barrier.
+      await assert.rejects(new MainRequestStore(filePath, "task").materialize(), { code: "EPERM" });
       failDirSync = false;
       await store.materialize();
       const sidecarAfterRetry = await fsPromises.readFile(statePath, "utf8").then(() => true, () => false);

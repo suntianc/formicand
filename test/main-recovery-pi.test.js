@@ -276,10 +276,10 @@ test(
     const toolRuns = completed.runtimeEvents.filter((event) => event.payload.type === "tool_execution_end");
     assert.equal(toolRuns.length, 1);
     assert.equal(completed.messages.at(-1).stopReason, "stop");
-    assert.equal(
-      completed.events.filter((event) => event.type === "main.run_failed").length,
-      0,
-      "the new run must not inherit the prior terminal error"
+    assert.deepEqual(
+      completed.events.filter((event) => event.type === "main.run_failed").map((event) => event.runId),
+      [first.runId],
+      "the task history retains only the original run's terminal error"
     );
     await receipt(local.root, "sse-after-effect", {
       failed: failed.task.status,

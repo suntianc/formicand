@@ -33,6 +33,7 @@ export function recordModelRequests(
         let requestId = randomUUID();
         let httpAttempt = 0;
         let settled = false;
+        let responseCompleted = false;
         let captured = false;
         let preparedPayload: unknown;
         // Only Main's retry snapshot needs Pi's copy of the history.
@@ -119,17 +120,18 @@ export function recordModelRequests(
             try {
               for await (const event of source) {
                 if (event.type === "done" || event.type === "error") {
+                  responseCompleted = event.type === "done";
                   await recorder.record("model_response", requestId, {
                     model: modelInfo,
                     message: event.type === "done" ? event.message : event.error
                   });
-                  if (captured) await retry!.settle(requestId, event.type === "done");
+                  if (captured) await retry!.settle(requestId, responseCompleted);
                   settled = true;
                 }
                 yield event;
               }
             } finally {
-              if (captured && !settled) await retry!.settle(requestId, false);
+              if (captured && !settled) await retry!.settle(requestId, responseCompleted);
             }
           }
         };

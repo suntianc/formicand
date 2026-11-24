@@ -2,7 +2,6 @@ import { randomUUID } from "node:crypto";
 import type { ChildProcess } from "node:child_process";
 import {
   latestEditableMessage,
-  rejectAcceptedMainMessage,
   readMessageVersions,
   MainMessageEditConflict,
   type MessageEditRequest,
@@ -135,16 +134,12 @@ export function createMainMessageService({
         const prompt = typed.trim() ? references + typed : typed;
         if (!prompt.trim()) throw new Error("请输入消息或保留至少一个附件。");
         let rollback: (() => Promise<void>) | undefined;
-        let acceptedMessageId: string | undefined;
         try {
           return await launchMainRun(taskId, prompt, `main-edit-${randomUUID()}`, false, model, undefined, {
             body,
             edit: request,
             attachmentIds,
             textAttachments,
-            onAcceptedInput: (messageId) => {
-              acceptedMessageId = messageId;
-            },
             onPrepared: (restore) => {
               rollback = restore;
             }
@@ -152,8 +147,6 @@ export function createMainMessageService({
         } catch (error) {
           if (rollback && !residentMain(taskId) && !activeRuns.has(taskId)) {
             await rollback();
-            if (acceptedMessageId)
-              await rejectAcceptedMainMessage(location.workspaceRoot, taskId, acceptedMessageId);
             const task = location.task;
             await location.store.updateTask(taskId, {
               activeRunId: task.activeRunId,

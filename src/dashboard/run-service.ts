@@ -362,6 +362,17 @@ export function createDashboardRunService({
   });
 
   return {
+    ownsMainProcess(root: string, taskId: string, runId: string): boolean {
+      const resident = residentMains.get(taskId);
+      const child = activeRuns.get(taskId);
+      return (
+        resident?.location.workspaceRoot === root &&
+        resident.runId === runId &&
+        child !== undefined &&
+        child.exitCode === null &&
+        child.signalCode === null
+      );
+    },
     activeRuns,
     taskTurnActive,
     mainProcessRunning,

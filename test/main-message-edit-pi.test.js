@@ -15,7 +15,7 @@ import {
 } from "../dist/src/storage/main-request-store.js";
 import { HumanRequestStore } from "../dist/src/runtime/human.js";
 
-async function fixture(t, api, handle) {
+async function fixture(t, api, handle, env = {}) {
   const requests = [];
   const provider = createServer(async (request, response) => {
     if (request.method === "GET") {
@@ -38,7 +38,8 @@ async function fixture(t, api, handle) {
   const dashboard = await startDashboard({
     modelEndpoint: `http://127.0.0.1:${provider.address().port}`,
     model: "edit-fixture",
-    defaultProject: false
+    defaultProject: false,
+    env
   });
   await writeFile(join(dashboard.root, "config.json"), JSON.stringify({ api, mainMaxTokens: 64 }));
   await mkdir(join(dashboard.root, "pi"), { recursive: true });
@@ -88,7 +89,7 @@ for (const api of ["openai-completions", "openai-responses"]) {
     test(`real Pi ${api}: editing a human question after ${pause} retires it with the old branch`, async (t) => {
       const f = await fixture(t, api, async (requests) =>
         requests.length === 1
-          ? { name: "askhuman", arguments: { question: "OLD_CITY_QUESTION" } }
+          ? { name: "askhuman", arguments: { questions: [{ question: "OLD_CITY_QUESTION" }] } }
           : { text: "NEW_WEATHER_ANSWER" }
       );
       assert.equal(
@@ -325,5 +326,48 @@ test(
     ).read();
     assert.equal(archivedReq.state, "completed");
     assert.match(archivedReq.body, /TOOL_BEFORE_ASK/);
+  }
+);
+
+test(
+  "a rejected edit preserves its input history and a spawned edit stays accepted across archive failure",
+  { timeout: 60_000 },
+  async (t) => {
+    const editedRequest = Promise.withResolvers();
+    const reply = Promise.withResolvers();
+    const f = await fixture(
+      t,
+      "openai-completions",
+      async (requests) => {
+        if (requests.length === 2) {
+          editedRequest.resolve();
+          await reply.promise;
+        }
+        return { text: "finished" };
+      },
+      { NODE_OPTIONS: "--import=" + new URL("./edit-archive-fault-fixture.mjs", import.meta.url).href }
+    );
+    try {
+      await f.call("/run", { prompt: "OLD", body: "OLD" });
+      const old = await f.settle("completed");
+      const rejected = await f.edit(old, "rejected");
+      assert.match(rejected.payload.error, /fixture inbox failure/);
+      const restored = await f.detail();
+      assert.equal(restored.editableMessage.messageId, old.editableMessage.messageId);
+
+      const edit = await f.edit(restored, "accepted");
+      assert.equal(edit.status, 202, JSON.stringify(edit));
+      const mainDir = join(f.dashboard.workspaceRoot, "edit-task", "sessions", "main");
+      assert.equal(JSON.parse(await readFile(join(mainDir, "edit-transaction.json"))).phase, "launch_ready");
+      const detail = await f.detail();
+      assert.equal(detail.task.status, "running");
+      assert.equal(detail.task.activeRunId, edit.payload.runId);
+      await assert.rejects(readFile(join(mainDir, "edit-transaction.json")), { code: "ENOENT" });
+      await editedRequest.promise;
+      assert.equal(f.requests.length, 2, "the accepted edit reached the provider");
+    } finally {
+      reply.resolve();
+    }
+    await f.settle("completed");
   }
 );

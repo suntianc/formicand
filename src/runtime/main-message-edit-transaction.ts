@@ -1,15 +1,16 @@
-import { readFile, rename } from "node:fs/promises";
+import { readFile, rename, rm } from "node:fs/promises";
 import { hostname } from "node:os";
 import { dirname, join } from "node:path";
 import { atomicWriteDurable, durableRemove, syncDirectory } from "../storage/atomic-file.js";
 import { withFileLock } from "../storage/file-lock.js";
 import { LocalWorkspaceStore } from "../workspace/workspace-store.js";
+import { agentProcessRecordPath, type AgentProcessRecord } from "./agent-process.js";
 import { mainContextPaths } from "./main-context.js";
 import { mainRequestPath, mainRequestStatePath } from "../storage/main-request-store.js";
 import { mainInputPath, readMainInput } from "./main-continuation.js";
 import { HumanRequestStore } from "./human.js";
 import { mainIsAlive, readHeartbeat } from "./main-heartbeat.js";
-import { verifyProcessIdentity } from "./process-identity.js";
+import { processIsAlive, readProcessIdentity } from "./process-identity.js";
 
 interface EditTransaction {
   version: 1;
@@ -23,7 +24,6 @@ interface EditTransaction {
   retiredHumanRequests?: string[];
 }
 const live = new Set<string>();
-const pendingArchiveSync = new Set<string>();
 const pathFor = (root: string, taskId: string) =>
   join(root, taskId, "sessions", "main", "edit-transaction.json");
 async function optional(path: string) {
@@ -84,11 +84,8 @@ export async function beginMessageEditTransaction(
   retiredHumanRequests: string[] = []
 ) {
   const path = pathFor(root, taskId);
-  if (pendingArchiveSync.has(path)) {
-    await syncDirectory(dirname(path));
-    pendingArchiveSync.delete(path);
-  }
   if ((await optional(path)) !== null) throw new Error("此前编辑事务尚未恢复。");
+  await completeArchiveSync(path);
   const paths = snapshotPaths(root, taskId);
   const requestPath = mainRequestPath(root, taskId);
   const requestStatePath = mainRequestStatePath(root, taskId);
@@ -126,51 +123,83 @@ export async function readyMessageEditTransaction(root: string, taskId: string) 
     throw new Error("编辑输入与运行身份尚未持久化。");
   await atomic(pathFor(root, taskId), JSON.stringify({ ...value, phase: "launch_ready", input }));
 }
+// The marker survives a backend exit between the archive rename and its directory sync.
+// Only edit finalization takes this lock. Normal task reads just check for the marker.
+async function completeArchiveSync(path: string) {
+  const marker = path + ".archive-pending";
+  if ((await optional(marker)) === null) return;
+  await withFileLock(marker, async () => {
+    if ((await optional(marker)) !== null && (await optional(path)) === null) {
+      await syncDirectory(dirname(path));
+      // If this unlink is lost in a power cut, the next lookup repeats the completed sync.
+      await rm(marker);
+    }
+  });
+}
+
 export async function finishMessageEditTransaction(root: string, taskId: string) {
   const path = pathFor(root, taskId);
+  const marker = path + ".archive-pending";
   try {
-    const value = await read(root, taskId);
-    if (value) {
-      pendingArchiveSync.add(path);
-      await rename(path, join(dirname(path), `edit-transaction-${value.runId}.json`));
-    }
-    if (pendingArchiveSync.has(path)) {
+    await withFileLock(marker, async () => {
+      const value = await read(root, taskId);
+      if (value) {
+        await atomic(marker, value.runId);
+        await rename(path, join(dirname(path), `edit-transaction-${value.runId}.json`));
+      }
       await syncDirectory(dirname(path));
-      pendingArchiveSync.delete(path);
-    }
+      await rm(marker, { force: true });
+    });
   } finally {
     live.delete(path);
   }
 }
-async function runProcessStillAlive(root: string, taskId: string, runId: string): Promise<boolean> {
-  const processPath = join(root, taskId, "runs", runId, "agents", "main", "process.json");
-  const raw = await optional(processPath);
-  if (raw !== null) {
-    try {
-      const record = JSON.parse(raw) as {
-        pid?: unknown;
-        host?: unknown;
-        startedAt?: unknown;
-        exitCode?: unknown;
-        exitSignal?: unknown;
-      };
-      if (
-        record.exitCode === undefined &&
-        record.exitSignal === undefined &&
-        typeof record.pid === "number" &&
-        typeof record.startedAt === "string" &&
-        (!record.host || record.host === hostname())
-      ) {
-        if (await verifyProcessIdentity({ pid: record.pid, startedAt: record.startedAt })) return true;
-      }
-      // eslint-disable-next-line no-restricted-syntax -- 进程记录损坏时回退核查心跳，不阻断事务恢复
-    } catch {
-      /* fall through to heartbeat check */
-    }
+
+async function recordedProcessStatus(
+  root: string,
+  taskId: string,
+  runId: string
+): Promise<"alive" | "dead" | "unknown" | { host: string }> {
+  const raw = await optional(agentProcessRecordPath(root, taskId, runId, "main", "main"));
+  if (raw === null) return "dead";
+  const record = JSON.parse(raw) as Partial<AgentProcessRecord>;
+  if (
+    record.taskId !== taskId ||
+    record.runId !== runId ||
+    typeof record.pid !== "number" ||
+    !Number.isSafeInteger(record.pid) ||
+    record.pid <= 0 ||
+    (record.startedAt !== undefined && typeof record.startedAt !== "string") ||
+    typeof record.host !== "string" ||
+    !record.host
+  )
+    throw new Error("编辑运行的进程记录无法核对，事务已保留。");
+  if (record.exitCode !== undefined || record.exitSignal !== undefined) return "dead";
+  if (record.host !== hostname()) return { host: record.host };
+  if (record.startedAt) {
+    const identity = await readProcessIdentity(record.pid);
+    if (identity) return identity.startedAt === record.startedAt ? "alive" : "dead";
   }
-  // eslint-disable-next-line no-restricted-syntax -- 心跳缺失或损坏时按无存活信号处理，由 process.json 结果决定
-  const beat = await readHeartbeat(root, taskId).catch(() => undefined);
-  return Boolean(beat && beat.runId === runId && mainIsAlive(beat));
+  // A live PID without a verifiable start time can belong to a recycled process.
+  return processIsAlive(record.pid) ? "unknown" : "dead";
+}
+
+async function editedRunStatus(root: string, taskId: string, runId: string) {
+  const [record, heartbeat] = await Promise.allSettled([
+    recordedProcessStatus(root, taskId, runId),
+    readHeartbeat(root, taskId)
+  ]);
+  if (record.status === "fulfilled" && record.value === "alive") return "alive";
+  if (heartbeat.status === "fulfilled" && heartbeat.value?.runId === runId && mainIsAlive(heartbeat.value))
+    return "alive";
+  if (record.status === "rejected") throw record.reason;
+  if (heartbeat.status === "rejected") throw heartbeat.reason;
+  if (typeof record.value === "string") return record.value;
+  const beat = heartbeat.value;
+  // Only a heartbeat from this remote Run can expire. launchedAt is not a heartbeat.
+  if (beat?.runId === runId && beat.host === record.value.host && Number.isFinite(Date.parse(beat.updatedAt)))
+    return "dead";
+  return "unknown";
 }
 
 export async function rollbackMessageEditTransaction(root: string, taskId: string) {
@@ -178,10 +207,7 @@ export async function rollbackMessageEditTransaction(root: string, taskId: strin
   try {
     const value = await read(root, taskId);
     if (!value) {
-      if (pendingArchiveSync.has(path)) {
-        await syncDirectory(dirname(path));
-        pendingArchiveSync.delete(path);
-      }
+      await completeArchiveSync(path);
       return;
     }
     // Durably record that launch never started and rollback is underway BEFORE
@@ -189,6 +215,8 @@ export async function rollbackMessageEditTransaction(root: string, taskId: strin
     // `launch_ready` always resumes rollback instead of failing run-id validation.
     if (value.phase === "launch_ready") {
       await atomic(path, JSON.stringify({ ...value, phase: "rolling_back" }));
+    } else if (value.phase === "rolling_back") {
+      await syncDirectory(dirname(path));
     }
     // Preserve the rejected input and Run evidence; a durable rejection supersedes legacy fallbacks.
     const input = await readMainInput(mainInputPath(root, taskId, value.runId));
@@ -232,20 +260,24 @@ export async function rollbackMessageEditTransaction(root: string, taskId: strin
   }
 }
 /** Recover abandoned transactions; return whether the caller must refresh its Task snapshot. */
-export async function recoverMessageEditTransaction(root: string, taskId: string): Promise<boolean> {
+export async function recoverMessageEditTransaction(
+  root: string,
+  taskId: string,
+  ownsMainProcess?: (root: string, taskId: string, runId: string) => boolean
+): Promise<boolean> {
   const path = pathFor(root, taskId);
   if (live.has(path)) return false;
   if ((await optional(path)) === null) {
-    if (pendingArchiveSync.has(path)) {
-      await syncDirectory(dirname(path));
-      pendingArchiveSync.delete(path);
-    }
+    await completeArchiveSync(path);
     return false;
   }
   return withFileLock(path, async () => {
     const value = await read(root, taskId);
     // Another process may have recovered the observed transaction while we waited for its lock.
-    if (!value) return true;
+    if (!value) {
+      await completeArchiveSync(path);
+      return true;
+    }
     if (value.phase === "prepared" || value.phase === "rolling_back") {
       await rollbackMessageEditTransaction(root, taskId);
     } else {
@@ -254,11 +286,14 @@ export async function recoverMessageEditTransaction(root: string, taskId: string
       const store = new LocalWorkspaceStore(root);
       const task = await store.readTask(taskId);
       if (task.activeRunId !== value.runId) throw new Error("编辑事务与当前运行不一致，记录已保留。");
-      if (task.status === "running" && !(await runProcessStillAlive(root, taskId, value.runId))) {
-        await store.transitionTask(taskId, "waiting", {
-          runId: value.runId,
-          reason: "message_edit_launch_recovered"
-        });
+      if (task.status === "running" && !ownsMainProcess?.(root, taskId, value.runId)) {
+        const status = await editedRunStatus(root, taskId, value.runId);
+        if (status === "unknown") return false;
+        if (status === "dead")
+          await store.transitionTask(taskId, "waiting", {
+            runId: value.runId,
+            reason: "message_edit_launch_recovered"
+          });
       }
       await finishMessageEditTransaction(root, taskId);
     }

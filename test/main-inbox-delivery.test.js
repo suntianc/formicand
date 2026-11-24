@@ -43,6 +43,34 @@ async function fixture(t) {
   return { root, path, inbox, bridge: new MainInboxDelivery(root, "task", "run") };
 }
 
+const runtimeVariable = /^(?:COWORK_|PI_|ATRIA_|EXA_)/;
+async function mainExtensionEnv(root) {
+  await writeFile(join(root, "config.json"), "{}");
+  return {
+    ATRIA_HOME: join(root, "home"),
+    COWORK_CONFIG: join(root, "config.json"),
+    PI_CODING_AGENT_DIR: join(root, "pi"),
+    PI_OFFLINE: "1",
+    COWORK_WORKSPACE: root,
+    COWORK_TASK_ID: "task",
+    COWORK_RUN_ID: "run",
+    COWORK_PROJECT_DIR: root,
+    COWORK_HARNESS_ROOT: process.cwd(),
+    COWORK_API_BASE: "http://127.0.0.1:1/v1",
+    COWORK_API_KEY: "fixture-key"
+  };
+}
+async function isolateMainExtension(t, root) {
+  const env = await mainExtensionEnv(root);
+  const saved = Object.entries(process.env).filter(([key]) => runtimeVariable.test(key));
+  for (const [key] of saved) delete process.env[key];
+  Object.assign(process.env, env);
+  t.after(() => {
+    for (const key of Object.keys(env)) delete process.env[key];
+    Object.assign(process.env, Object.fromEntries(saved));
+  });
+}
+
 async function completeFixtureCall(root) {
   const scheduler = new DurableScheduler(join(root, "task", "runs", "run", "queue.json"));
   await scheduler.enqueue({
@@ -1032,28 +1060,7 @@ test("real extension context handler refuses to consume a receipt that exists on
     payload: { callId: "c-context-only", response: "ONLY_IN_CONTEXT" },
     createdAt: now
   });
-  const savedEnv = {
-    COWORK_WORKSPACE: process.env.COWORK_WORKSPACE,
-    COWORK_TASK_ID: process.env.COWORK_TASK_ID,
-    COWORK_RUN_ID: process.env.COWORK_RUN_ID,
-    COWORK_PROJECT_DIR: process.env.COWORK_PROJECT_DIR,
-    COWORK_HARNESS_ROOT: process.env.COWORK_HARNESS_ROOT,
-    COWORK_API_BASE: process.env.COWORK_API_BASE,
-    COWORK_API_KEY: process.env.COWORK_API_KEY
-  };
-  process.env.COWORK_WORKSPACE = root;
-  process.env.COWORK_TASK_ID = "task";
-  process.env.COWORK_RUN_ID = "run";
-  process.env.COWORK_PROJECT_DIR = root;
-  process.env.COWORK_HARNESS_ROOT = process.cwd();
-  process.env.COWORK_API_BASE = "http://127.0.0.1:1/v1";
-  process.env.COWORK_API_KEY = "fixture-key";
-  t.after(() => {
-    for (const [k, v] of Object.entries(savedEnv)) {
-      if (v === undefined) delete process.env[k];
-      else process.env[k] = v;
-    }
-  });
+  await isolateMainExtension(t, root);
 
   const requirePi = createRequire(import.meta.resolve("@earendil-works/pi-coding-agent"));
   const { createJiti } = await import(requirePi.resolve("jiti"));
@@ -1145,28 +1152,7 @@ test("real extension context handler refuses to consume a receipt that exists on
 test("real extension replaces persistedReceiptKeys on branch switch (A -> B) in --no-session mode so overwritten receipts are not consumed", async (t) => {
   const { root, inbox } = await fixture(t);
   const now = new Date().toISOString();
-  const savedEnv = {
-    COWORK_WORKSPACE: process.env.COWORK_WORKSPACE,
-    COWORK_TASK_ID: process.env.COWORK_TASK_ID,
-    COWORK_RUN_ID: process.env.COWORK_RUN_ID,
-    COWORK_PROJECT_DIR: process.env.COWORK_PROJECT_DIR,
-    COWORK_HARNESS_ROOT: process.env.COWORK_HARNESS_ROOT,
-    COWORK_API_BASE: process.env.COWORK_API_BASE,
-    COWORK_API_KEY: process.env.COWORK_API_KEY
-  };
-  process.env.COWORK_WORKSPACE = root;
-  process.env.COWORK_TASK_ID = "task";
-  process.env.COWORK_RUN_ID = "run";
-  process.env.COWORK_PROJECT_DIR = root;
-  process.env.COWORK_HARNESS_ROOT = process.cwd();
-  process.env.COWORK_API_BASE = "http://127.0.0.1:1/v1";
-  process.env.COWORK_API_KEY = "fixture-key";
-  t.after(() => {
-    for (const [k, v] of Object.entries(savedEnv)) {
-      if (v === undefined) delete process.env[k];
-      else process.env[k] = v;
-    }
-  });
+  await isolateMainExtension(t, root);
 
   const requirePi = createRequire(import.meta.resolve("@earendil-works/pi-coding-agent"));
   const { createJiti } = await import(requirePi.resolve("jiti"));
@@ -1418,14 +1404,8 @@ test("partial snapshot write failure (messages.json written, state.json EIO) inv
     {
       cwd: process.cwd(),
       env: {
-        ...process.env,
-        COWORK_WORKSPACE: root,
-        COWORK_TASK_ID: "task",
-        COWORK_RUN_ID: "run",
-        COWORK_PROJECT_DIR: root,
-        COWORK_HARNESS_ROOT: process.cwd(),
-        COWORK_API_BASE: "http://127.0.0.1:1/v1",
-        COWORK_API_KEY: "fixture-key"
+        ...Object.fromEntries(Object.entries(process.env).filter(([key]) => !runtimeVariable.test(key))),
+        ...(await mainExtensionEnv(root))
       },
       stdio: ["ignore", "pipe", "pipe"]
     }

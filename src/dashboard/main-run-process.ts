@@ -252,9 +252,8 @@ export function createMainRunProcess({
     await saveMainInput(inputPath, input);
     if (!continuation) {
       await saveAcceptedMainMessage(taskWorkspace, taskId, input);
-      submission?.onAcceptedInput?.(input.messageId!);
+      await requestStore.clear();
     }
-    if (!continuation) await requestStore.clear();
     if (retryRequest) await requestStore.reassignRun(retryRequest, runId);
     if (task.status === "completed" || task.status === "failed" || task.status === "cancelled") {
       await location.store.transitionTask(taskId, "running", { runId, reason: "dashboard_run_restart" });
@@ -536,7 +535,12 @@ export function createMainRunProcess({
     entry.record = record;
     activeRunIds.set(taskId, runId);
     interjectionTargets.set(taskId, { runId });
-    if (submission?.edit) await finishMessageEditTransaction(taskWorkspace, taskId);
+    if (submission?.edit) {
+      // A spawned edit is already accepted. Task lookup retries journal archival.
+      await finishMessageEditTransaction(taskWorkspace, taskId).catch((error) =>
+        console.error(`[cowork] archiving started edit ${taskId}/${runId} failed:`, error)
+      );
+    }
     return {
       taskId,
       runId,

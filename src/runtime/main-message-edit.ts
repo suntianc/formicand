@@ -94,11 +94,6 @@ export async function saveAcceptedMainMessage(root: string, taskId: string, inpu
     { mode: 0o600, flag: "wx" }
   );
 }
-export async function rejectAcceptedMainMessage(root: string, taskId: string, messageId: string) {
-  const path = join(root, taskId, "sessions", "main", "user-inputs", `${messageId}.json`);
-  const value = JSON.parse(await readFile(path, "utf8"));
-  await writeFile(path, JSON.stringify({ ...value, accepted: false }), { mode: 0o600 });
-}
 async function readDurableMainMessage(
   root: string,
   taskId: string,

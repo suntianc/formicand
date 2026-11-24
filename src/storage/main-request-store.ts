@@ -200,7 +200,11 @@ export class MainRequestStore {
           return;
         }
         const sidecar = await this.readStateUnlocked();
-        if (!sidecar) return;
+        if (!sidecar) {
+          // A previous unlink can be visible even though its directory sync failed.
+          await syncDirectory(dirname(this.statePath));
+          return;
+        }
         const matches =
           sidecar.taskId === base.taskId &&
           sidecar.runId === base.runId &&

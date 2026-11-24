@@ -162,6 +162,39 @@ test("a snapshot persistence failure prevents HTTP transmission", async (t) => {
   assert.equal(result.stopReason, "error");
 });
 
+test("a completed provider response keeps its terminal state when its first settlement reports a disk failure", async (t) => {
+  const f = await storage(t);
+  const local = await provider(t, () => ({ text: "provider completed" }));
+  const model = createCoworkModel({ baseUrl: local.base, model: "fixture", supportsReasoningEffort: false });
+  const archive = new ModelRequestRecorder(join(f.root, "requests.jsonl"), {
+    taskId: "task",
+    runId: "run",
+    agentId: "main"
+  });
+  const settle = f.store.settle.bind(f.store);
+  const attempts = [];
+  t.mock.method(f.store, "settle", async (id, state) => {
+    await settle(id, state);
+    attempts.push(state);
+    if (attempts.length === 1) throw Object.assign(new Error("fixture directory sync"), { code: "EIO" });
+  });
+  const models = modelsFor(
+    model,
+    recordModelRequests(
+      openAICompletionsApi(),
+      archive,
+      new MainRequestRetry(f.store, "run", async () => f.environment)
+    )
+  );
+  const result = await models.completeSimple(model, f.context, { apiKey: "local-fixture", maxRetries: 0 });
+  assert.match(result.errorMessage, /fixture directory sync/);
+  assert.deepEqual(attempts, ["completed", "completed"]);
+  assert.equal(local.requests.length, 1);
+  await f.store.materialize();
+  assert.equal(JSON.parse(await readFile(f.store.filePath)).state, "completed");
+  assert.equal(await f.store.pending(), undefined);
+});
+
 async function provider(t, handle) {
   const requests = [],
     failures = [];
