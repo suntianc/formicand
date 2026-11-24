@@ -183701,7 +183701,7 @@
               "id": "E0qU8R",
               "name": "ColTitle",
               "fill": "$v2-text-3",
-              "content": "C 认得出就用品牌图标，认不出用首字母：MCP",
+              "content": "MCP 定稿：服务连接时自己报了图标就用，没报就用首字母",
               "fontFamily": "Noto Sans SC",
               "fontSize": 13,
               "fontWeight": "normal"
