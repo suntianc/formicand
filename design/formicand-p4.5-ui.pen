@@ -181800,6 +181800,714 @@
           ]
         }
       ]
+    },
+    {
+      "type": "frame",
+      "id": "gx7GH",
+      "x": 7488,
+      "y": 30620,
+      "name": "P4.9 需求进度 · 完成标准（单行省略 / 点开看全文）",
+      "fill": "$v2-backdrop",
+      "gap": 40,
+      "padding": 40,
+      "children": [
+        {
+          "type": "frame",
+          "id": "S4mAj",
+          "name": "Col 现在：换行后图标居中，越长越乱",
+          "layout": "vertical",
+          "gap": 12,
+          "children": [
+            {
+              "type": "text",
+              "id": "P4F4oh",
+              "name": "ColTitle",
+              "fill": "$v2-text-3",
+              "content": "现在：换行后图标居中，越长越乱",
+              "fontFamily": "Noto Sans SC",
+              "fontSize": 13,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "frame",
+              "id": "fXqVX",
+              "name": "Panel",
+              "width": 360,
+              "fill": "$v2-main",
+              "cornerRadius": 16,
+              "stroke": "$v2-main-edge",
+              "strokeWidth": 1,
+              "strokeAlignment": "inner",
+              "layout": "vertical",
+              "gap": 10,
+              "padding": 20,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "rOQ9Y",
+                  "name": "SecLabel",
+                  "fill": "$v2-text-3",
+                  "content": "完成标准",
+                  "fontFamily": "Noto Sans SC",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "frame",
+                  "id": "qsGGW",
+                  "name": "Check",
+                  "width": "fill_container",
+                  "gap": 10,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "jMEzT",
+                      "name": "i",
+                      "width": 15,
+                      "height": 15,
+                      "icon": "circle-check",
+                      "library": "lucide",
+                      "fill": "$v2-ok"
+                    },
+                    {
+                      "type": "text",
+                      "id": "E1awoG",
+                      "name": "Text",
+                      "fill": "$v2-text",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "sumDurations([\"1h\",\"30m\",\"90s\"]) === 5490000；sumDurations([]) === 0",
+                      "lineHeight": 1.5,
+                      "fontFamily": "Noto Sans SC",
+                      "fontSize": 13,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "z8xOIm",
+                  "name": "Check",
+                  "width": "fill_container",
+                  "gap": 10,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "HfUFL",
+                      "name": "i",
+                      "width": 15,
+                      "height": 15,
+                      "icon": "circle-check",
+                      "library": "lucide",
+                      "fill": "$v2-ok"
+                    },
+                    {
+                      "type": "text",
+                      "id": "RmYnJ",
+                      "name": "Text",
+                      "fill": "$v2-text",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "sumDurations 任一项非法时抛 TypeError，消息含第几项（1 起）与原始文本",
+                      "lineHeight": 1.5,
+                      "fontFamily": "Noto Sans SC",
+                      "fontSize": 13,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "ysuK4",
+                  "name": "Check",
+                  "width": "fill_container",
+                  "gap": 10,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "Otalr",
+                      "name": "i",
+                      "width": 15,
+                      "height": 15,
+                      "icon": "circle-check",
+                      "library": "lucide",
+                      "fill": "$v2-ok"
+                    },
+                    {
+                      "type": "text",
+                      "id": "Wci8T",
+                      "name": "Text",
+                      "fill": "$v2-text",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "duration sum 1h 30m 90s 输出 1h31m30s，退出 0",
+                      "lineHeight": 1.5,
+                      "fontFamily": "Noto Sans SC",
+                      "fontSize": 13,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "XvcDo",
+                  "name": "Check",
+                  "width": "fill_container",
+                  "gap": 10,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "Npq1S",
+                      "name": "i",
+                      "width": 15,
+                      "height": 15,
+                      "icon": "circle-check",
+                      "library": "lucide",
+                      "fill": "$v2-ok"
+                    },
+                    {
+                      "type": "text",
+                      "id": "d5ryL",
+                      "name": "Text",
+                      "fill": "$v2-text",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "duration sum 1h 30m 90s --json 输出 {\"ms\":5490000,\"text\":\"1h31m30s\"}",
+                      "lineHeight": 1.5,
+                      "fontFamily": "Noto Sans SC",
+                      "fontSize": 13,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "CUwZ2",
+                  "name": "Check",
+                  "width": "fill_container",
+                  "gap": 10,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "dXOCW",
+                      "name": "i",
+                      "width": 15,
+                      "height": 15,
+                      "icon": "circle-check",
+                      "library": "lucide",
+                      "fill": "$v2-ok"
+                    },
+                    {
+                      "type": "text",
+                      "id": "lMVTl",
+                      "name": "Text",
+                      "fill": "$v2-text",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "sum 非法项 → stderr 错误、退出 1；sum 无参数 → 用法、退出 2",
+                      "lineHeight": 1.5,
+                      "fontFamily": "Noto Sans SC",
+                      "fontSize": 13,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "RbYem",
+                  "name": "Check",
+                  "width": "fill_container",
+                  "gap": 10,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "MYS9w",
+                      "name": "i",
+                      "width": 15,
+                      "height": 15,
+                      "icon": "circle-check",
+                      "library": "lucide",
+                      "fill": "$v2-ok"
+                    },
+                    {
+                      "type": "text",
+                      "id": "j3ll3G",
+                      "name": "Text",
+                      "fill": "$v2-text",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "单元测试与 CLI 测试覆盖以上标准，npm test 退出码 0",
+                      "lineHeight": 1.5,
+                      "fontFamily": "Noto Sans SC",
+                      "fontSize": 13,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "MCgO9",
+                  "name": "Check",
+                  "width": "fill_container",
+                  "gap": 10,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "En7MO",
+                      "name": "i",
+                      "width": 15,
+                      "height": 15,
+                      "icon": "circle-check",
+                      "library": "lucide",
+                      "fill": "$v2-ok"
+                    },
+                    {
+                      "type": "text",
+                      "id": "PQzoE",
+                      "name": "Text",
+                      "fill": "$v2-text",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "README 补 sumDurations 与 duration sum 用法",
+                      "lineHeight": 1.5,
+                      "fontFamily": "Noto Sans SC",
+                      "fontSize": 13,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "ObMrY",
+                  "name": "Check",
+                  "width": "fill_container",
+                  "gap": 10,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "VvrIe",
+                      "name": "i",
+                      "width": 15,
+                      "height": 15,
+                      "icon": "circle-check",
+                      "library": "lucide",
+                      "fill": "$v2-ok"
+                    },
+                    {
+                      "type": "text",
+                      "id": "hKEAW",
+                      "name": "Text",
+                      "fill": "$v2-text",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "改动已合入 main",
+                      "lineHeight": 1.5,
+                      "fontFamily": "Noto Sans SC",
+                      "fontSize": 13,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "auUju",
+          "name": "Col 改后：每条一行，点开看全文，超过 5 条收起",
+          "layout": "vertical",
+          "gap": 12,
+          "children": [
+            {
+              "type": "text",
+              "id": "SQhKz",
+              "name": "ColTitle",
+              "fill": "$v2-text-3",
+              "content": "改后：每条一行，点开看全文，超过 5 条收起",
+              "fontFamily": "Noto Sans SC",
+              "fontSize": 13,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "frame",
+              "id": "BU8WY",
+              "name": "Panel",
+              "width": 360,
+              "fill": "$v2-main",
+              "cornerRadius": 16,
+              "stroke": "$v2-main-edge",
+              "strokeWidth": 1,
+              "strokeAlignment": "inner",
+              "layout": "vertical",
+              "gap": 10,
+              "padding": 20,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "bRGLE",
+                  "name": "SecHead",
+                  "width": "fill_container",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "o0SJH",
+                      "name": "SecLabel",
+                      "fill": "$v2-text-3",
+                      "content": "完成标准",
+                      "fontFamily": "Noto Sans SC",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "q3NXNu",
+                      "name": "Spacer",
+                      "width": "fill_container",
+                      "height": 1
+                    },
+                    {
+                      "type": "text",
+                      "id": "C3JjQF",
+                      "name": "Count",
+                      "fill": "$v2-ok",
+                      "content": "8 / 8",
+                      "fontFamily": "Noto Sans SC",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "K72T7z",
+                  "name": "List",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 2,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "Bm45v",
+                      "name": "Check",
+                      "width": "fill_container",
+                      "fill": "#00000000",
+                      "cornerRadius": 6,
+                      "gap": 10,
+                      "padding": [
+                        5,
+                        8
+                      ],
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "ompws",
+                          "name": "IconBox",
+                          "width": 15,
+                          "height": 20,
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "icon",
+                              "id": "q2OEG",
+                              "name": "i",
+                              "width": 15,
+                              "height": 15,
+                              "icon": "circle-check",
+                              "library": "lucide",
+                              "fill": "$v2-ok"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "yWOKi",
+                          "name": "OneLine",
+                          "clip": true,
+                          "width": "fill_container",
+                          "height": 20,
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "K8API9",
+                              "name": "Text",
+                              "fill": "$v2-text",
+                              "content": "sumDurations([\"1h\",\"30m\",\"90s\"]) === 54…",
+                              "lineHeight": 1.5,
+                              "fontFamily": "Noto Sans SC",
+                              "fontSize": 13,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "dQ3Us",
+                      "name": "Check 展开",
+                      "width": "fill_container",
+                      "fill": "$v2-hover",
+                      "cornerRadius": 6,
+                      "gap": 10,
+                      "padding": [
+                        5,
+                        8
+                      ],
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "HAwRF",
+                          "name": "IconBox",
+                          "width": 15,
+                          "height": 20,
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "icon",
+                              "id": "y8hykm",
+                              "name": "i",
+                              "width": 15,
+                              "height": 15,
+                              "icon": "circle-check",
+                              "library": "lucide",
+                              "fill": "$v2-ok"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "text",
+                          "id": "W93jsx",
+                          "name": "Text",
+                          "fill": "$v2-text",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "sumDurations 任一项非法时抛 TypeError，消息含第几项（1 起）与原始文本",
+                          "lineHeight": 1.5,
+                          "fontFamily": "Noto Sans SC",
+                          "fontSize": 13,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "VFPos",
+                      "name": "Check",
+                      "width": "fill_container",
+                      "fill": "#00000000",
+                      "cornerRadius": 6,
+                      "gap": 10,
+                      "padding": [
+                        5,
+                        8
+                      ],
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "yo9Aa",
+                          "name": "IconBox",
+                          "width": 15,
+                          "height": 20,
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "icon",
+                              "id": "b1tACQ",
+                              "name": "i",
+                              "width": 15,
+                              "height": 15,
+                              "icon": "circle-check",
+                              "library": "lucide",
+                              "fill": "$v2-ok"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "mDsWd",
+                          "name": "OneLine",
+                          "clip": true,
+                          "width": "fill_container",
+                          "height": 20,
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "X6XND",
+                              "name": "Text",
+                              "fill": "$v2-text",
+                              "content": "duration sum 1h 30m 90s 输出 1h31m…",
+                              "lineHeight": 1.5,
+                              "fontFamily": "Noto Sans SC",
+                              "fontSize": 13,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "OzSQy",
+                      "name": "Check",
+                      "width": "fill_container",
+                      "fill": "#00000000",
+                      "cornerRadius": 6,
+                      "gap": 10,
+                      "padding": [
+                        5,
+                        8
+                      ],
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "GhEfu",
+                          "name": "IconBox",
+                          "width": 15,
+                          "height": 20,
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "icon",
+                              "id": "p1zHvX",
+                              "name": "i",
+                              "width": 15,
+                              "height": 15,
+                              "icon": "circle-check",
+                              "library": "lucide",
+                              "fill": "$v2-ok"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "vnxp9",
+                          "name": "OneLine",
+                          "clip": true,
+                          "width": "fill_container",
+                          "height": 20,
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "sPj0W",
+                              "name": "Text",
+                              "fill": "$v2-text",
+                              "content": "duration sum 1h 30m 90s --json 输出…",
+                              "lineHeight": 1.5,
+                              "fontFamily": "Noto Sans SC",
+                              "fontSize": 13,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "JeRjo",
+                      "name": "Check",
+                      "width": "fill_container",
+                      "fill": "#00000000",
+                      "cornerRadius": 6,
+                      "gap": 10,
+                      "padding": [
+                        5,
+                        8
+                      ],
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "hs22v",
+                          "name": "IconBox",
+                          "width": 15,
+                          "height": 20,
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "icon",
+                              "id": "KDXuU",
+                              "name": "i",
+                              "width": 15,
+                              "height": 15,
+                              "icon": "circle-check",
+                              "library": "lucide",
+                              "fill": "$v2-ok"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "oEti1",
+                          "name": "OneLine",
+                          "clip": true,
+                          "width": "fill_container",
+                          "height": 20,
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "lbd1u",
+                              "name": "Text",
+                              "fill": "$v2-text",
+                              "content": "sum 非法项 → stderr 错误、退出 1；s…",
+                              "lineHeight": 1.5,
+                              "fontFamily": "Noto Sans SC",
+                              "fontSize": 13,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "cYOPH",
+                      "name": "More",
+                      "width": "fill_container",
+                      "gap": 10,
+                      "padding": [
+                        5,
+                        8
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon",
+                          "id": "ft4Si",
+                          "name": "i",
+                          "width": 15,
+                          "height": 15,
+                          "icon": "chevron-down",
+                          "library": "lucide",
+                          "fill": "$v2-text-3"
+                        },
+                        {
+                          "type": "text",
+                          "id": "ThdNx",
+                          "name": "Text",
+                          "fill": "$v2-text-3",
+                          "content": "其余 3 条",
+                          "fontFamily": "Noto Sans SC",
+                          "fontSize": 13,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
     }
   ],
   "themes": {
