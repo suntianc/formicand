@@ -525,7 +525,7 @@ const openTaskSearch = createTaskSearch({
 
 createConversationLayout($("#conversation"));
 // Interrupting a run discards the step in flight, so the stop key asks first.
-$("#stop-button").addEventListener("click", () => runControl.confirmInterrupt($("#stop-button")));
+$("#stop-button").addEventListener("click", () => void runControl.interrupt());
 
 bindWorkShortcuts({
   $,

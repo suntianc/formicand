@@ -820,3 +820,28 @@ test("a saved history drops the deltas of ended messages and draws the same conv
   const later = runtimeEventRecord("task", "run", full.length, delta("text_delta", "!", 0));
   assert.deepEqual(mergeRuntimeEvents(saved, [...streamed, later]), [...saved, later]);
 });
+
+test("an edited message's relaunch and its stop belong to that message, not the answer above it", () => {
+  const first = [user("first request", 1_000), assistant("first answer", 2_000)];
+  const edited = user("/code-review edited", 5_000);
+  const aborted = { role: "assistant", content: [], timestamp: 6_000, stopReason: "aborted" };
+  const continuation = { role: "custom", customType: "atria-main-continuation", content: [], display: false };
+  const events = [
+    ...runEvents(...first).map((event) => ({ ...event, runId: "first" })),
+    ...[
+      { type: "agent_start" },
+      { type: "turn_start" },
+      { type: "message_start", message: continuation },
+      { type: "message_end", message: continuation },
+      { type: "message_start", message: aborted },
+      { type: "message_end", message: aborted },
+      { type: "main.run_stopped", payload: { reason: "ui_stop", subagents: 0 } },
+      { type: "main.run_waiting", payload: { reason: "incomplete_response" } }
+    ].map((event) => ({ ...event, runId: "main-edit" }))
+  ];
+  const exchanges = buildConversationExchanges([...first, edited, aborted], events);
+  assert.equal(exchanges.length, 2);
+  assert.equal(exchangeExecutionState(exchanges[0].events).stopped, undefined);
+  assert.deepEqual(exchangeExecutionState(exchanges[1].events).stopped, { subagents: 0 });
+  assert.equal(exchangeExecutionState(exchanges[1].events).terminal, "waiting");
+});

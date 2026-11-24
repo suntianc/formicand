@@ -222,3 +222,42 @@ test("an exit whose record now describes a newer process is not projected onto i
   assert.equal(stored.pid, holder.pid);
   assert.equal(stored.settledAt, undefined, "the live process's record stays unsettled");
 });
+
+test("stopping a process returns as soon as it exits, not after the liveness poll", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "atria-agent-stop-"));
+  await mkdir(join(root, "scripts"), { recursive: true });
+  // Ends promptly on SIGTERM, the way an idle Main does.
+  await writeFile(
+    join(root, "scripts", "start-pi.mjs"),
+    'process.on("SIGTERM", () => process.exit(0));\nsetInterval(() => {}, 1000);\n'
+  );
+  const workspaceRoot = join(root, "workspace");
+  const host = new AgentProcessHost({ workspaceRoot, harnessRoot: root, pollMs: 2_000, graceMs: 2_000 });
+  let record;
+  t.after(async () => {
+    host.close();
+    try {
+      if (record) process.kill(-record.pid, "SIGKILL");
+    } catch {
+      /* the process already exited */
+    }
+    await rm(root, { recursive: true, force: true });
+  });
+  const directory = join(workspaceRoot, "task", "runs", "run", "agents", "subagents", "call");
+  record = await host.launch({
+    taskId: "task",
+    runId: "run",
+    callId: "call",
+    agentId: "call",
+    role: "executor",
+    workingDirectory: root,
+    prompt: "idle",
+    sessionDirectory: join(directory, "sessions"),
+    resultPath: join(directory, "result.json"),
+    env: {}
+  });
+  await delay(300);
+  const started = Date.now();
+  await host.stop(record);
+  assert.ok(Date.now() - started < 1_000, `stop took ${Date.now() - started}ms`);
+});

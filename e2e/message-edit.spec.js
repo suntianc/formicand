@@ -366,3 +366,101 @@ test("opening the latest editor near the bottom does not jump the conversation",
     await provider.close();
   }
 });
+
+test("a stopped request shows 已停止 under itself, before and after it is edited and stopped again", async ({
+  page
+}) => {
+  let release;
+  const gate = new Promise((done) => (release = done));
+  const provider = await modelProtocolFixture("openai-completions", async (_body, requests) => {
+    if (requests.length === 1) return { text: "FIRST_ANSWER" };
+    await gate;
+    return { text: "LATE_ANSWER" };
+  });
+  const dashboard = await startDashboard({ modelEndpoint: provider.baseUrl });
+  const order = () =>
+    page.evaluate(() =>
+      [...document.querySelectorAll("#conversation .turn-stopped, #conversation .user-message-bubble")].map(
+        (node) => (node.classList.contains("turn-stopped") ? "已停止" : node.innerText.trim())
+      )
+    );
+  try {
+    await page.goto(dashboard.base);
+    await page.locator("#composer-input").fill("FIRST_MESSAGE");
+    await page.locator("#send-button").click();
+    await expect(page.locator("#conversation")).toContainText("FIRST_ANSWER", { timeout: 30000 });
+    // Stopped before the model wrote anything.
+    await page.locator("#composer-input").fill("SECOND_MESSAGE");
+    await page.locator("#send-button").click();
+    await expect.poll(() => provider.requests.length, { timeout: 30000 }).toBe(2);
+    await page.locator("#stop-button").click();
+    await expect(page.locator("#send-button")).toBeVisible();
+    await expect.poll(order).toEqual(["FIRST_MESSAGE", "SECOND_MESSAGE", "已停止"]);
+    // The edit relaunches Main without a new message; its stop is still this request's.
+    await page.getByRole("button", { name: "编辑消息" }).last().click();
+    await page.locator("[data-inline-message-edit]").fill("EDITED_MESSAGE");
+    await page.getByRole("button", { name: "发送编辑后的消息", exact: true }).click();
+    await expect(page.locator("[data-inline-message-edit]")).toHaveCount(0);
+    await expect.poll(() => provider.requests.length, { timeout: 30000 }).toBe(3);
+    await page.locator("#stop-button").click();
+    await expect(page.locator("#send-button")).toBeVisible();
+    await expect.poll(order).toEqual(["FIRST_MESSAGE", "EDITED_MESSAGE", "已停止"]);
+  } finally {
+    release();
+    await dashboard.stop();
+    await provider.close();
+  }
+});
+
+test("a sent edit shows its new text and a reply being prepared at once, and a refused one reopens", async ({
+  page
+}) => {
+  const provider = await modelProtocolFixture("openai-completions", async (_body, requests) => ({
+    text: requests.length === 1 ? "ORIGINAL_ANSWER" : "EDITED_ANSWER"
+  }));
+  const dashboard = await startDashboard({ modelEndpoint: provider.baseUrl });
+  try {
+    await page.goto(dashboard.base);
+    await page.locator("#composer-input").fill("ORIGINAL_MESSAGE");
+    await page.locator("#send-button").click();
+    await expect(page.locator("#conversation")).toContainText("ORIGINAL_ANSWER", { timeout: 30000 });
+    await expect(page.getByRole("button", { name: "编辑消息" })).toBeVisible();
+    let releaseEdit;
+    const held = new Promise((done) => (releaseEdit = done));
+    let refuse = true;
+    await page.route("**/messages/edit", async (route) => {
+      await held;
+      if (refuse) await route.fulfill({ status: 409, json: { error: "REFUSED_FOR_TEST" } });
+      else await route.fallback();
+    });
+    await page.getByRole("button", { name: "编辑消息" }).click();
+    await page.locator("[data-inline-message-edit]").fill("EDITED_MESSAGE");
+    await page.getByRole("button", { name: "发送编辑后的消息", exact: true }).click();
+    // Before the backend answers: no editor, the new text, a reply on its way.
+    await expect(page.locator("[data-inline-message-edit]")).toHaveCount(0);
+    await expect(page.locator(".chat-message.user").last()).toContainText("EDITED_MESSAGE");
+    await expect(page.locator("#conversation")).not.toContainText("ORIGINAL_MESSAGE");
+    await expect(page.locator("#conversation")).not.toContainText("ORIGINAL_ANSWER");
+    await expect(page.locator('.chat-message.main[data-answer-kind="pending"]')).toBeVisible();
+    releaseEdit();
+    await expect(page.locator("[data-inline-message-edit]")).toHaveValue("EDITED_MESSAGE");
+    await expect(page.locator("#conversation")).toContainText("ORIGINAL_ANSWER");
+    refuse = false;
+    // From the click on, the replaced message never comes back, not even for a frame.
+    await page.evaluate(() => {
+      window.__sawOriginal = false;
+      const conversation = document.querySelector("#conversation");
+      new MutationObserver(() => {
+        if (conversation.textContent.includes("ORIGINAL_MESSAGE")) window.__sawOriginal = true;
+      }).observe(conversation, { childList: true, subtree: true, characterData: true });
+    });
+    await page.getByRole("button", { name: "发送编辑后的消息", exact: true }).click();
+    await expect(page.locator("#conversation")).toContainText("EDITED_ANSWER", { timeout: 30000 });
+    expect(await page.evaluate(() => window.__sawOriginal)).toBe(false);
+    await expect(page.locator("[data-inline-message-edit]")).toHaveCount(0);
+    await expect(page.locator("#conversation")).not.toContainText("ORIGINAL_MESSAGE");
+  } finally {
+    await dashboard.stop();
+    await provider.close();
+  }
+});

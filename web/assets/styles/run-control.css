@@ -180,45 +180,6 @@ html[data-theme] .run-control[data-state="waiting"] .run-control-dot {
   outline-offset: 2px;
 }
 
-/* Interrupting is confirmed where the turn is: a small popover above its button,
-   title and two choices only. */
-.run-interrupt-confirm {
-  position: absolute;
-  right: 0;
-  bottom: calc(100% + 10px);
-  z-index: 30;
-  display: flex;
-  width: 280px;
-  flex-direction: column;
-  gap: 12px;
-  padding: 16px;
-  border: 1px solid var(--popover-edge);
-  border-radius: 14px;
-  background: var(--popover-fill);
-  box-shadow: var(--popover-shadow);
-}
-.run-interrupt-confirm[hidden] {
-  display: none;
-}
-.run-interrupt-confirm h2 {
-  margin: 0;
-  color: var(--color-text);
-  font-size: 14px;
-  font-weight: 600;
-  line-height: 20px;
-}
-.run-interrupt-confirm p {
-  margin: -4px 0 0;
-  color: var(--color-text-2);
-  font-size: 12px;
-  line-height: 1.6;
-}
-.run-interrupt-actions {
-  display: flex;
-  gap: 8px;
-  justify-content: flex-end;
-}
-
 /* Model failure recovery keeps the old read-only classifications but takes
    the board's single card: cause and retry count, three actions, folded detail. */
 .request-error {
@@ -398,10 +359,6 @@ html[data-theme] #toast.toast {
     top: 12px;
     right: 12px;
     width: calc(100vw - 24px);
-  }
-  .run-interrupt-confirm {
-    right: 8px;
-    width: min(260px, calc(100vw - 32px));
   }
 }
 

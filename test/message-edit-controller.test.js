@@ -192,7 +192,7 @@ test("a turn parked on a pending question stays editable", async () => {
   assert.deepEqual(f.errors, []);
 });
 
-test("acceptance does not silently discard text changed while the edit request was pending", async () => {
+test("a sent edit hides its editor while pending and closes once accepted", async () => {
   let resolve;
   const f = fixture(
     () =>
@@ -203,13 +203,14 @@ test("acceptance does not silently discard text changed while the edit request w
   f.controller.begin("task-a", f.target);
   f.session.updateEdit({ text: "submitted body" });
   const submitted = f.controller.submit();
-  f.session.updateEdit({ text: "changed while pending" });
+  await Promise.resolve();
+  assert.equal(f.controller.resending("task-a").text, "submitted body");
+  assert.equal(f.controller.markup("task-a", f.target.messageId), "");
   resolve({ runId: "new-run" });
   await submitted;
-  assert.equal(f.session.editSnapshot().text, "changed while pending");
+  assert.equal(f.session.editing, undefined);
+  assert.equal(f.controller.resending("task-a"), undefined);
   assert.equal(f.input.value, "original draft");
-  assert.equal(f.session.editing.original.text, "original draft");
-  assert.match(f.errors[0], /发送期间继续修改/);
 });
 
 test("editing and submitting a message leaves new typing in the composer independent", async () => {

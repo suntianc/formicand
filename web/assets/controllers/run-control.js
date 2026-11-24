@@ -16,7 +16,8 @@ import { ui } from "../ui/language.js";
  * Subagents the composer stays a send box, so pause and stop sit here. Pause
  * asks the backend to stop at the next step boundary; the button stays
  * disabled until that boundary is recorded. A paused round offers 继续.
- * Stopping is confirmed in place, because it ends the current round.
+ * Stop acts at once: finished steps and results stay, so there is nothing to
+ * confirm.
  */
 export function createRunControl({
   state,
@@ -29,7 +30,6 @@ export function createRunControl({
   isContinuing
 }) {
   const root = $("#run-control");
-  const confirm = $("#run-interrupt-confirm");
   const pauseButton = root?.querySelector("[data-run-pause]");
   const stopButton = root?.querySelector("[data-run-stop]");
   const continueButton = root?.querySelector("[data-run-continue]");
@@ -38,7 +38,6 @@ export function createRunControl({
   const time = root?.querySelector("[data-run-time]");
   let ticker;
   let busy = false;
-  let confirmTrigger;
 
   const selectedTask = () =>
     state.detail?.task?.taskId === state.selected
@@ -67,22 +66,6 @@ export function createRunControl({
     time.textContent = Number.isFinite(elapsed) ? `· ${formatRunDuration(elapsed)}` : "";
   }
 
-  function closeConfirm({ restoreFocus = false } = {}) {
-    if (!confirm || confirm.hidden) return;
-    confirm.hidden = true;
-    confirmTrigger?.setAttribute("aria-expanded", "false");
-    if (restoreFocus && confirmTrigger?.isConnected && !confirmTrigger.hidden) confirmTrigger.focus();
-  }
-  /** The stop key opens the confirmation instead of interrupting straight away. */
-  function confirmInterrupt(trigger) {
-    if (!confirm) return;
-    if (!confirm.hidden) return closeConfirm({ restoreFocus: true });
-    confirmTrigger = trigger;
-    confirmTrigger?.setAttribute("aria-expanded", "true");
-    confirm.hidden = false;
-    confirm.querySelector("[data-confirm-continue]")?.focus();
-  }
-
   async function pause() {
     const task = selectedTask();
     if (busy || !task || task.taskId !== state.selected || task.pause) return;
@@ -105,9 +88,8 @@ export function createRunControl({
     }
   }
 
-  async function applyInterrupt() {
+  async function interrupt() {
     const task = selectedTask();
-    closeConfirm({ restoreFocus: true });
     if (!task || task.taskId !== state.selected) return;
     await interruptRun?.(task.taskId);
   }
@@ -136,7 +118,6 @@ export function createRunControl({
       root.hidden = true;
       delete root.dataset.state;
       root.removeAttribute("data-run-paused");
-      closeConfirm();
       stopTicker();
       return;
     }
@@ -156,7 +137,6 @@ export function createRunControl({
       pauseButton.hidden = true;
       stopButton.hidden = true;
       continueButton.disabled = Boolean(isContinuing?.(task.taskId));
-      closeConfirm();
       return;
     }
     // Waiting for Subagents leaves the composer a send box, so stop is a
@@ -174,7 +154,7 @@ export function createRunControl({
   }
 
   pauseButton?.addEventListener("click", () => void pause());
-  stopButton?.addEventListener("click", () => confirmInterrupt(stopButton));
+  stopButton?.addEventListener("click", () => void interrupt());
   continueButton?.addEventListener("click", async () => {
     const task = selectedTask();
     if (!task) return;
@@ -182,17 +162,8 @@ export function createRunControl({
     await continueRun?.(task.taskId);
     render();
   });
-  confirm
-    ?.querySelector("[data-confirm-continue]")
-    ?.addEventListener("click", () => closeConfirm({ restoreFocus: true }));
-  confirm?.querySelector("[data-confirm-interrupt]")?.addEventListener("click", () => void applyInterrupt());
   document.addEventListener("keydown", (event) => {
     if (event.key !== "Escape" || event.defaultPrevented) return;
-    if (!confirm?.hidden) {
-      event.preventDefault();
-      closeConfirm({ restoreFocus: true });
-      return;
-    }
     // Esc stops a working Main from the composer or the page itself, never
     // from inside a menu, dialog or field that has its own Escape.
     const focus = document.activeElement;
@@ -210,29 +181,18 @@ export function createRunControl({
       !["working", "retrying", "waiting"].includes(kind)
     )
       return;
-    if (
-      document.querySelector(
-        '[role="dialog"]:not([hidden]):not(#run-interrupt-confirm), [role="menu"]:not([hidden])'
-      )
-    )
-      return;
+    if (document.querySelector('[role="dialog"]:not([hidden]), [role="menu"]:not([hidden])')) return;
     event.preventDefault();
-    confirmInterrupt(stopButton);
-  });
-  document.addEventListener("pointerdown", (event) => {
-    if (confirm?.hidden) return;
-    if (confirm.contains(event.target) || confirmTrigger?.contains(event.target)) return;
-    closeConfirm();
+    void interrupt();
   });
 
   return {
     render,
-    confirmInterrupt,
+    interrupt,
     /** Whether Main is waiting on its Subagents rather than working itself. */
     waiting: () => phase()?.kind === "waiting",
     reset() {
       stopTicker();
-      closeConfirm();
     }
   };
 }

@@ -267,7 +267,6 @@ test("the running composer switches one primary action and preserves the draft t
     await expect(stop).toBeVisible();
     await expect(send).toBeHidden();
     await stop.click();
-    await page.locator("#run-interrupt-confirm").getByRole("button", { name: "停止", exact: true }).click();
     await expect(stop).toHaveAttribute("aria-label", "正在停止");
     await expect(stop).toBeDisabled();
     await expect(stop).toHaveAttribute("aria-busy", "true");

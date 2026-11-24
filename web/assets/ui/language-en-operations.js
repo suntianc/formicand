@@ -69,9 +69,6 @@ export default {
   "已暂停 · ": "Paused · ",
   " 也已暂停": " paused too",
   停止: "Stop",
-  "停止这一轮？": "Stop this round?",
-  "Main 和正在工作的子助手都会停下。做完的步骤和结果都保留，可以继续发消息。":
-    "Main and its working Subagents stop. Finished steps and results are kept, and you can keep sending messages.",
   "停止（Esc）": "Stop (Esc)",
   正在停止: "Stopping",
   "正在停止…": "Stopping…",

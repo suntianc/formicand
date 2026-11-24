@@ -161,11 +161,19 @@ export function createConversationActivityView({
     const retryBanner = retry
       ? ui`<div class="request-retry" role="status" aria-live="polite"><strong>模型连接异常${retryCode ? `（HTTP ${retryCode}）` : ""}，正在重试</strong><p>第 ${esc(retry.attempt)} / ${esc(retry.maxAttempts)} 次自动重试，已有内容已保留。可以等待恢复或停止本轮。</p></div>`
       : "";
+    const pendingWork = isCurrent ? outstandingWork(detail) : { agents: 0, callbacks: 0, jobs: 0, human: 0 };
+    const working = active || Object.values(pendingWork).some((count) => count > 0);
+    // A stop before the model wrote anything still ends this request, so the
+    // row shows with or without activity above it.
+    const stoppedRow =
+      stopped && !working
+        ? `<div class="activity-step turn-stopped" data-view-key="${esc(`${historyKey}:stopped`)}"><div class="activity-step-content"><div class="activity-step-head"><span class="tool-status-dot" aria-hidden="true"></span><strong>${ui("已停止")}</strong><span class="turn-stopped-note">${esc(stopped.subagents ? ui`Main 和 ${stopped.subagents} 个子助手都已停下，做完的结果保留` : ui("做完的步骤和结果已保留"))}</span></div></div></div>`
+        : "";
     const placeholder = () => ({
       markup:
         (active
           ? renderThinkingPlaceholder(historyKey, retry ? ui("正在恢复模型连接…") : undefined, !retry)
-          : "") + retryBanner,
+          : stoppedRow) + retryBanner,
       hasActivity: false,
       collapsible: false,
       streamedAnswer: "",
@@ -181,8 +189,6 @@ export function createConversationActivityView({
       includeDetails: false
     };
     const presentations = new Map(calls.map((call) => [call, presentToolCall(call, presentationOptions)]));
-    const pendingWork = isCurrent ? outstandingWork(detail) : { agents: 0, callbacks: 0, jobs: 0, human: 0 };
-    const working = active || Object.values(pendingWork).some((count) => count > 0);
     const streamedAnswer = turns.at(-1)?.answer?.trim() || "";
     // Do not collapse the streamed answer until the persisted transcript has
     // caught up. A completion event can arrive just before messages.json is
@@ -419,10 +425,6 @@ export function createConversationActivityView({
       const trailingThinking =
         active && (segments.at(-1)?.kind === "answer" || segments.at(-1)?.kind === "subagents") && !tailLive
           ? thinkingRow(historyKey, retry ? ui("正在恢复模型连接…") : undefined, !retry)
-          : "";
-      const stoppedRow =
-        stopped && !working
-          ? `<div class="activity-step turn-stopped" data-view-key="${esc(`${historyKey}:stopped`)}"><div class="activity-step-content"><div class="activity-step-head"><span class="tool-status-dot" aria-hidden="true"></span><strong>${ui("已停止")}</strong><span class="turn-stopped-note">${esc(stopped.subagents ? ui`Main 和 ${stopped.subagents} 个子助手都已停下，做完的结果保留` : ui("做完的步骤和结果已保留"))}</span></div></div></div>`
           : "";
       return `${segmentMarkup}${trailingThinking}${stoppedRow}${retryBanner}`;
     };

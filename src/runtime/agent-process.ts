@@ -403,6 +403,10 @@ export class AgentProcessHost {
     }
     signalGroup(record.pid, "SIGTERM");
     const deadline = Date.now() + this.graceMs;
+    // A process this host started reports its own exit; only one adopted
+    // after a restart has to be polled.
+    const child = this.children.get(recordKey(record));
+    if (child) await closed(child, this.graceMs);
     while (Date.now() < deadline && processGroupIsAlive(record.pid)) await pause(this.pollMs);
     // The launcher can exit before a descendant in the same group; the group,
     // not the recorded pid, is what must be gone when stop resolves. The
@@ -599,6 +603,17 @@ export class AgentProcessHost {
 }
 
 /** Whether two records describe the same launched process. */
+/** Resolve when a child this host started has closed, or after `ms`. */
+function closed(child: ChildProcess, ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    const timer = setTimeout(resolve, ms);
+    child.once("close", () => {
+      clearTimeout(timer);
+      resolve();
+    });
+  });
+}
+
 function sameProcess(left: AgentProcessRecord, right: AgentProcessRecord): boolean {
   return left.pid === right.pid && left.startedAt === right.startedAt && left.token === right.token;
 }

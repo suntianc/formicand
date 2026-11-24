@@ -158,7 +158,7 @@ test("the run bar pauses at the step boundary and continues from that point", as
   }
 });
 
-test("cancel asks before it stops the run and keeps the run on 继续运行", async ({ page }, testInfo) => {
+test("stop ends the round at once and keeps the session for the next message", async ({ page }, testInfo) => {
   test.setTimeout(120_000);
   const work = {};
   const local = await setup(({ response, requests }) => {
@@ -190,27 +190,11 @@ test("cancel asks before it stops the run and keeps the run on 继续运行", as
     await page.screenshot({ path: testInfo.outputPath("run-bar-360.png") });
     await page.setViewportSize({ width: 1440, height: 900 });
 
-    // The stop key asks first.
+    // The stop key stops at once; nothing is asked first.
     const stop = page.locator("#stop-button");
     await expect(stop).toHaveAccessibleName("停止");
     await stop.click();
-    const dialog = page.locator("#run-interrupt-confirm");
-    await expect(dialog).toBeVisible();
-    await expect(dialog).toContainText("停止这一轮？");
-    await expect(dialog).toContainText("Main 和正在工作的子助手都会停下");
-    await expect(dialog.getByRole("button")).toHaveCount(2);
-    await expect(dialog.getByRole("button", { name: "继续运行" })).toBeVisible();
-    await expect(dialog.getByRole("button", { name: "停止", exact: true })).toBeVisible();
-    await page.screenshot({ path: testInfo.outputPath("cancel-confirm-1440.png") });
-
-    await dialog.getByRole("button", { name: "继续运行" }).click();
-    await expect(dialog).toBeHidden();
-    await expect(stop).toBeFocused();
-    await expect(bar).toBeVisible();
-    await waitForTask(page, local, taskId, (detail) => detail.task.status === "running");
-
-    await stop.click();
-    await dialog.getByRole("button", { name: "停止", exact: true }).click();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
     // The notice is transient (about 3.2s): read it as soon as the stop
     // lands, before the waits below outlast it.
     await expect(page.locator("#toast")).toContainText("已停止");
@@ -345,10 +329,7 @@ test("while Main waits for Subagents the composer stays a send box, and the mode
     await expect(page.locator("#stop-button")).toBeHidden();
     await expect(bar.getByRole("button", { name: "暂停" })).toBeVisible();
     await expect(bar.locator("[data-run-stop-key]")).toBeHidden();
-    await bar.getByRole("button", { name: "停止" }).click();
-    await expect(page.locator("#run-interrupt-confirm")).toBeVisible();
-    await page.keyboard.press("Escape");
-    await expect(page.locator("#run-interrupt-confirm")).toBeHidden();
+    await expect(bar.getByRole("button", { name: "停止" })).toBeVisible();
 
     // One button and one menu hold both the model and the reasoning effort.
     await expect(page.locator("#reasoning-select")).toHaveCount(0);
