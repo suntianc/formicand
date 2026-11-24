@@ -158887,7 +158887,7 @@
                   "type": "frame",
                   "id": "ZU61T",
                   "name": "Column",
-                  "width": 680,
+                  "width": "fill_container",
                   "layout": "vertical",
                   "gap": 36,
                   "children": [
@@ -160296,7 +160296,7 @@
                   "type": "frame",
                   "id": "t5o18",
                   "name": "Column",
-                  "width": 680,
+                  "width": "fill_container",
                   "layout": "vertical",
                   "gap": 36,
                   "children": [
@@ -161747,7 +161747,7 @@
                   "type": "frame",
                   "id": "eQJq3",
                   "name": "Column",
-                  "width": 680,
+                  "width": "fill_container",
                   "layout": "vertical",
                   "gap": 36,
                   "children": [
@@ -162983,7 +162983,7 @@
                   "type": "frame",
                   "id": "fC2zo",
                   "name": "Column",
-                  "width": 680,
+                  "width": "fill_container",
                   "layout": "vertical",
                   "gap": 36,
                   "children": [
@@ -164736,7 +164736,7 @@
                   "type": "frame",
                   "id": "gxACy",
                   "name": "Column",
-                  "width": 680,
+                  "width": "fill_container",
                   "layout": "vertical",
                   "gap": 36,
                   "children": [
@@ -167682,7 +167682,7 @@
           "fill": "#A1A1A8",
           "textGrowth": "fixed-width",
           "width": "fill_container",
-          "content": "3. 单栏的页（通用、节点连接、运行名额、成员与通道、工具）内容宽 680，靠左，和标题左边对齐，不再居中。",
+          "content": "3. 单栏的页（通用、节点连接、运行名额、成员与通道、工具）内容占满宽度，左右和顶栏一样留 28，和标题左边对齐，不再居中、右侧不留空。",
           "lineHeight": 1.65,
           "fontFamily": "Noto Sans SC",
           "fontSize": 14,
