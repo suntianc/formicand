@@ -39,28 +39,36 @@ test("global skills list every source, remove one from the index and restore it"
     await page.goto(fixture.dashboard.base);
     const settings = await openSettings(page, "skills");
     const list = settings.locator("[data-skill-list]");
-    await expect(list.locator("[data-skill-select]")).toHaveCount(3);
-    await expect(list.getByRole("button", { name: /docx/ })).toContainText("通用");
+    const rows = list.locator("[data-skill-select]");
+    const filter = (value) => settings.locator(`[data-skill-filter="${value}"]`).click();
+    // The bundled catalogue grows with the product, so each source is checked under
+    // its own filter and only the skills this test wrote are counted.
+    await filter("global");
+    await expect(rows).toHaveCount(1);
     await expect(list.getByRole("button", { name: /notes/ })).toContainText("本产品");
-    await expect(list.getByRole("button", { name: /cua/ })).toContainText("自带");
+    await filter("global-agents");
+    await expect(rows).toHaveCount(1);
+    await expect(list.getByRole("button", { name: /docx/ })).toContainText("通用");
+    await filter("bundled");
+    await settings.locator("[data-skill-search]").fill("cua");
+    await expect(list.getByRole("button", { name: /^cua/ })).toContainText("自带");
+    await settings.locator("[data-skill-search]").fill("");
     await expectNoHorizontalOverflow(page, settings.locator(".settings-content"));
 
-    await settings.locator('[data-skill-filter="global-agents"]').click();
-    await expect(list.locator("[data-skill-select]")).toHaveCount(1);
-    await settings.locator('[data-skill-filter="all"]').click();
-
+    await filter("global");
     await list.getByRole("button", { name: /notes/ }).click();
     const detail = settings.locator("[data-skill-detail]");
     await expect(detail).toContainText("scripts/build.sh");
     await expect(detail.locator(".skill-mark.is-script")).toBeVisible();
 
+    await filter("global-agents");
     await list.getByRole("button", { name: /docx/ }).click();
     await expect(detail.getByRole("button", { name: "删除" })).toHaveCount(0);
     await detail.getByRole("button", { name: "从索引移除" }).click();
     const confirm = page.getByRole("dialog", { name: "从索引移除 docx？" });
     await expect(confirm).toContainText("保持不动");
     await confirm.getByRole("button", { name: "从索引移除" }).click();
-    await expect(list.getByRole("button", { name: /docx/ })).toHaveCount(0);
+    await expect(rows).toHaveCount(0);
     expect(existsSync(join(fixture.userHome, ".agents", "skills", "docx", "SKILL.md"))).toBe(true);
 
     const toggle = settings.locator("[data-skill-removed-toggle]");
@@ -68,7 +76,7 @@ test("global skills list every source, remove one from the index and restore it"
     await toggle.click();
     await list.getByRole("button", { name: /docx/ }).click();
     await detail.getByRole("button", { name: "恢复到索引" }).click();
-    await expect(list.locator("[data-skill-select]")).toHaveCount(0);
+    await expect(rows).toHaveCount(0);
     await toggle.click();
     await expect(list.getByRole("button", { name: /docx/ })).toBeVisible();
   } finally {
@@ -132,11 +140,13 @@ test("project skills appear after the project is trusted, and long lists page", 
     await ask.getByRole("button", { name: "不信任，忽略这些配置" }).click();
     const settings = await openSettings(page, "skills");
     const list = settings.locator("[data-skill-list]");
+    // Paging is checked on the test's own twelve skills; the bundled ones vary by release.
+    await settings.locator('[data-skill-filter="global"]').click();
     await expect(settings.locator("[data-skill-page-label]")).toHaveText("1 / 2");
     await expect(list.locator("[data-skill-select]")).toHaveCount(10);
     await settings.getByRole("button", { name: "下一页" }).click();
     await expect(settings.locator("[data-skill-page-label]")).toHaveText("2 / 2");
-    await expect(list.locator("[data-skill-select]")).toHaveCount(3);
+    await expect(list.locator("[data-skill-select]")).toHaveCount(2);
 
     await settings.locator('[data-skill-scope-value="project"]').click();
     await expect(settings.locator("[data-skill-project-select]")).toHaveValue(fixture.dashboard.projectId);
