@@ -178299,6 +178299,490 @@
           ]
         }
       ]
+    },
+    {
+      "type": "frame",
+      "id": "gjcjW",
+      "x": 5900,
+      "y": 30620,
+      "name": "P4.9 消息 · 链接与路径展示（深色）",
+      "fill": "$v2-main",
+      "gap": 48,
+      "padding": 40,
+      "children": [
+        {
+          "type": "frame",
+          "id": "uYYB2",
+          "name": "Col 现在",
+          "width": 680,
+          "layout": "vertical",
+          "gap": 20,
+          "children": [
+            {
+              "type": "text",
+              "id": "A9mQVa",
+              "name": "ColTitle",
+              "fill": "$v2-text-3",
+              "content": "现在",
+              "fontFamily": "Noto Sans SC",
+              "fontSize": 13,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "frame",
+              "id": "V8Fwe",
+              "name": "L1",
+              "width": "fill_container",
+              "gap": 6,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "h0U44",
+                  "name": "t",
+                  "fill": "$v2-text",
+                  "content": "桌面和手机都可使用。",
+                  "fontFamily": "Noto Sans SC",
+                  "fontSize": 15,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "RmoZt",
+                  "name": "u",
+                  "fill": "$v2-text",
+                  "content": "桌面列表",
+                  "fontFamily": "Noto Sans SC",
+                  "fontSize": 15,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "V8yhUr",
+                  "name": "dot",
+                  "fill": "$v2-text",
+                  "content": "·",
+                  "fontFamily": "Noto Sans SC",
+                  "fontSize": 15,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "BYHcq",
+                  "name": "u",
+                  "fill": "$v2-text",
+                  "content": "处理记录侧栏",
+                  "fontFamily": "Noto Sans SC",
+                  "fontSize": 15,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "SmT3S",
+                  "name": "dot",
+                  "fill": "$v2-text",
+                  "content": "·",
+                  "fontFamily": "Noto Sans SC",
+                  "fontSize": 15,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "HOPmZ",
+                  "name": "u",
+                  "fill": "$v2-text",
+                  "content": "手机列表",
+                  "fontFamily": "Noto Sans SC",
+                  "fontSize": 15,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "id": "y21F26",
+              "name": "L2",
+              "fill": "$v2-text",
+              "textGrowth": "fixed-width",
+              "width": "fill_container",
+              "content": "包含子代理在各自阶段做的验证。[耗时明细]\n(/Users/suntc/.atria/workspace/task-47c32222-32ed-4860-80bd-8d98cb68d505/agents/main/work/my-tasks/retro-timing.tsv)",
+              "lineHeight": 1.7,
+              "fontFamily": "Noto Sans SC",
+              "fontSize": 15,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "frame",
+              "id": "IVAn9",
+              "name": "L3",
+              "width": "fill_container",
+              "gap": 6,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "lfd90",
+                  "name": "t",
+                  "fill": "$v2-text",
+                  "content": "参考",
+                  "fontFamily": "Noto Sans SC",
+                  "fontSize": 15,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "xZxoo",
+                  "name": "u",
+                  "fill": "$v2-text",
+                  "content": "Modern Web Guidance",
+                  "fontFamily": "Noto Sans SC",
+                  "fontSize": 15,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "izcYQ",
+                  "name": "t2",
+                  "fill": "$v2-text",
+                  "content": "里的表格写法。",
+                  "fontFamily": "Noto Sans SC",
+                  "fontSize": 15,
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "Mxwky",
+          "name": "Col 改后",
+          "width": 680,
+          "layout": "vertical",
+          "gap": 20,
+          "children": [
+            {
+              "type": "text",
+              "id": "Pabj4",
+              "name": "ColTitle",
+              "fill": "$v2-text-3",
+              "content": "改后",
+              "fontFamily": "Noto Sans SC",
+              "fontSize": 13,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "frame",
+              "id": "ooMmc",
+              "name": "L1",
+              "width": "fill_container",
+              "gap": 6,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "T5pxfY",
+                  "name": "t",
+                  "fill": "$v2-text",
+                  "content": "桌面和手机都可使用。",
+                  "fontFamily": "Noto Sans SC",
+                  "fontSize": 15,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "frame",
+                  "id": "PoDW8",
+                  "name": "Chip 桌面列表",
+                  "fill": "$v2-chip",
+                  "cornerRadius": 6,
+                  "stroke": "$v2-line",
+                  "strokeWidth": 1,
+                  "strokeAlignment": "inner",
+                  "gap": 5,
+                  "padding": [
+                    2,
+                    7
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "z5Nk4",
+                      "name": "i",
+                      "width": 14,
+                      "height": 14,
+                      "icon": "image",
+                      "library": "lucide",
+                      "fill": "$v2-text-2"
+                    },
+                    {
+                      "type": "text",
+                      "id": "q2Kkp",
+                      "name": "L",
+                      "fill": "$v2-text",
+                      "content": "桌面列表",
+                      "fontFamily": "Noto Sans SC",
+                      "fontSize": 13,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "cyuAN",
+                  "name": "Chip 处理记录侧栏",
+                  "fill": "$v2-chip",
+                  "cornerRadius": 6,
+                  "stroke": "$v2-line",
+                  "strokeWidth": 1,
+                  "strokeAlignment": "inner",
+                  "gap": 5,
+                  "padding": [
+                    2,
+                    7
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "Bbh4H",
+                      "name": "i",
+                      "width": 14,
+                      "height": 14,
+                      "icon": "image",
+                      "library": "lucide",
+                      "fill": "$v2-text-2"
+                    },
+                    {
+                      "type": "text",
+                      "id": "kt1TN",
+                      "name": "L",
+                      "fill": "$v2-text",
+                      "content": "处理记录侧栏",
+                      "fontFamily": "Noto Sans SC",
+                      "fontSize": 13,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "N6A0J9",
+                  "name": "Chip 手机列表",
+                  "fill": "$v2-chip",
+                  "cornerRadius": 6,
+                  "stroke": "$v2-line",
+                  "strokeWidth": 1,
+                  "strokeAlignment": "inner",
+                  "gap": 5,
+                  "padding": [
+                    2,
+                    7
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "YNDqb",
+                      "name": "i",
+                      "width": 14,
+                      "height": 14,
+                      "icon": "image",
+                      "library": "lucide",
+                      "fill": "$v2-text-2"
+                    },
+                    {
+                      "type": "text",
+                      "id": "v3NKwT",
+                      "name": "L",
+                      "fill": "$v2-text",
+                      "content": "手机列表",
+                      "fontFamily": "Noto Sans SC",
+                      "fontSize": 13,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "uaF0E",
+              "name": "L2",
+              "width": "fill_container",
+              "gap": 6,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "g9F5Ky",
+                  "name": "t",
+                  "fill": "$v2-text",
+                  "content": "包含子代理在各自阶段做的验证。",
+                  "fontFamily": "Noto Sans SC",
+                  "fontSize": 15,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "frame",
+                  "id": "dlNOp",
+                  "name": "Chip 耗时明细",
+                  "fill": "$v2-chip",
+                  "cornerRadius": 6,
+                  "stroke": "$v2-line",
+                  "strokeWidth": 1,
+                  "strokeAlignment": "inner",
+                  "gap": 5,
+                  "padding": [
+                    2,
+                    7
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "kSXkQ",
+                      "name": "i",
+                      "width": 14,
+                      "height": 14,
+                      "icon": "sheet",
+                      "library": "lucide",
+                      "fill": "$v2-text-2"
+                    },
+                    {
+                      "type": "text",
+                      "id": "wacQS",
+                      "name": "L",
+                      "fill": "$v2-text",
+                      "content": "耗时明细",
+                      "fontFamily": "Noto Sans SC",
+                      "fontSize": 13,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "rXKKU",
+              "name": "L3",
+              "width": "fill_container",
+              "gap": 6,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "dgPAC",
+                  "name": "t",
+                  "fill": "$v2-text",
+                  "content": "参考",
+                  "fontFamily": "Noto Sans SC",
+                  "fontSize": 15,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "frame",
+                  "id": "dQJQs",
+                  "name": "WebLink",
+                  "gap": 2,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "SdVth",
+                      "name": "u",
+                      "fill": "$v2-review",
+                      "content": "Modern Web Guidance",
+                      "fontFamily": "Noto Sans SC",
+                      "fontSize": 15,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "icon",
+                      "id": "M54aQW",
+                      "name": "i",
+                      "width": 13,
+                      "height": 13,
+                      "icon": "arrow-up-right",
+                      "library": "lucide",
+                      "fill": "$v2-review"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "b42LOb",
+                  "name": "t2",
+                  "fill": "$v2-text",
+                  "content": "里的表格写法。",
+                  "fontFamily": "Noto Sans SC",
+                  "fontSize": 15,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "qVWyL",
+              "name": "L4",
+              "width": "fill_container",
+              "gap": 6,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "wS42g",
+                  "name": "t",
+                  "fill": "$v2-text",
+                  "content": "正文里直接写的长路径：",
+                  "fontFamily": "Noto Sans SC",
+                  "fontSize": 15,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "frame",
+                  "id": "toAka",
+                  "name": "Chip retro-timing.tsv",
+                  "fill": "$v2-chip",
+                  "cornerRadius": 6,
+                  "stroke": "$v2-line",
+                  "strokeWidth": 1,
+                  "strokeAlignment": "inner",
+                  "gap": 5,
+                  "padding": [
+                    2,
+                    7
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "GgC68",
+                      "name": "i",
+                      "width": 14,
+                      "height": 14,
+                      "icon": "file-text",
+                      "library": "lucide",
+                      "fill": "$v2-text-2"
+                    },
+                    {
+                      "type": "text",
+                      "id": "o6YwHE",
+                      "name": "L",
+                      "fill": "$v2-text",
+                      "content": "retro-timing.tsv",
+                      "fontFamily": "JetBrains Mono",
+                      "fontSize": 13,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
     }
   ],
   "themes": {
