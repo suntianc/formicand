@@ -161886,7 +161886,7 @@
           "fill": "#A1A1A8",
           "textGrowth": "fixed-width",
           "width": "fill_container",
-          "content": "7. 运行名额：每个对外节点一张卡片，一行两张。卡片顶部一行是节点信息；下面常驻、接续两块并排，大字是「正在用 / 上限」，下方小格子数量等于上限、正在用的格子亮绿色，右上角加减改上限。改过的那块标「已修改」，卡片底部才出现「还原 / 保存」和改动说明。",
+          "content": "7. 运行名额：每个对外节点一张卡片，一行两张。顶部一行是节点信息，在线用名字旁的绿点表示；下面常驻、接续各一行：名字 → 小格子（格子数等于上限，正在用的亮绿色）→「2 / 4 在用」→ 加减改上限。改过的那行标「已修改」，顶部右边才出现「还原 / 保存」。",
           "lineHeight": 1.65,
           "fontFamily": "Noto Sans SC",
           "fontSize": 14,
@@ -165462,12 +165462,12 @@
                           "stroke": "$v2-line",
                           "strokeWidth": 1,
                           "layout": "vertical",
-                          "gap": 16,
+                          "gap": 4,
                           "padding": [
-                            16,
-                            18,
-                            18,
-                            18
+                            12,
+                            14,
+                            8,
+                            14
                           ],
                           "children": [
                             {
@@ -165475,7 +165475,13 @@
                               "id": "mOlcc",
                               "name": "Head",
                               "width": "fill_container",
-                              "gap": 12,
+                              "gap": 10,
+                              "padding": [
+                                0,
+                                0,
+                                8,
+                                0
+                              ],
                               "alignItems": "center",
                               "children": [
                                 {
@@ -165547,6 +165553,15 @@
                                               "fontWeight": "normal"
                                             }
                                           ]
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "N7Vto",
+                                          "name": "Dot",
+                                          "width": 6,
+                                          "height": 6,
+                                          "fill": "$v2-ok",
+                                          "cornerRadius": 3
                                         }
                                       ]
                                     },
@@ -165571,437 +165586,19 @@
                                 },
                                 {
                                   "type": "frame",
-                                  "id": "N7Vto",
-                                  "name": "Dot",
-                                  "width": 6,
-                                  "height": 6,
-                                  "fill": "$v2-ok",
-                                  "cornerRadius": 3
-                                },
-                                {
-                                  "type": "text",
-                                  "id": "Jwtu2",
-                                  "name": "T",
-                                  "fill": "$v2-text-2",
-                                  "content": "在线",
-                                  "fontFamily": "Noto Sans SC",
-                                  "fontSize": 12,
-                                  "fontWeight": "normal"
-                                }
-                              ]
-                            },
-                            {
-                              "type": "frame",
-                              "id": "h291t7",
-                              "name": "Tiles",
-                              "width": "fill_container",
-                              "gap": 12,
-                              "children": [
-                                {
-                                  "type": "frame",
-                                  "id": "UQvP3",
-                                  "name": "Tile 常驻 Main",
-                                  "width": "fill_container",
-                                  "fill": "$v2-track",
-                                  "cornerRadius": 12,
-                                  "layout": "vertical",
-                                  "gap": 12,
-                                  "padding": 14,
-                                  "children": [
-                                    {
-                                      "type": "frame",
-                                      "id": "j1TvH",
-                                      "name": "LabelRow",
-                                      "width": "fill_container",
-                                      "gap": 6,
-                                      "alignItems": "center",
-                                      "children": [
-                                        {
-                                          "type": "text",
-                                          "id": "S0Hmo2",
-                                          "name": "T",
-                                          "fill": "$v2-text",
-                                          "content": "常驻 Main",
-                                          "fontFamily": "Noto Sans SC",
-                                          "fontSize": 13,
-                                          "fontWeight": "500"
-                                        },
-                                        {
-                                          "type": "icon",
-                                          "id": "IkHow",
-                                          "name": "i-info",
-                                          "width": 13,
-                                          "height": 13,
-                                          "icon": "info",
-                                          "library": "lucide",
-                                          "fill": "$v2-text-3"
-                                        },
-                                        {
-                                          "type": "frame",
-                                          "id": "qa2gJ",
-                                          "name": "Spacer",
-                                          "width": "fill_container",
-                                          "height": 1
-                                        },
-                                        {
-                                          "type": "frame",
-                                          "id": "iR5By",
-                                          "name": "Changed",
-                                          "fill": "$v2-chip",
-                                          "cornerRadius": 5,
-                                          "padding": [
-                                            1,
-                                            6
-                                          ],
-                                          "children": [
-                                            {
-                                              "type": "text",
-                                              "id": "hfv0I",
-                                              "name": "T",
-                                              "fill": "$v2-text-2",
-                                              "content": "已修改",
-                                              "fontFamily": "Noto Sans SC",
-                                              "fontSize": 11,
-                                              "fontWeight": "normal"
-                                            }
-                                          ]
-                                        }
-                                      ]
-                                    },
-                                    {
-                                      "type": "frame",
-                                      "id": "cnUeV",
-                                      "name": "ValueRow",
-                                      "width": "fill_container",
-                                      "gap": 4,
-                                      "alignItems": "end",
-                                      "children": [
-                                        {
-                                          "type": "text",
-                                          "id": "lnCXA",
-                                          "name": "Used",
-                                          "fill": "$v2-text",
-                                          "content": "2",
-                                          "fontFamily": "Noto Sans SC",
-                                          "fontSize": 26,
-                                          "fontWeight": "600"
-                                        },
-                                        {
-                                          "type": "text",
-                                          "id": "wea6V",
-                                          "name": "Quota",
-                                          "fill": "$v2-text-3",
-                                          "content": "/ 4 在用",
-                                          "fontFamily": "Noto Sans SC",
-                                          "fontSize": 13,
-                                          "fontWeight": "normal"
-                                        },
-                                        {
-                                          "type": "frame",
-                                          "id": "qA3HV",
-                                          "name": "Spacer",
-                                          "width": "fill_container",
-                                          "height": 1
-                                        },
-                                        {
-                                          "type": "frame",
-                                          "id": "vPl3y",
-                                          "name": "Stepper",
-                                          "fill": "$v2-secondary",
-                                          "cornerRadius": 8,
-                                          "stroke": "$v2-line",
-                                          "strokeWidth": 1,
-                                          "gap": 12,
-                                          "padding": [
-                                            5,
-                                            9
-                                          ],
-                                          "alignItems": "center",
-                                          "children": [
-                                            {
-                                              "type": "icon",
-                                              "id": "Xmoc1",
-                                              "name": "i-minus",
-                                              "width": 14,
-                                              "height": 14,
-                                              "icon": "minus",
-                                              "library": "lucide",
-                                              "fill": "$v2-text-2"
-                                            },
-                                            {
-                                              "type": "text",
-                                              "id": "b1BYLW",
-                                              "name": "T",
-                                              "fill": "$v2-text",
-                                              "content": "4",
-                                              "fontFamily": "Noto Sans SC",
-                                              "fontSize": 13,
-                                              "fontWeight": "500"
-                                            },
-                                            {
-                                              "type": "icon",
-                                              "id": "T5EtKS",
-                                              "name": "i-plus",
-                                              "width": 14,
-                                              "height": 14,
-                                              "icon": "plus",
-                                              "library": "lucide",
-                                              "fill": "$v2-text-2"
-                                            }
-                                          ]
-                                        }
-                                      ]
-                                    },
-                                    {
-                                      "type": "frame",
-                                      "id": "Nw08L",
-                                      "name": "Slots",
-                                      "width": "fill_container",
-                                      "gap": 4,
-                                      "children": [
-                                        {
-                                          "type": "frame",
-                                          "id": "t0UyWB",
-                                          "name": "Slot used",
-                                          "width": "fill_container",
-                                          "height": 6,
-                                          "fill": "$v2-ok",
-                                          "cornerRadius": 3
-                                        },
-                                        {
-                                          "type": "frame",
-                                          "id": "jG7na",
-                                          "name": "Slot used",
-                                          "width": "fill_container",
-                                          "height": 6,
-                                          "fill": "$v2-ok",
-                                          "cornerRadius": 3
-                                        },
-                                        {
-                                          "type": "frame",
-                                          "id": "RBxKS",
-                                          "name": "Slot free",
-                                          "width": "fill_container",
-                                          "height": 6,
-                                          "fill": "$v2-line-strong",
-                                          "cornerRadius": 3
-                                        },
-                                        {
-                                          "type": "frame",
-                                          "id": "f83MG",
-                                          "name": "Slot free",
-                                          "width": "fill_container",
-                                          "height": 6,
-                                          "fill": "$v2-line-strong",
-                                          "cornerRadius": 3
-                                        }
-                                      ]
-                                    }
-                                  ]
-                                },
-                                {
-                                  "type": "frame",
-                                  "id": "e95DM",
-                                  "name": "Tile 接续 Main",
-                                  "width": "fill_container",
-                                  "fill": "$v2-track",
-                                  "cornerRadius": 12,
-                                  "layout": "vertical",
-                                  "gap": 12,
-                                  "padding": 14,
-                                  "children": [
-                                    {
-                                      "type": "frame",
-                                      "id": "dmquo",
-                                      "name": "LabelRow",
-                                      "width": "fill_container",
-                                      "gap": 6,
-                                      "alignItems": "center",
-                                      "children": [
-                                        {
-                                          "type": "text",
-                                          "id": "hrLs0",
-                                          "name": "T",
-                                          "fill": "$v2-text",
-                                          "content": "接续 Main",
-                                          "fontFamily": "Noto Sans SC",
-                                          "fontSize": 13,
-                                          "fontWeight": "500"
-                                        },
-                                        {
-                                          "type": "icon",
-                                          "id": "Rb4Fh",
-                                          "name": "i-info",
-                                          "width": 13,
-                                          "height": 13,
-                                          "icon": "info",
-                                          "library": "lucide",
-                                          "fill": "$v2-text-3"
-                                        },
-                                        {
-                                          "type": "frame",
-                                          "id": "HpQeO",
-                                          "name": "Spacer",
-                                          "width": "fill_container",
-                                          "height": 1
-                                        }
-                                      ]
-                                    },
-                                    {
-                                      "type": "frame",
-                                      "id": "fLMci",
-                                      "name": "ValueRow",
-                                      "width": "fill_container",
-                                      "gap": 4,
-                                      "alignItems": "end",
-                                      "children": [
-                                        {
-                                          "type": "text",
-                                          "id": "UeYtU",
-                                          "name": "Used",
-                                          "fill": "$v2-text",
-                                          "content": "2",
-                                          "fontFamily": "Noto Sans SC",
-                                          "fontSize": 26,
-                                          "fontWeight": "600"
-                                        },
-                                        {
-                                          "type": "text",
-                                          "id": "t0t3n1",
-                                          "name": "Quota",
-                                          "fill": "$v2-text-3",
-                                          "content": "/ 2 在用",
-                                          "fontFamily": "Noto Sans SC",
-                                          "fontSize": 13,
-                                          "fontWeight": "normal"
-                                        },
-                                        {
-                                          "type": "frame",
-                                          "id": "P7JIug",
-                                          "name": "Spacer",
-                                          "width": "fill_container",
-                                          "height": 1
-                                        },
-                                        {
-                                          "type": "frame",
-                                          "id": "H4bf8",
-                                          "name": "Stepper",
-                                          "fill": "$v2-secondary",
-                                          "cornerRadius": 8,
-                                          "stroke": "$v2-line",
-                                          "strokeWidth": 1,
-                                          "gap": 12,
-                                          "padding": [
-                                            5,
-                                            9
-                                          ],
-                                          "alignItems": "center",
-                                          "children": [
-                                            {
-                                              "type": "icon",
-                                              "id": "KsTTP",
-                                              "name": "i-minus",
-                                              "width": 14,
-                                              "height": 14,
-                                              "icon": "minus",
-                                              "library": "lucide",
-                                              "fill": "$v2-text-2"
-                                            },
-                                            {
-                                              "type": "text",
-                                              "id": "iIuvb",
-                                              "name": "T",
-                                              "fill": "$v2-text",
-                                              "content": "2",
-                                              "fontFamily": "Noto Sans SC",
-                                              "fontSize": 13,
-                                              "fontWeight": "500"
-                                            },
-                                            {
-                                              "type": "icon",
-                                              "id": "h3KmA",
-                                              "name": "i-plus",
-                                              "width": 14,
-                                              "height": 14,
-                                              "icon": "plus",
-                                              "library": "lucide",
-                                              "fill": "$v2-text-2"
-                                            }
-                                          ]
-                                        }
-                                      ]
-                                    },
-                                    {
-                                      "type": "frame",
-                                      "id": "gixN8",
-                                      "name": "Slots",
-                                      "width": "fill_container",
-                                      "gap": 4,
-                                      "children": [
-                                        {
-                                          "type": "frame",
-                                          "id": "QiPVB",
-                                          "name": "Slot used",
-                                          "width": "fill_container",
-                                          "height": 6,
-                                          "fill": "$v2-ok",
-                                          "cornerRadius": 3
-                                        },
-                                        {
-                                          "type": "frame",
-                                          "id": "SPerq",
-                                          "name": "Slot used",
-                                          "width": "fill_container",
-                                          "height": 6,
-                                          "fill": "$v2-ok",
-                                          "cornerRadius": 3
-                                        }
-                                      ]
-                                    }
-                                  ]
-                                }
-                              ]
-                            },
-                            {
-                              "type": "frame",
-                              "id": "eB2wC",
-                              "name": "Actions",
-                              "width": "fill_container",
-                              "gap": 8,
-                              "alignItems": "center",
-                              "children": [
-                                {
-                                  "type": "text",
-                                  "id": "wxlU5",
-                                  "name": "T",
-                                  "fill": "$v2-text-3",
-                                  "content": "常驻上限 3 → 4",
-                                  "fontFamily": "Noto Sans SC",
-                                  "fontSize": 12,
-                                  "fontWeight": "normal"
-                                },
-                                {
-                                  "type": "frame",
-                                  "id": "f0b7S",
-                                  "name": "Spacer",
-                                  "width": "fill_container",
-                                  "height": 1
-                                },
-                                {
-                                  "type": "frame",
-                                  "id": "Jj31z",
+                                  "id": "fkGbd",
                                   "name": "Button 还原",
                                   "cornerRadius": 7,
                                   "stroke": "$v2-line",
                                   "strokeWidth": 1,
                                   "padding": [
-                                    5,
-                                    12
+                                    4,
+                                    10
                                   ],
                                   "children": [
                                     {
                                       "type": "text",
-                                      "id": "qqVIV",
+                                      "id": "Zyu3p",
                                       "name": "T",
                                       "fill": "$v2-text",
                                       "content": "还原",
@@ -166013,24 +165610,313 @@
                                 },
                                 {
                                   "type": "frame",
-                                  "id": "Jjp59",
+                                  "id": "bgksw",
                                   "name": "Button 保存",
                                   "fill": "$v2-text",
                                   "cornerRadius": 7,
                                   "padding": [
-                                    5,
-                                    12
+                                    4,
+                                    10
                                   ],
                                   "children": [
                                     {
                                       "type": "text",
-                                      "id": "aS1Hw",
+                                      "id": "yuhER",
                                       "name": "T",
                                       "fill": "$v2-main",
                                       "content": "保存",
                                       "fontFamily": "Noto Sans SC",
                                       "fontSize": 12,
                                       "fontWeight": "normal"
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "zohFp",
+                              "name": "Quota 常驻 Main",
+                              "width": "fill_container",
+                              "height": 40,
+                              "stroke": "$v2-line",
+                              "strokeWidth": {
+                                "top": 1
+                              },
+                              "gap": 10,
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "TOHLW",
+                                  "name": "T",
+                                  "fill": "$v2-text",
+                                  "content": "常驻 Main",
+                                  "fontFamily": "Noto Sans SC",
+                                  "fontSize": 13,
+                                  "fontWeight": "normal"
+                                },
+                                {
+                                  "type": "icon",
+                                  "id": "Gotsj",
+                                  "name": "i-info",
+                                  "width": 13,
+                                  "height": 13,
+                                  "icon": "info",
+                                  "library": "lucide",
+                                  "fill": "$v2-text-3"
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "knK3d",
+                                  "name": "Changed",
+                                  "fill": "$v2-chip",
+                                  "cornerRadius": 5,
+                                  "padding": [
+                                    1,
+                                    6
+                                  ],
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "yDQWu",
+                                      "name": "T",
+                                      "fill": "$v2-text-2",
+                                      "content": "已修改",
+                                      "fontFamily": "Noto Sans SC",
+                                      "fontSize": 11,
+                                      "fontWeight": "normal"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "yTtSL",
+                                  "name": "Spacer",
+                                  "width": "fill_container",
+                                  "height": 1
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "tgcBt",
+                                  "name": "Slots",
+                                  "width": 88,
+                                  "gap": 3,
+                                  "children": [
+                                    {
+                                      "type": "frame",
+                                      "id": "wUv1E",
+                                      "name": "Slot used",
+                                      "width": "fill_container",
+                                      "height": 5,
+                                      "fill": "$v2-ok",
+                                      "cornerRadius": 3
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "fH5m9",
+                                      "name": "Slot used",
+                                      "width": "fill_container",
+                                      "height": 5,
+                                      "fill": "$v2-ok",
+                                      "cornerRadius": 3
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "SldZQ",
+                                      "name": "Slot free",
+                                      "width": "fill_container",
+                                      "height": 5,
+                                      "fill": "$v2-line-strong",
+                                      "cornerRadius": 3
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "XjcRC",
+                                      "name": "Slot free",
+                                      "width": "fill_container",
+                                      "height": 5,
+                                      "fill": "$v2-line-strong",
+                                      "cornerRadius": 3
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "bnszd",
+                                  "name": "Usage",
+                                  "fill": "$v2-text-3",
+                                  "content": "2 / 4 在用",
+                                  "fontFamily": "Noto Sans SC",
+                                  "fontSize": 12,
+                                  "fontWeight": "normal"
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "jPX7g",
+                                  "name": "Stepper",
+                                  "fill": "$v2-track",
+                                  "cornerRadius": 7,
+                                  "gap": 10,
+                                  "padding": [
+                                    3,
+                                    8
+                                  ],
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "icon",
+                                      "id": "I4Xda",
+                                      "name": "i-minus",
+                                      "width": 13,
+                                      "height": 13,
+                                      "icon": "minus",
+                                      "library": "lucide",
+                                      "fill": "$v2-text-2"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "P06jR",
+                                      "name": "T",
+                                      "fill": "$v2-text",
+                                      "content": "4",
+                                      "fontFamily": "Noto Sans SC",
+                                      "fontSize": 13,
+                                      "fontWeight": "500"
+                                    },
+                                    {
+                                      "type": "icon",
+                                      "id": "NJlV2",
+                                      "name": "i-plus",
+                                      "width": 13,
+                                      "height": 13,
+                                      "icon": "plus",
+                                      "library": "lucide",
+                                      "fill": "$v2-text-2"
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "VuSD2",
+                              "name": "Quota 接续 Main",
+                              "width": "fill_container",
+                              "height": 40,
+                              "stroke": "$v2-line",
+                              "strokeWidth": {
+                                "top": 1
+                              },
+                              "gap": 10,
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "I8YmF",
+                                  "name": "T",
+                                  "fill": "$v2-text",
+                                  "content": "接续 Main",
+                                  "fontFamily": "Noto Sans SC",
+                                  "fontSize": 13,
+                                  "fontWeight": "normal"
+                                },
+                                {
+                                  "type": "icon",
+                                  "id": "h5s5e",
+                                  "name": "i-info",
+                                  "width": 13,
+                                  "height": 13,
+                                  "icon": "info",
+                                  "library": "lucide",
+                                  "fill": "$v2-text-3"
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "CSX1h",
+                                  "name": "Spacer",
+                                  "width": "fill_container",
+                                  "height": 1
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "MXvyP",
+                                  "name": "Slots",
+                                  "width": 88,
+                                  "gap": 3,
+                                  "children": [
+                                    {
+                                      "type": "frame",
+                                      "id": "n5yac",
+                                      "name": "Slot used",
+                                      "width": "fill_container",
+                                      "height": 5,
+                                      "fill": "$v2-ok",
+                                      "cornerRadius": 3
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "OLPL2",
+                                      "name": "Slot used",
+                                      "width": "fill_container",
+                                      "height": 5,
+                                      "fill": "$v2-ok",
+                                      "cornerRadius": 3
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "VfH37",
+                                  "name": "Usage",
+                                  "fill": "$v2-text-3",
+                                  "content": "2 / 2 在用",
+                                  "fontFamily": "Noto Sans SC",
+                                  "fontSize": 12,
+                                  "fontWeight": "normal"
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "dgZbw",
+                                  "name": "Stepper",
+                                  "fill": "$v2-track",
+                                  "cornerRadius": 7,
+                                  "gap": 10,
+                                  "padding": [
+                                    3,
+                                    8
+                                  ],
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "icon",
+                                      "id": "KsCqi",
+                                      "name": "i-minus",
+                                      "width": 13,
+                                      "height": 13,
+                                      "icon": "minus",
+                                      "library": "lucide",
+                                      "fill": "$v2-text-2"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "Ygtj3",
+                                      "name": "T",
+                                      "fill": "$v2-text",
+                                      "content": "2",
+                                      "fontFamily": "Noto Sans SC",
+                                      "fontSize": 13,
+                                      "fontWeight": "500"
+                                    },
+                                    {
+                                      "type": "icon",
+                                      "id": "Wh4ol",
+                                      "name": "i-plus",
+                                      "width": 13,
+                                      "height": 13,
+                                      "icon": "plus",
+                                      "library": "lucide",
+                                      "fill": "$v2-text-2"
                                     }
                                   ]
                                 }
