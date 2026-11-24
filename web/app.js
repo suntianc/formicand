@@ -456,12 +456,6 @@ const addProjectController = createAddProjectController({
 const newSession = createNewSessionView({
   state,
   $,
-  titleFor: (task) => conversationTitle(task),
-  onOpenTask: (taskId) => {
-    const task = state.tasks.find((entry) => entry.taskId === taskId);
-    if (task) projectController.selectTask(task);
-    selectConversation(taskId);
-  },
   onSelectProject: (projectId) => beginNewConversation(projectId),
   onAddProject: () => projectController.openCreate()
 });

@@ -1,69 +1,31 @@
 import { icon } from "../ui/icons.js";
 import { ui } from "../ui/language.js";
 import { escapeHtml as esc } from "../ui/html.js";
-
-const statusLabel = {
-  created: "未开始",
-  running: "开发中",
-  paused: "已暂停",
-  waiting: "开发中",
-  completed: "已完成",
-  failed: "失败",
-  cancelled: "已取消"
-};
+import { animate, motionDuration } from "../ui/motion.js";
 
 /**
  * The empty work pane for a conversation that does not exist yet.
  *
- * It names the project the new Main session will belong to, offers the recent
- * sessions that can be continued, and keeps the project choice on the composer
- * so sending a message creates the session where the person expects it.
+ * One question over the composer, nothing else; the project choice sits on
+ * the composer so sending a message creates the session where the person
+ * expects it.
  */
-export function createNewSessionView({
-  state,
-  $,
-  titleFor = (task) => task.title || task.goal || task.taskId,
-  onOpenTask = () => {},
-  onSelectProject = () => {},
-  onAddProject = () => {}
-}) {
+export function createNewSessionView({ state, $, onSelectProject = () => {}, onAddProject = () => {} }) {
   let rendered = "";
   let menuOpen = false;
   const newSessionPlaceholder = ui("描述需求，例如：给 summarize.sh 增加 --avg 参数…");
   const defaultPlaceholder = $("#composer-input").placeholder;
-  const projectName = (projectId) =>
-    (state.projects || []).find((project) => project.projectId === projectId)?.projectName || "";
   const currentProject = () =>
     (state.projects || []).find((project) => project.projectId === state.selectedProjectId);
-  function recentTasks() {
-    return (state.tasks || [])
-      .filter((task) => !task.archived && !task.temporaryWorkspaceRoot)
-      .sort((a, b) => String(b.updatedAt || "").localeCompare(String(a.updatedAt || "")))
-      .slice(0, 2);
-  }
-  function recentMarkup() {
-    const tasks = recentTasks();
-    if (!tasks.length) return "";
-    return ui`<div class="new-session-recent"><div class="new-session-label">继续最近的需求</div>${tasks
-      .map((task) => {
-        const project = projectName(task.projectId) || task.projectName || "";
-        const status = task.pendingQuestion ? ui("等你回答") : ui(statusLabel[task.status] || "继续");
-        return `<button class="new-session-recent-row" type="button" data-recent-task="${esc(task.taskId)}">${icon("history")}<span class="new-session-recent-title">${esc(titleFor(task))}</span><span class="new-session-recent-meta">${esc(project)}${project ? " · " : ""}${esc(status)}</span></button>`;
-      })
-      .join("")}</div>`;
-  }
   function render() {
     if (state.selected) return;
     const conversation = $("#conversation");
-    const markup = ui`<div class="new-session-start"><div class="new-session-hero"><h2 class="new-session-title">想在哪个项目里做什么？</h2></div>${recentMarkup()}</div>`;
+    const markup = ui`<div class="new-session-start"><h2 class="new-session-title">想在哪个项目里做什么？</h2></div>`;
     // A conversation or a catalog re-render can replace this container; the
     // cached string alone does not prove the start surface is still mounted.
     if (markup === rendered && conversation.querySelector(".new-session-start")) return;
     rendered = markup;
     conversation.innerHTML = markup;
-    conversation
-      .querySelectorAll("[data-recent-task]")
-      .forEach((node) => node.addEventListener("click", () => onOpenTask(node.dataset.recentTask)));
   }
   function renderMenu() {
     const projects = state.projects || [];
@@ -92,9 +54,28 @@ export function createNewSessionView({
     $("#composer-project").setAttribute("aria-expanded", "true");
     $("#composer-project-menu").querySelector('[role="option"][aria-selected="true"]')?.focus();
   }
+  /**
+   * A new session centres the composer; the first message sends it to the
+   * pane's foot. The composer glides between the two places instead of jumping.
+   */
+  function placeComposer(composing) {
+    const pane = $("#conversation-pane");
+    if (pane.classList.contains("is-new-session") === composing) return;
+    const composer = pane.querySelector(".composer-wrap");
+    const before = composer?.getBoundingClientRect();
+    pane.classList.toggle("is-new-session", composing);
+    if (!composer || !before?.height) return;
+    const shift = before.top - composer.getBoundingClientRect().top;
+    if (Math.abs(shift) < 2) return;
+    animate(composer, [{ transform: `translateY(${shift}px)` }, { transform: "none" }], {
+      duration: motionDuration("--motion-layout", 240),
+      easing:
+        getComputedStyle(document.documentElement).getPropertyValue("--ease-standard").trim() || "ease-out"
+    });
+  }
   function sync() {
     const composing = !state.selected;
-    $("#conversation-pane").classList.toggle("is-new-session", composing);
+    placeComposer(composing);
     $("#new-conversation").classList.toggle("is-current", composing);
     const input = $("#composer-input");
     if (composing) input.placeholder = newSessionPlaceholder;

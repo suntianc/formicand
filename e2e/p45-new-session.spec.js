@@ -19,9 +19,16 @@ test("new sessions start from the sidebar, the project plus and ⌘K, and land i
     await expect(page.locator("#topbar-task")).toHaveText("新会话");
     await expect(page.locator(".new-session-start")).toBeVisible();
     await expect(page.locator("#composer-project")).toContainText("测试项目");
-    const recent = page.locator('[data-recent-task="session-existing"]');
-    await expect(recent).toContainText("已有会话");
-    await recent.click();
+    // The start page is one question over the composer, with nothing under it.
+    await expect(page.locator(".new-session-start")).toHaveText("想在哪个项目里做什么？");
+    await expect(page.locator(".composer-hint")).toBeHidden();
+    const start = await page.locator(".new-session-start").boundingBox();
+    const composer = await page.locator(".composer").boundingBox();
+    const pane = await page.locator("#conversation-pane").boundingBox();
+    expect(composer.y).toBeGreaterThan(start.y);
+    // Question and composer sit around the pane's middle, not at its foot.
+    expect(composer.y + composer.height).toBeLessThan(pane.y + pane.height * 0.75);
+    await page.locator(".conversation-item", { hasText: "已有会话" }).click();
     await expect(page.locator("#topbar-task")).toHaveText("已有会话");
     await expect(page.locator("#composer-project")).toBeHidden();
 
@@ -96,9 +103,22 @@ test("the composer keeps one size from a new session into a conversation, and �
 
     await page.locator("#new-conversation").click();
     await expect(page.locator(".new-session-start")).toBeVisible();
-    expect(await composer.boundingBox()).toEqual(inConversation);
+    // Centred on the start page, the composer keeps its size and column; it
+    // glides there, so it is measured once the glide is over.
+    await composer.evaluate((node) =>
+      Promise.all(
+        node
+          .closest(".composer-wrap")
+          .getAnimations()
+          .map((animation) => animation.finished)
+      )
+    );
+    const centred = await composer.boundingBox();
+    expect({ ...centred, y: 0 }).toEqual({ ...inConversation, y: 0 });
+    expect(centred.y).toBeLessThan(inConversation.y);
     const title = await page.locator(".new-session-title").boundingBox();
-    expect(Math.round(title.x)).toBe(Math.round(inConversation.x));
+    // The question is centred over the composer.
+    expect(Math.abs(title.x + title.width / 2 - (centred.x + centred.width / 2))).toBeLessThan(2);
 
     // The selected 新会话 uses the selected-row fill, edge and shadow in both themes.
     for (const theme of ["light", "dark"]) {
