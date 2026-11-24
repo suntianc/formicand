@@ -4,7 +4,7 @@ import { requirementProgress, requirementTickets } from "../requirement-stages.j
 import { formatRunDuration, runElapsed } from "../run-overview.js";
 import { icon } from "../ui/icons.js";
 import { ui } from "../ui/language.js";
-import { animate } from "../ui/motion.js";
+import { animate, motionDuration } from "../ui/motion.js";
 import { escapeHtml as esc } from "../ui/html.js";
 
 const SOURCE_LABELS = { internal: "内部", external: "外部", legacy: "遗留" };
@@ -20,6 +20,24 @@ function compactTokens(value) {
   if (tokens >= 100_000) return `${(tokens / 1_000_000).toFixed(2)}M`;
   if (tokens >= 1_000) return `${(tokens / 1_000).toFixed(1)}K`;
   return String(tokens);
+}
+
+// A list longer than this shows its first few rows and folds the rest.
+const FLAT_LIMIT = 5;
+const FOLDED_ROWS = 3;
+
+const IMAGE_FILE = /\.(png|jpe?g|gif|webp|svg|bmp|ico|avif)$/i;
+const TEXT_FILE = /\.(md|markdown|txt|rst|log|csv|tsv|docx?|pdf|rtf)$/i;
+const CODE_FILE =
+  /\.(m?[jt]sx?|c[jt]s|py|rb|go|rs|java|kt|swift|c|h|cc|cpp|hpp|cs|php|sh|bash|zsh|fish|ps1|sql|json|ya?ml|toml|xml|html?|css|scss|less|vue|svelte|lua|dart|r|scala|bats|ini|env)$/i;
+
+/** The icon a file reads as in the panel: picture, text, code, or a plain file. */
+function fileIcon(path) {
+  const name = String(path || "");
+  if (IMAGE_FILE.test(name)) return icon("image");
+  if (TEXT_FILE.test(name)) return icon("file-text");
+  if (CODE_FILE.test(name)) return icon("file-code");
+  return icon("file");
 }
 
 const shortCommit = (commit) => (typeof commit === "string" ? commit.slice(0, 8) : "");
@@ -56,11 +74,11 @@ export function createRequirementPanel({
   let bodySignature;
   let usageSignature;
   let stage = "";
+  // What the reader unfolded in this conversation's lists.
+  let unfolded = new Set();
   // Below this width the panel is a drawer over the conversation, so the title
   // row control has room for the panel's name and phase.
   const narrowWindow = window.matchMedia?.("(max-width: 1279px)") ?? { matches: false };
-
-  const documentIcon = () => icon("file");
 
   /**
    * The title-row control that opens and closes this panel.
@@ -155,6 +173,7 @@ export function createRequirementPanel({
       loaded = null;
       bodySignature = undefined;
       usageSignature = undefined;
+      unfolded = new Set();
       start(taskId);
       return;
     }
@@ -189,6 +208,7 @@ export function createRequirementPanel({
     bodySignature = undefined;
     usageSignature = undefined;
     expanded = false;
+    unfolded = new Set();
   }
 
   function progressOf() {
@@ -223,8 +243,15 @@ export function createRequirementPanel({
     return values;
   }
 
+  /** The phase in words over a row of dots, one per step. */
   function renderStepper(progress) {
-    return `<ol class="rp-stepper" data-stage="${esc(progress.stage)}" aria-label="${ui("需求阶段")}">${progress.steps
+    const current = progress.steps.find((step) => step.state === "current" || step.state === "blocked");
+    const tone = progress.waiting ? "waiting" : (current?.state ?? "settled");
+    const meta = current?.meta ?? "";
+    const status = `<div class="rp-status" data-tone="${esc(tone)}"><span class="rp-status-dot" aria-hidden="true"></span><span class="rp-status-label">${esc(
+      ui(progress.label)
+    )}</span>${meta ? `<span class="rp-status-meta" title="${esc(meta)}">${esc(meta)}</span>` : ""}</div>`;
+    return `<div class="rp-phase">${status}<ol class="rp-stepper" data-stage="${esc(progress.stage)}" aria-label="${ui("需求阶段")}">${progress.steps
       .map((step) => {
         const node =
           step.state === "done"
@@ -232,24 +259,44 @@ export function createRequirementPanel({
             : step.state === "pending"
               ? '<span class="rp-node is-pending"></span>'
               : '<span class="rp-node is-current"><span class="rp-pulse"></span></span>';
-        const current = step.state === "current" || step.state === "blocked";
-        return `<li class="rp-step" data-step="${esc(step.id)}" data-state="${esc(
-          step.state
-        )}"${current ? ' aria-current="step"' : ""}><span class="rp-rail">${node}</span><span class="rp-step-text"><span class="rp-step-label">${esc(
-          ui(step.label)
-        )}</span><span class="rp-spacer"></span><span class="rp-step-meta">${esc(step.meta)}</span></span></li>`;
+        const active = step.state === "current" || step.state === "blocked";
+        const label = ui(step.label);
+        return `<li class="rp-step" data-step="${esc(step.id)}" data-state="${esc(step.state)}"${
+          active ? ' aria-current="step"' : ""
+        } title="${esc(step.meta ? `${label} · ${step.meta}` : label)}">${node}<span class="rp-step-label">${esc(
+          label
+        )}</span><span class="rp-step-meta">${esc(step.meta)}</span></li>`;
       })
-      .join("")}</ol>`;
+      .join("")}</ol></div>`;
   }
+
+  /** The row that unfolds the rest of a list. */
+  const foldRow = (key, label, hidden) => {
+    const open = unfolded.has(key);
+    return `<button type="button" class="rp-fold" data-unfold="${esc(key)}" aria-expanded="${open}">${icon(
+      open ? "chevron-up" : "chevron-down"
+    )}<span>${esc(open ? ui("收起") : label.replace("{count}", String(hidden)))}</span></button>`;
+  };
 
   function renderCriteria(criteria) {
     if (!criteria.length) return "";
-    return `<section class="rp-section"><h3 class="rp-label">${ui("完成标准")}</h3><ul class="rp-checks">${criteria
+    const met = criteria.filter((entry) => entry.checked).length;
+    const long = criteria.length > FLAT_LIMIT;
+    const shown = long && !unfolded.has("criteria") ? criteria.slice(0, FLAT_LIMIT) : criteria;
+    return `<section class="rp-section"><div class="rp-section-head"><h3 class="rp-label">${ui(
+      "完成标准"
+    )}</h3><span class="rp-count is-end${met === criteria.length ? " is-done" : ""}">${met} / ${
+      criteria.length
+    }</span></div><ul class="rp-checks">${shown
       .map(
         (entry) =>
-          `<li class="rp-check" data-checked="${entry.checked}">${icon("circle-check")}<span>${esc(entry.text)}</span></li>`
+          `<li class="rp-check" data-checked="${entry.checked}" title="${esc(entry.text)}">${icon(
+            "circle-check"
+          )}<span>${esc(entry.text)}</span></li>`
       )
-      .join("")}</ul></section>`;
+      .join(
+        ""
+      )}</ul>${long ? foldRow("criteria", ui("其余 {count} 条"), criteria.length - FLAT_LIMIT) : ""}</section>`;
   }
 
   function renderTickets(view) {
@@ -273,7 +320,19 @@ export function createRequirementPanel({
     if (!diff && !merge) return "";
     const commit = shortCommit(diff?.candidateCommit ?? merge?.candidate?.commit);
     const files = diff?.files || [];
-    return `<section class="rp-section"><h3 class="rp-label">${ui("改动")}</h3><div class="rp-diff-card">${
+    // A long change leads with the files that changed most.
+    const long = files.length > FLAT_LIMIT;
+    const folded = long && !unfolded.has("diff");
+    const shown = folded
+      ? [...files]
+          .sort(
+            (a, b) => Number(b.additions) + Number(b.deletions) - (Number(a.additions) + Number(a.deletions))
+          )
+          .slice(0, FOLDED_ROWS)
+      : files;
+    return `<section class="rp-section"><div class="rp-section-head"><h3 class="rp-label">${ui("改动")}</h3>${
+      files.length ? `<span class="rp-count">${files.length}</span>` : ""
+    }</div><div class="rp-diff-card">${
       commit
         ? `<div class="rp-diff-commit">${icon("git-commit")}<span>${ui`候选 ${commit}`}</span><span class="rp-spacer"></span>${
             files.length
@@ -281,41 +340,82 @@ export function createRequirementPanel({
               : ""
           }</div>`
         : ""
-    }${files
+    }${shown
       .map(
         (file) =>
-          `<button type="button" class="rp-diff-file" data-open-file="${esc(file.path)}"><span class="rp-file">${documentIcon(
-            { relativePath: file.path, mimeType: "" }
-          )}<span class="rp-file-name">${esc(file.path)}</span></span><span class="rp-spacer"></span><span class="rp-add">+${Number(
+          `<button type="button" class="rp-diff-file" data-open-file="${esc(file.path)}" title="${esc(
+            file.path
+          )}"><span class="rp-file">${fileIcon(file.path)}<span class="rp-file-name">${esc(
+            file.path
+          )}</span></span><span class="rp-spacer"></span><span class="rp-add">+${Number(
             file.additions
           )}</span><span class="rp-del">−${Number(file.deletions)}</span></button>`
       )
-      .join("")}</div></section>`;
+      .join(
+        ""
+      )}${long ? foldRow("diff", ui("其余 {count} 个"), files.length - FOLDED_ROWS) : ""}</div></section>`;
   }
 
-  function attachmentRows() {
-    const detail = state.detail || {};
-    const artifacts = detail.artifacts || [];
-    return artifacts.map((artifact) => {
-      const path = artifact.relativePath;
-      const name = artifact.displayName || baseName(path);
-      const href = artifactRequestUrls(state.selected, path, artifactVersion(artifact)).downloadUrl;
-      return `<span class="rp-attachment" role="button" tabindex="0" data-artifact="${esc(
-        path
-      )}" title="${esc(path || name)}">${documentIcon(artifact)}<span class="rp-attachment-name">${esc(
-        name
-      )}</span><span class="rp-spacer"></span><a class="rp-download" href="${esc(href)}" download="${esc(
-        name
-      )}" aria-label="${ui`下载 ${name}`}" title="${ui`下载 ${name}`}">${icon("download")}</a></span>`;
-    });
+  function attachmentRow(artifact, label, nested = false) {
+    const path = artifact.relativePath;
+    const name = artifact.displayName || baseName(path);
+    const href = artifactRequestUrls(state.selected, path, artifactVersion(artifact)).downloadUrl;
+    return `<span class="rp-attachment${nested ? " is-nested" : ""}" role="button" tabindex="0" data-artifact="${esc(
+      path
+    )}" title="${esc(path || name)}">${fileIcon(path || name)}<span class="rp-attachment-name">${esc(
+      label ?? name
+    )}</span><span class="rp-spacer"></span><a class="rp-download" href="${esc(href)}" download="${esc(
+      name
+    )}" aria-label="${ui`下载 ${name}`}" title="${ui`下载 ${name}`}">${icon("download")}</a></span>`;
+  }
+
+  /**
+   * A few files are listed as they are. A longer list groups files under their
+   * top-level folder, each folder folded, and shows only the first loose files.
+   */
+  function attachmentRows(artifacts) {
+    if (artifacts.length <= FLAT_LIMIT) return artifacts.map((artifact) => attachmentRow(artifact));
+    const loose = [];
+    const folders = new Map();
+    for (const artifact of artifacts) {
+      const parts = String(artifact.relativePath || "")
+        .split("/")
+        .filter(Boolean);
+      if (parts.length < 2) {
+        loose.push(artifact);
+        continue;
+      }
+      const folder = parts[0];
+      if (!folders.has(folder)) folders.set(folder, []);
+      folders.get(folder).push({ artifact, rest: parts.slice(1).join("/") });
+    }
+    const rows = [];
+    const long = loose.length > FLAT_LIMIT;
+    const looseShown = long && !unfolded.has("attachments") ? loose.slice(0, FOLDED_ROWS) : loose;
+    rows.push(...looseShown.map((artifact) => attachmentRow(artifact)));
+    if (long) rows.push(foldRow("attachments", ui("其余 {count} 个"), loose.length - FOLDED_ROWS));
+    for (const [folder, entries] of folders) {
+      const open = unfolded.has(`folder:${folder}`);
+      rows.push(
+        `<button type="button" class="rp-folder" data-unfold="${esc(`folder:${folder}`)}" aria-expanded="${open}">${icon(
+          open ? "chevron-down" : "chevron-right"
+        )}${icon(open ? "folder-open" : "folder")}<span class="rp-attachment-name">${esc(
+          folder
+        )}</span><span class="rp-spacer"></span><span class="rp-folder-count">${entries.length}</span></button>`
+      );
+      if (open) rows.push(...entries.map(({ artifact, rest }) => attachmentRow(artifact, rest, true)));
+    }
+    return rows;
   }
 
   function renderAttachments() {
-    const rows = attachmentRows();
-    if (!rows.length) return "";
-    return `<section class="rp-section"><h3 class="rp-label">${ui("附件")}</h3><div class="rp-attachments" id="output-list">${rows.join(
-      ""
-    )}</div></section>`;
+    const artifacts = state.detail?.artifacts || [];
+    if (!artifacts.length) return "";
+    return `<section class="rp-section"><div class="rp-section-head"><h3 class="rp-label">${ui(
+      "附件"
+    )}</h3><span class="rp-count">${artifacts.length}</span></div><div class="rp-attachments" id="output-list">${attachmentRows(
+      artifacts
+    ).join("")}</div></section>`;
   }
 
   const AGENT_STATES = { running: "运行中", waiting: "等待中", queued: "排队中", completed: "已完成" };
@@ -408,23 +508,32 @@ export function createRequirementPanel({
     );
     const subagents = agents.filter((agent) => agent.agentId !== "main").length;
     const reworks = (view?.reviews || []).reduce((count, review) => count + (review.reworks?.length || 0), 0);
-    const workspace = view?.development?.workspace?.directory;
+    const usage = statistics?.usage;
+    // Cache writes are input the provider billed while filling its cache.
+    const split =
+      usage && usage.totalTokens
+        ? [
+            { id: "cache", label: ui("缓存命中"), value: Number(usage.cacheRead) || 0 },
+            {
+              id: "input",
+              label: ui("输入"),
+              value: (Number(usage.input) || 0) + (Number(usage.cacheWrite) || 0)
+            },
+            { id: "output", label: ui("输出"), value: Number(usage.output) || 0 }
+          ]
+        : [];
     return {
       available: Boolean(statistics),
-      total: statistics?.usage?.totalTokens ?? null,
+      total: usage?.totalTokens ?? null,
       elapsed: formatRunDuration(runElapsed(statistics)),
+      split,
       roles,
       largest,
-      details: [
-        { label: ui("工具调用"), value: toolCalls ? ui`${toolCalls} 次` : "—" },
-        {
-          label: ui("子 Agent"),
-          value: subagents ? ui`${subagents} 个` : "—",
-          note: reworks ? ui`${reworks} 次返修` : ""
-        },
-        { label: ui("工作目录"), value: workspace || "—", title: workspace },
-        { label: ui("会话标识"), value: loaded?.session?.sessionId ?? "—", title: loaded?.session?.sessionId }
-      ]
+      facts: [
+        toolCalls ? ui("{count} 次工具调用").replace("{count}", String(toolCalls)) : "",
+        subagents ? ui("{count} 个子 Agent").replace("{count}", String(subagents)) : "",
+        reworks ? ui("{count} 次返修").replace("{count}", String(reworks)) : ""
+      ].filter(Boolean)
     };
   }
 
@@ -433,35 +542,49 @@ export function createRequirementPanel({
     return `${model.elapsed} · ${tokens}`;
   }
 
+  /** The usage row; opened, a card above it splits the tokens by kind and by role. */
   function renderUsage(model) {
     if (!model.available) return "";
     const head = `<button type="button" class="rp-usage-head" data-usage-toggle aria-expanded="${expanded}" aria-controls="requirement-usage-detail">${icon(
       "gauge"
     )}<span class="rp-usage-label">${ui("用量")}</span><span class="rp-spacer"></span><span class="rp-usage-value">${esc(
       usageText(model)
-    )}</span>${icon(expanded ? "chevron-down" : "chevron-right")}</button>`;
+    )}</span>${icon(expanded ? "chevron-up" : "chevron-right")}</button>`;
     if (!expanded) return `<div class="rp-usage" data-expanded="false">${head}</div>`;
-    return `<div class="rp-usage" data-expanded="true">${head}<div class="rp-usage-body" id="requirement-usage-detail">${model.roles
+    const sum = model.split.reduce((total, part) => total + part.value, 0) || 1;
+    const split = model.split.length
+      ? `<div class="rp-split-bar" aria-hidden="true">${model.split
+          .map(
+            (part) =>
+              `<span class="rp-split-part" data-part="${part.id}" style="flex-grow:${part.value / sum}"></span>`
+          )
+          .join("")}</div><div class="rp-split">${model.split
+          .map(
+            (part) =>
+              `<div class="rp-split-item" data-part="${part.id}"><span class="rp-split-label">${esc(
+                part.label
+              )}</span><span class="rp-split-value">${esc(compactTokens(part.value))}</span></div>`
+          )
+          .join("")}</div>`
+      : "";
+    const roles = model.roles
       .map(
         (role) =>
           `<div class="rp-role" data-role="${esc(role.id)}"><div class="rp-role-top"><span class="rp-role-name">${esc(
             role.name
           )}</span><span class="rp-role-agent">${esc(role.agent)}</span><span class="rp-spacer"></span><span class="rp-role-value">${esc(
             compactTokens(role.usage)
-          )}</span></div><div class="rp-role-track"><div class="rp-role-fill" style="width:${Math.round(
-            ((Number(role.usage) || 0) / model.largest) * 100
-          )}%"></div></div></div>`
+          )}</span></div><div class="rp-role-track"><div class="rp-role-fill" style="transform:scaleX(${(
+            (Number(role.usage) || 0) / model.largest
+          ).toFixed(4)})"></div></div></div>`
       )
-      .join("")}<div class="rp-divider"></div><div class="rp-exec"><div class="rp-exec-title">${ui(
-      "执行细节"
-    )}</div>${model.details
-      .map(
-        (detail) =>
-          `<div class="rp-kv"><span>${esc(detail.label)}</span><span class="rp-spacer"></span><span title="${esc(
-            detail.title ?? detail.value
-          )}">${esc(detail.value)}${detail.note ? ` · ${esc(detail.note)}` : ""}</span></div>`
-      )
-      .join("")}</div></div></div>`;
+      .join("");
+    const facts = model.facts.length
+      ? `<div class="rp-divider"></div><p class="rp-facts">${model.facts.map(esc).join(" · ")}</p>`
+      : "";
+    return `<div class="rp-usage" data-expanded="true"><div class="rp-usage-card" id="requirement-usage-detail" role="group" aria-label="${ui(
+      "用量"
+    )}"><div class="rp-usage-total"><strong>${esc(compactTokens(model.total))}</strong><span>tokens</span></div>${split}<div class="rp-divider"></div><div class="rp-roles">${roles}</div>${facts}</div>${head}</div>`;
   }
 
   function bindBody() {
@@ -491,16 +614,54 @@ export function createRequirementPanel({
     };
     for (const node of body.querySelectorAll("[data-artifact]"))
       activate(node, () => openArtifact(node.dataset.artifact));
+    for (const node of body.querySelectorAll("[data-unfold]"))
+      node.addEventListener("click", () => {
+        const key = node.dataset.unfold;
+        if (unfolded.has(key)) unfolded.delete(key);
+        else unfolded.add(key);
+        bodySignature = undefined;
+        render();
+        body.querySelector(`[data-unfold="${CSS.escape(key)}"]`)?.focus();
+      });
   }
+
+  function setUsageOpen(value, { focus = true } = {}) {
+    if (expanded === value) return;
+    expanded = value;
+    usageSignature = undefined;
+    render();
+    if (focus) $("[data-requirement-usage] [data-usage-toggle]")?.focus();
+    const card = $("[data-requirement-usage] .rp-usage-card");
+    if (card)
+      animate(
+        card,
+        [
+          { opacity: 0, transform: "translateY(6px) scale(0.98)" },
+          { opacity: 1, transform: "none" }
+        ],
+        {
+          duration: motionDuration("--motion-base", 200),
+          easing:
+            getComputedStyle(document.documentElement).getPropertyValue("--ease-standard").trim() ||
+            "ease-out"
+        }
+      );
+  }
+
+  // The open card closes on Escape or a press anywhere outside it.
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && expanded && $("[data-requirement-usage] .rp-usage-card"))
+      setUsageOpen(false);
+  });
+  document.addEventListener("pointerdown", (event) => {
+    if (!expanded) return;
+    const usage = $("[data-requirement-usage]");
+    if (usage && !usage.contains(event.target)) setUsageOpen(false, { focus: false });
+  });
 
   function bindUsage() {
     const toggle = $("[data-requirement-usage] [data-usage-toggle]");
-    toggle?.addEventListener("click", () => {
-      expanded = !expanded;
-      usageSignature = undefined;
-      render();
-      $("[data-requirement-usage] [data-usage-toggle]")?.focus();
-    });
+    toggle?.addEventListener("click", () => setUsageOpen(!expanded));
   }
 
   /** What kind of content the body shows and which phases and criteria are done. */
@@ -591,12 +752,7 @@ export function createRequirementPanel({
       bindBody();
       animateBody(body, before);
     }
-    const nextUsage = JSON.stringify([
-      model.available,
-      expanded,
-      model.roles,
-      model.details.map((detail) => detail.label)
-    ]);
+    const nextUsage = JSON.stringify([model.available, expanded, model.roles, model.split, model.facts]);
     if (nextUsage !== usageSignature) {
       usageSignature = nextUsage;
       usage.innerHTML = renderUsage(model);

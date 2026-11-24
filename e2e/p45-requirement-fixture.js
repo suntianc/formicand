@@ -95,7 +95,8 @@ export async function seedRequirement(page, dashboard, project, input) {
   ).session;
   const checkout = await makeCheckout(join(dashboard.root, "checkouts", requirement.requirementId), {
     "summarize.sh": "#!/usr/bin/env bash\nset -euo pipefail\n",
-    "notes.md": "# 验收记录\n"
+    "notes.md": "# 验收记录\n",
+    ...input.files
   });
   const criteria = input.criteria ?? ["bash summarize.sh 输出 30", "文件不存在时退出码 1"];
   const development = (
@@ -328,13 +329,13 @@ export async function seedRun(page, dashboard, taskId, { toolCalls = 148, roles 
     join(runRoot, "run.json"),
     JSON.stringify({ createdAt: createdAt.toISOString(), updatedAt: new Date(updatedAt).toISOString() })
   );
-  const usage = (input, output) =>
+  const usage = (input, output, cacheRead = 0) =>
     JSON.stringify({
       type: "message_end",
       message: {
         role: "assistant",
         timestamp: updatedAt - 60 * 1000,
-        usage: { input, output, cacheRead: 0, cacheWrite: 0, tokenUsageReported: true }
+        usage: { input, output, cacheRead, cacheWrite: 0, tokenUsageReported: true }
       }
     });
   const lines = [];
@@ -342,7 +343,8 @@ export async function seedRun(page, dashboard, taskId, { toolCalls = 148, roles 
     const at = new Date(createdAt.getTime() + Math.floor((index / toolCalls) * 20 * 60 * 1000));
     lines.push(JSON.stringify({ occurredAt: at.toISOString(), type: "tool_execution_start" }));
   }
-  lines.push(usage(1_000_000, 210_000));
+  // Main's turns mostly reread the cached context.
+  lines.push(usage(160_000, 210_000, 840_000));
   await writeFile(join(runRoot, "runtime-output.log"), `${lines.join("\n")}\n`);
   await writeFile(
     join(runRoot, "queue.json"),
