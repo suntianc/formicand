@@ -70,10 +70,114 @@ export function hasReasoningMore(reasoning, preview = reasoningPreview(reasoning
   return false;
 }
 
+function displayMessageItems(entry, turnDone) {
+  const parts = [...entry.blocks.entries()]
+    // Content indexes retain message order even if the event window starts
+    // mid-stream and the complete snapshot fills in earlier blocks later.
+    .sort(([a], [b]) => (typeof a === "number" && typeof b === "number" ? a - b : 0))
+    .map(([, item]) =>
+      item.type === "reasoning"
+        ? { ...item, type: "thinking", thinking: item.text }
+        : item.type === "answer"
+          ? { ...item, type: "text" }
+          : item
+    );
+  return assistantDisplayContent(parts, {
+    streaming: !entry.closed && !turnDone,
+    includeRaw: true
+  })
+    .map((part) => ({
+      ...part,
+      type: part.type === "thinking" ? "reasoning" : part.type === "text" ? "answer" : part.type,
+      text: part.type === "thinking" ? part.thinking : part.text,
+      done: Boolean(part.complete || turnDone)
+    }))
+    .filter((item) => item.type === "tool" || item.text || (item.type === "reasoning" && !item.done));
+}
+
+function trailingAnswerSummary(items) {
+  const last = items.at(-1);
+  if (!last || last.type !== "answer" || last.done || !last.text) return undefined;
+  let first = items.length - 1;
+  while (first > 0 && items[first - 1].type === "answer" && items[first - 1].messageKey === last.messageKey)
+    first -= 1;
+  let text = "";
+  for (let index = first; index < items.length; index += 1) text += items[index].text;
+  return { key: items[first].key, text };
+}
+
+function buildStreamingAnswerState(turns) {
+  const lastTurn = turns.at(-1);
+  if (!lastTurn || lastTurn.done) return undefined;
+  const lastMessage = lastTurn.messages.at(-1);
+  if (!lastMessage || lastMessage.closed) return undefined;
+  const displayItems = displayMessageItems(lastMessage, false);
+  const summary = trailingAnswerSummary(displayItems);
+  if (!summary) return undefined;
+  const sortedBlocks = [...lastMessage.blocks.entries()].sort(([a], [b]) =>
+    typeof a === "number" && typeof b === "number" ? a - b : 0
+  );
+  const rawTail = sortedBlocks.at(-1);
+  if (!rawTail || !Number.isInteger(rawTail[0]) || rawTail[1].type !== "answer" || rawTail[1].complete)
+    return undefined;
+  return {
+    contentIndex: rawTail[0],
+    answerKey: summary.key,
+    blocks: new Map(sortedBlocks.map(([k, block]) => [k, { ...block }])),
+    displayShape: displayItems.map((item) => ({
+      type: item.type,
+      key: item.key,
+      done: item.done,
+      text: item.text
+    }))
+  };
+}
+
+/**
+ * Try applying pure `text_delta` chunks to the active answer block using the
+ * exact same `assistantDisplayContent` normalization and envelope-splitting
+ * rules as `buildLiveActivity`. Any structural change (such as a split `<think>`
+ * tag creating a reasoning block or rewriting display keys) returns `{ ok: false }`
+ * so the caller falls back to a full render.
+ */
+export function applyStreamingTextDeltas(state, contentIndex, delta) {
+  if (!state || contentIndex !== state.contentIndex || typeof delta !== "string") return { ok: false };
+  const target = state.blocks.get(contentIndex);
+  if (!target || target.type !== "answer" || target.complete) return { ok: false };
+  const nextBlocks = new Map(state.blocks);
+  nextBlocks.set(contentIndex, { ...target, text: target.text + delta });
+  const nextItems = displayMessageItems({ blocks: nextBlocks, closed: false }, false);
+  if (nextItems.length !== state.displayShape.length) return { ok: false };
+  for (let index = 0; index < nextItems.length; index += 1) {
+    const prev = state.displayShape[index];
+    const next = nextItems[index];
+    if (next.type !== prev.type || next.key !== prev.key || next.done !== prev.done) return { ok: false };
+    if (index < nextItems.length - 1 && next.text !== prev.text) return { ok: false };
+  }
+  const summary = trailingAnswerSummary(nextItems);
+  if (!summary || summary.key !== state.answerKey) return { ok: false };
+  return {
+    ok: true,
+    answerKey: summary.key,
+    answerText: summary.text,
+    nextState: {
+      contentIndex: state.contentIndex,
+      answerKey: state.answerKey,
+      blocks: nextBlocks,
+      displayShape: nextItems.map((item) => ({
+        type: item.type,
+        key: item.key,
+        done: item.done,
+        text: item.text
+      }))
+    }
+  };
+}
+
 // Streaming deltas, block endings and message snapshots describe the same
 // content blocks. Keep their identity within each assistant message so later
 // snapshots update the transcript without appending the reasoning again.
-export function buildLiveActivity(events) {
+export function projectLiveActivity(events) {
   const turns = [];
   const callsById = new Map();
   let turn;
@@ -229,32 +333,10 @@ export function buildLiveActivity(events) {
     }
   }
 
-  return turns
+  const streaming = buildStreamingAnswerState(turns);
+  const projected = turns
     .map((current) => {
-      const items = current.messages
-        .flatMap((entry) => {
-          const parts = [...entry.blocks.entries()]
-            // Content indexes retain message order even if the event window starts
-            // mid-stream and the complete snapshot fills in earlier blocks later.
-            .sort(([a], [b]) => (typeof a === "number" && typeof b === "number" ? a - b : 0))
-            .map(([, item]) =>
-              item.type === "reasoning"
-                ? { ...item, type: "thinking", thinking: item.text }
-                : item.type === "answer"
-                  ? { ...item, type: "text" }
-                  : item
-            );
-          return assistantDisplayContent(parts, {
-            streaming: !entry.closed && !current.done,
-            includeRaw: true
-          }).map((part) => ({
-            ...part,
-            type: part.type === "thinking" ? "reasoning" : part.type === "text" ? "answer" : part.type,
-            text: part.type === "thinking" ? part.thinking : part.text,
-            done: Boolean(part.complete || current.done)
-          }));
-        })
-        .filter((item) => item.type === "tool" || item.text || (item.type === "reasoning" && !item.done));
+      const items = current.messages.flatMap((entry) => displayMessageItems(entry, current.done));
       return {
         reasoning: items
           .filter((item) => item.type === "reasoning")
@@ -274,6 +356,11 @@ export function buildLiveActivity(events) {
       };
     })
     .filter((current) => current.items.length);
+  return { turns: projected, streaming };
+}
+
+export function buildLiveActivity(events) {
+  return projectLiveActivity(events).turns;
 }
 
 function recordedToolTime(source, record) {

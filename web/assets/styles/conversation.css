@@ -24,8 +24,6 @@ html[data-theme] :is(.thinking-spinner, .tool-progress-spinner, .workflow-progre
   border-radius: 0;
   background: none;
   color: var(--color-text-2);
-  /* The host keeps one running animation so a re-render can resume its phase. */
-  animation: ant-host 1.2s linear infinite;
 }
 .ant-mark::after {
   content: none !important;
@@ -68,12 +66,6 @@ html[data-theme] :is(.thinking-spinner, .tool-progress-spinner, .workflow-progre
   height: 42.06%;
   animation-delay: 0.3s;
 }
-@keyframes ant-host {
-  from,
-  to {
-    opacity: 1;
-  }
-}
 /* Head, thorax and abdomen swell in turn, as if the ant were walking. */
 @keyframes ant-crawl {
   0%,
@@ -89,6 +81,17 @@ html[data-theme] :is(.thinking-spinner, .tool-progress-spinner, .workflow-progre
     transform: scale(0.82);
     opacity: 0.6;
   }
+}
+html.is-page-hidden
+  :is(
+    .ant-mark,
+    .ant-mark *,
+    .shimmer-text,
+    .conversation-activity,
+    .subagent-state .ui-icon,
+    .rp-agent-mark .ui-icon
+  ) {
+  animation-play-state: paused !important;
 }
 html[data-theme] .tool-step .activity-status .tool-progress-spinner.ant-mark {
   flex-basis: 12px;

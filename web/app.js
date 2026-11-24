@@ -382,10 +382,14 @@ const runControl = createRunControl({
   continueRun: (taskId) => delivery.continuePausedRun(taskId),
   isContinuing: (taskId) => delivery.isContinuing(taskId)
 });
-function renderConversation(messages, task) {
-  conversationView.renderConversation(messages, task);
-  backendFiles.hydrateImages($("#conversation"));
+function renderConversation(messages, task, options) {
+  const updatedRoot = conversationView.renderConversation(messages, task, options);
+  backendFiles.hydrateImages(updatedRoot || $("#conversation"));
 }
+const syncPageVisibility = () =>
+  document.documentElement.classList.toggle("is-page-hidden", Boolean(document.hidden));
+syncPageVisibility();
+document.addEventListener("visibilitychange", syncPageVisibility);
 const connection = createConnectionController({
   state,
   renderConversation,

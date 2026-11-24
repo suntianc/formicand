@@ -6,7 +6,7 @@ import { createConversationProjection } from "./conversation-projection.js";
 import { splitUploadedFiles } from "../uploaded-files.js";
 import { markReferences, splitReferences } from "../references.js";
 import { modelErrorDiagnostic, modelPolicyRejection, requestErrorMessage } from "../request-error.js";
-import { assistantDisplayContent } from "../activity.js";
+import { applyStreamingTextDeltas, assistantDisplayContent } from "../activity.js";
 import {
   finalAnswerIndex,
   isMachineTurn,
@@ -19,7 +19,7 @@ import { resolveArtifactLink } from "../artifacts.js";
 import { escapeHtml as esc } from "../ui/html.js";
 import { icon } from "../ui/icons.js";
 import { executionElapsedMs } from "../execution-time.js";
-import { reconcileParts, reconcileRange } from "../ui/reconcile.js";
+import { reconcileMarkup, reconcileParts, reconcileRange } from "../ui/reconcile.js";
 import { animate } from "../ui/motion.js";
 import { createStreamReveal } from "../ui/stream-reveal.js";
 import { contextWindowDividers } from "../ui/context-window.js";
@@ -42,6 +42,25 @@ function queryInRoots(roots, selector) {
     if (root.querySelectorAll) for (const node of root.querySelectorAll(selector)) results.push(node);
   }
   return results;
+}
+
+function sameRefArray(left, right) {
+  if (left === right) return true;
+  if (!Array.isArray(left) || !Array.isArray(right) || left.length !== right.length) return false;
+  for (let index = 0; index < left.length; index += 1) if (left[index] !== right[index]) return false;
+  return true;
+}
+
+function sameSingleExchange(left, right) {
+  if (left === right) return true;
+  if (!left || !right) return false;
+  return (
+    left.key === right.key &&
+    left.awaitingDelivery === right.awaitingDelivery &&
+    left.continued === right.continued &&
+    sameRefArray(left.messages, right.messages) &&
+    sameRefArray(left.events, right.events)
+  );
 }
 
 const reducedMotion = () => {
@@ -311,13 +330,14 @@ export function createConversationView({
     if (state.executionHistoryOpen.has(key)) return Boolean(state.executionHistoryOpen.get(key));
     return hasOpenActivity(key);
   };
-  const { renderLiveActivity, renderRoundFold, renderThinkingPlaceholder } = createConversationActivityView({
-    markdown,
-    activityContext: () => ({ taskId: state.selected, detail: state.detail }),
-    isHistoryOpen: isHistoryOpenFor,
-    isActivityOpen: (key) => Boolean(activityStates.get(key)?.open),
-    toolDetailFor
-  });
+  const { renderLiveActivity, renderRoundFold, renderThinkingPlaceholder, renderStreamingAnswerBody } =
+    createConversationActivityView({
+      markdown,
+      activityContext: () => ({ taskId: state.selected, detail: state.detail }),
+      isHistoryOpen: isHistoryOpenFor,
+      isActivityOpen: (key) => Boolean(activityStates.get(key)?.open),
+      toolDetailFor
+    });
   const visibleText = (content) =>
     Array.isArray(content)
       ? content
@@ -391,6 +411,8 @@ export function createConversationView({
         );
   }
   let historyMarkup = new Map();
+  let virtualShellCache = new Map();
+  let streamFastState;
   let renderedEditTask;
   // Memoized history context so streaming frames do not rescan runtimeEvents
   // or serialize artifacts/coordination/jobs on every delta.
@@ -571,20 +593,21 @@ export function createConversationView({
   // decides, so scrolling up while a reply streams is not pulled back (#24).
   let followedLocal;
   const thinkingStartedAt = new Map();
-  const resumeThinkingAnimations = (scroll) => {
-    const activeKeys = new Set();
+  const resumeThinkingAnimations = (scroll, roots = [scroll]) => {
     const now = performance.now();
-    for (const node of scroll.querySelectorAll("[data-thinking-key]")) {
+    for (const node of queryInRoots(roots, "[data-thinking-key]")) {
       const key = node.dataset.thinkingKey;
-      activeKeys.add(key);
-      const startedAt = thinkingStartedAt.get(key) ?? now;
-      thinkingStartedAt.set(key, startedAt);
+      const existing = thinkingStartedAt.get(key);
+      const startedAt = existing?.startedAt ?? now;
+      thinkingStartedAt.set(key, { startedAt, node });
       // innerHTML replaces the spinner on new deltas. Reuse its elapsed time
       // without adding style attributes that would invalidate markup equality.
       for (const animation of node.getAnimations?.({ subtree: true }) || [])
         animation.currentTime = now - startedAt;
     }
-    for (const key of thinkingStartedAt.keys()) if (!activeKeys.has(key)) thinkingStartedAt.delete(key);
+    for (const [key, entry] of thinkingStartedAt) {
+      if (!entry?.node?.isConnected) thinkingStartedAt.delete(key);
+    }
   };
   const detailsOpen = (node) => (typeof node.open === "boolean" ? node.open : node.hasAttribute("open"));
   const readable = (node) => {
@@ -646,14 +669,22 @@ export function createConversationView({
     if (detailsOpen(node) === hasLazyBody(node)) return;
     renderConversation(lastRenderArgs.messages, lastRenderArgs.task, { preserveScroll: true });
   };
+  const normalizedAssistantCache = new WeakMap();
   const normalizeMessages = (messages) => {
     // Presentation repair applies only to assistant output. Original messages
     // remain durable and user-authored Markdown/code is never normalized.
-    return (messages || []).map((message) =>
-      message.role === "assistant"
-        ? { ...message, content: assistantDisplayContent(message.content, { includeRaw: true }) }
-        : message
-    );
+    return (messages || []).map((message) => {
+      if (message.role !== "assistant") return message;
+      let cached = normalizedAssistantCache.get(message);
+      if (!cached || cached.content !== message.content) {
+        cached = {
+          content: message.content,
+          normalized: { ...message, content: assistantDisplayContent(message.content, { includeRaw: true }) }
+        };
+        normalizedAssistantCache.set(message, cached);
+      }
+      return cached.normalized;
+    });
   };
   const projectExchanges = createConversationProjection(normalizeMessages);
   $("#conversation")?.addEventListener("click", async (event) => {
@@ -728,13 +759,105 @@ export function createConversationView({
       liveClockTimer = setInterval(tick, 1000);
   }
 
+  function bindArtifactLinks(roots) {
+    queryInRoots(roots, "[data-message-artifact]").forEach((link) => {
+      if (boundNodes.has(link)) return;
+      boundNodes.add(link);
+      link.addEventListener("click", (event) => {
+        if (event.button || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+        event.preventDefault();
+        const path = link.dataset.messageArtifact;
+        const taskId = link.dataset.messageTask;
+        if (
+          state.selected === taskId &&
+          state.detail?.task?.taskId === taskId &&
+          state.detail.artifacts?.some(
+            (artifact) => artifact.taskId === taskId && artifact.relativePath === path
+          )
+        )
+          openArtifact?.(path);
+      });
+    });
+  }
+
+  function findStreamingAnswerNode(roots, expectedKey) {
+    for (const node of queryInRoots(roots, "[data-streaming-answer]")) {
+      if (node.dataset?.activityKey === expectedKey) return node;
+    }
+    return undefined;
+  }
+
+  function tryFastStreamTextUpdate(scroll, messages, task, streamRecords) {
+    const fast = streamFastState;
+    if (!fast || !Array.isArray(streamRecords) || !streamRecords.length) return undefined;
+    if (state.selected !== task.taskId || lastRender?.taskId !== task.taskId) return undefined;
+    if (fast.taskId !== task.taskId || !fast.runId || fast.runId !== task.activeRunId) return undefined;
+    if (fast.taskStatus !== task.status) return undefined;
+    if (state.detail?.parked || !(state.detail?.runtime?.active || state.submittingTaskId === task.taskId))
+      return undefined;
+    if (messageEdit?.editingMessageId && state.selected === task.taskId) return undefined;
+    if (
+      messages !== fast.messagesRef ||
+      state.localMessages !== fast.localMessagesRef ||
+      state.detail?.conversationVersion !== fast.conversationVersion
+    )
+      return undefined;
+    const events = state.detail?.runtimeEvents;
+    if (events !== fast.eventsRef || events.length !== fast.eventsLen + streamRecords.length)
+      return undefined;
+    let combinedDelta = "";
+    const contentIndex = fast.streaming.contentIndex;
+    for (let index = 0; index < streamRecords.length; index += 1) {
+      const record = streamRecords[index];
+      if (events[fast.eventsLen + index] !== record) return undefined;
+      if (record?.type !== "runtime_event" || record.runId !== fast.runId) return undefined;
+      const payload = record.payload;
+      if (payload?.type !== "message_update") return undefined;
+      const update = payload.assistantMessageEvent;
+      if (update?.type !== "text_delta" || update.contentIndex !== contentIndex) return undefined;
+      combinedDelta += String(update.delta || "");
+    }
+    const applied = applyStreamingTextDeltas(fast.streaming, contentIndex, combinedDelta);
+    if (!applied.ok || `${fast.historyKey}:${applied.answerKey}` !== fast.expectedKey) return undefined;
+    let answerEl = fast.answerEl;
+    if (
+      !answerEl?.isConnected ||
+      answerEl.dataset?.activityKey !== fast.expectedKey ||
+      !answerEl.hasAttribute("data-streaming-answer") ||
+      (scroll.contains && !scroll.contains(answerEl))
+    ) {
+      answerEl = findStreamingAnswerNode([scroll], fast.expectedKey);
+    }
+    const bodyEl = answerEl?.querySelector?.(".markdown-body");
+    if (!answerEl || !bodyEl) return undefined;
+    const wasAtEnd = atConversationEnd(scroll);
+    reconcileMarkup(bodyEl, renderStreamingAnswerBody(applied.answerText));
+    bindArtifactLinks([bodyEl]);
+    fast.streaming = applied.nextState;
+    fast.eventsLen += streamRecords.length;
+    fast.answerEl = answerEl;
+    fast.bodyEl = bodyEl;
+    // Mark the active round's cached signature stale so the next full render
+    // always reconciles it cleanly against the authoritative full projection.
+    if (lastRender?.partSignatures && fast.activePartIndex < lastRender.partSignatures.length)
+      lastRender.partSignatures[fast.activePartIndex] = "";
+    if (wasAtEnd) scroll.scrollTop = scroll.scrollHeight;
+    lastRenderArgs = { messages, task };
+    return bodyEl;
+  }
+
   function renderConversation(
     messages,
     task,
-    { preserveScroll: keepScroll = false, virtualScroll = false } = {}
+    { preserveScroll: keepScroll = false, virtualScroll = false, streamRecords } = {}
   ) {
-    lastRenderArgs = { messages, task };
     const scroll = $("#conversation");
+    if (!keepScroll && !virtualScroll && streamRecords?.length) {
+      const updatedBody = tryFastStreamTextUpdate(scroll, messages, task, streamRecords);
+      if (updatedBody) return updatedBody;
+    }
+    streamFastState = undefined;
+    lastRenderArgs = { messages, task };
     bindVirtualScroll(scroll);
     resetToolDetails(task.taskId);
     if (virtualTaskId !== task.taskId) {
@@ -813,6 +936,8 @@ export function createConversationView({
         $("#conversation").replaceChildren();
         lastRender = undefined;
         historyMarkup.clear();
+        virtualShellCache.clear();
+        streamFastState = undefined;
         return;
       }
       $("#conversation").innerHTML = ui(
@@ -821,6 +946,8 @@ export function createConversationView({
       thinkingStartedAt.clear();
       lastRender = undefined;
       historyMarkup.clear();
+      virtualShellCache.clear();
+      streamFastState = undefined;
       renderedEditTask = undefined;
       return;
     }
@@ -858,11 +985,16 @@ export function createConversationView({
     }
     let inlineEditorRendered = false;
     const nextHistoryMarkup = new Map();
+    const nextVirtualShellCache = new Map();
+    const roundPartSignatures = [];
     const exchangeKeys = [];
     const exchangeVirtualized = [];
+    let activeStreamingCandidate;
     // Only settled historical rounds can be reused. Current/retry/edit state
     // remains live, and replaced history is checked by compact structural hash.
     const historyContext = computeHistoryContext(task.taskId, state.detail, windows);
+    const lifecycleEvents = state.detail?.events;
+    const lifecycleEventsLen = lifecycleEvents?.length ?? 0;
     const recentStart = Math.max(0, rounds.length - RECENT_LIVE_EXCHANGES);
 
     const renderUserBubble = (message, viewKey, extraClass = "") => {
@@ -937,19 +1069,41 @@ export function createConversationView({
             ? measured?.userH || estimateUserHeight(visibleText(userMessage.content))
             : 0;
           const mainH = measured?.mainH || estimateMainHeight(visibleText(finalMessage.content));
-          const userShell = userMessage
-            ? `<article class="chat-message user is-virtual-shell" data-view-key="${esc(`${cacheKey}:user:${userMessage.id || userIndex}`)}" data-virtual-exchange="${roundIndex}" style="min-height:${userH}px"></article>`
-            : "";
-          const mainShell = `<article class="chat-message main is-virtual-shell" data-answer-kind="final" data-virtual-exchange="${roundIndex}"${finalMessage.id ? ` data-message-id="${esc(finalMessage.id)}"` : ""} style="min-height:${mainH}px"></article>`;
-          return `${userShell}${mainShell}`;
+          const shellKey = `${cacheKey}:${roundIndex}:${userMessage?.id || userIndex}:${finalMessage.id || ""}:${userH}:${mainH}`;
+          let shell = virtualShellCache.get(shellKey);
+          if (!shell) {
+            const userShell = userMessage
+              ? `<article class="chat-message user is-virtual-shell" data-view-key="${esc(`${cacheKey}:user:${userMessage.id || userIndex}`)}" data-virtual-exchange="${roundIndex}" style="min-height:${userH}px"></article>`
+              : "";
+            const mainShell = `<article class="chat-message main is-virtual-shell" data-answer-kind="final" data-virtual-exchange="${roundIndex}"${finalMessage.id ? ` data-message-id="${esc(finalMessage.id)}"` : ""} style="min-height:${mainH}px"></article>`;
+            const markup = `${userShell}${mainShell}`;
+            shell = { markup, sig: fingerprint(markup) };
+          }
+          nextVirtualShellCache.set(shellKey, shell);
+          roundPartSignatures.push(shell.sig);
+          return shell.markup;
         }
       }
       exchangeVirtualized.push(false);
-      const elapsed = cacheable ? executionElapsedMs(round.events, state.detail?.events) : undefined;
       const cached = historyMarkup.get(cacheKey);
       const singleExchange = round.exchanges.length === 1 ? round.lead : undefined;
       // The append-only projector retains historical exchange identities.
-      // Avoid traversing their unchanged events on every streamed delta.
+      // Only single-exchange rounds use this shortcut; multi-input rounds
+      // (`singleExchange === undefined`) always compare structural fingerprints.
+      if (
+        cacheable &&
+        singleExchange &&
+        cached?.context === historyContext &&
+        cached.open === historyOpen &&
+        cached.lifecycleEventsRef === lifecycleEvents &&
+        cached.lifecycleEventsLen === lifecycleEventsLen &&
+        sameSingleExchange(cached.exchange, singleExchange)
+      ) {
+        nextHistoryMarkup.set(cacheKey, cached);
+        roundPartSignatures.push(cached.partFingerprint);
+        return cached.markup;
+      }
+      const elapsed = cacheable ? executionElapsedMs(round.events, lifecycleEvents) : undefined;
       if (
         cacheable &&
         singleExchange &&
@@ -958,13 +1112,22 @@ export function createConversationView({
         cached.open === historyOpen &&
         cached.elapsed === elapsed
       ) {
-        nextHistoryMarkup.set(cacheKey, cached);
-        return cached.markup;
+        const updated = { ...cached, lifecycleEventsRef: lifecycleEvents, lifecycleEventsLen };
+        nextHistoryMarkup.set(cacheKey, updated);
+        roundPartSignatures.push(updated.partFingerprint);
+        return updated.markup;
       }
       const signature = cacheable ? fingerprint([round.exchanges, elapsed, historyOpen]) : undefined;
       if (cacheable && cached?.context === historyContext && cached.signature === signature) {
-        nextHistoryMarkup.set(cacheKey, { ...cached, exchange: singleExchange });
-        return cached.markup;
+        const updated = {
+          ...cached,
+          exchange: singleExchange,
+          lifecycleEventsRef: lifecycleEvents,
+          lifecycleEventsLen
+        };
+        nextHistoryMarkup.set(cacheKey, updated);
+        roundPartSignatures.push(updated.partFingerprint);
+        return updated.markup;
       }
       const active =
         isCurrent &&
@@ -983,7 +1146,7 @@ export function createConversationView({
         const stopped =
           execution.stopped ??
           (execution.terminal === "cancelled" && !(isCurrent && failure) ? {} : undefined);
-        const { markup: workflow } = renderLiveActivity(
+        const { markup: workflow, streamingAnswer } = renderLiveActivity(
           exchange.events,
           active,
           finalIndex >= 0,
@@ -995,6 +1158,14 @@ export function createConversationView({
           stopped
         );
         const workflowIndex = !active && finalIndex >= 0 ? finalIndex : -1;
+        if (active && workflowIndex < 0 && streamingAnswer) {
+          activeStreamingCandidate = {
+            roundIndex,
+            historyKey,
+            expectedKey: streamingAnswer.expectedKey,
+            streaming: streamingAnswer.state
+          };
+        }
         const rendered =
           exchange.messages
             .map((message, index) => {
@@ -1010,15 +1181,20 @@ export function createConversationView({
               ? `<article class="chat-message main" data-view-key="${esc(`${historyKey}:response`)}" data-answer-kind="pending" aria-busy="true"><div class="message-copy">${workflow || renderThinkingPlaceholder(historyKey)}</div></article>`
               : workflow
             : "");
+        const partFingerprint = fingerprint(rendered);
         if (cacheable)
           nextHistoryMarkup.set(cacheKey, {
             context: historyContext,
             signature,
             markup: rendered,
+            partFingerprint,
             exchange,
             open: historyOpen,
-            elapsed
+            elapsed,
+            lifecycleEventsRef: lifecycleEvents,
+            lifecycleEventsLen
           });
+        roundPartSignatures.push(partFingerprint);
         return rendered;
       }
 
@@ -1145,30 +1321,41 @@ export function createConversationView({
           })
           .join("");
       }
+      const partFingerprint = fingerprint(rendered);
       if (cacheable)
         nextHistoryMarkup.set(cacheKey, {
           context: historyContext,
           signature,
           markup: rendered,
+          partFingerprint,
           open: historyOpen,
-          elapsed
+          elapsed,
+          lifecycleEventsRef: lifecycleEvents,
+          lifecycleEventsLen
         });
+      roundPartSignatures.push(partFingerprint);
       return rendered;
     });
     historyMarkup = nextHistoryMarkup;
+    virtualShellCache = nextVirtualShellCache;
     const exchangePartOffset = windowDividers.has(undefined) ? 1 : 0;
-    if (windowDividers.has(undefined)) parts.unshift(windowDividers.get(undefined));
+    const partSignatures = [...roundPartSignatures];
+    if (windowDividers.has(undefined)) {
+      const leading = windowDividers.get(undefined);
+      parts.unshift(leading);
+      partSignatures.unshift(fingerprint(leading));
+    }
     // A restored edit can outlive its message after another window branches
     // the conversation. Keep its draft reachable for cancellation or recovery.
     const restoredEditor = inlineEditorRendered
       ? ""
       : messageEdit?.markup(task.taskId, messageEdit.editingMessageId) || "";
-    parts.push(
+    const trailingPart =
       (restoredEditor
         ? `<article class="chat-message user is-editing" data-view-key="${esc(`${task.taskId}:restored-edit`)}"><div class="message-copy"><div class="user-message-bubble">${restoredEditor}${messageEdit.actions?.(task.taskId, messageEdit.editingMessageId) || ""}</div></div></article>`
-        : "") + (failure ? renderFailure(task, failure) : "")
-    );
-    const partSignatures = parts.map((part) => fingerprint(part));
+        : "") + (failure ? renderFailure(task, failure) : "");
+    parts.push(trailingPart);
+    partSignatures.push(fingerprint(trailingPart));
     let changed = false;
     let bindRoots = [];
     let nextCounts;
@@ -1248,24 +1435,7 @@ export function createConversationView({
           else errorDetailsOpen.delete(task.taskId);
         });
       }
-      queryInRoots(bindRoots, "[data-message-artifact]").forEach((link) => {
-        if (boundNodes.has(link)) return;
-        boundNodes.add(link);
-        link.addEventListener("click", (event) => {
-          if (event.button || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-          event.preventDefault();
-          const path = link.dataset.messageArtifact;
-          const taskId = link.dataset.messageTask;
-          if (
-            state.selected === taskId &&
-            state.detail?.task?.taskId === taskId &&
-            state.detail.artifacts?.some(
-              (artifact) => artifact.taskId === taskId && artifact.relativePath === path
-            )
-          )
-            openArtifact?.(path);
-        });
-      });
+      bindArtifactLinks(bindRoots);
       queryInRoots(bindRoots, "details[data-activity-key]").forEach((node) => {
         const saved = activityStates.get(node.dataset.activityKey);
         if (saved) {
@@ -1330,7 +1500,40 @@ export function createConversationView({
     messageEdit?.bind(scroll, task.taskId);
     if (preserveScroll) scroll.scrollTop = previousScrollTop;
     renderedEditTask = editing ? task.taskId : undefined;
-    resumeThinkingAnimations(scroll);
+    if (changed) resumeThinkingAnimations(scroll, bindRoots);
+    if (
+      activeStreamingCandidate &&
+      !editing &&
+      !virtualScroll &&
+      !failure &&
+      !paused &&
+      !state.detail?.parked &&
+      task.activeRunId &&
+      state.detail?.runtimeEvents
+    ) {
+      const answerEl =
+        findStreamingAnswerNode(changed ? bindRoots : [scroll], activeStreamingCandidate.expectedKey) ||
+        findStreamingAnswerNode([scroll], activeStreamingCandidate.expectedKey);
+      const bodyEl = answerEl?.querySelector?.(".markdown-body");
+      if (answerEl && bodyEl) {
+        streamFastState = {
+          taskId: task.taskId,
+          runId: task.activeRunId,
+          taskStatus: task.status,
+          messagesRef: messages,
+          localMessagesRef: state.localMessages,
+          conversationVersion: state.detail?.conversationVersion,
+          eventsRef: state.detail.runtimeEvents,
+          eventsLen: state.detail.runtimeEvents.length,
+          activePartIndex: exchangePartOffset + activeStreamingCandidate.roundIndex,
+          historyKey: activeStreamingCandidate.historyKey,
+          expectedKey: activeStreamingCandidate.expectedKey,
+          streaming: activeStreamingCandidate.streaming,
+          answerEl,
+          bodyEl
+        };
+      }
+    }
   }
 
   /**

@@ -2061,3 +2061,240 @@ test("expanding L3 loads omitted tool details on demand, retries errors and disc
   await Promise.resolve();
   assert.match(document.querySelector(".tool-details-body").textContent, /FULL_TOOL_OUTPUT_LINE/);
 });
+
+test("streaming text_delta fast path keeps frame-by-frame equivalence when split <think> tags arrive", () => {
+  const makeView = () => {
+    const { document } = parseHTML('<!doctype html><html><body><div id="conversation"></div></body></html>');
+    const state = {
+      selected: "task-think-split",
+      localMessages: [],
+      executionHistoryOpen: new Map(),
+      detail: {
+        task: { taskId: "task-think-split", status: "running", activeRunId: "run-1" },
+        conversationVersion: 1,
+        runtime: { active: true },
+        runtimeEvents: [
+          { type: "runtime_event", runId: "run-1", payload: { type: "turn_start" } },
+          {
+            type: "runtime_event",
+            runId: "run-1",
+            payload: {
+              type: "message_start",
+              message: { role: "user", content: "测试拆分标签", timestamp: 1 }
+            }
+          },
+          {
+            type: "runtime_event",
+            runId: "run-1",
+            payload: { type: "message_end", message: { role: "user", content: "测试拆分标签", timestamp: 1 } }
+          },
+          {
+            type: "runtime_event",
+            runId: "run-1",
+            payload: { type: "message_start", message: { role: "assistant", timestamp: 2, content: [] } }
+          },
+          {
+            type: "runtime_event",
+            runId: "run-1",
+            payload: update("text_delta", 0, { delta: "已有正文。" })
+          }
+        ]
+      }
+    };
+    const messages = [{ role: "user", content: "测试拆分标签", timestamp: 1 }];
+    const view = createConversationView({
+      state,
+      $: (selector) => document.querySelector(selector),
+      textContent
+    });
+    return { document, state, messages, view };
+  };
+
+  const fast = makeView();
+  const full = makeView();
+
+  // Initial full render mounts [data-streaming-answer].
+  fast.view.renderConversation(fast.messages, fast.state.detail.task);
+  full.view.renderConversation(full.messages, full.state.detail.task);
+  assert.equal(
+    fast.document.querySelector("#conversation").innerHTML,
+    full.document.querySelector("#conversation").innerHTML
+  );
+
+  const chunks = ["继续补充。", "\n\n<th", "ink>内部思考内容", "</think>\n\n后续正文。"];
+  const fastHits = [];
+  for (const delta of chunks) {
+    const recFast = {
+      type: "runtime_event",
+      runId: "run-1",
+      payload: update("text_delta", 0, { delta })
+    };
+    const recFull = {
+      type: "runtime_event",
+      runId: "run-1",
+      payload: update("text_delta", 0, { delta })
+    };
+    fast.state.detail.runtimeEvents.push(recFast);
+    full.state.detail.runtimeEvents.push(recFull);
+    const hit = Boolean(
+      fast.view.renderConversation(fast.messages, fast.state.detail.task, { streamRecords: [recFast] })
+    );
+    fastHits.push(hit);
+    full.view.renderConversation(full.messages, full.state.detail.task);
+    assert.equal(
+      fast.document.querySelector("#conversation").innerHTML,
+      full.document.querySelector("#conversation").innerHTML,
+      `frame mismatch after delta ${JSON.stringify(delta)}`
+    );
+    assert.doesNotMatch(
+      fast.document.querySelector("#conversation").textContent,
+      /<th/,
+      `raw tag leaked after delta ${JSON.stringify(delta)}`
+    );
+  }
+  assert.equal(fastHits[0], true, "plain text_delta uses fast path");
+  assert.equal(fastHits[1], false, "split <th envelope forces fallback to full render");
+  assert.equal(fastHits[3], false, "closing </think> changes structure and falls back cleanly");
+  assert.ok(fast.document.querySelector(".process-segment"), "reasoning area is rendered");
+});
+
+test("streaming text_delta fast path binds newly completed artifact links before text_end and preserves scroll", () => {
+  const { document } = parseHTML('<!doctype html><html><body><div id="conversation"></div></body></html>');
+  const scroll = document.querySelector("#conversation");
+  Object.defineProperty(scroll, "clientHeight", { value: 400, configurable: true });
+  Object.defineProperty(scroll, "scrollHeight", { value: 1000, configurable: true });
+  scroll.scrollTop = 600; // at end initially
+
+  const opened = [];
+  const state = {
+    selected: "task-art",
+    localMessages: [],
+    executionHistoryOpen: new Map(),
+    detail: {
+      task: { taskId: "task-art", status: "running", activeRunId: "run-art" },
+      conversationVersion: 1,
+      workspaceRoot: "/workspace",
+      artifacts: [{ taskId: "task-art", relativePath: "report.md" }],
+      runtime: { active: true },
+      runtimeEvents: [
+        { type: "runtime_event", runId: "run-art", payload: { type: "turn_start" } },
+        {
+          type: "runtime_event",
+          runId: "run-art",
+          payload: { type: "message_start", message: { role: "user", content: "生成报告", timestamp: 1 } }
+        },
+        {
+          type: "runtime_event",
+          runId: "run-art",
+          payload: { type: "message_end", message: { role: "user", content: "生成报告", timestamp: 1 } }
+        },
+        {
+          type: "runtime_event",
+          runId: "run-art",
+          payload: { type: "message_start", message: { role: "assistant", timestamp: 2, content: [] } }
+        },
+        {
+          type: "runtime_event",
+          runId: "run-art",
+          payload: update("text_delta", 0, { delta: "查看 " })
+        }
+      ]
+    }
+  };
+  const messages = [{ role: "user", content: "生成报告", timestamp: 1 }];
+  const view = createConversationView({
+    state,
+    $: (selector) => document.querySelector(selector),
+    textContent,
+    openArtifact: (path) => opened.push(path)
+  });
+
+  view.renderConversation(messages, state.detail.task);
+  const answerEl = document.querySelector("[data-streaming-answer]");
+  assert.ok(answerEl);
+
+  // User scrolls up while reply is streaming; fast path must not pull scrollTop back down.
+  scroll.scrollTop = 100;
+  const linkDelta = {
+    type: "runtime_event",
+    runId: "run-art",
+    payload: update("text_delta", 0, { delta: "[报告](/workspace/task-art/artifacts/report.md)" })
+  };
+  state.detail.runtimeEvents.push(linkDelta);
+  const updatedBody = view.renderConversation(messages, state.detail.task, { streamRecords: [linkDelta] });
+  assert.ok(updatedBody, "expected fast path update");
+  assert.equal(document.querySelector("[data-streaming-answer]"), answerEl, "answer node reused in place");
+  assert.equal(scroll.scrollTop, 100, "reader scrolled up stays put");
+
+  // Click the artifact link BEFORE text_end arrives.
+  const link = document.querySelector('[data-message-artifact="report.md"]');
+  assert.ok(link, "artifact link rendered during stream");
+  link.click();
+  assert.deepEqual(opened, ["report.md"], "clicking streamed artifact link opens preview before text_end");
+
+  // Subsequent full render on text_end reconciles cleanly.
+  const endRecord = {
+    type: "runtime_event",
+    runId: "run-art",
+    payload: update("text_end", 0, { content: "查看 [报告](/workspace/task-art/artifacts/report.md)" })
+  };
+  state.detail.runtimeEvents.push(endRecord);
+  view.renderConversation(messages, state.detail.task);
+  assert.match(document.querySelector(".live-answer").textContent, /查看 报告/);
+});
+
+test("multi-input settled round does not skip structural fingerprint when lifecycleEvents reference is unchanged", () => {
+  const { document, state, render } = fixture("multi-input-cache", "先分析。");
+  state.detail.events = [];
+  state.detail.runtimeEvents.push(update("thinking_end", 0, { content: "先分析。" }));
+  const steer = {
+    role: "user",
+    id: "steer-cache",
+    content: "补充一下",
+    timestamp: 3,
+    delivery: "steer",
+    interjected: true
+  };
+  const deliver = {
+    role: "custom",
+    customType: "cowork-user-message",
+    content: "用户在你工作期间补充了一句话：补充一下",
+    timestamp: 3,
+    details: { message: "补充一下", delivery: "steer", _coworkInbox: { messageId: "steer-cache" } }
+  };
+  const final1 = {
+    role: "assistant",
+    id: "ans-1",
+    timestamp: 5,
+    stopReason: "stop",
+    content: [{ type: "text", text: "第一版答案。" }]
+  };
+  const nextUser = { role: "user", id: "u-2", content: "下一轮问题", timestamp: 10 };
+  const baseEvents = [
+    ...state.detail.runtimeEvents,
+    { type: "message_start", message: deliver },
+    { type: "message_end", message: deliver },
+    { type: "turn_start" },
+    { type: "message_start", message: { role: "assistant", timestamp: 5, content: [] } }
+  ];
+  state.detail.runtimeEvents = [
+    ...baseEvents,
+    { type: "message_end", message: final1 },
+    { type: "turn_end", message: final1 }
+  ];
+  state.detail.runtime.active = false;
+  state.detail.task.status = "completed";
+  render([user, steer, final1, nextUser]);
+  assert.match(document.querySelector("#conversation").textContent, /第一版答案/);
+
+  // Replace the settled multi-input round's final answer while keeping the exact same lifecycleEvents array ref.
+  const final2 = { ...final1, content: [{ type: "text", text: "第二版答案。" }] };
+  state.detail.runtimeEvents = [
+    ...baseEvents,
+    { type: "message_end", message: final2 },
+    { type: "turn_end", message: final2 }
+  ];
+  render([user, steer, final2, nextUser]);
+  assert.match(document.querySelector("#conversation").textContent, /第二版答案/);
+  assert.doesNotMatch(document.querySelector("#conversation").textContent, /第一版答案/);
+});

@@ -2,7 +2,7 @@ import { ui } from "../ui/language.js";
 import { outstandingWork } from "../tool-lifecycle.js";
 import { presentToolCall } from "../tool-presentation.js";
 import {
-  buildLiveActivity,
+  projectLiveActivity,
   hasReasoningMore,
   reasoningPreview,
   normalizeReasoningDisplay
@@ -139,6 +139,9 @@ export function createConversationActivityView({
       )
       .join("")}</div>`;
   }
+  const renderStreamingAnswerBody = (text) =>
+    markdown(completeMarkdown(text), { streaming: true, openTailFence: hasOpenFence(text) });
+
   function renderLiveActivity(
     events,
     active,
@@ -152,7 +155,7 @@ export function createConversationActivityView({
     { rawL1 = false } = {}
   ) {
     const { taskId, detail } = activityContext();
-    const turns = buildLiveActivity(events);
+    const { turns, streaming: streamingState } = projectLiveActivity(events);
     const retry = active && exchangeExecutionState(events).retry;
     const retryCode = retry && /\b(429|5\d\d)\b/.exec(retry.errorMessage || "")?.[1];
     const retryBanner = retry
@@ -267,11 +270,12 @@ export function createConversationActivityView({
       else segments.push({ kind: "process", items: [item] });
     }
 
+    let renderedStreamingKey;
     const renderAnswerSegment = (item) => {
       const streaming = Boolean(active && item === activity.at(-1) && !item.done);
       if (streaming) {
-        const openTailFence = hasOpenFence(item.text);
-        return `<div class="live-answer" data-activity-key="${esc(item.key)}" data-streaming-answer><div class="markdown-body">${markdown(completeMarkdown(item.text), { streaming: true, openTailFence })}</div></div>`;
+        renderedStreamingKey = item.key;
+        return `<div class="live-answer" data-activity-key="${esc(item.key)}" data-streaming-answer><div class="markdown-body">${renderStreamingAnswerBody(item.text)}</div></div>`;
       }
       return `<div class="live-answer" data-activity-key="${esc(item.key)}"><div class="markdown-body">${markdown(item.text)}</div></div>`;
     };
@@ -423,14 +427,23 @@ export function createConversationActivityView({
       return `${segmentMarkup}${trailingThinking}${stoppedRow}${retryBanner}`;
     };
 
-    if (rawL1 || !collapsible)
+    if (rawL1 || !collapsible) {
+      const markup = renderL1();
+      const expectedKey =
+        renderedStreamingKey &&
+        streamingState &&
+        renderedStreamingKey === `${historyKey}:${streamingState.answerKey}`
+          ? renderedStreamingKey
+          : undefined;
       return {
-        markup: renderL1(),
+        markup,
         hasActivity: true,
         collapsible,
         streamedAnswer,
-        persistedAnswerMatches
+        persistedAnswerMatches,
+        ...(expectedKey ? { streamingAnswer: { expectedKey, state: streamingState } } : {})
       };
+    }
 
     const settled = formatExecutionDuration(executionElapsedMs(events, detail?.events)) || undefined;
     const l0Open = isHistoryOpen ? Boolean(isHistoryOpen(historyKey)) : Boolean(historyOpen);
@@ -585,5 +598,5 @@ export function createConversationActivityView({
   </div>`;
   }
 
-  return { renderLiveActivity, renderRoundFold, renderThinkingPlaceholder };
+  return { renderLiveActivity, renderRoundFold, renderThinkingPlaceholder, renderStreamingAnswerBody };
 }

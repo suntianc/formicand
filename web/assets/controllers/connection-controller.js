@@ -13,6 +13,8 @@ export function createConnectionController({
   let streamAbort, streamTaskId, streamRunId;
   let eventStreamKeys = new Set();
   let renderFrame;
+  let pendingStreamRecords = [];
+  let pendingStreamTaskId;
   let disposed = false;
   const resume = () => {
     if (state.selected) connectEventStream(state.selected);
@@ -25,12 +27,31 @@ export function createConnectionController({
   };
   window.addEventListener("pagehide", close);
   window.addEventListener("pageshow", resume);
-  function scheduleStreamRender(taskId) {
+  function resetPendingStream() {
+    pendingStreamRecords = [];
+    pendingStreamTaskId = undefined;
+  }
+  function scheduleStreamRender(taskId, record = null) {
+    if (pendingStreamTaskId !== undefined && pendingStreamTaskId !== taskId) {
+      pendingStreamRecords = null;
+    }
+    pendingStreamTaskId = taskId;
+    if (record === null) {
+      pendingStreamRecords = null;
+    } else if (Array.isArray(pendingStreamRecords)) {
+      pendingStreamRecords.push(record);
+    }
     if (renderFrame !== undefined) return;
     renderFrame = requestAnimationFrame(() => {
       renderFrame = undefined;
+      const streamRecords = pendingStreamTaskId === taskId ? pendingStreamRecords : null;
+      resetPendingStream();
       if (state.selected !== taskId || state.detail?.task?.taskId !== taskId) return;
-      renderConversation(state.detail.messages || [], state.detail.task || {});
+      renderConversation(
+        state.detail.messages || [],
+        state.detail.task || {},
+        streamRecords?.length ? { streamRecords } : undefined
+      );
     });
   }
 
@@ -53,6 +74,7 @@ export function createConnectionController({
     if (streamTaskId === taskId && streamRunId === runId) return;
     if (renderFrame !== undefined) cancelAnimationFrame(renderFrame);
     renderFrame = undefined;
+    resetPendingStream();
     eventStream?.close();
     streamAbort?.abort();
     streamAbort = undefined;
@@ -99,7 +121,9 @@ export function createConnectionController({
         if (record.type === "runtime_event") {
           parkChanged = applyMainParkEvent(state.detail, record);
           if (parkChanged) renderRunState();
-          scheduleStreamRender(taskId);
+          scheduleStreamRender(taskId, parkChanged ? null : record);
+        } else {
+          pendingStreamRecords = null;
         }
       }
       if (
@@ -185,6 +209,7 @@ export function createConnectionController({
     detailRefreshTimer = undefined;
     if (renderFrame !== undefined) cancelAnimationFrame(renderFrame);
     renderFrame = undefined;
+    resetPendingStream();
   }
   return {
     isStreaming(taskId) {

@@ -57,3 +57,83 @@ test("only the selected open SSE connection slows fallback polling, and disconne
   f.controller.close();
   assert.equal(f.controller.isStreaming("b"), false);
 });
+
+test("batches pure runtime_event records into streamRecords and resets on non-runtime or close", (t) => {
+  const f = fixture(t);
+  const calls = [];
+  const frames = [];
+  const prevRaf = globalThis.requestAnimationFrame;
+  const prevCancel = globalThis.cancelAnimationFrame;
+  globalThis.requestAnimationFrame = (fn) => {
+    frames.push(fn);
+    return frames.length;
+  };
+  globalThis.cancelAnimationFrame = () => {};
+  t.after(() => {
+    globalThis.requestAnimationFrame = prevRaf;
+    globalThis.cancelAnimationFrame = prevCancel;
+  });
+
+  let emitRecord;
+  const controller = createConnectionController({
+    state: f.state,
+    loadDetail: (id) => f.detailReads.push(id),
+    renderRunState: () => {},
+    renderConversation: (messages, task, options) => calls.push({ messages, task, options }),
+    openStream: (_path, { onOpen, onRecord }) => {
+      onOpen?.();
+      emitRecord = onRecord;
+      return new Promise(() => {});
+    }
+  });
+
+  f.state.selected = "t1";
+  f.state.detail = {
+    task: { taskId: "t1", status: "running", activeRunId: "r1" },
+    messages: [],
+    runtimeEvents: []
+  };
+  controller.connect("t1");
+
+  const r1 = {
+    eventId: "runtime-r1-1",
+    type: "runtime_event",
+    runId: "r1",
+    payload: {
+      type: "message_update",
+      assistantMessageEvent: { type: "text_delta", contentIndex: 0, delta: "a" }
+    }
+  };
+  const r2 = {
+    eventId: "runtime-r1-2",
+    type: "runtime_event",
+    runId: "r1",
+    payload: {
+      type: "message_update",
+      assistantMessageEvent: { type: "text_delta", contentIndex: 0, delta: "b" }
+    }
+  };
+  emitRecord(r1);
+  emitRecord(r2);
+  assert.equal(frames.length, 1);
+  frames.shift()();
+  assert.equal(calls.length, 1);
+  assert.deepEqual(calls[0].options?.streamRecords, [r1, r2]);
+
+  // Mixing a non-runtime event clears streamRecords so the frame runs full render.
+  const r3 = {
+    eventId: "runtime-r1-3",
+    type: "runtime_event",
+    runId: "r1",
+    payload: {
+      type: "message_update",
+      assistantMessageEvent: { type: "text_delta", contentIndex: 0, delta: "c" }
+    }
+  };
+  emitRecord(r3);
+  emitRecord({ eventId: "ledger-1", type: "main.run_completed", runId: "r1" });
+  frames.shift()();
+  assert.equal(calls.length, 2);
+  assert.equal(calls[1].options, undefined);
+  controller.dispose();
+});
