@@ -7,7 +7,11 @@ import { join } from "node:path";
 import { test } from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
 import { LocalWorkspaceStore } from "../dist/src/workspace/workspace-store.js";
-import { MainInboxDelivery } from "../dist/src/runtime/main-inbox-delivery.js";
+import {
+  MainInboxDelivery,
+  extractInboxReceipts,
+  selectDurableAckEntries
+} from "../dist/src/runtime/main-inbox-delivery.js";
 import { CoordinatorRuntime } from "../dist/src/runtime/coordinator-runtime.js";
 import { DurableScheduler, InboxStore } from "../dist/src/runtime/scheduler.js";
 import { HumanRequestStore } from "../dist/src/runtime/human.js";
@@ -899,4 +903,114 @@ test("resumed queued input is acknowledged from its durable identity, including 
     events.filter((e) => e.type === "inbox.consumed" && e.payload.messageId === "resume-one").length,
     1
   );
+});
+
+test("extractInboxReceipts covers toolResult multi/cross-run, user, and custom receipts; selectDurableAckEntries gates other-branch entries on persisted jsonl", async (t) => {
+  const { root, inbox, bridge } = await fixture(t);
+  await new LocalWorkspaceStore(root).createRun("task", "prior-run");
+  const priorInbox = new InboxStore(join(root, "task/runs/prior-run/agents/main/inbox-store.json"));
+  const now = new Date().toISOString();
+  await priorInbox.enqueue({
+    messageId: "cross-run-cb",
+    recipientAgentId: "main",
+    callId: "c-prior",
+    kind: "callback",
+    eventId: "e-cross-prior",
+    priority: 1,
+    state: "ready",
+    payload: { callId: "c-prior" },
+    createdAt: now
+  });
+  await inbox.enqueue({
+    messageId: "branch-a-custom",
+    recipientAgentId: "main",
+    kind: "human_command",
+    eventId: "e-branch-a",
+    priority: 1,
+    state: "ready",
+    payload: { type: "human.answer", answer: "yes" },
+    createdAt: now
+  });
+  await inbox.enqueue({
+    messageId: "branch-b-custom",
+    recipientAgentId: "main",
+    callId: "c-branch-b",
+    kind: "callback",
+    eventId: "e-branch-b",
+    priority: 1,
+    state: "ready",
+    payload: { callId: "c-branch-b" },
+    createdAt: now
+  });
+
+  const branchAEntry = {
+    type: "custom_message",
+    id: "entry-a",
+    customType: "cowork-human-answer",
+    content: "answer",
+    details: { _coworkInbox: { taskId: "task", runId: "run", messageId: "branch-a-custom" } }
+  };
+  const waitEntry = {
+    type: "message",
+    id: "entry-wait",
+    message: {
+      role: "toolResult",
+      toolName: "wait_for_subagents",
+      isError: false,
+      details: {
+        _coworkInboxMessages: [
+          { taskId: "task", runId: "run", messageId: "cb-1" },
+          { taskId: "task", runId: "prior-run", messageId: "cross-run-cb" }
+        ]
+      }
+    }
+  };
+  const branchBEntry = {
+    type: "custom_message",
+    id: "entry-b",
+    customType: "cowork-callback",
+    content: "branch b",
+    details: { _coworkInbox: { taskId: "task", runId: "run", messageId: "branch-b-custom" } }
+  };
+
+  const receipts = extractInboxReceipts([branchAEntry, waitEntry, branchBEntry], "task", "run");
+  assert.deepEqual(
+    receipts.map((r) => `${r.runId}:${r.messageId}:${r.delivery ?? ""}`),
+    ["run:branch-a-custom:", "run:cb-1:wait", "prior-run:cross-run-cb:wait", "run:branch-b-custom:"]
+  );
+
+  // Unflushed in-memory session (no jsonl on disk): other-branch entry-b MUST NOT be acknowledged.
+  const missingFile = join(root, "task/sessions/main/pi/unflushed.jsonl");
+  const unflushedEligible = await selectDurableAckEntries({
+    branch: [branchAEntry, waitEntry],
+    allEntries: [branchAEntry, waitEntry, branchBEntry],
+    sessionFile: missingFile,
+    taskId: "task",
+    runId: "run"
+  });
+  assert.deepEqual(
+    unflushedEligible.map((e) => e.id),
+    ["entry-a", "entry-wait"]
+  );
+  await bridge.acknowledge(unflushedEligible);
+  assert.equal((await inbox.list("main")).find((m) => m.messageId === "branch-a-custom").state, "consumed");
+  assert.equal((await priorInbox.list("main")).find((m) => m.messageId === "cross-run-cb").state, "consumed");
+  assert.equal((await inbox.list("main")).find((m) => m.messageId === "branch-b-custom").state, "ready");
+
+  // Persisted jsonl on disk containing entry-b: other-branch entry-b IS eligible and consumed.
+  await mkdir(join(root, "task/sessions/main/pi"), { recursive: true });
+  await writeFile(missingFile, `${JSON.stringify(branchAEntry)}\n${JSON.stringify(branchBEntry)}\n`);
+  const persistedEligible = await selectDurableAckEntries({
+    branch: [branchAEntry, waitEntry],
+    allEntries: [branchAEntry, waitEntry, branchBEntry],
+    sessionFile: missingFile,
+    taskId: "task",
+    runId: "run"
+  });
+  assert.deepEqual(
+    persistedEligible.map((e) => e.id),
+    ["entry-a", "entry-wait", "entry-b"]
+  );
+  await bridge.acknowledge(persistedEligible);
+  assert.equal((await inbox.list("main")).find((m) => m.messageId === "branch-b-custom").state, "consumed");
 });

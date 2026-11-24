@@ -127,7 +127,7 @@ export async function persistMainContext(
       version: 1,
       messagesSavedAt: new Date().toISOString()
     };
-    await atomicWrite(paths.messages, `${JSON.stringify(entries, null, 2)}\n`);
+    await atomicWrite(paths.messages, `${JSON.stringify(entries)}\n`);
     await atomicWrite(paths.state, `${JSON.stringify(next, null, 2)}\n`);
     return next;
   });

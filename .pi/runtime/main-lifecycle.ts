@@ -12,7 +12,9 @@ import { onProcessWake, startAgentWake, stopAgentWake } from "../../dist/src/run
 import { watchFiles, type StopWatching } from "../../dist/src/runtime/file-watch.js";
 import {
   MainInboxDelivery,
+  extractInboxReceipts,
   isCancelledCallback,
+  selectDurableAckEntries,
   type MainControlType
 } from "../../dist/src/runtime/main-inbox-delivery.js";
 import { pauseSubagents, resumeSubagents } from "../../dist/src/runtime/subagent-pause.js";
@@ -44,6 +46,7 @@ interface MainLifecycleOptions {
   isReplaying(): boolean;
   replayWithoutNewContext(): boolean;
   persistSession(ctx: ExtensionContext): Promise<void>;
+  materializeRequestSnapshot(): Promise<void>;
   updateRuntime(patch: Parameters<typeof updateMainContextRuntime>[1]): Promise<void>;
 }
 
@@ -60,6 +63,7 @@ export function registerMainLifecycle(
     isReplaying,
     replayWithoutNewContext,
     persistSession,
+    materializeRequestSnapshot,
     updateRuntime
   }: MainLifecycleOptions
 ) {
@@ -330,6 +334,15 @@ export function registerMainLifecycle(
     }
   };
 
+  const durableAckEntries = (ctx: ExtensionContext) =>
+    selectDurableAckEntries({
+      branch: ctx.sessionManager.getBranch(),
+      allEntries: ctx.sessionManager.getEntries(),
+      sessionFile: ctx.sessionManager.getSessionFile(),
+      taskId,
+      runId: mainRunId
+    });
+
   pi.on("agent_settled", async (_event, ctx) => {
     const settlingTurn = turnId;
     const failedTurn = lastMainMessage as { role?: string; stopReason?: string } | undefined;
@@ -337,8 +350,11 @@ export function registerMainLifecycle(
     try {
       sessionContext = ctx;
       await persistSession(ctx);
+      await materializeRequestSnapshot().catch((error) => {
+        ctx.ui.notify(`Request snapshot materialization failed: ${errorMessage(error)}`, "warning");
+      });
       const replayOnly = replayWithoutNewContext();
-      await inboxDelivery.settle(replayOnly ? [] : ctx.sessionManager.getEntries());
+      await inboxDelivery.settle(replayOnly ? [] : await durableAckEntries(ctx));
       try {
         const taskStore = new LocalWorkspaceStore(workspaceRoot);
         const task = await taskStore.readTask(taskId);
@@ -589,7 +605,11 @@ export function registerMainLifecycle(
   });
 
   async function startInbox(ctx: ExtensionContext) {
-    if (!isReplaying()) await inboxDelivery.acknowledge(ctx.sessionManager.getEntries());
+    if (!isReplaying()) {
+      const branch = ctx.sessionManager.getBranch();
+      if (extractInboxReceipts(branch, taskId, mainRunId).length > 0) await persistSession(ctx);
+      await inboxDelivery.acknowledge(await durableAckEntries(ctx));
+    }
     // A pause that arrived after this Run's first turn was accepted stops the
     // next turn, not the accepted one. Decide that before any delivery: the
     // record of the accepted input is older than the pause request, while
@@ -697,6 +717,9 @@ export function registerMainLifecycle(
     close,
     setSession(ctx: ExtensionContext) {
       sessionContext = ctx;
+    },
+    get sessionContext() {
+      return sessionContext;
     },
     get turnCount() {
       return mainTurns;

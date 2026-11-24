@@ -1,4 +1,17 @@
-import { finishMessageEditTransaction } from "../dist/src/runtime/main-message-edit-transaction.js";
+import {
+  beginMessageEditTransaction,
+  finishMessageEditTransaction,
+  readyMessageEditTransaction,
+  recoverMessageEditTransaction,
+  rollbackMessageEditTransaction
+} from "../dist/src/runtime/main-message-edit-transaction.js";
+import {
+  MainRequestStore,
+  mainRequestPath,
+  mainRequestStatePath
+} from "../dist/src/storage/main-request-store.js";
+import { mainRequestEnvironment } from "../dist/src/runtime/main-request-retry.js";
+import { installedPiVersion } from "./pi-version-fixture.mjs";
 import { spawn } from "node:child_process";
 import { pathToFileURL } from "node:url";
 import assert from "node:assert/strict";
@@ -540,3 +553,214 @@ for (const stage of ["prepared", "input", "task", "launch_ready"]) {
     assert.deepEqual(await store.readTask("task"), restored);
   });
 }
+
+test("editing archives a merged v1 request snapshot that independently passes validation and rollback restores both base and sidecar", async (t) => {
+  const f = await fixture(t);
+  const project = join(f.root, "project");
+  await mkdir(project, { recursive: true });
+  const env = await mainRequestEnvironment(f.root, "task", project);
+  const reqStore = new MainRequestStore(mainRequestPath(f.root, "task"), "task");
+  await reqStore.begin({
+    runId: "old-run",
+    requestId: "req-before-edit",
+    model: {
+      id: "gpt-test",
+      name: "gpt-test",
+      api: "openai-completions",
+      provider: "local",
+      baseUrl: "http://127.0.0.1:41234/v1",
+      reasoning: false,
+      input: ["text"],
+      cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+      contextWindow: 128000,
+      maxTokens: 4096
+    },
+    context: { systemPrompt: "sys", messages: [{ role: "user", content: "old", timestamp: f.time }] },
+    environment: { projectDirectory: env.projectDirectory },
+    executionScope: env.executionScope,
+    endpoint: "http://127.0.0.1:41234/v1/chat/completions",
+    piVersion: installedPiVersion,
+    body: JSON.stringify({ model: "gpt-test", messages: [{ role: "user", content: "old" }] })
+  });
+  await reqStore.settle("req-before-edit", "completed");
+  const baseBefore = await readFile(reqStore.filePath, "utf8");
+  const sidecarBefore = await readFile(reqStore.statePath, "utf8");
+
+  const edit = await prepareMessageEdit(f.root, "task", f.request, "replacement", "new-run");
+  const versions = await readMessageVersions(f.root, "task");
+  const archivePath = versions.archives[0].retrySnapshotPath;
+  const archived = await new MainRequestStore(archivePath, "task").read();
+  assert.equal(archived.requestId, "req-before-edit");
+  assert.equal(archived.state, "completed");
+
+  await reqStore.clear();
+  await edit.rollback();
+  assert.equal(await readFile(reqStore.filePath, "utf8"), baseBefore);
+  assert.equal(await readFile(reqStore.statePath, "utf8"), sidecarBefore);
+  assert.equal((await reqStore.read()).state, "completed");
+});
+
+test("legacy 5-path edit transaction rolls back cleanly and clears extraneous sidecar", async (t) => {
+  const f = await fixture(t);
+  const txPath = join(f.root, "task", "sessions", "main", "edit-transaction.json");
+  const reqPath = mainRequestPath(f.root, "task");
+  const statePath = mainRequestStatePath(f.root, "task");
+  const context = mainContextPaths(f.root, "task");
+  await writeFile(reqPath, "LEGACY_BASE_BYTES");
+  await writeFile(statePath, "EXTRANEOUS_SIDECAR");
+  const legacyTx = {
+    version: 1,
+    taskId: "task",
+    runId: "new-run",
+    phase: "prepared",
+    intent: { editId: f.request.editId, prompt: "replacement" },
+    before: [
+      {
+        path: join(f.root, "task", "task.json"),
+        bytes: await readFile(join(f.root, "task", "task.json"), "utf8")
+      },
+      { path: join(f.root, "task", "sessions", "main", "versions.json"), bytes: null },
+      { path: context.messages, bytes: await readFile(context.messages, "utf8") },
+      { path: context.state, bytes: await readFile(context.state, "utf8") },
+      { path: reqPath, bytes: "LEGACY_BASE_BYTES" }
+    ]
+  };
+  await writeFile(txPath, JSON.stringify(legacyTx));
+  await writeFile(reqPath, "MUTATED_BASE");
+  await assert.equal(await recoverMessageEditTransaction(f.root, "task"), true);
+  assert.equal(await readFile(reqPath, "utf8"), "LEGACY_BASE_BYTES");
+  await assert.rejects(readFile(statePath), { code: "ENOENT" });
+  await assert.rejects(readFile(txPath), { code: "ENOENT" });
+});
+
+test("6-path edit transactions recover by phase (prepared & launch_ready) before downgrade without active transaction leftover", async (t) => {
+  for (const phase of ["prepared", "launch_ready"]) {
+    await t.test(phase, async (t) => {
+      const f = await fixture(t);
+      const store = new LocalWorkspaceStore(f.root);
+      await store.updateTask("task", { activeRunId: "old-run", model: "old-model", goal: "old-goal" });
+      await store.transitionTask("task", "running", { runId: "old-run" });
+      await store.transitionTask("task", "failed", { runId: "old-run" });
+      const old = JSON.parse(await readFile(mainInputPath(f.root, "task", "old-run"), "utf8"));
+      await saveAcceptedMainMessage(f.root, "task", { ...old, taskId: "task", runId: "old-run" });
+      const reqPath = mainRequestPath(f.root, "task");
+      const statePath = mainRequestStatePath(f.root, "task");
+      await writeFile(reqPath, "V1_BASE_ONLY");
+      await assert.rejects(readFile(statePath), { code: "ENOENT" });
+      await prepareMessageEdit(f.root, "task", f.request, "edited", "new-run");
+      const txPath = join(f.root, "task", "sessions", "main", "edit-transaction.json");
+      const tx = JSON.parse(await readFile(txPath, "utf8"));
+      assert.equal(tx.before.length, 6);
+      assert.equal(tx.before[5].path, statePath);
+      assert.equal(tx.before[5].bytes, null);
+      if (phase === "launch_ready") {
+        const input = {
+          ...old,
+          prompt: "edited",
+          body: "edited",
+          taskId: "task",
+          runId: "new-run",
+          messageId: randomUUID(),
+          submittedAt: Date.now()
+        };
+        await saveMainInput(mainInputPath(f.root, "task", "new-run"), input);
+        await saveAcceptedMainMessage(f.root, "task", input);
+        await store.transitionTask("task", "running", { runId: "new-run" });
+        await store.updateTask("task", { activeRunId: "new-run" });
+        await readyMessageEditTransaction(f.root, "task");
+      }
+      // Recover in a fresh process (outside this process's live transaction set).
+      const modUrl = JSON.stringify(
+        pathToFileURL(resolve("dist/src/runtime/main-message-edit-transaction.js")).href
+      );
+      await childProcess(
+        `import { recoverMessageEditTransaction } from ${modUrl}; const recovered = await recoverMessageEditTransaction(${JSON.stringify(f.root)}, "task"); if (!recovered) throw new Error("expected recovery");`
+      );
+      await assert.rejects(readFile(txPath), { code: "ENOENT" });
+      await assert.rejects(readFile(statePath), { code: "ENOENT" });
+      const archivedTx = JSON.parse(
+        await readFile(join(f.root, "task", "sessions", "main", "edit-transaction-new-run.json"), "utf8")
+      );
+      assert.equal(archivedTx.phase, phase);
+      const after = await store.readTask("task");
+      if (phase === "prepared") {
+        assert.equal(after.activeRunId, "old-run");
+        assert.equal(after.status, "failed");
+        assert.equal(await readFile(reqPath, "utf8"), "V1_BASE_ONLY");
+      } else {
+        assert.equal(after.activeRunId, "new-run");
+        assert.equal(after.status, "waiting");
+      }
+    });
+  }
+});
+
+test(
+  "concurrent settle() interleaving with edit transaction begin/rollback never deadlocks or tears the pair",
+  { timeout: 10_000 },
+  async (t) => {
+    const f = await fixture(t);
+    const project = join(f.root, "project");
+    await mkdir(project, { recursive: true });
+    const env = await mainRequestEnvironment(f.root, "task", project);
+    const reqStore = new MainRequestStore(mainRequestPath(f.root, "task"), "task");
+    const baseInput = {
+      runId: "old-run",
+      model: {
+        id: "gpt-test",
+        name: "gpt-test",
+        api: "openai-completions",
+        provider: "local",
+        baseUrl: "http://127.0.0.1:41234/v1",
+        reasoning: false,
+        input: ["text"],
+        cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+        contextWindow: 128000,
+        maxTokens: 4096
+      },
+      context: { systemPrompt: "sys", messages: [{ role: "user", content: "old", timestamp: f.time }] },
+      environment: { projectDirectory: env.projectDirectory },
+      executionScope: env.executionScope,
+      endpoint: "http://127.0.0.1:41234/v1/chat/completions",
+      piVersion: installedPiVersion,
+      body: JSON.stringify({ model: "gpt-test", messages: [{ role: "user", content: "old" }] })
+    };
+    for (let round = 0; round < 5; round++) {
+      const reqId = `req-interleave-${round}`;
+      await reqStore.begin({ ...baseInput, requestId: reqId });
+      await Promise.all([
+        reqStore.settle(reqId, "completed"),
+        beginMessageEditTransaction(
+          f.root,
+          "task",
+          `edit-run-${round}`,
+          {
+            version: 1,
+            taskId: "task",
+            versionId: "v0",
+            sessionFile: f.session.getSessionFile(),
+            excludedRuns: [],
+            prefixEvents: [],
+            archives: [],
+            edits: []
+          },
+          { editId: randomUUID(), prompt: "p" }
+        )
+      ]);
+      const tx = JSON.parse(
+        await readFile(join(f.root, "task", "sessions", "main", "edit-transaction.json"), "utf8")
+      );
+      const baseEntry = tx.before[4];
+      const sidecarEntry = tx.before[5];
+      assert.ok(baseEntry.bytes !== null);
+      if (sidecarEntry.bytes !== null) {
+        assert.equal(JSON.parse(sidecarEntry.bytes).snapshotChecksum, JSON.parse(baseEntry.bytes).checksum);
+      }
+      await Promise.all([reqStore.settle(reqId, "failed"), rollbackMessageEditTransaction(f.root, "task")]);
+      // After both settle and rollback finish, store.read() must stay valid and never throw corruption.
+      const finalSnapshot = await reqStore.read();
+      assert.equal(finalSnapshot.requestId, reqId);
+      assert.ok(["pending", "completed", "failed"].includes(finalSnapshot.state));
+    }
+  }
+);

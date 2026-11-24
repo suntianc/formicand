@@ -9,6 +9,7 @@ import { InboxStore } from "../runtime/scheduler.js";
 import { SubagentQuestionStore } from "../runtime/subagent-questions.js";
 import { assessTaskCompletion, isFinalAssistantMessage } from "../runtime/task-completion.js";
 import { mainRunFailure } from "./main-run-outcome.js";
+import { MainRequestStore, mainRequestPath } from "../storage/main-request-store.js";
 import { type TaskRecord, type TaskStatus } from "../domain/types.js";
 import type { TaskLocation } from "./workspace-directory.js";
 import {
@@ -154,6 +155,13 @@ export function createResidentMainSettlement({
         await resident.runtimeOutput?.finish();
       }
       await discardPendingInterrupts(location, taskId, runId);
+      await new MainRequestStore(mainRequestPath(taskWorkspace, taskId), taskId)
+        .materialize()
+        .catch((error) => {
+          console.error(
+            `[cowork] materializing request snapshot failed: ${error instanceof Error ? error.message : String(error)}`
+          );
+        });
       const settledTask = await location.store.readTask(taskId);
       if (replacing) return;
       if (cancellations.has(taskId) || settledTask.status === "cancelled") return;

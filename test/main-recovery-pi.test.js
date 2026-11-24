@@ -1,14 +1,18 @@
 import assert from "node:assert/strict";
 import { readFixtureRequestBody } from "./http-request-body-fixture.mjs";
 import { once } from "node:events";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { join } from "node:path";
 import { test } from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
+import { SessionManager } from "@earendil-works/pi-coding-agent";
 import { startDashboard } from "./dashboard-fixture.mjs";
 const { mainInputPath, saveMainInput } = await import("../dist/src/runtime/main-continuation.js");
 const { LocalWorkspaceStore } = await import("../dist/src/workspace/workspace-store.js");
+const { DurableScheduler, InboxStore } = await import("../dist/src/runtime/scheduler.js");
+const { MainRequestStore, mainRequestPath, mainRequestStatePath } =
+  await import("../dist/src/storage/main-request-store.js");
 
 const shellQuote = (text) => `'${text.replaceAll("'", "'\\''")}'`;
 
@@ -611,3 +615,428 @@ function processAlive(pid) {
     return error.code === "EPERM";
   }
 }
+
+test(
+  "real Pi: SIGKILL immediately after acknowledging wait_for_subagents receipts preserves results exactly once",
+  { timeout: 60_000 },
+  async (t) => {
+    let runId = "";
+    let step2Reached = false;
+    let releaseStep2;
+    const step2Held = new Promise((resolve) => {
+      releaseStep2 = resolve;
+    });
+    let killed = false;
+    const local = await fixture(t, async ({ body, response }) => {
+      if (!killed && !body.messages.some((m) => m.role === "tool")) {
+        const taskId = "wait-receipt-sigkill";
+        if (!runId) {
+          runId = JSON.parse(
+            await readFile(join(local.workspaceRoot, taskId, "task.json"), "utf8")
+          ).activeRunId;
+        }
+        const scheduler = new DurableScheduler(
+          join(local.workspaceRoot, taskId, "runs", runId, "queue.json")
+        );
+        const inbox = new InboxStore(
+          join(local.workspaceRoot, taskId, "runs", runId, "agents", "main", "inbox-store.json")
+        );
+        const now = new Date().toISOString();
+        const leaseExpiry = new Date(Date.now() + 200).toISOString();
+        const claimedLeases = [];
+        for (const [stepId, messageId, marker] of [
+          ["sub-wait-a", "cb-wait-a", "SUBAGENT_UNIQUE_MARKER_A"],
+          ["sub-wait-b", "cb-wait-b", "SUBAGENT_UNIQUE_MARKER_B"]
+        ]) {
+          await scheduler.enqueue({
+            stepId,
+            taskId,
+            runId,
+            agentId: `agent-${stepId}`,
+            importance: "normal",
+            payload: { task: "inspect" }
+          });
+          const leased = await scheduler.claim("worker");
+          claimedLeases.push([stepId, leased.lease.token]);
+          await inbox.enqueue({
+            messageId,
+            recipientAgentId: "main",
+            callId: stepId,
+            kind: "callback",
+            eventId: `ev-${messageId}`,
+            priority: 1,
+            state: "leased",
+            lease: { consumerId: "fixture-pre-wait", expiresAt: leaseExpiry },
+            payload: { callId: stepId, response: marker },
+            createdAt: now
+          });
+        }
+        // Complete the two subagent calls in queue.json after the short pre-wait lease expires
+        // (without touching inbox-store.json), so wait_for_subagents deterministically claims both
+        // callbacks into details._coworkInboxMessages.
+        void delay(300).then(async () => {
+          for (const [stepId, token] of claimedLeases) await scheduler.complete(stepId, token);
+        });
+        response.writeHead(200, { "content-type": "text/event-stream" });
+        stream(response, { role: "assistant" });
+        stream(response, {
+          tool_calls: [
+            {
+              index: 0,
+              id: "call_wait_receipts",
+              type: "function",
+              function: {
+                name: "wait_for_subagents",
+                arguments: JSON.stringify({ callIds: ["sub-wait-a", "sub-wait-b"], timeoutMs: 4000 })
+              }
+            }
+          ]
+        });
+        stream(response, {}, "tool_calls");
+        response.end("data: [DONE]\n\n");
+        return;
+      }
+      if (!killed) {
+        step2Reached = true;
+        await step2Held;
+        response.destroy();
+        return;
+      }
+      return complete(response, "Resumed cleanly after wait receipt SIGKILL.");
+    });
+
+    const taskId = "wait-receipt-sigkill";
+    await local.api("/api/tasks", { taskId, goal: "Wait for two callbacks." });
+    const started = await local.api(`/api/tasks/${taskId}/run`, { prompt: "Wait for two callbacks." });
+    runId = started.runId;
+
+    const until = Date.now() + 25_000;
+    while (!step2Reached && Date.now() < until) await delay(20);
+    assert.equal(step2Reached, true, "Pi must reach the post-wait model request");
+
+    const inbox = new InboxStore(
+      join(local.workspaceRoot, taskId, "runs", runId, "agents", "main", "inbox-store.json")
+    );
+    const msgsBeforeKill = await inbox.list("main");
+    assert.equal(msgsBeforeKill.find((m) => m.messageId === "cb-wait-a")?.state, "consumed");
+    assert.equal(msgsBeforeKill.find((m) => m.messageId === "cb-wait-b")?.state, "consumed");
+
+    // Pre-ack forced flush must have already persisted both wait receipts to messages.json BEFORE SIGKILL.
+    const persistedBeforeKill = await readFile(
+      join(local.workspaceRoot, taskId, "agents", "main", "context", "messages.json"),
+      "utf8"
+    );
+    assert.match(persistedBeforeKill, /SUBAGENT_UNIQUE_MARKER_A/);
+    assert.match(persistedBeforeKill, /SUBAGENT_UNIQUE_MARKER_B/);
+
+    const proc = JSON.parse(
+      await readFile(
+        join(local.workspaceRoot, taskId, "runs", runId, "agents", "main", "process.json"),
+        "utf8"
+      )
+    );
+    killed = true;
+    process.kill(proc.pid, "SIGKILL");
+    releaseStep2();
+    await local.settle(taskId, "failed");
+
+    // Resume and then send one follow-up turn so Pi rebuilds live context from its session.
+    await local.api(`/api/tasks/${taskId}/run`, { resume: true });
+    await local.settle(taskId, "completed");
+    await local.api(`/api/tasks/${taskId}/run`, { prompt: "Confirm the two callback markers." });
+    await local.settle(taskId, "completed");
+
+    const finalReq = JSON.stringify(local.requests.at(-1).messages);
+    assert.equal((finalReq.match(/SUBAGENT_UNIQUE_MARKER_A/g) ?? []).length, 1);
+    assert.equal((finalReq.match(/SUBAGENT_UNIQUE_MARKER_B/g) ?? []).length, 1);
+  }
+);
+
+test(
+  "real Pi: missing Pi transcript recovers original context from compact messages.json on --continue",
+  { timeout: 60_000 },
+  async (t) => {
+    let firstHeld = false;
+    let releaseFirst;
+    const firstGate = new Promise((resolve) => {
+      releaseFirst = resolve;
+    });
+    let recoveredPhase = false;
+    const local = await fixture(t, async ({ response }) => {
+      if (!recoveredPhase) {
+        firstHeld = true;
+        await firstGate;
+        response.destroy();
+        return;
+      }
+      return complete(response, "Restored from compact messages.json.");
+    });
+
+    const taskId = "compact-restore-unflushed";
+    const uniquePrompt = "COMPACT_RESTORE_UNIQUE_PROMPT_9481";
+    await local.api("/api/tasks", { taskId, goal: uniquePrompt });
+    const started = await local.api(`/api/tasks/${taskId}/run`, { prompt: uniquePrompt });
+
+    const until = Date.now() + 20_000;
+    while (!firstHeld && Date.now() < until) await delay(20);
+    assert.equal(firstHeld, true);
+
+    const messagesPath = join(local.workspaceRoot, taskId, "agents", "main", "context", "messages.json");
+    const rawCompact = await readFile(messagesPath, "utf8");
+    assert.match(rawCompact, new RegExp(uniquePrompt));
+    assert.ok(!rawCompact.includes("\n  "), "messages.json must be compact single-line JSON");
+
+    const proc = JSON.parse(
+      await readFile(
+        join(local.workspaceRoot, taskId, "runs", started.runId, "agents", "main", "process.json"),
+        "utf8"
+      )
+    );
+    recoveredPhase = true;
+    process.kill(proc.pid, "SIGKILL");
+    releaseFirst();
+    await local.settle(taskId, "failed");
+
+    // Actively construct a workspace with valid compact messages.json and NO usable Pi jsonl transcript,
+    // and clear request-retry.json so --continue must rebuild from restoreUnflushedTaskSession().
+    const piDir = join(local.workspaceRoot, taskId, "sessions", "main", "pi");
+    for (const file of await readdir(piDir)) {
+      if (file.endsWith(".jsonl")) await rm(join(piDir, file), { force: true });
+    }
+    const sessionsBefore = await SessionManager.listAll(piDir);
+    assert.equal(
+      sessionsBefore.some((s) => s.messageCount > 0),
+      false,
+      "fixture must have no usable Pi transcript before --continue"
+    );
+    await new MainRequestStore(mainRequestPath(local.workspaceRoot, taskId), taskId).clear();
+
+    const requestsBeforeContinue = local.requests.length;
+    await local.api(`/api/tasks/${taskId}/run`, { resume: true });
+    await local.settle(taskId, "completed");
+
+    assert.equal(local.requests.length, requestsBeforeContinue + 1);
+    const continuedBody = JSON.stringify(local.requests.at(-1).messages);
+    assert.match(continuedBody, new RegExp(uniquePrompt));
+    const sessionsAfter = await SessionManager.listAll(piDir);
+    assert.equal(
+      sessionsAfter.some((s) => s.messageCount > 0),
+      true,
+      "restoreUnflushedTaskSession must recreate a Pi transcript from compact messages.json"
+    );
+  }
+);
+
+test(
+  "real Pi: SIGKILL during a throttled intermediate tool step preserves loadDetail, SSE after cursor, materialized v1 retry state, and follow-up continuity",
+  { timeout: 60_000 },
+  async (t) => {
+    let phase = "step1";
+    let step2Started = false;
+    let releaseStep2;
+    const step2Gate = new Promise((resolve) => {
+      releaseStep2 = resolve;
+    });
+    const local = await fixture(t, async ({ body, response }) => {
+      const toolCount = body.messages.filter((m) => m.role === "tool").length;
+      if (phase === "step1" && toolCount === 0) {
+        response.writeHead(200, { "content-type": "text/event-stream" });
+        stream(response, { role: "assistant" });
+        stream(response, {
+          tool_calls: [
+            {
+              index: 0,
+              id: "call_step1",
+              type: "function",
+              function: { name: "bash", arguments: JSON.stringify({ command: "printf 'STEP1_MARKER\\n'" }) }
+            }
+          ]
+        });
+        stream(response, {}, "tool_calls");
+        response.end("data: [DONE]\n\n");
+        return;
+      }
+      if (phase === "step1" && toolCount === 1) {
+        step2Started = true;
+        response.writeHead(200, { "content-type": "text/event-stream" });
+        stream(response, { role: "assistant", content: "PARTIAL_MID_TOOL_TEXT" });
+        await step2Gate;
+        response.destroy();
+        return;
+      }
+      return complete(response, "FOLLOW_UP_CONTINUITY_OK");
+    });
+
+    const taskId = "throttled-mid-tool-sigkill";
+    await local.api("/api/tasks", { taskId, goal: "Run two steps and survive SIGKILL." });
+    const started = await local.api(`/api/tasks/${taskId}/run`, {
+      prompt: "Run two steps and survive SIGKILL."
+    });
+
+    const until = Date.now() + 20_000;
+    while (!step2Started && Date.now() < until) await delay(20);
+    assert.equal(step2Started, true);
+    // Allow partial delta to flush into runtime-output.log before SIGKILL.
+    await delay(150);
+
+    // Step 2 is a plain intermediate tool step (< 5s, < 10 entries), so messages.json was throttled
+    // and does NOT yet contain STEP1_MARKER before SIGKILL.
+    const rawMessagesMidTurn = await readFile(
+      join(local.workspaceRoot, taskId, "agents", "main", "context", "messages.json"),
+      "utf8"
+    );
+    assert.doesNotMatch(rawMessagesMidTurn, /STEP1_MARKER/);
+
+    const proc = JSON.parse(
+      await readFile(
+        join(local.workspaceRoot, taskId, "runs", started.runId, "agents", "main", "process.json"),
+        "utf8"
+      )
+    );
+    phase = "followup";
+    process.kill(proc.pid, "SIGKILL");
+    releaseStep2();
+    const failed = await local.settle(taskId, "failed");
+
+    // 1. Backend loadDetail() retains original user prompt, step 1 tool output, and partial text.
+    const detailJson = JSON.stringify({ messages: failed.messages, runtimeEvents: failed.runtimeEvents });
+    assert.match(detailJson, /Run two steps and survive SIGKILL/);
+    assert.match(detailJson, /STEP1_MARKER/);
+    assert.match(detailJson, /PARTIAL_MID_TOOL_TEXT/);
+
+    // 2. Backend exit settlement materialized request-retry.json (no lingering sidecar, valid v1).
+    await assert.rejects(readFile(mainRequestStatePath(local.workspaceRoot, taskId)), { code: "ENOENT" });
+    const materialized = await new MainRequestStore(
+      mainRequestPath(local.workspaceRoot, taskId),
+      taskId
+    ).read();
+    assert.ok(materialized, "request-retry.json must remain a valid v1 snapshot after SIGKILL settlement");
+
+    // 3. SSE replay with `after` cursor yields contiguous runtime event indices without gaps or duplicates.
+    const runtimeIndex = (eventId) => {
+      const match = String(eventId ?? "").match(/-(\d+)$/);
+      return match ? Number(match[1]) : undefined;
+    };
+    const allIndices = failed.runtimeEvents
+      .map((e) => runtimeIndex(e.eventId))
+      .filter((n) => Number.isInteger(n));
+    assert.ok(allIndices.length >= 2, JSON.stringify(failed.runtimeEvents.map((e) => e.eventId)));
+    const pivot = allIndices[Math.floor(allIndices.length / 2)];
+    const expectedTail = allIndices.filter((n) => n >= pivot);
+    const sseController = new AbortController();
+    const sseRes = await fetch(`${local.base}/api/tasks/${taskId}/stream?after=${pivot}`, {
+      signal: sseController.signal
+    });
+    assert.equal(sseRes.status, 200);
+    const reader = sseRes.body.getReader();
+    let sseBuf = "";
+    const deadline = Date.now() + 2_000;
+    while (Date.now() < deadline) {
+      const nextChunk = await Promise.race([
+        reader.read(),
+        delay(200).then(() => ({ done: true, value: undefined }))
+      ]);
+      if (nextChunk.value) sseBuf += Buffer.from(nextChunk.value).toString("utf8");
+      if (nextChunk.done) break;
+    }
+    sseController.abort();
+    const replayedIndices = [...sseBuf.matchAll(/^id: runtime-.*-(\d+)$/gm)].map((m) => Number(m[1]));
+    assert.ok(replayedIndices.length > 0, `SSE stream?after=${pivot} returned no runtime events: ${sseBuf}`);
+    assert.equal(replayedIndices[0], pivot, `SSE after=${pivot} must start at pivot`);
+    for (let i = 1; i < replayedIndices.length; i++) {
+      assert.equal(
+        replayedIndices[i],
+        replayedIndices[i - 1] + 1,
+        `SSE indices must be contiguous: ${JSON.stringify(replayedIndices)}`
+      );
+    }
+    const replayedSet = new Set(replayedIndices);
+    for (const idx of expectedTail) {
+      assert.ok(replayedSet.has(idx), `SSE replay missing settled index ${idx}`);
+    }
+
+    // 4. Follow-up message continues seamlessly and syncs messages.json.
+    await local.api(`/api/tasks/${taskId}/run`, { prompt: "Continue after crash." });
+    await local.settle(taskId, "completed");
+    const syncedMessages = await readFile(
+      join(local.workspaceRoot, taskId, "agents", "main", "context", "messages.json"),
+      "utf8"
+    );
+    assert.match(syncedMessages, /STEP1_MARKER/);
+    assert.match(syncedMessages, /FOLLOW_UP_CONTINUITY_OK/);
+  }
+);
+
+test(
+  "real Pi: startInbox() on a two-branch persisted session consumes active-branch via messages.json and other-branch via persisted jsonl without mixing branches",
+  { timeout: 60_000 },
+  async (t) => {
+    const local = await fixture(t, async ({ response }) => complete(response, "BRANCH_RESTART_OK"));
+    const taskId = "two-branch-start-inbox";
+    const runId = "main-branch-run";
+    await local.api("/api/tasks", { taskId, goal: "Two-branch inbox recovery." });
+    const wsStore = new LocalWorkspaceStore(local.workspaceRoot);
+    await wsStore.createRun(taskId, runId);
+    await wsStore.updateTask(taskId, { activeRunId: runId });
+    await wsStore.transitionTask(taskId, "running", { runId });
+    await wsStore.transitionTask(taskId, "waiting", { runId });
+
+    const piDir = join(local.workspaceRoot, taskId, "sessions", "main", "pi");
+    await mkdir(piDir, { recursive: true });
+    const createdDetail = await local.api(`/api/tasks/${taskId}`);
+    const sessionCwd = await realpath(createdDetail.projectDirectory ?? local.workspaceRoot);
+    const session = SessionManager.create(sessionCwd, piDir);
+    const rootId = session.appendMessage({
+      role: "user",
+      content: [{ type: "text", text: "ROOT_BRANCH_PROMPT" }],
+      timestamp: Date.now()
+    });
+    session.appendCustomMessageEntry("cowork-callback", "OTHER_BRANCH_CALLBACK_TEXT", true, {
+      _coworkInbox: { taskId, runId, messageId: "other-branch-cb" }
+    });
+    session.branch(rootId);
+    session.appendCustomMessageEntry("cowork-callback", "ACTIVE_BRANCH_CALLBACK_TEXT", true, {
+      _coworkInbox: { taskId, runId, messageId: "active-branch-cb" }
+    });
+
+    const inbox = new InboxStore(
+      join(local.workspaceRoot, taskId, "runs", runId, "agents", "main", "inbox-store.json")
+    );
+    const now = new Date().toISOString();
+    for (const messageId of ["active-branch-cb", "other-branch-cb"]) {
+      await inbox.enqueue({
+        messageId,
+        recipientAgentId: "main",
+        callId: `call-${messageId}`,
+        kind: "callback",
+        eventId: `ev-${messageId}`,
+        priority: 1,
+        state: "ready",
+        payload: { callId: `call-${messageId}`, response: messageId },
+        createdAt: now
+      });
+    }
+    await saveMainInput(mainInputPath(local.workspaceRoot, taskId, runId), {
+      version: 1,
+      prompt: "ROOT_BRANCH_PROMPT",
+      submittedAt: Date.now(),
+      taskId,
+      runId,
+      messageId: "root-input",
+      source: "composer"
+    });
+
+    await local.api(`/api/tasks/${taskId}/run`, { prompt: "Follow up after branch restart." });
+    await local.settle(taskId, "completed");
+
+    const afterInbox = await inbox.list("main");
+    assert.equal(afterInbox.find((m) => m.messageId === "active-branch-cb")?.state, "consumed");
+    assert.equal(afterInbox.find((m) => m.messageId === "other-branch-cb")?.state, "consumed");
+    const savedMessages = await readFile(
+      join(local.workspaceRoot, taskId, "agents", "main", "context", "messages.json"),
+      "utf8"
+    );
+    assert.match(savedMessages, /ACTIVE_BRANCH_CALLBACK_TEXT/);
+    assert.doesNotMatch(savedMessages, /OTHER_BRANCH_CALLBACK_TEXT/);
+  }
+);

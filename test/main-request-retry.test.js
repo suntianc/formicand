@@ -88,11 +88,20 @@ test("late settlement cannot replace a newer request or recreate a cleared user 
   const f = await storage(t);
   await f.store.begin(f.input);
   await f.store.begin({ ...f.input, requestId: "newer" });
+  const newerBytes = await readFile(f.store.filePath, "utf8");
   await f.store.settle("request", "completed");
+  assert.equal(await readFile(f.store.filePath, "utf8"), newerBytes);
+  await assert.rejects(readFile(f.store.statePath), { code: "ENOENT" });
   assert.equal((await f.store.pending()).requestId, "newer");
+  await f.store.settle("request", "failed");
+  assert.equal(await readFile(f.store.filePath, "utf8"), newerBytes);
+  await assert.rejects(readFile(f.store.statePath), { code: "ENOENT" });
   await f.store.clear();
   await f.store.settle("newer", "failed");
+  await f.store.settle("newer", "completed");
   assert.equal(await f.store.read(), undefined);
+  await assert.rejects(readFile(f.store.filePath), { code: "ENOENT" });
+  await assert.rejects(readFile(f.store.statePath), { code: "ENOENT" });
 });
 
 test("a dead snapshot writer does not block immediate process recovery", { timeout: 5000 }, async (t) => {

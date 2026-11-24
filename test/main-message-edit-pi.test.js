@@ -8,7 +8,12 @@ import { randomUUID } from "node:crypto";
 import { test } from "node:test";
 import { startDashboard } from "./dashboard-fixture.mjs";
 import { protocolStream } from "./model-protocol-fixture.mjs";
-import { MainRequestStore, mainRequestPath } from "../dist/src/storage/main-request-store.js";
+import {
+  MainRequestStore,
+  mainRequestPath,
+  mainRequestStatePath
+} from "../dist/src/storage/main-request-store.js";
+import { HumanRequestStore } from "../dist/src/runtime/human.js";
 
 async function fixture(t, api, handle) {
   const requests = [];
@@ -264,3 +269,61 @@ for (const api of ["openai-completions", "openai-responses"]) {
     assert.match(current.body, /MODIFIED_INPUT/);
   });
 }
+
+test(
+  "real Pi: editing the instant askhuman publishes a pending question preserves flushed tool context and v1 request archive",
+  { timeout: 60_000 },
+  async (t) => {
+    const f = await fixture(t, "openai-completions", async (requests) => {
+      if (requests.length === 1)
+        return { name: "bash", arguments: { command: "printf 'TOOL_BEFORE_ASK\\n'" } };
+      if (requests.length === 2)
+        return {
+          name: "askhuman",
+          arguments: { questions: [{ question: "IMMEDIATE_EDIT_QUESTION" }] }
+        };
+      return { text: "IMMEDIATELY_EDITED_ANSWER" };
+    });
+    assert.equal(
+      (await f.call("/run", { prompt: "ORIGINAL_ASK_INPUT", body: "ORIGINAL_ASK_INPUT" })).status,
+      202
+    );
+    const humanStore = new HumanRequestStore(f.dashboard.workspaceRoot);
+    let pending = [];
+    for (let attempt = 0; attempt < 1500; attempt++) {
+      pending = await humanStore.list("edit-task", "pending");
+      if (pending.length > 0) break;
+      await delay(10);
+    }
+    assert.equal(pending.length, 1, "askhuman must publish a pending question");
+    // The moment the pending question becomes visible (without waiting for task.status === 'waiting'),
+    // messages.json and materialized v1 request-retry.json must already be durable on disk.
+    const rawMessages = await readFile(
+      join(f.dashboard.workspaceRoot, "edit-task", "agents", "main", "context", "messages.json"),
+      "utf8"
+    );
+    assert.match(rawMessages, /TOOL_BEFORE_ASK/);
+    await assert.rejects(readFile(mainRequestStatePath(f.dashboard.workspaceRoot, "edit-task")), {
+      code: "ENOENT"
+    });
+    const immediateDetail = await f.detail();
+    assert.ok(immediateDetail.editableMessage, JSON.stringify(immediateDetail));
+    const edited = await f.edit(immediateDetail, "IMMEDIATELY_EDITED_INPUT");
+    assert.equal(edited.status, 202, JSON.stringify(edited));
+    const settled = await f.settle("completed");
+    assert.equal(settled.humanRequests[0].status, "cancelled");
+    const versions = JSON.parse(
+      await readFile(
+        join(f.dashboard.workspaceRoot, "edit-task", "sessions", "main", "versions.json"),
+        "utf8"
+      )
+    );
+    assert.match(await readFile(versions.archives[0].sessionFile, "utf8"), /TOOL_BEFORE_ASK/);
+    const archivedReq = await new MainRequestStore(
+      versions.archives[0].retrySnapshotPath,
+      "edit-task"
+    ).read();
+    assert.equal(archivedReq.state, "completed");
+    assert.match(archivedReq.body, /TOOL_BEFORE_ASK/);
+  }
+);

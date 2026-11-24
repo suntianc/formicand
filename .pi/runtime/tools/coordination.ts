@@ -670,10 +670,18 @@ export async function askHumanAndWait(
   context: CoworkToolContext,
   input: Omit<HumanInput, "taskId" | "runId">,
   signal: AbortSignal | undefined,
-  ctx: { ui: { notify(message: string, type?: "info" | "warning" | "error"): void } }
+  ctx: {
+    ui: { notify(message: string, type?: "info" | "warning" | "error"): void };
+    sessionManager?: Parameters<CoworkToolContext["flushSessionContext"]>[0]["sessionManager"];
+  }
 ) {
   const releaseAnswers = context.inboxDelivery.holdHumanAnswers();
   try {
+    // Publish durable context and native v1 retry state BEFORE creating the
+    // pending human request, because the edit endpoint accepts edits as soon as
+    // that pending question becomes visible.
+    if (ctx.sessionManager) await context.flushSessionContext({ sessionManager: ctx.sessionManager });
+    await context.materializeRequestSnapshot();
     const timeoutMs = configuredHumanAnswerTimeout(context.runtimeEnv);
     const request = await context.humanStore.create({
       ...input,

@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import { execFile, spawn } from "node:child_process";
 import { once } from "node:events";
-import { mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
+import { chmod, copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { test } from "node:test";
 import { promisify } from "node:util";
 import { normalizeContext } from "@earendil-works/pi-ai";
@@ -144,6 +144,8 @@ test("a retry Run transfer preserves the complete request and refuses stale or c
   await f.store.reassignRun(original, "selected-retry-run");
   const moved = await f.store.pending();
   assert.equal(moved.runId, "selected-retry-run");
+  assert.equal(moved.state, "failed");
+  await assert.rejects(readFile(f.store.statePath), { code: "ENOENT" });
   const { runId: _run, checksum: _checksum, ...request } = moved;
   const { runId: _originalRun, checksum: _originalChecksum, ...originalRequest } = original;
   assert.deepEqual(request, originalRequest);
@@ -303,4 +305,126 @@ test("malformed version annotations report a damaged snapshot instead of throwin
       await assert.rejects(f.store.read(), snapshotChanged);
     });
   }
+});
+
+test("settle('completed') uses the light sidecar without rewriting base bytes and read() recomputes a valid v1 checksum", async (t) => {
+  const f = await storage(t);
+  await f.store.begin(f.input);
+  const baseBefore = await readFile(f.store.filePath, "utf8");
+  await assert.rejects(readFile(f.store.statePath), { code: "ENOENT" });
+
+  await f.store.settle(f.input.requestId, "completed");
+  assert.equal(await readFile(f.store.filePath, "utf8"), baseBefore);
+  const sidecar = JSON.parse(await readFile(f.store.statePath, "utf8"));
+  assert.equal(sidecar.state, "completed");
+  assert.equal(sidecar.snapshotChecksum, JSON.parse(baseBefore).checksum);
+
+  const merged = await f.store.read();
+  assert.equal(merged.state, "completed");
+  assert.notEqual(merged.checksum, JSON.parse(baseBefore).checksum);
+  assert.equal(await f.store.pending(), undefined);
+
+  // Merged snapshot must independently pass pure v1 validation without any sidecar.
+  const standalonePath = join(f.root, "standalone-v1.json");
+  await writeFile(standalonePath, JSON.stringify(merged), { mode: 0o600 });
+  const standalone = await new MainRequestStore(standalonePath, "task").read();
+  assert.deepEqual(standalone, merged);
+
+  // settle('failed') writes directly to v1 base and removes the sidecar.
+  await f.store.settle(f.input.requestId, "failed");
+  await assert.rejects(readFile(f.store.statePath), { code: "ENOENT" });
+  assert.equal(JSON.parse(await readFile(f.store.filePath, "utf8")).state, "failed");
+  assert.equal((await f.store.pending()).state, "failed");
+});
+
+test("sidecar corruption fails closed, stale sidecar is ignored, and rejected claim leaves both files untouched", async (t) => {
+  const f = await storage(t);
+  await f.store.begin(f.input);
+  await f.store.settle(f.input.requestId, "completed");
+  const baseBytes = await readFile(f.store.filePath, "utf8");
+  const sidecarBytes = await readFile(f.store.statePath, "utf8");
+
+  // Rejected begin(expected) alters neither base nor sidecar.
+  await assert.rejects(
+    f.store.begin(
+      { ...f.input, runId: "retry-run", requestId: "retry-req" },
+      { runId: f.input.runId, requestId: f.input.requestId }
+    ),
+    snapshotChanged
+  );
+  assert.equal(await readFile(f.store.filePath, "utf8"), baseBytes);
+  assert.equal(await readFile(f.store.statePath, "utf8"), sidecarBytes);
+
+  // Tampered sidecar fails closed without deleting evidence.
+  const tampered = JSON.stringify({ ...JSON.parse(sidecarBytes), state: "failed" });
+  await writeFile(f.store.statePath, tampered, { mode: 0o600 });
+  await assert.rejects(f.store.read(), snapshotChanged);
+  await assert.rejects(f.store.pending(), snapshotChanged);
+  assert.equal(await readFile(f.store.statePath, "utf8"), tampered);
+
+  // Stale sidecar left over from a begin() crash before sidecar removal is ignored and cleaned by materialize().
+  await f.store.begin({ ...f.input, requestId: "next-request" });
+  await writeFile(f.store.statePath, sidecarBytes, { mode: 0o600 });
+  assert.equal((await f.store.pending()).requestId, "next-request");
+  assert.equal((await f.store.pending()).state, "pending");
+  await f.store.materialize();
+  await assert.rejects(readFile(f.store.statePath), { code: "ENOENT" });
+  assert.equal((await f.store.pending()).requestId, "next-request");
+});
+
+test("materialize() prepares native v1 downgrade for settled and unsettled snapshots, and cleans orphan sidecars", async (t) => {
+  const f = await storage(t);
+
+  // 1. Settled request: materialize() flushes completed state into v1 base and removes sidecar.
+  await f.store.begin(f.input);
+  await f.store.settle(f.input.requestId, "completed");
+  await f.store.materialize();
+  await assert.rejects(readFile(f.store.statePath), { code: "ENOENT" });
+  const v1SettledPath = join(f.root, "downgrade-settled.json");
+  await copyFile(f.store.filePath, v1SettledPath);
+  const v1Settled = new MainRequestStore(v1SettledPath, "task");
+  assert.equal((await v1Settled.read()).state, "completed");
+  assert.equal(await v1Settled.pending(), undefined);
+
+  // 2. Unsettled request (exit after begin(), before settle()): materialize() is a no-op and preserves pending retryability.
+  await f.store.begin({ ...f.input, requestId: "unsettled-req" });
+  await assert.rejects(readFile(f.store.statePath), { code: "ENOENT" });
+  await f.store.materialize();
+  await assert.rejects(readFile(f.store.statePath), { code: "ENOENT" });
+  const v1UnsettledPath = join(f.root, "downgrade-unsettled.json");
+  await copyFile(f.store.filePath, v1UnsettledPath);
+  const v1Unsettled = new MainRequestStore(v1UnsettledPath, "task");
+  assert.equal((await v1Unsettled.pending()).requestId, "unsettled-req");
+  assert.equal((await v1Unsettled.pending()).state, "pending");
+
+  // 3. clear() interrupted between deleting base file and deleting sidecar: read() returns undefined, materialize() cleans orphan sidecar.
+  await f.store.settle("unsettled-req", "completed");
+  await rm(f.store.filePath);
+  assert.equal(await f.store.read(), undefined);
+  assert.equal(await f.store.pending(), undefined);
+  await f.store.materialize();
+  await assert.rejects(readFile(f.store.statePath), { code: "ENOENT" });
+});
+
+test("materialize() write failure preserves both base and sidecar and recovers once writable", async (t) => {
+  if (process.platform === "win32" || process.getuid?.() === 0) return;
+  const f = await storage(t);
+  await f.store.begin(f.input);
+  await f.store.settle(f.input.requestId, "completed");
+  const baseBefore = await readFile(f.store.filePath, "utf8");
+  const sidecarBefore = await readFile(f.store.statePath, "utf8");
+  const dir = dirname(f.store.filePath);
+  await chmod(dir, 0o500);
+  t.after(async () => {
+    await chmod(dir, 0o700).catch(() => {});
+  });
+  await assert.rejects(f.store.materialize());
+  assert.equal(await readFile(f.store.filePath, "utf8"), baseBefore);
+  assert.equal(await readFile(f.store.statePath, "utf8"), sidecarBefore);
+  await chmod(dir, 0o700);
+  assert.equal((await f.store.read()).state, "completed");
+  assert.equal(await f.store.pending(), undefined);
+  await f.store.materialize();
+  await assert.rejects(readFile(f.store.statePath), { code: "ENOENT" });
+  assert.equal(JSON.parse(await readFile(f.store.filePath, "utf8")).state, "completed");
 });

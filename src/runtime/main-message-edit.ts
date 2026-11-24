@@ -24,7 +24,11 @@ import { readMainInput, mainInputPath, type MainInput } from "./main-continuatio
 import { readTaskInput, type InputFile } from "../workspace/input-store.js";
 import { LocalWorkspaceStore } from "../workspace/workspace-store.js";
 import { mainRequestEnvironment } from "./main-request-retry.js";
-import { mainRequestPath } from "../storage/main-request-store.js";
+import {
+  MainRequestSnapshotError,
+  MainRequestStore,
+  mainRequestPath
+} from "../storage/main-request-store.js";
 import { readQueuedUserTurn } from "./queued-user-turn.js";
 import { HumanRequestStore } from "./human.js";
 import { atomicWrite } from "../storage/atomic-file.js";
@@ -518,12 +522,17 @@ export async function prepareMessageEdit(
   )
     throw new MainMessageEditConflict("可编辑的消息或会话版本已变化，编辑内容仍保留，请刷新后重试。");
   const { session, entry, versions, events, allEvents } = source;
-  const retrySnapshot = await readFile(mainRequestPath(root, taskId), "utf8").catch(
-    (error: NodeJS.ErrnoException) => {
-      if (error.code === "ENOENT") return undefined;
-      throw error;
-    }
-  );
+  const retryPath = mainRequestPath(root, taskId);
+  const retrySnapshot = await new MainRequestStore(retryPath, taskId)
+    .read()
+    .then((snapshot) => (snapshot ? JSON.stringify(snapshot) : undefined))
+    .catch(async (error: unknown) => {
+      if (!(error instanceof MainRequestSnapshotError)) throw error;
+      return readFile(retryPath, "utf8").catch((readError: NodeJS.ErrnoException) => {
+        if (readError.code === "ENOENT") return undefined;
+        throw readError;
+      });
+    });
   const sourceFile = session.getSessionFile()!;
   const archivedMessages = conversationMessages(session.getBranch());
   const human = new HumanRequestStore(root);

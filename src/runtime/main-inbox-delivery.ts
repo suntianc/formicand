@@ -1,5 +1,6 @@
 import { readQueuedUserTurn } from "./queued-user-turn.js";
 import { randomUUID } from "node:crypto";
+import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { InboxStore } from "./scheduler.js";
 import { mainContextPaths, updateMainContextRuntime } from "./main-context.js";
@@ -112,6 +113,119 @@ export interface MainInboxDeliveryOptions {
 
 /** Pi's sendMessage is fire-and-forget. Queuing is not acknowledgement:
  * keep Inbox leases until the message appears in Main's saved context. */
+export interface InboxReceiptRef {
+  runId: string;
+  messageId: string;
+  delivery?: "wait";
+}
+
+/** Extract all Inbox receipts that `acknowledge()` will consume from a session/context list. */
+export function extractInboxReceipts(
+  context: unknown[],
+  taskId: string,
+  defaultRunId: string
+): InboxReceiptRef[] {
+  const seen = new Map<string, InboxReceiptRef>();
+  const record = (runId: string, messageId: string, delivery?: "wait") => {
+    const key = `${runId}:${messageId}`;
+    const existing = seen.get(key);
+    if (!existing) seen.set(key, delivery ? { runId, messageId, delivery } : { runId, messageId });
+    else if (delivery === "wait" && existing.delivery !== "wait") existing.delivery = "wait";
+  };
+  for (const value of context) {
+    if (!value || typeof value !== "object") continue;
+    const entry = value as ContextMessage;
+    const message = entry.type === "message" ? entry.message : entry;
+    if (!message) continue;
+    const user = message;
+    // wait_for_subagents returns the settled calls as its tool result, so
+    // the callbacks that carried the same results are acknowledged with it;
+    // leaving them queued would show the model the outcome a second time.
+    if (user.role === "toolResult" && user.toolName === "wait_for_subagents" && !user.isError) {
+      const receipts = user.details?._coworkInboxMessages;
+      for (const receipt of Array.isArray(receipts) ? receipts : []) {
+        if (
+          // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- 回执数组来自 Pi 会话上下文，历史 transcript 里可能混入 null 条目
+          receipt?.taskId !== taskId ||
+          typeof receipt.messageId !== "string" ||
+          typeof receipt.runId !== "string"
+        )
+          continue;
+        record(receipt.runId, receipt.messageId, "wait");
+      }
+    }
+    const initial = user.role === "user" ? readQueuedUserTurn(user.content) : undefined;
+    if (initial?.taskId === taskId) record(initial.runId, initial.messageId);
+    if (message.role !== "custom" && message.type !== "custom_message") continue;
+    const identity = message.details?._coworkInbox;
+    if (identity?.taskId === taskId && identity.runId === defaultRunId && identity.messageId)
+      record(identity.runId, identity.messageId);
+  }
+  return [...seen.values()];
+}
+
+/**
+ * Select entries eligible for Inbox acknowledgement:
+ * - Current active branch entries are backed by `messages.json` (already persisted by the caller).
+ * - Other-branch entries are backed by Pi's on-disk transcript `.jsonl`, so they are included only
+ *   when their entry ids actually appear in the persisted session file on disk.
+ */
+export async function selectDurableAckEntries(options: {
+  branch: readonly unknown[];
+  allEntries: readonly unknown[];
+  sessionFile?: string;
+  taskId: string;
+  runId: string;
+}): Promise<unknown[]> {
+  const branchIds = new Set<string>();
+  for (const entry of options.branch) {
+    if (entry && typeof entry === "object" && "id" in entry && typeof entry.id === "string")
+      branchIds.add(entry.id);
+  }
+  const otherEntries = options.allEntries.filter(
+    (entry) =>
+      !(
+        entry &&
+        typeof entry === "object" &&
+        "id" in entry &&
+        typeof entry.id === "string" &&
+        branchIds.has(entry.id)
+      )
+  );
+  if (otherEntries.length === 0) return [...options.branch];
+  if (extractInboxReceipts(otherEntries, options.taskId, options.runId).length === 0)
+    return [...options.branch];
+  if (!options.sessionFile) return [...options.branch];
+  let raw: string;
+  try {
+    raw = await readFile(options.sessionFile, "utf8");
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return [...options.branch];
+    throw error;
+  }
+  const persistedIds = new Set<string>();
+  for (const line of raw.split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    try {
+      const parsed = JSON.parse(trimmed) as { id?: unknown };
+      if (typeof parsed.id === "string") persistedIds.add(parsed.id);
+      // eslint-disable-next-line no-restricted-syntax -- 仅核对磁盘上已完整落盘的条目 ID，忽略尾部不完整 JSON 行
+    } catch {
+      /* ignore incomplete trailing jsonl line */
+    }
+  }
+  const durableOther = otherEntries.filter(
+    (entry) =>
+      entry &&
+      typeof entry === "object" &&
+      "id" in entry &&
+      typeof entry.id === "string" &&
+      persistedIds.has(entry.id)
+  );
+  return [...options.branch, ...durableOther];
+}
+
 export class MainInboxDelivery {
   private readonly inbox: InboxStore;
   private readonly events: JsonlEventStore;
@@ -361,51 +475,29 @@ export class MainInboxDelivery {
   }
 
   async acknowledge(context: unknown[]): Promise<void> {
-    const ids = new Set<string>();
-    const waitIds = new Set<string>();
-    for (const value of context) {
-      if (!value || typeof value !== "object") continue;
-      const entry = value as ContextMessage;
-      const message = entry.type === "message" ? entry.message : entry;
-      if (!message) continue;
-      const user = message;
-      // wait_for_subagents returns the settled calls as its tool result, so
-      // the callbacks that carried the same results are acknowledged with it;
-      // leaving them queued would show the model the outcome a second time.
-      if (user.role === "toolResult" && user.toolName === "wait_for_subagents" && !user.isError) {
-        const receipts = user.details?._coworkInboxMessages;
-        for (const receipt of Array.isArray(receipts) ? receipts : []) {
-          if (
-            // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- 回执数组来自 Pi 会话上下文，历史 transcript 里可能混入 null 条目
-            receipt?.taskId !== this.taskId ||
-            typeof receipt.messageId !== "string" ||
-            typeof receipt.runId !== "string"
-          )
-            continue;
-          if (receipt.runId === this.runId) {
-            ids.add(receipt.messageId);
-            waitIds.add(receipt.messageId);
-          } else {
-            await new MainInboxDelivery(this.workspaceRoot, this.taskId, receipt.runId).acknowledge([
-              {
-                ...user,
-                details: { _coworkInboxMessages: [receipt] }
-              }
-            ]);
-          }
-        }
+    const receipts = extractInboxReceipts(context, this.taskId, this.runId);
+    if (!receipts.length) return;
+    const byRun = new Map<string, { ids: Set<string>; waitIds: Set<string> }>();
+    for (const receipt of receipts) {
+      let group = byRun.get(receipt.runId);
+      if (!group) {
+        group = { ids: new Set<string>(), waitIds: new Set<string>() };
+        byRun.set(receipt.runId, group);
       }
-      const initial = user.role === "user" ? readQueuedUserTurn(user.content) : undefined;
-      if (initial?.taskId === this.taskId) {
-        if (initial.runId === this.runId) ids.add(initial.messageId);
-        else
-          await new MainInboxDelivery(this.workspaceRoot, this.taskId, initial.runId).acknowledge([message]);
-      }
-      if (message.role !== "custom" && message.type !== "custom_message") continue;
-      const identity = message.details?._coworkInbox;
-      if (identity?.taskId === this.taskId && identity.runId === this.runId && identity.messageId)
-        ids.add(identity.messageId);
+      group.ids.add(receipt.messageId);
+      if (receipt.delivery === "wait") group.waitIds.add(receipt.messageId);
     }
+    for (const [runId, group] of byRun) {
+      if (runId === this.runId) await this.consumeReceipts(group.ids, group.waitIds);
+      else
+        await new MainInboxDelivery(this.workspaceRoot, this.taskId, runId).consumeReceipts(
+          group.ids,
+          group.waitIds
+        );
+    }
+  }
+
+  private async consumeReceipts(ids: Set<string>, waitIds: Set<string>): Promise<void> {
     if (!ids.size) return;
     for (const message of await this.inbox.list("main")) {
       if (!ids.has(message.messageId)) continue;

@@ -4,7 +4,7 @@ import { dirname, join } from "node:path";
 import { withFileLock } from "../storage/file-lock.js";
 import { LocalWorkspaceStore } from "../workspace/workspace-store.js";
 import { mainContextPaths } from "./main-context.js";
-import { mainRequestPath } from "../storage/main-request-store.js";
+import { mainRequestPath, mainRequestStatePath } from "../storage/main-request-store.js";
 import { mainInputPath, readMainInput } from "./main-continuation.js";
 import { HumanRequestStore } from "./human.js";
 
@@ -51,17 +51,17 @@ async function read(root: string, taskId: string): Promise<EditTransaction | und
   )
     throw new Error("编辑事务无法恢复，记录已保留。");
   const expected = snapshotPaths(root, taskId);
-  if (
-    value.before.length !== expected.length ||
-    value.before.some(
+  const legacy = legacySnapshotPaths(root, taskId);
+  const matches = (paths: string[]) =>
+    value.before.length === paths.length &&
+    value.before.every(
       (entry, index) =>
-        entry.path !== expected[index] || (entry.bytes !== null && typeof entry.bytes !== "string")
-    )
-  )
-    throw new Error("编辑事务恢复路径无效，记录已保留。");
+        entry.path === paths[index] && (entry.bytes === null || typeof entry.bytes === "string")
+    );
+  if (!matches(expected) && !matches(legacy)) throw new Error("编辑事务恢复路径无效，记录已保留。");
   return value;
 }
-function snapshotPaths(root: string, taskId: string) {
+function legacySnapshotPaths(root: string, taskId: string) {
   const context = mainContextPaths(root, taskId);
   return [
     join(root, taskId, "task.json"),
@@ -70,6 +70,9 @@ function snapshotPaths(root: string, taskId: string) {
     context.state,
     mainRequestPath(root, taskId)
   ];
+}
+function snapshotPaths(root: string, taskId: string) {
+  return [...legacySnapshotPaths(root, taskId), mainRequestStatePath(root, taskId)];
 }
 export async function beginMessageEditTransaction(
   root: string,
@@ -81,9 +84,22 @@ export async function beginMessageEditTransaction(
 ) {
   const path = pathFor(root, taskId);
   if ((await optional(path)) !== null) throw new Error("此前编辑事务尚未恢复。");
-  const before = await Promise.all(
-    snapshotPaths(root, taskId).map(async (path) => ({ path, bytes: await optional(path) }))
-  );
+  const paths = snapshotPaths(root, taskId);
+  const requestPath = mainRequestPath(root, taskId);
+  const requestStatePath = mainRequestStatePath(root, taskId);
+  const nonRequestPaths = paths.slice(0, 4);
+  const [nonRequestBefore, requestBefore] = await Promise.all([
+    Promise.all(nonRequestPaths.map(async (target) => ({ path: target, bytes: await optional(target) }))),
+    withFileLock(
+      requestPath,
+      async () => [
+        { path: requestPath, bytes: await optional(requestPath) },
+        { path: requestStatePath, bytes: await optional(requestStatePath) }
+      ],
+      { recoverDeadOwner: true }
+    )
+  ]);
+  const before = [...nonRequestBefore, ...requestBefore];
   if (before[1].bytes === null) before[1].bytes = JSON.stringify(baselineVersions);
   await atomic(
     path,
@@ -121,10 +137,24 @@ export async function rollbackMessageEditTransaction(root: string, taskId: strin
     const bytes = await optional(path);
     if (bytes !== null) await atomic(path, JSON.stringify({ ...JSON.parse(bytes), accepted: false }));
   }
-  for (const entry of value.before) {
+  const requestPath = mainRequestPath(root, taskId);
+  const requestStatePath = mainRequestStatePath(root, taskId);
+  for (const entry of value.before.slice(0, 4)) {
     if (entry.bytes === null) await rm(entry.path, { force: true });
     else await atomic(entry.path, entry.bytes);
   }
+  await withFileLock(
+    requestPath,
+    async () => {
+      const requestEntry = value.before[4];
+      if (requestEntry.bytes === null) await rm(requestEntry.path, { force: true });
+      else await atomic(requestEntry.path, requestEntry.bytes);
+      const sidecarEntry = value.before.at(5);
+      if (!sidecarEntry || sidecarEntry.bytes === null) await rm(requestStatePath, { force: true });
+      else await atomic(sidecarEntry.path, sidecarEntry.bytes);
+    },
+    { recoverDeadOwner: true }
+  );
   const human = new HumanRequestStore(root);
   for (const requestId of value.retiredHumanRequests ?? [])
     await human.restoreSuperseded(taskId, requestId, value.runId);

@@ -8,7 +8,13 @@ import {
 import { configuredWebTools } from "../../dist/src/runtime/web-search-config.js";
 import { builtinAgentSettings } from "../../dist/src/runtime/role-models.js";
 import { readQueuedUserTurn } from "../../dist/src/runtime/queued-user-turn.js";
-import type { BeforeAgentStartEvent, ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import type {
+  BeforeAgentStartEvent,
+  ExtensionAPI,
+  ExtensionContext,
+  SessionEntry
+} from "@earendil-works/pi-coding-agent";
+import { extractInboxReceipts } from "../../dist/src/runtime/main-inbox-delivery.js";
 import { randomUUID } from "node:crypto";
 import { join, resolve } from "node:path";
 import {
@@ -202,6 +208,69 @@ async function registerMainExtension(pi: ExtensionAPI) {
   let freshRetryContext = false;
   let recentContext: unknown[] = [];
   let mainContext: ReturnType<typeof mainContextPaths> | undefined;
+  const CONTEXT_PERSIST_INTERVAL_MS = 5_000;
+  const CONTEXT_PERSIST_ENTRY_THRESHOLD = 10;
+  let lastPersistedBranch:
+    { length: number; lastEntryId: string | undefined; compactionCount: number; atMs: number } | undefined;
+  let lastPersistedUserEntryId: string | undefined;
+  const persistedReceiptKeys = new Set<string>();
+  const countCompactions = (branch: SessionEntry[]): number => {
+    let count = 0;
+    for (const entry of branch) if (entry.type === "compaction") count += 1;
+    return count;
+  };
+  const latestUserEntryId = (branch: SessionEntry[]): string | undefined => {
+    for (let index = branch.length - 1; index >= 0; index -= 1) {
+      const entry = branch[index];
+      if (entry.type === "message" && entry.message.role === "user") return entry.id;
+    }
+    return undefined;
+  };
+  const receiptKeysFor = (items: unknown[]): string[] =>
+    extractInboxReceipts(items, taskId, mainRunId).map((receipt) => `${receipt.runId}:${receipt.messageId}`);
+  const persistSessionContext = async (
+    ctx: Pick<ExtensionContext, "sessionManager">,
+    options: { force: boolean; contextMessages?: unknown[] }
+  ): Promise<void> => {
+    if (!mainContext) return;
+    const branch = ctx.sessionManager.getBranch();
+    const length = branch.length;
+    const lastEntryId = branch.at(-1)?.id;
+    const compactionCount = countCompactions(branch);
+    const userEntryId = latestUserEntryId(branch);
+    const branchReceipts = receiptKeysFor(branch);
+    const messageReceipts = options.contextMessages ? receiptKeysFor(options.contextMessages) : [];
+    const allReceipts = [...new Set([...branchReceipts, ...messageReceipts])];
+    const hasUnpersistedReceipt = allReceipts.some((key) => !persistedReceiptKeys.has(key));
+    const unchanged =
+      lastPersistedBranch !== undefined &&
+      lastPersistedBranch.length === length &&
+      lastPersistedBranch.lastEntryId === lastEntryId &&
+      lastPersistedBranch.compactionCount === compactionCount;
+    if (unchanged && !hasUnpersistedReceipt) return;
+    if (!options.force && lastPersistedBranch !== undefined) {
+      const userChanged = userEntryId !== lastPersistedUserEntryId;
+      const compactionChanged = compactionCount !== lastPersistedBranch.compactionCount;
+      const intervalElapsed = Date.now() - lastPersistedBranch.atMs >= CONTEXT_PERSIST_INTERVAL_MS;
+      const entryThresholdReached =
+        Math.abs(length - lastPersistedBranch.length) >= CONTEXT_PERSIST_ENTRY_THRESHOLD;
+      if (
+        !hasUnpersistedReceipt &&
+        !userChanged &&
+        !compactionChanged &&
+        !intervalElapsed &&
+        !entryThresholdReached
+      )
+        return;
+    }
+    await persistMainSessionContext(mainContext, branch);
+    lastPersistedBranch = { length, lastEntryId, compactionCount, atMs: Date.now() };
+    lastPersistedUserEntryId = userEntryId;
+    for (const key of allReceipts) persistedReceiptKeys.add(key);
+  };
+  const materializeRequestSnapshot = async (): Promise<void> => {
+    await requestRetry?.store.materialize();
+  };
   let runtimeWrites = Promise.resolve();
   const updateRuntime = (patch: Parameters<typeof updateMainContextRuntime>[1]) => {
     runtimeWrites = runtimeWrites
@@ -224,8 +293,9 @@ async function registerMainExtension(pi: ExtensionAPI) {
     isReplaying: () => requestRetry?.isReplaying === true,
     replayWithoutNewContext: () => Boolean(process.env.COWORK_MAIN_RETRY_REQUEST_ID) && !freshRetryContext,
     async persistSession(ctx) {
-      if (mainContext) await persistMainSessionContext(mainContext, ctx.sessionManager.getBranch());
+      await persistSessionContext(ctx, { force: true });
     },
+    materializeRequestSnapshot,
     updateRuntime
   });
   const { coordinator, humanStore, questionStore, inboxDelivery, deliverCallbacks } = lifecycle;
@@ -415,7 +485,7 @@ async function registerMainExtension(pi: ExtensionAPI) {
       });
     }
     try {
-      if (mainContext) await persistMainSessionContext(mainContext, ctx.sessionManager.getBranch());
+      await persistSessionContext(ctx, { force: false, contextMessages: messages });
       if (!requestRetry?.isReplaying) {
         await inboxDelivery.acknowledge(messages);
         if (process.env.COWORK_MAIN_RETRY_REQUEST_ID) freshRetryContext = true;
@@ -436,7 +506,7 @@ async function registerMainExtension(pi: ExtensionAPI) {
   });
 
   pi.on("session_compact", async (_event, ctx) => {
-    if (mainContext) await persistMainSessionContext(mainContext, ctx.sessionManager.getBranch());
+    await persistSessionContext(ctx, { force: true });
   });
 
   /**
@@ -596,6 +666,9 @@ async function registerMainExtension(pi: ExtensionAPI) {
       return cliPresentation.debug;
     },
     deliverCallbacks: () => deliverCallbacks(),
+    flushSessionContext: (ctx: Pick<ExtensionContext, "sessionManager">) =>
+      persistSessionContext(ctx, { force: true }),
+    materializeRequestSnapshot,
     harnessRoot,
     humanStore,
     inboxDelivery,
@@ -643,6 +716,14 @@ async function registerMainExtension(pi: ExtensionAPI) {
   const browserTools = registerBrowserTools(cuaBridge.capturePi, toolContext);
   const cuaScripts = registerCuaScriptTools(cuaBridge.capturePi, cuaBridge.dispatch);
   pi.on("session_shutdown", async () => {
+    if (lifecycle.sessionContext) {
+      await persistSessionContext(lifecycle.sessionContext, { force: true }).catch((error) => {
+        console.error(`[CoworkOS] Session context flush on shutdown failed: ${errorMessage(error)}`);
+      });
+    }
+    await materializeRequestSnapshot().catch((error) => {
+      console.error(`[CoworkOS] Request snapshot materialization on shutdown failed: ${errorMessage(error)}`);
+    });
     await lifecycle.close();
     await cuaScripts.dispose();
     await browserTools.dispose();
