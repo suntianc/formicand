@@ -170638,31 +170638,6 @@
                               "fontWeight": "normal"
                             }
                           ]
-                        },
-                        {
-                          "type": "frame",
-                          "id": "fleWl",
-                          "name": "Tag",
-                          "fill": "$v2-review-soft",
-                          "cornerRadius": 5,
-                          "gap": 3,
-                          "padding": [
-                            1,
-                            6
-                          ],
-                          "alignItems": "center",
-                          "children": [
-                            {
-                              "type": "text",
-                              "id": "v0oVWa",
-                              "name": "T",
-                              "fill": "$v2-review",
-                              "content": "Main 创建",
-                              "fontFamily": "Noto Sans SC",
-                              "fontSize": 11,
-                              "fontWeight": "normal"
-                            }
-                          ]
                         }
                       ]
                     },
