@@ -166755,62 +166755,38 @@
                           "id": "V17yS",
                           "name": "Card",
                           "width": "fill_container",
-                          "height": 128,
+                          "height": 64,
                           "fill": "$v2-secondary",
                           "cornerRadius": 14,
                           "stroke": "$v2-line",
                           "strokeWidth": 1,
-                          "layout": "vertical",
                           "gap": 12,
-                          "padding": 18,
+                          "padding": [
+                            0,
+                            14
+                          ],
+                          "alignItems": "center",
                           "children": [
                             {
                               "type": "frame",
-                              "id": "cSrfC",
-                              "name": "Top",
-                              "width": "fill_container",
-                              "gap": 8,
+                              "id": "W3FEBy",
+                              "name": "Avatar",
+                              "width": 32,
+                              "height": 32,
+                              "fill": "$v2-chip",
+                              "cornerRadius": 16,
+                              "justifyContent": "center",
                               "alignItems": "center",
                               "children": [
                                 {
-                                  "type": "frame",
-                                  "id": "W3FEBy",
-                                  "name": "Avatar",
-                                  "width": 34,
-                                  "height": 34,
-                                  "fill": "$v2-chip",
-                                  "cornerRadius": 17,
-                                  "justifyContent": "center",
-                                  "alignItems": "center",
-                                  "children": [
-                                    {
-                                      "type": "text",
-                                      "id": "rLzIu",
-                                      "name": "T",
-                                      "fill": "$v2-text-2",
-                                      "content": "我",
-                                      "fontFamily": "Noto Sans SC",
-                                      "fontSize": 13,
-                                      "fontWeight": "normal"
-                                    }
-                                  ]
-                                },
-                                {
-                                  "type": "frame",
-                                  "id": "nQScS",
-                                  "name": "Spacer",
-                                  "width": "fill_container",
-                                  "height": 1
-                                },
-                                {
-                                  "type": "icon",
-                                  "id": "q4UdXd",
-                                  "name": "i-ellipsis",
-                                  "width": 16,
-                                  "height": 16,
-                                  "icon": "ellipsis",
-                                  "library": "lucide",
-                                  "fill": "$v2-text-3"
+                                  "type": "text",
+                                  "id": "rLzIu",
+                                  "name": "T",
+                                  "fill": "$v2-text-2",
+                                  "content": "我",
+                                  "fontFamily": "Noto Sans SC",
+                                  "fontSize": 13,
+                                  "fontWeight": "normal"
                                 }
                               ]
                             },
@@ -166820,7 +166796,7 @@
                               "name": "Info",
                               "width": "fill_container",
                               "layout": "vertical",
-                              "gap": 4,
+                              "gap": 2,
                               "children": [
                                 {
                                   "type": "frame",
@@ -166875,6 +166851,16 @@
                                   "fontWeight": "normal"
                                 }
                               ]
+                            },
+                            {
+                              "type": "icon",
+                              "id": "q4UdXd",
+                              "name": "i-ellipsis",
+                              "width": 16,
+                              "height": 16,
+                              "icon": "ellipsis",
+                              "library": "lucide",
+                              "fill": "$v2-text-3"
                             }
                           ]
                         },
@@ -166883,62 +166869,38 @@
                           "id": "IpiR2",
                           "name": "Card",
                           "width": "fill_container",
-                          "height": 128,
+                          "height": 64,
                           "fill": "$v2-secondary",
                           "cornerRadius": 14,
                           "stroke": "$v2-line",
                           "strokeWidth": 1,
-                          "layout": "vertical",
                           "gap": 12,
-                          "padding": 18,
+                          "padding": [
+                            0,
+                            14
+                          ],
+                          "alignItems": "center",
                           "children": [
                             {
                               "type": "frame",
-                              "id": "nmzsA",
-                              "name": "Top",
-                              "width": "fill_container",
-                              "gap": 8,
+                              "id": "JH6uW",
+                              "name": "Avatar",
+                              "width": 32,
+                              "height": 32,
+                              "fill": "$v2-chip",
+                              "cornerRadius": 16,
+                              "justifyContent": "center",
                               "alignItems": "center",
                               "children": [
                                 {
-                                  "type": "frame",
-                                  "id": "JH6uW",
-                                  "name": "Avatar",
-                                  "width": 34,
-                                  "height": 34,
-                                  "fill": "$v2-chip",
-                                  "cornerRadius": 17,
-                                  "justifyContent": "center",
-                                  "alignItems": "center",
-                                  "children": [
-                                    {
-                                      "type": "text",
-                                      "id": "LJYyI",
-                                      "name": "T",
-                                      "fill": "#5BD08A",
-                                      "content": "张",
-                                      "fontFamily": "Noto Sans SC",
-                                      "fontSize": 13,
-                                      "fontWeight": "normal"
-                                    }
-                                  ]
-                                },
-                                {
-                                  "type": "frame",
-                                  "id": "edK5b",
-                                  "name": "Spacer",
-                                  "width": "fill_container",
-                                  "height": 1
-                                },
-                                {
-                                  "type": "icon",
-                                  "id": "H4JSlf",
-                                  "name": "i-ellipsis",
-                                  "width": 16,
-                                  "height": 16,
-                                  "icon": "ellipsis",
-                                  "library": "lucide",
-                                  "fill": "$v2-text-3"
+                                  "type": "text",
+                                  "id": "LJYyI",
+                                  "name": "T",
+                                  "fill": "#5BD08A",
+                                  "content": "张",
+                                  "fontFamily": "Noto Sans SC",
+                                  "fontSize": 13,
+                                  "fontWeight": "normal"
                                 }
                               ]
                             },
@@ -166948,7 +166910,7 @@
                               "name": "Info",
                               "width": "fill_container",
                               "layout": "vertical",
-                              "gap": 4,
+                              "gap": 2,
                               "children": [
                                 {
                                   "type": "frame",
@@ -166980,6 +166942,16 @@
                                   "fontWeight": "normal"
                                 }
                               ]
+                            },
+                            {
+                              "type": "icon",
+                              "id": "H4JSlf",
+                              "name": "i-ellipsis",
+                              "width": 16,
+                              "height": 16,
+                              "icon": "ellipsis",
+                              "library": "lucide",
+                              "fill": "$v2-text-3"
                             }
                           ]
                         },
@@ -166988,62 +166960,38 @@
                           "id": "i4uVXB",
                           "name": "Card",
                           "width": "fill_container",
-                          "height": 128,
+                          "height": 64,
                           "fill": "$v2-secondary",
                           "cornerRadius": 14,
                           "stroke": "$v2-line",
                           "strokeWidth": 1,
-                          "layout": "vertical",
                           "gap": 12,
-                          "padding": 18,
+                          "padding": [
+                            0,
+                            14
+                          ],
+                          "alignItems": "center",
                           "children": [
                             {
                               "type": "frame",
-                              "id": "A8XoK",
-                              "name": "Top",
-                              "width": "fill_container",
-                              "gap": 8,
+                              "id": "fGOBP",
+                              "name": "Avatar",
+                              "width": 32,
+                              "height": 32,
+                              "fill": "$v2-chip",
+                              "cornerRadius": 16,
+                              "justifyContent": "center",
                               "alignItems": "center",
                               "children": [
                                 {
-                                  "type": "frame",
-                                  "id": "fGOBP",
-                                  "name": "Avatar",
-                                  "width": 34,
-                                  "height": 34,
-                                  "fill": "$v2-chip",
-                                  "cornerRadius": 17,
-                                  "justifyContent": "center",
-                                  "alignItems": "center",
-                                  "children": [
-                                    {
-                                      "type": "text",
-                                      "id": "j2nH4",
-                                      "name": "T",
-                                      "fill": "#F2B54B",
-                                      "content": "李",
-                                      "fontFamily": "Noto Sans SC",
-                                      "fontSize": 13,
-                                      "fontWeight": "normal"
-                                    }
-                                  ]
-                                },
-                                {
-                                  "type": "frame",
-                                  "id": "YFTGQ",
-                                  "name": "Spacer",
-                                  "width": "fill_container",
-                                  "height": 1
-                                },
-                                {
-                                  "type": "icon",
-                                  "id": "hB4ci",
-                                  "name": "i-ellipsis",
-                                  "width": 16,
-                                  "height": 16,
-                                  "icon": "ellipsis",
-                                  "library": "lucide",
-                                  "fill": "$v2-text-3"
+                                  "type": "text",
+                                  "id": "j2nH4",
+                                  "name": "T",
+                                  "fill": "#F2B54B",
+                                  "content": "李",
+                                  "fontFamily": "Noto Sans SC",
+                                  "fontSize": 13,
+                                  "fontWeight": "normal"
                                 }
                               ]
                             },
@@ -167053,7 +167001,7 @@
                               "name": "Info",
                               "width": "fill_container",
                               "layout": "vertical",
-                              "gap": 4,
+                              "gap": 2,
                               "children": [
                                 {
                                   "type": "frame",
@@ -167085,24 +167033,25 @@
                                   "fontWeight": "normal"
                                 }
                               ]
+                            },
+                            {
+                              "type": "icon",
+                              "id": "hB4ci",
+                              "name": "i-ellipsis",
+                              "width": 16,
+                              "height": 16,
+                              "icon": "ellipsis",
+                              "library": "lucide",
+                              "fill": "$v2-text-3"
                             }
                           ]
-                        }
-                      ]
-                    },
-                    {
-                      "type": "frame",
-                      "id": "wCl0u",
-                      "name": "CardRow",
-                      "width": "fill_container",
-                      "gap": 16,
-                      "children": [
+                        },
                         {
                           "type": "frame",
                           "id": "QYogt",
                           "name": "Card 添加",
                           "width": "fill_container",
-                          "height": 128,
+                          "height": 64,
                           "fill": "#00000000",
                           "cornerRadius": 14,
                           "stroke": "$v2-line",
@@ -167117,8 +167066,7 @@
                               "type": "frame",
                               "id": "Dda13",
                               "name": "AddInner",
-                              "layout": "vertical",
-                              "gap": 8,
+                              "gap": 6,
                               "alignItems": "center",
                               "children": [
                                 {
@@ -167144,20 +167092,6 @@
                               ]
                             }
                           ]
-                        },
-                        {
-                          "type": "frame",
-                          "id": "LB3MJ",
-                          "name": "Filler",
-                          "width": "fill_container",
-                          "height": 1
-                        },
-                        {
-                          "type": "frame",
-                          "id": "j6JiiJ",
-                          "name": "Filler",
-                          "width": "fill_container",
-                          "height": 1
                         }
                       ]
                     }
