@@ -2,6 +2,7 @@ import { agentDisplayName } from "../agent-names.js";
 import { artifactRequestUrls, artifactVersion } from "../artifacts.js";
 import { requirementProgress, requirementTickets } from "../requirement-stages.js";
 import { formatRunDuration, runElapsed } from "../run-overview.js";
+import { fileIcon } from "../ui/file-icons.js";
 import { icon } from "../ui/icons.js";
 import { ui } from "../ui/language.js";
 import { animate, motionDuration } from "../ui/motion.js";
@@ -25,20 +26,6 @@ function compactTokens(value) {
 // A list longer than this shows its first few rows and folds the rest.
 const FLAT_LIMIT = 5;
 const FOLDED_ROWS = 3;
-
-const IMAGE_FILE = /\.(png|jpe?g|gif|webp|svg|bmp|ico|avif)$/i;
-const TEXT_FILE = /\.(md|markdown|txt|rst|log|csv|tsv|docx?|pdf|rtf)$/i;
-const CODE_FILE =
-  /\.(m?[jt]sx?|c[jt]s|py|rb|go|rs|java|kt|swift|c|h|cc|cpp|hpp|cs|php|sh|bash|zsh|fish|ps1|sql|json|ya?ml|toml|xml|html?|css|scss|less|vue|svelte|lua|dart|r|scala|bats|ini|env)$/i;
-
-/** The icon a file reads as in the panel: picture, text, code, or a plain file. */
-function fileIcon(path) {
-  const name = String(path || "");
-  if (IMAGE_FILE.test(name)) return icon("image");
-  if (TEXT_FILE.test(name)) return icon("file-text");
-  if (CODE_FILE.test(name)) return icon("file-code");
-  return icon("file");
-}
 
 const shortCommit = (commit) => (typeof commit === "string" ? commit.slice(0, 8) : "");
 const baseName = (path) =>

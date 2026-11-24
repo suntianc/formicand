@@ -49,6 +49,8 @@ import { handleComposerRequest } from "./composer-routes.js";
 import type { ProjectFileIndex } from "../workspace/project-file-index.js";
 import { handleAgentRequest } from "./agent-routes.js";
 import { handleMemoryRequest } from "./memory-routes.js";
+import { handleLinkPreviewRequest } from "./link-preview-routes.js";
+import type { LinkPreviewService } from "./link-preview-service.js";
 import type { MemoryService } from "./memory-service.js";
 import type { AgentService } from "./agent-service.js";
 import type { ComposerService } from "./composer-service.js";
@@ -93,6 +95,8 @@ export interface DashboardRoutePorts {
   agents?: AgentService;
   /** Main's memory and Settings → Memory; absent in partial handlers. */
   memories?: MemoryService;
+  /** Icons and titles behind web links in messages; absent in partial handlers. */
+  linkPreviews?: LinkPreviewService;
   mainCapacity?: MainCapacityService;
   uploads?: InputStore;
   computer: ComputerUse;
@@ -427,6 +431,7 @@ export function createDashboardHandler(
       if (await handleComposerRequest(request, response, url, ports.composer)) return;
       if (await handleAgentRequest(request, response, url, ports.agents)) return;
       if (await handleMemoryRequest(request, response, url, ports.memories)) return;
+      if (await handleLinkPreviewRequest(request, response, url, ports.linkPreviews)) return;
       if (await handleProjectCatalogRequest(request, response, url, ports, principal)) return;
       if (await handleModelSettingsRequest(request, response, url, ports)) return;
       if (request.method === "POST" && url.pathname === "/api/workspace/choose") {

@@ -147,3 +147,60 @@ test("a block's ownership key follows its source only", () => {
   assert.notEqual(first.dataset.uiOwned, changed.dataset.uiOwned);
   assert.notEqual(sourceKey("a"), sourceKey("b"));
 });
+
+test("files read as chips with their kind's mark; a long path in prose shows only the file name", () => {
+  const document = dom(
+    renderMarkdown(
+      "改了 `src/aggregate.ts`、`ci.yml`、`data.json`、`shot.png` 和 `report.md`。\n输出在 /Users/fixture/.atria/workspace/task-1/work/retro-timing.tsv，看看。",
+      { linkify: true }
+    )
+  );
+  const kinds = [...document.querySelectorAll(".file-chip")].map((chip) => chip.dataset.fileKind);
+  assert.deepEqual(kinds, ["language", "language", "json", "image", "text", "table"]);
+  assert.equal(
+    document.querySelector(".file-chip use").getAttribute("href"),
+    "/assets/file-icons.svg#lang-typescript"
+  );
+  const path = document.querySelectorAll(".file-chip")[5];
+  assert.equal(path.querySelector(".file-chip-name").textContent, "retro-timing.tsv");
+  assert.equal(path.title, "/Users/fixture/.atria/workspace/task-1/work/retro-timing.tsv");
+  assert.ok(document.body.textContent.includes("，看看。"));
+});
+
+test("a link broken between its label and its target is still one link", () => {
+  const document = dom(
+    renderMarkdown("包含验证。[耗时明细]\n(/Users/fixture/work/retro-timing.tsv)", {
+      resolveLocalLink: () => ({
+        href: "/api/artifact?x",
+        artifactPath: "work/retro-timing.tsv",
+        taskId: "t"
+      })
+    })
+  );
+  const chip = document.querySelector("a.file-chip");
+  assert.equal(chip.dataset.messageArtifact, "work/retro-timing.tsv");
+  assert.equal(chip.querySelector(".file-chip-name").textContent, "耗时明细");
+  assert.equal(chip.dataset.fileKind, "table");
+  assert.ok(!document.body.textContent.includes("]("));
+});
+
+test("web links read as the site's mark, the title and the domain", () => {
+  const document = dom(
+    renderMarkdown(
+      "参考 [Modern Web Guidance](https://web.dev/articles/guide) 和 https://docs.python.org/3/library/os.html。",
+      {
+        linkify: true
+      }
+    )
+  );
+  const [labelled, bare] = document.querySelectorAll("a.link-chip");
+  assert.equal(labelled.querySelector(".link-chip-title").textContent, "Modern Web Guidance");
+  assert.equal(labelled.querySelector(".link-chip-host").textContent, "web.dev");
+  assert.equal(labelled.dataset.linkPreview, "https://web.dev/articles/guide");
+  assert.ok(!labelled.hasAttribute("data-link-bare"));
+  // Until the page is read, a bare address shows itself without its scheme.
+  assert.ok(bare.hasAttribute("data-link-bare"));
+  assert.equal(bare.querySelector(".link-chip-title").textContent, "docs.python.org/3/library/os.html");
+  assert.equal(bare.querySelector(".link-chip-host"), null);
+  assert.equal(bare.getAttribute("target"), "_blank");
+});

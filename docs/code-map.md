@@ -153,6 +153,8 @@ CoworkOS 的免依赖版本入口由 [cli-information](../scripts/cli-informatio
 
 界面的字体、字号、三栏比例与控件节奏由 [ui.css](../web/assets/ui.css) 统一；[formicand.css](../web/assets/formicand.css) 集中定义设计令牌、玻璃面板与减少动态效果，[system-theme.css](../web/assets/system-theme.css) 消费有效外观，[阅读列样式](../web/assets/styles/layout/reading-column.css)管理会话内容的宽度与间距。本地 Inter 字体及完整许可位于 `web/assets/fonts/`，来源见[第三方声明](../THIRD_PARTY_NOTICES.md#inter-界面字体--interface-typeface)。验证[阅读列与窄屏](../e2e/conversation-width.spec.js)、[输入框布局](../e2e/composer-layout.spec.js)及[主题与对比度](../e2e/system-theme.spec.js)，排版规范见 [UI 约定](development.md#应用-ui-约定)。
 
+消息里的文件与网页链接都渲染为小卡片：文件按类型取标志与颜色在 [文件图标](../web/assets/ui/file-icons.js)（代码文件的语言标志是 [符号表](../web/assets/file-icons.svg)），卡片标记在 [富块](../web/assets/rich-blocks.js)；网页的站点图标与标题由 [链接预览服务](../src/dashboard/link-preview-service.ts) 读取并缓存、经 [接口](../src/dashboard/link-preview-routes.ts) 提供，前端在 [链接预览](../web/assets/link-previews.js) 补全卡片。验证 [富块](../test/rich-blocks.test.js) 与 [预览读取与缓存](../test/link-preview.test.js)。
+
 对话中的数学公式由 [Markdown 渲染器](../web/assets/markdown.js) 和 [公式解析](../web/assets/math.js) 共用处理，Web/App 的本地 KaTeX 脚本、样式、字体和许可证由 [构建脚本](../scripts/build-math.mjs) 准备。验证 [分隔符/代码/错误回退](../test/markdown-math.test.js) 与 [真实流式、离线资源及历史重开](../e2e/conversation-math.spec.js)；支持范围见 [运行时参考](runtime-reference.md#数学公式)。
 
 设置是带左侧导航的整页：[设置分区页](../web/assets/controllers/settings-pages.js) 持有通用、节点连接、模型、运行名额、成员与通道、工具六个分区，负责分区切换、返回入口与焦点归还；子页按需打开，返回时复用 [共用弹窗](../web/assets/ui/modal.js) 的焦点归还而不关闭分区页。分区样式在 [settings.css](../web/assets/settings.css)；验证 [设置分区页](../e2e/settings-pages.spec.js) 与 [运行名额和成员占位](../e2e/p45-settings-capacity-members.spec.js)。

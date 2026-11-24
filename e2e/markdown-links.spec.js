@@ -96,9 +96,10 @@ test("a final local artifact link downloads its indexed file without leaving the
     await expect(page.locator(".conversation-item.active")).toHaveAttribute("data-task", taskId);
     await expect(page.locator("#composer-input")).toHaveValue("点击导出后仍保留的草稿");
     await expect(page.locator("#attachment-strip")).toContainText("draft.txt");
-    await expect(final.locator(".markdown-body img, .markdown-body script, .markdown-body svg")).toHaveCount(
-      0
-    );
+    // The chips' own decorative icons are the only SVG; nothing from the reply's text renders.
+    await expect(
+      final.locator(".markdown-body img, .markdown-body script, .markdown-body svg:not(.ui-icon)")
+    ).toHaveCount(0);
     expect(await page.evaluate(() => globalThis.injected)).toBeUndefined();
     expect(artifactRequests.length).toBeGreaterThanOrEqual(1);
     // The page's own client fetches the bytes (session header, bound backend)
@@ -136,10 +137,10 @@ test("HTTP link punctuation and escaped labels remain inert in the production br
       return {
         destination,
         href: link.getAttribute("href"),
-        label: link.textContent,
+        label: link.querySelector(".link-chip-title").textContent,
         handlers: [...link.attributes].filter((attribute) => attribute.name.startsWith("on")).length,
         links: section.querySelectorAll("a").length,
-        executable: section.querySelectorAll("img, script, svg, iframe").length,
+        executable: section.querySelectorAll("img, script, svg:not(.ui-icon), iframe").length,
         injected: globalThis.injected
       };
     });

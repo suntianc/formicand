@@ -26,6 +26,12 @@ Interface icons (the `i-*` symbols in the shell and the menu icons in `icons.js`
 
 Provider logos on the Models & roles settings page come from the linked `@lobehub/icons-static-svg` 1.103.0 distribution of lobe-icons under the **MIT** license (copyright LobeHub). Only the root `width`, `height` and `style` attributes were removed; the artwork is unchanged. Each logo is its vendor's trademark, used only to identify a service the person configures, and implies no affiliation or endorsement. The design file's PNGs are rendered from the same SVGs.
 
+## Simple Icons 编程语言标志 / Language marks
+
+消息与需求面板里代码文件的语言标志（[web/assets/file-icons.svg](web/assets/file-icons.svg)）取自 [Simple Icons](https://simpleicons.org) 的 [`simple-icons` 13.21.0 npm 发行](https://registry.npmjs.org/simple-icons/-/simple-icons-13.21.0.tgz)，适用 **CC0-1.0**。只取各图标的路径数据放进一个符号表，填充色取 Simple Icons 记录的品牌色（黑色标志改为跟随文字颜色），图形未改动。各标志是对应项目或组织的商标，仅用于标识文件所用的语言，不表示与其存在合作或获得其认可。
+
+Language marks on code files in messages and the requirement panel come from the linked `simple-icons` 13.21.0 distribution under **CC0-1.0**. Only each icon's path data is used, in one symbol sheet, filled with the brand colour Simple Icons records (black marks follow the text colour instead); the artwork is unchanged. Each mark is its project's or organisation's trademark, used only to identify a file's language, and implies no affiliation or endorsement.
+
 ## Documentation site / 文档站
 
 独立 Docs 站点的工具依赖由 [docs/site/package-lock.json](docs/site/package-lock.json) 锁定。Markdown 构建使用 marked 与 sanitize-html，浏览器中的图表使用 Mermaid，资源由 esbuild 打包；这些依赖不加入产品运行时。站点构建按实际浏览器 bundle 的输入保留相应包的完整许可与 NOTICE，生成到 `.tmp/docs-site/_site/licenses/`，并从每页页脚链接许可索引。

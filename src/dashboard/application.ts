@@ -5,6 +5,7 @@ import { createComposerService } from "./composer-service.js";
 import { createProjectFileIndex } from "../workspace/project-file-index.js";
 import { createAgentService } from "./agent-service.js";
 import { createMemoryService } from "./memory-service.js";
+import { createLinkPreviewService } from "./link-preview-service.js";
 import { agentLocations, resolveAgent } from "../runtime/agent-definitions.js";
 import { homedir } from "node:os";
 import { spawn } from "node:child_process";
@@ -621,6 +622,7 @@ export function createDashboardApplication(
       projectForId: workspaces.projectForId,
       builtins: { config: modelSettings.config, save: modelSettings.saveRole }
     }),
+    linkPreviews: createLinkPreviewService({ cacheRoot: join(data.home, "cache", "link-previews") }),
     memories: createMemoryService({
       home: data.home,
       projectForId: workspaces.projectForId,
