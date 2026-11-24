@@ -161886,7 +161886,7 @@
           "fill": "#A1A1A8",
           "textGrowth": "fixed-width",
           "width": "fill_container",
-          "content": "7. 运行名额：每个对外节点一张卡片，一行两张。顶部一行是节点信息，在线用名字旁的绿点表示；下面常驻、接续各一行：名字 → 小格子（格子数等于上限，正在用的亮绿色）→「2 / 4 在用」→ 加减改上限。改过的那行标「已修改」，顶部右边才出现「还原 / 保存」。",
+          "content": "7. 运行名额：每个对外节点一张卡片，一行三张。顶部一行是节点信息，在线用名字旁的绿点表示；下面常驻、接续各一行：名字 → 小格子（格子数等于上限，正在用的亮绿色）→「正在用 / 上限」→ 加减改上限。改过的那行标「已修改」，顶部右边才出现「还原 / 保存」。",
           "lineHeight": 1.65,
           "fontFamily": "Noto Sans SC",
           "fontSize": 14,
@@ -165643,7 +165643,7 @@
                               "strokeWidth": {
                                 "top": 1
                               },
-                              "gap": 10,
+                              "gap": 8,
                               "alignItems": "center",
                               "children": [
                                 {
@@ -165700,14 +165700,13 @@
                                   "type": "frame",
                                   "id": "tgcBt",
                                   "name": "Slots",
-                                  "width": 88,
                                   "gap": 3,
                                   "children": [
                                     {
                                       "type": "frame",
                                       "id": "wUv1E",
                                       "name": "Slot used",
-                                      "width": "fill_container",
+                                      "width": 12,
                                       "height": 5,
                                       "fill": "$v2-ok",
                                       "cornerRadius": 3
@@ -165716,7 +165715,7 @@
                                       "type": "frame",
                                       "id": "fH5m9",
                                       "name": "Slot used",
-                                      "width": "fill_container",
+                                      "width": 12,
                                       "height": 5,
                                       "fill": "$v2-ok",
                                       "cornerRadius": 3
@@ -165725,7 +165724,7 @@
                                       "type": "frame",
                                       "id": "SldZQ",
                                       "name": "Slot free",
-                                      "width": "fill_container",
+                                      "width": 12,
                                       "height": 5,
                                       "fill": "$v2-line-strong",
                                       "cornerRadius": 3
@@ -165734,7 +165733,7 @@
                                       "type": "frame",
                                       "id": "XjcRC",
                                       "name": "Slot free",
-                                      "width": "fill_container",
+                                      "width": 12,
                                       "height": 5,
                                       "fill": "$v2-line-strong",
                                       "cornerRadius": 3
@@ -165746,7 +165745,7 @@
                                   "id": "bnszd",
                                   "name": "Usage",
                                   "fill": "$v2-text-3",
-                                  "content": "2 / 4 在用",
+                                  "content": "2 / 4",
                                   "fontFamily": "Noto Sans SC",
                                   "fontSize": 12,
                                   "fontWeight": "normal"
@@ -165808,7 +165807,7 @@
                               "strokeWidth": {
                                 "top": 1
                               },
-                              "gap": 10,
+                              "gap": 8,
                               "alignItems": "center",
                               "children": [
                                 {
@@ -165842,14 +165841,13 @@
                                   "type": "frame",
                                   "id": "MXvyP",
                                   "name": "Slots",
-                                  "width": 88,
                                   "gap": 3,
                                   "children": [
                                     {
                                       "type": "frame",
                                       "id": "n5yac",
                                       "name": "Slot used",
-                                      "width": "fill_container",
+                                      "width": 12,
                                       "height": 5,
                                       "fill": "$v2-ok",
                                       "cornerRadius": 3
@@ -165858,7 +165856,7 @@
                                       "type": "frame",
                                       "id": "OLPL2",
                                       "name": "Slot used",
-                                      "width": "fill_container",
+                                      "width": 12,
                                       "height": 5,
                                       "fill": "$v2-ok",
                                       "cornerRadius": 3
@@ -165870,7 +165868,7 @@
                                   "id": "VfH37",
                                   "name": "Usage",
                                   "fill": "$v2-text-3",
-                                  "content": "2 / 2 在用",
+                                  "content": "2 / 2",
                                   "fontFamily": "Noto Sans SC",
                                   "fontSize": 12,
                                   "fontWeight": "normal"
@@ -165927,6 +165925,13 @@
                         {
                           "type": "frame",
                           "id": "JPg5M",
+                          "name": "Filler",
+                          "width": "fill_container",
+                          "height": 1
+                        },
+                        {
+                          "type": "frame",
+                          "id": "w72mFd",
                           "name": "Filler",
                           "width": "fill_container",
                           "height": 1
