@@ -160141,7 +160141,7 @@
                           "name": "Avatar",
                           "width": 26,
                           "height": 26,
-                          "fill": "$v2-chip",
+                          "fill": "$v2-warn-soft",
                           "cornerRadius": 7,
                           "stroke": "$v2-line",
                           "strokeWidth": 1,
@@ -160154,9 +160154,9 @@
                               "name": "i-database",
                               "width": 13,
                               "height": 13,
-                              "icon": "database",
+                              "icon": "square-terminal",
                               "library": "lucide",
-                              "fill": "$v2-text-2"
+                              "fill": "$v2-warn"
                             }
                           ]
                         },
@@ -160248,7 +160248,7 @@
                               "name": "i-scroll-text",
                               "width": 13,
                               "height": 13,
-                              "icon": "scroll-text",
+                              "icon": "file-text",
                               "library": "lucide",
                               "fill": "$v2-text-2"
                             }
@@ -160342,7 +160342,7 @@
                               "name": "i-lightbulb",
                               "width": 13,
                               "height": 13,
-                              "icon": "lightbulb",
+                              "icon": "file-text",
                               "library": "lucide",
                               "fill": "$v2-text-2"
                             }
@@ -160423,7 +160423,7 @@
                           "name": "Avatar",
                           "width": 26,
                           "height": 26,
-                          "fill": "$v2-chip",
+                          "fill": "$v2-warn-soft",
                           "cornerRadius": 7,
                           "stroke": "$v2-line",
                           "strokeWidth": 1,
@@ -160436,9 +160436,9 @@
                               "name": "i-file-type",
                               "width": 13,
                               "height": 13,
-                              "icon": "file-type",
+                              "icon": "square-terminal",
                               "library": "lucide",
-                              "fill": "$v2-text-2"
+                              "fill": "$v2-warn"
                             }
                           ]
                         },
@@ -160517,7 +160517,7 @@
                           "name": "Avatar",
                           "width": 26,
                           "height": 26,
-                          "fill": "$v2-chip",
+                          "fill": "$v2-warn-soft",
                           "cornerRadius": 7,
                           "stroke": "$v2-line",
                           "strokeWidth": 1,
@@ -160530,9 +160530,9 @@
                               "name": "i-file-text",
                               "width": 13,
                               "height": 13,
-                              "icon": "file-text",
+                              "icon": "square-terminal",
                               "library": "lucide",
-                              "fill": "$v2-text-2"
+                              "fill": "$v2-warn"
                             }
                           ]
                         },
@@ -160611,7 +160611,7 @@
                           "name": "Avatar",
                           "width": 26,
                           "height": 26,
-                          "fill": "$v2-chip",
+                          "fill": "$v2-warn-soft",
                           "cornerRadius": 7,
                           "stroke": "$v2-line",
                           "strokeWidth": 1,
@@ -160624,9 +160624,9 @@
                               "name": "i-presentation",
                               "width": 13,
                               "height": 13,
-                              "icon": "presentation",
+                              "icon": "square-terminal",
                               "library": "lucide",
-                              "fill": "$v2-text-2"
+                              "fill": "$v2-warn"
                             }
                           ]
                         },
@@ -160705,7 +160705,7 @@
                           "name": "Avatar",
                           "width": 26,
                           "height": 26,
-                          "fill": "$v2-chip",
+                          "fill": "$v2-warn-soft",
                           "cornerRadius": 7,
                           "stroke": "$v2-line",
                           "strokeWidth": 1,
@@ -160718,9 +160718,9 @@
                               "name": "i-sheet",
                               "width": 13,
                               "height": 13,
-                              "icon": "sheet",
+                              "icon": "square-terminal",
                               "library": "lucide",
-                              "fill": "$v2-text-2"
+                              "fill": "$v2-warn"
                             }
                           ]
                         },
@@ -160799,7 +160799,7 @@
                           "name": "Avatar",
                           "width": 26,
                           "height": 26,
-                          "fill": "$v2-chip",
+                          "fill": "$v2-warn-soft",
                           "cornerRadius": 7,
                           "stroke": "$v2-line",
                           "strokeWidth": 1,
@@ -160812,9 +160812,9 @@
                               "name": "i-app-window",
                               "width": 13,
                               "height": 13,
-                              "icon": "app-window",
+                              "icon": "square-terminal",
                               "library": "lucide",
-                              "fill": "$v2-text-2"
+                              "fill": "$v2-warn"
                             }
                           ]
                         },
@@ -160906,7 +160906,7 @@
                               "name": "i-mouse-pointer-click",
                               "width": 13,
                               "height": 13,
-                              "icon": "mouse-pointer-click",
+                              "icon": "file-text",
                               "library": "lucide",
                               "fill": "$v2-text-2"
                             }
@@ -161161,7 +161161,7 @@
                           "name": "Avatar",
                           "width": 36,
                           "height": 36,
-                          "fill": "$v2-chip",
+                          "fill": "$v2-warn-soft",
                           "cornerRadius": 9,
                           "stroke": "$v2-line",
                           "strokeWidth": 1,
@@ -161174,9 +161174,9 @@
                               "name": "i-database",
                               "width": 18,
                               "height": 18,
-                              "icon": "database",
+                              "icon": "square-terminal",
                               "library": "lucide",
-                              "fill": "$v2-text-2"
+                              "fill": "$v2-warn"
                             }
                           ]
                         },
