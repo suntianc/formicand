@@ -41,7 +41,6 @@ Directory guides and specialized API references currently use Chinese. They are 
 - Do not repair products by editing Pi in `node_modules` or generated files. Record origins, versions and local changes for vendored code.
 - Keep public entrypoints, licenses, example configuration and tool configuration at the root. Put maintained technical documentation in `docs/`, and build/launch scripts in `scripts/`. Do not commit generated outputs or machine-specific bindings as source.
 - Format only changed files. Avoid unrelated reformatting, dependency upgrades or module moves.
-- UI: avoid unnecessary secondary labels and descriptions. Let the layout do the explaining.
 
 ## Interface design
 
@@ -54,6 +53,7 @@ Avoid unnecessary secondary labels, explanations, helper copy, descriptions and 
 - Dangerous or irreversible actions, including deletion, payment and permanent submissions, must retain clear consequence warnings.
 - After removing explanations, first-time users must still understand where to click next and what will happen.
 - When revising an interface, remove redundant labels and explanations first. If clarity decreases, improve layout and button wording.
+- Performance comes first: motion, icons and lists must look equally refined while keeping the best performance. See the [frontend guide (Chinese)](web/AGENTS.md#性能与动效).
 
 ## Verification and delivery
 
