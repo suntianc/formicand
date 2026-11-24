@@ -184,6 +184,9 @@ html[data-theme] .observe-header {
     align-items: center;
     width: 100%;
   }
+  html[data-theme] .conversation-sidebar > .sidebar-bottom {
+    justify-content: center;
+  }
   html[data-theme] .account-row {
     width: 36px;
     height: 36px;
