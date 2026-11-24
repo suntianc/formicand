@@ -2,7 +2,7 @@ import { icon } from "../ui/icons.js";
 import { ui } from "../ui/language.js";
 import { escapeHtml as esc } from "../ui/html.js";
 import { createModal } from "../ui/modal.js";
-import { agentDetailHeader, agentEditorMarkup, PERMISSION_LABEL } from "./agent-settings-editor.js";
+import { agentDetailHeader, agentEditorMarkup } from "./agent-settings-editor.js";
 import { agentListMarkup, renderAgentProjectBar } from "./agent-settings-list.js";
 import { LEVEL_LABELS } from "./model-picker.js";
 import { providerLogo } from "./model-provider-display.js";
@@ -193,15 +193,15 @@ export function createAgentSettings({
     const groups =
       view.scope === "global"
         ? [
-            ["builtin", ui("内置"), ""],
-            ["global", ui("全局"), "~/.atria/agents"]
+            ["builtin", ui("内置")],
+            ["global", ui("全局")]
           ]
         : [
-            ["builtin", ui("内置"), ""],
-            ["project", ui`项目 · ${view.data.project?.projectName ?? ""}`, ".atria/agents"],
-            ["global", ui("此项目也能用的全局 Agent"), ""]
+            ["builtin", ui("内置")],
+            ["project", ui`项目 · ${view.data.project?.projectName ?? ""}`],
+            ["global", ui("全局")]
           ];
-    return groups.flatMap(([source, title, note]) =>
+    return groups.flatMap(([source, title]) =>
       view.data.agents
         .filter(
           (agent) =>
@@ -210,37 +210,24 @@ export function createAgentSettings({
               agent.name.toLowerCase().includes(query) ||
               (agent.definition?.description ?? "").toLowerCase().includes(query))
         )
-        .map((agent) => ({ agent, group: { source, title, note } }))
+        .map((agent) => ({ agent, group: { source, title } }))
     );
   }
 
-  /** The short line under a name: permission, then what it adds or what is wrong. */
+  /** The line under a name: what it is for, unless something about it needs saying first. */
   function summary(agent) {
     if (agent.error) return ui("定义有误");
     if (agent.shadowedBy) return ui("被项目版本覆盖");
     const definition = agent.definition;
     if (definition.enabled === false) return ui("已停用");
-    if (agent.builtin) {
-      if (view.scope === "project") {
-        const fields = Object.keys(agent.builtin.settings);
-        return fields.length
-          ? ui`本项目单独设置了${fields.map((field) => ui(FIELD_LABEL[field])).join(ui("、"))}`
-          : ui("跟随全局");
-      }
-      if (agent.name === "main") return ui("你对话的那个");
-      const effective = agent.builtin.effective;
-      return [
-        ui(PERMISSION_LABEL[definition.permission]),
-        modelEntry(effective.profileId)?.name,
-        levelLabel(effective.thinkingLevel)
-      ]
-        .filter(Boolean)
-        .join(" · ");
+    if (agent.builtin && view.scope === "project") {
+      const fields = Object.keys(agent.builtin.settings);
+      return fields.length
+        ? ui`本项目单独设置了${fields.map((field) => ui(FIELD_LABEL[field])).join(ui("、"))}`
+        : ui("跟随全局");
     }
-    const parts = [ui(PERMISSION_LABEL[definition.permission])];
-    if (definition.skills) parts.push(ui`${definition.skills.length} 技能`);
-    if (definition.mcp?.length) parts.push(`${definition.mcp.length} MCP`);
-    return parts.join(" · ");
+    // A built-in's description is the product's own text, so it follows the interface language.
+    return agent.builtin ? ui(definition.description ?? "") : (definition.description ?? "");
   }
 
   /* ---------------------------------------------------------------- render */

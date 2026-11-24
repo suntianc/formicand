@@ -41,7 +41,7 @@ const skillMark = (skill, size = "") =>
 
 /** An icon-only action in the skill detail; its name is its label and tooltip. */
 const detailAction = (action, glyph, label, danger = false) =>
-  `<button class="settings-icon-button skill-action${danger ? " is-danger" : ""}" type="button" data-skill-action="${action}" aria-label="${esc(label)}" title="${esc(label)}">${icon(glyph)}</button>`;
+  `<button class="settings-icon-button detail-action${danger ? " is-danger" : ""}" type="button" data-skill-action="${action}" aria-label="${esc(label)}" title="${esc(label)}">${icon(glyph)}</button>`;
 
 export function createSkillSettings({ panel, api, projects = () => [], onSection, showToast = () => {} }) {
   const view = {

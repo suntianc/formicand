@@ -260,20 +260,6 @@
   width: 12px;
   height: 12px;
 }
-.skill-action.settings-icon-button {
-  width: 28px;
-  height: 28px;
-  border: 1px solid var(--color-line);
-  border-radius: 7px;
-  color: var(--color-text-2);
-}
-.skill-action .ui-icon {
-  width: 15px;
-  height: 15px;
-}
-.skill-action.is-danger {
-  color: var(--ui-danger);
-}
 .skill-description {
   margin: 0;
   color: var(--color-text-2);
@@ -471,13 +457,6 @@
   color: var(--color-text-2);
   font: 400 12px/1.4 var(--ui-font);
 }
-.mcp-enabled {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--color-text-2);
-  font: 400 13px/1 var(--ui-font);
-}
 .mcp-pair {
   display: flex;
   flex-wrap: wrap;
@@ -580,41 +559,6 @@
   width: 14px;
   height: 14px;
 }
-/* A server's mark: the first letter of its name on a tint fixed by the name. */
-.mcp-mark {
-  --mark-hue: 220;
-  display: grid;
-  flex: 0 0 28px;
-  place-items: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 8px;
-  background: hsl(var(--mark-hue) 60% 55% / 16%);
-  color: hsl(var(--mark-hue) 60% 55%);
-  font: 600 12px/1 var(--ui-font);
-}
-.mcp-mark.is-large {
-  flex-basis: 44px;
-  width: 44px;
-  height: 44px;
-  border-radius: 11px;
-  font-size: 17px;
-}
-.mcp-mark[data-tint="1"] {
-  --mark-hue: 150;
-}
-.mcp-mark[data-tint="2"] {
-  --mark-hue: 38;
-}
-.mcp-mark[data-tint="3"] {
-  --mark-hue: 270;
-}
-.mcp-mark[data-tint="4"] {
-  --mark-hue: 340;
-}
-.mcp-mark[data-tint="5"] {
-  --mark-hue: 185;
-}
 .skill-row-desc.is-warn {
   color: var(--ui-warning);
 }
@@ -622,7 +566,7 @@
   color: var(--ui-danger);
 }
 .skill-row.is-off .skill-row-text,
-.skill-row.is-off .mcp-mark {
+.skill-row.is-off .letter-mark {
   opacity: 0.5;
 }
 .mcp-dialog {

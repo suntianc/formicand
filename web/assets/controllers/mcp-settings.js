@@ -2,6 +2,7 @@ import { icon } from "../ui/icons.js";
 import { ui } from "../ui/language.js";
 import { escapeHtml as esc } from "../ui/html.js";
 import { createModal } from "../ui/modal.js";
+import { letterMark } from "../ui/letter-mark.js";
 
 /**
  * Settings → MCP.
@@ -67,17 +68,9 @@ function stateTone(server) {
   return "";
 }
 
-/** A server's mark: its name's first letter on a tint that stays the same for that name. */
-function serverMark(server, size = "") {
-  const letter = (/[\p{L}\p{N}]/u.exec(server.name)?.[0] ?? "?").toUpperCase();
-  let hash = 0;
-  for (const character of server.name) hash = (hash * 31 + character.codePointAt(0)) >>> 0;
-  return `<span class="mcp-mark${size}" data-tint="${hash % 6}" aria-hidden="true">${esc(letter)}</span>`;
-}
-
 /** An icon-only action in the server detail; its name is its label and tooltip. */
 const detailAction = (action, glyph, label, { danger = false, disabled = false } = {}) =>
-  `<button class="settings-icon-button skill-action${danger ? " is-danger" : ""}" type="button" data-mcp-action="${action}" aria-label="${esc(label)}" title="${esc(label)}"${disabled ? " disabled" : ""}>${icon(glyph)}</button>`;
+  `<button class="settings-icon-button detail-action${danger ? " is-danger" : ""}" type="button" data-mcp-action="${action}" aria-label="${esc(label)}" title="${esc(label)}"${disabled ? " disabled" : ""}>${icon(glyph)}</button>`;
 
 function dotClass(server) {
   const state = server.status.state;
@@ -233,7 +226,7 @@ export function createMcpSettings({ panel, api, onSection, showToast = () => {} 
             (
               server
             ) => `<li><button type="button" class="skill-row${server.enabled ? "" : " is-off"}" data-mcp-select="${esc(server.name)}" aria-current="${server.name === view.selected}">
-              ${serverMark(server)}
+              ${letterMark(server.name)}
               <span class="skill-row-text"><span class="skill-row-name">${esc(server.name)}</span><span class="skill-row-desc${stateTone(server)}">${esc(stateText(server))}</span></span>
               <span class="settings-dot ${dotClass(server)}" aria-hidden="true"></span>
             </button></li>`
@@ -325,7 +318,7 @@ export function createMcpSettings({ panel, api, onSection, showToast = () => {} 
           <dt>环境变量</dt><dd>${pairs(config.env, true)}</dd>
           ${config.cwd ? ui`<dt>工作目录</dt><dd class="is-mono">${esc(config.cwd)}</dd>` : ""}`;
     detail.innerHTML = ui`<div class="skill-detail-head">
-        ${serverMark(server, " is-large")}
+        ${letterMark(server.name, "is-large")}
         <span class="skill-detail-title"><h2>${esc(server.name)}</h2><span class="mcp-state"><span class="settings-dot ${dotClass(server)}" aria-hidden="true"></span><span data-mcp-state>${esc(stateLine)}</span></span></span>
         <span class="settings-group-spacer"></span>
         ${server.oauth && server.enabled && status.state === "connected" ? `<button class="app-button is-secondary" type="button" data-mcp-action="logout">${icon("unplug")}<span>${ui("退出登录")}</span></button>` : ""}

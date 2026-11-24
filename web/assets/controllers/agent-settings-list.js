@@ -1,7 +1,7 @@
 import { icon } from "../ui/icons.js";
 import { ui } from "../ui/language.js";
 import { escapeHtml as esc } from "../ui/html.js";
-import { agentIcon } from "./agent-settings-editor.js";
+import { agentMark } from "./agent-settings-editor.js";
 
 export function renderAgentProjectBar($, { scope, projects: list, projectId, project }) {
   const bar = $("[data-agent-project]");
@@ -41,7 +41,7 @@ export function agentListMarkup(shown, { scope, agents, selected, keyOf, summary
         .map(({ agent, group: next }) => {
           const header =
             next.source !== group
-              ? `<li class="agent-group" role="presentation"><span>${esc(next.title)}</span>${next.note ? `<span class="is-mono">${esc(next.note)}</span>` : ""}</li>`
+              ? `<li class="agent-group" role="presentation"><span>${esc(next.title)}</span></li>`
               : "";
           group = next.source;
           const off = agent.error || agent.shadowedBy || agent.definition?.enabled === false;
@@ -60,7 +60,7 @@ export function agentListMarkup(shown, { scope, agents, selected, keyOf, summary
                     ? `<span class="skill-tag">${esc(ui("全局"))}</span>`
                     : "";
           return `${header}<li><button type="button" class="skill-row${off ? " is-muted" : ""}" data-agent-select="${esc(keyOf(agent))}" aria-current="${keyOf(agent) === selected}">
-            <span class="settings-icon-box">${icon(agentIcon(agent.definition))}</span>
+            ${agentMark(agent)}
             <span class="skill-row-text"><span class="skill-row-name">${esc(agent.name)}</span><span class="skill-row-desc">${esc(summary(agent))}</span></span>
             ${tag}
           </button></li>`;
