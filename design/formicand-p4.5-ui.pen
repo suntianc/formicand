@@ -184115,6 +184115,2964 @@
           ]
         }
       ]
+    },
+    {
+      "type": "frame",
+      "id": "MRywf",
+      "x": 3080,
+      "y": 29620,
+      "name": "P4.9 设置 · Agent（深色）",
+      "theme": {
+        "mode": "dark"
+      },
+      "clip": true,
+      "width": 1440,
+      "height": 900,
+      "fill": {
+        "type": "gradient",
+        "gradientType": "linear",
+        "enabled": true,
+        "rotation": 150,
+        "size": {
+          "height": 1
+        },
+        "colors": [
+          {
+            "color": "#171B36",
+            "position": 0
+          },
+          {
+            "color": "#0E0E18",
+            "position": 0.5
+          },
+          {
+            "color": "#22142E",
+            "position": 1
+          }
+        ]
+      },
+      "gap": 10,
+      "padding": [
+        10,
+        10,
+        10,
+        0
+      ],
+      "children": [
+        {
+          "type": "frame",
+          "id": "Bzom0",
+          "layoutPosition": "absolute",
+          "x": 0,
+          "y": 0,
+          "name": "Backdrop",
+          "clip": true,
+          "width": 1440,
+          "height": 900,
+          "fill": "$v2-backdrop",
+          "layout": "none",
+          "children": [
+            {
+              "type": "ellipse",
+              "id": "TIn3r",
+              "x": -160,
+              "y": -220,
+              "name": "Glow",
+              "enabled": false,
+              "fill": "#5B66FF88",
+              "width": 620,
+              "height": 620,
+              "effect": {
+                "type": "blur",
+                "radius": 160
+              }
+            },
+            {
+              "type": "ellipse",
+              "id": "lydTY",
+              "x": 980,
+              "y": 520,
+              "name": "Glow",
+              "enabled": false,
+              "fill": "#A55BFF77",
+              "width": 640,
+              "height": 640,
+              "effect": {
+                "type": "blur",
+                "radius": 160
+              }
+            },
+            {
+              "type": "ellipse",
+              "id": "IZnyU",
+              "x": 560,
+              "y": -280,
+              "name": "Glow",
+              "enabled": false,
+              "fill": "#2FB3C455",
+              "width": 520,
+              "height": 520,
+              "effect": {
+                "type": "blur",
+                "radius": 160
+              }
+            },
+            {
+              "type": "ellipse",
+              "id": "D4bno",
+              "x": 503.99999999999994,
+              "y": 405,
+              "name": "Glow",
+              "enabled": false,
+              "fill": "#FF7AB833",
+              "width": 420,
+              "height": 420,
+              "effect": {
+                "type": "blur",
+                "radius": 150
+              }
+            }
+          ]
+        },
+        {
+          "type": "rectangle",
+          "id": "Cuxc4",
+          "layoutPosition": "absolute",
+          "x": 0,
+          "y": 0,
+          "name": "BaseGlass",
+          "fill": "$v2-base-glass",
+          "width": 1440,
+          "height": 900,
+          "stroke": "$v2-side-edge",
+          "strokeWidth": 1,
+          "strokeAlignment": "inner",
+          "effect": {
+            "type": "background_blur",
+            "radius": 60
+          }
+        },
+        {
+          "type": "frame",
+          "id": "EaZs3",
+          "name": "SettingsNav",
+          "width": 248,
+          "height": "fill_container",
+          "layout": "vertical",
+          "gap": 4,
+          "padding": [
+            16,
+            12
+          ],
+          "children": [
+            {
+              "type": "frame",
+              "id": "zuMbP",
+              "name": "Back",
+              "width": "fill_container",
+              "gap": 8,
+              "padding": [
+                6,
+                8,
+                18,
+                8
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon",
+                  "id": "CA0Bk",
+                  "name": "i-arrow-left",
+                  "width": 16,
+                  "height": 16,
+                  "icon": "arrow-left",
+                  "library": "lucide",
+                  "fill": "$v2-text-2"
+                },
+                {
+                  "type": "text",
+                  "id": "pYeoa",
+                  "name": "BackLabel",
+                  "fill": "$v2-text",
+                  "content": "设置",
+                  "fontFamily": "Noto Sans SC",
+                  "fontSize": 15,
+                  "fontWeight": "600"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "xZ4F7",
+              "name": "Nav 通用",
+              "width": "fill_container",
+              "fill": "#00000000",
+              "cornerRadius": 8,
+              "stroke": "#00000000",
+              "gap": 10,
+              "padding": 8,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon",
+                  "id": "fKBhL",
+                  "name": "i-sliders-horizontal",
+                  "width": 16,
+                  "height": 16,
+                  "icon": "sliders-horizontal",
+                  "library": "lucide",
+                  "fill": "$v2-text-2"
+                },
+                {
+                  "type": "text",
+                  "id": "sF6DZ",
+                  "name": "NavLabel",
+                  "fill": "$v2-text",
+                  "content": "通用",
+                  "fontFamily": "Noto Sans SC",
+                  "fontSize": 14,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "u5s0I",
+              "name": "Nav 服务连接",
+              "width": "fill_container",
+              "fill": "#00000000",
+              "cornerRadius": 8,
+              "stroke": "#00000000",
+              "gap": 10,
+              "padding": 8,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon",
+                  "id": "guUEC",
+                  "name": "i-server",
+                  "width": 16,
+                  "height": 16,
+                  "icon": "server",
+                  "library": "lucide",
+                  "fill": "$v2-text-2"
+                },
+                {
+                  "type": "text",
+                  "id": "MaIvM",
+                  "name": "NavLabel",
+                  "fill": "$v2-text",
+                  "content": "节点连接",
+                  "fontFamily": "Noto Sans SC",
+                  "fontSize": 14,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "g2Bua",
+              "name": "Nav 模型与角色",
+              "width": "fill_container",
+              "fill": "#00000000",
+              "cornerRadius": 8,
+              "stroke": "#00000000",
+              "gap": 10,
+              "padding": 8,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon",
+                  "id": "G4Sa2l",
+                  "name": "i-wrench",
+                  "width": 16,
+                  "height": 16,
+                  "icon": "cpu",
+                  "library": "lucide",
+                  "fill": "$v2-text-2"
+                },
+                {
+                  "type": "text",
+                  "id": "e6W1yL",
+                  "name": "NavLabel",
+                  "fill": "$v2-text",
+                  "content": "模型",
+                  "fontFamily": "Noto Sans SC",
+                  "fontSize": 14,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "XfC4Z",
+              "name": "Nav Agent",
+              "width": "fill_container",
+              "fill": "$v2-selected",
+              "cornerRadius": 8,
+              "stroke": "$v2-selected-edge",
+              "gap": 10,
+              "padding": 8,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon",
+                  "id": "c6WEE",
+                  "name": "i-wrench",
+                  "width": 16,
+                  "height": 16,
+                  "icon": "bot",
+                  "library": "lucide",
+                  "fill": "$v2-text-2"
+                },
+                {
+                  "type": "text",
+                  "id": "RlAZE",
+                  "name": "NavLabel",
+                  "fill": "$v2-text",
+                  "content": "Agent",
+                  "fontFamily": "Noto Sans SC",
+                  "fontSize": 14,
+                  "fontWeight": "500"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "f2KGN",
+              "name": "Nav 技能",
+              "width": "fill_container",
+              "fill": "#00000000",
+              "cornerRadius": 8,
+              "stroke": "#00000000",
+              "strokeWidth": 1,
+              "effect": {
+                "type": "shadow",
+                "shadowType": "outer",
+                "color": "$v2-selected-shadow",
+                "offset": {
+                  "x": 0,
+                  "y": 1
+                },
+                "blur": 3
+              },
+              "gap": 10,
+              "padding": 8,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon",
+                  "id": "R1YqG",
+                  "name": "i-cpu",
+                  "width": 16,
+                  "height": 16,
+                  "icon": "book-open",
+                  "library": "lucide",
+                  "fill": "$v2-text-2"
+                },
+                {
+                  "type": "text",
+                  "id": "u24KS",
+                  "name": "NavLabel",
+                  "fill": "$v2-text",
+                  "content": "技能",
+                  "fontFamily": "Noto Sans SC",
+                  "fontSize": 14,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "OnSVC",
+              "name": "Nav MCP",
+              "width": "fill_container",
+              "fill": "#00000000",
+              "cornerRadius": 8,
+              "stroke": "#00000000",
+              "gap": 10,
+              "padding": 8,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon",
+                  "id": "SjgGs",
+                  "name": "i-wrench",
+                  "width": 16,
+                  "height": 16,
+                  "icon": "plug",
+                  "library": "lucide",
+                  "fill": "$v2-text-2"
+                },
+                {
+                  "type": "text",
+                  "id": "mG5Ye",
+                  "name": "NavLabel",
+                  "fill": "$v2-text",
+                  "content": "MCP",
+                  "fontFamily": "Noto Sans SC",
+                  "fontSize": 14,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "z14cuS",
+              "name": "Nav 记忆",
+              "width": "fill_container",
+              "fill": "#00000000",
+              "cornerRadius": 8,
+              "stroke": "#00000000",
+              "gap": 10,
+              "padding": 8,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon",
+                  "id": "aFYaK",
+                  "name": "i-brain",
+                  "width": 16,
+                  "height": 16,
+                  "icon": "brain",
+                  "library": "lucide",
+                  "fill": "$v2-text-2"
+                },
+                {
+                  "type": "text",
+                  "id": "qHxPU",
+                  "name": "NavLabel",
+                  "fill": "$v2-text",
+                  "content": "记忆",
+                  "fontFamily": "Noto Sans SC",
+                  "fontSize": 14,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "QfBFv",
+              "x": 12,
+              "y": 346,
+              "name": "Nav 运行名额",
+              "enabled": false,
+              "width": "fill_container(224)",
+              "fill": "#00000000",
+              "cornerRadius": 8,
+              "stroke": "#00000000",
+              "gap": 10,
+              "padding": 8,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon",
+                  "id": "QKdTs",
+                  "name": "i-gauge",
+                  "width": 16,
+                  "height": 16,
+                  "icon": "gauge",
+                  "library": "lucide",
+                  "fill": "$v2-text-2"
+                },
+                {
+                  "type": "text",
+                  "id": "OhbPc",
+                  "name": "NavLabel",
+                  "fill": "$v2-text",
+                  "content": "运行名额",
+                  "fontFamily": "Noto Sans SC",
+                  "fontSize": 14,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "SlLIl",
+              "name": "Nav 成员与通道",
+              "width": "fill_container",
+              "fill": "#00000000",
+              "cornerRadius": 8,
+              "stroke": "#00000000",
+              "gap": 10,
+              "padding": 8,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon",
+                  "id": "Y3Ds9a",
+                  "name": "i-users",
+                  "width": 16,
+                  "height": 16,
+                  "icon": "users",
+                  "library": "lucide",
+                  "fill": "$v2-text-2"
+                },
+                {
+                  "type": "text",
+                  "id": "rqBHN",
+                  "name": "NavLabel",
+                  "fill": "$v2-text",
+                  "content": "成员与通道",
+                  "fontFamily": "Noto Sans SC",
+                  "fontSize": 14,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "ZDDsb",
+              "name": "Nav 工具",
+              "width": "fill_container",
+              "fill": "#00000000",
+              "cornerRadius": 8,
+              "stroke": "#00000000",
+              "gap": 10,
+              "padding": 8,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon",
+                  "id": "YNgrc",
+                  "name": "i-wrench",
+                  "width": 16,
+                  "height": 16,
+                  "icon": "wrench",
+                  "library": "lucide",
+                  "fill": "$v2-text-2"
+                },
+                {
+                  "type": "text",
+                  "id": "QnyIc",
+                  "name": "NavLabel",
+                  "fill": "$v2-text-2",
+                  "content": "工具",
+                  "fontFamily": "Noto Sans SC",
+                  "fontSize": 14,
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "iFvsx",
+          "name": "Content",
+          "clip": true,
+          "width": "fill_container",
+          "height": "fill_container",
+          "fill": "$v2-main",
+          "cornerRadius": 16,
+          "stroke": "$v2-main-edge",
+          "strokeWidth": 1,
+          "strokeAlignment": "inner",
+          "effect": [
+            {
+              "type": "background_blur",
+              "radius": 40
+            },
+            {
+              "type": "shadow",
+              "shadowType": "outer",
+              "color": "#00000073",
+              "offset": {
+                "x": 0,
+                "y": 10
+              },
+              "blur": 40
+            }
+          ],
+          "layout": "vertical",
+          "children": [
+            {
+              "type": "frame",
+              "id": "CozrP",
+              "name": "Header",
+              "width": "fill_container",
+              "height": 64,
+              "stroke": "$v2-line",
+              "strokeWidth": {
+                "bottom": 1
+              },
+              "gap": 10,
+              "padding": [
+                0,
+                28
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "kr813",
+                  "name": "PageTitle",
+                  "fill": "$v2-text",
+                  "content": "Agent",
+                  "fontFamily": "Noto Sans SC",
+                  "fontSize": 20,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "frame",
+                  "id": "WOPdi",
+                  "name": "Tabs",
+                  "fill": "$v2-track",
+                  "cornerRadius": 9,
+                  "gap": 2,
+                  "padding": 3,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "gweHC",
+                      "name": "Tab 全局",
+                      "fill": "$v2-selected",
+                      "cornerRadius": 7,
+                      "padding": [
+                        5,
+                        14
+                      ],
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "ve5Y1",
+                          "name": "TabLabel",
+                          "fill": "$v2-text",
+                          "content": "全局",
+                          "fontFamily": "Noto Sans SC",
+                          "fontSize": 13,
+                          "fontWeight": "500"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "D5PJD",
+                      "name": "Tab 项目",
+                      "fill": "#00000000",
+                      "cornerRadius": 7,
+                      "padding": [
+                        5,
+                        14
+                      ],
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "UCPjQ",
+                          "name": "TabLabel",
+                          "fill": "$v2-text-2",
+                          "content": "项目",
+                          "fontFamily": "Noto Sans SC",
+                          "fontSize": 13,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "n8V0e",
+                  "name": "Spacer",
+                  "width": "fill_container",
+                  "height": 1
+                },
+                {
+                  "type": "frame",
+                  "id": "okZZw",
+                  "name": "Button 让 Main 帮我写",
+                  "height": 28,
+                  "fill": "$v2-secondary",
+                  "cornerRadius": 7,
+                  "gap": 5,
+                  "padding": [
+                    0,
+                    10
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "aCj28",
+                      "name": "i",
+                      "width": 13,
+                      "height": 13,
+                      "icon": "sparkles",
+                      "library": "lucide",
+                      "fill": "$v2-text-2"
+                    },
+                    {
+                      "type": "text",
+                      "id": "PNfsE",
+                      "name": "L",
+                      "fill": "$v2-text",
+                      "content": "让 Main 帮我写",
+                      "fontFamily": "Noto Sans SC",
+                      "fontSize": 12,
+                      "fontWeight": "500"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "WiVdi",
+                  "name": "Button 新建",
+                  "height": 28,
+                  "fill": "$v2-primary",
+                  "cornerRadius": 7,
+                  "gap": 5,
+                  "padding": [
+                    0,
+                    10
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "MOuN9",
+                      "name": "i",
+                      "width": 13,
+                      "height": 13,
+                      "icon": "plus",
+                      "library": "lucide",
+                      "fill": "$v2-on-primary"
+                    },
+                    {
+                      "type": "text",
+                      "id": "q4l43",
+                      "name": "L",
+                      "fill": "$v2-on-primary",
+                      "content": "新建",
+                      "fontFamily": "Noto Sans SC",
+                      "fontSize": 12,
+                      "fontWeight": "500"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "Z8qD4M",
+              "name": "Body",
+              "width": "fill_container",
+              "height": "fill_container",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "bkuPr",
+                  "name": "AgentList",
+                  "width": 300,
+                  "height": "fill_container",
+                  "stroke": "$v2-line",
+                  "strokeWidth": {
+                    "right": 1
+                  },
+                  "layout": "vertical",
+                  "gap": 4,
+                  "padding": [
+                    16,
+                    12
+                  ],
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "W8GuAy",
+                      "name": "Search",
+                      "width": "fill_container",
+                      "fill": "$v2-track",
+                      "cornerRadius": 8,
+                      "stroke": "$v2-line",
+                      "strokeWidth": 1,
+                      "gap": 8,
+                      "padding": [
+                        8,
+                        10
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon",
+                          "id": "jbvdJ",
+                          "name": "i-search",
+                          "width": 14,
+                          "height": 14,
+                          "icon": "search",
+                          "library": "lucide",
+                          "fill": "$v2-text-3"
+                        },
+                        {
+                          "type": "text",
+                          "id": "TDajc",
+                          "name": "T",
+                          "fill": "$v2-text-3",
+                          "content": "搜索 Agent",
+                          "fontFamily": "Noto Sans SC",
+                          "fontSize": 13,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "bbuRX",
+                      "name": "Group 内置",
+                      "width": "fill_container",
+                      "gap": 6,
+                      "padding": [
+                        12,
+                        6,
+                        4,
+                        6
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "IhEPF",
+                          "name": "T",
+                          "fill": "$v2-text-3",
+                          "content": "内置",
+                          "fontFamily": "Noto Sans SC",
+                          "fontSize": 11,
+                          "fontWeight": "500"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "U998d",
+                      "name": "Agent main",
+                      "width": "fill_container",
+                      "fill": "#00000000",
+                      "cornerRadius": 8,
+                      "gap": 10,
+                      "padding": [
+                        8,
+                        10
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "rECj9",
+                          "name": "Avatar",
+                          "width": 26,
+                          "height": 26,
+                          "fill": "$v2-chip",
+                          "cornerRadius": 13,
+                          "stroke": "$v2-line",
+                          "strokeWidth": 1,
+                          "justifyContent": "center",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "icon",
+                              "id": "peO2V",
+                              "name": "i-bot",
+                              "width": 13,
+                              "height": 13,
+                              "icon": "bot",
+                              "library": "lucide",
+                              "fill": "$v2-text-2"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "dfS9Z",
+                          "name": "Text",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "gap": 1,
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "r4Wzo",
+                              "name": "Name",
+                              "fill": "$v2-text",
+                              "content": "main",
+                              "fontFamily": "JetBrains Mono",
+                              "fontSize": 13,
+                              "fontWeight": "500"
+                            },
+                            {
+                              "type": "text",
+                              "id": "KPodr",
+                              "name": "Meta",
+                              "fill": "$v2-text-3",
+                              "content": "你对话的那个",
+                              "fontFamily": "Noto Sans SC",
+                              "fontSize": 11,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "q3B2zM",
+                          "name": "Tag",
+                          "fill": "$v2-chip",
+                          "cornerRadius": 5,
+                          "gap": 3,
+                          "padding": [
+                            1,
+                            6
+                          ],
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "icon",
+                              "id": "K61CD",
+                              "name": "i-lock",
+                              "width": 11,
+                              "height": 11,
+                              "icon": "lock",
+                              "library": "lucide",
+                              "fill": "$v2-text-2"
+                            },
+                            {
+                              "type": "text",
+                              "id": "A59irb",
+                              "name": "T",
+                              "fill": "$v2-text-2",
+                              "content": "内置",
+                              "fontFamily": "Noto Sans SC",
+                              "fontSize": 11,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "R8LY1",
+                      "name": "Agent executor",
+                      "width": "fill_container",
+                      "fill": "#00000000",
+                      "cornerRadius": 8,
+                      "gap": 10,
+                      "padding": [
+                        8,
+                        10
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "yqekP",
+                          "name": "Avatar",
+                          "width": 26,
+                          "height": 26,
+                          "fill": "$v2-chip",
+                          "cornerRadius": 13,
+                          "stroke": "$v2-line",
+                          "strokeWidth": 1,
+                          "justifyContent": "center",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "icon",
+                              "id": "y665oc",
+                              "name": "i-hammer",
+                              "width": 13,
+                              "height": 13,
+                              "icon": "hammer",
+                              "library": "lucide",
+                              "fill": "$v2-text-2"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "hhwyp",
+                          "name": "Text",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "gap": 1,
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "eLa1S",
+                              "name": "Name",
+                              "fill": "$v2-text",
+                              "content": "executor",
+                              "fontFamily": "JetBrains Mono",
+                              "fontSize": 13,
+                              "fontWeight": "500"
+                            },
+                            {
+                              "type": "text",
+                              "id": "Hv1eA",
+                              "name": "Meta",
+                              "fill": "$v2-text-3",
+                              "content": "可写 · GLM-4.6 · 中",
+                              "fontFamily": "Noto Sans SC",
+                              "fontSize": 11,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "kpgWb",
+                          "name": "Tag",
+                          "fill": "$v2-chip",
+                          "cornerRadius": 5,
+                          "gap": 3,
+                          "padding": [
+                            1,
+                            6
+                          ],
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "icon",
+                              "id": "Q6KVz",
+                              "name": "i-lock",
+                              "width": 11,
+                              "height": 11,
+                              "icon": "lock",
+                              "library": "lucide",
+                              "fill": "$v2-text-2"
+                            },
+                            {
+                              "type": "text",
+                              "id": "YQ6Nl",
+                              "name": "T",
+                              "fill": "$v2-text-2",
+                              "content": "内置",
+                              "fontFamily": "Noto Sans SC",
+                              "fontSize": 11,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "qv50p",
+                      "name": "Agent reviewer",
+                      "width": "fill_container",
+                      "fill": "#00000000",
+                      "cornerRadius": 8,
+                      "gap": 10,
+                      "padding": [
+                        8,
+                        10
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "SZ97o",
+                          "name": "Avatar",
+                          "width": 26,
+                          "height": 26,
+                          "fill": "$v2-chip",
+                          "cornerRadius": 13,
+                          "stroke": "$v2-line",
+                          "strokeWidth": 1,
+                          "justifyContent": "center",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "icon",
+                              "id": "T8kw3",
+                              "name": "i-scan-search",
+                              "width": 13,
+                              "height": 13,
+                              "icon": "scan-search",
+                              "library": "lucide",
+                              "fill": "$v2-text-2"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "E0HG6",
+                          "name": "Text",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "gap": 1,
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "TiVws",
+                              "name": "Name",
+                              "fill": "$v2-text",
+                              "content": "reviewer",
+                              "fontFamily": "JetBrains Mono",
+                              "fontSize": 13,
+                              "fontWeight": "500"
+                            },
+                            {
+                              "type": "text",
+                              "id": "i8Y1z",
+                              "name": "Meta",
+                              "fill": "$v2-text-3",
+                              "content": "只读 · DeepSeek V3.2 思考 · 高",
+                              "fontFamily": "Noto Sans SC",
+                              "fontSize": 11,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "MsymJ",
+                          "name": "Tag",
+                          "fill": "$v2-chip",
+                          "cornerRadius": 5,
+                          "gap": 3,
+                          "padding": [
+                            1,
+                            6
+                          ],
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "icon",
+                              "id": "P2cI2",
+                              "name": "i-lock",
+                              "width": 11,
+                              "height": 11,
+                              "icon": "lock",
+                              "library": "lucide",
+                              "fill": "$v2-text-2"
+                            },
+                            {
+                              "type": "text",
+                              "id": "H7rZ3",
+                              "name": "T",
+                              "fill": "$v2-text-2",
+                              "content": "内置",
+                              "fontFamily": "Noto Sans SC",
+                              "fontSize": 11,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "ScGko",
+                      "name": "Group 全局",
+                      "width": "fill_container",
+                      "gap": 6,
+                      "padding": [
+                        12,
+                        6,
+                        4,
+                        6
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "Zileo",
+                          "name": "T",
+                          "fill": "$v2-text-3",
+                          "content": "全局",
+                          "fontFamily": "Noto Sans SC",
+                          "fontSize": 11,
+                          "fontWeight": "500"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "R6MPK",
+                      "name": "Agent db-migrator",
+                      "width": "fill_container",
+                      "fill": "$v2-selected",
+                      "cornerRadius": 8,
+                      "gap": 10,
+                      "padding": [
+                        8,
+                        10
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "qblJK",
+                          "name": "Avatar",
+                          "width": 26,
+                          "height": 26,
+                          "fill": "#F28CB826",
+                          "cornerRadius": 13,
+                          "stroke": "$v2-line",
+                          "strokeWidth": 1,
+                          "justifyContent": "center",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "PWtP1",
+                              "name": "Letter",
+                              "fill": "#F28CB8",
+                              "content": "D",
+                              "fontFamily": "Noto Sans SC",
+                              "fontSize": 13,
+                              "fontWeight": "600"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "Z8cgmL",
+                          "name": "Text",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "gap": 1,
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "DMUbN",
+                              "name": "Name",
+                              "fill": "$v2-text",
+                              "content": "db-migrator",
+                              "fontFamily": "JetBrains Mono",
+                              "fontSize": 13,
+                              "fontWeight": "500"
+                            },
+                            {
+                              "type": "text",
+                              "id": "g24uK",
+                              "name": "Meta",
+                              "fill": "$v2-text-3",
+                              "content": "可写 · 2 技能 · 1 MCP",
+                              "fontFamily": "Noto Sans SC",
+                              "fontSize": 11,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "s63DQX",
+                      "name": "Agent pr-writer",
+                      "width": "fill_container",
+                      "fill": "#00000000",
+                      "cornerRadius": 8,
+                      "gap": 10,
+                      "padding": [
+                        8,
+                        10
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "HKnNT",
+                          "name": "Avatar",
+                          "width": 26,
+                          "height": 26,
+                          "fill": "#E8B04B26",
+                          "cornerRadius": 13,
+                          "stroke": "$v2-line",
+                          "strokeWidth": 1,
+                          "justifyContent": "center",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "TkfXA",
+                              "name": "Letter",
+                              "fill": "#E8B04B",
+                              "content": "P",
+                              "fontFamily": "Noto Sans SC",
+                              "fontSize": 13,
+                              "fontWeight": "600"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "XSRMM",
+                          "name": "Text",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "gap": 1,
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "QeBtk",
+                              "name": "Name",
+                              "fill": "$v2-text",
+                              "content": "pr-writer",
+                              "fontFamily": "JetBrains Mono",
+                              "fontSize": 13,
+                              "fontWeight": "500"
+                            },
+                            {
+                              "type": "text",
+                              "id": "KO1b8",
+                              "name": "Meta",
+                              "fill": "$v2-text-3",
+                              "content": "只读 · 1 MCP",
+                              "fontFamily": "Noto Sans SC",
+                              "fontSize": 11,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "aSMVn",
+                      "name": "Agent reviewer-plus",
+                      "width": "fill_container",
+                      "fill": "#00000000",
+                      "cornerRadius": 8,
+                      "gap": 10,
+                      "padding": [
+                        8,
+                        10
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "rvABI",
+                          "name": "Avatar",
+                          "width": 26,
+                          "height": 26,
+                          "fill": "#6FD3C726",
+                          "cornerRadius": 13,
+                          "stroke": "$v2-line",
+                          "strokeWidth": 1,
+                          "justifyContent": "center",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "C3Vmyd",
+                              "name": "Letter",
+                              "fill": "#6FD3C7",
+                              "content": "R",
+                              "fontFamily": "Noto Sans SC",
+                              "fontSize": 13,
+                              "fontWeight": "600"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "AWRvF",
+                          "name": "Text",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "gap": 1,
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "s64gM",
+                              "name": "Name",
+                              "fill": "$v2-text",
+                              "content": "reviewer-plus",
+                              "fontFamily": "JetBrains Mono",
+                              "fontSize": 13,
+                              "fontWeight": "500"
+                            },
+                            {
+                              "type": "text",
+                              "id": "smkqr",
+                              "name": "Meta",
+                              "fill": "$v2-text-3",
+                              "content": "只读 · 复制自 reviewer",
+                              "fontFamily": "Noto Sans SC",
+                              "fontSize": 11,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "fleWl",
+                          "name": "Tag",
+                          "fill": "$v2-review-soft",
+                          "cornerRadius": 5,
+                          "gap": 3,
+                          "padding": [
+                            1,
+                            6
+                          ],
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "v0oVWa",
+                              "name": "T",
+                              "fill": "$v2-review",
+                              "content": "Main 创建",
+                              "fontFamily": "Noto Sans SC",
+                              "fontSize": 11,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "PxpXl",
+                      "name": "Agent doc-writer",
+                      "opacity": 0.55,
+                      "width": "fill_container",
+                      "fill": "#00000000",
+                      "cornerRadius": 8,
+                      "gap": 10,
+                      "padding": [
+                        8,
+                        10
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "i1jZ7",
+                          "name": "Avatar",
+                          "width": 26,
+                          "height": 26,
+                          "fill": "#E8B04B26",
+                          "cornerRadius": 13,
+                          "stroke": "$v2-line",
+                          "strokeWidth": 1,
+                          "justifyContent": "center",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "jgMBk",
+                              "name": "Letter",
+                              "fill": "#E8B04B",
+                              "content": "D",
+                              "fontFamily": "Noto Sans SC",
+                              "fontSize": 13,
+                              "fontWeight": "600"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "eKFSY",
+                          "name": "Text",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "gap": 1,
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "g0DgqI",
+                              "name": "Name",
+                              "fill": "$v2-text",
+                              "content": "doc-writer",
+                              "fontFamily": "JetBrains Mono",
+                              "fontSize": 13,
+                              "fontWeight": "500"
+                            },
+                            {
+                              "type": "text",
+                              "id": "Oic1Z",
+                              "name": "Meta",
+                              "fill": "$v2-text-3",
+                              "content": "已停用",
+                              "fontFamily": "Noto Sans SC",
+                              "fontSize": 11,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "mZUXv",
+                      "name": "Fill",
+                      "width": "fill_container",
+                      "height": "fill_container"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "zeASz",
+                      "name": "Pager",
+                      "width": "fill_container",
+                      "stroke": "$v2-line",
+                      "strokeWidth": {
+                        "top": 1
+                      },
+                      "gap": 6,
+                      "padding": [
+                        10,
+                        4,
+                        0,
+                        4
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "o7fZF",
+                          "name": "T",
+                          "fill": "$v2-text-3",
+                          "content": "共 14 个",
+                          "fontFamily": "Noto Sans SC",
+                          "fontSize": 12,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "frame",
+                          "id": "vG4Kh",
+                          "name": "Spacer",
+                          "width": "fill_container",
+                          "height": 1
+                        },
+                        {
+                          "type": "frame",
+                          "id": "BYWKq",
+                          "name": "Page chevron-left",
+                          "opacity": 0.4,
+                          "width": 26,
+                          "height": 26,
+                          "cornerRadius": 7,
+                          "stroke": "$v2-line",
+                          "strokeWidth": 1,
+                          "justifyContent": "center",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "icon",
+                              "id": "p5Yq3q",
+                              "name": "i-chevron-left",
+                              "width": 13,
+                              "height": 13,
+                              "icon": "chevron-left",
+                              "library": "lucide",
+                              "fill": "$v2-text-2"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "text",
+                          "id": "W01gE",
+                          "name": "T",
+                          "fill": "$v2-text-2",
+                          "content": "1 / 2",
+                          "fontFamily": "JetBrains Mono",
+                          "fontSize": 12,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "frame",
+                          "id": "t7P8Hd",
+                          "name": "Page chevron-right",
+                          "width": 26,
+                          "height": 26,
+                          "cornerRadius": 7,
+                          "stroke": "$v2-line",
+                          "strokeWidth": 1,
+                          "justifyContent": "center",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "icon",
+                              "id": "R0Byqc",
+                              "name": "i-chevron-right",
+                              "width": 13,
+                              "height": 13,
+                              "icon": "chevron-right",
+                              "library": "lucide",
+                              "fill": "$v2-text-2"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "NZwIW",
+                  "name": "AgentEditor",
+                  "width": "fill_container",
+                  "height": "fill_container",
+                  "stroke": "$v2-line",
+                  "strokeWidth": {
+                    "left": 1
+                  },
+                  "layout": "vertical",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "KMK6k",
+                      "name": "Scroll",
+                      "clip": true,
+                      "width": "fill_container",
+                      "height": "fill_container",
+                      "layout": "vertical",
+                      "gap": 20,
+                      "padding": [
+                        24,
+                        32
+                      ],
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "IFoiO",
+                          "name": "DetailHead",
+                          "width": "fill_container",
+                          "gap": 12,
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "pEbK9",
+                              "name": "Avatar",
+                              "width": 36,
+                              "height": 36,
+                              "fill": "#E8B04B26",
+                              "cornerRadius": 9,
+                              "justifyContent": "center",
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "knpPY",
+                                  "name": "L",
+                                  "fill": "#E8B04B",
+                                  "content": "D",
+                                  "fontFamily": "Noto Sans SC",
+                                  "fontSize": 16,
+                                  "fontWeight": "600"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "PRIms",
+                              "name": "Title",
+                              "layout": "vertical",
+                              "gap": 3,
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "b8VldZ",
+                                  "name": "Name",
+                                  "fill": "$v2-text",
+                                  "content": "db-migrator",
+                                  "fontFamily": "JetBrains Mono",
+                                  "fontSize": 16,
+                                  "fontWeight": "600"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "o80lE5",
+                                  "name": "Path",
+                                  "fill": "$v2-text-3",
+                                  "content": "~/.atria/agents/db-migrator.md",
+                                  "fontFamily": "JetBrains Mono",
+                                  "fontSize": 11,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "d8K97",
+                              "name": "Spacer",
+                              "width": "fill_container",
+                              "height": 1
+                            },
+                            {
+                              "type": "frame",
+                              "id": "scIyL",
+                              "name": "Toggle",
+                              "width": 36,
+                              "height": 20,
+                              "fill": "$v2-ok",
+                              "cornerRadius": 10,
+                              "padding": 2,
+                              "justifyContent": "end",
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "frame",
+                                  "id": "JeYIg",
+                                  "name": "Knob",
+                                  "width": 16,
+                                  "height": 16,
+                                  "fill": "#FFFFFF",
+                                  "cornerRadius": 8
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "NmtGD",
+                              "name": "IconBtn 复制",
+                              "width": 28,
+                              "height": 28,
+                              "fill": "$v2-secondary",
+                              "cornerRadius": 7,
+                              "justifyContent": "center",
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "icon",
+                                  "id": "R2pFh9",
+                                  "name": "i",
+                                  "width": 14,
+                                  "height": 14,
+                                  "icon": "copy",
+                                  "library": "lucide",
+                                  "fill": "$v2-text-2"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "JUboM",
+                              "name": "IconBtn 删除",
+                              "width": 28,
+                              "height": 28,
+                              "fill": "$v2-secondary",
+                              "cornerRadius": 7,
+                              "justifyContent": "center",
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "icon",
+                                  "id": "QEAFm",
+                                  "name": "i",
+                                  "width": 14,
+                                  "height": 14,
+                                  "icon": "trash-2",
+                                  "library": "lucide",
+                                  "fill": "$v2-danger"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "TpXRU",
+                          "name": "Section 基本",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "gap": 16,
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "JCzS3",
+                              "name": "Field 名称",
+                              "width": "fill_container",
+                              "layout": "vertical",
+                              "gap": 8,
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "aVUlJ",
+                                  "name": "Label",
+                                  "fill": "$v2-text",
+                                  "content": "名称",
+                                  "fontFamily": "Noto Sans SC",
+                                  "fontSize": 13,
+                                  "fontWeight": "500"
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "gIPRG",
+                                  "name": "Input",
+                                  "width": "fill_container",
+                                  "fill": "$v2-track",
+                                  "cornerRadius": 8,
+                                  "stroke": "$v2-line",
+                                  "strokeWidth": 1,
+                                  "strokeAlignment": "inner",
+                                  "padding": [
+                                    9,
+                                    12
+                                  ],
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "xZfqG",
+                                      "name": "V",
+                                      "fill": "$v2-text",
+                                      "textGrowth": "fixed-width",
+                                      "width": "fill_container",
+                                      "content": "db-migrator",
+                                      "lineHeight": 1.6,
+                                      "fontFamily": "JetBrains Mono",
+                                      "fontSize": 13,
+                                      "fontWeight": "normal"
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "oNThS",
+                              "name": "Field 给 Main 的使用说明",
+                              "width": "fill_container",
+                              "layout": "vertical",
+                              "gap": 8,
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "GRzxL",
+                                  "name": "Label",
+                                  "fill": "$v2-text",
+                                  "content": "给 Main 的使用说明",
+                                  "fontFamily": "Noto Sans SC",
+                                  "fontSize": 13,
+                                  "fontWeight": "500"
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "aCFPO",
+                                  "name": "Input",
+                                  "width": "fill_container",
+                                  "height": 52,
+                                  "fill": "$v2-track",
+                                  "cornerRadius": 8,
+                                  "stroke": "$v2-line",
+                                  "strokeWidth": 1,
+                                  "strokeAlignment": "inner",
+                                  "padding": [
+                                    9,
+                                    12
+                                  ],
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "VMgSS",
+                                      "name": "V",
+                                      "fill": "$v2-text",
+                                      "textGrowth": "fixed-width",
+                                      "width": "fill_container",
+                                      "content": "涉及数据库表结构变更、迁移脚本或数据回填时派给它。",
+                                      "lineHeight": 1.6,
+                                      "fontFamily": "Noto Sans SC",
+                                      "fontSize": 13,
+                                      "fontWeight": "normal"
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "Tprxz",
+                          "name": "Section 运行",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "gap": 16,
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "rMl27",
+                              "name": "Field 权限",
+                              "width": "fill_container",
+                              "layout": "vertical",
+                              "gap": 8,
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "IbbEn",
+                                  "name": "Label",
+                                  "fill": "$v2-text",
+                                  "content": "权限",
+                                  "fontFamily": "Noto Sans SC",
+                                  "fontSize": 13,
+                                  "fontWeight": "500"
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "QV6li",
+                                  "name": "Segmented",
+                                  "fill": "$v2-track",
+                                  "cornerRadius": 8,
+                                  "gap": 2,
+                                  "padding": 3,
+                                  "children": [
+                                    {
+                                      "type": "frame",
+                                      "id": "zWZ53",
+                                      "name": "Opt 可写",
+                                      "fill": "$v2-selected",
+                                      "cornerRadius": 6,
+                                      "gap": 6,
+                                      "padding": [
+                                        5,
+                                        12
+                                      ],
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "icon",
+                                          "id": "nDE3H",
+                                          "name": "i",
+                                          "width": 13,
+                                          "height": 13,
+                                          "icon": "pencil",
+                                          "library": "lucide",
+                                          "fill": "$v2-text"
+                                        },
+                                        {
+                                          "type": "text",
+                                          "id": "yl5Cr",
+                                          "name": "L",
+                                          "fill": "$v2-text",
+                                          "content": "可写",
+                                          "fontFamily": "Noto Sans SC",
+                                          "fontSize": 13,
+                                          "fontWeight": "500"
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "RcVpK",
+                                      "name": "Opt 只读",
+                                      "fill": "#00000000",
+                                      "cornerRadius": 6,
+                                      "gap": 6,
+                                      "padding": [
+                                        5,
+                                        12
+                                      ],
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "icon",
+                                          "id": "e5N1Y",
+                                          "name": "i",
+                                          "width": 13,
+                                          "height": 13,
+                                          "icon": "eye",
+                                          "library": "lucide",
+                                          "fill": "$v2-text-3"
+                                        },
+                                        {
+                                          "type": "text",
+                                          "id": "PSDMg",
+                                          "name": "L",
+                                          "fill": "$v2-text-2",
+                                          "content": "只读",
+                                          "fontFamily": "Noto Sans SC",
+                                          "fontSize": 13,
+                                          "fontWeight": "normal"
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "h6pef",
+                              "name": "ModelRow",
+                              "width": "fill_container",
+                              "gap": 12,
+                              "children": [
+                                {
+                                  "type": "frame",
+                                  "id": "SShqJ",
+                                  "name": "Field 模型",
+                                  "width": "fill_container",
+                                  "layout": "vertical",
+                                  "gap": 8,
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "xKv58",
+                                      "name": "Label",
+                                      "fill": "$v2-text",
+                                      "content": "模型",
+                                      "fontFamily": "Noto Sans SC",
+                                      "fontSize": 13,
+                                      "fontWeight": "500"
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "JInqe",
+                                      "name": "Select",
+                                      "width": "fill_container",
+                                      "fill": "$v2-track",
+                                      "cornerRadius": 8,
+                                      "stroke": "$v2-line",
+                                      "strokeWidth": 1,
+                                      "strokeAlignment": "inner",
+                                      "gap": 8,
+                                      "padding": [
+                                        9,
+                                        12
+                                      ],
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "id": "fCPRP",
+                                          "name": "V",
+                                          "fill": "$v2-text",
+                                          "content": "沿用 executor（GLM-4.6）",
+                                          "fontFamily": "Noto Sans SC",
+                                          "fontSize": 13,
+                                          "fontWeight": "normal"
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "Lv9tn",
+                                          "name": "Spacer",
+                                          "width": "fill_container",
+                                          "height": 1
+                                        },
+                                        {
+                                          "type": "icon",
+                                          "id": "RDGdQ",
+                                          "name": "c",
+                                          "width": 14,
+                                          "height": 14,
+                                          "icon": "chevron-down",
+                                          "library": "lucide",
+                                          "fill": "$v2-text-3"
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "yhWgX",
+                                  "name": "Field 推理强度",
+                                  "width": 180,
+                                  "layout": "vertical",
+                                  "gap": 8,
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "cKeZ7",
+                                      "name": "Label",
+                                      "fill": "$v2-text",
+                                      "content": "推理强度",
+                                      "fontFamily": "Noto Sans SC",
+                                      "fontSize": 13,
+                                      "fontWeight": "500"
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "E0NqN8",
+                                      "name": "Select",
+                                      "width": "fill_container",
+                                      "fill": "$v2-track",
+                                      "cornerRadius": 8,
+                                      "stroke": "$v2-line",
+                                      "strokeWidth": 1,
+                                      "strokeAlignment": "inner",
+                                      "gap": 8,
+                                      "padding": [
+                                        9,
+                                        12
+                                      ],
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "id": "Q9URHo",
+                                          "name": "V",
+                                          "fill": "$v2-text",
+                                          "content": "沿用",
+                                          "fontFamily": "Noto Sans SC",
+                                          "fontSize": 13,
+                                          "fontWeight": "normal"
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "qVnIA",
+                                          "name": "Spacer",
+                                          "width": "fill_container",
+                                          "height": 1
+                                        },
+                                        {
+                                          "type": "icon",
+                                          "id": "b622K",
+                                          "name": "c",
+                                          "width": 14,
+                                          "height": 14,
+                                          "icon": "chevron-down",
+                                          "library": "lucide",
+                                          "fill": "$v2-text-3"
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "WR0eh",
+                          "name": "Section 可用",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "gap": 16,
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "SVMyB",
+                              "name": "Field 工具",
+                              "width": "fill_container",
+                              "layout": "vertical",
+                              "gap": 8,
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "mKY6q",
+                                  "name": "Label",
+                                  "fill": "$v2-text",
+                                  "content": "工具",
+                                  "fontFamily": "Noto Sans SC",
+                                  "fontSize": 13,
+                                  "fontWeight": "500"
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "Dvrqp",
+                                  "name": "Chips",
+                                  "width": "fill_container",
+                                  "gap": 6,
+                                  "children": [
+                                    {
+                                      "type": "frame",
+                                      "id": "l6BRL",
+                                      "name": "Chip read",
+                                      "fill": "$v2-ok-soft",
+                                      "cornerRadius": 6,
+                                      "stroke": "#00000000",
+                                      "strokeWidth": 1,
+                                      "strokeAlignment": "inner",
+                                      "gap": 5,
+                                      "padding": [
+                                        4,
+                                        9
+                                      ],
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "icon",
+                                          "id": "nONtk",
+                                          "name": "ck",
+                                          "width": 12,
+                                          "height": 12,
+                                          "icon": "check",
+                                          "library": "lucide",
+                                          "fill": "$v2-ok"
+                                        },
+                                        {
+                                          "type": "text",
+                                          "id": "kv84e",
+                                          "name": "T",
+                                          "fill": "$v2-ok",
+                                          "content": "read",
+                                          "fontFamily": "JetBrains Mono",
+                                          "fontSize": 12,
+                                          "fontWeight": "normal"
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "GiUNk",
+                                      "name": "Chip bash",
+                                      "fill": "$v2-ok-soft",
+                                      "cornerRadius": 6,
+                                      "stroke": "#00000000",
+                                      "strokeWidth": 1,
+                                      "strokeAlignment": "inner",
+                                      "gap": 5,
+                                      "padding": [
+                                        4,
+                                        9
+                                      ],
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "icon",
+                                          "id": "dZtEX",
+                                          "name": "ck",
+                                          "width": 12,
+                                          "height": 12,
+                                          "icon": "check",
+                                          "library": "lucide",
+                                          "fill": "$v2-ok"
+                                        },
+                                        {
+                                          "type": "text",
+                                          "id": "Cpkxl",
+                                          "name": "T",
+                                          "fill": "$v2-ok",
+                                          "content": "bash",
+                                          "fontFamily": "JetBrains Mono",
+                                          "fontSize": 12,
+                                          "fontWeight": "normal"
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "P5pk7l",
+                                      "name": "Chip edit",
+                                      "fill": "$v2-ok-soft",
+                                      "cornerRadius": 6,
+                                      "stroke": "#00000000",
+                                      "strokeWidth": 1,
+                                      "strokeAlignment": "inner",
+                                      "gap": 5,
+                                      "padding": [
+                                        4,
+                                        9
+                                      ],
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "icon",
+                                          "id": "GbwFP",
+                                          "name": "ck",
+                                          "width": 12,
+                                          "height": 12,
+                                          "icon": "check",
+                                          "library": "lucide",
+                                          "fill": "$v2-ok"
+                                        },
+                                        {
+                                          "type": "text",
+                                          "id": "JQZYr",
+                                          "name": "T",
+                                          "fill": "$v2-ok",
+                                          "content": "edit",
+                                          "fontFamily": "JetBrains Mono",
+                                          "fontSize": 12,
+                                          "fontWeight": "normal"
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "TJJzY",
+                                      "name": "Chip write",
+                                      "fill": "$v2-ok-soft",
+                                      "cornerRadius": 6,
+                                      "stroke": "#00000000",
+                                      "strokeWidth": 1,
+                                      "strokeAlignment": "inner",
+                                      "gap": 5,
+                                      "padding": [
+                                        4,
+                                        9
+                                      ],
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "icon",
+                                          "id": "In8kg",
+                                          "name": "ck",
+                                          "width": 12,
+                                          "height": 12,
+                                          "icon": "check",
+                                          "library": "lucide",
+                                          "fill": "$v2-ok"
+                                        },
+                                        {
+                                          "type": "text",
+                                          "id": "kB9yg",
+                                          "name": "T",
+                                          "fill": "$v2-ok",
+                                          "content": "write",
+                                          "fontFamily": "JetBrains Mono",
+                                          "fontSize": 12,
+                                          "fontWeight": "normal"
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "HFJQh",
+                                      "name": "Chip grep",
+                                      "fill": "$v2-ok-soft",
+                                      "cornerRadius": 6,
+                                      "stroke": "#00000000",
+                                      "strokeWidth": 1,
+                                      "strokeAlignment": "inner",
+                                      "gap": 5,
+                                      "padding": [
+                                        4,
+                                        9
+                                      ],
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "icon",
+                                          "id": "vOMLd",
+                                          "name": "ck",
+                                          "width": 12,
+                                          "height": 12,
+                                          "icon": "check",
+                                          "library": "lucide",
+                                          "fill": "$v2-ok"
+                                        },
+                                        {
+                                          "type": "text",
+                                          "id": "SqvHT",
+                                          "name": "T",
+                                          "fill": "$v2-ok",
+                                          "content": "grep",
+                                          "fontFamily": "JetBrains Mono",
+                                          "fontSize": 12,
+                                          "fontWeight": "normal"
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "VXwiv",
+                                      "name": "Chip find",
+                                      "fill": "$v2-ok-soft",
+                                      "cornerRadius": 6,
+                                      "stroke": "#00000000",
+                                      "strokeWidth": 1,
+                                      "strokeAlignment": "inner",
+                                      "gap": 5,
+                                      "padding": [
+                                        4,
+                                        9
+                                      ],
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "icon",
+                                          "id": "CxFIL",
+                                          "name": "ck",
+                                          "width": 12,
+                                          "height": 12,
+                                          "icon": "check",
+                                          "library": "lucide",
+                                          "fill": "$v2-ok"
+                                        },
+                                        {
+                                          "type": "text",
+                                          "id": "iYJNE",
+                                          "name": "T",
+                                          "fill": "$v2-ok",
+                                          "content": "find",
+                                          "fontFamily": "JetBrains Mono",
+                                          "fontSize": 12,
+                                          "fontWeight": "normal"
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "wppwq",
+                                      "name": "Chip ls",
+                                      "fill": "$v2-ok-soft",
+                                      "cornerRadius": 6,
+                                      "stroke": "#00000000",
+                                      "strokeWidth": 1,
+                                      "strokeAlignment": "inner",
+                                      "gap": 5,
+                                      "padding": [
+                                        4,
+                                        9
+                                      ],
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "icon",
+                                          "id": "WfjR7",
+                                          "name": "ck",
+                                          "width": 12,
+                                          "height": 12,
+                                          "icon": "check",
+                                          "library": "lucide",
+                                          "fill": "$v2-ok"
+                                        },
+                                        {
+                                          "type": "text",
+                                          "id": "gRLaw",
+                                          "name": "T",
+                                          "fill": "$v2-ok",
+                                          "content": "ls",
+                                          "fontFamily": "JetBrains Mono",
+                                          "fontSize": 12,
+                                          "fontWeight": "normal"
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "K0HgCf",
+                                      "name": "Chip search",
+                                      "fill": "$v2-chip",
+                                      "cornerRadius": 6,
+                                      "stroke": "$v2-line",
+                                      "strokeWidth": 1,
+                                      "strokeAlignment": "inner",
+                                      "gap": 5,
+                                      "padding": [
+                                        4,
+                                        9
+                                      ],
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "id": "vL6cA",
+                                          "name": "T",
+                                          "fill": "$v2-text-2",
+                                          "content": "search",
+                                          "fontFamily": "JetBrains Mono",
+                                          "fontSize": 12,
+                                          "fontWeight": "normal"
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "FqhMl",
+                                      "name": "Chip visit",
+                                      "fill": "$v2-chip",
+                                      "cornerRadius": 6,
+                                      "stroke": "$v2-line",
+                                      "strokeWidth": 1,
+                                      "strokeAlignment": "inner",
+                                      "gap": 5,
+                                      "padding": [
+                                        4,
+                                        9
+                                      ],
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "id": "uSes4",
+                                          "name": "T",
+                                          "fill": "$v2-text-2",
+                                          "content": "visit",
+                                          "fontFamily": "JetBrains Mono",
+                                          "fontSize": 12,
+                                          "fontWeight": "normal"
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "h2TX9",
+                                      "name": "Chip browse_workspace",
+                                      "fill": "$v2-ok-soft",
+                                      "cornerRadius": 6,
+                                      "stroke": "#00000000",
+                                      "strokeWidth": 1,
+                                      "strokeAlignment": "inner",
+                                      "gap": 5,
+                                      "padding": [
+                                        4,
+                                        9
+                                      ],
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "icon",
+                                          "id": "h0sFmx",
+                                          "name": "ck",
+                                          "width": 12,
+                                          "height": 12,
+                                          "icon": "check",
+                                          "library": "lucide",
+                                          "fill": "$v2-ok"
+                                        },
+                                        {
+                                          "type": "text",
+                                          "id": "eyEJG",
+                                          "name": "T",
+                                          "fill": "$v2-ok",
+                                          "content": "browse_workspace",
+                                          "fontFamily": "JetBrains Mono",
+                                          "fontSize": 12,
+                                          "fontWeight": "normal"
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "y2c2ek",
+                              "name": "Field 技能",
+                              "width": "fill_container",
+                              "layout": "vertical",
+                              "gap": 8,
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "gxf1S",
+                                  "name": "Label",
+                                  "fill": "$v2-text",
+                                  "content": "技能",
+                                  "fontFamily": "Noto Sans SC",
+                                  "fontSize": 13,
+                                  "fontWeight": "500"
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "LhbQo",
+                                  "name": "SkillRow",
+                                  "width": "fill_container",
+                                  "gap": 10,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "frame",
+                                      "id": "yIxwi",
+                                      "name": "Segmented",
+                                      "fill": "$v2-track",
+                                      "cornerRadius": 8,
+                                      "gap": 2,
+                                      "padding": 3,
+                                      "children": [
+                                        {
+                                          "type": "frame",
+                                          "id": "ZBj1N",
+                                          "name": "Opt 全部",
+                                          "fill": "#00000000",
+                                          "cornerRadius": 6,
+                                          "gap": 6,
+                                          "padding": [
+                                            5,
+                                            12
+                                          ],
+                                          "alignItems": "center",
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "wGpkj",
+                                              "name": "L",
+                                              "fill": "$v2-text-2",
+                                              "content": "全部",
+                                              "fontFamily": "Noto Sans SC",
+                                              "fontSize": 13,
+                                              "fontWeight": "normal"
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "SkcQW",
+                                          "name": "Opt 指定",
+                                          "fill": "$v2-selected",
+                                          "cornerRadius": 6,
+                                          "gap": 6,
+                                          "padding": [
+                                            5,
+                                            12
+                                          ],
+                                          "alignItems": "center",
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "zjLKY",
+                                              "name": "L",
+                                              "fill": "$v2-text",
+                                              "content": "指定",
+                                              "fontFamily": "Noto Sans SC",
+                                              "fontSize": 13,
+                                              "fontWeight": "500"
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "TSvrJ",
+                                      "name": "Chip pg-migration",
+                                      "fill": "$v2-ok-soft",
+                                      "cornerRadius": 6,
+                                      "stroke": "#00000000",
+                                      "strokeWidth": 1,
+                                      "strokeAlignment": "inner",
+                                      "gap": 5,
+                                      "padding": [
+                                        4,
+                                        9
+                                      ],
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "id": "TsBJL",
+                                          "name": "T",
+                                          "fill": "$v2-text",
+                                          "content": "pg-migration",
+                                          "fontFamily": "JetBrains Mono",
+                                          "fontSize": 12,
+                                          "fontWeight": "normal"
+                                        },
+                                        {
+                                          "type": "icon",
+                                          "id": "DvIVJ",
+                                          "name": "x",
+                                          "width": 12,
+                                          "height": 12,
+                                          "icon": "x",
+                                          "library": "lucide",
+                                          "fill": "$v2-text-3"
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "KcwUD",
+                                      "name": "Chip release-notes",
+                                      "fill": "$v2-ok-soft",
+                                      "cornerRadius": 6,
+                                      "stroke": "#00000000",
+                                      "strokeWidth": 1,
+                                      "strokeAlignment": "inner",
+                                      "gap": 5,
+                                      "padding": [
+                                        4,
+                                        9
+                                      ],
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "id": "KnHqg",
+                                          "name": "T",
+                                          "fill": "$v2-text",
+                                          "content": "release-notes",
+                                          "fontFamily": "JetBrains Mono",
+                                          "fontSize": 12,
+                                          "fontWeight": "normal"
+                                        },
+                                        {
+                                          "type": "icon",
+                                          "id": "EZLH4",
+                                          "name": "x",
+                                          "width": 12,
+                                          "height": 12,
+                                          "icon": "x",
+                                          "library": "lucide",
+                                          "fill": "$v2-text-3"
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "UHwg2",
+                                      "name": "Chip 添加",
+                                      "cornerRadius": 6,
+                                      "stroke": "$v2-line-strong",
+                                      "strokeWidth": 1,
+                                      "strokeAlignment": "inner",
+                                      "gap": 4,
+                                      "padding": [
+                                        4,
+                                        9
+                                      ],
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "icon",
+                                          "id": "KH1k9",
+                                          "name": "p",
+                                          "width": 12,
+                                          "height": 12,
+                                          "icon": "plus",
+                                          "library": "lucide",
+                                          "fill": "$v2-text-2"
+                                        },
+                                        {
+                                          "type": "text",
+                                          "id": "U7V49",
+                                          "name": "T",
+                                          "fill": "$v2-text-2",
+                                          "content": "添加",
+                                          "fontFamily": "Noto Sans SC",
+                                          "fontSize": 12,
+                                          "fontWeight": "normal"
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "bujRr",
+                              "name": "Field MCP",
+                              "width": "fill_container",
+                              "layout": "vertical",
+                              "gap": 8,
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "SZLX8",
+                                  "name": "Label",
+                                  "fill": "$v2-text",
+                                  "content": "MCP",
+                                  "fontFamily": "Noto Sans SC",
+                                  "fontSize": 13,
+                                  "fontWeight": "500"
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "HUivs",
+                                  "name": "Chips",
+                                  "gap": 6,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "frame",
+                                      "id": "noSVI",
+                                      "name": "Chip postgres",
+                                      "fill": "$v2-ok-soft",
+                                      "cornerRadius": 6,
+                                      "stroke": "#00000000",
+                                      "strokeWidth": 1,
+                                      "strokeAlignment": "inner",
+                                      "gap": 5,
+                                      "padding": [
+                                        4,
+                                        9
+                                      ],
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "id": "AgXka",
+                                          "name": "T",
+                                          "fill": "$v2-text",
+                                          "content": "postgres",
+                                          "fontFamily": "JetBrains Mono",
+                                          "fontSize": 12,
+                                          "fontWeight": "normal"
+                                        },
+                                        {
+                                          "type": "icon",
+                                          "id": "GzkmP",
+                                          "name": "x",
+                                          "width": 12,
+                                          "height": 12,
+                                          "icon": "x",
+                                          "library": "lucide",
+                                          "fill": "$v2-text-3"
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "yzzmE",
+                                      "name": "Chip 添加",
+                                      "cornerRadius": 6,
+                                      "stroke": "$v2-line-strong",
+                                      "strokeWidth": 1,
+                                      "strokeAlignment": "inner",
+                                      "gap": 4,
+                                      "padding": [
+                                        4,
+                                        9
+                                      ],
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "icon",
+                                          "id": "tSgTT",
+                                          "name": "p",
+                                          "width": 12,
+                                          "height": 12,
+                                          "icon": "plus",
+                                          "library": "lucide",
+                                          "fill": "$v2-text-2"
+                                        },
+                                        {
+                                          "type": "text",
+                                          "id": "s4WcN",
+                                          "name": "T",
+                                          "fill": "$v2-text-2",
+                                          "content": "添加",
+                                          "fontFamily": "Noto Sans SC",
+                                          "fontSize": 12,
+                                          "fontWeight": "normal"
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "FX0PQ",
+                          "name": "Section 提示词",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "gap": 16,
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "nUiqB",
+                              "name": "Field 附加提示词",
+                              "width": "fill_container",
+                              "layout": "vertical",
+                              "gap": 8,
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "TkPXX",
+                                  "name": "Label",
+                                  "fill": "$v2-text",
+                                  "content": "附加提示词",
+                                  "fontFamily": "Noto Sans SC",
+                                  "fontSize": 13,
+                                  "fontWeight": "500"
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "YcDxr",
+                                  "name": "Input",
+                                  "width": "fill_container",
+                                  "height": 76,
+                                  "fill": "$v2-track",
+                                  "cornerRadius": 8,
+                                  "stroke": "$v2-line",
+                                  "strokeWidth": 1,
+                                  "strokeAlignment": "inner",
+                                  "padding": [
+                                    9,
+                                    12
+                                  ],
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "n6uCcO",
+                                      "name": "V",
+                                      "fill": "$v2-text",
+                                      "textGrowth": "fixed-width",
+                                      "width": "fill_container",
+                                      "content": "你负责数据库迁移。先在临时库演练，再给出执行与回滚两份脚本；\n任何会锁表超过 1 秒的语句都要单独标出，并说明影响的表和预计耗时。",
+                                      "lineHeight": 1.6,
+                                      "fontFamily": "Noto Sans SC",
+                                      "fontSize": 13,
+                                      "fontWeight": "normal"
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "mYOMF",
+                      "name": "Footer",
+                      "width": "fill_container",
+                      "stroke": "$v2-line",
+                      "strokeWidth": {
+                        "top": 1
+                      },
+                      "gap": 8,
+                      "padding": [
+                        12,
+                        32
+                      ],
+                      "justifyContent": "end",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "cVGPc",
+                          "name": "Button 取消",
+                          "height": 28,
+                          "fill": "$v2-secondary",
+                          "cornerRadius": 7,
+                          "padding": [
+                            0,
+                            14
+                          ],
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "JkITe",
+                              "name": "L",
+                              "fill": "$v2-text",
+                              "content": "取消",
+                              "fontFamily": "Noto Sans SC",
+                              "fontSize": 12,
+                              "fontWeight": "500"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "rEvEN",
+                          "name": "Button 保存",
+                          "height": 28,
+                          "fill": "$v2-primary",
+                          "cornerRadius": 7,
+                          "padding": [
+                            0,
+                            14
+                          ],
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "D4hvJG",
+                              "name": "L",
+                              "fill": "$v2-on-primary",
+                              "content": "保存",
+                              "fontFamily": "Noto Sans SC",
+                              "fontSize": 12,
+                              "fontWeight": "500"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
     }
   ],
   "themes": {
