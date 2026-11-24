@@ -161892,7 +161892,7 @@
           "fill": "#A1A1A8",
           "textGrowth": "fixed-width",
           "width": "fill_container",
-          "content": "7. 改过名额后，名额下方才出现「还原 / 保存」。原来的「项目数据」一组去掉：它是写死的一行说明，不能操作。开关、选中项沿用现在的中性配色，不用紫色。 节点图标按服务器系统显示单色 logo（macOS、Ubuntu、Debian、Windows 等，取自 Simple Icons），认不出的系统用通用的服务器图标。",
+          "content": "7. 改过名额后，名额下方才出现「还原 / 保存」。原来的「项目数据」一组去掉：它是写死的一行说明，不能操作。开关、选中项沿用现在的中性配色，不用紫色。 节点图标按服务器系统显示品牌色 logo，底块用同色的浅色（约 18% 透明度）；macOS 的官方色是黑色，在深色界面用白色（macOS、Ubuntu、Debian、Windows 等，取自 Simple Icons），认不出的系统用通用的服务器图标。",
           "lineHeight": 1.65,
           "fontFamily": "Noto Sans SC",
           "fontSize": 14,
@@ -164510,7 +164510,7 @@
                                   "name": "IconBox",
                                   "width": 34,
                                   "height": 34,
-                                  "fill": "$v2-track",
+                                  "fill": "#E954202E",
                                   "cornerRadius": 9,
                                   "justifyContent": "center",
                                   "alignItems": "center",
@@ -164526,7 +164526,7 @@
                                         24,
                                         24
                                       ],
-                                      "fill": "$v2-text",
+                                      "fill": "#E95420",
                                       "width": 17,
                                       "height": 17
                                     }
@@ -165185,7 +165185,7 @@
                                   "name": "IconBox",
                                   "width": 34,
                                   "height": 34,
-                                  "fill": "$v2-track",
+                                  "fill": "#D70A532E",
                                   "cornerRadius": 9,
                                   "justifyContent": "center",
                                   "alignItems": "center",
@@ -165201,7 +165201,7 @@
                                         24,
                                         24
                                       ],
-                                      "fill": "$v2-text",
+                                      "fill": "#E8336B",
                                       "width": 17,
                                       "height": 17
                                     }
