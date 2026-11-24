@@ -6,10 +6,31 @@ import {
   fencedBlock,
   fileChip,
   fileReference,
+  linkChip,
   linkedFileReference,
   streamingCodeBlock,
   tableBlock
 } from "./rich-blocks.js";
+
+/**
+ * A model sometimes breaks a link between its label and its target:
+ * `[耗时明细]` on one line and `(/path/file.tsv)` on the next. Those two lines
+ * are one link.
+ */
+function joinSplitLinks(lines) {
+  const joined = [];
+  for (const line of lines) {
+    const previous = joined.at(-1);
+    if (previous !== undefined && /\[[^\]]+\][ \t]*$/.test(previous) && /^[ \t]*\([^)\s]+\)/.test(line))
+      joined[joined.length - 1] = previous.trimEnd() + line.trimStart();
+    else joined.push(line);
+  }
+  return joined;
+}
+
+/** An absolute path written straight into prose, ending in a file name with an extension. */
+const BARE_PATH =
+  /(^|[\s(（"'“‘：:，,])(\/(?:[\p{L}\p{N}_.@+~-]+\/)+[\p{L}\p{N}_@+~-][\p{L}\p{N}_.@+~-]*\.[A-Za-z0-9]{1,10})(?=$|[\s)）"'”’，。；;:：!?！？,])/gu;
 
 /**
  * Options: `resolveLocalLink(path)` maps an absolute link to a registered
@@ -57,7 +78,11 @@ function renderBlocks(source, options) {
   let codeFence = "";
   const flushParagraph = () => {
     if (paragraph.length) {
-      output.push(`<p>${paragraph.map((line) => inlineMarkdown(line, options)).join("<br />")}</p>`);
+      output.push(
+        `<p>${joinSplitLinks(paragraph)
+          .map((line) => inlineMarkdown(line, options))
+          .join("<br />")}</p>`
+      );
       paragraph = [];
     }
   };
@@ -204,6 +229,8 @@ function inlineMarkdown(value, options) {
       // open-file grant. Only the caller can resolve a registered artifact.
       // eslint-disable-next-line no-control-regex -- 链接目标含控制字符时按普通文本显示。
       if (/[\x00-\x1f\x7f]/.test(url)) return protect(esc(match));
+      if (/^https?:\/\//i.test(url) && !match.startsWith("!"))
+        return protect(linkChip(url, inlineMarkdown(label, { ...options, linkify: false })));
       if (/^https?:\/\//i.test(url))
         return protect(
           `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer">${inlineMarkdown(label, { ...options, linkify: false })}</a>`
@@ -211,7 +238,13 @@ function inlineMarkdown(value, options) {
       const local = /^\/(?![/\\])/.test(url) ? options.resolveLocalLink?.(url) : undefined;
       if (local)
         return protect(
-          `<a href="${esc(local.href)}" data-message-artifact="${esc(local.artifactPath)}" data-message-task="${esc(local.taskId)}">${inlineMarkdown(label, { ...options, linkify: false })}</a>`
+          fileChip(
+            { path: local.artifactPath },
+            {
+              label: label.replace(/`/g, ""),
+              link: { href: local.href, artifactPath: local.artifactPath, taskId: local.taskId }
+            }
+          )
         );
       // A file the reader cannot open still reads as a file, not as raw Markdown.
       const reference = !/^[a-z][\w+.-]*:/i.test(url) ? linkedFileReference(url) : undefined;
@@ -247,9 +280,24 @@ function inlineMarkdown(value, options) {
       } catch {
         return match;
       }
+      return protect(linkChip(url)) + match.slice(url.length);
+    });
+    // A long path in prose reads as its file name; hovering shows the whole path.
+    text = text.replace(BARE_PATH, (_match, lead, path) => {
+      const local = options.resolveLocalLink?.(path);
       return (
-        protect(`<a href="${esc(url)}" target="_blank" rel="noopener noreferrer">${esc(url)}</a>`) +
-        match.slice(url.length)
+        lead +
+        protect(
+          local
+            ? fileChip(
+                { path: local.artifactPath },
+                {
+                  link: { href: local.href, artifactPath: local.artifactPath, taskId: local.taskId },
+                  title: path
+                }
+              )
+            : fileChip({ path })
+        )
       );
     });
   }

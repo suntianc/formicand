@@ -21,7 +21,11 @@ test("activity linkification preserves URLs and trims surrounding punctuation", 
     [...document.querySelectorAll("a")].map((a) => a.getAttribute("href")),
     urls
   );
-  assert.equal(document.querySelector("strong a").textContent, urls[0]);
+  // A bare address reads without its scheme until the page's title is known.
+  assert.equal(
+    document.querySelector("strong a .link-chip-title").textContent,
+    "example.invalid/a_b?x=a_b&next=c_d"
+  );
   for (const link of document.querySelectorAll("a")) {
     assert.equal(link.getAttribute("target"), "_blank");
     assert.equal(link.getAttribute("rel"), "noopener noreferrer");
@@ -36,7 +40,8 @@ test("activity linkification keeps code literal, explicit links single and raw H
     { linkify: true }
   );
   assert.equal(document.querySelectorAll("a").length, 1);
-  assert.equal(document.querySelector("a").textContent, url);
+  assert.equal(document.querySelector("a .link-chip-title").textContent, url);
+  assert.equal(document.querySelector("a .link-chip-host").textContent, "example.invalid");
   assert.equal(document.querySelector("code a"), null);
   assert.equal(document.querySelectorAll("code").length, 2);
   assert.equal(document.querySelector("img"), null);
@@ -48,7 +53,7 @@ test("goal activity linkification coexists with math and keeps dollar signs insi
   const document = documentFor(`公式 $x_1^2$，证据：${url}，以及 \\(a*b\\)。`, { linkify: true });
   assert.equal(document.querySelectorAll("a").length, 1);
   assert.equal(document.querySelector("a").getAttribute("href"), url);
-  assert.equal(document.querySelector("a").textContent, url);
+  assert.equal(document.querySelector("a .link-chip-title").textContent, url.replace("https://", ""));
   assert.deepEqual(
     [...document.querySelectorAll("annotation")].map((node) => node.textContent),
     ["x_1^2", "a*b"]
@@ -72,7 +77,8 @@ test("HTTP link destinations never pass through emphasis formatting", () => {
   const document = documentFor(`[**下载**](${path})`);
   const link = document.querySelector("a");
   assert.equal(link.getAttribute("href"), path);
-  assert.equal(link.textContent, "下载");
+  assert.equal(link.querySelector(".link-chip-title").textContent, "下载");
+  assert.equal(link.querySelector(".link-chip-host").textContent, "example.invalid");
   assert.equal(link.querySelector("strong").textContent, "下载");
   assert.equal(link.hasAttribute("onclick"), false);
 });
@@ -96,7 +102,7 @@ test("inline code stays literal and link labels cannot introduce HTML elements",
   assert.equal(document.querySelector("code").textContent, "[code](https://example.invalid/a_b_c)");
   assert.equal(document.querySelectorAll("a").length, 1);
   assert.equal(document.querySelector("img"), null);
-  assert.equal(document.querySelector("a").textContent, '<img src=x onerror="fail()">');
+  assert.equal(document.querySelector("a .link-chip-title").textContent, '<img src=x onerror="fail()">');
 });
 
 test("executable and protocol-relative destinations never become anchors", () => {
@@ -184,12 +190,13 @@ test("registered artifact links allow surrounding destination whitespace", () =>
     });
     assert.equal(document.querySelector("a")?.dataset.messageArtifact, path);
   }
+  // An unregistered file is named, never linked.
   const source = "[私有文件]( /unregistered/private.pptx )";
   const document = documentFor(source, {
     resolveLocalLink: (value) => resolveArtifactLink(detail, value)
   });
   assert.equal(document.querySelector("a"), null);
-  assert.equal(document.querySelector("main").textContent, source);
+  assert.equal(document.querySelector("span.file-chip .file-chip-name").textContent, "私有文件");
 });
 
 test("separate Task storage still refuses other Tasks, traversal and unindexed files", () => {

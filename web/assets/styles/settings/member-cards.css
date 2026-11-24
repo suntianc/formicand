@@ -1,0 +1,93 @@
+/* Settings → Members and channels: members and notification channels as
+   cards, four to a row; callbacks as one narrow card. */
+.member-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 16px;
+}
+.member-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  height: 64px;
+  padding: 0 14px;
+  border: 1px solid var(--color-line);
+  border-radius: 12px;
+  background: var(--color-surface);
+}
+.member-card.is-add {
+  justify-content: center;
+  gap: 8px;
+  border-style: dashed;
+  background: transparent;
+  color: var(--color-text-2);
+  font: 400 13px/1 var(--ui-font);
+}
+.member-card.is-add .ui-icon {
+  width: 15px;
+  height: 15px;
+}
+.member-card-mark {
+  display: grid;
+  flex: 0 0 32px;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  background: var(--color-surface-3);
+  color: var(--color-text);
+}
+.member-card-mark.is-person {
+  border-radius: 50%;
+  color: var(--color-text-2);
+  font: 600 13px/1 var(--ui-font);
+}
+.member-card-mark .ui-icon {
+  width: 16px;
+  height: 16px;
+}
+.member-card-text {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.member-card-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.member-card-name {
+  overflow: hidden;
+  color: var(--color-text);
+  font: 600 14px/20px var(--ui-font);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.member-card-line .settings-chip {
+  padding: 0 6px;
+  font-size: 11px;
+}
+.member-card-sub {
+  overflow: hidden;
+  color: var(--color-text-3);
+  font-size: 12px;
+  line-height: 17px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.member-card-sub.is-warn {
+  color: var(--ui-warning);
+}
+.member-card .settings-outline-button {
+  flex: 0 0 auto;
+  height: 26px;
+  padding: 0 10px;
+  font-size: 12px;
+}
+.callback-card {
+  max-width: 360px;
+}

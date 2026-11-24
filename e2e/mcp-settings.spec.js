@@ -19,8 +19,8 @@ test("a local server is tested, saved, tuned, switched off and deleted", async (
     const list = settings.locator("[data-mcp-list]");
     await expect(list).toContainText("还没有 MCP 服务");
 
-    await settings.getByRole("button", { name: "添加服务" }).click();
-    const dialog = page.getByRole("dialog", { name: "添加 MCP 服务" });
+    await settings.getByRole("button", { name: "新建", exact: true }).click();
+    const dialog = page.getByRole("dialog", { name: "新建 MCP 服务" });
     await dialog.getByLabel("名称").fill("echoes");
     await dialog.getByLabel("命令").fill(process.execPath);
     await dialog.getByLabel("参数").fill(echoServer);
@@ -89,8 +89,8 @@ test("pasted JSON imports several servers and problems are listed with their rea
   try {
     await page.goto(dashboard.base);
     const settings = await openSettings(page, "mcp");
-    await settings.getByRole("button", { name: "粘贴 JSON 导入" }).click();
-    const dialog = page.getByRole("dialog", { name: "添加 MCP 服务" });
+    await settings.getByRole("button", { name: "粘贴 JSON" }).click();
+    const dialog = page.getByRole("dialog", { name: "新建 MCP 服务" });
     await dialog.getByLabel("JSON").fill(
       JSON.stringify({
         mcpServers: {
@@ -115,7 +115,7 @@ test("pasted JSON imports several servers and problems are listed with their rea
     await list.getByRole("button", { name: /broken/ }).click();
     await expect(settings.locator("[data-mcp-detail]").getByRole("button", { name: "登录" })).toHaveCount(0);
 
-    await settings.getByRole("button", { name: "粘贴 JSON 导入" }).click();
+    await settings.getByRole("button", { name: "粘贴 JSON" }).click();
     await dialog.getByLabel("JSON").fill(JSON.stringify({ echoes: { command: "x" } }));
     await dialog.getByRole("button", { name: "导入" }).click();
     await expect(dialog.locator("[data-mcp-editor-error]")).toContainText("已存在同名服务：echoes");
@@ -142,7 +142,13 @@ test("a long tool list scrolls inside the server's details, not the whole settin
     await page.goto(dashboard.base);
     const settings = await openSettings(page, "mcp");
     const detail = settings.locator("[data-mcp-detail]");
+    // Past four tools the list folds behind one row.
+    await expect(detail.locator(".mcp-tool")).toHaveCount(4);
+    const fold = detail.locator("[data-mcp-tools-fold]");
+    await expect(fold).toHaveText("其余 38 个");
+    await fold.click();
     await expect(detail.locator(".mcp-tool")).toHaveCount(42);
+    await expect(detail.locator("[data-mcp-tools-fold]")).toBeFocused();
     const overflow = (node) => node.scrollHeight - node.clientHeight;
     expect(await detail.evaluate(overflow)).toBeGreaterThan(0);
     expect(await page.locator(".settings-content").evaluate(overflow)).toBeLessThanOrEqual(0);

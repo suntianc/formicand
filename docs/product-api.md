@@ -430,6 +430,14 @@ Main's memory, one Markdown file per memory under `ATRIA_HOME/memory/user/` and 
 - Main: `GET /api/tasks/:taskId/memory` returns the user memories, the project's when it is on, and the `index`; `POST` takes `{ action: "list" | "read" | "write" | "delete", scope, name?, memory? }`; a `read` without `scope` looks in the project, then the user scope, and the answer names the scope it found. The project always comes from the Task. A switched-off project answers `403 memory_project_disabled`; a Task without a project can use only `user`. Delegated processes carry no run credential, so Subagents have no memory.
 - `type` is `user`, `feedback`, `project` or `reference`; `name` is lowercase letters, digits and hyphens (up to 64); `description` up to 150 characters; `body` up to 4,000; up to 80 memories per scope. Invalid input is `400` with a `memory_*` code.
 
+## Node resources
+
+`GET /api/node-resources` returns this machine's `{ system, cpu, memory, disk, memoryBytes, diskBytes }` for its card in Settings → Nodes: `system` is `macos`, `windows` or the Linux `ID` from `/etc/os-release`; `cpu`, `memory` and `disk` are used percentages (CPU since the previous read, memory without reclaimable cache, disk of the volume holding the user's home). The page reads it every 5 seconds while the Nodes page is open and visible.
+
+## Link previews
+
+Web link chips in messages show the linked page's icon and title. `GET /api/link-preview?url=` returns `{ url, title, icon }`, where `icon` is a `data:` URL or empty. The backend reads each public http(s) address once (6 s timeout, at most 512 KB of HTML and a 64 KB icon, up to three redirects) and keeps the result under `ATRIA_HOME/cache/link-previews/` for 7 days, or 1 day when nothing could be read. An address that names or resolves to this machine or a private network, carries credentials or uses another scheme is refused with `422 link_preview_refused`.
+
 ## Task APIs
 
 ```text

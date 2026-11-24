@@ -130,100 +130,116 @@ html[data-theme] .agent-pane {
 
 /* ---- stepper -------------------------------------------------------------- */
 
-.rp-stepper {
+/* The phase in words, then one dot per step on a horizontal track. */
+.rp-phase {
   display: flex;
   flex-direction: column;
+  gap: 12px;
+}
+.rp-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  line-height: 20px;
+}
+.rp-status-dot {
+  flex: 0 0 6px;
+  width: 6px;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--color-review);
+}
+.rp-status[data-tone="blocked"] .rp-status-dot,
+.rp-status[data-tone="waiting"] .rp-status-dot {
+  background: var(--color-warn);
+}
+.rp-status[data-tone="settled"] .rp-status-dot {
+  background: var(--color-ok);
+}
+.rp-status-label {
+  flex: none;
+  color: var(--color-text);
+  font-size: 14px;
+  font-weight: 600;
+}
+.rp-status[data-tone="blocked"] .rp-status-label {
+  color: var(--color-warn);
+}
+.rp-status-meta {
+  overflow: hidden;
+  color: var(--color-text-3);
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rp-stepper {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   margin: 0;
   padding: 0;
   list-style: none;
 }
 .rp-step {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  min-height: 40px;
-}
-.rp-step:last-child {
-  min-height: 20px;
-}
-.rp-rail {
   position: relative;
   display: flex;
-  flex: 0 0 18px;
-  align-items: center;
   flex-direction: column;
-  width: 18px;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
 }
-.rp-step:not(:last-child) .rp-rail::after {
+/* The segment that leads into this step, from the previous dot's edge to this one's. */
+.rp-step:not(:first-child)::before {
   position: absolute;
-  top: 18px;
-  width: 1.5px;
-  height: 22px;
-  background: var(--color-line);
+  top: 8.25px;
+  right: calc(50% + 12px);
+  width: calc(100% - 24px);
+  height: 1.5px;
+  border-radius: 1px;
+  background: var(--color-line-strong);
   content: "";
 }
-.rp-step[data-state="done"]:not(:last-child) .rp-rail::after {
-  background: color-mix(in srgb, var(--color-ok) 40%, transparent);
+.rp-step:not(:first-child):not([data-state="pending"])::before {
+  background: color-mix(in srgb, var(--color-ok) 70%, transparent);
 }
 .rp-node {
   display: grid;
   place-items: center;
   width: 18px;
   height: 18px;
+  border: 1.5px solid var(--color-ok);
   border-radius: 9px;
   color: var(--color-ok);
   background: var(--color-ok-soft);
 }
 .rp-node .ui-icon {
-  width: 12px;
-  height: 12px;
+  width: 10px;
+  height: 10px;
 }
 .rp-node.is-pending {
-  border: 1px solid var(--color-line);
+  border-color: var(--color-line-strong);
   background: transparent;
 }
 .rp-node.is-current {
-  background: var(--color-accent-soft);
+  border-color: var(--color-review);
+  background: var(--color-review-soft);
 }
 .rp-pulse {
-  width: 7px;
-  height: 7px;
-  border-radius: 4px;
-  background: var(--color-accent);
+  width: 6px;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--color-review);
 }
 .rp-step[data-state="blocked"] .rp-node {
+  border-color: var(--color-warn);
   background: var(--color-warn-soft);
 }
 .rp-step[data-state="blocked"] .rp-pulse {
   background: var(--color-warn);
 }
-
-.rp-step-text {
-  display: flex;
-  flex: 1 1 auto;
-  align-items: center;
-  gap: 8px;
-  height: 20px;
-  min-width: 0;
-}
 .rp-step-label {
-  color: var(--color-text);
-  font-size: 14px;
-  line-height: 20px;
-  white-space: nowrap;
-}
-.rp-step[data-state="pending"] .rp-step-label {
-  color: var(--color-text-3);
-}
-.rp-step[data-state="current"] .rp-step-label {
-  font-weight: 600;
-}
-.rp-step[data-state="blocked"] .rp-step-label {
-  color: var(--color-warn);
-  font-weight: 600;
-}
-.rp-step-meta {
-  max-width: 60%;
+  max-width: 100%;
   overflow: hidden;
   color: var(--color-text-3);
   font-size: 12px;
@@ -231,11 +247,23 @@ html[data-theme] .agent-pane {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.rp-step[data-state="current"] .rp-step-meta {
-  color: var(--color-accent);
+.rp-step[data-state="current"] .rp-step-label {
+  color: var(--color-text);
+  font-weight: 600;
 }
-.rp-step[data-state="blocked"] .rp-step-meta {
+.rp-step[data-state="blocked"] .rp-step-label {
   color: var(--color-warn);
+  font-weight: 600;
+}
+/* Who works on each step: read out to assistive technology and in the step's
+   tooltip; the status line above names the current one. */
+.rp-step-meta {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 /* ---- sections ------------------------------------------------------------- */
@@ -244,6 +272,22 @@ html[data-theme] .agent-pane {
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+.rp-section-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.rp-count {
+  color: var(--color-text-3);
+  font-size: 12px;
+  line-height: 17px;
+}
+.rp-count.is-end {
+  margin-left: auto;
+}
+.rp-count.is-done {
+  color: var(--color-ok);
 }
 .rp-label {
   margin: 0;
@@ -269,6 +313,12 @@ html[data-theme] .agent-pane {
   font-size: 13px;
   line-height: 19px;
 }
+.rp-check > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .rp-check .ui-icon {
   flex: 0 0 15px;
   width: 15px;
@@ -280,6 +330,29 @@ html[data-theme] .agent-pane {
 }
 .rp-check[data-checked="false"] .ui-icon {
   color: var(--color-text-3);
+}
+
+.rp-fold {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 19px;
+  padding: 0;
+  border: 0;
+  color: var(--color-text-3);
+  background: none;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+  transition: color var(--motion-fast) var(--ease-standard);
+}
+.rp-fold:hover {
+  color: var(--color-text);
+}
+.rp-fold .ui-icon {
+  flex: 0 0 15px;
+  width: 15px;
+  height: 13px;
 }
 
 .rp-tickets {
@@ -405,28 +478,59 @@ html[data-theme] .agent-pane {
 .rp-attachments {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 2px;
+  padding: 4px;
+  border: 1px solid var(--color-line);
+  border-radius: 10px;
 }
-.rp-attachment {
+.rp-attachment,
+.rp-folder {
   display: flex;
   align-items: center;
   gap: 10px;
-  min-height: 35px;
-  padding: 8px 10px;
-  border: 1px solid var(--color-line);
-  border-radius: 8px;
+  min-height: 32px;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 7px;
   color: var(--color-text);
+  background: none;
   font-size: 13px;
+  text-align: left;
   cursor: pointer;
+  transition: background-color var(--motion-fast) var(--ease-standard);
 }
-.rp-attachment:hover {
+.rp-attachment:hover,
+.rp-folder:hover {
   background: var(--color-surface-2);
 }
-.rp-attachment > .ui-icon {
+.rp-attachment.is-nested {
+  padding-left: 48px;
+}
+.rp-attachments .rp-fold {
+  min-height: 32px;
+  padding: 6px 8px;
+}
+.rp-attachment > .ui-icon,
+.rp-folder > .ui-icon {
   flex: 0 0 15px;
   width: 15px;
   height: 15px;
   color: var(--color-text-2);
+}
+.rp-folder > .ui-icon:first-child {
+  flex-basis: 13px;
+  width: 13px;
+  height: 13px;
+  margin-right: -3px;
+  color: var(--color-text-3);
+}
+/* Files sit under their folder's name, past the folder's chevron. */
+.rp-attachments:has(.rp-folder) > .rp-attachment:not(.is-nested) {
+  padding-left: 28px;
+}
+.rp-folder-count {
+  color: var(--color-text-3);
+  font-size: 12px;
 }
 .rp-attachment-name {
   overflow: hidden;
@@ -462,18 +566,10 @@ html[data-theme] .agent-pane {
   padding: 0 20px;
 }
 .rp-usage {
+  position: relative;
   display: flex;
   flex-direction: column;
-}
-.rp-usage[data-expanded="false"] {
   border-top: 1px solid var(--color-line);
-}
-.rp-usage[data-expanded="true"] {
-  gap: 12px;
-  padding: 14px;
-  border: 1px solid var(--color-line);
-  border-radius: 12px;
-  background: var(--color-surface);
 }
 .rp-usage-head {
   display: flex;
@@ -486,9 +582,6 @@ html[data-theme] .agent-pane {
   background: none;
   text-align: left;
   cursor: pointer;
-}
-.rp-usage[data-expanded="true"] .rp-usage-head {
-  padding: 0;
 }
 .rp-usage-head > .ui-icon {
   flex: 0 0 15px;
@@ -506,10 +599,6 @@ html[data-theme] .agent-pane {
   font-size: 13px;
   line-height: 19px;
 }
-.rp-usage[data-expanded="true"] .rp-usage-label {
-  color: var(--color-text);
-  font-weight: 500;
-}
 .rp-usage-value {
   max-width: 70%;
   overflow: hidden;
@@ -519,10 +608,99 @@ html[data-theme] .agent-pane {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.rp-usage[data-expanded="true"] .rp-usage-value {
-  color: var(--color-text-2);
+
+/* The opened usage floats above its row, over the panel's content. */
+.rp-usage-card {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 8px);
+  left: 0;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid var(--popover-edge);
+  border-radius: 12px;
+  background: var(--popover-fill);
+  box-shadow: var(--popover-shadow);
+  transform-origin: 50% 100%;
 }
-.rp-usage-body {
+.rp-usage-total {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.rp-usage-total strong {
+  color: var(--color-text);
+  font-size: 24px;
+  font-weight: 600;
+  line-height: 30px;
+}
+.rp-usage-total span {
+  color: var(--color-text-3);
+  font-size: 12px;
+}
+.rp-split-bar {
+  display: flex;
+  gap: 2px;
+  height: 6px;
+  margin-top: -4px;
+  overflow: hidden;
+  border-radius: 3px;
+}
+.rp-split-part {
+  flex: 0 1 0;
+  min-width: 2px;
+  background: var(--color-text-3);
+}
+.rp-split-part[data-part="cache"] {
+  background: var(--color-ok);
+}
+.rp-split-part[data-part="input"] {
+  background: var(--color-review);
+}
+.rp-split {
+  display: flex;
+  justify-content: space-between;
+}
+.rp-split-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12px;
+  line-height: 17px;
+}
+.rp-split-item:last-child {
+  align-items: flex-end;
+}
+.rp-split-item:nth-child(2) {
+  align-items: center;
+}
+.rp-split-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--color-text-3);
+}
+.rp-split-label::before {
+  width: 5px;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--color-text-3);
+  content: "";
+}
+.rp-split-item[data-part="cache"] .rp-split-label::before {
+  background: var(--color-ok);
+}
+.rp-split-item[data-part="input"] .rp-split-label::before {
+  background: var(--color-review);
+}
+.rp-split-value {
+  color: var(--color-text);
+  font-size: 13px;
+}
+.rp-roles {
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -530,7 +708,7 @@ html[data-theme] .agent-pane {
 .rp-role {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 6px;
 }
 .rp-role-top {
   display: flex;
@@ -542,6 +720,7 @@ html[data-theme] .agent-pane {
 }
 .rp-role-name {
   color: var(--color-text);
+  font-size: 13px;
 }
 .rp-role-agent {
   overflow: hidden;
@@ -553,7 +732,7 @@ html[data-theme] .agent-pane {
   color: var(--color-text-2);
 }
 .rp-role-track {
-  height: 4px;
+  height: 3px;
   overflow: hidden;
   border-radius: 2px;
   background: var(--color-surface-3);
@@ -561,35 +740,16 @@ html[data-theme] .agent-pane {
 .rp-role-fill {
   height: 100%;
   border-radius: 2px;
-  background: var(--color-accent);
+  background: var(--color-text-3);
+  transform-origin: 0 50%;
 }
 .rp-divider {
   height: 1px;
   background: var(--color-line);
 }
-.rp-exec {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-.rp-exec-title {
+.rp-facts {
+  margin: 0;
   color: var(--color-text-3);
   font-size: 12px;
   line-height: 17px;
-}
-.rp-kv {
-  display: flex;
-  align-items: center;
-  font-size: 12px;
-  line-height: 17px;
-}
-.rp-kv > span:first-child {
-  color: var(--color-text-2);
-}
-.rp-kv > span:last-child {
-  max-width: 70%;
-  overflow: hidden;
-  color: var(--color-text-3);
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }

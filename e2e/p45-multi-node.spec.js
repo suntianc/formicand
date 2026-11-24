@@ -80,7 +80,7 @@ test("two local nodes aggregate in observation while work stays on this machine"
     // Add the second node from the settings page: address, name and scope.
     await page.locator("#user-menu-button").click();
     await page.locator('[data-settings-section="nodes"]').click();
-    await expect(page.locator("#settings-node-local")).toContainText("本机");
+    await expect(page.locator("#settings-node-cards [data-local-node]")).toContainText("本机");
     await page.locator("#settings-node-add").click();
     const dialog = page.getByRole("dialog", { name: "添加节点" });
     await expect(dialog).toBeVisible();
@@ -89,7 +89,7 @@ test("two local nodes aggregate in observation while work stays on this machine"
     await dialog.locator('[data-node-role="external"]').click();
     await dialog.locator("#node-submit").click();
     await expect(dialog).toBeHidden();
-    const remoteRow = page.locator(`#settings-node-remote [data-node="${b.base}"]`);
+    const remoteRow = page.locator(`#settings-node-cards [data-node="${b.base}"]`);
     await expect(remoteRow).toContainText("远程节点");
     await expect(remoteRow).toContainText("对外");
     await expect(remoteRow).toContainText("在线");
@@ -160,7 +160,7 @@ test("two local nodes aggregate in observation while work stays on this machine"
     // row, and a notify never takes focus away from a row control.
     await page.locator("#user-menu-button").click();
     await page.locator('[data-settings-section="nodes"]').click();
-    const remoteSettingsRow = page.locator(`#settings-node-remote [data-node="${b.base}"]`);
+    const remoteSettingsRow = page.locator(`#settings-node-cards [data-node="${b.base}"]`);
     await expect(remoteSettingsRow).toContainText(/离线 · /);
     await expect(page.locator("#settings-node-local [data-backend-open]")).toHaveCount(1);
     const nodeMenuButton = remoteSettingsRow.locator("[data-node-menu]");
@@ -186,11 +186,11 @@ test("two local nodes aggregate in observation while work stays on this machine"
     await renameDialog.locator("#node-name").fill("改名节点");
     await renameDialog.locator("#node-submit").click();
     await expect(renameDialog).toBeHidden();
-    await expect(page.locator(`#settings-node-remote [data-node="${b.base}"]`)).toContainText("改名节点");
+    await expect(page.locator(`#settings-node-cards [data-node="${b.base}"]`)).toContainText("改名节点");
 
     await page.locator(`[data-node-menu="${b.base}"]`).click();
     await page.locator('.settings-node-menu [data-node-action="disconnect"]').click();
-    await expect(page.locator(`#settings-node-remote [data-node="${b.base}"]`)).toContainText("已断开");
+    await expect(page.locator(`#settings-node-cards [data-node="${b.base}"]`)).toContainText("已断开");
     await expect(page.locator("#settings-node-local [data-backend-open]")).toHaveCount(1);
     await page.locator("#settings-back").click();
     await expect(page.locator(`button[data-observe-node="${b.base}"]`)).toContainText("已断开");
@@ -200,10 +200,10 @@ test("two local nodes aggregate in observation while work stays on this machine"
     await page.locator("#user-menu-button").click();
     await page.locator('[data-settings-section="nodes"]').click();
     await page.locator(`[data-reconnect="${b.base}"], [data-node-reconnect="${b.base}"]`).click();
-    await expect(page.locator(`#settings-node-remote [data-node="${b.base}"]`)).toContainText("在线");
+    await expect(page.locator(`#settings-node-cards [data-node="${b.base}"]`)).toContainText("在线");
     await page.locator(`[data-node-menu="${b.base}"]`).click();
     await page.locator('.settings-node-menu [data-node-action="reauthorize"]').click();
-    await expect(page.locator(`#settings-node-remote [data-node="${b.base}"]`)).toContainText("在线");
+    await expect(page.locator(`#settings-node-cards [data-node="${b.base}"]`)).toContainText("在线");
     await expect.poll(() => tokens.get(originOf(b))?.size ?? 0).toBeGreaterThan(authsBefore);
 
     // One node's token never travels to the other origin.
@@ -215,7 +215,7 @@ test("two local nodes aggregate in observation while work stays on this machine"
 
     await page.locator(`[data-node-menu="${b.base}"]`).click();
     await page.locator('.settings-node-menu [data-node-action="remove"]').click();
-    await expect(page.locator(`#settings-node-remote [data-node="${b.base}"]`)).toHaveCount(0);
+    await expect(page.locator(`#settings-node-cards [data-node="${b.base}"]`)).toHaveCount(0);
     await expect(page.locator("#settings-node-local [data-backend-open]")).toHaveCount(1);
     await page.locator("#settings-back").click();
     await expect(page.locator(`button[data-observe-node="${b.base}"]`)).toHaveCount(0);

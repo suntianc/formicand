@@ -538,27 +538,53 @@
   font-family: var(--ui-mono);
   font-size: 0.86em;
   line-height: 1;
+  text-decoration: none;
   vertical-align: 0.05em;
 }
-button.file-chip {
+:is(button, a).file-chip {
   cursor: pointer;
+  transition: border-color var(--motion-fast) var(--ease-standard);
 }
-button.file-chip:hover {
+:is(button, a).file-chip:hover {
   border-color: var(--ui-border-hover);
 }
-button.file-chip:focus-visible {
+:is(button, a).file-chip:focus-visible,
+.link-chip:focus-visible {
   outline: 2px solid var(--ui-accent);
   outline-offset: 1px;
 }
-.file-chip .ui-icon {
+.file-chip .file-icon {
   flex: none;
   width: 13px;
   height: 13px;
-  color: var(--ui-accent);
+  color: var(--color-text-2, var(--ui-muted));
 }
-.file-chip-braces {
-  color: var(--ui-warning);
+/* Each kind keeps one colour; code files carry their language's own mark,
+   drawn filled in its brand colour. */
+.file-icon.is-language {
+  stroke: none;
+}
+.file-icon.is-image {
+  color: var(--color-ok, #4cc38a);
+}
+.file-icon.is-table {
+  color: #3fb8a9;
+}
+.file-icon.is-archive,
+.file-icon.is-json {
+  color: var(--color-warn, #e8b04b);
+}
+.file-icon.is-text {
+  color: var(--color-review, #6cb0f0);
+}
+.file-icon.is-shell {
+  color: var(--color-ok, #4cc38a);
+}
+.file-icon.is-json {
+  width: auto;
+  height: auto;
   font-size: 11px;
+  letter-spacing: -0.5px;
 }
 .file-chip-name {
   overflow: hidden;
@@ -566,6 +592,75 @@ button.file-chip:focus-visible {
   white-space: nowrap;
 }
 .file-chip-line {
+  color: var(--ui-muted);
+}
+
+/* Web links: the site's icon, the page title and its domain. */
+.link-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  height: 22px;
+  margin: 0 1px;
+  padding: 0 6px 0 5px;
+  border: 1px solid var(--ui-border);
+  border-radius: 6px;
+  color: var(--ui-text);
+  background: var(--ui-raised);
+  font-size: 0.9em;
+  line-height: 1;
+  text-decoration: none;
+  vertical-align: 0.05em;
+  transition: border-color var(--motion-fast) var(--ease-standard);
+}
+.link-chip:hover {
+  border-color: var(--ui-border-hover);
+}
+.markdown-body a:is(.link-chip, .file-chip),
+.markdown-body a:is(.link-chip, .file-chip) * {
+  text-decoration: none;
+}
+.link-chip-mark {
+  display: grid;
+  flex: 0 0 14px;
+  place-items: center;
+  width: 14px;
+  height: 14px;
+  overflow: hidden;
+  border-radius: 3px;
+}
+.link-chip-favicon {
+  width: 14px;
+  height: 14px;
+  object-fit: contain;
+}
+.link-chip-mark .ui-icon {
+  width: 13px;
+  height: 13px;
+  color: var(--ui-muted);
+}
+.link-chip-title {
+  min-width: 0;
+  max-width: 30em;
+  overflow: hidden;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.link-chip[data-link-bare]:not(:has(.link-chip-host)) .link-chip-title {
+  color: var(--ui-muted);
+  font-weight: 400;
+}
+.link-chip-host {
+  flex: none;
+  color: var(--ui-muted);
+  font-size: 0.92em;
+}
+.link-chip .link-chip-out {
+  flex: 0 0 11px;
+  width: 11px;
+  height: 11px;
   color: var(--ui-muted);
 }
 :is(.drawer-file-line, .code-line).is-target {

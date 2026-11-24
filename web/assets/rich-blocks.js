@@ -2,6 +2,8 @@ import { escapeHtml as esc } from "./ui/html.js";
 import { icon } from "./ui/icons.js";
 import { ui } from "./ui/language.js";
 import { highlightCode } from "./ui/highlight.js";
+import { fileIcon, fileKind } from "./ui/file-icons.js";
+import { linkPreview } from "./link-previews.js";
 
 /**
  * Markup for the richer blocks a reply can carry: code, diffs, terminal
@@ -277,12 +279,12 @@ export function tableBlock(table, rows, columns) {
 /* File references -------------------------------------------------------- */
 
 const CODE_EXTENSIONS =
-  "ts|tsx|js|jsx|mjs|cjs|py|go|rs|java|kt|swift|c|h|cc|cpp|hpp|cs|rb|php|sh|bash|zsh|sql|vue|svelte|css|scss|less|html|xml";
+  "ts|tsx|js|jsx|mjs|cjs|py|go|rs|java|kt|kts|swift|c|h|cc|cpp|hpp|cs|rb|php|sh|bash|zsh|fish|bats|sql|vue|svelte|css|scss|less|html|htm|xml|dart|lua";
 const OTHER_EXTENSIONS =
-  "json|jsonc|md|mdx|yml|yaml|toml|ini|txt|lock|svg|png|jpg|jpeg|gif|pdf|csv|ipynb|pen";
+  "json|jsonc|md|mdx|yml|yaml|toml|ini|txt|lock|svg|png|jpg|jpeg|gif|webp|bmp|ico|avif|pdf|csv|tsv|xlsx|xls|docx|doc|pptx|zip|tar|gz|tgz|ipynb|pen";
 const FILE_REFERENCE = new RegExp(
-  `^((?:\\.{0,2}/)?(?:[\\w@.+-]+/)*[\\w@+-][\\w@.+-]*\\.(?:${CODE_EXTENSIONS}|${OTHER_EXTENSIONS}))(?::(\\d+)(?:[-:]\\d+)?|\\s*\\((?:line|行|第)\\s*(\\d+)\\s*行?\\))?$`,
-  "i"
+  `^((?:\\.{0,2}/)?(?:[\\p{L}\\p{N}_@.+-]+/)*[\\p{L}\\p{N}_@+-][\\p{L}\\p{N}_@.+-]*\\.(?:${CODE_EXTENSIONS}|${OTHER_EXTENSIONS}))(?::(\\d+)(?:[-:]\\d+)?|\\s*\\((?:line|行|第)\\s*(\\d+)\\s*行?\\))?$`,
+  "iu"
 );
 
 /** `web/app.js:12`, `stages.json` or `useChangeStages.ts (line 222)`: a path and an optional line. */
@@ -301,18 +303,49 @@ export function linkedFileReference(url) {
   return { path, line: Number(line) || reference.line };
 }
 
-export function fileChip({ path, line }, { openable = false, label } = {}) {
+/**
+ * A file as a chip: its mark and name, the full path on hover. `openable`
+ * makes it a button that previews the file; `link` makes it the registered
+ * artifact's link.
+ */
+export function fileChip({ path, line }, { openable = false, label, link, title: hover } = {}) {
   const name = label || path.split("/").pop();
-  const extension = /\.([^.]+)$/.exec(path)?.[1]?.toLowerCase() || "";
-  const glyph =
-    extension === "json" || extension === "jsonc"
-      ? '<span class="file-chip-braces" aria-hidden="true">{ }</span>'
-      : icon(new RegExp(`^(?:${CODE_EXTENSIONS})$`).test(extension) ? "file-code" : "file");
-  const title = line ? `${path}:${line}` : path;
-  const content = `${glyph}<span class="file-chip-name">${esc(name)}</span>${line ? `<span class="file-chip-line">:${line}</span>` : ""}`;
+  const title = hover || (line ? `${path}:${line}` : path);
+  const content = `${fileIcon(path)}<span class="file-chip-name">${esc(name)}</span>${line ? `<span class="file-chip-line">:${line}</span>` : ""}`;
+  const kind = ` data-file-kind="${fileKind(path)}"`;
+  if (link)
+    return `<a class="file-chip" href="${esc(link.href)}" data-message-artifact="${esc(link.artifactPath)}" data-message-task="${esc(link.taskId)}"${kind} title="${esc(title)}">${content}</a>`;
   return openable
-    ? `<button type="button" class="file-chip" data-file-ref="${esc(path)}"${line ? ` data-file-line="${line}"` : ""} title="${esc(ui`打开 ${title}`)}">${content}</button>`
-    : `<span class="file-chip" title="${esc(title)}">${content}</span>`;
+    ? `<button type="button" class="file-chip" data-file-ref="${esc(path)}"${line ? ` data-file-line="${line}"` : ""}${kind} title="${esc(ui`打开 ${title}`)}">${content}</button>`
+    : `<span class="file-chip"${kind} title="${esc(title)}">${content}</span>`;
+}
+
+/**
+ * A web link as a chip: the site's icon, the page's title and its domain.
+ * `labelHtml` is the Markdown label; a bare URL has none, so it shows the
+ * address until the page's own title has been read. What was read is kept
+ * in `link-previews.js`, so a re-render shows it at once.
+ */
+export function linkChip(url, labelHtml) {
+  let parsed;
+  try {
+    parsed = new URL(url);
+    // eslint-disable-next-line no-restricted-syntax -- 消息里的链接文本可能不是合法 URL，此时按普通链接显示
+  } catch {
+    return `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer">${labelHtml ?? esc(url)}</a>`;
+  }
+  const host = parsed.hostname.replace(/^www\./, "");
+  const preview = linkPreview(url);
+  const address = `${host}${parsed.pathname === "/" ? "" : parsed.pathname}${parsed.search}`;
+  const title = labelHtml ?? (preview?.title ? esc(preview.title) : undefined);
+  const mark = preview?.icon
+    ? `<img class="link-chip-favicon" src="${esc(preview.icon)}" alt="" width="14" height="14" decoding="async" />`
+    : icon("globe", "link-chip-globe");
+  return `<a class="link-chip" href="${esc(url)}" target="_blank" rel="noopener noreferrer" data-link-preview="${esc(url)}"${
+    labelHtml === undefined ? " data-link-bare" : ""
+  } title="${esc(url)}"><span class="link-chip-mark">${mark}</span><span class="link-chip-title">${
+    title ?? esc(address)
+  }</span>${title ? `<span class="link-chip-host">${esc(host)}</span>` : ""}${icon("arrow-up-right", "link-chip-out")}</a>`;
 }
 
 /* Callouts --------------------------------------------------------------- */

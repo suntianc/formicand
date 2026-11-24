@@ -28,6 +28,7 @@ import { createEntryController } from "./assets/controllers/entry-controller.js"
 import { createProjectTrustPrompt } from "./assets/controllers/project-trust-prompt.js";
 import { createRequirementPanel } from "./assets/controllers/requirement-panel.js";
 import { createRunControl } from "./assets/controllers/run-control.js";
+import { configureLinkPreviews } from "./assets/link-previews.js";
 import { createNewSessionView } from "./assets/controllers/new-session.js";
 import { createFirstUseView } from "./assets/controllers/first-use.js";
 import { createAddProjectController } from "./assets/controllers/add-project.js";
@@ -453,15 +454,10 @@ const addProjectController = createAddProjectController({
   },
   onListed: () => refresh()
 });
+configureLinkPreviews((url) => api(`/api/link-preview?url=${encodeURIComponent(url)}`));
 const newSession = createNewSessionView({
   state,
   $,
-  titleFor: (task) => conversationTitle(task),
-  onOpenTask: (taskId) => {
-    const task = state.tasks.find((entry) => entry.taskId === taskId);
-    if (task) projectController.selectTask(task);
-    selectConversation(taskId);
-  },
   onSelectProject: (projectId) => beginNewConversation(projectId),
   onAddProject: () => projectController.openCreate()
 });

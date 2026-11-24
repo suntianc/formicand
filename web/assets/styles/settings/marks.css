@@ -1,0 +1,54 @@
+/* Marks and icon-only actions shared by the list-and-detail settings pages. */
+.detail-action.settings-icon-button {
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--color-line);
+  border-radius: 7px;
+  color: var(--color-text-2);
+}
+.detail-action .ui-icon {
+  width: 15px;
+  height: 15px;
+}
+.detail-action.is-danger {
+  color: var(--ui-danger);
+}
+/* Something without its own icon: its name's first letter on a tint fixed by the name. */
+.letter-mark {
+  --mark-hue: 220;
+  display: grid;
+  flex: 0 0 28px;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: hsl(var(--mark-hue) 60% 55% / 16%);
+  color: hsl(var(--mark-hue) 60% 55%);
+  font: 600 12px/1 var(--ui-font);
+}
+.letter-mark.is-large {
+  flex-basis: 44px;
+  width: 44px;
+  height: 44px;
+  border-radius: 11px;
+  font-size: 17px;
+}
+.letter-mark[data-tint="1"] {
+  --mark-hue: 150;
+}
+.letter-mark[data-tint="2"] {
+  --mark-hue: 38;
+}
+.letter-mark[data-tint="3"] {
+  --mark-hue: 270;
+}
+.letter-mark[data-tint="4"] {
+  --mark-hue: 340;
+}
+.letter-mark[data-tint="5"] {
+  --mark-hue: 185;
+}
+.skill-detail-head > :is(.ui-switch, .app-button) {
+  flex: none;
+}

@@ -496,6 +496,42 @@ html[data-theme] .sidebar-bottom .account-icon {
   width: 16px;
   height: 16px;
 }
+/* Settings is one round button at the foot's right edge. */
+html[data-theme] .conversation-sidebar > .sidebar-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+html[data-theme] .sidebar-bottom #recover-drafts {
+  flex: 1 1 auto;
+  width: auto;
+}
+html[data-theme] .sidebar-settings {
+  display: grid;
+  flex: 0 0 36px;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 1px solid var(--color-line-strong);
+  border-radius: 18px;
+  color: var(--color-text-2);
+  background: var(--color-surface-2);
+  cursor: pointer;
+  transition:
+    color var(--motion-fast) var(--ease-standard),
+    background-color var(--motion-fast) var(--ease-standard);
+}
+html[data-theme] .sidebar-settings:hover,
+html[data-theme] .sidebar-settings[aria-expanded="true"] {
+  color: var(--color-text);
+  background: var(--color-surface-3);
+}
+html[data-theme] .sidebar-settings .ui-icon {
+  width: 18px;
+  height: 18px;
+}
 
 /* The conversation title, shown in the title row. */
 .session-title {

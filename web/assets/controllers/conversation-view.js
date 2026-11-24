@@ -1,4 +1,5 @@
 import { atConversationEnd } from "./conversation-layout.js";
+import { hydrateLinkPreviews } from "../link-previews.js";
 import { createConversationActivityView, liveClockText } from "./conversation-activity-view.js";
 import { language, ui } from "../ui/language.js";
 import { confirmCopied, copyText } from "../ui/code-blocks.js";
@@ -319,6 +320,8 @@ export function createConversationView({
     renderMarkdown(source, {
       resolveLocalLink: (path) => resolveArtifactLink(state.detail, path),
       resolveFile,
+      // Bare web addresses and long paths in a reply read as chips, like written links.
+      linkify: true,
       ...options
     });
   const hasOpenActivity = (prefix) => {
@@ -838,6 +841,7 @@ export function createConversationView({
     const wasAtEnd = atConversationEnd(scroll);
     reconcileMarkup(bodyEl, renderStreamingAnswerBody(applied.answerText));
     bindArtifactLinks([bodyEl]);
+    hydrateLinkPreviews([bodyEl]);
     fast.streaming = applied.nextState;
     fast.eventsLen += streamRecords.length;
     fast.tailRecord = streamRecords.at(-1);
@@ -1443,6 +1447,7 @@ export function createConversationView({
         });
       }
       bindArtifactLinks(bindRoots);
+      hydrateLinkPreviews(bindRoots);
       queryInRoots(bindRoots, "details[data-activity-key]").forEach((node) => {
         const saved = activityStates.get(node.dataset.activityKey);
         if (saved) {

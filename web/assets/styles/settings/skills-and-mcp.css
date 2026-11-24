@@ -239,9 +239,26 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.skill-detail-head .app-button .ui-icon {
-  width: 14px;
-  height: 14px;
+/* A skill reads as text, or as a terminal when it ships scripts. */
+.skill-mark {
+  color: var(--color-text-3);
+}
+.skill-mark.is-script {
+  background: color-mix(in srgb, var(--ui-warning) 14%, transparent);
+  color: var(--ui-warning);
+}
+.skill-mark.is-large .ui-icon {
+  width: 18px;
+  height: 18px;
+}
+.skill-detail-title .skill-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.skill-detail-title .skill-tag .ui-icon {
+  width: 12px;
+  height: 12px;
 }
 .skill-description {
   margin: 0;
@@ -440,13 +457,6 @@
   color: var(--color-text-2);
   font: 400 12px/1.4 var(--ui-font);
 }
-.mcp-enabled {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--color-text-2);
-  font: 400 13px/1 var(--ui-font);
-}
 .mcp-pair {
   display: flex;
   flex-wrap: wrap;
@@ -513,9 +523,51 @@
   overflow-wrap: anywhere;
   font-family: var(--ui-mono);
 }
-.mcp-tool .settings-select {
+.mcp-exposure-select {
   flex: 0 0 auto;
-  width: auto;
+  height: 24px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 6px;
+  background: var(--color-surface-2);
+  color: var(--color-text-2);
+  font: 400 12px/1 var(--ui-font);
+}
+.mcp-exposure-select[data-exposure="direct"] {
+  color: var(--color-ok);
+}
+.mcp-exposure-select[data-exposure="hidden"] {
+  color: var(--ui-danger);
+}
+.mcp-fold {
+  display: flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: 8px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-text-3);
+  font: 400 13px/1.4 var(--ui-font);
+  cursor: pointer;
+  transition: color var(--motion-fast) var(--ease-standard);
+}
+.mcp-fold:hover {
+  color: var(--color-text);
+}
+.mcp-fold .ui-icon {
+  width: 14px;
+  height: 14px;
+}
+.skill-row-desc.is-warn {
+  color: var(--ui-warning);
+}
+.skill-row-desc.is-alert {
+  color: var(--ui-danger);
+}
+.skill-row.is-off .skill-row-text,
+.skill-row.is-off .letter-mark {
+  opacity: 0.5;
 }
 .mcp-dialog {
   --dialog-width: 660px;

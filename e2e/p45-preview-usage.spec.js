@@ -54,7 +54,7 @@ test("usage stays folded until asked, and diff and attachments preview inside th
     await expect(toggle).toHaveAttribute("aria-expanded", "false");
     await expect(panel.locator(".rp-usage[data-expanded='false']")).toHaveCount(1);
     await expect(panel.locator(".rp-role")).toHaveCount(0);
-    await expect(panel.locator(".rp-exec")).toHaveCount(0);
+    await expect(panel.locator(".rp-usage-card")).toHaveCount(0);
     await expect(toggle.locator(".rp-usage-value")).toHaveText(/\d\d:\d\d · 2\.98M tokens/);
 
     await toggle.click();
@@ -70,17 +70,23 @@ test("usage stays folded until asked, and diff and attachments preview inside th
     await expect(roles.nth(2)).toContainText("Reviewer");
     await expect(roles.nth(2)).toContainText("Norma");
     await expect(roles.nth(2).locator(".rp-role-value")).toHaveText("0.43M");
-    const details = panel.locator(".rp-kv");
-    await expect(details).toHaveCount(4);
-    await expect(details.nth(0)).toContainText("工具调用");
-    await expect(details.nth(0)).toContainText("148 次");
-    await expect(details.nth(1)).toContainText("子 Agent");
-    await expect(details.nth(1)).toContainText("2 个");
-    await expect(details.nth(2)).toContainText("工作目录");
-    await expect(details.nth(2)).toContainText("checkouts");
-    await expect(details.nth(3)).toContainText("会话标识");
-    await expect(details.nth(3)).toContainText(records.session.sessionId.slice(0, 8));
-    await expect(toggle.locator("use").last()).toHaveAttribute("href", "#i-chevron-down");
+    // The tokens split by kind; cache writes would count as input.
+    const split = panel.locator(".rp-split-item");
+    await expect(split).toHaveCount(3);
+    await expect(split.nth(0)).toContainText("缓存命中");
+    await expect(split.nth(0).locator(".rp-split-value")).toHaveText("0.84M");
+    await expect(split.nth(1).locator(".rp-split-value")).toHaveText("1.76M");
+    await expect(split.nth(2).locator(".rp-split-value")).toHaveText("0.38M");
+    await expect(panel.locator(".rp-usage-total strong")).toHaveText("2.98M");
+    await expect(panel.locator(".rp-facts")).toHaveText("148 次工具调用 · 2 个子 Agent");
+    // The card floats over the panel and closes on Escape or a press outside it.
+    await page.keyboard.press("Escape");
+    await expect(panel.locator(".rp-usage-card")).toHaveCount(0);
+    await expect(toggle).toBeFocused();
+    await toggle.click();
+    await expect(panel.locator(".rp-usage-card")).toBeVisible();
+    await panel.locator(".rp-title").click();
+    await expect(panel.locator(".rp-usage-card")).toHaveCount(0);
 
     // ---- the diff opens in the work entry's own drawer ----------------------
     const url = page.url();

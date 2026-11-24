@@ -42,7 +42,6 @@ export function installModelProviders({
   panel.innerHTML = `
     <div class="model-settings-head">
       <h1 class="settings-page-title">${ui("模型")}</h1>
-      <p class="model-settings-hint">${icon("info")}<span>${ui("配置供应商并获取模型；Main 和各 Agent 用哪个模型，在「Agent」页里选")}</span></p>
     </div>
     <p class="model-settings-notice" data-model-notice role="alert" hidden></p>
     <div class="provider-layout" data-model-view="providers">

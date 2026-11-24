@@ -6,7 +6,7 @@ const NODES = [
   { origin: "https://lab.example.test", name: "测试机", role: "internal", state: "offline" }
 ];
 
-test("runtime capacity lists remote external nodes only and saves both quotas", async ({ page }) => {
+test("node cards carry the quotas of remote external nodes only and save both", async ({ page }) => {
   const dashboard = await startDashboard();
   try {
     await page.addInitScript((nodes) => {
@@ -17,18 +17,21 @@ test("runtime capacity lists remote external nodes only and saves both quotas", 
 
     await page.locator("#user-menu-button").click();
     await page.locator('[data-settings-section="nodes"]').click();
-    await expect(page.locator("#settings-node-local")).toContainText("本机");
-    await expect(page.locator("#settings-node-remote")).toContainText("云端");
-    await expect(page.locator("#settings-node-remote")).toContainText("对外");
-    await expect(page.locator("#settings-node-remote")).toContainText("测试机");
-    await expect(page.locator("#settings-node-remote")).toContainText("离线");
+    const cards = page.locator("#settings-node-cards");
+    await expect(cards.locator("[data-local-node]")).toContainText("本机");
+    await expect(cards).toContainText("云端");
+    await expect(cards).toContainText("对外");
+    await expect(cards).toContainText("测试机");
+    await expect(cards).toContainText("离线");
 
-    await page.locator('[data-settings-section="capacity"]').click();
-    const groups = page.locator("#settings-capacity-nodes [data-capacity-node]");
+    // Only the external remote node carries the two quotas, inside its own card.
+    const groups = cards.locator("[data-capacity-node]:not([hidden])");
     await expect(groups).toHaveCount(1);
-    await expect(groups.first()).toContainText("云端");
-    await expect(page.locator("#settings-capacity-nodes")).not.toContainText("本机");
-    await expect(page.locator("#settings-capacity-nodes")).not.toContainText("测试机");
+    await expect(
+      cards.locator('[data-node="https://cloud.example.test"] [data-capacity-node]')
+    ).toBeVisible();
+    // 还原 / 保存 appear only once a number changed.
+    await expect(cards.locator("[data-capacity-actions]")).toBeHidden();
 
     const resident = page.locator('[data-capacity-kind="regular"]');
     const continuation = page.locator('[data-capacity-kind="continuation"]');

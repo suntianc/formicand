@@ -2,7 +2,7 @@ import { icon } from "../ui/icons.js";
 import { ui } from "../ui/language.js";
 import { escapeHtml as esc } from "../ui/html.js";
 import { createModal } from "../ui/modal.js";
-import { agentDetailHeader, agentEditorMarkup, PERMISSION_LABEL } from "./agent-settings-editor.js";
+import { agentDetailHeader, agentEditorMarkup } from "./agent-settings-editor.js";
 import { agentListMarkup, renderAgentProjectBar } from "./agent-settings-list.js";
 import { LEVEL_LABELS } from "./model-picker.js";
 import { providerLogo } from "./model-provider-display.js";
@@ -32,11 +32,6 @@ const FIELD_LABEL = {
   mcp: "MCP",
   prompt: "附加提示词"
 };
-const SCOPE_NOTE = {
-  global: "Main 按「使用说明」决定派给谁；同名时项目覆盖全局",
-  project: "项目 Agent 存在 .atria/agents/，跟着项目走；同名时覆盖全局"
-};
-
 export function createAgentSettings({
   panel,
   api,
@@ -80,9 +75,8 @@ export function createAgentSettings({
         <button type="button" role="radio" data-agent-scope-value="project" aria-checked="false">项目</button>
       </div>
       <span class="settings-group-spacer"></span>
-      <span class="settings-head-note">${icon("info")}<span data-agent-note></span></span>
       ${askMain ? `<button class="app-button is-secondary" type="button" data-agent-ask>${icon("sparkles")}<span>${ui("让 Main 帮我写")}</span></button>` : ""}
-      <button class="app-button is-primary skill-add" type="button" data-agent-new>${icon("plus")}<span>新建 Agent</span></button>
+      <button class="app-button is-primary skill-add" type="button" data-agent-new>${icon("plus")}<span>新建</span></button>
     </div>
     <div class="skill-body">
       <div class="skill-list-pane">
@@ -199,15 +193,15 @@ export function createAgentSettings({
     const groups =
       view.scope === "global"
         ? [
-            ["builtin", ui("内置"), ""],
-            ["global", ui("全局"), "~/.atria/agents"]
+            ["builtin", ui("内置")],
+            ["global", ui("全局")]
           ]
         : [
-            ["builtin", ui("内置"), ""],
-            ["project", ui`项目 · ${view.data.project?.projectName ?? ""}`, ".atria/agents"],
-            ["global", ui("此项目也能用的全局 Agent"), ""]
+            ["builtin", ui("内置")],
+            ["project", ui`项目 · ${view.data.project?.projectName ?? ""}`],
+            ["global", ui("全局")]
           ];
-    return groups.flatMap(([source, title, note]) =>
+    return groups.flatMap(([source, title]) =>
       view.data.agents
         .filter(
           (agent) =>
@@ -216,37 +210,24 @@ export function createAgentSettings({
               agent.name.toLowerCase().includes(query) ||
               (agent.definition?.description ?? "").toLowerCase().includes(query))
         )
-        .map((agent) => ({ agent, group: { source, title, note } }))
+        .map((agent) => ({ agent, group: { source, title } }))
     );
   }
 
-  /** The short line under a name: permission, then what it adds or what is wrong. */
+  /** The line under a name: what it is for, unless something about it needs saying first. */
   function summary(agent) {
     if (agent.error) return ui("定义有误");
     if (agent.shadowedBy) return ui("被项目版本覆盖");
     const definition = agent.definition;
     if (definition.enabled === false) return ui("已停用");
-    if (agent.builtin) {
-      if (view.scope === "project") {
-        const fields = Object.keys(agent.builtin.settings);
-        return fields.length
-          ? ui`本项目单独设置了${fields.map((field) => ui(FIELD_LABEL[field])).join(ui("、"))}`
-          : ui("跟随全局");
-      }
-      if (agent.name === "main") return ui("你对话的那个");
-      const effective = agent.builtin.effective;
-      return [
-        ui(PERMISSION_LABEL[definition.permission]),
-        modelEntry(effective.profileId)?.name,
-        levelLabel(effective.thinkingLevel)
-      ]
-        .filter(Boolean)
-        .join(" · ");
+    if (agent.builtin && view.scope === "project") {
+      const fields = Object.keys(agent.builtin.settings);
+      return fields.length
+        ? ui`本项目单独设置了${fields.map((field) => ui(FIELD_LABEL[field])).join(ui("、"))}`
+        : ui("跟随全局");
     }
-    const parts = [ui(PERMISSION_LABEL[definition.permission])];
-    if (definition.skills) parts.push(ui`${definition.skills.length} 技能`);
-    if (definition.mcp?.length) parts.push(`${definition.mcp.length} MCP`);
-    return parts.join(" · ");
+    // A built-in's description is the product's own text, so it follows the interface language.
+    return agent.builtin ? ui(definition.description ?? "") : (definition.description ?? "");
   }
 
   /* ---------------------------------------------------------------- render */
@@ -391,7 +372,6 @@ export function createAgentSettings({
   function render() {
     for (const button of panel.querySelectorAll("[data-agent-scope-value]"))
       button.setAttribute("aria-checked", String(button.dataset.agentScopeValue === view.scope));
-    $("[data-agent-note]").textContent = ui(SCOPE_NOTE[view.scope]);
     $("[data-agent-new]").disabled = view.scope === "project" && view.data.project?.trust !== "trusted";
     renderAgentProjectBar($, {
       scope: view.scope,

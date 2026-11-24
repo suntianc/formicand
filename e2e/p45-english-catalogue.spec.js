@@ -157,7 +157,6 @@ test("all six settings sections and their dialogs read English", async ({ page }
       ["general", "General"],
       ["nodes", "Node connections"],
       ["models", "Models"],
-      ["capacity", "Runtime capacity"],
       ["members", "Members and channels"],
       ["tools", "Tools"]
     ];

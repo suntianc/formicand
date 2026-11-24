@@ -48,16 +48,16 @@ test("global Agents: a built-in's fixed fields stay locked, a copy is edited, sa
     await detail.getByText("可写", { exact: true }).click();
     await expect(detail.locator('[data-agent-tool][value="edit"]')).toBeEnabled();
     await detail.locator('[data-agent-tool][value="edit"]').check();
-    await detail.getByRole("radio", { name: "只用指定的" }).click();
+    await detail.getByRole("radio", { name: "指定", exact: true }).click();
     await detail.getByLabel("添加技能").selectOption("pg-migration");
     await detail.getByLabel("添加 MCP 服务").selectOption("postgres");
     await detail.getByLabel("附加提示词").fill("先在临时库演练。");
     await expectNoHorizontalOverflow(page, settings.locator(".settings-content"));
     await detail.getByRole("button", { name: "保存" }).click();
 
-    await expect(list.locator(".agent-group")).toHaveText(["内置", "全局~/.atria/agents"]);
+    await expect(list.locator(".agent-group")).toHaveText(["内置", "全局"]);
     const row = list.getByRole("button", { name: /db-migrator/ });
-    await expect(row).toContainText("可写 · 1 技能 · 1 MCP");
+    await expect(row).toContainText("涉及表结构变更时派给它");
     const file = join(home, "agents", "db-migrator.md");
     const saved = await readFile(file, "utf8");
     expect(saved).toContain("permission: write");
@@ -111,7 +111,6 @@ test("built-in Agents: Main, Executor and Reviewer keep their settings, and a pr
     await detail.getByLabel("添加技能").selectOption("pg-migration");
     await detail.locator('[data-agent-mcp-mode-value="some"]').click();
     await detail.getByLabel("附加提示词").fill("回答用中文。");
-    await expect(detail).toContainText("保存后从下一轮对话起生效");
     await detail.getByRole("button", { name: "保存" }).click();
     await expect(page.locator("#toast")).toContainText("已保存");
     expect(await host("main")).toEqual({ skills: ["pg-migration"], mcp: [], prompt: "回答用中文。" });
@@ -124,7 +123,7 @@ test("built-in Agents: Main, Executor and Reviewer keep their settings, and a pr
     await detail.getByRole("button", { name: "保存" }).click();
     await expect(page.locator("#toast")).toContainText("已保存");
     expect(await host("executor")).toEqual({ thinkingLevel: "high", mcp: ["postgres"] });
-    await expect(list.locator('[data-agent-select="builtin:executor"]')).toContainText("可写 · 高");
+    await expect(detail.locator(".agent-effort")).toContainText("高");
 
     // A project starts out following the global settings and overrides one field at a time.
     await settings.locator('[data-agent-scope-value="project"]').click();

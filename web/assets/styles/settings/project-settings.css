@@ -129,9 +129,6 @@
   border-color: transparent;
   background: color-mix(in srgb, var(--ui-danger) 14%, transparent);
 }
-.mcp-enabled {
-  white-space: nowrap;
-}
 
 /* Settings → Agent: grouped list and the editor in the detail pane. */
 .agent-group {
@@ -152,14 +149,8 @@
 .skill-row.is-muted .settings-icon-box {
   opacity: 0.5;
 }
-.agent-detail-meta {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-  max-width: 100%;
-}
 .agent-path {
+  max-width: 100%;
   min-width: 0;
   overflow: hidden;
   color: var(--color-text-3);
@@ -173,30 +164,22 @@
   gap: 20px;
   margin-top: 4px;
 }
-.agent-form-columns {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 20px 40px;
-}
-.agent-form-column {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  gap: 20px;
-}
 .agent-form .mcp-field > select,
 .agent-form .mcp-field > .agent-permissions,
 .agent-form .mcp-field > .agent-tools,
 .agent-form .mcp-field > .agent-chips,
 .agent-form .mcp-field > .agent-hint,
-.agent-form .mcp-field > .agent-model-row,
+.agent-form .mcp-field > .agent-pick,
+.agent-form .mcp-field > .agent-model-picker,
+.agent-form .mcp-field > .agent-effort,
 .agent-form .mcp-field > .agent-tools-text {
   grid-column: 1 / -1;
 }
 /* Model and effort share one row: the model picker grows, effort keeps its width. */
 .agent-model-row {
-  display: flex;
-  gap: 10px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 180px;
+  gap: 12px;
   min-width: 0;
 }
 .agent-model-picker.role-picker {
@@ -211,7 +194,6 @@
 .agent-effort {
   position: relative;
   display: flex;
-  flex: 0 0 110px;
   align-items: center;
   gap: 7px;
   height: 38px;
@@ -285,23 +267,27 @@
   cursor: default;
 }
 .agent-permissions {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
+  display: inline-flex;
+  justify-self: start;
+  gap: 2px;
+  padding: 2px;
+  border-radius: var(--radius-control);
+  background: var(--color-surface-2);
 }
 .agent-permission {
   position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 10px 14px;
-  border: 1px solid var(--color-line);
-  border-radius: var(--radius-control);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: calc(var(--radius-control) - 2px);
+  color: var(--color-text-2);
+  font: 400 13px/1.4 var(--ui-font);
   cursor: pointer;
 }
 .agent-permission:has(input:checked) {
-  border-color: transparent;
   background: var(--color-surface-3);
+  color: var(--color-text);
 }
 .agent-permission:has(input:focus-visible) {
   outline: 2px solid var(--color-accent);
@@ -324,20 +310,16 @@
 .agent-permission input {
   pointer-events: none;
 }
-.agent-permission strong {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--color-text);
-  font: 500 13px/1.4 var(--ui-font);
-}
-.agent-permission strong .ui-icon {
+.agent-permission .ui-icon {
   width: 14px;
   height: 14px;
 }
-.agent-permission small {
-  color: var(--color-text-3);
-  font: 400 12px/1.5 var(--ui-font);
+/* Skills and MCP: the all-or-chosen switch, then the chosen chips on the same line. */
+.agent-pick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
 }
 .agent-tools {
   display: flex;
@@ -452,10 +434,15 @@
   box-shadow: 0 0 0 3px var(--field-focus-ring);
 }
 .agent-form-foot {
+  position: sticky;
+  bottom: -24px;
   display: flex;
-  flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 10px;
-  align-items: center;
+  margin: 0 -28px -24px;
+  padding: 12px 28px;
+  border-top: 1px solid var(--color-line);
+  background: var(--color-surface);
 }
 /* The trust question in the work view. */
 .app-dialog.trust-dialog {
@@ -555,11 +542,15 @@
   .skill-detail {
     padding: 20px 16px;
   }
-  .agent-form-columns,
-  .agent-permissions,
+  .agent-model-row,
   .mcp-row,
   .mcp-row.is-command {
     grid-template-columns: minmax(0, 1fr);
+  }
+  .agent-form-foot {
+    bottom: -20px;
+    margin: 0 -16px -20px;
+    padding: 12px 16px;
   }
 }
 

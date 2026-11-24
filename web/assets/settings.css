@@ -484,16 +484,6 @@ html[data-desktop-platform="darwin"]:not([data-desktop-fullscreen="true"]) .sett
 .settings-dot.is-muted {
   background: var(--color-text-3);
 }
-.settings-info {
-  display: inline-flex;
-  align-items: center;
-  color: var(--color-text-3);
-  cursor: help;
-}
-.settings-info .ui-icon {
-  width: 14px;
-  height: 14px;
-}
 .settings-icon-box {
   display: grid;
   place-items: center;
@@ -508,17 +498,6 @@ html[data-desktop-platform="darwin"]:not([data-desktop-fullscreen="true"]) .sett
   width: 16px;
   height: 16px;
 }
-.settings-avatar {
-  display: grid;
-  place-items: center;
-  flex: 0 0 auto;
-  width: 30px;
-  height: 30px;
-  border-radius: 15px;
-  background: var(--color-accent-soft);
-  color: var(--color-accent);
-  font: 600 13px/1 var(--ui-font);
-}
 .settings-chip {
   padding: 2px 8px;
   border-radius: 6px;
@@ -530,17 +509,6 @@ html[data-desktop-platform="darwin"]:not([data-desktop-fullscreen="true"]) .sett
 .settings-chip.is-accent {
   background: var(--color-accent-soft);
   color: var(--color-accent);
-}
-.settings-warn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--ui-warning);
-  font: 400 12px/1.5 var(--ui-font);
-}
-.settings-warn .ui-icon {
-  width: 13px;
-  height: 13px;
 }
 .settings-segmented {
   display: inline-flex;

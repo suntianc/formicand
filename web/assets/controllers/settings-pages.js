@@ -21,12 +21,47 @@ export const SETTINGS_SECTIONS = [
   "skills",
   "mcp",
   "memory",
-  "capacity",
   "members",
   "tools"
 ];
 
 const CAPACITY_LIMIT = 32;
+const RESOURCE_POLL_MS = 5_000;
+/** System ids that have their own mark in file-icons.svg. */
+const SYSTEM_MARKS = new Set([
+  "macos",
+  "windows",
+  "ubuntu",
+  "debian",
+  "fedora",
+  "centos",
+  "arch",
+  "rhel",
+  "alpine",
+  "rocky",
+  "opensuse",
+  "linuxmint",
+  "almalinux",
+  "linux"
+]);
+const SYSTEM_TINT = {
+  ubuntu: "#E95420",
+  debian: "#A81D33",
+  fedora: "#51A2DA",
+  centos: "#9B59B6",
+  arch: "#1793D1",
+  rhel: "#EE0000",
+  alpine: "#0D597F",
+  rocky: "#10B981",
+  opensuse: "#73BA25",
+  linuxmint: "#86BE43",
+  linux: "#FCC624",
+  windows: "#0078D4"
+};
+const systemMark = (system) => {
+  const id = String(system || "").replace(/^opensuse-.*/, "opensuse");
+  return SYSTEM_MARKS.has(id) ? id : "";
+};
 const ROLE_LABEL = { internal: "对内", external: "对外" };
 const NODE_STATE = {
   online: { label: "在线", tone: "is-ok" },
@@ -59,6 +94,8 @@ export function createSettingsPages({
   let previousFocus;
   const handlers = new Map();
   const capacity = new Map();
+  let resources;
+  let resourceTimer;
   const trigger = document.querySelector("#user-menu-button");
   let nodeMenu;
   let nodeMenuTrigger;
@@ -101,60 +138,110 @@ export function createSettingsPages({
 
   /* ---------------------------------------------------------------- nodes */
 
-  function nodeRow(node) {
-    const status = nodeStatus(node);
-    const state = nodeState(node);
-    const retry = !node.local && ["offline", "failed", "disconnected"].includes(status);
-    const lastSeen = status === "offline" && node.lastSeen ? ` · ${formatStamp(node.lastSeen)}` : "";
-    return `<div class="settings-row"${node.local ? " data-local-node" : ""} data-node="${esc(node.origin)}">
-      <span class="settings-icon-box">${icon(node.local ? "laptop" : "server")}</span>
-      <span class="settings-row-text">
-        <span class="settings-row-line"><span class="settings-row-name">${esc(node.name)}</span><span class="settings-role">${ui(ROLE_LABEL[node.role] ?? ROLE_LABEL.internal)}</span></span>
-        <span class="settings-row-meta is-mono">${esc(nodeAddress(node))}</span>
-      </span>
-      <span class="settings-row-spacer"></span>
-      <span class="settings-dot ${state.tone}" aria-hidden="true"></span>
-      <span class="settings-row-state">${esc(ui(state.label))}${esc(lastSeen)}</span>
-      ${
-        retry
-          ? `<button class="settings-retry" type="button" data-node-reconnect="${esc(node.origin)}">${ui("重连")}</button>`
-          : ""
-      }
-      ${
-        node.local
-          ? `<span class="settings-info" title="${esc(ui("只在这台机器上运行，不对外提供 Main"))}">${icon("info")}</span>`
-          : `<button class="settings-icon-button" type="button" data-node-menu="${esc(node.origin)}" aria-label="${esc(ui("节点操作"))}" aria-haspopup="menu" aria-expanded="false">${icon("more")}</button>`
-      }
+  /** The card's mark: the system's own logo on its colour, or a server. */
+  function nodeMark(node) {
+    const system = systemMark(node.local ? resources?.system : node.system);
+    if (!system) return `<span class="node-card-mark">${icon("server")}</span>`;
+    const tint = SYSTEM_TINT[system];
+    return `<span class="node-card-mark has-system"${tint ? ` style="--mark-tint:${tint}"` : ""}><svg class="node-card-system" aria-hidden="true" focusable="false"><use href="/assets/file-icons.svg#os-${system}"/></svg></span>`;
+  }
+
+  function resourceCell(label, value, detail) {
+    const known = Number.isFinite(value);
+    const tone = !known ? "" : value >= 90 ? " is-danger" : value >= 70 ? " is-warn" : " is-ok";
+    return `<div class="node-resource${tone}"${detail ? ` title="${esc(detail)}"` : ""}>
+      <span class="node-resource-head"><span>${label}</span><span class="node-resource-value">${known ? `${value}%` : "—"}</span></span>
+      <span class="node-resource-track"><span class="node-resource-fill" style="transform:scaleX(${known ? value / 100 : 0})"></span></span>
     </div>`;
   }
 
-  function renderNodes({ force = false } = {}) {
-    const localBox = $("#settings-node-local");
-    const remoteBox = $("#settings-node-remote");
-    // A row control keeps focus while a status notify arrives; the next
-    // focusout (or section open) brings the rows up to date.
-    if (!force && remoteBox.contains(document.activeElement)) return;
-    const localMarkup = nodeRow(localNode());
-    const local = localBox.querySelector("[data-local-node]");
-    // The host appends its backend-switcher row here, so replace only this
-    // row instead of rewriting the box.
-    if (local) local.outerHTML = localMarkup;
-    else localBox.insertAdjacentHTML("afterbegin", localMarkup);
-    const remote = remoteNodes();
-    $("#settings-node-remote-group").hidden = !remote.length && !addNode;
-    remoteBox.hidden = !remote.length;
-    remoteBox.innerHTML = remote.map(nodeRow).join("");
-    $("#settings-node-add").hidden = !addNode;
-    if (!$("#settings-node-data").childElementCount)
-      $("#settings-node-data").innerHTML = `<div class="settings-row">
-        <span class="settings-icon-box">${icon("database")}</span>
-        <span class="settings-row-text">
-          <span class="settings-row-name">${ui("共享台账与看板")}</span>
-          <span class="settings-row-meta">${ui("SQLite · 由本机提供")}</span>
+  function nodeResources(node) {
+    const read = node.local && nodeStatus(node) === "online" ? resources : undefined;
+    const gib = (bytes) => `${(bytes / 1024 ** 3).toFixed(bytes >= 100 * 1024 ** 3 ? 0 : 1)} GB`;
+    return `<div class="node-resources" data-node-resources>
+      ${resourceCell("CPU", read?.cpu)}
+      ${resourceCell(ui("内存"), read?.memory, read ? ui`内存 ${gib((read.memoryBytes * read.memory) / 100)} / ${gib(read.memoryBytes)}` : "")}
+      ${resourceCell(ui("磁盘"), read?.disk, read ? ui`磁盘 ${gib((read.diskBytes * read.disk) / 100)} / ${gib(read.diskBytes)}` : "")}
+    </div>`;
+  }
+
+  function nodeCard(node) {
+    const status = nodeStatus(node);
+    const state = nodeState(node);
+    const online = status === "online";
+    const retry = !node.local && ["offline", "failed", "disconnected"].includes(status);
+    const line = online
+      ? `<span class="node-card-address is-mono">${esc(nodeAddress(node))}</span>`
+      : `<span class="node-card-address">${esc(ui(state.label))}${status === "offline" && node.lastSeen ? ` · ${esc(formatStamp(node.lastSeen))}` : ""}</span>`;
+    const external = !node.local && node.role === "external";
+    return `<article class="node-card${online ? "" : " is-offline"}"${node.local ? " data-local-node" : ""} data-node="${esc(node.origin)}">
+      <div class="node-card-head">
+        ${nodeMark(node)}
+        <span class="node-card-text">
+          <span class="node-card-line"><span class="node-card-name">${esc(node.name)}</span><span class="settings-role">${ui(ROLE_LABEL[node.role] ?? ROLE_LABEL.internal)}</span>${
+            online
+              ? `<span class="settings-dot is-ok" aria-hidden="true"></span><span class="sr-only">${esc(ui(state.label))}</span>`
+              : ""
+          }</span>
+          ${line}
         </span>
         <span class="settings-row-spacer"></span>
-        <span class="settings-info" title="${esc(ui("项目数据保存在本机，连接的节点读取同一份共享记录"))}">${icon("info")}</span>
-      </div>`;
+        ${retry ? `<button class="settings-outline-button" type="button" data-node-reconnect="${esc(node.origin)}">${ui("重连")}</button>` : ""}
+        ${
+          node.local
+            ? ""
+            : `<button class="settings-icon-button" type="button" data-node-menu="${esc(node.origin)}" aria-label="${esc(ui("节点操作"))}" aria-haspopup="menu" aria-expanded="false">${icon("more")}</button>`
+        }
+      </div>
+      ${nodeResources(node)}
+      ${external ? capacityBlock(node) : ""}
+    </article>`;
+  }
+
+  function renderNodes({ force = false } = {}) {
+    const cards = $("#settings-node-cards");
+    // A card control keeps focus while a status notify arrives; the next
+    // focusout (or section open) brings the cards up to date.
+    if (!force && cards.contains(document.activeElement)) return;
+    cards.innerHTML = [localNode(), ...remoteNodes()].map(nodeCard).join("");
+    $("#settings-node-add").hidden = !addNode;
+  }
+
+  /** Only the resource figures change between reads; the cards stay put. */
+  function paintResources() {
+    const card = $("#settings-node-cards [data-local-node]");
+    const current = card?.querySelector("[data-node-resources]");
+    if (!current) return;
+    current.outerHTML = nodeResources(localNode());
+    const mark = card.querySelector(".node-card-mark");
+    if (mark && resources?.system && !mark.classList.contains("has-system"))
+      mark.outerHTML = nodeMark(localNode());
+  }
+
+  async function readResources() {
+    try {
+      resources = await api("/api/node-resources");
+      paintResources();
+      // eslint-disable-next-line no-restricted-syntax -- 资源读数失败只让卡片显示“—”，下次轮询再读
+    } catch {
+      resources = undefined;
+      paintResources();
+    }
+  }
+
+  function watchResources() {
+    clearInterval(resourceTimer);
+    resourceTimer = undefined;
+    if (!opened || section !== "nodes") return;
+    void readResources();
+    resourceTimer = setInterval(() => {
+      if (!opened || section !== "nodes") {
+        clearInterval(resourceTimer);
+        resourceTimer = undefined;
+        return;
+      }
+      if (!document.hidden) void readResources();
+    }, RESOURCE_POLL_MS);
   }
 
   function currentMenuNode() {
@@ -385,16 +472,19 @@ export function createSettingsPages({
     const list = Array.isArray(members()) ? members() : [];
     $("#settings-member-rows").innerHTML = list
       .map(
-        (member) => `<div class="settings-row" data-member="${esc(member.id)}">
-        <span class="settings-avatar">${esc(String(member.name || "?").slice(0, 1))}</span>
-        <span class="settings-row-name">${esc(member.name)}</span>
-        ${member.owner ? `<span class="settings-chip is-accent">${ui("负责人")}</span>` : ""}
-        <span class="settings-row-spacer"></span>
-        ${
-          member.channel
-            ? `<span class="settings-chip">${esc(member.channel)}</span>`
-            : `<span class="settings-warn">${icon("triangle-alert")}<span>${ui("未设置通道")}</span></span>`
-        }
+        (member) => `<div class="member-card" data-member="${esc(member.id)}">
+        <span class="member-card-mark is-person">${esc(String(member.name || "?").slice(0, 1))}</span>
+        <span class="member-card-text">
+          <span class="member-card-line">
+            <span class="member-card-name">${esc(member.name)}</span>
+            ${member.owner ? `<span class="settings-chip is-accent">${ui("负责人")}</span>` : ""}
+          </span>
+          ${
+            member.channel
+              ? `<span class="member-card-sub">${esc(ui("通知走 {channel}").replace("{channel}", member.channel))}</span>`
+              : `<span class="member-card-sub is-warn">${ui("未设置通道")}</span>`
+          }
+        </span>
       </div>`
       )
       .join("");
@@ -445,15 +535,12 @@ export function createSettingsPages({
   function capacityRow(origin, kind, quota, used) {
     const resident = kind === "regular";
     const label = resident ? ui("常驻 Main") : ui("接续 Main");
-    const hint = resident ? "同时运行的常驻 Main 数量上限" : "同时运行的接续 Main 数量上限";
     const minimum = resident ? 1 : 0;
-    return `<div class="settings-row" data-capacity-kind="${kind}">
-      <span class="settings-row-line"><span class="settings-row-label">${label}</span><span class="settings-info" title="${esc(hint)}">${icon("info")}</span></span>
+    return `<div class="node-capacity-row" data-capacity-kind="${kind}">
+      <span class="node-capacity-label">${label}</span>
       <span class="settings-row-spacer"></span>
-      <span class="settings-capacity-usage">
-        <span class="settings-capacity-bar" data-capacity-bar="${kind}">${capacityBar(quota, used, resident ? "is-accent" : "is-warn")}</span>
-        <span class="settings-row-meta" data-capacity-used="${kind}">${ui`使用中 ${used}`}</span>
-      </span>
+      <span class="settings-capacity-bar" data-capacity-bar="${kind}" aria-hidden="true">${capacityBar(quota, used, "is-ok")}</span>
+      <span class="node-capacity-used" data-capacity-used="${kind}">${used} / ${quota}</span>
       <span class="settings-stepper">
         <button type="button" data-capacity-step="-1" aria-label="${esc(`减少${label}`)}"${quota <= minimum ? " disabled" : ""}>
           ${icon("minus")}
@@ -466,24 +553,18 @@ export function createSettingsPages({
     </div>`;
   }
 
-  function capacityGroup(node) {
+  /** An external node's two quotas, under its resources; 还原 / 保存 show once a number changed. */
+  function capacityBlock(node) {
     const state = capacity.get(node.origin);
-    if (!state?.draft) return "";
-    const online = nodeStatus(node) === "online";
-    return `<div class="settings-group" data-capacity-node="${esc(node.origin)}">
-      <div class="settings-group-head">
-        ${icon("server")}<h2 class="settings-group-title">${esc(node.name)}</h2>
-        <span class="settings-dot ${online ? "is-ok" : "is-muted"}" aria-hidden="true"></span>
-        <span class="settings-group-spacer"></span>
-      </div>
-      <div class="settings-rows">
-        ${capacityRow(node.origin, "regular", state.draft.resident, usedSlots(state.view, "regular"))}
-        ${capacityRow(node.origin, "continuation", state.draft.continuation, usedSlots(state.view, "continuation"))}
-      </div>
-      <div class="settings-error" role="alert" data-capacity-error hidden>${
+    if (!state?.draft)
+      return `<div class="node-capacity" data-capacity-node="${esc(node.origin)}" hidden></div>`;
+    return `<div class="node-capacity" data-capacity-node="${esc(node.origin)}">
+      ${capacityRow(node.origin, "regular", state.draft.resident, usedSlots(state.view, "regular"))}
+      ${capacityRow(node.origin, "continuation", state.draft.continuation, usedSlots(state.view, "continuation"))}
+      <div class="settings-error" role="alert" data-capacity-error${state.error ? "" : " hidden"}>${
         state.error ? esc(state.error) : ""
       }</div>
-      <div class="settings-actions">
+      <div class="node-capacity-actions" data-capacity-actions${state.dirty ? "" : " hidden"}>
         <button type="button" class="settings-text-button" data-capacity-reset>${ui("还原")}</button>
         <button type="button" class="settings-primary-button" data-capacity-save>${ui("保存")}</button>
       </div>
@@ -491,17 +572,15 @@ export function createSettingsPages({
   }
 
   function renderCapacity() {
-    $("#settings-capacity-nodes").innerHTML = capacityNodes()
-      .map((node) => capacityGroup(node))
-      .join("");
+    for (const node of capacityNodes()) {
+      const block = root.querySelector(`[data-capacity-node="${CSS.escape(node.origin)}"]`);
+      if (block) block.outerHTML = capacityBlock(node);
+    }
   }
 
   async function refreshCapacity() {
     const targets = capacityNodes();
-    if (!targets.length) {
-      $("#settings-capacity-nodes").innerHTML = "";
-      return;
-    }
+    if (!targets.length) return;
     // The connected node answers for every group until per-node clients exist;
     // #09 addresses each node's own service.
     try {
@@ -564,7 +643,7 @@ export function createSettingsPages({
       capacity.set(node.origin, next);
       const current = root.querySelector(`[data-capacity-node="${CSS.escape(node.origin)}"]`);
       if (current) {
-        current.outerHTML = capacityGroup(node);
+        current.outerHTML = capacityBlock(node);
         const restored = root.querySelector(`[data-capacity-node="${CSS.escape(node.origin)}"]`);
         for (const value of restored?.querySelectorAll("[data-capacity-save], [data-capacity-reset]") ?? [])
           value.disabled = false;
@@ -591,12 +670,13 @@ export function createSettingsPages({
     if (steps[0]) steps[0].disabled = value <= minimum;
     if (steps[1]) steps[1].disabled = value >= CAPACITY_LIMIT;
     const bar = row?.querySelector(`[data-capacity-bar="${kind}"]`);
-    if (bar)
-      bar.innerHTML = capacityBar(
-        value,
-        usedSlots(state.view, kind),
-        kind === "regular" ? "is-accent" : "is-warn"
-      );
+    if (bar) bar.innerHTML = capacityBar(value, usedSlots(state.view, kind), "is-ok");
+    const used = row?.querySelector(`[data-capacity-used="${kind}"]`);
+    if (used) used.textContent = `${usedSlots(state.view, kind)} / ${value}`;
+    const actions = root.querySelector(
+      `[data-capacity-node="${CSS.escape(node.origin)}"] [data-capacity-actions]`
+    );
+    if (actions) actions.hidden = false;
     const error = root.querySelector(
       `[data-capacity-node="${CSS.escape(node.origin)}"] [data-capacity-error]`
     );
@@ -611,7 +691,7 @@ export function createSettingsPages({
     delete state.error;
     const group = root.querySelector(`[data-capacity-node="${CSS.escape(node.origin)}"]`);
     if (group) {
-      group.outerHTML = capacityGroup(node);
+      group.outerHTML = capacityBlock(node);
       root.querySelector(`[data-capacity-node="${CSS.escape(node.origin)}"] [data-capacity-reset]`)?.focus();
     }
   }
@@ -628,10 +708,13 @@ export function createSettingsPages({
   }
 
   function runSection() {
-    if (section === "nodes") renderNodes();
+    if (section === "nodes") {
+      renderNodes();
+      void refreshCapacity();
+    }
+    watchResources();
     if (section === "members") renderMembers();
     if (section === "tools") renderMcp();
-    if (section === "capacity") void refreshCapacity();
     for (const handler of handlers.get(section) ?? []) handler();
   }
 
@@ -656,6 +739,8 @@ export function createSettingsPages({
   function close({ restoreFocus = true } = {}) {
     if (!root || root.hidden) return;
     closeNodeMenu();
+    clearInterval(resourceTimer);
+    resourceTimer = undefined;
     root.hidden = true;
     if (app) app.hidden = false;
     trigger?.setAttribute("aria-expanded", "false");
@@ -704,7 +789,7 @@ export function createSettingsPages({
   // Actions only render when their host provides one; the settings page owns
   // the chooser while the observation data port owns the connection.
   $("#settings-node-add").addEventListener("click", () => openNodeDialog());
-  $("#settings-node-remote").addEventListener("click", (event) => {
+  $("#settings-node-cards").addEventListener("click", (event) => {
     const menu = event.target.closest("[data-node-menu]");
     if (menu) {
       if (nodeMenuTrigger === menu && !nodeMenu.hidden) closeNodeMenu({ restoreFocus: true });
@@ -723,12 +808,12 @@ export function createSettingsPages({
 
   // Rows paused a notify while one of their controls held focus; bring them
   // up to date as soon as focus leaves.
-  $("#settings-node-remote").addEventListener("focusout", (event) => {
-    if ($("#settings-node-remote").contains(event.relatedTarget)) return;
+  $("#settings-node-cards").addEventListener("focusout", (event) => {
+    if ($("#settings-node-cards").contains(event.relatedTarget)) return;
     if (opened && section === "nodes") refresh();
   });
 
-  $("#settings-capacity-nodes").addEventListener("click", (event) => {
+  $("#settings-node-cards").addEventListener("click", (event) => {
     const group = event.target.closest("[data-capacity-node]");
     if (!group) return;
     const node = capacityNodes().find((entry) => entry.origin === group.dataset.capacityNode);
