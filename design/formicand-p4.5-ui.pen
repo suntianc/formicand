@@ -170146,7 +170146,7 @@
                               "id": "KPodr",
                               "name": "Meta",
                               "fill": "$v2-text-3",
-                              "content": "你对话的那个",
+                              "content": "和你对话，拆需求、派活、合入",
                               "fontFamily": "Noto Sans SC",
                               "fontSize": 11,
                               "fontWeight": "normal"
@@ -170252,7 +170252,7 @@
                               "id": "Hv1eA",
                               "name": "Meta",
                               "fill": "$v2-text-3",
-                              "content": "可写 · GLM-4.6 · 中",
+                              "content": "按需求在隔离现场写代码",
                               "fontFamily": "Noto Sans SC",
                               "fontSize": 11,
                               "fontWeight": "normal"
@@ -170358,7 +170358,7 @@
                               "id": "i8Y1z",
                               "name": "Meta",
                               "fill": "$v2-text-3",
-                              "content": "只读 · DeepSeek V3.2 思考 · 高",
+                              "content": "独立检查改动，给出审查结论",
                               "fontFamily": "Noto Sans SC",
                               "fontSize": 11,
                               "fontWeight": "normal"
@@ -170490,7 +170490,7 @@
                               "id": "g24uK",
                               "name": "Meta",
                               "fill": "$v2-text-3",
-                              "content": "可写 · 2 技能 · 1 MCP",
+                              "content": "数据库表结构变更与迁移脚本",
                               "fontFamily": "Noto Sans SC",
                               "fontSize": 11,
                               "fontWeight": "normal"
@@ -170561,7 +170561,7 @@
                               "id": "KO1b8",
                               "name": "Meta",
                               "fill": "$v2-text-3",
-                              "content": "只读 · 1 MCP",
+                              "content": "根据改动写拉取请求说明",
                               "fontFamily": "Noto Sans SC",
                               "fontSize": 11,
                               "fontWeight": "normal"
@@ -170632,7 +170632,7 @@
                               "id": "smkqr",
                               "name": "Meta",
                               "fill": "$v2-text-3",
-                              "content": "只读 · 复制自 reviewer",
+                              "content": "更严格的审查，关注安全与性能",
                               "fontFamily": "Noto Sans SC",
                               "fontSize": 11,
                               "fontWeight": "normal"
@@ -170704,7 +170704,7 @@
                               "id": "Oic1Z",
                               "name": "Meta",
                               "fill": "$v2-text-3",
-                              "content": "已停用",
+                              "content": "整理和更新项目文档",
                               "fontFamily": "Noto Sans SC",
                               "fontSize": 11,
                               "fontWeight": "normal"
