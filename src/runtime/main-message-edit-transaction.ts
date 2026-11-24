@@ -20,6 +20,7 @@ interface EditTransaction {
   retiredHumanRequests?: string[];
 }
 const live = new Set<string>();
+const pendingArchiveSync = new Set<string>();
 const pathFor = (root: string, taskId: string) =>
   join(root, taskId, "sessions", "main", "edit-transaction.json");
 async function optional(path: string) {
@@ -80,6 +81,10 @@ export async function beginMessageEditTransaction(
   retiredHumanRequests: string[] = []
 ) {
   const path = pathFor(root, taskId);
+  if (pendingArchiveSync.has(path)) {
+    await syncDirectory(dirname(path));
+    pendingArchiveSync.delete(path);
+  }
   if ((await optional(path)) !== null) throw new Error("此前编辑事务尚未恢复。");
   const paths = snapshotPaths(root, taskId);
   const requestPath = mainRequestPath(root, taskId);
@@ -120,50 +125,83 @@ export async function readyMessageEditTransaction(root: string, taskId: string) 
 }
 export async function finishMessageEditTransaction(root: string, taskId: string) {
   const path = pathFor(root, taskId);
-  const value = await read(root, taskId);
-  if (value) {
-    await rename(path, join(dirname(path), `edit-transaction-${value.runId}.json`));
-    await syncDirectory(dirname(path));
+  try {
+    const value = await read(root, taskId);
+    if (value) {
+      pendingArchiveSync.add(path);
+      await rename(path, join(dirname(path), `edit-transaction-${value.runId}.json`));
+    }
+    if (pendingArchiveSync.has(path)) {
+      await syncDirectory(dirname(path));
+      pendingArchiveSync.delete(path);
+    }
+  } finally {
+    live.delete(path);
   }
-  live.delete(path);
 }
 export async function rollbackMessageEditTransaction(root: string, taskId: string) {
-  const value = await read(root, taskId);
-  if (!value) return;
-  // Preserve the rejected input and Run evidence; a durable rejection supersedes legacy fallbacks.
-  const input = await readMainInput(mainInputPath(root, taskId, value.runId));
-  if (input?.messageId && /^[a-zA-Z0-9._-]+$/.test(input.messageId)) {
-    const path = join(root, taskId, "sessions", "main", "user-inputs", `${input.messageId}.json`);
-    const bytes = await optional(path);
-    if (bytes !== null) await atomic(path, JSON.stringify({ ...JSON.parse(bytes), accepted: false }));
+  const path = pathFor(root, taskId);
+  try {
+    const value = await read(root, taskId);
+    if (!value) {
+      if (pendingArchiveSync.has(path)) {
+        await syncDirectory(dirname(path));
+        pendingArchiveSync.delete(path);
+      }
+      return;
+    }
+    // Preserve the rejected input and Run evidence; a durable rejection supersedes legacy fallbacks.
+    const input = await readMainInput(mainInputPath(root, taskId, value.runId));
+    if (input?.messageId && /^[a-zA-Z0-9._-]+$/.test(input.messageId)) {
+      const inputRecordPath = join(
+        root,
+        taskId,
+        "sessions",
+        "main",
+        "user-inputs",
+        `${input.messageId}.json`
+      );
+      const bytes = await optional(inputRecordPath);
+      if (bytes !== null)
+        await atomic(inputRecordPath, JSON.stringify({ ...JSON.parse(bytes), accepted: false }));
+    }
+    const requestPath = mainRequestPath(root, taskId);
+    const requestStatePath = mainRequestStatePath(root, taskId);
+    for (const entry of value.before.slice(0, 4)) {
+      if (entry.bytes === null) await durableRemove(entry.path);
+      else await atomic(entry.path, entry.bytes);
+    }
+    await withFileLock(
+      requestPath,
+      async () => {
+        const requestEntry = value.before[4];
+        if (requestEntry.bytes === null) await durableRemove(requestEntry.path);
+        else await atomic(requestEntry.path, requestEntry.bytes);
+        const sidecarEntry = value.before.at(5);
+        if (!sidecarEntry || sidecarEntry.bytes === null) await durableRemove(requestStatePath);
+        else await atomic(sidecarEntry.path, sidecarEntry.bytes);
+      },
+      { recoverDeadOwner: true }
+    );
+    const human = new HumanRequestStore(root);
+    for (const requestId of value.retiredHumanRequests ?? [])
+      await human.restoreSuperseded(taskId, requestId, value.runId);
+    await finishMessageEditTransaction(root, taskId);
+  } finally {
+    live.delete(path);
   }
-  const requestPath = mainRequestPath(root, taskId);
-  const requestStatePath = mainRequestStatePath(root, taskId);
-  for (const entry of value.before.slice(0, 4)) {
-    if (entry.bytes === null) await durableRemove(entry.path);
-    else await atomic(entry.path, entry.bytes);
-  }
-  await withFileLock(
-    requestPath,
-    async () => {
-      const requestEntry = value.before[4];
-      if (requestEntry.bytes === null) await durableRemove(requestEntry.path);
-      else await atomic(requestEntry.path, requestEntry.bytes);
-      const sidecarEntry = value.before.at(5);
-      if (!sidecarEntry || sidecarEntry.bytes === null) await durableRemove(requestStatePath);
-      else await atomic(sidecarEntry.path, sidecarEntry.bytes);
-    },
-    { recoverDeadOwner: true }
-  );
-  const human = new HumanRequestStore(root);
-  for (const requestId of value.retiredHumanRequests ?? [])
-    await human.restoreSuperseded(taskId, requestId, value.runId);
-  await finishMessageEditTransaction(root, taskId);
 }
 /** Recover abandoned transactions; return whether the caller must refresh its Task snapshot. */
 export async function recoverMessageEditTransaction(root: string, taskId: string): Promise<boolean> {
   const path = pathFor(root, taskId);
-  if (live.has(path) || (await optional(path)) === null) return false;
+  if (live.has(path)) return false;
+  if ((await optional(path)) === null) {
+    if (pendingArchiveSync.has(path)) {
+      await syncDirectory(dirname(path));
+      pendingArchiveSync.delete(path);
+    }
+    return false;
+  }
   return withFileLock(path, async () => {
     const value = await read(root, taskId);
     // Another process may have recovered the observed transaction while we waited for its lock.

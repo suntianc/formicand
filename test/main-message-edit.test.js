@@ -765,39 +765,36 @@ test(
   }
 );
 
-test("edit transaction rollback refuses to archive the journal when directory sync fails during restoration", async (t) => {
+test("edit transaction rollback failure releases live lock for same-process recovery and subsequent edit, and finish retry completes deferred archive dir sync", async (t) => {
   if (process.platform === "win32") return;
   const f = await fixture(t);
   const reqPath = mainRequestPath(f.root, "task");
   await writeFile(reqPath, "BEFORE_ROLLBACK_BYTES");
-  await beginMessageEditTransaction(
-    f.root,
-    "task",
-    "rollback-sync-run",
-    {
-      version: 1,
-      taskId: "task",
-      versionId: "v0",
-      sessionFile: f.session.getSessionFile(),
-      excludedRuns: [],
-      prefixEvents: [],
-      archives: [],
-      edits: []
-    },
-    { editId: randomUUID(), prompt: "p" }
-  );
-  await writeFile(reqPath, "MUTATED_BYTES");
   const modUrl = JSON.stringify(
     pathToFileURL(resolve("dist/src/runtime/main-message-edit-transaction.js")).href
   );
   const txPath = join(f.root, "task", "sessions", "main", "edit-transaction.json");
   const sessionsDir = join(f.root, "task", "sessions", "main");
+  const baseline = {
+    version: 1,
+    taskId: "task",
+    versionId: "v0",
+    sessionFile: f.session.getSessionFile(),
+    excludedRuns: [],
+    prefixEvents: [],
+    archives: [],
+    edits: []
+  };
   const output = await childProcess(`
     import fsPromises from "node:fs/promises";
     import { syncBuiltinESMExports } from "node:module";
     const sessionsDir = ${JSON.stringify(sessionsDir)};
     const txPath = ${JSON.stringify(txPath)};
-    let failSync = true;
+    const reqPath = ${JSON.stringify(reqPath)};
+    const root = ${JSON.stringify(f.root)};
+    const baseline = ${JSON.stringify(baseline)};
+    let failSync = false;
+    let dirSyncSuccessCount = 0;
     const origOpen = fsPromises.open;
     fsPromises.open = async function (p, flags, ...rest) {
       const handle = await origOpen.call(this, p, flags, ...rest);
@@ -805,40 +802,101 @@ test("edit transaction rollback refuses to archive the journal when directory sy
         const origSync = handle.sync.bind(handle);
         handle.sync = async () => {
           if (failSync) {
-            const err = new Error("EIO: rollback dir sync failed");
+            const err = new Error("EIO: simulated dir sync failure");
             err.code = "EIO";
             throw err;
           }
-          return origSync();
+          const result = await origSync();
+          dirSyncSuccessCount += 1;
+          return result;
         };
       }
       return handle;
     };
     syncBuiltinESMExports();
-    const { rollbackMessageEditTransaction } = await import(${modUrl});
-    let errorCode = null;
+    const {
+      beginMessageEditTransaction,
+      finishMessageEditTransaction,
+      recoverMessageEditTransaction,
+      rollbackMessageEditTransaction
+    } = await import(${modUrl});
+
+    // Scenario A: Same-process begin -> rollback fails with dir sync EIO -> fault cleared ->
+    // recoverMessageEditTransaction() returns true in the SAME process and a fresh edit succeeds.
+    await beginMessageEditTransaction(root, "task", "rollback-sync-run", baseline, { editId: "e1", prompt: "p1" });
+    await fsPromises.writeFile(reqPath, "MUTATED_BYTES");
+    failSync = true;
+    let rollbackError = null;
     try {
-      await rollbackMessageEditTransaction(${JSON.stringify(f.root)}, "task");
+      await rollbackMessageEditTransaction(root, "task");
     } catch (err) {
-      errorCode = err.code ?? err.message;
+      rollbackError = err.code ?? err.message;
     }
-    const txStillActive = await fsPromises.readFile(txPath, "utf8").then(() => true, () => false);
+    const txStillActiveAfterRollbackFail = await fsPromises.readFile(txPath, "utf8").then(() => true, () => false);
     failSync = false;
-    await rollbackMessageEditTransaction(${JSON.stringify(f.root)}, "task");
-    const txAfterRetry = await fsPromises.readFile(txPath, "utf8").then(() => true, () => false);
-    console.log(JSON.stringify({ errorCode, txStillActive, txAfterRetry }));
+    const recoveredSameProcess = await recoverMessageEditTransaction(root, "task");
+    const txAfterSameProcessRecover = await fsPromises.readFile(txPath, "utf8").then(() => true, () => false);
+    const reqAfterRecover = await fsPromises.readFile(reqPath, "utf8");
+
+    // Scenario B: Start a new edit in the same process -> finishMessageEditTransaction() renames journal
+    // then fails in syncDirectory() -> clear fault -> retry finish() MUST execute directory sync.
+    await beginMessageEditTransaction(root, "task", "finish-sync-run", baseline, { editId: "e2", prompt: "p2" });
+    failSync = true;
+    let finishError = null;
+    try {
+      await finishMessageEditTransaction(root, "task");
+    } catch (err) {
+      finishError = err.code ?? err.message;
+    }
+    failSync = false;
+    const syncsBeforeRetryFinish = dirSyncSuccessCount;
+    await finishMessageEditTransaction(root, "task");
+    const syncsDuringRetryFinish = dirSyncSuccessCount - syncsBeforeRetryFinish;
+
+    // Also verify recoverMessageEditTransaction() drains pendingArchiveSync if finish() failed after rename.
+    await beginMessageEditTransaction(root, "task", "recover-sync-run", baseline, { editId: "e3", prompt: "p3" });
+    failSync = true;
+    let finishError2 = null;
+    try {
+      await finishMessageEditTransaction(root, "task");
+    } catch (err) {
+      finishError2 = err.code ?? err.message;
+    }
+    failSync = false;
+    const syncsBeforeRecoverDrain = dirSyncSuccessCount;
+    await recoverMessageEditTransaction(root, "task");
+    const syncsDuringRecoverDrain = dirSyncSuccessCount - syncsBeforeRecoverDrain;
+
+    console.log(JSON.stringify({
+      rollbackError,
+      txStillActiveAfterRollbackFail,
+      recoveredSameProcess,
+      txAfterSameProcessRecover,
+      reqAfterRecover,
+      finishError,
+      syncsDuringRetryFinish,
+      finishError2,
+      syncsDuringRecoverDrain
+    }));
   `);
   const res = JSON.parse(output.trim());
-  assert.equal(res.errorCode, "EIO");
+  assert.equal(res.rollbackError, "EIO");
+  assert.equal(res.txStillActiveAfterRollbackFail, true);
   assert.equal(
-    res.txStillActive,
+    res.recoveredSameProcess,
     true,
-    "active edit-transaction.json must NOT be archived if restoration sync fails"
+    "recoverMessageEditTransaction() must recover in the same process after rollback failure"
   );
-  assert.equal(
-    res.txAfterRetry,
-    false,
-    "retry rollback must archive edit-transaction.json after sync succeeds"
+  assert.equal(res.txAfterSameProcessRecover, false);
+  assert.equal(res.reqAfterRecover, "BEFORE_ROLLBACK_BYTES");
+  assert.equal(res.finishError, "EIO");
+  assert.ok(
+    res.syncsDuringRetryFinish >= 1,
+    `retrying finish() after post-rename sync failure must run dir sync, got ${res.syncsDuringRetryFinish}`
   );
-  assert.equal(await readFile(reqPath, "utf8"), "BEFORE_ROLLBACK_BYTES");
+  assert.equal(res.finishError2, "EIO");
+  assert.ok(
+    res.syncsDuringRecoverDrain >= 1,
+    `recoverMessageEditTransaction() must drain pending archive dir sync, got ${res.syncsDuringRecoverDrain}`
+  );
 });

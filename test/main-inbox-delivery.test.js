@@ -1266,3 +1266,189 @@ test("real extension replaces persistedReceiptKeys on branch switch (A -> B) in 
     "overwritten Branch A receipt must NOT be consumed after Branch B replaced messages.json"
   );
 });
+
+test("partial snapshot write failure (messages.json written, state.json EIO) invalidates receipt cache so returning to Branch A rebuilds messages.json before acknowledging", async (t) => {
+  const { root, inbox } = await fixture(t);
+  const now = new Date().toISOString();
+  await inbox.enqueue({
+    messageId: "partial-write-cb",
+    recipientAgentId: "main",
+    callId: "c-partial",
+    kind: "callback",
+    eventId: "e-partial",
+    priority: 1,
+    state: "ready",
+    payload: { callId: "c-partial", response: "PARTIAL_WRITE_MARKER" },
+    createdAt: now
+  });
+  const extPath = resolve(".pi/runtime/extension.ts");
+  const child = spawn(
+    process.execPath,
+    [
+      "--input-type=module",
+      "-e",
+      `
+      import fsPromises from "node:fs/promises";
+      import { createRequire, syncBuiltinESMExports } from "node:module";
+      import { join } from "node:path";
+      import { pathToFileURL } from "node:url";
+      import { SessionManager } from "@earendil-works/pi-coding-agent";
+
+      const root = process.argv[1];
+      const extPath = process.argv[2];
+      const statePath = join(root, "task/agents/main/context/state.json");
+      const messagesPath = join(root, "task/agents/main/context/messages.json");
+      let failStateRename = false;
+      let stateRenameFailures = 0;
+      const origRename = fsPromises.rename;
+      fsPromises.rename = async function (src, dst, ...rest) {
+        if (failStateRename && String(dst) === statePath) {
+          stateRenameFailures += 1;
+          const err = new Error("EIO: simulated state.json failure after messages.json write");
+          err.code = "EIO";
+          throw err;
+        }
+        return origRename.call(this, src, dst, ...rest);
+      };
+      syncBuiltinESMExports();
+
+      const requirePi = createRequire(import.meta.resolve("@earendil-works/pi-coding-agent"));
+      const { createJiti } = await import(requirePi.resolve("jiti"));
+      const jiti = createJiti(pathToFileURL(extPath).href, { interopDefault: true });
+      const extModule = await jiti.import(extPath);
+      const registerMainExtension = extModule.default ?? extModule;
+      const handlers = new Map();
+      await registerMainExtension({
+        on(event, fn) {
+          const list = handlers.get(event) ?? [];
+          list.push(fn);
+          handlers.set(event, list);
+        },
+        registerTool() {},
+        registerCommand() {},
+        registerProvider() {},
+        getActiveTools: () => [],
+        setActiveTools() {},
+        getThinkingLevel: () => "off",
+        setThinkingLevel() {},
+        sendMessage() {},
+        sendUserMessage() {},
+        appendEntry() {}
+      });
+
+      const session = SessionManager.inMemory(root);
+      const rootId = session.appendMessage({
+        role: "user",
+        content: [{ type: "text", text: "root" }],
+        timestamp: Date.now()
+      });
+      const fakeCtx = {
+        ui: { notify() {}, setStatus() {} },
+        shutdown() {},
+        isIdle: () => true,
+        hasPendingMessages: () => false,
+        getContextUsage: () => undefined,
+        sessionManager: session
+      };
+      for (const fn of handlers.get("session_start") ?? []) await fn({ reason: "startup" }, fakeCtx);
+
+      const receiptMsg = {
+        role: "custom",
+        customType: "cowork-callback",
+        content: "PARTIAL_WRITE_MARKER",
+        details: { _coworkInbox: { taskId: "task", runId: "run", messageId: "partial-write-cb" } }
+      };
+      // 1. Branch A persists messages.json containing partial-write-cb.
+      const leafA = session.appendCustomMessageEntry(
+        "cowork-callback",
+        "PARTIAL_WRITE_MARKER",
+        true,
+        receiptMsg.details
+      );
+      for (const fn of handlers.get("session_compact") ?? []) await fn({}, fakeCtx);
+      const afterA = await fsPromises.readFile(messagesPath, "utf8");
+
+      // 2. Switch to Branch B; messages.json is overwritten by B, then state.json fails with EIO.
+      session.branch(rootId);
+      session.appendMessage({
+        role: "user",
+        content: [{ type: "text", text: "branch B overwrote messages" }],
+        timestamp: Date.now() + 1
+      });
+      failStateRename = true;
+      let partialError = null;
+      try {
+        for (const fn of handlers.get("session_compact") ?? []) await fn({}, fakeCtx);
+      } catch (err) {
+        partialError = err.code ?? err.message;
+      }
+      const afterPartialB = await fsPromises.readFile(messagesPath, "utf8");
+
+      // 3. Switch back to Branch A's original leaf while state.json STILL fails -> must NOT consume receipt.
+      session.branch(leafA);
+      for (const fn of handlers.get("context") ?? []) {
+        await fn({ messages: [receiptMsg] }, fakeCtx);
+      }
+      const { InboxStore } = await import(${JSON.stringify(new URL("../dist/src/runtime/scheduler.js", import.meta.url).href)});
+      const inbox = new InboxStore(join(root, "task/runs/run/agents/main/inbox-store.json"));
+      const stateWhileStillFailing = (await inbox.list("main")).find((m) => m.messageId === "partial-write-cb").state;
+
+      // 4. Clear fault and call context on Branch A -> must rebuild messages.json with A before consuming.
+      failStateRename = false;
+      for (const fn of handlers.get("context") ?? []) {
+        await fn({ messages: [receiptMsg] }, fakeCtx);
+      }
+      const afterRecoveredA = await fsPromises.readFile(messagesPath, "utf8");
+      const stateAfterRecovery = (await inbox.list("main")).find((m) => m.messageId === "partial-write-cb").state;
+
+      for (const fn of handlers.get("session_shutdown") ?? []) await fn({}, fakeCtx);
+      console.log(JSON.stringify({
+        hasAInitially: afterA.includes("partial-write-cb"),
+        partialError,
+        stateRenameFailures,
+        overwrittenByB: afterPartialB.includes("branch B overwrote messages") && !afterPartialB.includes("partial-write-cb"),
+        stateWhileStillFailing,
+        rebuiltA: afterRecoveredA.includes("partial-write-cb"),
+        stateAfterRecovery
+      }));
+    `,
+      root,
+      extPath
+    ],
+    {
+      cwd: process.cwd(),
+      env: {
+        ...process.env,
+        COWORK_WORKSPACE: root,
+        COWORK_TASK_ID: "task",
+        COWORK_RUN_ID: "run",
+        COWORK_PROJECT_DIR: root,
+        COWORK_HARNESS_ROOT: process.cwd(),
+        COWORK_API_BASE: "http://127.0.0.1:1/v1",
+        COWORK_API_KEY: "fixture-key"
+      },
+      stdio: ["ignore", "pipe", "pipe"]
+    }
+  );
+  let stdout = "";
+  let stderr = "";
+  child.stdout.on("data", (chunk) => {
+    stdout += String(chunk);
+  });
+  child.stderr.on("data", (chunk) => {
+    stderr += String(chunk);
+  });
+  const [code] = await once(child, "close");
+  assert.equal(code, 0, stderr);
+  const result = JSON.parse(stdout.trim());
+  assert.equal(result.hasAInitially, true);
+  assert.equal(result.partialError, "EIO");
+  assert.equal(result.overwrittenByB, true);
+  assert.notEqual(
+    result.stateWhileStillFailing,
+    "consumed",
+    "must not consume receipt after partial write failure while rebuild still fails"
+  );
+  assert.equal(result.rebuiltA, true, "cache invalidation must force rebuilding messages.json with Branch A");
+  assert.equal(result.stateAfterRecovery, "consumed");
+});

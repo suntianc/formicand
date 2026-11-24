@@ -265,7 +265,17 @@ async function registerMainExtension(pi: ExtensionAPI) {
       )
         return;
     }
-    await persistMainSessionContext(mainContext, branch);
+    try {
+      await persistMainSessionContext(mainContext, branch);
+    } catch (error) {
+      // A partial write (e.g. messages.json replaced before state.json throws)
+      // makes the in-memory cache stale relative to disk; invalidate so the next
+      // context pass rebuilds messages.json before acknowledging any receipt.
+      lastPersistedBranch = undefined;
+      lastPersistedUserEntryId = undefined;
+      persistedReceiptKeys = new Set();
+      throw error;
+    }
     lastPersistedBranch = { length, lastEntryId, compactionCount, atMs: Date.now() };
     lastPersistedUserEntryId = userEntryId;
     persistedReceiptKeys = new Set(branchReceipts);
