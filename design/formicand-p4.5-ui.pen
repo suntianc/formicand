@@ -161879,7 +161879,7 @@
           "fill": "#A1A1A8",
           "textGrowth": "fixed-width",
           "width": "fill_container",
-          "content": "6. 运行名额并入节点连接，导航里不再单独有这一页。每个节点一张卡片，一行三张，从上到下三层：① 图标、名字、对内/对外、在线绿点、地址，右边是更多菜单（离线时多一个「重连」）；② CPU、内存、磁盘三项占用，百分比 + 细条，超过 80% 变黄，悬停看具体容量，离线显示「—」；③ 名额：对外节点是常驻、接续两行（小格子数等于上限，正在用的亮绿色，「正在用 / 上限」，加减改上限），对内节点没有这一层。",
+          "content": "6. 运行名额并入节点连接，导航里不再单独有这一页。每个节点一张卡片，一行三张，从上到下三层：① 图标、名字、对内/对外、在线绿点、地址，右边是更多菜单（离线时多一个「重连」）；② CPU、内存、磁盘三项占用，百分比 + 细条，细条低于 70% 绿色、70%～89% 黄色、90% 及以上红色，悬停看具体容量，离线显示「—」；③ 名额：对外节点是常驻、接续两行（小格子数等于上限，正在用的亮绿色，「正在用 / 上限」，加减改上限），对内节点没有这一层。",
           "lineHeight": 1.65,
           "fontFamily": "Noto Sans SC",
           "fontSize": 14,
@@ -164328,7 +164328,7 @@
                                           "name": "BarFill",
                                           "width": 18,
                                           "height": 4,
-                                          "fill": "$v2-text-2",
+                                          "fill": "$v2-ok",
                                           "cornerRadius": 2
                                         }
                                       ]
@@ -164397,7 +164397,7 @@
                                           "name": "BarFill",
                                           "width": 58,
                                           "height": 4,
-                                          "fill": "$v2-text-2",
+                                          "fill": "$v2-ok",
                                           "cornerRadius": 2
                                         }
                                       ]
@@ -164441,7 +164441,7 @@
                                           "id": "T5YTy",
                                           "name": "Value",
                                           "fill": "$v2-text",
-                                          "content": "60%",
+                                          "content": "93%",
                                           "fontFamily": "Noto Sans SC",
                                           "fontSize": 12,
                                           "fontWeight": "normal"
@@ -164464,9 +164464,9 @@
                                           "x": 0,
                                           "y": 0,
                                           "name": "BarFill",
-                                          "width": 59,
+                                          "width": 91,
                                           "height": 4,
-                                          "fill": "$v2-text-2",
+                                          "fill": "$v2-danger",
                                           "cornerRadius": 2
                                         }
                                       ]
@@ -164674,7 +164674,7 @@
                                           "name": "BarFill",
                                           "width": 41,
                                           "height": 4,
-                                          "fill": "$v2-text-2",
+                                          "fill": "$v2-ok",
                                           "cornerRadius": 2
                                         }
                                       ]
@@ -164812,7 +164812,7 @@
                                           "name": "BarFill",
                                           "width": 22,
                                           "height": 4,
-                                          "fill": "$v2-text-2",
+                                          "fill": "$v2-ok",
                                           "cornerRadius": 2
                                         }
                                       ]
