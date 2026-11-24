@@ -1,7 +1,10 @@
 import { test, expect } from "@playwright/test";
+import { once } from "node:events";
+import { createServer } from "node:http";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { startDashboard } from "../test/dashboard-fixture.mjs";
+import { readFixtureRequestBody } from "../test/http-request-body-fixture.mjs";
 
 test("a final local artifact link downloads its indexed file without leaving the draft", async ({ page }) => {
   const dashboard = await startDashboard({ defaultProject: false });
@@ -292,5 +295,88 @@ test("a stale conversation link keeps early typing in the composer", async ({ pa
     releaseSession();
     releaseCatalog();
     await dashboard.stop();
+  }
+});
+
+test("a streamed artifact link completed mid-reply opens the artifact preview before text_end arrives", async ({
+  page
+}) => {
+  let releaseLinkChunk;
+  let releaseFinish;
+  const linkGate = new Promise((resolve) => (releaseLinkChunk = resolve));
+  const finishGate = new Promise((resolve) => (releaseFinish = resolve));
+  let artifactAbsolutePath = "";
+  const writeChunk = (response, delta, finish = null) =>
+    response.write(
+      `data: ${JSON.stringify({ id: "stream-art", object: "chat.completion.chunk", created: 1, model: "fixture-model", choices: [{ index: 0, delta, finish_reason: finish }] })}\n\n`
+    );
+  const provider = createServer(async (request, response) => {
+    await readFixtureRequestBody(request);
+    if (request.method !== "POST") {
+      response.writeHead(200, { "content-type": "application/json" });
+      response.end(JSON.stringify({ data: [{ id: "fixture-model" }] }));
+      return;
+    }
+    response.writeHead(200, { "content-type": "text/event-stream" });
+    writeChunk(response, { role: "assistant" });
+    writeChunk(response, { content: "查看生成结果：" });
+    await linkGate;
+    writeChunk(response, { content: `[汇总报告](<${artifactAbsolutePath}>)` });
+    await finishGate;
+    writeChunk(response, {}, "stop");
+    response.end("data: [DONE]\n\n");
+  });
+  provider.listen(0, "127.0.0.1");
+  await once(provider, "listening");
+  const dashboard = await startDashboard({
+    modelEndpoint: `http://127.0.0.1:${provider.address().port}`,
+    model: "fixture-model"
+  });
+  const errors = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  try {
+    const taskId = "stream_artifact_click";
+    await page.request.post(`${dashboard.base}/api/tasks`, {
+      data: { taskId, goal: "流式产物链接点击验收" }
+    });
+    const artifactsDir = join(dashboard.workspaceRoot, taskId, "artifacts");
+    await mkdir(artifactsDir, { recursive: true });
+    artifactAbsolutePath = join(artifactsDir, "report.md");
+    await writeFile(artifactAbsolutePath, "# 流式预览正文\n\nSTREAMED_ARTIFACT_BODY\n");
+
+    await page.goto(dashboard.base);
+    await page.locator(`.conversation-item[data-task="${taskId}"]`).click();
+    await page.locator("#composer-input").fill("输出报告链接");
+    await page.locator("#send-button").click();
+
+    const streamingAnswer = page.locator("[data-streaming-answer]");
+    await expect(streamingAnswer).toContainText("查看生成结果：", { timeout: 30_000 });
+    await streamingAnswer.evaluate((node) => {
+      window.__savedStreamingAnswer = node;
+    });
+
+    // Stream the completed artifact link while holding the run open before text_end.
+    releaseLinkChunk();
+    const link = streamingAnswer.locator('[data-message-artifact="report.md"]');
+    await expect(link).toBeVisible({ timeout: 30_000 });
+    expect(await streamingAnswer.evaluate((node) => node === window.__savedStreamingAnswer)).toBe(true);
+    await expect(page.locator('[data-answer-kind="final"]')).toHaveCount(0);
+
+    // Click the freshly streamed link BEFORE text_end arrives and verify preview opens.
+    await link.click();
+    const drawer = page.locator("#artifact-drawer");
+    await expect(drawer).toBeVisible({ timeout: 15_000 });
+    await expect(drawer.locator(".artifact-drawer-title")).toContainText("report.md");
+    await expect(drawer).toContainText("STREAMED_ARTIFACT_BODY");
+
+    releaseFinish();
+    await expect(page.locator('[data-answer-kind="final"]')).toContainText("汇总报告", { timeout: 30_000 });
+    expect(errors).toEqual([]);
+  } finally {
+    releaseLinkChunk();
+    releaseFinish();
+    await dashboard.stop();
+    provider.closeAllConnections();
+    await new Promise((done) => provider.close(done));
   }
 });

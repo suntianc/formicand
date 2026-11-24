@@ -288,7 +288,7 @@ async function saveEvidence(page, name) {
       document.querySelectorAll(".thinking-spinner, .tool-progress-spinner"),
       (node) =>
         node
-          .getAnimations()
+          .getAnimations({ subtree: true })
           .map((animation) => ({ playState: animation.playState, currentTime: animation.currentTime }))
     )
   }));
@@ -547,9 +547,9 @@ test("reduced motion retains actual busy state and tool progress without rotatin
     await expect(page.locator(".tool-step .activity-status").first()).toHaveText("执行中");
     const spinners = page.locator(".thinking-spinner, .tool-progress-spinner");
     await expect(spinners).toHaveCount(2);
-    expect(await spinners.evaluateAll((nodes) => nodes.map((node) => node.getAnimations().length))).toEqual([
-      0, 0
-    ]);
+    expect(
+      await spinners.evaluateAll((nodes) => nodes.map((node) => node.getAnimations({ subtree: true }).length))
+    ).toEqual([0, 0]);
     await page.evaluate(() => window.executionFixture.append());
     await expect(page.locator(".reasoning-copy > p").first()).toHaveText(headings[0]);
     await expect(page.locator('[data-answer-kind="pending"]')).toHaveAttribute("aria-busy", "true");

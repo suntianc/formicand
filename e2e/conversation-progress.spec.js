@@ -88,6 +88,9 @@ test("follow-up opens an assistant message before inference and animates each th
     await expect(page.locator(".chat-message.user").last()).toContainText("继续追问");
     expect(requestCount).toBe(1);
     expect(
+      await pending.locator(".thinking-spinner").evaluate((el) => getComputedStyle(el).animationName)
+    ).toBe("none");
+    expect(
       await pending
         .locator(".thinking-spinner .ant-head")
         .evaluate((el) => getComputedStyle(el).animationName)

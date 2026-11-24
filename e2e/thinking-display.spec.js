@@ -241,9 +241,13 @@ test("progress animates before tokens, during retries and between tools until co
       await expect(summary).toContainText("思考中");
       await expect(page.locator(".live-workflow-head")).toHaveCount(0);
       const progress = summary.locator(".thinking-spinner");
-      const animationTime = await progress.evaluate((node) => node.getAnimations()[0]?.currentTime ?? 0);
+      expect(await progress.evaluate((node) => getComputedStyle(node).animationName)).toBe("none");
+      expect(await progress.evaluate((node) => node.getAnimations().length)).toBe(0);
+      const animationTime = await progress.evaluate(
+        (node) => node.getAnimations({ subtree: true })[0]?.currentTime ?? 0
+      );
       await expect
-        .poll(() => progress.evaluate((node) => node.getAnimations()[0]?.currentTime ?? 0))
+        .poll(() => progress.evaluate((node) => node.getAnimations({ subtree: true })[0]?.currentTime ?? 0))
         .toBeGreaterThan(animationTime + 40);
       await progress.evaluate((node) => {
         window.savedProgressNode = node;
@@ -378,7 +382,8 @@ test("collapsed thinking uses one real sentence and dense streaming keeps its ro
       const result = await page.evaluate(async () => {
         const row = () => document.querySelector(".process-segment.is-live > summary");
         const step = () => document.querySelector(".process-segment.is-live");
-        const phase = () => row().querySelector(".thinking-spinner").getAnimations()[0].currentTime;
+        const phase = () =>
+          row().querySelector(".thinking-spinner").getAnimations({ subtree: true })[0].currentTime;
         const before = {
           height: row().getBoundingClientRect().height,
           step: step().getBoundingClientRect().height,

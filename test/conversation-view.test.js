@@ -2298,3 +2298,120 @@ test("multi-input settled round does not skip structural fingerprint when lifecy
   assert.match(document.querySelector("#conversation").textContent, /第二版答案/);
   assert.doesNotMatch(document.querySelector("#conversation").textContent, /第一版答案/);
 });
+
+test("fast path does not establish when a newer unmatched user turn in the same run owns the global event tail", () => {
+  const makeView = () => {
+    const { document } = parseHTML('<!doctype html><html><body><div id="conversation"></div></body></html>');
+    const state = {
+      selected: "task-unmatched-turn",
+      localMessages: [],
+      executionHistoryOpen: new Map(),
+      detail: {
+        task: { taskId: "task-unmatched-turn", status: "running", activeRunId: "run-1" },
+        conversationVersion: 1,
+        runtime: { active: true },
+        runtimeEvents: [
+          { type: "runtime_event", runId: "run-1", payload: { type: "turn_start" } },
+          {
+            type: "runtime_event",
+            runId: "run-1",
+            payload: { type: "message_start", message: { role: "user", content: "第一问", timestamp: 1 } }
+          },
+          {
+            type: "runtime_event",
+            runId: "run-1",
+            payload: { type: "message_end", message: { role: "user", content: "第一问", timestamp: 1 } }
+          },
+          {
+            type: "runtime_event",
+            runId: "run-1",
+            payload: { type: "message_start", message: { role: "assistant", timestamp: 2, content: [] } }
+          },
+          {
+            type: "runtime_event",
+            runId: "run-1",
+            payload: update("text_delta", 0, { delta: "old" })
+          }
+        ]
+      }
+    };
+    const messages = [{ role: "user", content: "第一问", timestamp: 1 }];
+    const view = createConversationView({
+      state,
+      $: (selector) => document.querySelector(selector),
+      textContent
+    });
+    return { document, state, messages, view };
+  };
+
+  const fast = makeView();
+  const full = makeView();
+
+  // Frame 1: first streaming answer mounted, owns global tail.
+  fast.view.renderConversation(fast.messages, fast.state.detail.task);
+  full.view.renderConversation(full.messages, full.state.detail.task);
+  assert.equal(
+    fast.document.querySelector("#conversation").innerHTML,
+    full.document.querySelector("#conversation").innerHTML
+  );
+
+  // Frame 2: second user turn + assistant message_start arrive via SSE in the
+  // same Run while `messages` snapshot still only has the first user message.
+  const secondTurnEvents = [
+    {
+      type: "runtime_event",
+      runId: "run-1",
+      payload: { type: "message_start", message: { role: "user", content: "第二问", timestamp: 10 } }
+    },
+    {
+      type: "runtime_event",
+      runId: "run-1",
+      payload: { type: "message_end", message: { role: "user", content: "第二问", timestamp: 10 } }
+    },
+    {
+      type: "runtime_event",
+      runId: "run-1",
+      payload: { type: "message_start", message: { role: "assistant", timestamp: 11, content: [] } }
+    }
+  ];
+  fast.state.detail.runtimeEvents.push(...secondTurnEvents.map((entry) => ({ ...entry })));
+  full.state.detail.runtimeEvents.push(...secondTurnEvents.map((entry) => ({ ...entry })));
+  const hitOnSecondTurn = Boolean(
+    fast.view.renderConversation(fast.messages, fast.state.detail.task, {
+      streamRecords: fast.state.detail.runtimeEvents.slice(-3)
+    })
+  );
+  full.view.renderConversation(full.messages, full.state.detail.task);
+  assert.equal(hitOnSecondTurn, false);
+  assert.equal(
+    fast.document.querySelector("#conversation").innerHTML,
+    full.document.querySelector("#conversation").innerHTML
+  );
+
+  // Frame 3: text_delta("NEW") with same contentIndex arrives for the second
+  // turn. First exchange does NOT own global tail, so fast path must NOT append
+  // "NEW" onto "old".
+  const newDeltaFast = {
+    type: "runtime_event",
+    runId: "run-1",
+    payload: update("text_delta", 0, { delta: "NEW" })
+  };
+  const newDeltaFull = {
+    type: "runtime_event",
+    runId: "run-1",
+    payload: update("text_delta", 0, { delta: "NEW" })
+  };
+  fast.state.detail.runtimeEvents.push(newDeltaFast);
+  full.state.detail.runtimeEvents.push(newDeltaFull);
+  const hitOnNewDelta = Boolean(
+    fast.view.renderConversation(fast.messages, fast.state.detail.task, { streamRecords: [newDeltaFast] })
+  );
+  full.view.renderConversation(full.messages, full.state.detail.task);
+  assert.equal(hitOnNewDelta, false, "fast path must not activate when active exchange lost global tail");
+  assert.equal(
+    fast.document.querySelector("#conversation").innerHTML,
+    full.document.querySelector("#conversation").innerHTML
+  );
+  assert.equal(fast.document.querySelector(".live-answer").textContent.trim(), "old");
+  assert.doesNotMatch(fast.document.querySelector("#conversation").textContent, /NEW/);
+});

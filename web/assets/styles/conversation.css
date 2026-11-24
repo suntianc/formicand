@@ -24,6 +24,8 @@ html[data-theme] :is(.thinking-spinner, .tool-progress-spinner, .workflow-progre
   border-radius: 0;
   background: none;
   color: var(--color-text-2);
+  /* Override the generic spinner rotation; only the three body parts animate. */
+  animation: none;
 }
 .ant-mark::after {
   content: none !important;

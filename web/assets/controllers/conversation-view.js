@@ -803,7 +803,12 @@ export function createConversationView({
     )
       return undefined;
     const events = state.detail?.runtimeEvents;
-    if (events !== fast.eventsRef || events.length !== fast.eventsLen + streamRecords.length)
+    if (
+      events !== fast.eventsRef ||
+      events.length !== fast.eventsLen + streamRecords.length ||
+      fast.eventsLen <= 0 ||
+      events[fast.eventsLen - 1] !== fast.tailRecord
+    )
       return undefined;
     let combinedDelta = "";
     const contentIndex = fast.streaming.contentIndex;
@@ -835,6 +840,7 @@ export function createConversationView({
     bindArtifactLinks([bodyEl]);
     fast.streaming = applied.nextState;
     fast.eventsLen += streamRecords.length;
+    fast.tailRecord = streamRecords.at(-1);
     fast.answerEl = answerEl;
     fast.bodyEl = bodyEl;
     // Mark the active round's cached signature stale so the next full render
@@ -1161,6 +1167,7 @@ export function createConversationView({
         if (active && workflowIndex < 0 && streamingAnswer) {
           activeStreamingCandidate = {
             roundIndex,
+            exchange,
             historyKey,
             expectedKey: streamingAnswer.expectedKey,
             streaming: streamingAnswer.state
@@ -1501,8 +1508,16 @@ export function createConversationView({
     if (preserveScroll) scroll.scrollTop = previousScrollTop;
     renderedEditTask = editing ? task.taskId : undefined;
     if (changed) resumeThinkingAnimations(scroll, bindRoots);
+    const tailRecord = state.detail?.runtimeEvents?.at(-1);
+    const activeOwnsGlobalTail =
+      Boolean(activeStreamingCandidate) &&
+      activeStreamingCandidate.exchange === exchanges.at(-1) &&
+      !activeStreamingCandidate.exchange.awaitingDelivery &&
+      !activeStreamingCandidate.exchange.continued &&
+      tailRecord !== undefined &&
+      activeStreamingCandidate.exchange.events.at(-1) === tailRecord;
     if (
-      activeStreamingCandidate &&
+      activeOwnsGlobalTail &&
       !editing &&
       !virtualScroll &&
       !failure &&
@@ -1525,6 +1540,7 @@ export function createConversationView({
           conversationVersion: state.detail?.conversationVersion,
           eventsRef: state.detail.runtimeEvents,
           eventsLen: state.detail.runtimeEvents.length,
+          tailRecord,
           activePartIndex: exchangePartOffset + activeStreamingCandidate.roundIndex,
           historyKey: activeStreamingCandidate.historyKey,
           expectedKey: activeStreamingCandidate.expectedKey,
