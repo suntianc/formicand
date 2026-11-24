@@ -92,6 +92,7 @@ export async function handleTaskLifecycleRequest(
   }
   const taskId = decodeURIComponent(match[1]);
   if (request.method === "GET") {
+    response.setHeader("cache-control", "no-store");
     sendJson(response, 200, await taskDetails(taskId));
     return;
   }

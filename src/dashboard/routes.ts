@@ -422,6 +422,7 @@ export function createDashboardHandler(
         return;
       }
       if (request.method === "GET" && url.pathname === "/api/tasks") {
+        response.setHeader("cache-control", "no-store");
         sendJson(response, 200, {
           ...(await globalTaskPayload()),
           connectionProfileId: ports.modelSettings.status().activeProfileId

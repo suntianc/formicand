@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import type { Context, Model } from "@earendil-works/pi-ai";
 import { atomicWriteDurable, durableRemove, syncDirectory } from "./atomic-file.js";
+import { writeJsonSnapshot } from "./snapshot-file.js";
 import { withFileLock } from "./file-lock.js";
 import {
   validMainRequestExecutionScope,
@@ -53,8 +54,9 @@ export const mainRequestStatePathFor = (filePath: string): string =>
 export const mainRequestStatePath = (workspaceRoot: string, taskId: string): string =>
   mainRequestStatePathFor(mainRequestPath(workspaceRoot, taskId));
 const hash = (body: string) => createHash("sha256").update(body).digest("hex");
-const checksum = (snapshot: Partial<MainRequestSnapshot>) =>
-  hash(JSON.stringify(Object.fromEntries(Object.entries(snapshot).filter(([key]) => key !== "checksum"))));
+const serializePayload = ({ checksum: _checksum, ...payload }: Partial<MainRequestSnapshot>) =>
+  JSON.stringify(payload);
+const checksum = (snapshot: Partial<MainRequestSnapshot>) => hash(serializePayload(snapshot));
 interface MainRequestStateSidecar {
   version: 1;
   taskId: string;
@@ -334,7 +336,10 @@ export class MainRequestStore {
   }
 
   private async writeBaseUnlocked(snapshot: Omit<MainRequestSnapshot, "checksum">): Promise<void> {
-    await atomicWriteDurable(this.filePath, JSON.stringify({ ...snapshot, checksum: checksum(snapshot) }), {
+    const payload = serializePayload(snapshot);
+    // Reuse the exact v1 checksum input instead of serializing the body and context a second time.
+    const content = `${payload.slice(0, -1)},"checksum":"${hash(payload)}"}`;
+    await writeJsonSnapshot(this.filePath, content, {
       mode: 0o600,
       dirMode: 0o700
     });

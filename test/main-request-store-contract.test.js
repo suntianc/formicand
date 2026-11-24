@@ -84,6 +84,28 @@ async function storage(t) {
   };
 }
 
+test("a fresh reader can replay a changed large body and read its materialized v1 state", async (t) => {
+  const f = await storage(t);
+  const prefix = "a".repeat(2 * 1024 * 1024);
+  const body = (tail) => JSON.stringify({ messages: [{ role: "user", content: prefix + tail }] });
+  await f.store.begin({ ...f.input, body: body("first") });
+  const next = { ...f.input, requestId: "second-request", body: body("改动") };
+  await f.store.begin(next);
+  await f.store.settle(next.requestId, "failed");
+  const reopened = new MainRequestStore(f.store.filePath, "task");
+  const retry = new MainRequestRetry(reopened, "retry-run", async () => f.environment, next.requestId);
+  const prepared = await retry.prepare(f.model, f.context);
+  assert.equal(prepared.replayBody, next.body);
+  assert.deepEqual(prepared.replay.context, next.context);
+  await reopened.settle(next.requestId, "completed");
+  await reopened.materialize();
+  const snapshot = await new MainRequestStore(f.store.filePath, "task").read();
+  assert.equal(snapshot.body, next.body);
+  assert.equal(snapshot.version, 1);
+  assert.equal(snapshot.state, "completed");
+  await assert.rejects(readFile(reopened.statePath), { code: "ENOENT" });
+});
+
 test("claiming an original request refuses a replaced Run, replaced request, completed or missing slot", async (t) => {
   for (const [name, replace] of [
     ["same requestId in a different Run", (f) => f.store.begin({ ...f.input, runId: "new-run" })],
