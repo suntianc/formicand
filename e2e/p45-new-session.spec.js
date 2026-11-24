@@ -22,6 +22,10 @@ test("new sessions start from the sidebar, the project plus and ⌘K, and land i
     // The start page is one question over the composer, with nothing under it.
     await expect(page.locator(".new-session-start")).toHaveText("想在哪个项目里做什么？");
     await expect(page.locator(".composer-hint")).toBeHidden();
+    // The composer glides up into place; measure once it has settled.
+    await page
+      .locator(".composer-wrap")
+      .evaluate((node) => Promise.all(node.getAnimations().map((animation) => animation.finished)));
     const start = await page.locator(".new-session-start").boundingBox();
     const composer = await page.locator(".composer").boundingBox();
     const pane = await page.locator("#conversation-pane").boundingBox();

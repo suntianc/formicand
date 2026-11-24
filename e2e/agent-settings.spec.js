@@ -61,7 +61,8 @@ test("global Agents: a built-in's fixed fields stay locked, a copy is edited, sa
     const file = join(home, "agents", "db-migrator.md");
     const saved = await readFile(file, "utf8");
     expect(saved).toContain("permission: write");
-    expect(saved).toContain("skills: [pg-migration]");
+    // A copy keeps the reviewer's own skills; the one added here comes last.
+    expect(saved).toMatch(/^skills: \[(?:[\w-]+, )+pg-migration\]$/m);
     expect(saved).toContain("mcp: [postgres]");
     expect(saved).toContain("先在临时库演练。");
 
