@@ -182593,23 +182593,6 @@
                       "fontFamily": "Noto Sans SC",
                       "fontSize": 13,
                       "fontWeight": "normal"
-                    },
-                    {
-                      "type": "frame",
-                      "id": "pD0B3",
-                      "name": "Spacer",
-                      "width": "fill_container",
-                      "height": 1
-                    },
-                    {
-                      "type": "text",
-                      "id": "mRIkJ",
-                      "name": "N",
-                      "fill": "$v2-text-3",
-                      "content": "3 / 5",
-                      "fontFamily": "Noto Sans SC",
-                      "fontSize": 12,
-                      "fontWeight": "normal"
                     }
                   ]
                 },
