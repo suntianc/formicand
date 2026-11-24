@@ -19,6 +19,7 @@ import {
 import { normalizeReasoningEffort } from "../runtime/runtime-settings.js";
 
 import type { DashboardRoutePorts } from "./routes.js";
+import { applyTicketAnswer } from "./ticket-answer.js";
 import { publishTask } from "./catalog-publication.js";
 
 /** A message with what its `/` and `@` references resolve to in front of it. */
@@ -42,6 +43,7 @@ export async function handleTaskConversationRequest(
   url: URL,
   ports: Pick<
     DashboardRoutePorts,
+    | "developments"
     | "locateTask"
     | "resolveWorkspacePath"
     | "normalizeModel"
@@ -366,7 +368,11 @@ export async function handleTaskConversationRequest(
     }
     const body = await readJsonBody(request);
     if (typeof body.answer !== "string" || !body.answer.trim()) throw new Error("请先选择选项或填写回答");
-    const result = await human.submitAnswer(taskId, requestId, body.answer);
+    const result = await human.submitAnswer(taskId, requestId, body.answer, async (record, decision) => {
+      if (record.proposal?.kind !== "tickets") return;
+      if (!ports.developments) throw new HttpError(503, "开发票服务不可用");
+      await applyTicketAnswer(ports.developments, record, decision);
+    });
     await appendRunEvent(location.workspaceRoot, taskId, question.runId, "human.answer_submitted", {
       requestId
     });

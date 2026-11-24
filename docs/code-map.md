@@ -93,6 +93,8 @@ CLI 一条命令安装由 [install.sh](../scripts/install.sh) 负责，使用公
 
 项目开发入口按职责装配[现场](../src/dashboard/development-workspace-service.ts)、[票](../src/dashboard/development-ticket-service.ts)、[评审](../src/dashboard/development-review-start-service.ts)和[合入申请](../src/dashboard/development-merge-request-service.ts)。[项目数据仓储](../src/workspace/project-data-repository.ts)把当前事务传给各 SQL 仓储；台账和维护操作分别在[需求台账](../src/workspace/project-ledger-repository.ts)与[台账维护](../src/workspace/ledger-maintenance-repository.ts)，备份与恢复在[项目快照](../src/workspace/project-data-snapshot.ts)。
 
+开发票确认由[答复处理](../src/dashboard/ticket-answer.ts)按卡片版本入账；常驻 Main 后续轮次的累计时长由[运行统计](../src/runtime/run-statistics.ts)计算。
+
 项目开发服务将合入排队、目标分支发布、Git 对账和本地待交付记录重试交给[合入服务](../src/dashboard/project-development-merge-service.ts)。[Main 会话仓储](../src/workspace/project-main-session.ts)读写会话、需求关联和 Run 归属，由项目数据服务传入同一个 SQL 事务。
 
 [台账维护仓储](../src/workspace/ledger-maintenance-repository.ts)管理读取边界和完成游标，[交付仓储](../src/workspace/project-delivery.ts)在同一项目的时钟下写入交付及其历史。对应回归覆盖[并发完成维护](../test/p3-ledger.test.js)、[旧台账升级](../test/p8-ledger-tidy.test.js)和[同毫秒交付](../test/p4-delivery-records.test.js)。

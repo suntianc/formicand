@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { Type } from "typebox";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { createProjectDevelopmentTool } from "../../../dist/src/runtime/project-development-tool.js";
@@ -19,6 +20,22 @@ export function registerProjectDevelopmentTool(pi: ExtensionAPI, context: Cowork
       // The card waits inside this call, so the user's answer is its result.
       const result = await tool.execute(params as Record<string, unknown>, async (proposal) => {
         const confirm = proposal.action === "propose" ? "确认这些票" : "确认修改";
+        // A repeated proposal for the same Run and revision must reopen the same card.
+        const key = [context.mainRunId, proposal.developmentId, proposal.expectedRevision, proposal.action];
+        const identity = JSON.stringify([
+          key,
+          proposal.reason,
+          proposal.tickets.map(({ ticketId, title, scope, criteria, preserve, outOfScope, dependsOn }) => [
+            ticketId,
+            title,
+            scope,
+            criteria,
+            preserve,
+            outOfScope,
+            dependsOn
+          ])
+        ]);
+        const requestId = "human_" + createHash("sha256").update(identity).digest("hex");
         const { settled } = await askHumanAndWait(
           context,
           {
@@ -32,11 +49,13 @@ export function registerProjectDevelopmentTool(pi: ExtensionAPI, context: Cowork
             proposal
           },
           signal,
-          ctx
+          ctx,
+          requestId
         );
         const answer = settled.status === "answered" ? (settled.request.answer ?? "").trim() : "";
         return {
-          confirmed: answer.startsWith(confirm),
+          confirmed: answer === confirm,
+          requestId,
           status: settled.status,
           ...(answer ? { answer } : {})
         };

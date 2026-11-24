@@ -40,6 +40,8 @@ export interface TicketsProposal {
   developmentId: string;
   requirementTitle: string;
   tickets: Record<string, unknown>[];
+  expectedRevision?: number;
+  changes?: Record<string, unknown>;
   previous?: Record<string, unknown>;
   reason?: string;
 }
@@ -163,7 +165,12 @@ export class HumanRequestStore {
     return requests.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
   }
 
-  async answer(taskId: string, requestId: string, answer: string): Promise<HumanRequest> {
+  async answer(
+    taskId: string,
+    requestId: string,
+    answer: string,
+    beforeAnswer?: (request: HumanRequest, answer: string) => Promise<void>
+  ): Promise<HumanRequest> {
     const path = this.path(taskId, requestId);
     return withFileLock(path, async () => {
       const request = await this.read(taskId, requestId);
@@ -173,6 +180,7 @@ export class HumanRequestStore {
       // not give up deciding.
       const next: HumanRequest = { ...request, status: "answered", answer: answer.trim(), answeredAt: now() };
       if (!next.answer) throw new Error("human answer must not be empty");
+      await beforeAnswer?.(request, next.answer);
       await atomicWrite(path, json(next));
       return next;
     });
@@ -278,9 +286,14 @@ export class HumanRequestStore {
 
   /** A retry after a lost HTTP response keeps the first answer and repairs a
    * missing Inbox write; enqueue never replaces an already consumed answer. */
-  async submitAnswer(taskId: string, requestId: string, answer: string) {
+  async submitAnswer(
+    taskId: string,
+    requestId: string,
+    answer: string,
+    beforeAnswer?: (request: HumanRequest, answer: string) => Promise<void>
+  ) {
     if (!answer.trim()) throw new Error("human answer must not be empty");
-    const request = await this.answer(taskId, requestId, answer);
+    const request = await this.answer(taskId, requestId, answer, beforeAnswer);
     // enqueue never replaces the consumed receipt a waiting tool may have
     // written between recording the answer and queuing this recovery copy.
     const message = await this.answerInbox(request).enqueue(answerMessage(request));

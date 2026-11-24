@@ -47,6 +47,7 @@ export interface TicketChange {
   revision: number;
   /** The user's answer on the confirmation card. */
   decision: string;
+  decisionId?: string;
   reason: string;
   /** The fields as they were before this change. */
   previous: Partial<TicketContent>;
@@ -99,6 +100,7 @@ export interface DevelopmentTicket extends TicketContent {
   revision: number;
   changes: TicketChange[];
   confirmedAt?: string;
+  confirmationId?: string;
   /** The Executor call currently implementing it; a rework replaces it with the continuation. */
   work?: TicketWork;
   /** Reviews of this ticket's checkout, oldest first. */
@@ -120,13 +122,14 @@ export interface TicketSet {
 /** What a write asks for; `dryRun` returns the result without storing it. */
 export type TicketWrite =
   | { op: "propose"; tickets: unknown; dryRun?: boolean }
-  | { op: "confirm"; expectedRevision: unknown }
+  | { op: "confirm"; expectedRevision: unknown; decisionId?: string }
   | {
       op: "revise";
       ticketId: unknown;
       changes: unknown;
       reason: unknown;
       decision?: unknown;
+      decisionId?: string;
       expectedRevision: unknown;
       dryRun?: boolean;
     }
@@ -272,12 +275,11 @@ export function applyTicketWrite(
     if (!Array.isArray(write.tickets) || write.tickets.length === 0)
       throw new ProjectDataInvalidError("propose 需要至少一张票");
     const kept = set.tickets.filter((ticket) => ticket.state !== "draft");
-    const keptIds = new Set(kept.map((ticket) => ticket.ticketId));
+
     const seen = new Set<string>();
     const drafts = write.tickets.map((item): DevelopmentTicket => {
       const ticketId = ticketIdentifier(record(item, "票").ticketId);
-      if (keptIds.has(ticketId))
-        throw new ProjectDataInvalidError(`票 ${ticketId} 已经确认；修改已确认的票用 revise_ticket`);
+
       if (seen.has(ticketId)) throw new ProjectDataInvalidError(`票编号 ${ticketId} 重复`);
       seen.add(ticketId);
       const previous = set.tickets.find((ticket) => ticket.ticketId === ticketId);
@@ -292,12 +294,41 @@ export function applyTicketWrite(
         updatedAt: at
       };
     });
+    const pending = set.tickets.filter((ticket) => ticket.state === "draft");
+    const confirmationId = kept.find((ticket) => ticket.ticketId === drafts[0].ticketId)?.confirmationId;
+    const previousProposal = pending.length
+      ? pending
+      : kept.filter((ticket) => confirmationId && ticket.confirmationId === confirmationId);
+    if (
+      previousProposal.length === drafts.length &&
+      drafts.every((draft) => {
+        const previous = previousProposal.find((ticket) => ticket.ticketId === draft.ticketId);
+        return (
+          previous?.revision === 1 &&
+          CONTENT_FIELDS.every((field) => JSON.stringify(previous[field]) === JSON.stringify(draft[field]))
+        );
+      })
+    )
+      return set;
+    const frozen = drafts.find((draft) => kept.some((ticket) => ticket.ticketId === draft.ticketId));
+    if (frozen)
+      throw new ProjectDataInvalidError(`票 ${frozen.ticketId} 已经确认；修改已确认的票用 revise_ticket`);
     const tickets = [...kept, ...drafts];
     checkTicketSet(tickets, route);
     return { ...set, revision: set.revision + 1, tickets, updatedAt: at };
   }
   if (TICKET_PROGRESS_OPS.includes(write.op)) return applyProgress(set, write as TicketProgress, at);
   const change = write as Exclude<TicketWrite, TicketProgress | { op: "propose" }>;
+  if (
+    change.decisionId &&
+    set.tickets.some((ticket) =>
+      change.op === "confirm"
+        ? ticket.confirmationId === change.decisionId
+        : ticket.ticketId === change.ticketId &&
+          ticket.changes.some((entry) => entry.decisionId === change.decisionId)
+    )
+  )
+    return set;
   const expected = ledgerRevision(change.expectedRevision);
   if (expected !== set.revision) throw conflict("票已更新，请基于最新修订重试", set);
   if (change.op === "confirm") {
@@ -308,7 +339,15 @@ export function applyTicketWrite(
       ...set,
       revision: set.revision + 1,
       tickets: set.tickets.map((ticket) =>
-        ticket.state === "draft" ? { ...ticket, state: "confirmed", confirmedAt: at, updatedAt: at } : ticket
+        ticket.state === "draft"
+          ? {
+              ...ticket,
+              state: "confirmed",
+              confirmedAt: at,
+              ...(change.decisionId ? { confirmationId: change.decisionId } : {}),
+              updatedAt: at
+            }
+          : ticket
       ),
       updatedAt: at
     };
@@ -328,7 +367,15 @@ export function applyTicketWrite(
   const changed = CONTENT_FIELDS.filter(
     (field) => JSON.stringify(next[field]) !== JSON.stringify(current[field])
   );
-  if (!changed.length) throw new ProjectDataInvalidError("修改内容与当前票相同");
+  if (!changed.length) {
+    const last = current.changes.at(-1);
+    if (change.dryRun && last?.reason === reason) {
+      const replay = content(patch, { ...current, ...last.previous });
+      if (CONTENT_FIELDS.every((field) => JSON.stringify(replay[field]) === JSON.stringify(current[field])))
+        return set;
+    }
+    throw new ProjectDataInvalidError("修改内容与当前票相同");
+  }
   const decision = change.dryRun ? "" : text(change.decision, "用户的决定", 2000);
   const revised: DevelopmentTicket = {
     ...current,
@@ -339,6 +386,7 @@ export function applyTicketWrite(
       {
         revision: current.revision + 1,
         decision,
+        ...(change.decisionId ? { decisionId: change.decisionId } : {}),
         reason,
         previous: Object.fromEntries(changed.map((field) => [field, current[field]])),
         at
@@ -371,6 +419,7 @@ export function storedTickets(value: unknown): DevelopmentTicket[] {
       state: state as TicketState,
       revision: ledgerRevision(input.revision),
       changes: Array.isArray(input.changes) ? (input.changes as TicketChange[]) : [],
+      ...(typeof input.confirmationId === "string" ? { confirmationId: input.confirmationId } : {}),
       ...(typeof input.confirmedAt === "string" ? { confirmedAt: input.confirmedAt } : {}),
       ...(input.work ? { work: input.work as TicketWork } : {}),
       reviewIds: Array.isArray(input.reviewIds) ? input.reviewIds.map(String) : [],
@@ -601,7 +650,9 @@ export function ticketWrite(value: unknown, { progress = false } = {}): TicketWr
   }
   const dryRun = input.dryRun === true;
   if (input.op === "propose") return { op: "propose", tickets: input.tickets, dryRun };
-  if (input.op === "confirm") return { op: "confirm", expectedRevision: input.expectedRevision };
+  const decision =
+    input.decisionId === undefined ? {} : { decisionId: text(input.decisionId, "确认卡 ID", 200) };
+  if (input.op === "confirm") return { op: "confirm", expectedRevision: input.expectedRevision, ...decision };
   if (input.op === "revise")
     return {
       op: "revise",
@@ -609,6 +660,7 @@ export function ticketWrite(value: unknown, { progress = false } = {}): TicketWr
       changes: input.changes,
       reason: input.reason,
       decision: input.decision,
+      ...decision,
       expectedRevision: input.expectedRevision,
       dryRun
     };

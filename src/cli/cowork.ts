@@ -1,4 +1,6 @@
 import { applyProxyEnvironment } from "../runtime/http-transport.js";
+import { atriaHome } from "../../scripts/data-home.cjs";
+import { backendPaths, inspectBackend } from "../dashboard/backend-instance.js";
 import { join } from "node:path";
 import { mkdir } from "node:fs/promises";
 import { id } from "../domain/types.js";
@@ -102,6 +104,26 @@ async function main() {
     if (action === "reply" || action === "answer") {
       const answer = parsed.options.answer ?? parsed.positionals.join(" ");
       if (!answer) fail("human reply 需要 --answer 或答案文本");
+      if ((await human.read(taskId, requestId)).proposal?.kind === "tickets") {
+        const backend = await inspectBackend(backendPaths(atriaHome()));
+        if (backend.state !== "running") throw new Error("请启动此工作区的 Cowork 后端后再答复开发票。");
+        const response = await fetch(
+          new URL(
+            `/api/tasks/${encodeURIComponent(taskId)}/human/${encodeURIComponent(requestId)}/answer`,
+            backend.instance.url
+          ),
+          {
+            method: "POST",
+            redirect: "error",
+            headers: { "content-type": "application/json", "x-atria-token": backend.instance.token },
+            body: JSON.stringify({ answer })
+          }
+        );
+        const result = (await response.json()) as { error?: string; request: { runId: string } };
+        if (!response.ok) throw new Error(result.error ?? `HTTP ${response.status}`);
+        printResult({ request: result.request, delivered: true, runId: result.request.runId });
+        return;
+      }
       const request = await human.answer(taskId, requestId, answer);
       const inbox = new InboxStore(
         join(workspaceRoot, taskId, "runs", request.runId, "agents", "main", "inbox-store.json")

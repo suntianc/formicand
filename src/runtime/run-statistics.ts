@@ -257,7 +257,7 @@ async function updateUsage(path: string, cursor: UsageCursor): Promise<void> {
   }
 }
 
-type TimedEvent = { type?: string; occurredAt?: string };
+type TimedEvent = { type?: string; occurredAt?: string; payload?: { queuedWhilePaused?: boolean } };
 const milliseconds = (value: unknown): number | undefined => {
   if (typeof value !== "string") return undefined;
   const parsed = Date.parse(value);
@@ -277,14 +277,18 @@ export function runTiming(input: {
   let interval: number | undefined;
   let ended: number | undefined;
   let elapsed = 0;
-  let spawned = false;
+  let sawStart = false;
   for (const event of input.events) {
     const time = milliseconds(event.occurredAt);
     if (time === undefined) continue;
-    if (event.type === "main.run_spawned") {
+    if (
+      event.type === "main.run_spawned" ||
+      (event.type === "main.turn_delivered" && !event.payload?.queuedWhilePaused) ||
+      event.type === "main.turn_started"
+    ) {
       started ??= time;
       interval ??= time;
-      spawned = true;
+      sawStart = true;
       ended = undefined;
     } else if (
       [
@@ -295,7 +299,7 @@ export function runTiming(input: {
         "main.run_stopped"
       ].includes(event.type ?? "")
     ) {
-      const from = interval ?? (!spawned && ended === undefined ? started : undefined);
+      const from = interval ?? (!sawStart && ended === undefined ? started : undefined);
       if (from !== undefined) elapsed += Math.max(0, time - from);
       interval = undefined;
       ended = time;
@@ -303,7 +307,7 @@ export function runTiming(input: {
   }
   // Never use Task creation as the start of a later follow-up run.
   if (started === undefined) return { startedAt: null, endedAt: null, elapsedMs: null, active: false };
-  if (!spawned && ended === undefined) interval = started;
+  if (!sawStart && ended === undefined) interval = started;
   const active = input.active && interval !== undefined;
   if (interval !== undefined) {
     const stop = active

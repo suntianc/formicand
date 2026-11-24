@@ -673,7 +673,8 @@ export async function askHumanAndWait(
   ctx: {
     ui: { notify(message: string, type?: "info" | "warning" | "error"): void };
     sessionManager?: Parameters<CoworkToolContext["flushSessionContext"]>[0]["sessionManager"];
-  }
+  },
+  requestId?: string
 ) {
   const releaseAnswers = context.inboxDelivery.holdHumanAnswers();
   try {
@@ -683,12 +684,19 @@ export async function askHumanAndWait(
     if (ctx.sessionManager) await context.flushSessionContext({ sessionManager: ctx.sessionManager });
     await context.materializeRequestSnapshot();
     const timeoutMs = configuredHumanAnswerTimeout(context.runtimeEnv);
-    const request = await context.humanStore.create({
-      ...input,
-      taskId: context.taskId,
-      runId: context.mainRunId,
-      expiresAt: new Date(Date.now() + timeoutMs).toISOString()
-    });
+    const request = await context.humanStore.create(
+      {
+        ...input,
+        taskId: context.taskId,
+        runId: context.mainRunId,
+        expiresAt: new Date(Date.now() + timeoutMs).toISOString()
+      },
+      requestId
+    );
+    if (requestId && request.status !== "pending") {
+      const status = request.status === "unanswered" ? "timeout" : request.status;
+      return { request, settled: { status, request } } as const;
+    }
     await new LocalWorkspaceStore(context.workspaceRoot).transitionTask(context.taskId, "waiting", {
       runId: context.mainRunId,
       reason: `waiting_for_human:${request.requestId}`
@@ -699,7 +707,8 @@ export async function askHumanAndWait(
     });
     ctx.ui.notify(`Waiting for human answer · ${request.requestId}`, "info");
     const settled = await context.humanStore.waitForAnswer(context.taskId, request.requestId, {
-      timeoutMs,
+      timeoutMs:
+        requestId && request.expiresAt ? Math.max(0, Date.parse(request.expiresAt) - Date.now()) : timeoutMs,
       isCancelled: async () => signal?.aborted === true
     });
     if (settled.status === "answered") {

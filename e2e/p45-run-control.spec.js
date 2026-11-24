@@ -412,3 +412,37 @@ test("a confirmed timed wait survives reload and the next user turn resumes thin
     await local.stop();
   }
 });
+
+test("the visible clock advances during a second turn on the same resident Main", async ({ page }) => {
+  const release = Promise.withResolvers();
+  const local = await setup(async ({ response, requests }) => {
+    if (requests.length === 2) await release.promise;
+    complete(response, "完成。");
+  });
+  try {
+    const taskId = "browser-resident-clock";
+    await createTask(page, local, { taskId, goal: "验证第二轮计时", projectId: local.projectId });
+    await page.goto(local.base);
+    await page.locator(`.conversation-item[data-task="${taskId}"]`).click();
+    const send = async (text) => {
+      await page.locator("#composer-input").fill(text);
+      await page.locator("#send-button").click();
+    };
+    await send("第一轮");
+    await waitForTask(page, local, taskId, (detail) => detail.task.status === "completed");
+    const first = await taskState(page, local, taskId);
+    await send("第二轮");
+    await expect.poll(() => local.requests.length).toBe(2);
+    expect((await taskState(page, local, taskId)).task.activeRunId).toBe(first.task.activeRunId);
+    const clock = page.locator("#run-control[data-state=working] [data-run-time]");
+    await expect(clock).toBeVisible();
+    await expect(clock).toHaveText(/\d+:\d{2}/);
+    const seconds = async () =>
+      (await clock.innerText()).match(/\d+/g).reduce((total, part) => total * 60 + Number(part), 0);
+    const initial = await seconds();
+    await expect.poll(seconds).toBeGreaterThan(initial);
+  } finally {
+    release.resolve();
+    await local.stop();
+  }
+});

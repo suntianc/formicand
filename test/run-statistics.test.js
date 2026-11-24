@@ -399,3 +399,24 @@ test("total usage coverage stays independent of cache-only reports, including al
     result
   );
 });
+
+test("resident turns resume the composer clock without counting idle time or duplicate starts", () => {
+  for (const boundary of ["main.turn_delivered", "main.turn_started"]) {
+    const events = [
+      { type: "main.run_spawned", occurredAt: time(10) },
+      { type: "main.run_paused", occurredAt: time(20) },
+      { type: "main.turn_delivered", occurredAt: time(30), payload: { queuedWhilePaused: true } },
+      { type: boundary, occurredAt: time(50) },
+      { type: "main.turn_started", occurredAt: time(51) }
+    ];
+    const input = { task, createdAt: time(10), events, active: true, nowMs: Date.parse(time(60)) };
+    const timing = runTiming(input);
+    assert.equal(timing.active, true);
+    assert.equal(runElapsed({ ...timing, observedAt: time(60) }, Date.parse(time(62))), 22000);
+    assert.equal(
+      runTiming({ ...input, events: [...events, { type: "main.run_waiting", occurredAt: time(55) }] })
+        .elapsedMs,
+      15000
+    );
+  }
+});

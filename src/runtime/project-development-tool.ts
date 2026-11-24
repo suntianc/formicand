@@ -4,21 +4,12 @@ import {
 } from "./project-development-client.js";
 import { pitfallsHint } from "./project-pitfalls.js";
 
-/** What the user is asked to confirm before tickets are frozen or a frozen ticket changes. */
-export interface TicketProposal {
-  kind: "tickets";
-  action: "propose" | "revise";
-  developmentId: string;
-  requirementTitle: string;
-  /** The drafts to freeze, or the one ticket as it would be after the change. */
-  tickets: Record<string, unknown>[];
-  /** revise: the ticket as it is now, and why it should change. */
-  previous?: Record<string, unknown>;
-  reason?: string;
-}
+import type { TicketsProposal } from "./human.js";
+export type TicketProposal = TicketsProposal & { expectedRevision: number };
 
 export interface TicketConfirmation {
   confirmed: boolean;
+  requestId?: string;
   /** answered, unanswered (timed out) or cancelled. */
   status: string;
   answer?: string;
@@ -427,6 +418,8 @@ export function createProjectDevelopmentTool(options: ProjectDevelopmentToolOpti
       tickets: input.tickets
     });
     const set = drafted as TicketSetView;
+    const drafts = set.tickets.filter((ticket) => ticket.state === "draft");
+    if (!drafts.length) return { confirmed: true, tickets: set };
     if (!confirm)
       return {
         confirmed: false,
@@ -439,12 +432,14 @@ export function createProjectDevelopmentTool(options: ProjectDevelopmentToolOpti
       action: "propose",
       developmentId: String(developmentId),
       requirementTitle: titleOf(development),
-      tickets: set.tickets.filter((ticket) => ticket.state === "draft")
+      expectedRevision: set.revision,
+      tickets: drafts
     });
     if (!answer.confirmed) return unconfirmed(answer, set, "The drafts stay unconfirmed.");
     const { tickets } = await request({
       action: "write_tickets",
       op: "confirm",
+      decisionId: answer.requestId,
       developmentId,
       expectedRevision: set.revision
     });
@@ -469,6 +464,7 @@ export function createProjectDevelopmentTool(options: ProjectDevelopmentToolOpti
       expectedRevision: set.revision
     };
     const { tickets: preview } = await request({ ...write, dryRun: true });
+    if ((preview as TicketSetView).revision === set.revision) return { confirmed: true, tickets: set };
     if (!confirm) throw new Error("A confirmed ticket changes only after the user confirms it on Main.");
     const { development } = await request({ action: "get", developmentId });
     const pick = (view: TicketSetView) => view.tickets.find((ticket) => ticket.ticketId === input.ticketId)!;
@@ -479,10 +475,12 @@ export function createProjectDevelopmentTool(options: ProjectDevelopmentToolOpti
       requirementTitle: titleOf(development),
       tickets: [pick(preview as TicketSetView)],
       previous: pick(set),
+      expectedRevision: set.revision,
+      changes: input.changes as Record<string, unknown>,
       reason: String(input.reason ?? "")
     });
     if (!answer.confirmed) return unconfirmed(answer, set, "The ticket is unchanged.");
-    const { tickets } = await request({ ...write, decision: answer.answer });
+    const { tickets } = await request({ ...write, decision: answer.answer, decisionId: answer.requestId });
     return { confirmed: true, tickets };
   }
 

@@ -9,6 +9,7 @@ import { promisify } from "node:util";
 import { startDashboard } from "./dashboard-fixture.mjs";
 import { modelProtocolFixture } from "./model-protocol-fixture.mjs";
 import { backendPaths, readBackendInstance } from "../dist/src/dashboard/backend-instance.js";
+import { HumanRequestStore } from "../dist/src/runtime/human.js";
 import { applyTicketWrite, developmentNext } from "../dist/src/domain/development-ticket.js";
 import { createProjectDevelopmentTool } from "../dist/src/runtime/project-development-tool.js";
 import { renderHumanQuestion } from "../web/assets/human-questions.js";
@@ -465,78 +466,178 @@ test("a second backend writes tickets through the authority it reads", { timeout
   );
 });
 
-test(
-  "Main's proposal waits on a card and the user's confirmation freezes the tickets",
-  { timeout: 120_000 },
-  async (t) => {
-    const root = await mkdtemp(join(tmpdir(), "atria-p48-tickets-main-"));
-    t.after(() => rm(root, { recursive: true, force: true }));
-    const directory = await repository(root);
-    let developmentId = "";
-    let requirementId = "";
-    const results = [];
-    const provider = await modelProtocolFixture("openai-completions", (body) => {
-      const tool = body.messages.findLast((message) => message.role === "tool");
-      const text =
-        typeof tool?.content === "string"
-          ? tool.content
-          : (tool?.content ?? []).map((part) => part.text).join("");
-      if (text) results.push(JSON.parse(text));
-      const step = results.length;
-      if (step === 0)
-        return {
-          name: "project_development",
-          arguments: {
-            action: "create",
-            requirementId,
-            request: "列表分页",
-            goal: "list 分页正确",
-            completionCriteria: ["第二页从第 11 条开始"],
-            route: "direct"
-          }
-        };
-      if (step === 1) {
-        developmentId = results[0].development.developmentId;
-        return {
-          name: "project_development",
-          arguments: { action: "propose_tickets", developmentId, tickets: [ticket("01")] }
-        };
+for (const late of [false, true])
+  test(
+    `Main freezes the tickets with one ${late ? "late" : "timely"} card answer`,
+    { timeout: 120_000 },
+    async (t) => {
+      const root = await mkdtemp(join(tmpdir(), "atria-p48-tickets-main-"));
+      t.after(() => rm(root, { recursive: true, force: true }));
+      const directory = await repository(root);
+      let developmentId = "";
+      let requirementId = "";
+      const results = [];
+      const provider = await modelProtocolFixture("openai-completions", (body) => {
+        const tool = body.messages.findLast((message) => message.role === "tool");
+        const text =
+          typeof tool?.content === "string"
+            ? tool.content
+            : (tool?.content ?? []).map((part) => part.text).join("");
+        if (text) results.push(JSON.parse(text));
+        const step = results.length;
+        if (step === 0)
+          return {
+            name: "project_development",
+            arguments: {
+              action: "create",
+              requirementId,
+              request: "列表分页",
+              goal: "list 分页正确",
+              completionCriteria: ["第二页从第 11 条开始"],
+              route: "direct"
+            }
+          };
+        if (step === 1 || (late && step === 2)) {
+          developmentId = results[0].development.developmentId;
+          return {
+            name: "project_development",
+            arguments: { action: "propose_tickets", developmentId, tickets: [ticket("01")] }
+          };
+        }
+        return { text: "票已确认。" };
+      });
+      t.after(() => provider.close());
+      const dashboard = await startDashboard({
+        defaultProject: false,
+        modelEndpoint: provider.baseUrl,
+        model: "protocol-fixture",
+        env: { COWORK_DISABLE_MAIN_GUARDIAN: "1", ...(late ? { COWORK_HUMAN_ANSWER_TIMEOUT_MS: "150" } : {}) }
+      });
+      t.after(() => dashboard.stop());
+      const setup = await project(dashboard, directory, "Main 票项目");
+      requirementId = setup.requirementId;
+      await setup.post(`/api/tasks/${setup.taskId}/run`, { prompt: "修分页" });
+
+      let question;
+      for (let attempt = 0; attempt < 600 && !question; attempt++) {
+        const detail = await (await fetch(`${dashboard.base}/api/tasks/${setup.taskId}`)).json();
+        question = detail.humanRequests?.find((entry) => entry.status === (late ? "unanswered" : "pending"));
+        if (!question) await delay(100);
       }
-      return { text: "票已确认。" };
-    });
-    t.after(() => provider.close());
-    const dashboard = await startDashboard({
-      defaultProject: false,
-      modelEndpoint: provider.baseUrl,
-      model: "protocol-fixture",
-      env: { COWORK_DISABLE_MAIN_GUARDIAN: "1" }
-    });
-    t.after(() => dashboard.stop());
-    const setup = await project(dashboard, directory, "Main 票项目");
-    requirementId = setup.requirementId;
-    await setup.post(`/api/tasks/${setup.taskId}/run`, { prompt: "修分页" });
+      assert.ok(question, "the proposal reaches the page as a question");
+      assert.equal(question.proposal.kind, "tickets");
+      assert.deepEqual(question.options, ["确认这些票", "拒绝"]);
+      assert.deepEqual(question.recommended, [1], "silence freezes nothing");
+      const card = renderHumanQuestion(question);
+      assert.match(card, /ticket-proposal/);
+      assert.match(card, /node --test test\/page\.test\.js/);
+      assert.match(card, /src\/cli\.js/);
 
-    let question;
-    for (let attempt = 0; attempt < 600 && !question; attempt++) {
-      const detail = await (await fetch(`${dashboard.base}/api/tasks/${setup.taskId}`)).json();
-      question = detail.humanRequests?.find((entry) => entry.status === "pending");
-      if (!question) await delay(100);
+      if (late) {
+        for (let attempt = 0; attempt < 300 && results.length < 3; attempt++) await delay(100);
+        assert.equal(results[1].status, "timeout");
+        assert.equal(results[2].confirmed, false, "retry before the answer reused the expired card");
+      }
+      await setup.post(`/api/tasks/${setup.taskId}/human/${question.requestId}/answer`, {
+        answer: "确认这些票"
+      });
+      if (late) {
+        const ledger = await setup.post(`/api/tasks/${setup.taskId}/developments`, {
+          action: "tickets",
+          developmentId
+        });
+        assert.equal(ledger.tickets.tickets[0].state, "confirmed");
+        const detail = await (await fetch(`${dashboard.base}/api/tasks/${setup.taskId}`)).json();
+        assert.equal(detail.humanRequests.filter((r) => r.proposal?.kind === "tickets").length, 1);
+        const client = createProjectDevelopmentTool({
+          dashboardUrl: dashboard.base,
+          taskId: setup.taskId,
+          token: await servingToken(dashboard.root)
+        });
+        const questions = new HumanRequestStore(dashboard.workspaceRoot);
+        async function revisionCard(title, legacy = false) {
+          let card;
+          const change = {
+            action: "revise_ticket",
+            developmentId,
+            ticketId: "01",
+            changes: { title },
+            reason: "调整票标题"
+          };
+          await client.execute(change, async (proposal) => {
+            const { expectedRevision, changes, ...older } = proposal;
+            card = await questions.create({
+              taskId: setup.taskId,
+              runId: question.runId,
+              question: "修改已确认的票",
+              options: ["确认修改", "拒绝"],
+              proposal: legacy ? older : proposal
+            });
+            await questions.markUnanswered(setup.taskId, card.requestId);
+            return { confirmed: false, status: "timeout" };
+          });
+          return card;
+        }
+        const stale = await revisionCard("另一项修改");
+        const legacy = await revisionCard("新标题", true);
+        const cli = await run(
+          process.execPath,
+          [
+            "scripts/atria.mjs",
+            "human",
+            "reply",
+            legacy.requestId,
+            "确认修改",
+            "--task",
+            setup.taskId,
+            "--workspace",
+            dashboard.workspaceRoot
+          ],
+          { env: { ...process.env, ATRIA_HOME: join(dashboard.root, "home") } }
+        );
+        assert.equal(JSON.parse(cli.stdout).delivered, true);
+        await setup.post(`/api/tasks/${setup.taskId}/human/${legacy.requestId}/answer`, {
+          answer: "确认修改"
+        });
+        const after = await setup.post(`/api/tasks/${setup.taskId}/developments`, {
+          action: "tickets",
+          developmentId
+        });
+        assert.equal(after.tickets.tickets[0].title, "新标题");
+        assert.equal(after.tickets.tickets[0].changes.length, 1);
+        const refused = await fetch(
+          `${dashboard.base}/api/tasks/${setup.taskId}/human/${stale.requestId}/answer`,
+          {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ answer: "确认修改" })
+          }
+        );
+        assert.equal(refused.status, 409);
+        assert.equal((await questions.read(setup.taskId, stale.requestId)).status, "unanswered");
+        return;
+      }
+      for (let attempt = 0; attempt < 600 && results.length < 2; attempt++) await delay(100);
+      assert.equal(results[1].confirmed, true, JSON.stringify(results[1]));
+      assert.equal(results[1].tickets.tickets[0].state, "confirmed");
+      assert.match(results[1].next, /Tickets 01 can start/);
     }
-    assert.ok(question, "the proposal reaches the page as a question");
-    assert.equal(question.proposal.kind, "tickets");
-    assert.deepEqual(question.options, ["确认这些票", "拒绝"]);
-    assert.deepEqual(question.recommended, [1], "silence freezes nothing");
-    const card = renderHumanQuestion(question);
-    assert.match(card, /ticket-proposal/);
-    assert.match(card, /node --test test\/page\.test\.js/);
-    assert.match(card, /src\/cli\.js/);
+  );
 
-    await setup.post(`/api/tasks/${setup.taskId}/human/${question.requestId}/answer`, {
-      answer: "确认这些票"
-    });
-    for (let attempt = 0; attempt < 600 && results.length < 2; attempt++) await delay(100);
-    assert.equal(results[1].confirmed, true, JSON.stringify(results[1]));
-    assert.equal(results[1].tickets.tickets[0].state, "confirmed");
-    assert.match(results[1].next, /Tickets 01 can start/);
-  }
-);
+test("retrying the same proposal preserves the card revision and reuses the approved decision", () => {
+  const proposal = { op: "propose", tickets: [ticket("01")] };
+  const draft = applyTicketWrite(emptySet, proposal, "direct", at);
+  const later = "2026-11-20T00:01:30.000Z";
+  assert.deepEqual(applyTicketWrite(draft, proposal, "direct", later), draft);
+  const decision = { op: "confirm", expectedRevision: draft.revision, decisionId: "human-original" };
+  const confirmed = applyTicketWrite(draft, decision, "direct", later);
+  assert.deepEqual(applyTicketWrite(confirmed, decision, "direct", later), confirmed);
+  assert.deepEqual(applyTicketWrite(confirmed, proposal, "direct", later), confirmed);
+  const changed = applyTicketWrite(
+    draft,
+    { ...proposal, tickets: [ticket("01", { title: "changed" })] },
+    "direct",
+    later
+  );
+  assert.throws(() => applyTicketWrite(changed, decision, "direct", later), /票已更新/);
+});

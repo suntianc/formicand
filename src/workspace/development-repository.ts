@@ -418,7 +418,7 @@ export class DevelopmentRepository {
     const current = await this.tickets(projectId, developmentId);
     const timestamp = now();
     const next = applyTicketWrite(current, write, developmentRoute(development.route), timestamp);
-    if ("dryRun" in write && write.dryRun) return next;
+    if (next === current || ("dryRun" in write && write.dryRun)) return next;
     const tickets = JSON.stringify(next.tickets);
     if (current.revision === 0)
       await this.transaction.execute(
