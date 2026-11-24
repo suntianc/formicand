@@ -239,9 +239,40 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.skill-detail-head .app-button .ui-icon {
-  width: 14px;
-  height: 14px;
+/* A skill reads as text, or as a terminal when it ships scripts. */
+.skill-mark {
+  color: var(--color-text-3);
+}
+.skill-mark.is-script {
+  background: color-mix(in srgb, var(--ui-warning) 14%, transparent);
+  color: var(--ui-warning);
+}
+.skill-mark.is-large .ui-icon {
+  width: 18px;
+  height: 18px;
+}
+.skill-detail-title .skill-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.skill-detail-title .skill-tag .ui-icon {
+  width: 12px;
+  height: 12px;
+}
+.skill-action.settings-icon-button {
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--color-line);
+  border-radius: 7px;
+  color: var(--color-text-2);
+}
+.skill-action .ui-icon {
+  width: 15px;
+  height: 15px;
+}
+.skill-action.is-danger {
+  color: var(--ui-danger);
 }
 .skill-description {
   margin: 0;

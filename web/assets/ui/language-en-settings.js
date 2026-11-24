@@ -143,8 +143,6 @@ export default {
   "已被覆盖，当前不生效：": "Overridden, not in effect: ",
   无: "None",
   包含的脚本: "Scripts",
-  "模型加载此技能后，可能按说明运行下列脚本。只安装你信任的来源。":
-    "After loading this skill the model may run these scripts as instructed. Install only from sources you trust.",
   添加到此项目: "Add to this project",
   已恢复到索引: "Restored to index",
   已删除: "Deleted",

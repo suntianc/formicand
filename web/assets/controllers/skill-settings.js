@@ -20,6 +20,7 @@ const SOURCE_LABEL = {
   project: ".atria",
   "project-agents": ".agents"
 };
+const SCOPE_LABEL = { global: "全局", project: "项目" };
 const FILTERS = {
   global: [
     ["all", "全部"],
@@ -33,6 +34,14 @@ const FILTERS = {
     ["project-agents", ".agents"]
   ]
 };
+
+/** A skill's mark: plain instructions read as text; a skill that ships scripts reads as a terminal. */
+const skillMark = (skill, size = "") =>
+  `<span class="settings-icon-box skill-mark${size}${skill.scripts.length ? " is-script" : ""}">${icon(skill.scripts.length ? "square-terminal" : "file-text")}</span>`;
+
+/** An icon-only action in the skill detail; its name is its label and tooltip. */
+const detailAction = (action, glyph, label, danger = false) =>
+  `<button class="settings-icon-button skill-action${danger ? " is-danger" : ""}" type="button" data-skill-action="${action}" aria-label="${esc(label)}" title="${esc(label)}">${icon(glyph)}</button>`;
 
 export function createSkillSettings({ panel, api, projects = () => [], onSection, showToast = () => {} }) {
   const view = {
@@ -204,7 +213,7 @@ export function createSkillSettings({ panel, api, projects = () => [], onSection
             (
               skill
             ) => `<li><button type="button" class="skill-row" data-skill-select="${esc(skill.directory)}" aria-current="${skill.directory === view.selected}">
-              <span class="settings-icon-box">${icon(skill.scripts.length ? "terminal" : "file")}</span>
+              ${skillMark(skill)}
               <span class="skill-row-text"><span class="skill-row-name">${esc(skill.name)}</span><span class="skill-row-desc">${esc(skill.description)}</span></span>
               <span class="skill-tag${skill.shadowedBy ? " is-warn" : ""}">${esc(ui(SOURCE_LABEL[skill.source]))}</span>
             </button></li>`
@@ -233,15 +242,11 @@ export function createSkillSettings({ panel, api, projects = () => [], onSection
       ? view.data.skills.find((entry) => entry.directory === skill.shadowedBy)
       : undefined;
     detail.innerHTML = ui`<div class="skill-detail-head">
-        <span class="settings-icon-box is-large">${icon(skill.scripts.length ? "terminal" : "file")}</span>
-        <span class="skill-detail-title"><h2>${esc(skill.name)}</h2><span class="skill-tag">${esc(ui(SOURCE_LABEL[skill.source]))}</span></span>
+        ${skillMark(skill, " is-large")}
+        <span class="skill-detail-title"><h2>${esc(skill.name)}</h2><span class="skill-tag">${icon("layers")}${esc(ui(SOURCE_LABEL[skill.source]))} · ${esc(ui(SCOPE_LABEL[view.scope]))}</span></span>
         <span class="settings-group-spacer"></span>
-        ${
-          skill.removed
-            ? `<button class="app-button is-secondary" type="button" data-skill-action="restore">${icon("rotate-ccw")}<span>${ui("恢复到索引")}</span></button>`
-            : `<button class="app-button is-secondary" type="button" data-skill-action="remove">${icon("eye-off")}<span>${ui("从索引移除")}</span></button>`
-        }
-        ${skill.deletable ? `<button class="app-button is-danger" type="button" data-skill-action="delete">${icon("trash")}<span>${ui("删除")}</span></button>` : ""}
+        ${skill.removed ? detailAction("restore", "rotate-ccw", ui("恢复到索引")) : detailAction("remove", "eye-off", ui("从索引移除"))}
+        ${skill.deletable ? detailAction("delete", "trash", ui("删除"), true) : ""}
       </div>
       <p class="skill-description">${esc(skill.description)}</p>
       <dl class="skill-facts">
@@ -251,7 +256,6 @@ export function createSkillSettings({ panel, api, projects = () => [], onSection
       ${
         skill.scripts.length
           ? ui`<h3 class="skill-section-title">包含的脚本 <span class="skill-count">${skill.scripts.length}</span></h3>
-        <p class="skill-warning">${icon("triangle-alert")}<span>模型加载此技能后，可能按说明运行下列脚本。只安装你信任的来源。</span></p>
         <ul class="skill-scripts">${skill.scripts.map((name) => `<li class="is-mono">${icon("file-code")}scripts/${esc(name)}</li>`).join("")}</ul>`
           : ""
       }`;

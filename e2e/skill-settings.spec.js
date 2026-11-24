@@ -52,7 +52,7 @@ test("global skills list every source, remove one from the index and restore it"
     await list.getByRole("button", { name: /notes/ }).click();
     const detail = settings.locator("[data-skill-detail]");
     await expect(detail).toContainText("scripts/build.sh");
-    await expect(detail).toContainText("只安装你信任的来源");
+    await expect(detail.locator(".skill-mark.is-script")).toBeVisible();
 
     await list.getByRole("button", { name: /docx/ }).click();
     await expect(detail.getByRole("button", { name: "删除" })).toHaveCount(0);
