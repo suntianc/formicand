@@ -1,6 +1,7 @@
 import { execFile } from "node:child_process";
 import { mkdir, readdir, realpath, rmdir, stat } from "node:fs/promises";
 import { basename, dirname, resolve, sep } from "node:path";
+import { utilityCommand } from "../platform/utility-command.js";
 import { promisify } from "node:util";
 import { isDocument } from "../domain/project-documents.js";
 import { ProjectDataError, ProjectDataInvalidError } from "../domain/project-ledger.js";
@@ -35,8 +36,8 @@ function gitFailure(repository: string, error: unknown): GitCommandError {
  * Run one git command in a repository or a linked worktree. Paths come out as
  * they are: by default git quotes and escapes a non-ASCII one ("docs/\344…").
  */
-export async function git(repository: string, args: string[]): Promise<string> {
-  return (await run(repository, args)).stdout.trim();
+export async function git(repository: string, args: string[], priority?: "utility"): Promise<string> {
+  return (await run(repository, args, undefined, priority)).stdout.trim();
 }
 
 /** Use with Git queries whose exit 1 means the requested condition is false. */
@@ -71,12 +72,16 @@ export async function gitPaths(repository: string, args: string[]): Promise<stri
 async function run(
   repository: string,
   args: string[],
-  env?: NodeJS.ProcessEnv
+  env?: NodeJS.ProcessEnv,
+  priority?: "utility"
 ): Promise<{ stdout: string; stderr: string }> {
   try {
-    return await execute("git", ["-C", repository, "-c", "core.quotePath=false", ...args], {
+    const argv = ["-C", repository, "-c", "core.quotePath=false", ...args];
+    const [command, commandArgs] =
+      priority === "utility" ? utilityCommand("git", argv) : (["git", argv] as const);
+    return await execute(command, commandArgs, {
       env,
-      timeout: GIT_TIMEOUT_MS,
+      timeout: priority === "utility" ? 120_000 : GIT_TIMEOUT_MS,
       maxBuffer: MAX_BUFFER,
       windowsHide: true
     });

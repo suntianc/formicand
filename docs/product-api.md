@@ -72,6 +72,8 @@ Folder changes apply to every associated conversation. Active Main/subagents, wa
 
 `GET /api/tasks` and `GET /api/tasks/:taskId` send `Cache-Control: no-store` so the browser does not retain task catalog or detail responses in its HTTP cache.
 
+A task catalog entry with `catalogOnlyVersion` equal to its `version` identifies a revision that only changed the title, pin or archive state. A client holding the immediately preceding revision of the same task and Run can merge those fields. Revision gaps, Run changes and reconnect snapshots require a detail refresh.
+
 A conversation without a project is omitted from `GET /api/tasks`, while its persisted files remain intact. Explicitly created projects remain visible when empty.
 
 The legacy global `POST /api/workspace/choose` still accepts `{ workspaceRoot }` (or opens the picker when omitted) and returns `{ cancelled, ...taskList }` for legacy data compatibility. Its task-scoped `{ taskId, workspaceRoot }` form returns 410: change the owning project's settings instead. Conversations inherit their project's folder and cannot independently reassign it.

@@ -152,8 +152,13 @@ export function createTaskConversationService({
     );
     const messages = messagesWithRuntimeHistory(conversationMessages(sessionEntries), runtimeEvents);
     const progress = runId
-      ? // eslint-disable-next-line no-restricted-syntax -- 进度只是详情里的可选项，读取失败按无进度返回
-        await readSubagentProgress({ taskId, runId, workspaceRoot: taskWorkspace }).catch(() => null)
+      ? await readSubagentProgress({
+          taskId,
+          runId,
+          workspaceRoot: taskWorkspace,
+          artifacts
+          // eslint-disable-next-line no-restricted-syntax -- 进度只是详情里的可选项，读取失败按无进度返回
+        }).catch(() => null)
       : null;
     const jobs = runId
       ? await listJobs({

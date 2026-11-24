@@ -24,8 +24,29 @@ export function runtimeEventRecord(
   };
 }
 
-const parsedLogs = new Map<string, { key: string; events: PositionedEvent[]; next: number }>();
-const parsedLogLimit = 32;
+type ParsedLog = ReturnType<typeof runtimeLogEvents> & { key: string; bytes: number };
+const parsedLogs = new Map<string, ParsedLog>();
+// Charge the on-disk input size. Keep both large histories and empty log metadata bounded.
+const logByteBudget = 24 * 1024 * 1024;
+const logCountLimit = 512;
+let cachedLogBytes = 0;
+
+function dropCachedLog(path: string, entry: ParsedLog) {
+  parsedLogs.delete(path);
+  cachedLogBytes -= entry.bytes;
+}
+
+function cacheLog(path: string, entry: ParsedLog) {
+  const previous = parsedLogs.get(path);
+  if (previous) dropCachedLog(path, previous);
+  if (entry.bytes > logByteBudget) return;
+  parsedLogs.set(path, entry);
+  cachedLogBytes += entry.bytes;
+  for (const [oldest, value] of parsedLogs) {
+    if (cachedLogBytes <= logByteBudget && parsedLogs.size <= logCountLimit) break;
+    dropCachedLog(oldest, value);
+  }
+}
 
 /**
  * A run's runtime log with the deltas of a message still being written.
@@ -34,20 +55,22 @@ const parsedLogLimit = 32;
  * end; a log read before and unchanged since is not parsed again.
  */
 async function readRuntimeLog(path: string): Promise<PositionedEvent[]> {
-  let parsed = parsedLogs.get(path);
+  let parsed: ParsedLog | undefined;
   try {
     const info = await stat(path);
     const key = `${info.ino}:${info.size}:${info.mtimeMs}`;
+    parsed = parsedLogs.get(path);
     if (parsed?.key !== key) {
-      parsed = { key, ...runtimeLogEvents(await readFile(path, "utf8")) };
+      parsed = { key, bytes: info.size, ...runtimeLogEvents(await readFile(path, "utf8")) };
+      cacheLog(path, parsed);
+    } else {
       parsedLogs.delete(path);
-      if (parsedLogs.size >= parsedLogLimit) parsedLogs.delete(parsedLogs.keys().next().value!);
+      parsedLogs.set(path, parsed);
     }
-    parsedLogs.set(path, parsed);
   } catch (error) {
     // A run that failed to start may have no runtime-output.log.
     if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
-    parsed = { key: "", events: [], next: 0 };
+    parsed = { key: "", bytes: 0, events: [], next: 0 };
   }
   const open = liveRuntimeOutput(path)?.openDeltas(parsed.next) ?? [];
   return open.length ? [...parsed.events, ...open] : parsed.events;

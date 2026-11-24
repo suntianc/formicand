@@ -1,6 +1,6 @@
 import { lstat, open, readFile, readdir, stat } from "node:fs/promises";
 import { join } from "node:path";
-import { listTaskArtifacts } from "../workspace/artifact-store.js";
+import { listTaskArtifacts, type Artifact } from "../workspace/artifact-store.js";
 import { agentDisplayName } from "./agent-identity.js";
 import { agentProcessRecordPath } from "./agent-process.js";
 import { parseReviewConclusion, type ReviewConclusion } from "./subagent-review.js";
@@ -67,6 +67,7 @@ export async function readSubagentProgress(input: {
   taskId: string;
   runId: string;
   agentId?: string;
+  artifacts?: Artifact[];
 }): Promise<SubagentStatusSnapshot> {
   const runRoot = join(input.workspaceRoot, input.taskId, "runs", input.runId);
   const queue = await readJson<
@@ -95,7 +96,7 @@ export async function readSubagentProgress(input: {
     join(runRoot, "agents", "main", "inbox-store.json"),
     []
   );
-  const taskArtifacts = await listTaskArtifacts(input);
+  const taskArtifacts = input.artifacts ?? (await listTaskArtifacts(input));
   const agents = await Promise.all(
     queue
       .filter((item) => !input.agentId || item.agentId === input.agentId)

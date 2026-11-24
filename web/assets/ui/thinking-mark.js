@@ -1,12 +1,4 @@
-/**
- * The Formicand ant as a working indicator: head, thorax and abdomen swell in
- * turn, as if it were walking. Drawn from the logo's own geometry in the text
- * color; styles live in styles/conversation.css (`.ant-mark`).
- *
- * The still feelers are SVG; the three body parts that move are plain boxes
- * placed over them. A transform on an SVG shape cannot run on the compositor,
- * so it relaid the whole page every frame; on a box it never reaches the page.
- */
+/** Static feelers and a theme-colored strip of 24 walking frames. */
 const FEELERS =
   '<g transform="translate(2.545 2.545)">' +
   '<circle class="ant-feeler" cx="76.7366" cy="26.9299" r="5.155"/>' +
@@ -20,4 +12,4 @@ const FEELERS =
 /** The mark: its SVG feelers and the three moving parts; the caller's element sizes it. */
 export const antMarkSvg =
   `<svg class="ant-mark-svg" viewBox="16 16 96 96" aria-hidden="true" focusable="false">${FEELERS}</svg>` +
-  '<span class="ant-body ant-head"></span><span class="ant-body ant-thorax"></span><span class="ant-body ant-abdomen"></span>';
+  '<span class="ant-frames"></span>';

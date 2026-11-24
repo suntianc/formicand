@@ -131,6 +131,32 @@ test("the menu offers rename, pin, unread, archive and delete, and quick actions
   }
 });
 
+test("pinning and renaming the selected task update the UI without fetching its history", async ({
+  page
+}) => {
+  const dashboard = await startDashboard();
+  try {
+    await seed(page, dashboard);
+    const detailReads = [];
+    page.on("request", (request) => {
+      if (request.method() === "GET" && new URL(request.url()).pathname === "/api/tasks/menu-a")
+        detailReads.push(request.url());
+    });
+    const row = page.locator('.conversation-row:has([data-task="menu-a"])');
+    await row.hover();
+    await row.locator('[data-quick-action="pin"]').click();
+    await expect(row.locator(".conversation-pin")).toHaveCount(1);
+    const catalogRead = page.waitForResponse((response) => new URL(response.url()).pathname === "/api/tasks");
+    await page.request.patch(dashboard.base + "/api/tasks/menu-a", { data: { title: "新名称" } });
+    await expect(page.locator("#topbar-task")).toHaveText("新名称");
+    await catalogRead;
+    await expect(page.locator("#composer-input")).toHaveValue("保留 A 的未发送草稿");
+    expect(detailReads).toEqual([]);
+  } finally {
+    await dashboard.stop();
+  }
+});
+
 test("the menu keeps keyboard focus through refresh and stays inside desktop and narrow viewports", async ({
   page
 }, info) => {

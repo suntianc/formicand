@@ -156,6 +156,8 @@ export interface TaskRecord {
   status: TaskStatus;
   goal?: string;
   title?: string;
+  /** If equal to version, the last Task write changed only title, pin or archive metadata. */
+  catalogOnlyVersion?: number;
   pinned?: boolean;
   archived?: boolean;
   /** Model id selected for the task's Main runs. */

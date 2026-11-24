@@ -21,12 +21,12 @@ const options = {
   logLevel: "info",
   plugins: [
     {
-      name: "existing-fonts",
+      name: "shipped-assets",
       setup(builder) {
-        // Keep Inter's preload and the offline KaTeX fonts at their shipped URLs.
-        builder.onResolve({ filter: /\.(woff2?|ttf)$/ }, async ({ path, resolveDir }) => {
-          const font = await realpath(resolve(resolveDir, path));
-          return { path: "/" + relative(web, font).split(sep).join("/"), external: true };
+        // Keep fonts and the working indicator at their shipped URLs.
+        builder.onResolve({ filter: /\.(woff2?|ttf|png)$/ }, async ({ path, resolveDir }) => {
+          const asset = await realpath(resolve(resolveDir, path));
+          return { path: "/" + relative(web, asset).split(sep).join("/"), external: true };
         });
       }
     }

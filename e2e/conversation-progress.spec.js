@@ -8,7 +8,7 @@ test("follow-up opens an assistant message before inference and animates each th
 }) => {
   test.setTimeout(90_000);
   let requestCount = 0;
-  const gates = [0, 1, 2].map(() => {
+  const gates = [0, 1, 2, 3].map(() => {
     let release;
     const promise = new Promise((resolve) => {
       release = resolve;
@@ -51,7 +51,9 @@ test("follow-up opens an assistant message before inference and animates each th
       });
       send({}, "tool_calls");
     } else {
-      send({ reasoning_content: "根据工具信息继续思考。" });
+      send({ reasoning_content: "**" });
+      await gates[3].promise;
+      send({ reasoning_content: "根据工具信息继续思考。**" });
       await gates[1].promise;
       send({ content: "追问回答已完成。" });
       send({}, "stop");
@@ -90,18 +92,21 @@ test("follow-up opens an assistant message before inference and animates each th
     expect(
       await pending.locator(".thinking-spinner").evaluate((el) => getComputedStyle(el).animationName)
     ).toBe("none");
-    expect(
-      await pending
-        .locator(".thinking-spinner .ant-head")
-        .evaluate((el) => getComputedStyle(el).animationName)
-    ).toBe("ant-crawl");
-    // The parts that move are boxes, not SVG shapes: Electron relays the whole page
-    // every frame an SVG shape's transform animates, about two thirds of a core.
-    expect(
-      await pending
-        .locator(".thinking-spinner .ant-body")
-        .evaluateAll((parts) => parts.map((part) => part.tagName))
-    ).toEqual(["SPAN", "SPAN", "SPAN"]);
+    const frames = pending.locator(".thinking-spinner .ant-frames");
+    await expect(frames).toHaveCSS("animation-name", "ant-frames");
+    await expect(frames).toHaveCSS("animation-duration", "1.2s");
+    await expect(frames).toHaveCSS("animation-timing-function", "steps(24)");
+    await expect(frames).toHaveCSS("animation-iteration-count", "infinite");
+    const frameCount = await frames.evaluate(async (el) => {
+      const strip = new Image();
+      strip.src = getComputedStyle(el).maskImage.match(/url\("([^"]+)"\)/)[1];
+      await strip.decode();
+      return strip.naturalWidth / strip.naturalHeight;
+    });
+    expect(frameCount).toBe(24);
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await expect(frames).toHaveCSS("animation-name", "none");
+    await page.emulateMedia({ reducedMotion: "no-preference" });
     const thinkingSize = await pending
       .getByText("思考中", { exact: true })
       .evaluate((node) => getComputedStyle(node).fontSize);
@@ -125,6 +130,9 @@ test("follow-up opens an assistant message before inference and animates each th
     await expect(pending.locator(".reasoning-step").first()).toContainText("先查看可用工具。");
     await expect(pending.locator(".reasoning-step").first().locator(".thinking-spinner")).toHaveCount(0);
     await expect(pending.locator(".reasoning-step").last().locator(".thinking-spinner")).toBeVisible();
+    gates[3].release();
+    await expect(pending.locator(".reasoning-step").last()).toContainText("根据工具信息继续思考。");
+    await expect(liveProcess.locator(":scope > summary .thinking-spinner")).toHaveCount(1);
     gates[1].release();
     await expect(page.locator('[data-answer-kind="final"]').last()).toContainText("追问回答已完成。", {
       timeout: 30_000

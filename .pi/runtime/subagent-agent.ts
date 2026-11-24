@@ -487,6 +487,7 @@ export function subagentRolePrompt(input: {
     `Your working directory: ${input.workingDirectory}. File and command tools resolve relative paths from there.`,
     `Shared Task workspace (browse_workspace paths start here): ${input.taskWorkspace}.`,
     "Read the brief and the files Main names. browse_workspace shows shared Task state, other Agents' progress and published artifacts when the task depends on them.",
+    "When choosing a test command, run the full required scope with up to two parallel workers (node --test --test-concurrency=2, playwright test --workers=2). Honor explicit commands and tighter project limits.",
     HAND_BACK,
     ...(input.capabilityPrompt ? [input.capabilityPrompt] : [])
   ];

@@ -70,7 +70,7 @@ export async function prepareReviewSite(site: ReviewSite): Promise<void> {
 
   await mkdir(dirname(site.directory), { recursive: true, mode: 0o700 });
   try {
-    await git(site.repository, ["worktree", "add", "--detach", site.directory, commit]);
+    await git(site.repository, ["worktree", "add", "--detach", site.directory, commit], "utility");
   } catch (error) {
     throw invalid(error instanceof Error ? error.message : String(error));
   }

@@ -667,6 +667,7 @@ const catalog = createSessionCatalog({
   onCatalogChanged: () => observation.data.localChanged(),
   composerHasUnsentContent: () => delivery.composerHasUnsentContent(),
   renderConversationList,
+  paintTopbarContext: () => workView.paintTopbarContext(),
   renderAll,
   renderEmpty,
   updateSendButton,

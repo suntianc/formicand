@@ -218,6 +218,7 @@ export class LocalWorkspaceStore implements WorkspaceStore {
         status: value.status ?? "created",
         goal: value.goal,
         title: typeof value.title === "string" ? value.title : undefined,
+        catalogOnlyVersion: value.catalogOnlyVersion === value.version ? value.catalogOnlyVersion : undefined,
         pinned: value.pinned === true,
         archived: value.archived === true,
         model: value.model,
@@ -282,6 +283,11 @@ export class LocalWorkspaceStore implements WorkspaceStore {
             ? normalizeCompletion({ ...current.completion, ...patch.completion }, current.status)
             : current.completion,
           updatedAt: options.preserveUpdatedAt ? current.updatedAt : now(),
+          catalogOnlyVersion: Object.keys(patch).every((field) =>
+            ["title", "pinned", "archived"].includes(field)
+          )
+            ? current.version + 1
+            : undefined,
           version: current.version + 1
         };
         await validateTemporaryRoot(next);

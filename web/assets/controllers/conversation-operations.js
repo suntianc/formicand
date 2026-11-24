@@ -22,7 +22,7 @@ export function createConversationOperations({
       const current = getNavigation();
       if (current.taskId === taskId && current.token === token) openNewConversation();
     }
-    await refresh();
+    await refresh({ poll: options.method === "PATCH", afterMutation: true });
   }
 
   function updateConversation(patch, taskId) {

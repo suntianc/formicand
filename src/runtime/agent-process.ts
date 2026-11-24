@@ -1,4 +1,5 @@
 import { spawn, type ChildProcess } from "node:child_process";
+import { utilityCommand } from "../platform/utility-command.js";
 import { randomUUID } from "node:crypto";
 import { mkdir, open, readFile, readdir } from "node:fs/promises";
 import { hostname } from "node:os";
@@ -240,7 +241,10 @@ export class AgentProcessHost {
     const exit = { happened: false };
     let record: AgentProcessRecord | undefined;
     try {
-      child = spawn(process.execPath, this.launchArgs(input), {
+      const args = this.launchArgs(input);
+      const [executable, argv] =
+        input.role === "main" ? ([process.execPath, args] as const) : utilityCommand(process.execPath, args);
+      child = spawn(executable, argv, {
         cwd: input.workingDirectory,
         env,
         // A separate group is what lets the backend stop the whole tree and

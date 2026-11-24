@@ -24,7 +24,8 @@ html[data-theme] :is(.thinking-spinner, .tool-progress-spinner, .workflow-progre
   border-radius: 0;
   background: none;
   color: var(--color-text-2);
-  /* Override the generic spinner rotation; only the three body parts animate. */
+  overflow: hidden;
+  /* The wrapper stays still while the strip advances inside it. */
   animation: none;
 }
 .ant-mark::after {
@@ -41,47 +42,23 @@ html[data-theme] :is(.thinking-spinner, .tool-progress-spinner, .workflow-progre
 .ant-mark-svg .ant-feeler {
   opacity: 0.45;
 }
-/* Body parts sit where the logo's circles are, in percent of its 96-unit box. */
-.ant-mark > .ant-body {
+/* 24 monochrome frames across 1.2 seconds, tinted by the current theme. */
+.ant-mark > .ant-frames {
   position: absolute;
-  border-radius: 50%;
+  inset: 0 auto 0 0;
+  width: 2400%;
   background: currentColor;
-  animation: ant-crawl 1.2s cubic-bezier(0.45, 0, 0.3, 1) infinite;
+  mask: url("../brand/working-ant-20fps.png") center / 100% 100% no-repeat;
+  animation: ant-frames 1.2s steps(24, end) infinite;
 }
-.ant-mark > .ant-head {
-  top: 13.969%;
-  left: 13.969%;
-  width: 19.688%;
-  height: 19.688%;
-}
-.ant-mark > .ant-thorax {
-  top: 28.332%;
-  left: 28.332%;
-  width: 29.531%;
-  height: 29.531%;
-  animation-delay: 0.15s;
-}
-.ant-mark > .ant-abdomen {
-  top: 49.273%;
-  left: 49.273%;
-  width: 42.06%;
-  height: 42.06%;
-  animation-delay: 0.3s;
-}
-/* Head, thorax and abdomen swell in turn, as if the ant were walking. */
-@keyframes ant-crawl {
-  0%,
-  100% {
-    transform: scale(0.7);
-    opacity: 0.4;
+@keyframes ant-frames {
+  to {
+    transform: translateX(-100%);
   }
-  35% {
-    transform: scale(1);
-    opacity: 1;
-  }
-  70% {
-    transform: scale(0.82);
-    opacity: 0.6;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ant-mark > .ant-frames {
+    animation: none;
   }
 }
 html.is-page-hidden

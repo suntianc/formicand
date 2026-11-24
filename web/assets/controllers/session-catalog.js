@@ -30,6 +30,7 @@ export function createSessionCatalog({
   onCatalogChanged,
   composerHasUnsentContent,
   renderConversationList,
+  paintTopbarContext,
   renderAll,
   renderEmpty,
   updateSendButton,
@@ -98,6 +99,31 @@ export function createSessionCatalog({
     catalogQuestionsSeen = true;
   }
 
+  // Only merge a proven single metadata revision. A gap may include a history or Run change.
+  function acceptCatalogMetadata(task) {
+    const loaded = state.detail?.task;
+    if (
+      !task ||
+      state.detail?.loading ||
+      loaded?.taskId !== task.taskId ||
+      task.catalogOnlyVersion !== task.version ||
+      loaded.version + 1 !== task.version ||
+      task.activeRunId !== loaded.activeRunId ||
+      task.status !== loaded.status
+    )
+      return;
+    state.detail.task = {
+      ...loaded,
+      title: task.title,
+      pinned: task.pinned,
+      archived: task.archived,
+      updatedAt: task.updatedAt,
+      version: task.version,
+      catalogOnlyVersion: task.catalogOnlyVersion
+    };
+    paintTopbarContext();
+  }
+
   /**
    * Adopt one authoritative catalog, whether it came from `/api/tasks` or from a
    * snapshot the event client took. Replacing the lists here is what makes a
@@ -132,6 +158,7 @@ export function createSessionCatalog({
     renderConversationList();
     if (state.selected) {
       const listed = state.tasks.find((task) => task.taskId === state.selected);
+      if (poll) acceptCatalogMetadata(listed);
       const loaded = state.detail?.task;
       if (
         !poll ||
@@ -264,6 +291,7 @@ export function createSessionCatalog({
         if (!task || typeof task.taskId !== "string") return;
         if (index >= 0) state.tasks[index] = { ...state.tasks[index], ...task };
         else state.tasks.unshift(task);
+        if (state.selected === task.taskId) acceptCatalogMetadata(task);
       }
     } else if (record.scope === "project" && record.type === "project.changed") {
       const project = record.payload;

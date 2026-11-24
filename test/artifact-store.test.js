@@ -81,6 +81,20 @@ test("ordinary file writes are discovered, including Unicode, spaces, JSON and l
   assert.equal(JSON.stringify(cache).includes("经过验证"), false);
 });
 
+test("listing unchanged artifacts preserves the published index", async (t) => {
+  const location = await fixture(t);
+  await write(join(location.task, "artifacts", "report.txt"), "same bytes");
+  await listTaskArtifacts(location);
+  const index = join(location.task, ".runtime", "artifacts.json");
+  const reader = await open(index, "r");
+  try {
+    await listTaskArtifacts(location);
+    assert.equal((await lstat(index)).ino, (await reader.stat()).ino);
+  } finally {
+    await reader.close();
+  }
+});
+
 test("updates retain identity, refresh hashes, remove deleted files and sort by modification time", async (t) => {
   const location = await fixture(t);
   const file = join(location.task, "artifacts", "report.txt");

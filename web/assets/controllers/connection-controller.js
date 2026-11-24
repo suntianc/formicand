@@ -109,6 +109,8 @@ export function createConnectionController({
         return;
       let parkChanged = false;
       const key = streamRecordKey(record);
+      // Only durable event IDs can identify a replay across distinct tool turns.
+      if (record.eventId && seenKeys.has(key)) return;
       if (state.detail && key && !seenKeys.has(key)) {
         seenKeys.add(key);
         // Appended in place. Copying the whole array per event made this

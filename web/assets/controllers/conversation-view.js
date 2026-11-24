@@ -1053,7 +1053,7 @@ export function createConversationView({
         !isCurrent && !editing && !round.exchanges.some((entry) => entry.awaitingDelivery) && !historyOpen;
       const inLiveWindow =
         !virtualizeEnabled ||
-        roundIndex >= recentStart ||
+        (virtualWindow.end < 0 && roundIndex >= recentStart) ||
         (roundIndex >= virtualWindow.start && roundIndex <= virtualWindow.end);
       const canVirtualize =
         cacheable &&

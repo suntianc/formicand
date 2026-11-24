@@ -39,6 +39,25 @@ test("a slow read shares polling and queues one fresh read for explicit mutation
   await first;
 });
 
+test("a catalog mutation during a poll queues one version-checked refresh", async () => {
+  const gate = deferred();
+  const reads = [];
+  const read = createCoalescedRead(async (_key, options) => {
+    reads.push(options);
+    if (reads.length === 1) await gate.promise;
+  });
+  const first = read("catalog", { poll: true });
+  read("catalog", { poll: true, afterMutation: true });
+  read("catalog", { poll: true, afterMutation: true });
+  assert.equal(reads[0].isCurrent(), false);
+  gate.resolve();
+  await first;
+  assert.deepEqual(
+    reads.map((options) => options.poll),
+    [true, true]
+  );
+});
+
 test("independent tasks can load while a stale task is pending and failures can retry", async () => {
   const gate = deferred();
   let fail = true;

@@ -1,3 +1,4 @@
+import { isDeepStrictEqual } from "node:util";
 import { createHash, randomUUID } from "node:crypto";
 import { constants, createWriteStream, type Stats } from "node:fs";
 import {
@@ -97,25 +98,23 @@ async function readJson(path: string): Promise<unknown> {
   return JSON.parse(await readFile(path, "utf8"));
 }
 
-async function readCache(paths: TaskPaths): Promise<ArtifactCache> {
+async function readCache(paths: TaskPaths): Promise<{ entries: CacheEntry[]; valid: boolean }> {
   try {
     const value = (await readJson(paths.index)) as Partial<ArtifactCache> | null;
     if (value?.version === 1 && Array.isArray(value.entries)) {
-      return {
-        version: 1,
-        entries: value.entries.filter(
-          (entry) =>
-            // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- 缓存来自磁盘 JSON，旧文件数组元素可能是 null 或缺少 artifact
-            entry?.artifact &&
-            typeof entry.artifact.relativePath === "string" &&
-            typeof entry.artifact.sha256 === "string"
-        )
-      };
+      const entries = value.entries.filter(
+        (entry) =>
+          // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- Disk indexes may contain invalid entries.
+          entry?.artifact &&
+          typeof entry.artifact.relativePath === "string" &&
+          typeof entry.artifact.sha256 === "string"
+      );
+      return { entries, valid: entries.length === value.entries.length };
     }
   } catch (error) {
     if (!missing(error) && !(error instanceof SyntaxError)) throw error;
   }
-  return { version: 1, entries: [] };
+  return { entries: [], valid: false };
 }
 
 async function writeJson(path: string, value: unknown): Promise<void> {
@@ -130,13 +129,18 @@ async function writeJson(path: string, value: unknown): Promise<void> {
   }
 }
 
-async function saveCache(paths: TaskPaths, cache: ArtifactCache): Promise<void> {
+async function saveCache(
+  paths: TaskPaths,
+  cache: Pick<ArtifactCache, "entries">,
+  previous?: CacheEntry[]
+): Promise<void> {
   cache.entries.sort(
     (a, b) =>
       (b.artifact.mtimeMs ?? 0) - (a.artifact.mtimeMs ?? 0) ||
       a.artifact.relativePath.localeCompare(b.artifact.relativePath)
   );
-  await writeJson(paths.index, cache);
+  if (previous && isDeepStrictEqual(previous, cache.entries)) return;
+  await writeJson(paths.index, { version: 1, entries: cache.entries });
 }
 
 async function activeRun(paths: TaskPaths): Promise<string> {
@@ -267,7 +271,7 @@ export async function listTaskArtifacts(input: TaskLocation & { runId?: string }
           throw error;
       }
     }
-    await saveCache(paths, { version: 1, entries });
+    await saveCache(paths, { entries }, cache.valid ? cache.entries : undefined);
     return entries.map((entry) => entry.artifact);
   });
 }
