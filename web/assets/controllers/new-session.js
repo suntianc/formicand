@@ -13,6 +13,7 @@ import { animate, motionDuration } from "../ui/motion.js";
 export function createNewSessionView({ state, $, onSelectProject = () => {}, onAddProject = () => {} }) {
   let rendered = "";
   let menuOpen = false;
+  let placed = false;
   const newSessionPlaceholder = ui("描述需求，例如：给 summarize.sh 增加 --avg 参数…");
   const defaultPlaceholder = $("#composer-input").placeholder;
   const currentProject = () =>
@@ -60,7 +61,13 @@ export function createNewSessionView({ state, $, onSelectProject = () => {}, onA
    */
   function placeComposer(composing) {
     const pane = $("#conversation-pane");
+    const first = !placed;
+    placed = true;
     if (pane.classList.contains("is-new-session") === composing) return;
+    if (first) {
+      pane.classList.toggle("is-new-session", composing);
+      return;
+    }
     const composer = pane.querySelector(".composer-wrap");
     const before = composer?.getBoundingClientRect();
     pane.classList.toggle("is-new-session", composing);
