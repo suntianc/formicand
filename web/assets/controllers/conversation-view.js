@@ -388,7 +388,7 @@ export function createConversationView({
   // message that arrives while it is open slides in. Opening a conversation
   // fades it in as a whole instead of replaying every message.
   let shownMessages = { taskId: undefined, keys: new Set(), count: 0 };
-  function animateArrivals(scroll, taskId) {
+  function animateArrivals(scroll, taskId, historyPrepend) {
     const articles = [...scroll.querySelectorAll(".chat-message[data-view-key]")];
     const keys = articles.map((article) => article.dataset.viewKey);
     const opened = shownMessages.taskId !== taskId;
@@ -397,7 +397,7 @@ export function createConversationView({
       ? []
       : articles.filter((article) => !shownMessages.keys.has(article.dataset.viewKey));
     shownMessages = { taskId, keys: new Set(keys), count: articles.length };
-    if (reducedMotion()) return;
+    if (historyPrepend || reducedMotion()) return;
     if (opened && articles.length)
       animate(scroll, [{ opacity: 0 }, { opacity: 1 }], { duration: 160, easing: "ease-out" });
     // A message whose key changed in place (a local message confirmed by the
@@ -859,7 +859,7 @@ export function createConversationView({
   function renderConversation(
     messages,
     task,
-    { preserveScroll: keepScroll = false, virtualScroll = false, streamRecords } = {}
+    { preserveScroll: keepScroll = false, virtualScroll = false, historyPrepend = false, streamRecords } = {}
   ) {
     const scroll = $("#conversation");
     if (!keepScroll && !virtualScroll && streamRecords?.length) {
@@ -1015,6 +1015,24 @@ export function createConversationView({
     const rounds = groupConversationRounds(exchanges, state.detail, currentExchangeIndex, windowDividers);
     const virtualizeEnabled = rounds.length > VIRTUALIZE_THRESHOLD;
     virtualActive = virtualizeEnabled;
+    if (historyPrepend && virtualizeEnabled && previous) {
+      const visible = findVisibleExchangeRange(scroll, previous);
+      if (visible) {
+        // Hydrate the same exchanges in their new positions before restoring the
+        // reader's anchor. Hydrating the recent tail first would reflow it twice.
+        const first = rounds.findIndex(
+          (round) => `${task.taskId}:${round.key}` === previous.exchangeKeys[visible.firstVisible]
+        );
+        if (first >= 0)
+          virtualWindow = {
+            start: Math.max(0, first - VIRTUAL_OVERSCAN),
+            end: Math.min(
+              rounds.length - 1,
+              first + visible.lastVisible - visible.firstVisible + VIRTUAL_OVERSCAN
+            )
+          };
+      }
+    }
     // Measure currently rendered exchanges before any of them dehydrate so their
     // virtual shells preserve exact pixel height and scrolling never jumps.
     if (virtualizeEnabled && previous) measureRenderedExchanges(scroll, previous);
@@ -1069,13 +1087,13 @@ export function createConversationView({
         ? `<div class="markdown-body">${typed.body}</div>${editor}${messageEdit.actions?.(task.taskId, message.id) || ""}`
         : typed.body && `<div class="markdown-body">${typed.body}</div>`;
       const cls = `chat-message user${editor ? " is-editing" : ""}${extraClass ? ` ${extraClass}` : ""}`;
-      return `<article class="${cls}" data-view-key="${esc(viewKey)}"><div class="message-copy">${editor ? "" : typed.uploads}${bubble ? `<div class="user-message-bubble">${bubble}</div>` : ""}${editor ? "" : userActions(message, editable)}</div></article>`;
+      return `<article class="${cls}" data-history-message="${esc(`user:${message.id || message.timestamp}`)}" data-view-key="${esc(viewKey)}"><div class="message-copy">${editor ? "" : typed.uploads}${bubble ? `<div class="user-message-bubble">${bubble}</div>` : ""}${editor ? "" : userActions(message, editable)}</div></article>`;
     };
 
     const renderFinalBubble = (message, active, isCurrent) => {
       const text = visibleText(message.content);
       if (!text.trim()) return "";
-      return `<article class="chat-message main" data-answer-kind="final"${message.id ? ` data-message-id="${esc(message.id)}"` : ""}><div class="message-copy"><div class="markdown-body">${markdown(text)}</div>${active ? "" : replyActions(message, isCurrent)}</div></article>`;
+      return `<article class="chat-message main" data-history-message="${esc(`assistant:${message.id || message.timestamp}`)}" data-answer-kind="final"${message.id ? ` data-message-id="${esc(message.id)}"` : ""}><div class="message-copy"><div class="markdown-body">${markdown(text)}</div>${active ? "" : replyActions(message, isCurrent)}</div></article>`;
     };
 
     const parts = rounds.map((round, roundIndex) => {
@@ -1122,9 +1140,9 @@ export function createConversationView({
           let shell = virtualShellCache.get(shellKey);
           if (!shell) {
             const userShell = userMessage
-              ? `<article class="chat-message user is-virtual-shell" data-view-key="${esc(`${cacheKey}:user:${userMessage.id || userIndex}`)}" data-virtual-exchange="${roundIndex}" style="min-height:${userH}px"></article>`
+              ? `<article class="chat-message user is-virtual-shell" data-history-message="${esc(`user:${userMessage.id || userMessage.timestamp}`)}" data-view-key="${esc(`${cacheKey}:user:${userMessage.id || userIndex}`)}" data-virtual-exchange="${roundIndex}" style="min-height:${userH}px"></article>`
               : "";
-            const mainShell = `<article class="chat-message main is-virtual-shell" data-answer-kind="final" data-virtual-exchange="${roundIndex}"${finalMessage.id ? ` data-message-id="${esc(finalMessage.id)}"` : ""} style="min-height:${mainH}px"></article>`;
+            const mainShell = `<article class="chat-message main is-virtual-shell" data-history-message="${esc(`assistant:${finalMessage.id || finalMessage.timestamp}`)}" data-answer-kind="final" data-virtual-exchange="${roundIndex}"${finalMessage.id ? ` data-message-id="${esc(finalMessage.id)}"` : ""} style="min-height:${mainH}px"></article>`;
             const markup = `${userShell}${mainShell}`;
             shell = { markup, sig: fingerprint(markup) };
           }
@@ -1457,7 +1475,7 @@ export function createConversationView({
         exchangePartOffset
       };
       if (!virtualScroll && (!previous || parts.length !== previous.partSignatures.length))
-        animateArrivals(scroll, task.taskId);
+        animateArrivals(scroll, task.taskId, historyPrepend);
       streamReveal.apply(scroll);
       syncLiveClocks(scroll);
       const ownsRecovery = () => state.selected === task.taskId && state.detail?.task?.taskId === task.taskId;

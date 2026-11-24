@@ -249,12 +249,9 @@ export function buildConversationExchanges(messages, events) {
       Boolean(exchanges[index + 1]?.user?.interjected) &&
       !awaitingDelivery(exchanges[index + 1]) &&
       !exchangeExecutionState(exchange.events).terminal,
-    key: String(
-      (exchange.user?.interjected ? exchange.user.id : undefined) ??
-        exchange.user?.timestamp ??
-        exchange.user?.id ??
-        `position:${index}`
-    ),
+    // The accepted input keeps its ID when Pi replaces its submission time
+    // with its delivery time. Disclosure and scroll state belong to that input.
+    key: String(exchange.user?.id ?? exchange.user?.timestamp ?? `position:${index}`),
     events: exchange.events.length
       ? exchange.events
       : exchange.messages

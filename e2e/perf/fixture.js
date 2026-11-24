@@ -141,6 +141,17 @@ export async function cloneRounds(workspaceRoot, taskId, rounds) {
         /([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{8})[0-9a-f]{4}/g,
         (_match, head) => `${head}${copy.toString(16).padStart(4, "0")}`
       );
+      // run.json is one pretty-printed document. Its creation time orders Runs just as in production.
+      if (name === "run.json") {
+        await writeFile(
+          join(target, name),
+          JSON.stringify({
+            ...shift(JSON.parse(text), offset),
+            runId: `${source.name}-r${String(copy).padStart(4, "0")}`
+          })
+        );
+        continue;
+      }
       const lines = text.split("\n").map((line) => {
         if (!line.trim()) return line;
         try {

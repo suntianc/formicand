@@ -80,8 +80,9 @@ export class RuntimeLogPositions {
 }
 
 /** Every event of a runtime log in position order, and the position after it. */
-export function runtimeLogEvents(text: string): { events: PositionedEvent[]; next: number } {
+export function runtimeLogEvents(text: string, firstIndex = 0): { events: PositionedEvent[]; next: number } {
   const positions = new RuntimeLogPositions();
+  positions.next = firstIndex;
   const events = text.split(/\r?\n/).flatMap((line) => positions.read(line));
   if (events.some((entry, index) => index > 0 && entry.index < events[index - 1].index))
     events.sort((a, b) => a.index - b.index);

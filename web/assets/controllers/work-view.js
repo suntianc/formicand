@@ -41,7 +41,7 @@ export function createWorkView({
     syncIdleComposer();
   }
 
-  function renderAll() {
+  function renderAll(options) {
     computerUse.syncTask();
     void trustPrompt.check();
     const detail = state.detail || {};
@@ -49,7 +49,7 @@ export function createWorkView({
     paintTopbarContext();
     updateSendButton();
     renderRunControl();
-    renderConversation(detail.messages || [], task);
+    renderConversation(detail.messages || [], task, options);
     humanQuestions.update(detail);
     renderRightPanel();
     markRendered(detail);

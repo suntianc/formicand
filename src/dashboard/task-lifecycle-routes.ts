@@ -93,7 +93,42 @@ export async function handleTaskLifecycleRequest(
   const taskId = decodeURIComponent(match[1]);
   if (request.method === "GET") {
     response.setHeader("cache-control", "no-store");
-    sendJson(response, 200, await taskDetails(taskId));
+    const header = request.headers["x-atria-history"];
+    if (header === undefined) {
+      sendJson(response, 200, await taskDetails(taskId));
+      return;
+    }
+    const match =
+      typeof header === "string" &&
+      /^(\d{1,9})(?:;(\d{1,9});([0-9a-f]{64}|-);(\d{1,9});(\d{1,9});([0-9a-f]{64});(\d{1,16});([a-zA-Z0-9._-]{1,256}))?$/.exec(
+        header
+      );
+    if (!match || Number(match[1]) < 1) {
+      sendJson(response, 400, { error: "Invalid conversation history window" });
+      return;
+    }
+    sendJson(
+      response,
+      200,
+      await taskDetails(taskId, {
+        limit: Number(match[1]),
+        metadataRevision:
+          typeof request.headers["x-atria-detail-revision"] === "string"
+            ? request.headers["x-atria-detail-revision"]
+            : undefined,
+        ...(match[2]
+          ? {
+              previousLimit: Number(match[2]),
+              stamp: match[3],
+              messageCount: Number(match[4]),
+              eventCount: Number(match[5]),
+              digest: match[6],
+              oldestTime: Number(match[7]),
+              oldestRun: match[8]
+            }
+          : {})
+      })
+    );
     return;
   }
   if (request.method === "DELETE") {

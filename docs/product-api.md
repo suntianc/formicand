@@ -72,6 +72,8 @@ Folder changes apply to every associated conversation. Active Main/subagents, wa
 
 `GET /api/tasks` and `GET /api/tasks/:taskId` send `Cache-Control: no-store` so the browser does not retain task catalog or detail responses in its HTTP cache.
 
+A plain task detail request returns the full conversation. The Web client sends `x-atria-history: 12` to open the most recent 12 user turns. To refresh or request more turns, it sends `limit;previousLimit;stamp;messageCount;eventCount;digest;oldestTime;oldestRun` using the previous `historyPage` fields, with `-` for an absent stamp or Run and `0` for an absent time. The page reports `hasMore`. The client applies `replace`, `prepend` or `append` to messages and runtime events and takes the supplied lifecycle events and context windows. An idle `unchanged` reply reuses all four collections. A client may also send `x-atria-detail-revision` from the previous `metadataPatch.revision`. A patch naming a `base` carries updated fields and the names of removed fields. A patch without a base supplies the complete current metadata. Switching tasks or reconnecting to another backend starts a fresh window.
+
 A task catalog entry with `catalogOnlyVersion` equal to its `version` identifies a revision that only changed the title, pin or archive state. A client holding the immediately preceding revision of the same task and Run can merge those fields. Revision gaps, Run changes and reconnect snapshots require a detail refresh.
 
 A conversation without a project is omitted from `GET /api/tasks`, while its persisted files remain intact. Explicitly created projects remain visible when empty.

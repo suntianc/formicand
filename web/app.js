@@ -1,3 +1,4 @@
+import { bindConversationScrollback, historyScrollAnchor } from "./assets/controllers/conversation-pages.js";
 import { ui, localizeShell } from "./assets/ui/language.js";
 import { installLanguageSettings } from "./assets/controllers/language-settings.js";
 import { createMessageEditController } from "./assets/controllers/message-edit.js";
@@ -607,8 +608,8 @@ function selectConversation(taskId) {
 function renderConversationList() {
   workView.renderConversationList();
 }
-function renderAll() {
-  workView.renderAll();
+function renderAll(options) {
+  workView.renderAll(options);
 }
 function renderEmpty() {
   workView.renderEmpty();
@@ -642,10 +643,14 @@ const workView = createWorkView({
   renderArtifactDrawer,
   updateSendButton,
   renderRunControl: () => runControl.render(),
-  markRendered: (detail) => catalog.markRendered(detail),
+  markRendered: (detail) => {
+    catalog.markRendered(detail);
+    updateScrollback();
+  },
   composerModel
 });
 const catalog = createSessionCatalog({
+  captureScrollAnchor: () => historyScrollAnchor($("#conversation")),
   state,
   api,
   composerSession,
@@ -673,6 +678,12 @@ const catalog = createSessionCatalog({
   updateSendButton,
   showToast
 });
+const updateScrollback = bindConversationScrollback(
+  $("#conversation"),
+  $("#earlier-conversation"),
+  state,
+  () => catalog.loadEarlier()
+);
 const delivery = createConversationDelivery({
   $,
   state,

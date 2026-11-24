@@ -7,20 +7,11 @@ import {
 } from "../runtime/main-message-edit.js";
 import { basename, join } from "node:path";
 import { mainContextUsagePath, type SessionContextUsage } from "../runtime/session-context-usage.js";
-import { conversationWindows } from "../runtime/session-handoff.js";
-import {
-  messagesWithRuntimeHistory,
-  readRunRuntimeEvents,
-  readTaskRuntimeEvents,
-  readTaskTimingEvents,
-  settledRuntimeEvents,
-  viewConversationMessage,
-  viewRuntimeEvent,
-  withPendingMainInput
-} from "../runtime/conversation-history.js";
-import { mainInputPath, readMainInput } from "../runtime/main-continuation.js";
+import { readRunRuntimeEvents, readTaskRuntimeEvents } from "../runtime/conversation-history.js";
+import { DetailMetadataRevisions } from "./detail-metadata-revisions.js";
+import { readConversationWindow } from "./task-conversation-history.js";
+import type { HistoryWindow } from "../runtime/conversation-page.js";
 import { extractToolCallDetail } from "../runtime/tool-event-summary.js";
-import { conversationMessages } from "../runtime/conversation-view.js";
 import { MainRequestStore, mainRequestPath } from "../storage/main-request-store.js";
 import { CoordinatorRuntime } from "../runtime/coordinator-runtime.js";
 import { listJobs } from "../tools/jobs.js";
@@ -64,6 +55,7 @@ export function createTaskConversationService({
 }) {
   const { locateTask, taskListItem } = workspaces;
   const { pendingHumanAnswers } = runs;
+  const metadataChanges = new DetailMetadataRevisions();
 
   /**
    * A new conversation beside the source, in the same project (or temporary
@@ -99,7 +91,7 @@ export function createTaskConversationService({
     return taskListItem(await locateTask(input.taskId));
   }
 
-  async function taskDetails(taskId: string): Promise<unknown> {
+  async function taskDetails(taskId: string, window?: HistoryWindow): Promise<unknown> {
     // A run may settle while the slower history reads are in progress. Keep
     // that snapshot active instead of pairing stale task data with an idle run.
     // A resident Main is alive while it is idle; "active" is about a turn.
@@ -113,54 +105,24 @@ export function createTaskConversationService({
     const { waitedMs: _waited, ...coordination } = runId
       ? await coordinator.waitForSubagents({ taskId, runId, workspaceRoot: taskWorkspace, timeoutMs: 0 })
       : { calls: [], pending: [], callbackPending: [], timedOut: false, waitedMs: 0 };
-    const [currentRunEvents, timingEvents] = await Promise.all([
-      runId ? readJsonLines(join(taskWorkspace, taskId, "runs", runId, "run_events.jsonl"), 30) : [],
-      readTaskTimingEvents(taskWorkspace, taskId)
-    ]);
-    const recentById = new Map<string, Record<string, unknown>>();
-    for (const item of currentRunEvents) {
-      if (typeof item.eventId === "string") recentById.set(item.eventId, item);
-    }
-    const seenIds = new Set<string>();
-    const events: Array<Record<string, unknown>> = [];
-    for (const item of timingEvents) {
-      const id = typeof item.eventId === "string" ? item.eventId : undefined;
-      if (id) {
-        if (seenIds.has(id)) continue;
-        seenIds.add(id);
-        events.push(recentById.get(id) ?? item);
-      } else {
-        events.push(item);
-      }
-    }
-    for (const item of currentRunEvents) {
-      const id = typeof item.eventId === "string" ? item.eventId : undefined;
-      if (id && seenIds.has(id)) continue;
-      events.push(item);
-    }
     const messageVersions = await readMessageVersions(taskWorkspace, taskId);
     const contextUsage = await readJsonFile<SessionContextUsage | null>(
       mainContextUsagePath(taskWorkspace, taskId),
       null
     );
-    const runtimeEvents = versionRuntimeEvents(
-      await readTaskRuntimeEvents(taskWorkspace, taskId),
-      messageVersions
+    const currentRunEvents = runId
+      ? await readJsonLines(join(taskWorkspace, taskId, "runs", runId, "run_events.jsonl"), 30)
+      : [];
+    const history = await readConversationWindow(
+      taskWorkspace,
+      taskId,
+      task,
+      messageVersions,
+      activeAtStart,
+      currentRunEvents,
+      window
     );
     const artifacts = await listTaskArtifacts({ workspaceRoot: taskWorkspace, taskId, runId });
-    const sessionEntries = await readJsonFile(
-      join(taskWorkspace, taskId, "agents", "main", "context", "messages.json"),
-      []
-    );
-    const pendingInput =
-      runId && !messageVersions?.excludedRuns.includes(runId)
-        ? // eslint-disable-next-line no-restricted-syntax -- 主输入记录可能尚未创建或已损坏，缺失时只按会话历史展示
-          await readMainInput(mainInputPath(taskWorkspace, taskId, runId)).catch(() => undefined)
-        : undefined;
-    const messages = withPendingMainInput(
-      messagesWithRuntimeHistory(conversationMessages(sessionEntries), runtimeEvents),
-      pendingInput
-    );
     const progress = runId
       ? await readSubagentProgress({
           taskId,
@@ -193,8 +155,8 @@ export function createTaskConversationService({
       retry && retry.taskId === taskId && retry.runId === runId && retry.state !== "completed"
         ? { requestId: retry.requestId, model: retry.model.id }
         : undefined;
-    const lastFailure = [...events].reverse().find((event) => event.type === "main.run_failed")?.payload as
-      { failure?: { kind?: string } } | undefined;
+    const lastFailure = [...currentRunEvents].reverse().find((event) => event.type === "main.run_failed")
+      ?.payload as { failure?: { kind?: string } } | undefined;
     const retryRequestUnavailable =
       !active &&
       ["failed", "waiting"].includes(task.status) &&
@@ -218,7 +180,7 @@ export function createTaskConversationService({
     } catch {
       editableMessageError = "原消息或附件记录无法校验，历史已保留，请重新添加有效附件并主动发送新消息。";
     }
-    return {
+    const metadata = {
       task: await taskListItem(location),
       workspaceRoot: location.projectDirectory,
       storageRoot: taskWorkspace,
@@ -226,11 +188,7 @@ export function createTaskConversationService({
       projectName: location.projectName,
       projectDirectory: location.projectDirectory,
       coordination,
-      events,
-      runtimeEvents: settledRuntimeEvents(runtimeEvents).map(viewRuntimeEvent),
       artifacts,
-      messages: messages.map(viewConversationMessage),
-      contextWindows: conversationWindows(sessionEntries),
       editableMessage,
       ...(editableMessageError ? { editableMessageError } : {}),
       conversationVersions: messageVersionSummaries(messageVersions),
@@ -267,6 +225,10 @@ export function createTaskConversationService({
             ? task.model || runtimeValue()
             : idleMainModel(task.projectDirectory)
       }
+    };
+    return {
+      ...(window ? metadataChanges.diff(taskId, metadata, window.metadataRevision) : metadata),
+      ...history
     };
   }
 

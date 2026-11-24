@@ -48,6 +48,8 @@ export function createMessageEditController({
     );
   }
   function sync() {
+    const editButton = root?.querySelector("[data-edit-message]");
+    if (editButton) editButton.disabled = isBusy() || editBlocked(getState().detail);
     const editor = root?.querySelector("[data-inline-message-edit]");
     if (!editor || editor.dataset.inlineMessageEdit !== composerSession.editing?.editId) return;
     const draft = composerSession.editSnapshot();
@@ -108,7 +110,7 @@ export function createMessageEditController({
     bind(container, taskId) {
       root = container;
       const editor = root.querySelector("[data-inline-message-edit]");
-      if (!editor) return;
+      if (!editor) return sync();
       const editId = editor.dataset.inlineMessageEdit;
       const newEditor = !bindings.has(editor);
       // Reconciliation can retain a textarea or button for a later edit. Keep

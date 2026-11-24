@@ -1,3 +1,4 @@
+import { latestSavedUser } from "./conversation-pages.js";
 import { ui } from "../ui/language.js";
 import { composePrompt } from "../attachments.js";
 import { requestErrorMessage } from "../request-error.js";
@@ -258,7 +259,16 @@ export function createConversationDelivery({
     if (submission) submission.launching = true;
     let optimisticMessage;
     if (state.selected === taskId && prompt) {
-      optimisticMessage = { role: "user", content: prompt, taskId, savedUsers };
+      optimisticMessage = {
+        role: "user",
+        content: prompt,
+        taskId,
+        savedUsers,
+        savedUserTail:
+          state.detail?.historyPage && savedUsers >= state.detail.historyPage.limit
+            ? latestSavedUser(state.detail.messages)
+            : undefined
+      };
       state.localMessages = [...state.localMessages, optimisticMessage];
       state.submittingTaskId = taskId;
       renderAll();

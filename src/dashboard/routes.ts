@@ -150,7 +150,10 @@ export interface DashboardRoutePorts {
   queueInterjection: RunService["queueInterjection"];
   interjectionTarget: RunService["interjectionTarget"];
   resumeHumanAnswers: RunService["resumeHumanAnswers"];
-  taskDetails(taskId: string): Promise<unknown>;
+  taskDetails(
+    taskId: string,
+    window?: import("../runtime/conversation-page.js").HistoryWindow
+  ): Promise<unknown>;
   toolCallDetail(taskId: string, input: { callId: string; runId?: string }): Promise<unknown>;
   appendRunEvent: RunServicePorts["appendRunEvent"];
 }

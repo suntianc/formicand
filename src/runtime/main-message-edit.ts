@@ -361,7 +361,7 @@ export async function latestEditableMessage(root: string, taskId: string, runId?
   if (!runId) return;
   const { versions, session } = await currentMainSession(root, taskId);
   if (!session) return;
-  const allEvents = await readTaskRuntimeEvents(root, taskId);
+  const allEvents = await readTaskRuntimeEvents(root, taskId, undefined, true);
   const events = versionRuntimeEvents(allEvents, versions);
   const runIds = [...new Set(events.map((event) => String(event.runId)))];
   if (!runIds.includes(runId)) runIds.push(runId);

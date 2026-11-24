@@ -50,6 +50,7 @@ export default {
   "推理强度：": "Reasoning effort: ",
   "找不到链接中的会话，可能已被移除": "This conversation could not be found. It may have been removed.",
   "连接中断 · 正在重连": "Disconnected · Reconnecting",
+  加载较早消息: "Load earlier messages",
   "Task 加载失败：": "Could not load task: ",
   等待你的回复: "Waiting for your reply",
   位智能体工作中: " agents working",

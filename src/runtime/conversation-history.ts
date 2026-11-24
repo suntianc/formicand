@@ -1,3 +1,4 @@
+import { runtimeLogWindow, type LogWindow } from "./runtime-log-window.js";
 import { readFile, readdir, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { liveRuntimeOutput, runtimeLogEvents, type PositionedEvent } from "./runtime-output.js";
@@ -55,11 +56,15 @@ function cacheLog(path: string, entry: ParsedLog) {
  * An ended run's log no longer changes, and a running one changes only at its
  * end; a log read before and unchanged since is not parsed again.
  */
-async function readRuntimeLog(path: string): Promise<PositionedEvent[]> {
+async function readRuntimeLog(path: string, window?: LogWindow): Promise<PositionedEvent[]> {
   let parsed: ParsedLog | undefined;
   try {
     const info = await stat(path);
-    const key = `${info.ino}:${info.size}:${info.mtimeMs}`;
+    const key = `${info.ino}:${info.size}:${info.mtimeMs}:${info.ctimeMs}`;
+    if (window) {
+      const tail = await runtimeLogWindow(path, key, info.size, window);
+      if (tail) return [...tail.events, ...(liveRuntimeOutput(path)?.openDeltas(tail.next) ?? [])];
+    }
     parsed = parsedLogs.get(path);
     if (parsed?.key !== key) {
       parsed = { key, bytes: info.size, ...runtimeLogEvents(await readFile(path, "utf8")) };
@@ -88,58 +93,69 @@ export async function readRunRuntimeEvents(
   return events.map(({ index, event }) => runtimeEventRecord(taskId, runId, index, event));
 }
 
-/** A conversation outlives its active run. Replay every run in creation order,
- * using the same identities as SSE, including repeated token deltas. */
-export async function readTaskRuntimeEvents(
-  workspaceRoot: string,
-  taskId: string
-): Promise<Array<Record<string, unknown>>> {
-  const directory = join(workspaceRoot, taskId, "runs");
-  let entries;
+export async function conversationRunIds(directory: string): Promise<string[]> {
   try {
-    entries = await readdir(directory, { withFileTypes: true });
+    return (await readdir(directory, { withFileTypes: true }))
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name);
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
     throw error;
   }
+}
+
+/** A conversation outlives its active run. Replay every run in creation order,
+ * using the same identities as SSE, including repeated token deltas. */
+export async function readTaskRuntimeEvents(
+  workspaceRoot: string,
+  taskId: string,
+  selectedRuns?: readonly string[],
+  inputsOnly = false,
+  window?: LogWindow
+): Promise<Array<Record<string, unknown>>> {
+  const directory = join(workspaceRoot, taskId, "runs");
+  const runIds = selectedRuns ?? (await conversationRunIds(directory));
   const runs = await Promise.all(
-    entries
-      .filter((entry) => entry.isDirectory())
-      .map(async (entry) => {
-        const path = join(directory, entry.name);
-        const [metadata, output, ledger] = await Promise.all([
-          // eslint-disable-next-line no-restricted-syntax -- 早期 Run 从未写过 run.json，缺失时按空元数据继续，createdAt 留空并由 runId 兜底排序
-          readFile(join(path, "run.json"), "utf8").catch(() => "{}"),
-          readRuntimeLog(join(path, "runtime-output.log")),
-          // eslint-disable-next-line no-restricted-syntax -- 同上，run_events.jsonl 可能尚未创建，缺失只表示该 Run 没有账本事件
-          readFile(join(path, "run_events.jsonl"), "utf8").catch(() => "")
-        ]);
-        let createdAt = "";
+    runIds.map(async (runId) => {
+      const path = join(directory, runId);
+      const [metadata, ledger] = await Promise.all([
+        // eslint-disable-next-line no-restricted-syntax -- 早期 Run 从未写过 run.json，缺失时按空元数据继续，createdAt 留空并由 runId 兜底排序
+        readFile(join(path, "run.json"), "utf8").catch(() => "{}"),
+        // eslint-disable-next-line no-restricted-syntax -- 同上，run_events.jsonl 可能尚未创建，缺失只表示该 Run 没有账本事件
+        readFile(join(path, "run_events.jsonl"), "utf8").catch(() => "")
+      ]);
+      let createdAt = "";
+      try {
+        createdAt = JSON.parse(metadata).createdAt || "";
+        // eslint-disable-next-line no-restricted-syntax -- 更早版本的 run.json 没有 createdAt，解析失败只影响排序键，必须继续回放该 Run 的事件
+      } catch {
+        /* older runs may lack metadata */
+      }
+      const ledgerEvents = ledger.split(/\r?\n/).flatMap((line) => {
         try {
-          createdAt = JSON.parse(metadata).createdAt || "";
-          // eslint-disable-next-line no-restricted-syntax -- 更早版本的 run.json 没有 createdAt，解析失败只影响排序键，必须继续回放该 Run 的事件
+          const value = JSON.parse(line);
+          return [
+            "user.interjected",
+            "user.message_promoted",
+            "user.message_cancelled",
+            "inbox.consumed"
+          ].includes(value.type) ||
+            /^main\.run_(completed|failed|waiting|cancelled|stopped)$/.test(value.type)
+            ? [value]
+            : [];
+          // eslint-disable-next-line no-restricted-syntax -- 账本是追加写的，末行可能不完整；单行解析失败不能让整个会话历史丢失
         } catch {
-          /* older runs may lack metadata */
+          return [];
         }
-        const ledgerEvents = ledger.split(/\r?\n/).flatMap((line) => {
-          try {
-            const value = JSON.parse(line);
-            return [
-              "user.interjected",
-              "user.message_promoted",
-              "user.message_cancelled",
-              "inbox.consumed"
-            ].includes(value.type) ||
-              /^main\.run_(completed|failed|waiting|cancelled|stopped)$/.test(value.type)
-              ? [value]
-              : [];
-            // eslint-disable-next-line no-restricted-syntax -- 账本是追加写的，末行可能不完整；单行解析失败不能让整个会话历史丢失
-          } catch {
-            return [];
-          }
-        });
-        return { runId: entry.name, createdAt, events: output, ledgerEvents };
-      })
+      });
+      // Edit discovery uses runtime records only to establish membership of a Run.
+      // Any saved ledger entry already establishes that same membership.
+      const output =
+        inputsOnly && ledgerEvents.length
+          ? []
+          : await readRuntimeLog(join(path, "runtime-output.log"), window);
+      return { runId, createdAt, events: output, ledgerEvents };
+    })
   );
   runs.sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.runId.localeCompare(b.runId));
   return runs.flatMap((run) => {
@@ -187,56 +203,49 @@ const TIMING_BOUNDARY_TYPES = new Set([
  */
 export async function readTaskTimingEvents(
   workspaceRoot: string,
-  taskId: string
+  taskId: string,
+  selectedRuns?: readonly string[]
 ): Promise<Array<Record<string, unknown>>> {
   const directory = join(workspaceRoot, taskId, "runs");
-  let entries;
-  try {
-    entries = await readdir(directory, { withFileTypes: true });
-    // eslint-disable-next-line no-restricted-syntax -- 新建任务还没有 runs 目录，缺目录表示尚未产生任何 Run 边界
-  } catch {
-    return [];
-  }
+  const ids = selectedRuns ?? (await conversationRunIds(directory));
   const perRun = await Promise.all(
-    entries
-      .filter((entry) => entry.isDirectory())
-      .map(async (entry) => {
-        const runPath = join(directory, entry.name);
-        const [metadata, ledger] = await Promise.all([
-          // eslint-disable-next-line no-restricted-syntax -- 早期 Run 可能缺少 run.json，回退到 runId 排序
-          readFile(join(runPath, "run.json"), "utf8").catch(() => "{}"),
-          // eslint-disable-next-line no-restricted-syntax -- 新建 Run 可能尚未落盘 run_events.jsonl
-          readFile(join(runPath, "run_events.jsonl"), "utf8").catch(() => "")
-        ]);
-        let createdAt = "";
+    ids.map(async (runId) => {
+      const runPath = join(directory, runId);
+      const [metadata, ledger] = await Promise.all([
+        // eslint-disable-next-line no-restricted-syntax -- 早期 Run 可能缺少 run.json，回退到 runId 排序
+        readFile(join(runPath, "run.json"), "utf8").catch(() => "{}"),
+        // eslint-disable-next-line no-restricted-syntax -- 新建 Run 可能尚未落盘 run_events.jsonl
+        readFile(join(runPath, "run_events.jsonl"), "utf8").catch(() => "")
+      ]);
+      let createdAt = "";
+      try {
+        createdAt = JSON.parse(metadata).createdAt || "";
+        // eslint-disable-next-line no-restricted-syntax -- 元数据解析失败只影响排序，不影响读取边界事件
+      } catch {
+        /* older runs may lack metadata */
+      }
+      const events = ledger.split(/\r?\n/).flatMap((line) => {
+        if (!line.trim()) return [];
         try {
-          createdAt = JSON.parse(metadata).createdAt || "";
-          // eslint-disable-next-line no-restricted-syntax -- 元数据解析失败只影响排序，不影响读取边界事件
+          const value = JSON.parse(line) as Record<string, unknown>;
+          if (typeof value.type !== "string" || !TIMING_BOUNDARY_TYPES.has(value.type)) return [];
+          const payload = value.payload as { queuedWhilePaused?: unknown } | undefined;
+          return [
+            {
+              ...(typeof value.eventId === "string" ? { eventId: value.eventId } : {}),
+              runId: typeof value.runId === "string" ? value.runId : runId,
+              type: value.type,
+              occurredAt: value.occurredAt,
+              ...(payload?.queuedWhilePaused ? { payload: { queuedWhilePaused: true } } : {})
+            }
+          ];
+          // eslint-disable-next-line no-restricted-syntax -- 追加写日志末行可能不完整，跳过损坏行继续读取其余边界
         } catch {
-          /* older runs may lack metadata */
+          return [];
         }
-        const events = ledger.split(/\r?\n/).flatMap((line) => {
-          if (!line.trim()) return [];
-          try {
-            const value = JSON.parse(line) as Record<string, unknown>;
-            if (typeof value.type !== "string" || !TIMING_BOUNDARY_TYPES.has(value.type)) return [];
-            const payload = value.payload as { queuedWhilePaused?: unknown } | undefined;
-            return [
-              {
-                ...(typeof value.eventId === "string" ? { eventId: value.eventId } : {}),
-                runId: typeof value.runId === "string" ? value.runId : entry.name,
-                type: value.type,
-                occurredAt: value.occurredAt,
-                ...(payload?.queuedWhilePaused ? { payload: { queuedWhilePaused: true } } : {})
-              }
-            ];
-            // eslint-disable-next-line no-restricted-syntax -- 追加写日志末行可能不完整，跳过损坏行继续读取其余边界
-          } catch {
-            return [];
-          }
-        });
-        return { runId: entry.name, createdAt, events };
-      })
+      });
+      return { runId: runId, createdAt, events };
+    })
   );
   perRun.sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.runId.localeCompare(b.runId));
   return perRun.flatMap((run) => run.events);

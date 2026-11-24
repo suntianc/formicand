@@ -1,3 +1,4 @@
+import { createConversationPages, latestSavedUser } from "./conversation-pages.js";
 import { ui } from "../ui/language.js";
 import { applyMainParkEvent, mergeRuntimeEvents, streamRecordKey } from "../conversation.js";
 import { createCoalescedRead } from "./coalesced-read.js";
@@ -30,12 +31,15 @@ export function createSessionCatalog({
   onCatalogChanged,
   composerHasUnsentContent,
   renderConversationList,
+  captureScrollAnchor,
   paintTopbarContext,
   renderAll,
   renderEmpty,
   updateSendButton,
   showToast
 }) {
+  const pages = createConversationPages();
+  let expandingTask;
   let detailRequestSequence = 0;
   let listRequestSequence = 0;
   let latestListRead;
@@ -229,6 +233,8 @@ export function createSessionCatalog({
 
   /** Drop everything that belonged to the backend being left. */
   function resetBackendView() {
+    pages.reset();
+    expandingTask = undefined;
     resetBackendFiles();
     connection.close();
     boundBackendId = null;
@@ -321,6 +327,8 @@ export function createSessionCatalog({
   // on every poll cost more than drawing it.
   function detailViewSignature(detail) {
     const {
+      historyPage,
+      events,
       statistics: allStatistics,
       messages = [],
       runtimeEvents = [],
@@ -330,6 +338,8 @@ export function createSessionCatalog({
     const { elapsedMs: _elapsed, observedAt: _observed, ...statistics } = allStatistics || {};
     return JSON.stringify({
       ...rest,
+      history: historyPage && [historyPage.digest, historyPage.hasMore],
+      events: historyPage?.stamp || events,
       statistics,
       messages: [messages.length, messages.slice(-2)],
       contextWindows: contextWindows.map((window) => window.id),
@@ -341,6 +351,8 @@ export function createSessionCatalog({
     if (state.selected === taskId) {
       composerSession.activate(taskId);
       if (state.detail?.task?.taskId !== taskId) {
+        pages.reset();
+        expandingTask = undefined;
         const task = state.tasks.find((item) => item.taskId === taskId) || { taskId };
         projectController.selectTask(task);
         // A placeholder until the read returns: the pane stays blank rather than
@@ -357,8 +369,17 @@ export function createSessionCatalog({
     if (state.selected !== taskId) return;
     const requestSequence = ++detailRequestSequence;
     try {
-      const detail = await api(`/api/tasks/${encodeURIComponent(taskId)}`);
+      const expanding = expandingTask === taskId;
+      const response = await api(`/api/tasks/${encodeURIComponent(taskId)}`, {
+        headers: pages.headers(taskId, poll || expanding)
+      });
+
       if (!isCurrent() || state.selected !== taskId || requestSequence !== detailRequestSequence) return;
+      const previousCount = pages.savedCount;
+      const paged = !!response.historyPage;
+      const unchanged = response.historyPage?.mode === "unchanged";
+      const restore = expanding && captureScrollAnchor();
+      const detail = pages.adopt(taskId, response);
       if (state.viewerTaskId !== taskId) {
         state.viewerTaskId = taskId;
         state.openFiles = [];
@@ -370,14 +391,30 @@ export function createSessionCatalog({
         state.artifactDrawerOpen = false;
         resetRequirements(taskId);
       }
+      if (paged && !unchanged && state.detail?.task?.taskId !== taskId)
+        detail.runtimeEvents = detail.runtimeEvents.slice();
       if (state.detail?.task?.taskId === taskId) {
-        if (state.detail.conversationVersion === detail.conversationVersion) {
+        if (unchanged) {
+          detail.runtimeEvents = state.detail.runtimeEvents;
+        } else if (state.detail.conversationVersion === detail.conversationVersion) {
           const savedCount = detail.runtimeEvents?.length || 0;
-          detail.runtimeEvents = mergeRuntimeEvents(detail.runtimeEvents, state.detail.runtimeEvents);
+          // A new snapshot can lag the live stream. Replay the previously visible
+          // records unless the requested window moved forward past its oldest turn.
+          const droppedHistory =
+            paged &&
+            detail.historyPage.hasMore &&
+            detail.historyPage.oldestTime > state.detail.historyPage?.oldestTime;
+          detail.runtimeEvents = mergeRuntimeEvents(
+            detail.runtimeEvents,
+            droppedHistory ? state.detail.runtimeEvents?.slice(previousCount) : state.detail.runtimeEvents
+          );
           for (const record of detail.runtimeEvents.slice(savedCount)) applyMainParkEvent(detail, record);
-        } else connection.close();
+        } else {
+          connection.close();
+          if (paged) detail.runtimeEvents = detail.runtimeEvents.slice();
+        }
       }
-      connection.remember(taskId, detail.runtimeEvents);
+      if (!unchanged) connection.remember(taskId, detail.runtimeEvents);
       state.detail = detail;
       if (state.selected === taskId) composerModel.showTaskChoices(taskId, detail.task, detail);
       state.workspacePath = detail.storageRoot || detail.task?.storageRoot || state.workspaceRoot || null;
@@ -389,14 +426,17 @@ export function createSessionCatalog({
           message.taskId === taskId &&
           (message.interjected
             ? !(detail.messages || []).some((saved) => saved.id === message.id)
-            : savedUsers <= message.savedUsers)
+            : message.savedUserTail !== undefined
+              ? latestSavedUser(detail.messages) === message.savedUserTail
+              : savedUsers <= message.savedUsers)
       );
       if (
         !poll ||
         state.localMessages.length !== localCount ||
         detailViewSignature(detail) !== renderedDetailSignature
       )
-        renderAll();
+        renderAll(expanding ? { historyPrepend: true } : undefined);
+      if (restore) restore();
     } catch (error) {
       if (isCurrent() && state.selected === taskId && requestSequence === detailRequestSequence)
         showToast(ui`Task 加载失败：${error.message}`);
@@ -405,6 +445,17 @@ export function createSessionCatalog({
 
   return {
     refresh,
+    async loadEarlier() {
+      const taskId = state.selected;
+      if (!taskId || !state.detail?.historyPage?.hasMore || expandingTask === taskId) return;
+      pages.expand();
+      expandingTask = taskId;
+      try {
+        await loadDetail(taskId);
+      } finally {
+        if (expandingTask === taskId) expandingTask = undefined;
+      }
+    },
     loadDetail,
     adoptBackendIdentity,
     resetBackendView,

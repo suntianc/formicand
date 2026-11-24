@@ -875,3 +875,10 @@ test("withPendingMainInput projects an accepted edit before Pi saves it and dedu
   // Human resume records are never projected as new user messages.
   assert.equal(withPendingMainInput(prefix, { ...pending, source: "human" }).length, 2);
 });
+
+test("an accepted input keeps its exchange key when the delivered timestamp arrives", () => {
+  const input = { role: "user", id: "accepted", content: "follow up", timestamp: 1000 };
+  const [submitted] = buildConversationExchanges([input], []);
+  const [delivered] = buildConversationExchanges([{ ...input, timestamp: 1040 }], []);
+  assert.equal(delivered.key, submitted.key);
+});

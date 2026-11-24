@@ -904,3 +904,10 @@ html[data-theme] .message-uploads .upload-card.is-image > span {
   overflow: hidden;
   clip-path: inset(50%);
 }
+
+.conversation-earlier {
+  position: absolute;
+  top: 4px;
+  align-self: center;
+  z-index: 2;
+}

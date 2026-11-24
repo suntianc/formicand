@@ -181,7 +181,7 @@ export function applyTrustedClientCors(response: ServerResponse, origin: string)
   // the only extra header a browser may send.
   response.setHeader(
     "access-control-allow-headers",
-    "accept, authorization, content-type, x-atria-token, x-cowork-read-only"
+    "accept, authorization, content-type, x-atria-token, x-cowork-read-only, x-atria-history, x-atria-detail-revision"
   );
   response.setHeader("access-control-expose-headers", "x-cowork-replayed");
   response.setHeader("access-control-max-age", "600");
