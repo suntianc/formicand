@@ -167167,81 +167167,38 @@
                           "id": "M3QkKF",
                           "name": "Card",
                           "width": "fill_container",
-                          "height": 150,
+                          "height": 64,
                           "fill": "$v2-secondary",
                           "cornerRadius": 14,
                           "stroke": "$v2-line",
                           "strokeWidth": 1,
-                          "layout": "vertical",
-                          "gap": 12,
-                          "padding": 18,
+                          "gap": 8,
+                          "padding": [
+                            0,
+                            14
+                          ],
+                          "alignItems": "center",
                           "children": [
                             {
                               "type": "frame",
-                              "id": "TdGtu",
-                              "name": "Top",
-                              "width": "fill_container",
-                              "gap": 8,
+                              "id": "Q5ONt",
+                              "name": "IconBox",
+                              "width": 32,
+                              "height": 32,
+                              "fill": "$v2-track",
+                              "cornerRadius": 9,
+                              "justifyContent": "center",
                               "alignItems": "center",
                               "children": [
                                 {
-                                  "type": "frame",
-                                  "id": "Q5ONt",
-                                  "name": "IconBox",
-                                  "width": 34,
-                                  "height": 34,
-                                  "fill": "$v2-track",
-                                  "cornerRadius": 9,
-                                  "justifyContent": "center",
-                                  "alignItems": "center",
-                                  "children": [
-                                    {
-                                      "type": "icon",
-                                      "id": "OobG0",
-                                      "name": "i-message-square",
-                                      "width": 16,
-                                      "height": 16,
-                                      "icon": "message-square",
-                                      "library": "lucide",
-                                      "fill": "$v2-text"
-                                    }
-                                  ]
-                                },
-                                {
-                                  "type": "frame",
-                                  "id": "SViAJ",
-                                  "name": "Spacer",
-                                  "width": "fill_container",
-                                  "height": 1
-                                },
-                                {
-                                  "type": "frame",
-                                  "id": "mea2W",
-                                  "name": "Dot",
-                                  "width": 6,
-                                  "height": 6,
-                                  "fill": "$v2-ok",
-                                  "cornerRadius": 3
-                                },
-                                {
-                                  "type": "text",
-                                  "id": "f2zLr",
-                                  "name": "State",
-                                  "fill": "$v2-text-2",
-                                  "content": "已连接",
-                                  "fontFamily": "Noto Sans SC",
-                                  "fontSize": 12,
-                                  "fontWeight": "normal"
-                                },
-                                {
                                   "type": "icon",
-                                  "id": "Y7aF6P",
-                                  "name": "i-ellipsis",
+                                  "id": "OobG0",
+                                  "name": "i-message-square",
                                   "width": 16,
                                   "height": 16,
-                                  "icon": "ellipsis",
+                                  "icon": "message-square",
                                   "library": "lucide",
-                                  "fill": "$v2-text-3"
+                                  "fill": "$v2-text"
                                 }
                               ]
                             },
@@ -167251,7 +167208,7 @@
                               "name": "Info",
                               "width": "fill_container",
                               "layout": "vertical",
-                              "gap": 4,
+                              "gap": 2,
                               "children": [
                                 {
                                   "type": "frame",
@@ -167283,6 +167240,35 @@
                                   "fontWeight": "normal"
                                 }
                               ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "mea2W",
+                              "name": "Dot",
+                              "width": 6,
+                              "height": 6,
+                              "fill": "$v2-ok",
+                              "cornerRadius": 3
+                            },
+                            {
+                              "type": "text",
+                              "id": "f2zLr",
+                              "name": "State",
+                              "fill": "$v2-text-2",
+                              "content": "已连接",
+                              "fontFamily": "Noto Sans SC",
+                              "fontSize": 12,
+                              "fontWeight": "normal"
+                            },
+                            {
+                              "type": "icon",
+                              "id": "Y7aF6P",
+                              "name": "i-ellipsis",
+                              "width": 16,
+                              "height": 16,
+                              "icon": "ellipsis",
+                              "library": "lucide",
+                              "fill": "$v2-text-3"
                             }
                           ]
                         },
@@ -167291,52 +167277,38 @@
                           "id": "O4yr7",
                           "name": "Card",
                           "width": "fill_container",
-                          "height": 150,
+                          "height": 64,
                           "fill": "$v2-secondary",
                           "cornerRadius": 14,
                           "stroke": "$v2-line",
                           "strokeWidth": 1,
-                          "layout": "vertical",
                           "gap": 12,
-                          "padding": 18,
+                          "padding": [
+                            0,
+                            14
+                          ],
+                          "alignItems": "center",
                           "children": [
                             {
                               "type": "frame",
-                              "id": "G0Ta7b",
-                              "name": "Top",
-                              "width": "fill_container",
-                              "gap": 8,
+                              "id": "EVmJs",
+                              "name": "IconBox",
+                              "width": 32,
+                              "height": 32,
+                              "fill": "$v2-track",
+                              "cornerRadius": 9,
+                              "justifyContent": "center",
                               "alignItems": "center",
                               "children": [
                                 {
-                                  "type": "frame",
-                                  "id": "EVmJs",
-                                  "name": "IconBox",
-                                  "width": 34,
-                                  "height": 34,
-                                  "fill": "$v2-track",
-                                  "cornerRadius": 9,
-                                  "justifyContent": "center",
-                                  "alignItems": "center",
-                                  "children": [
-                                    {
-                                      "type": "icon",
-                                      "id": "O1JpvM",
-                                      "name": "i-messages-square",
-                                      "width": 16,
-                                      "height": 16,
-                                      "icon": "messages-square",
-                                      "library": "lucide",
-                                      "fill": "$v2-text"
-                                    }
-                                  ]
-                                },
-                                {
-                                  "type": "frame",
-                                  "id": "NVEzC",
-                                  "name": "Spacer",
-                                  "width": "fill_container",
-                                  "height": 1
+                                  "type": "icon",
+                                  "id": "O1JpvM",
+                                  "name": "i-messages-square",
+                                  "width": 16,
+                                  "height": 16,
+                                  "icon": "messages-square",
+                                  "library": "lucide",
+                                  "fill": "$v2-text"
                                 }
                               ]
                             },
@@ -167346,7 +167318,7 @@
                               "name": "Info",
                               "width": "fill_container",
                               "layout": "vertical",
-                              "gap": 4,
+                              "gap": 2,
                               "children": [
                                 {
                                   "type": "frame",
@@ -167381,33 +167353,25 @@
                             },
                             {
                               "type": "frame",
-                              "id": "WciiN",
-                              "name": "Foot",
-                              "width": "fill_container",
+                              "id": "OttD4",
+                              "name": "Button 连接",
+                              "cornerRadius": 7,
+                              "stroke": "$v2-line",
+                              "strokeWidth": 1,
+                              "padding": [
+                                5,
+                                12
+                              ],
                               "children": [
                                 {
-                                  "type": "frame",
-                                  "id": "OttD4",
-                                  "name": "Button 连接",
-                                  "cornerRadius": 7,
-                                  "stroke": "$v2-line",
-                                  "strokeWidth": 1,
-                                  "padding": [
-                                    5,
-                                    12
-                                  ],
-                                  "children": [
-                                    {
-                                      "type": "text",
-                                      "id": "d5A1l",
-                                      "name": "T",
-                                      "fill": "$v2-text",
-                                      "content": "连接",
-                                      "fontFamily": "Noto Sans SC",
-                                      "fontSize": 12,
-                                      "fontWeight": "normal"
-                                    }
-                                  ]
+                                  "type": "text",
+                                  "id": "d5A1l",
+                                  "name": "T",
+                                  "fill": "$v2-text",
+                                  "content": "连接",
+                                  "fontFamily": "Noto Sans SC",
+                                  "fontSize": 12,
+                                  "fontWeight": "normal"
                                 }
                               ]
                             }
@@ -167418,52 +167382,38 @@
                           "id": "izzbw",
                           "name": "Card",
                           "width": "fill_container",
-                          "height": 150,
+                          "height": 64,
                           "fill": "$v2-secondary",
                           "cornerRadius": 14,
                           "stroke": "$v2-line",
                           "strokeWidth": 1,
-                          "layout": "vertical",
                           "gap": 12,
-                          "padding": 18,
+                          "padding": [
+                            0,
+                            14
+                          ],
+                          "alignItems": "center",
                           "children": [
                             {
                               "type": "frame",
-                              "id": "SmfB0",
-                              "name": "Top",
-                              "width": "fill_container",
-                              "gap": 8,
+                              "id": "bcfjt",
+                              "name": "IconBox",
+                              "width": 32,
+                              "height": 32,
+                              "fill": "$v2-track",
+                              "cornerRadius": 9,
+                              "justifyContent": "center",
                               "alignItems": "center",
                               "children": [
                                 {
-                                  "type": "frame",
-                                  "id": "bcfjt",
-                                  "name": "IconBox",
-                                  "width": 34,
-                                  "height": 34,
-                                  "fill": "$v2-track",
-                                  "cornerRadius": 9,
-                                  "justifyContent": "center",
-                                  "alignItems": "center",
-                                  "children": [
-                                    {
-                                      "type": "icon",
-                                      "id": "YnjL1",
-                                      "name": "i-send",
-                                      "width": 16,
-                                      "height": 16,
-                                      "icon": "send",
-                                      "library": "lucide",
-                                      "fill": "$v2-text"
-                                    }
-                                  ]
-                                },
-                                {
-                                  "type": "frame",
-                                  "id": "P3VanN",
-                                  "name": "Spacer",
-                                  "width": "fill_container",
-                                  "height": 1
+                                  "type": "icon",
+                                  "id": "YnjL1",
+                                  "name": "i-send",
+                                  "width": 16,
+                                  "height": 16,
+                                  "icon": "send",
+                                  "library": "lucide",
+                                  "fill": "$v2-text"
                                 }
                               ]
                             },
@@ -167473,7 +167423,7 @@
                               "name": "Info",
                               "width": "fill_container",
                               "layout": "vertical",
-                              "gap": 4,
+                              "gap": 2,
                               "children": [
                                 {
                                   "type": "frame",
@@ -167508,33 +167458,72 @@
                             },
                             {
                               "type": "frame",
-                              "id": "eqS4h",
-                              "name": "Foot",
-                              "width": "fill_container",
+                              "id": "D74PW",
+                              "name": "Button 连接",
+                              "cornerRadius": 7,
+                              "stroke": "$v2-line",
+                              "strokeWidth": 1,
+                              "padding": [
+                                5,
+                                12
+                              ],
                               "children": [
                                 {
-                                  "type": "frame",
-                                  "id": "D74PW",
-                                  "name": "Button 连接",
-                                  "cornerRadius": 7,
-                                  "stroke": "$v2-line",
-                                  "strokeWidth": 1,
-                                  "padding": [
-                                    5,
-                                    12
-                                  ],
-                                  "children": [
-                                    {
-                                      "type": "text",
-                                      "id": "hlhhR",
-                                      "name": "T",
-                                      "fill": "$v2-text",
-                                      "content": "连接",
-                                      "fontFamily": "Noto Sans SC",
-                                      "fontSize": 12,
-                                      "fontWeight": "normal"
-                                    }
-                                  ]
+                                  "type": "text",
+                                  "id": "hlhhR",
+                                  "name": "T",
+                                  "fill": "$v2-text",
+                                  "content": "连接",
+                                  "fontFamily": "Noto Sans SC",
+                                  "fontSize": 12,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "o2vitD",
+                          "name": "Card 添加",
+                          "width": "fill_container",
+                          "height": 64,
+                          "fill": "#00000000",
+                          "cornerRadius": 14,
+                          "stroke": "$v2-line",
+                          "strokeWidth": 1,
+                          "layout": "vertical",
+                          "gap": 12,
+                          "padding": 18,
+                          "justifyContent": "center",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "he6Yd",
+                              "name": "AddInner",
+                              "gap": 6,
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "icon",
+                                  "id": "MkUSh",
+                                  "name": "i-plus",
+                                  "width": 18,
+                                  "height": 18,
+                                  "icon": "plus",
+                                  "library": "lucide",
+                                  "fill": "$v2-text-3"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "qKA04",
+                                  "name": "T",
+                                  "fill": "$v2-text-2",
+                                  "content": "添加通道",
+                                  "fontFamily": "Noto Sans SC",
+                                  "fontSize": 13,
+                                  "fontWeight": "normal"
                                 }
                               ]
                             }
