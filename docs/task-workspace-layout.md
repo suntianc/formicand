@@ -91,6 +91,8 @@ Task 首次写入时创建布局与 `agents/main/work/`，在 Main 首次模型�
 
 新版本将历史正文和活动单独写入私有 `sessions/main/message-versions/<versionId>.json`（权限 600）；版本索引只保存历史文件名、当前对应消息、分组、预览和活动数量。缺少独立历史文件的版本索引按损坏记录拒绝并保留原文件；备份应同时包含这些历史文件。项目目录变更会复制当前选定 Pi 分支到新 CWD，再原子更新版本索引中的 session 指针，版本 ID 和旧记录不变。
 
+在 macOS APFS 上，Main 原子替换至少 1 MiB 的 `agents/main/context/messages.json` 或 `sessions/main/request-retry.json` 时，如果上一版也达到该大小且可克隆，就克隆旧文件并只写入有变化的块。首次保存、小文件及其他文件系统采用完整写入。两种路径都发布完整 JSON，恢复与降级条件相同。
+
 `sessions/main/request-retry.json` 是唯一主动写入的版本 1 私有恢复槽，保存实际序列化 body、发送 endpoint、原模型/上下文和会话 ID、Task/Run/request 身份、执行环境、写入时的 Pi 版本（`piVersion`）、body SHA-256 与整槽校验和，状态为 pending/failed/completed。它保留原始用户正文、附件像素和成功工具结果，权限为 600；认证 headers 与配置密钥不保存。重放关联使用 `retryOf`，跨进程文件锁保护保存、结算、物化及请求身份比对。活动回合内的 `completed` 结算仅写入约 180 B 的 `sessions/main/request-retry.state.json` 侧车（绑定主文件 `snapshotChecksum` 并独立校验，损坏时 fail-closed），`failed` 结算直接写回主文件；在 `askhuman` 发布 pending 提问前、回合结算、优雅退出及后端退出结算边界会调用 `materialize()` 将侧车状态写回原生 v1 主文件并清除侧车（孤立侧车一并清理）。模型已返回成功时，结算落盘重试沿用 `completed`。物化重试在侧车已删除时仍同步父目录。若需降级到不支持侧车或 6 路径事务的旧版，须在新版停止接收新写入后依次确认：在途 `edit-transaction.json` 已由新版按阶段恢复且 `edit-transaction.json.archive-pending` 已清除、`request-retry.state.json` 已清除且 `request-retry.json` 通过 v1 校验、状态与实际请求进度一致（尚未结算的请求保留合法 `pending` 及其重试能力）。版本不一致时不重放；重试写下的新快照用 `replaySkipped` 记录 `pi_version_mismatch` 与旧版本。缺少 `piVersion` 的快照按损坏记录处理。
 
 新输入清除活动槽。

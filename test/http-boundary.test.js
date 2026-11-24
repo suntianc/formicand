@@ -92,3 +92,19 @@ test("a native dashboard authenticates header clients and HttpOnly browser sessi
     else process.env.COWORK_API_TOKEN = saved;
   }
 });
+
+test("the task list and task detail exclude dynamic responses from the browser cache", async (t) => {
+  const server = await startDashboard();
+  t.after(server.stop);
+  const created = await fetch(server.base + "/api/tasks", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ taskId: "cache-policy", goal: "cache policy", projectId: server.projectId })
+  });
+  assert.equal(created.status, 201);
+  for (const path of ["/api/tasks", "/api/tasks/cache-policy"]) {
+    const response = await fetch(server.base + path);
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get("cache-control"), "no-store", path);
+  }
+});
