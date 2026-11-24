@@ -446,19 +446,106 @@ test("a sent edit shows its new text and a reply being prepared at once, and a r
     await expect(page.locator("[data-inline-message-edit]")).toHaveValue("EDITED_MESSAGE");
     await expect(page.locator("#conversation")).toContainText("ORIGINAL_ANSWER");
     refuse = false;
-    // From the click on, the replaced message never comes back, not even for a frame.
+    // From the click on, the replaced message never comes back, the edited
+    // message never vanishes, and the empty welcome screen never flashes.
     await page.evaluate(() => {
       window.__sawOriginal = false;
+      window.__sawEdited = false;
+      window.__droppedEdited = false;
+      window.__sawWelcome = false;
       const conversation = document.querySelector("#conversation");
       new MutationObserver(() => {
-        if (conversation.textContent.includes("ORIGINAL_MESSAGE")) window.__sawOriginal = true;
+        const text = conversation.textContent || "";
+        if (text.includes("ORIGINAL_MESSAGE")) window.__sawOriginal = true;
+        if (text.includes("EDITED_MESSAGE")) window.__sawEdited = true;
+        else if (window.__sawEdited) window.__droppedEdited = true;
+        if (conversation.querySelector(".welcome-empty")) window.__sawWelcome = true;
       }).observe(conversation, { childList: true, subtree: true, characterData: true });
     });
     await page.getByRole("button", { name: "发送编辑后的消息", exact: true }).click();
     await expect(page.locator("#conversation")).toContainText("EDITED_ANSWER", { timeout: 30000 });
     expect(await page.evaluate(() => window.__sawOriginal)).toBe(false);
+    expect(await page.evaluate(() => window.__sawEdited)).toBe(true);
+    expect(await page.evaluate(() => window.__droppedEdited)).toBe(false);
+    expect(await page.evaluate(() => window.__sawWelcome)).toBe(false);
     await expect(page.locator("[data-inline-message-edit]")).toHaveCount(0);
     await expect(page.locator("#conversation")).not.toContainText("ORIGINAL_MESSAGE");
+  } finally {
+    await dashboard.stop();
+    await provider.close();
+  }
+});
+
+test("editing a follow-up message keeps the earlier answer settled and never drops the edited text", async ({
+  page
+}) => {
+  const replies = ["FIRST_ANSWER", "SECOND_ANSWER", "SECOND_EDITED_ANSWER", "SECOND_REEDITED_ANSWER"];
+  const provider = await modelProtocolFixture("openai-completions", async (_body, requests) => ({
+    text: replies[requests.length - 1] || "FALLBACK_ANSWER"
+  }));
+  const dashboard = await startDashboard({ modelEndpoint: provider.baseUrl });
+  try {
+    await page.goto(dashboard.base);
+    await page.locator("#composer-input").fill("FIRST_PROMPT");
+    await page.locator("#send-button").click();
+    await expect(page.locator("#conversation")).toContainText("FIRST_ANSWER", { timeout: 30000 });
+
+    await page.locator("#composer-input").fill("SECOND_PROMPT");
+    await page.locator("#send-button").click();
+    await expect(page.locator("#conversation")).toContainText("SECOND_ANSWER", { timeout: 30000 });
+    await expect(page.getByRole("button", { name: "编辑消息" })).toBeVisible();
+
+    for (const [nextPrompt, nextAnswer, oldPrompt, oldAnswer] of [
+      ["SECOND_EDITED", "SECOND_EDITED_ANSWER", "SECOND_PROMPT", "SECOND_ANSWER"],
+      ["SECOND_REEDITED", "SECOND_REEDITED_ANSWER", "SECOND_EDITED", "SECOND_EDITED_ANSWER"]
+    ]) {
+      await page.getByRole("button", { name: "编辑消息" }).click();
+      await page.locator("[data-inline-message-edit]").fill(nextPrompt);
+      await page.evaluate(
+        ({ nextPrompt, oldPrompt, oldAnswer }) => {
+          window.__editWatch = {
+            droppedFirstAnswer: false,
+            sawNext: false,
+            droppedNext: false,
+            sawOld: false,
+            sawWelcome: false
+          };
+          const conversation = document.querySelector("#conversation");
+          window.__editObserver?.disconnect();
+          window.__editObserver = new MutationObserver(() => {
+            const text = conversation.textContent || "";
+            if (!text.includes("FIRST_ANSWER")) window.__editWatch.droppedFirstAnswer = true;
+            if (text.includes(nextPrompt)) window.__editWatch.sawNext = true;
+            else if (window.__editWatch.sawNext) window.__editWatch.droppedNext = true;
+            if (text.includes(oldPrompt) || text.includes(oldAnswer)) window.__editWatch.sawOld = true;
+            if (conversation.querySelector(".welcome-empty")) window.__editWatch.sawWelcome = true;
+          });
+          window.__editObserver.observe(conversation, {
+            childList: true,
+            subtree: true,
+            characterData: true
+          });
+        },
+        { nextPrompt, oldPrompt, oldAnswer }
+      );
+      await page.getByRole("button", { name: "发送编辑后的消息", exact: true }).click();
+      await expect(page.locator("#conversation")).toContainText(nextAnswer, { timeout: 30000 });
+      const watch = await page.evaluate(() => {
+        window.__editObserver?.disconnect();
+        return window.__editWatch;
+      });
+      expect(watch).toEqual({
+        droppedFirstAnswer: false,
+        sawNext: true,
+        droppedNext: false,
+        sawOld: false,
+        sawWelcome: false
+      });
+      await expect(page.locator("#conversation")).toContainText("FIRST_ANSWER");
+      await expect(page.locator("#conversation")).toContainText(nextPrompt);
+      await expect(page.locator("#conversation")).not.toContainText(oldPrompt);
+      await expect(page.locator("#conversation")).not.toContainText(oldAnswer);
+    }
   } finally {
     await dashboard.stop();
     await provider.close();

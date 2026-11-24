@@ -90,7 +90,7 @@ export function createMessageEditController({
     resending(taskId) {
       const target = composerSession.editing;
       if (!target || composerSession.currentKey !== taskId || !submitting.has(taskId)) return;
-      return { messageId: target.messageId, text: composerSession.editSnapshot().text };
+      return { messageId: target.messageId, runId: target.runId, text: composerSession.editSnapshot().text };
     },
     markup(taskId, messageId) {
       const target = composerSession.editing;

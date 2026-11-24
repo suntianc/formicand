@@ -2,6 +2,7 @@ import { readFile, readdir, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { liveRuntimeOutput, runtimeLogEvents, type PositionedEvent } from "./runtime-output.js";
 import { readQueuedUserTurn } from "./queued-user-turn.js";
+import type { MainInput } from "./main-continuation.js";
 import { conversationMessages, type ConversationMessage } from "./conversation-view.js";
 import { summarizeToolArgs, summarizeToolPartialResult, summarizeToolResult } from "./tool-event-summary.js";
 
@@ -343,6 +344,56 @@ export function messagesWithRuntimeHistory(
       return true;
     })
     .sort((a, b) => (a.timestamp !== undefined && b.timestamp !== undefined ? a.timestamp - b.timestamp : 0));
+}
+
+function messagePlainText(content: unknown): string {
+  if (typeof content === "string") return content;
+  if (!Array.isArray(content)) return "";
+  return content
+    .map((part) =>
+      typeof part === "string"
+        ? part
+        : part && typeof part === "object" && "text" in part
+          ? String((part as { text?: unknown }).text ?? "")
+          : ""
+    )
+    .join("");
+}
+
+/**
+ * Keep an accepted Run input visible before Pi writes its first context snapshot.
+ *
+ * Message edits branch `messages.json` to the prefix before the edited turn and
+ * let the newly spawned Pi process append the rewritten message on startup.
+ * Projecting the accepted `main-input.json` (with the exact `messageId` and
+ * `submittedAt` Pi will persist) closes that gap so the conversation never
+ * drops the edited message, hides the previous answer, or flashes empty.
+ */
+export function withPendingMainInput(
+  messages: ConversationMessage[],
+  input: MainInput | undefined
+): ConversationMessage[] {
+  if (!input || input.source === "human") return messages;
+  const text = readQueuedUserTurn(input.prompt)?.text ?? input.prompt;
+  if (!text.trim()) return messages;
+  const alreadyPresent = messages.some(
+    (message) =>
+      message.role === "user" &&
+      ((input.messageId && message.id === input.messageId) ||
+        (Number.isFinite(message.timestamp) &&
+          (message.timestamp as number) >= input.submittedAt &&
+          messagePlainText(message.content) === text))
+  );
+  if (alreadyPresent) return messages;
+  return [
+    ...messages,
+    {
+      ...(input.messageId ? { id: input.messageId } : {}),
+      role: "user",
+      content: text,
+      timestamp: input.submittedAt
+    }
+  ];
 }
 
 type Payload = Record<string, unknown> & {

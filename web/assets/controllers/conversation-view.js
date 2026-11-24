@@ -868,11 +868,44 @@ export function createConversationView({
     }
     streamFastState = undefined;
     lastRenderArgs = { messages, task };
-    // An edit being sent replaces its message and what followed it; until the
-    // backend has the new version, the preview at the end stands in for them.
+    // An edit being sent replaces its message and what followed it in place;
+    // keeping the same round structure and cutting replaced runtime events
+    // avoids shifting earlier rounds or flashing an empty pane before the
+    // backend's new version arrives.
     const resend = messageEdit?.resending?.(task.taskId);
     const resendFrom = resend ? (messages || []).findIndex((message) => message.id === resend.messageId) : -1;
-    if (resendFrom >= 0) messages = messages.slice(0, resendFrom);
+    const resendActive = resendFrom >= 0;
+    let runtimeEvents = state.detail?.runtimeEvents || [];
+    if (resendActive) {
+      messages = [
+        ...messages.slice(0, resendFrom),
+        { id: `${task.taskId}:resend`, role: "user", content: resend.text }
+      ];
+      if (resendFrom === 0) {
+        runtimeEvents = [];
+      } else {
+        let cutAt = runtimeEvents.findIndex((record) => {
+          const event = record?.type === "runtime_event" ? record.payload : record;
+          const incoming = event?.message;
+          const identity = incoming?.id ?? incoming?.details?._coworkInbox?.messageId;
+          return event?.type === "message_start" && identity === resend.messageId;
+        });
+        if (cutAt < 0 && resend.runId) {
+          const hasEditContinuation = runtimeEvents.some((record) => {
+            const event = record?.type === "runtime_event" ? record.payload : record;
+            return (
+              record?.runId === resend.runId &&
+              event?.type === "message_start" &&
+              event?.message?.customType === "atria-main-continuation"
+            );
+          });
+          if (hasEditContinuation)
+            cutAt = runtimeEvents.findIndex((record) => record?.runId === resend.runId);
+        }
+        if (cutAt >= 0) runtimeEvents = runtimeEvents.slice(0, cutAt);
+      }
+    }
+    const localMessages = resendActive ? [] : state.localMessages;
     bindVirtualScroll(scroll);
     resetToolDetails(task.taskId);
     if (virtualTaskId !== task.taskId) {
@@ -904,12 +937,12 @@ export function createConversationView({
             (message.role === "assistant" &&
               (message.stopReason !== "toolUse" || visibleText(message.content).trim())))
       ),
-      ...state.localMessages
+      ...localMessages
     ];
     const exchanges = projectExchanges(
       messages || [],
-      state.localMessages,
-      state.detail?.runtimeEvents || [],
+      localMessages,
+      runtimeEvents,
       state.detail?.conversationVersion
     );
     // While a sent user message is still local, its exchange key is positional
@@ -942,7 +975,7 @@ export function createConversationView({
       task,
       state.detail,
       exchanges[currentExchangeIndex],
-      state.submittingTaskId === task.taskId
+      state.submittingTaskId === task.taskId || resendActive
     );
     const paused = task.status === "paused" ? task.pause || {} : undefined;
     if (!all.length && !failure && !paused && !messageEdit?.editingMessageId) {
@@ -967,10 +1000,11 @@ export function createConversationView({
       return;
     }
     const wasAtEnd = atConversationEnd(scroll);
-    const editing = Boolean(messageEdit?.editingMessageId && state.selected === task.taskId);
+    const editing = Boolean(messageEdit?.editingMessageId && !resend && state.selected === task.taskId);
     const preserveScroll =
       keepScroll ||
-      (state.selected === task.taskId &&
+      (!resendActive &&
+        state.selected === task.taskId &&
         (editing || (renderedEditTask === task.taskId && !state.detail?.runtime?.active)));
     const previousScrollTop = scroll.scrollTop || 0;
     const previous =
@@ -1147,7 +1181,7 @@ export function createConversationView({
       const active =
         isCurrent &&
         !state.detail?.parked &&
-        Boolean(state.detail?.runtime?.active || state.submittingTaskId === task.taskId);
+        Boolean(state.detail?.runtime?.active || state.submittingTaskId === task.taskId || resendActive);
 
       // Single-exchange round: standard L0 -> L1 -> L2 -> L3 rendering.
       if (singleExchange) {
@@ -1366,17 +1400,10 @@ export function createConversationView({
     const restoredEditor = inlineEditorRendered
       ? ""
       : messageEdit?.markup(task.taskId, messageEdit.editingMessageId) || "";
-    const resendKey = `${task.taskId}:resend`;
-    const resendPreview =
-      resendFrom >= 0
-        ? `${renderUserBubble({ role: "user", content: resend.text }, `${resendKey}:user`)}<article class="chat-message main" data-view-key="${esc(`${resendKey}:response`)}" data-answer-kind="pending" aria-busy="true"><div class="message-copy">${renderThinkingPlaceholder(resendKey)}</div></article>`
-        : "";
     const trailingPart =
-      resendPreview +
       (restoredEditor
         ? `<article class="chat-message user is-editing" data-view-key="${esc(`${task.taskId}:restored-edit`)}"><div class="message-copy"><div class="user-message-bubble">${restoredEditor}${messageEdit.actions?.(task.taskId, messageEdit.editingMessageId) || ""}</div></div></article>`
-        : "") +
-      (failure ? renderFailure(task, failure) : "");
+        : "") + (failure ? renderFailure(task, failure) : "");
     parts.push(trailingPart);
     partSignatures.push(fingerprint(trailingPart));
     let changed = false;
@@ -1517,7 +1544,7 @@ export function createConversationView({
           const delta = (scrollAnchorNode.offsetTop ?? scrollAnchorTop) - scrollAnchorTop;
           if (delta !== 0) scroll.scrollTop = previousScrollTop + delta;
         }
-      } else if (!preserveScroll && (wasAtEnd || sent)) {
+      } else if (!preserveScroll && (wasAtEnd || sent || resendActive)) {
         scroll.scrollTop = scroll.scrollHeight;
       }
     }

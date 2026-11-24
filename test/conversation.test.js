@@ -9,7 +9,8 @@ import {
   readTaskRuntimeEvents,
   runtimeEventRecord,
   settledRuntimeEvents,
-  viewRuntimeEvent
+  viewRuntimeEvent,
+  withPendingMainInput
 } from "../dist/src/runtime/conversation-history.js";
 import { conversationMessages } from "../dist/src/runtime/conversation-view.js";
 import {
@@ -844,4 +845,33 @@ test("an edited message's relaunch and its stop belong to that message, not the 
   assert.equal(exchangeExecutionState(exchanges[0].events).stopped, undefined);
   assert.deepEqual(exchangeExecutionState(exchanges[1].events).stopped, { subagents: 0 });
   assert.equal(exchangeExecutionState(exchanges[1].events).terminal, "waiting");
+});
+
+test("withPendingMainInput projects an accepted edit before Pi saves it and deduplicates once persisted", () => {
+  const prefix = [
+    { id: "m1", role: "user", content: "same text", timestamp: 1_000 },
+    { id: "a1", role: "assistant", content: "first reply", timestamp: 2_000 }
+  ];
+  const pending = {
+    version: 1,
+    prompt: "same text",
+    submittedAt: 5_000,
+    messageId: "m2",
+    source: "composer"
+  };
+  // An earlier turn with the same text does not hide a newer accepted edit.
+  const projected = withPendingMainInput(prefix, pending);
+  assert.equal(projected.length, 3);
+  assert.deepEqual(projected[2], { id: "m2", role: "user", content: "same text", timestamp: 5_000 });
+  // Once Pi persists the message with the same id (or timestamp + text), no duplicate appears.
+  assert.equal(withPendingMainInput(projected, pending).length, 3);
+  assert.equal(
+    withPendingMainInput(
+      [...prefix, { id: "pi-entry", role: "user", content: "same text", timestamp: 5_000 }],
+      pending
+    ).length,
+    3
+  );
+  // Human resume records are never projected as new user messages.
+  assert.equal(withPendingMainInput(prefix, { ...pending, source: "human" }).length, 2);
 });

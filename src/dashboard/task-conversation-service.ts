@@ -15,8 +15,10 @@ import {
   readTaskTimingEvents,
   settledRuntimeEvents,
   viewConversationMessage,
-  viewRuntimeEvent
+  viewRuntimeEvent,
+  withPendingMainInput
 } from "../runtime/conversation-history.js";
+import { mainInputPath, readMainInput } from "../runtime/main-continuation.js";
 import { extractToolCallDetail } from "../runtime/tool-event-summary.js";
 import { conversationMessages } from "../runtime/conversation-view.js";
 import { MainRequestStore, mainRequestPath } from "../storage/main-request-store.js";
@@ -150,7 +152,15 @@ export function createTaskConversationService({
       join(taskWorkspace, taskId, "agents", "main", "context", "messages.json"),
       []
     );
-    const messages = messagesWithRuntimeHistory(conversationMessages(sessionEntries), runtimeEvents);
+    const pendingInput =
+      runId && !messageVersions?.excludedRuns.includes(runId)
+        ? // eslint-disable-next-line no-restricted-syntax -- 主输入记录可能尚未创建或已损坏，缺失时只按会话历史展示
+          await readMainInput(mainInputPath(taskWorkspace, taskId, runId)).catch(() => undefined)
+        : undefined;
+    const messages = withPendingMainInput(
+      messagesWithRuntimeHistory(conversationMessages(sessionEntries), runtimeEvents),
+      pendingInput
+    );
     const progress = runId
       ? await readSubagentProgress({
           taskId,
