@@ -24,6 +24,8 @@ const FILTERS = [
   ["disabled", "已停用"]
 ];
 const PROBLEM_STATES = new Set(["failed", "needs-auth", "invalid"]);
+/** Tools past this many fold behind one row. */
+const FOLDED_TOOLS = 4;
 
 /** A literal value is masked; a `${NAME}` reference or `!command` is shown, since it names where the value comes from. */
 const shownValue = (value) => (/^\$\{[^}]+\}$/.test(value) || value.startsWith("!") ? value : "••••••");
@@ -57,6 +59,26 @@ function stateText(server) {
   }
 }
 
+/** The line under a server's name is coloured by how urgent its state is. */
+function stateTone(server) {
+  const state = server.status.state;
+  if (state === "needs-auth") return " is-warn";
+  if (state === "failed" || state === "invalid") return " is-alert";
+  return "";
+}
+
+/** A server's mark: its name's first letter on a tint that stays the same for that name. */
+function serverMark(server, size = "") {
+  const letter = (/[\p{L}\p{N}]/u.exec(server.name)?.[0] ?? "?").toUpperCase();
+  let hash = 0;
+  for (const character of server.name) hash = (hash * 31 + character.codePointAt(0)) >>> 0;
+  return `<span class="mcp-mark${size}" data-tint="${hash % 6}" aria-hidden="true">${esc(letter)}</span>`;
+}
+
+/** An icon-only action in the server detail; its name is its label and tooltip. */
+const detailAction = (action, glyph, label, { danger = false, disabled = false } = {}) =>
+  `<button class="settings-icon-button skill-action${danger ? " is-danger" : ""}" type="button" data-mcp-action="${action}" aria-label="${esc(label)}" title="${esc(label)}"${disabled ? " disabled" : ""}>${icon(glyph)}</button>`;
+
 function dotClass(server) {
   const state = server.status.state;
   if (state === "connected") return "is-ok";
@@ -70,6 +92,7 @@ export function createMcpSettings({ panel, api, onSection, showToast = () => {} 
     query: "",
     page: 1,
     selected: "",
+    toolsOpen: false,
     loading: false,
     checking: false,
     error: "",
@@ -209,9 +232,9 @@ export function createMcpSettings({ panel, api, onSection, showToast = () => {} 
           .map(
             (
               server
-            ) => `<li><button type="button" class="skill-row" data-mcp-select="${esc(server.name)}" aria-current="${server.name === view.selected}">
-              <span class="settings-icon-box">${icon(server.kind === "http" ? "globe" : "terminal")}</span>
-              <span class="skill-row-text"><span class="skill-row-name">${esc(server.name)}</span><span class="skill-row-desc">${esc(stateText(server))}</span></span>
+            ) => `<li><button type="button" class="skill-row${server.enabled ? "" : " is-off"}" data-mcp-select="${esc(server.name)}" aria-current="${server.name === view.selected}">
+              ${serverMark(server)}
+              <span class="skill-row-text"><span class="skill-row-name">${esc(server.name)}</span><span class="skill-row-desc${stateTone(server)}">${esc(stateText(server))}</span></span>
               <span class="settings-dot ${dotClass(server)}" aria-hidden="true"></span>
             </button></li>`
           )
@@ -253,24 +276,31 @@ export function createMcpSettings({ panel, api, onSection, showToast = () => {} 
       ([value, label]) =>
         `<button type="button" role="radio" data-mcp-exposure="${value}" aria-checked="${server.exposure === value}">${esc(ui(label))}</button>`
     ).join("");
+    // A search that names a tool keeps the whole list open so the match is visible.
+    const open = view.toolsOpen || Boolean(view.query.trim()) || tools.length <= FOLDED_TOOLS + 1;
+    const shown = open ? tools : tools.slice(0, FOLDED_TOOLS);
     const rows = tools.length
-      ? tools
+      ? shown
           .map(
             (tool) => `<li class="mcp-tool">
               <span class="is-mono">${esc(tool)}</span>
               <label class="sr-only" for="mcp-tool-${esc(tool)}">${esc(ui`${tool} 的可见方式`)}</label>
-              <select class="settings-select" id="mcp-tool-${esc(tool)}" data-mcp-tool="${esc(tool)}">${exposureOptions(overrides[tool] ?? "", true)}</select>
+              <select class="mcp-exposure-select" id="mcp-tool-${esc(tool)}" data-mcp-tool="${esc(tool)}" data-exposure="${esc(overrides[tool] ?? "")}">${exposureOptions(overrides[tool] ?? "", true)}</select>
             </li>`
           )
           .join("")
       : `<li class="skill-empty">${esc(server.status.state === "connected" ? ui("这个服务没有工具") : ui("连接成功后显示工具"))}</li>`;
+    const fold =
+      tools.length > FOLDED_TOOLS + 1
+        ? `<button class="mcp-fold" type="button" data-mcp-tools-fold aria-expanded="${open}">${icon(open ? "chevron-up" : "chevron-down")}<span>${esc(open ? ui("收起") : ui("其余 {count} 个").replace("{count}", String(tools.length - FOLDED_TOOLS)))}</span></button>`
+        : "";
     return ui`<div class="mcp-tools-head">
         <h3 class="skill-section-title">工具 <span class="skill-count">${tools.length}</span></h3>
         <span class="settings-group-spacer"></span>
-        <span class="mcp-label">默认可见方式</span>
+        <span class="mcp-label">默认</span>
         <div class="settings-segmented" role="radiogroup" aria-label="默认可见方式" data-mcp-exposures>${segment}</div>
       </div>
-      <ul class="mcp-tool-list">${rows}</ul>`;
+      <ul class="mcp-tool-list">${rows}</ul>${fold}`;
   }
 
   function renderDetail() {
@@ -295,24 +325,23 @@ export function createMcpSettings({ panel, api, onSection, showToast = () => {} 
           <dt>环境变量</dt><dd>${pairs(config.env, true)}</dd>
           ${config.cwd ? ui`<dt>工作目录</dt><dd class="is-mono">${esc(config.cwd)}</dd>` : ""}`;
     detail.innerHTML = ui`<div class="skill-detail-head">
-        <span class="settings-icon-box is-large">${icon(server.kind === "http" ? "globe" : "terminal")}</span>
+        ${serverMark(server, " is-large")}
         <span class="skill-detail-title"><h2>${esc(server.name)}</h2><span class="mcp-state"><span class="settings-dot ${dotClass(server)}" aria-hidden="true"></span><span data-mcp-state>${esc(stateLine)}</span></span></span>
         <span class="settings-group-spacer"></span>
-        ${server.enabled && server.config ? `<button class="app-button is-secondary" type="button" data-mcp-action="check"${view.checking ? " disabled" : ""}>${icon("refresh")}<span>${ui("重新连接")}</span></button>` : ""}
         ${server.oauth && server.enabled && status.state === "connected" ? `<button class="app-button is-secondary" type="button" data-mcp-action="logout">${icon("unplug")}<span>${ui("退出登录")}</span></button>` : ""}
         ${server.oauth && server.enabled && (status.state === "needs-auth" || login) ? `<button class="app-button is-primary" type="button" data-mcp-action="login"${login?.state === "waiting" ? " disabled" : ""}>${icon("key-round")}<span>${ui("登录")}</span></button>` : ""}
-        ${server.config ? `<button class="settings-icon-button" type="button" data-mcp-action="edit" aria-label="${esc(ui("编辑"))}" title="${esc(ui("编辑"))}">${icon("pencil")}</button>` : ""}
-        <button class="settings-icon-button" type="button" data-mcp-action="remove" aria-label="${esc(ui("删除"))}" title="${esc(ui("删除"))}">${icon("trash")}</button>
-        ${server.config ? `<span class="mcp-enabled"><span>${ui("启用")}</span><button type="button" class="ui-switch" role="switch" data-mcp-enabled aria-checked="${server.enabled}" aria-label="${esc(ui("启用"))}"></button></span>` : ""}
+        ${server.config ? `<button type="button" class="ui-switch" role="switch" data-mcp-enabled aria-checked="${server.enabled}" aria-label="${esc(ui("启用"))}"></button>` : ""}
+        ${server.enabled && server.config ? detailAction("check", "refresh", ui("重新连接"), { disabled: view.checking }) : ""}
+        ${server.config ? detailAction("edit", "pencil", ui("编辑")) : ""}
+        ${detailAction("remove", "trash", ui("删除"), { danger: true })}
       </div>
       ${login?.state === "waiting" ? ui`<p class="mcp-notice">${icon("loader")}<span>请在浏览器中完成登录。${login.url ? ui`<a href="${esc(login.url)}" target="_blank" rel="noopener noreferrer">浏览器没有打开？点这里</a>` : ""}</span></p>` : ""}
       ${login?.state === "failed" ? `<p class="skill-warning">${icon("triangle-alert")}<span>${esc(ui("登录未完成："))}${esc(login.error ?? "")}</span></p>` : ""}
       ${status.state === "failed" || status.state === "invalid" ? `<p class="skill-warning">${icon("triangle-alert")}<span class="is-mono">${esc(status.error ?? "")}</span></p>` : ""}
       ${config.description ? `<p class="skill-description">${esc(config.description)}</p>` : ""}
       <dl class="skill-facts">
-        <dt>连接方式</dt><dd>${server.kind === "http" ? ui("远程地址") : ui("本地命令")}</dd>
+        <dt>方式</dt><dd>${server.kind === "http" ? ui("远程地址") : ui("本地命令")}</dd>
         ${server.config ? connection : ""}
-        <dt>配置位置</dt><dd class="is-mono" title="${esc(view.data.path)}">${esc(view.data.displayPath)}</dd>
       </dl>
       ${server.config && server.enabled ? renderTools(server) : ""}`;
   }
@@ -381,7 +410,7 @@ export function createMcpSettings({ panel, api, onSection, showToast = () => {} 
   editorPanel.hidden = true;
   editorPanel.innerHTML = ui`<section class="modal-card app-dialog mcp-dialog" role="dialog" aria-modal="true" aria-labelledby="mcp-editor-title">
       <div class="mcp-dialog-head">
-        <h2 id="mcp-editor-title" data-mcp-editor-title>添加 MCP 服务</h2>
+        <h2 id="mcp-editor-title" data-mcp-editor-title>新建 MCP 服务</h2>
         <button class="settings-icon-button" type="button" data-mcp-editor-close aria-label="关闭">${icon("close")}</button>
       </div>
       <div class="settings-segmented mcp-kinds" role="radiogroup" aria-label="连接方式" data-mcp-kind>
@@ -500,7 +529,7 @@ export function createMcpSettings({ panel, api, onSection, showToast = () => {} 
     editor.base = config;
     editor.exposure = config.exposure ?? "deferred";
     editor.busy = false;
-    ed("[data-mcp-editor-title]").textContent = server ? ui`编辑 ${server.name}` : ui("添加 MCP 服务");
+    ed("[data-mcp-editor-title]").textContent = server ? ui`编辑 ${server.name}` : ui("新建 MCP 服务");
     ed("[data-mcp-name]").value = server?.name ?? "";
     ed("[data-mcp-command]").value = config.command ?? "";
     ed("[data-mcp-args]").value = (config.args ?? []).join("\n");
@@ -672,6 +701,7 @@ export function createMcpSettings({ panel, api, onSection, showToast = () => {} 
   $("[data-mcp-list]").addEventListener("click", (event) => {
     const row = event.target.closest("[data-mcp-select]");
     if (!row) return;
+    if (row.dataset.mcpSelect !== view.selected) view.toolsOpen = false;
     view.selected = row.dataset.mcpSelect;
     render();
   });
@@ -687,6 +717,12 @@ export function createMcpSettings({ panel, api, onSection, showToast = () => {} 
     if (!server) return;
     const action = event.target.closest("[data-mcp-action]");
     if (action) return void act(action.dataset.mcpAction);
+    if (event.target.closest("[data-mcp-tools-fold]")) {
+      view.toolsOpen = !view.toolsOpen;
+      renderDetail();
+      detail.querySelector("[data-mcp-tools-fold]")?.focus();
+      return;
+    }
     if (event.target.closest("[data-mcp-enabled]"))
       return void change(
         "/api/mcp/enabled",
