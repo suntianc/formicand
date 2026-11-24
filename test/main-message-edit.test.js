@@ -17,9 +17,11 @@ import { pathToFileURL } from "node:url";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { mkdtemp, readFile, rm, mkdir, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { hostname, tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { test } from "node:test";
+import { readProcessIdentity } from "../dist/src/runtime/process-identity.js";
+import { createWorkspaceDirectory } from "../dist/src/dashboard/workspace-directory.js";
 import { LocalWorkspaceStore } from "../dist/src/workspace/workspace-store.js";
 import { GlobalProjectCatalog } from "../dist/src/workspace/project-catalog.js";
 import { singleConnectionMainModel } from "./role-model-fixture.mjs";
@@ -899,4 +901,252 @@ test("edit transaction rollback failure releases live lock for same-process reco
     res.syncsDuringRecoverDrain >= 1,
     `recoverMessageEditTransaction() must drain pending archive dir sync, got ${res.syncsDuringRecoverDrain}`
   );
+});
+
+test("launch_ready recovery archives journal without forcing waiting while the edited Run process is still alive", async (t) => {
+  if (process.platform === "win32") return;
+  const f = await fixture(t);
+  const store = new LocalWorkspaceStore(f.root);
+  await store.updateTask("task", { activeRunId: "old-run", model: "old-model", goal: "old-goal" });
+  await store.transitionTask("task", "running", { runId: "old-run" });
+  await store.transitionTask("task", "failed", { runId: "old-run" });
+  const old = JSON.parse(await readFile(mainInputPath(f.root, "task", "old-run"), "utf8"));
+  await saveAcceptedMainMessage(f.root, "task", { ...old, taskId: "task", runId: "old-run" });
+
+  await prepareMessageEdit(f.root, "task", f.request, "edited body", "live-edit-run");
+  const input = {
+    ...old,
+    prompt: "edited body",
+    body: "edited body",
+    taskId: "task",
+    runId: "live-edit-run",
+    messageId: randomUUID(),
+    submittedAt: Date.now()
+  };
+  await saveMainInput(mainInputPath(f.root, "task", "live-edit-run"), input);
+  await saveAcceptedMainMessage(f.root, "task", input);
+  await store.transitionTask("task", "running", { runId: "live-edit-run" });
+  await store.updateTask("task", { activeRunId: "live-edit-run" });
+  await store.createRun("task", "live-edit-run");
+  await readyMessageEditTransaction(f.root, "task");
+
+  // Spawn a real live process owned by live-edit-run and record its verified OS identity in process.json.
+  const keeper = spawn(process.execPath, ["-e", "setInterval(() => {}, 1000)"], { stdio: "ignore" });
+  t.after(() => {
+    if (keeper.exitCode === null && keeper.signalCode === null) keeper.kill("SIGKILL");
+  });
+  const identity = await readProcessIdentity(keeper.pid);
+  assert.ok(identity, "live process identity must be readable");
+  const procDir = join(f.root, "task", "runs", "live-edit-run", "agents", "main");
+  await mkdir(procDir, { recursive: true });
+  await writeFile(
+    join(procDir, "process.json"),
+    JSON.stringify({
+      version: 1,
+      taskId: "task",
+      runId: "live-edit-run",
+      callId: "live-edit-run",
+      agentId: "main",
+      role: "main",
+      pid: identity.pid,
+      host: hostname(),
+      startedAt: identity.startedAt,
+      token: randomUUID(),
+      launchedAt: new Date().toISOString()
+    })
+  );
+
+  // Simulate archive rename hitting EIO in the same process, then task listing / recovery running while process is still alive.
+  const txPath = join(f.root, "task", "sessions", "main", "edit-transaction.json");
+  const modUrl = JSON.stringify(
+    pathToFileURL(resolve("dist/src/runtime/main-message-edit-transaction.js")).href
+  );
+  const wsDirUrl = JSON.stringify(pathToFileURL(resolve("dist/src/dashboard/workspace-directory.js")).href);
+  const out = await childProcess(`
+    import fsPromises from "node:fs/promises";
+    import { syncBuiltinESMExports } from "node:module";
+    const txPath = ${JSON.stringify(txPath)};
+    const root = ${JSON.stringify(f.root)};
+    let failArchiveRename = true;
+    const origRename = fsPromises.rename;
+    fsPromises.rename = async function (src, dst, ...rest) {
+      if (failArchiveRename && String(src) === txPath) {
+        const err = new Error("EIO: archive rename failed");
+        err.code = "EIO";
+        throw err;
+      }
+      return origRename.call(this, src, dst, ...rest);
+    };
+    syncBuiltinESMExports();
+    const { finishMessageEditTransaction } = await import(${modUrl});
+    const { createWorkspaceDirectory } = await import(${wsDirUrl});
+    let archiveErr = null;
+    try {
+      await finishMessageEditTransaction(root, "task");
+    } catch (err) {
+      archiveErr = err.code ?? err.message;
+    }
+    failArchiveRename = false;
+    const directory = createWorkspaceDirectory(root, root + "/global/workspaces.json", () => undefined);
+    const located = await directory.locateTask("task");
+    const txLeft = await fsPromises.readFile(txPath, "utf8").then(() => true, () => false);
+    console.log(JSON.stringify({ archiveErr, status: located.task.status, activeRunId: located.task.activeRunId, txLeft }));
+  `);
+  const res = JSON.parse(out.trim());
+  assert.equal(res.archiveErr, "EIO");
+  assert.equal(res.txLeft, false, "subsequent read must retry and complete journal archival");
+  assert.equal(res.activeRunId, "live-edit-run");
+  assert.equal(
+    res.status,
+    "running",
+    "a live edited Run must NOT be transitioned to waiting by task list recovery"
+  );
+  const eventsText = await readFile(join(f.root, "task", "task_events.jsonl"), "utf8");
+  assert.doesNotMatch(eventsText, /message_edit_launch_recovered/);
+
+  // Once the process actually dies, launch_ready recovery transitions the orphan Run to waiting.
+  keeper.kill("SIGKILL");
+  await new Promise((done) => keeper.once("exit", done));
+  const archivedPath = join(f.root, "task", "sessions", "main", "edit-transaction-live-edit-run.json");
+  await writeFile(txPath, await readFile(archivedPath, "utf8"));
+  const deadOut = await childProcess(`
+    const { recoverMessageEditTransaction } = await import(${modUrl});
+    console.log(JSON.stringify({ recovered: await recoverMessageEditTransaction(${JSON.stringify(f.root)}, "task") }));
+  `);
+  assert.equal(JSON.parse(deadOut.trim()).recovered, true);
+  assert.equal((await store.readTask("task")).status, "waiting");
+});
+
+test("rollback interrupted after restoring task.json from launch_ready persists rolling_back so same-process and restart recovery restore original task", async (t) => {
+  if (process.platform === "win32") return;
+  for (const mode of ["same-process", "restart"]) {
+    await t.test(mode, async (t) => {
+      const f = await fixture(t);
+      const store = new LocalWorkspaceStore(f.root);
+      await store.updateTask("task", { activeRunId: "old-run", model: "old-model", goal: "old-goal" });
+      await store.transitionTask("task", "running", { runId: "old-run" });
+      await store.transitionTask("task", "failed", { runId: "old-run" });
+      const old = JSON.parse(await readFile(mainInputPath(f.root, "task", "old-run"), "utf8"));
+      await saveAcceptedMainMessage(f.root, "task", { ...old, taskId: "task", runId: "old-run" });
+      const reqPath = mainRequestPath(f.root, "task");
+      await writeFile(reqPath, "ORIGINAL_OLD_RUN_RETRY");
+
+      await prepareMessageEdit(f.root, "task", f.request, "edited body", "aborted-launch-run");
+      const input = {
+        ...old,
+        prompt: "edited body",
+        body: "edited body",
+        taskId: "task",
+        runId: "aborted-launch-run",
+        messageId: randomUUID(),
+        submittedAt: Date.now()
+      };
+      await saveMainInput(mainInputPath(f.root, "task", "aborted-launch-run"), input);
+      await saveAcceptedMainMessage(f.root, "task", input);
+      await store.transitionTask("task", "running", { runId: "aborted-launch-run" });
+      await store.updateTask("task", { activeRunId: "aborted-launch-run", goal: "edited goal" });
+      await store.createRun("task", "aborted-launch-run");
+      await readyMessageEditTransaction(f.root, "task");
+
+      const txPath = join(f.root, "task", "sessions", "main", "edit-transaction.json");
+      const sessionsDir = join(f.root, "task", "sessions", "main");
+      const taskJsonPath = join(f.root, "task", "task.json");
+      const modUrl = JSON.stringify(
+        pathToFileURL(resolve("dist/src/runtime/main-message-edit-transaction.js")).href
+      );
+      const wsDirUrl = JSON.stringify(
+        pathToFileURL(resolve("dist/src/dashboard/workspace-directory.js")).href
+      );
+
+      // Interrupt rollback RIGHT AFTER task.json has been restored back to old-run (before versions/retry restore).
+      const phase1Out = await childProcess(`
+        import fsPromises from "node:fs/promises";
+        import { syncBuiltinESMExports } from "node:module";
+        const sessionsDir = ${JSON.stringify(sessionsDir)};
+        const taskJsonPath = ${JSON.stringify(taskJsonPath)};
+        const txPath = ${JSON.stringify(txPath)};
+        const root = ${JSON.stringify(f.root)};
+        let taskRestored = false;
+        let injectedOnce = false;
+        let failSync = false;
+        const origRename = fsPromises.rename;
+        const origOpen = fsPromises.open;
+        fsPromises.rename = async function (src, dst, ...rest) {
+          const out = await origRename.call(this, src, dst, ...rest);
+          if (!injectedOnce && String(dst) === taskJsonPath) {
+            injectedOnce = true;
+            taskRestored = true;
+            failSync = true;
+          }
+          return out;
+        };
+        fsPromises.open = async function (p, flags, ...rest) {
+          const handle = await origOpen.call(this, p, flags, ...rest);
+          if (String(p) === sessionsDir && flags === "r") {
+            const origSync = handle.sync.bind(handle);
+            handle.sync = async () => {
+              if (failSync) {
+                const err = new Error("EIO: interrupted mid-rollback after task.json restore");
+                err.code = "EIO";
+                throw err;
+              }
+              return origSync();
+            };
+          }
+          return handle;
+        };
+        syncBuiltinESMExports();
+        const { rollbackMessageEditTransaction } = await import(${modUrl});
+        const { createWorkspaceDirectory } = await import(${wsDirUrl});
+        let rollbackErr = null;
+        try {
+          await rollbackMessageEditTransaction(root, "task");
+        } catch (err) {
+          rollbackErr = err.code ?? err.message;
+        }
+        const txAfterInterrupt = JSON.parse(await fsPromises.readFile(txPath, "utf8"));
+        const taskAfterInterrupt = JSON.parse(await fsPromises.readFile(taskJsonPath, "utf8"));
+        let sameProcessLocated = null;
+        if (${JSON.stringify(mode)} === "same-process") {
+          failSync = false;
+          const directory = createWorkspaceDirectory(root, root + "/global/workspaces.json", () => undefined);
+          sameProcessLocated = (await directory.locateTask("task")).task;
+        }
+        console.log(JSON.stringify({
+          taskRestored,
+          rollbackErr,
+          txPhase: txAfterInterrupt.phase,
+          activeRunAfterInterrupt: taskAfterInterrupt.activeRunId,
+          sameProcessLocated
+        }));
+      `);
+      const p1 = JSON.parse(phase1Out.trim());
+      assert.equal(p1.taskRestored, true);
+      assert.equal(p1.rollbackErr, "EIO");
+      assert.equal(p1.txPhase, "rolling_back");
+      assert.equal(p1.activeRunAfterInterrupt, "old-run");
+
+      if (mode === "restart") {
+        const restartOut = await childProcess(`
+          const { createWorkspaceDirectory } = await import(${wsDirUrl});
+          const root = ${JSON.stringify(f.root)};
+          const directory = createWorkspaceDirectory(root, root + "/global/workspaces.json", () => undefined);
+          console.log(JSON.stringify((await directory.locateTask("task")).task));
+        `);
+        const located = JSON.parse(restartOut.trim());
+        assert.equal(located.activeRunId, "old-run");
+        assert.equal(located.status, "failed");
+      } else {
+        assert.equal(p1.sameProcessLocated.activeRunId, "old-run");
+        assert.equal(p1.sameProcessLocated.status, "failed");
+      }
+
+      await assert.rejects(readFile(txPath), { code: "ENOENT" });
+      assert.equal(await readFile(reqPath, "utf8"), "ORIGINAL_OLD_RUN_RETRY");
+      assert.equal(
+        (await latestEditableMessage(f.root, "task", "old-run")).target.messageId,
+        f.request.messageId
+      );
+    });
+  }
 });

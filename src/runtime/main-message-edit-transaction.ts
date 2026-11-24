@@ -1,4 +1,5 @@
 import { readFile, rename } from "node:fs/promises";
+import { hostname } from "node:os";
 import { dirname, join } from "node:path";
 import { atomicWriteDurable, durableRemove, syncDirectory } from "../storage/atomic-file.js";
 import { withFileLock } from "../storage/file-lock.js";
@@ -7,12 +8,14 @@ import { mainContextPaths } from "./main-context.js";
 import { mainRequestPath, mainRequestStatePath } from "../storage/main-request-store.js";
 import { mainInputPath, readMainInput } from "./main-continuation.js";
 import { HumanRequestStore } from "./human.js";
+import { mainIsAlive, readHeartbeat } from "./main-heartbeat.js";
+import { verifyProcessIdentity } from "./process-identity.js";
 
 interface EditTransaction {
   version: 1;
   taskId: string;
   runId: string;
-  phase: "prepared" | "launch_ready";
+  phase: "prepared" | "launch_ready" | "rolling_back";
   intent: { editId: string; prompt: string };
   sessionFile?: string;
   input?: Awaited<ReturnType<typeof readMainInput>>;
@@ -41,7 +44,7 @@ async function read(root: string, taskId: string): Promise<EditTransaction | und
     value.version !== 1 ||
     value.taskId !== taskId ||
     !/^[a-zA-Z0-9._-]+$/.test(value.runId) ||
-    !["prepared", "launch_ready"].includes(value.phase) ||
+    !["prepared", "launch_ready", "rolling_back"].includes(value.phase) ||
     !Array.isArray(value.before) ||
     (value.retiredHumanRequests !== undefined &&
       (!Array.isArray(value.retiredHumanRequests) ||
@@ -139,6 +142,37 @@ export async function finishMessageEditTransaction(root: string, taskId: string)
     live.delete(path);
   }
 }
+async function runProcessStillAlive(root: string, taskId: string, runId: string): Promise<boolean> {
+  const processPath = join(root, taskId, "runs", runId, "agents", "main", "process.json");
+  const raw = await optional(processPath);
+  if (raw !== null) {
+    try {
+      const record = JSON.parse(raw) as {
+        pid?: unknown;
+        host?: unknown;
+        startedAt?: unknown;
+        exitCode?: unknown;
+        exitSignal?: unknown;
+      };
+      if (
+        record.exitCode === undefined &&
+        record.exitSignal === undefined &&
+        typeof record.pid === "number" &&
+        typeof record.startedAt === "string" &&
+        (!record.host || record.host === hostname())
+      ) {
+        if (await verifyProcessIdentity({ pid: record.pid, startedAt: record.startedAt })) return true;
+      }
+      // eslint-disable-next-line no-restricted-syntax -- 进程记录损坏时回退核查心跳，不阻断事务恢复
+    } catch {
+      /* fall through to heartbeat check */
+    }
+  }
+  // eslint-disable-next-line no-restricted-syntax -- 心跳缺失或损坏时按无存活信号处理，由 process.json 结果决定
+  const beat = await readHeartbeat(root, taskId).catch(() => undefined);
+  return Boolean(beat && beat.runId === runId && mainIsAlive(beat));
+}
+
 export async function rollbackMessageEditTransaction(root: string, taskId: string) {
   const path = pathFor(root, taskId);
   try {
@@ -149,6 +183,12 @@ export async function rollbackMessageEditTransaction(root: string, taskId: strin
         pendingArchiveSync.delete(path);
       }
       return;
+    }
+    // Durably record that launch never started and rollback is underway BEFORE
+    // rejecting new input or mutating task.json, so an interrupted rollback from
+    // `launch_ready` always resumes rollback instead of failing run-id validation.
+    if (value.phase === "launch_ready") {
+      await atomic(path, JSON.stringify({ ...value, phase: "rolling_back" }));
     }
     // Preserve the rejected input and Run evidence; a durable rejection supersedes legacy fallbacks.
     const input = await readMainInput(mainInputPath(root, taskId, value.runId));
@@ -206,18 +246,20 @@ export async function recoverMessageEditTransaction(root: string, taskId: string
     const value = await read(root, taskId);
     // Another process may have recovered the observed transaction while we waited for its lock.
     if (!value) return true;
-    if (value.phase === "prepared") await rollbackMessageEditTransaction(root, taskId);
-    else {
+    if (value.phase === "prepared" || value.phase === "rolling_back") {
+      await rollbackMessageEditTransaction(root, taskId);
+    } else {
       // Spawn may already have executed external actions. Keep the accepted branch and input,
-      // settle the orphan Run as waiting, and never claim that those effects were undone.
+      // and only settle the Run as waiting once we confirm no live Main process owns it.
       const store = new LocalWorkspaceStore(root);
       const task = await store.readTask(taskId);
       if (task.activeRunId !== value.runId) throw new Error("编辑事务与当前运行不一致，记录已保留。");
-      if (task.status === "running")
+      if (task.status === "running" && !(await runProcessStillAlive(root, taskId, value.runId))) {
         await store.transitionTask(taskId, "waiting", {
           runId: value.runId,
           reason: "message_edit_launch_recovered"
         });
+      }
       await finishMessageEditTransaction(root, taskId);
     }
     return true;

@@ -151,9 +151,9 @@ export function createMainMessageService({
           });
         } catch (error) {
           if (rollback && !residentMain(taskId) && !activeRuns.has(taskId)) {
+            await rollback();
             if (acceptedMessageId)
               await rejectAcceptedMainMessage(location.workspaceRoot, taskId, acceptedMessageId);
-            await rollback();
             const task = location.task;
             await location.store.updateTask(taskId, {
               activeRunId: task.activeRunId,
