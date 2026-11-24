@@ -161879,7 +161879,7 @@
           "fill": "#A1A1A8",
           "textGrowth": "fixed-width",
           "width": "fill_container",
-          "content": "6. 运行名额并入节点连接，导航里不再单独有这一页。每个节点占一整行：左边是图标、名字、对内/对外、在线绿点和地址；中间是常驻、接续两组名额（小格子数等于上限，正在用的亮绿色，旁边是「正在用 / 上限」和加减）；右边是操作。本机和对内节点不占名额，写「不限名额」。",
+          "content": "6. 运行名额并入节点连接，导航里不再单独有这一页。每个节点一张卡片，一行三张，从上到下三层：① 图标、名字、对内/对外、在线绿点、地址，右边是更多菜单（离线时多一个「重连」）；② CPU、内存、磁盘三项占用，百分比 + 细条，超过 80% 变黄，悬停看具体容量，离线显示「—」；③ 名额：对外节点是常驻、接续两行（小格子数等于上限，正在用的亮绿色，「正在用 / 上限」，加减改上限），对内节点写「对内节点，不占运行名额」。",
           "lineHeight": 1.65,
           "fontFamily": "Noto Sans SC",
           "fontSize": 14,
@@ -161892,7 +161892,7 @@
           "fill": "#A1A1A8",
           "textGrowth": "fixed-width",
           "width": "fill_container",
-          "content": "7. 改过名额的那组名字旁出现黄点，这一行右边才出现「还原 / 保存」。离线节点右边是「重连」。开关、选中项沿用现在的中性配色，不用紫色。 原来的「项目数据」一组去掉：它是写死的一行说明，不能操作。 每个节点在名字和名额之间显示 CPU、内存、磁盘三项占用（百分比 + 细条，超过 80% 变黄，悬停看具体容量）；离线节点显示「—」。",
+          "content": "7. 改过名额的那行名字旁出现黄点，名额下方才出现「还原 / 保存」。原来的「项目数据」一组去掉：它是写死的一行说明，不能操作。开关、选中项沿用现在的中性配色，不用紫色。",
           "lineHeight": 1.65,
           "fontFamily": "Noto Sans SC",
           "fontSize": 14,
@@ -164123,194 +164123,208 @@
                     },
                     {
                       "type": "frame",
-                      "id": "IZCe2",
-                      "name": "NodeList",
+                      "id": "Ev50t",
+                      "name": "CardRow",
                       "width": "fill_container",
-                      "layout": "vertical",
-                      "gap": 8,
+                      "gap": 16,
                       "children": [
                         {
                           "type": "frame",
-                          "id": "dP1YN",
+                          "id": "F2WgF",
                           "name": "Node 本机",
                           "width": "fill_container",
-                          "height": 64,
+                          "height": 252,
                           "fill": "$v2-secondary",
                           "cornerRadius": 14,
                           "stroke": "$v2-line",
                           "strokeWidth": 1,
-                          "gap": 12,
-                          "padding": [
-                            0,
-                            16
-                          ],
-                          "alignItems": "center",
+                          "layout": "vertical",
+                          "gap": 18,
+                          "padding": 18,
                           "children": [
                             {
                               "type": "frame",
-                              "id": "q70m3n",
-                              "name": "IconBox",
-                              "width": 32,
-                              "height": 32,
-                              "fill": "$v2-track",
-                              "cornerRadius": 9,
-                              "justifyContent": "center",
+                              "id": "E0Nviy",
+                              "name": "Head",
+                              "width": "fill_container",
+                              "gap": 12,
                               "alignItems": "center",
                               "children": [
                                 {
-                                  "type": "icon",
-                                  "id": "hc76H",
-                                  "name": "i-laptop",
-                                  "width": 16,
-                                  "height": 16,
-                                  "icon": "laptop",
-                                  "library": "lucide",
-                                  "fill": "$v2-text"
-                                }
-                              ]
-                            },
-                            {
-                              "type": "frame",
-                              "id": "CSVXU",
-                              "name": "Info",
-                              "width": "fill_container",
-                              "layout": "vertical",
-                              "gap": 2,
-                              "children": [
-                                {
                                   "type": "frame",
-                                  "id": "wOh1L",
-                                  "name": "NameRow",
-                                  "gap": 6,
+                                  "id": "m0Rvq",
+                                  "name": "IconBox",
+                                  "width": 34,
+                                  "height": 34,
+                                  "fill": "$v2-track",
+                                  "cornerRadius": 9,
+                                  "justifyContent": "center",
                                   "alignItems": "center",
                                   "children": [
                                     {
-                                      "type": "text",
-                                      "id": "Y2AL5z",
-                                      "name": "T",
-                                      "fill": "$v2-text",
-                                      "content": "本机",
-                                      "fontFamily": "Noto Sans SC",
-                                      "fontSize": 14,
-                                      "fontWeight": "500"
-                                    },
-                                    {
-                                      "type": "frame",
-                                      "id": "Z8IKso",
-                                      "name": "Tag",
-                                      "fill": "$v2-chip",
-                                      "cornerRadius": 5,
-                                      "padding": [
-                                        1,
-                                        6
-                                      ],
-                                      "children": [
-                                        {
-                                          "type": "text",
-                                          "id": "Br0Ue",
-                                          "name": "T",
-                                          "fill": "$v2-text-2",
-                                          "content": "对内",
-                                          "fontFamily": "Noto Sans SC",
-                                          "fontSize": 11,
-                                          "fontWeight": "normal"
-                                        }
-                                      ]
-                                    },
-                                    {
-                                      "type": "frame",
-                                      "id": "GO7xF",
-                                      "name": "Dot",
-                                      "width": 6,
-                                      "height": 6,
-                                      "fill": "$v2-ok",
-                                      "cornerRadius": 3
+                                      "type": "icon",
+                                      "id": "L1CH5x",
+                                      "name": "i-laptop",
+                                      "width": 16,
+                                      "height": 16,
+                                      "icon": "laptop",
+                                      "library": "lucide",
+                                      "fill": "$v2-text"
                                     }
                                   ]
                                 },
                                 {
-                                  "type": "text",
-                                  "id": "WiP5P",
-                                  "name": "Sub",
-                                  "fill": "$v2-text-3",
-                                  "content": "127.0.0.1:3880",
-                                  "fontFamily": "JetBrains Mono",
-                                  "fontSize": 12,
-                                  "fontWeight": "normal"
+                                  "type": "frame",
+                                  "id": "uWQIK",
+                                  "name": "Info",
+                                  "width": "fill_container",
+                                  "layout": "vertical",
+                                  "gap": 3,
+                                  "children": [
+                                    {
+                                      "type": "frame",
+                                      "id": "Ght1r",
+                                      "name": "NameRow",
+                                      "gap": 6,
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "id": "W21F6T",
+                                          "name": "T",
+                                          "fill": "$v2-text",
+                                          "content": "本机",
+                                          "fontFamily": "Noto Sans SC",
+                                          "fontSize": 14,
+                                          "fontWeight": "500"
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "f5voeo",
+                                          "name": "Tag",
+                                          "fill": "$v2-chip",
+                                          "cornerRadius": 5,
+                                          "padding": [
+                                            1,
+                                            6
+                                          ],
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "D612r",
+                                              "name": "T",
+                                              "fill": "$v2-text-2",
+                                              "content": "对内",
+                                              "fontFamily": "Noto Sans SC",
+                                              "fontSize": 11,
+                                              "fontWeight": "normal"
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "xij5X",
+                                          "name": "Dot",
+                                          "width": 6,
+                                          "height": 6,
+                                          "fill": "$v2-ok",
+                                          "cornerRadius": 3
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "rSvRz",
+                                      "name": "Sub",
+                                      "fill": "$v2-text-3",
+                                      "content": "127.0.0.1:3880",
+                                      "fontFamily": "JetBrains Mono",
+                                      "fontSize": 12,
+                                      "fontWeight": "normal"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "icon",
+                                  "id": "pzDVy",
+                                  "name": "i-ellipsis",
+                                  "width": 16,
+                                  "height": 16,
+                                  "icon": "ellipsis",
+                                  "library": "lucide",
+                                  "fill": "$v2-text-3"
                                 }
                               ]
                             },
                             {
                               "type": "frame",
-                              "id": "Crxe2",
+                              "id": "LzS4T",
                               "name": "Resources",
-                              "width": 252,
-                              "gap": 14,
-                              "alignItems": "center",
+                              "width": "fill_container",
+                              "gap": 16,
                               "children": [
                                 {
                                   "type": "frame",
-                                  "id": "bbvVz",
+                                  "id": "OEZaI",
                                   "name": "Meter CPU",
                                   "width": "fill_container",
                                   "layout": "vertical",
-                                  "gap": 4,
+                                  "gap": 6,
                                   "children": [
                                     {
                                       "type": "frame",
-                                      "id": "tQZg9",
+                                      "id": "jp0mi",
                                       "name": "MeterText",
                                       "width": "fill_container",
-                                      "gap": 4,
                                       "alignItems": "center",
                                       "children": [
                                         {
                                           "type": "text",
-                                          "id": "x7iRPx",
+                                          "id": "w92WT",
                                           "name": "T",
                                           "fill": "$v2-text-3",
                                           "content": "CPU",
                                           "fontFamily": "Noto Sans SC",
-                                          "fontSize": 11,
+                                          "fontSize": 12,
                                           "fontWeight": "normal"
                                         },
                                         {
                                           "type": "frame",
-                                          "id": "teRzF",
+                                          "id": "ux1Fv",
                                           "name": "Spacer",
                                           "width": "fill_container",
                                           "height": 1
                                         },
                                         {
                                           "type": "text",
-                                          "id": "O0Wyyp",
+                                          "id": "VKcF9",
                                           "name": "Value",
-                                          "fill": "$v2-text-2",
+                                          "fill": "$v2-text",
                                           "content": "18%",
                                           "fontFamily": "Noto Sans SC",
-                                          "fontSize": 11,
+                                          "fontSize": 12,
                                           "fontWeight": "normal"
                                         }
                                       ]
                                     },
                                     {
                                       "type": "frame",
-                                      "id": "dBVDc",
+                                      "id": "zWCNk",
                                       "name": "Bar",
                                       "width": "fill_container",
-                                      "height": 3,
+                                      "height": 4,
                                       "fill": "$v2-line-strong",
                                       "cornerRadius": 2,
                                       "layout": "none",
                                       "children": [
                                         {
                                           "type": "frame",
-                                          "id": "nxz3y",
+                                          "id": "XO5vy",
                                           "x": 0,
                                           "y": 0,
                                           "name": "BarFill",
-                                          "width": 13,
-                                          "height": 3,
+                                          "width": 18,
+                                          "height": 4,
                                           "fill": "$v2-text-2",
                                           "cornerRadius": 2
                                         }
@@ -164320,67 +164334,66 @@
                                 },
                                 {
                                   "type": "frame",
-                                  "id": "Q4pBw2",
+                                  "id": "lOwKb",
                                   "name": "Meter 内存",
                                   "width": "fill_container",
                                   "layout": "vertical",
-                                  "gap": 4,
+                                  "gap": 6,
                                   "children": [
                                     {
                                       "type": "frame",
-                                      "id": "OqbDc",
+                                      "id": "c30ysy",
                                       "name": "MeterText",
                                       "width": "fill_container",
-                                      "gap": 4,
                                       "alignItems": "center",
                                       "children": [
                                         {
                                           "type": "text",
-                                          "id": "U6JQjs",
+                                          "id": "NN768",
                                           "name": "T",
                                           "fill": "$v2-text-3",
                                           "content": "内存",
                                           "fontFamily": "Noto Sans SC",
-                                          "fontSize": 11,
+                                          "fontSize": 12,
                                           "fontWeight": "normal"
                                         },
                                         {
                                           "type": "frame",
-                                          "id": "o2kub",
+                                          "id": "OEXo5",
                                           "name": "Spacer",
                                           "width": "fill_container",
                                           "height": 1
                                         },
                                         {
                                           "type": "text",
-                                          "id": "P1OIfR",
+                                          "id": "wvv4b",
                                           "name": "Value",
-                                          "fill": "$v2-text-2",
+                                          "fill": "$v2-text",
                                           "content": "59%",
                                           "fontFamily": "Noto Sans SC",
-                                          "fontSize": 11,
+                                          "fontSize": 12,
                                           "fontWeight": "normal"
                                         }
                                       ]
                                     },
                                     {
                                       "type": "frame",
-                                      "id": "F6Lgx",
+                                      "id": "QHuPD",
                                       "name": "Bar",
                                       "width": "fill_container",
-                                      "height": 3,
+                                      "height": 4,
                                       "fill": "$v2-line-strong",
                                       "cornerRadius": 2,
                                       "layout": "none",
                                       "children": [
                                         {
                                           "type": "frame",
-                                          "id": "d6ORz",
+                                          "id": "sDx7X",
                                           "x": 0,
                                           "y": 0,
                                           "name": "BarFill",
-                                          "width": 44,
-                                          "height": 3,
+                                          "width": 58,
+                                          "height": 4,
                                           "fill": "$v2-text-2",
                                           "cornerRadius": 2
                                         }
@@ -164390,67 +164403,66 @@
                                 },
                                 {
                                   "type": "frame",
-                                  "id": "Kng2F",
+                                  "id": "QCQxo",
                                   "name": "Meter 磁盘",
                                   "width": "fill_container",
                                   "layout": "vertical",
-                                  "gap": 4,
+                                  "gap": 6,
                                   "children": [
                                     {
                                       "type": "frame",
-                                      "id": "gNoOM",
+                                      "id": "XAyUs",
                                       "name": "MeterText",
                                       "width": "fill_container",
-                                      "gap": 4,
                                       "alignItems": "center",
                                       "children": [
                                         {
                                           "type": "text",
-                                          "id": "fy0Un",
+                                          "id": "k9J1iz",
                                           "name": "T",
                                           "fill": "$v2-text-3",
                                           "content": "磁盘",
                                           "fontFamily": "Noto Sans SC",
-                                          "fontSize": 11,
+                                          "fontSize": 12,
                                           "fontWeight": "normal"
                                         },
                                         {
                                           "type": "frame",
-                                          "id": "MH2V5",
+                                          "id": "QVo1i",
                                           "name": "Spacer",
                                           "width": "fill_container",
                                           "height": 1
                                         },
                                         {
                                           "type": "text",
-                                          "id": "srwTn",
+                                          "id": "T5YTy",
                                           "name": "Value",
-                                          "fill": "$v2-text-2",
+                                          "fill": "$v2-text",
                                           "content": "60%",
                                           "fontFamily": "Noto Sans SC",
-                                          "fontSize": 11,
+                                          "fontSize": 12,
                                           "fontWeight": "normal"
                                         }
                                       ]
                                     },
                                     {
                                       "type": "frame",
-                                      "id": "Q9pMQ3",
+                                      "id": "NO5A0",
                                       "name": "Bar",
                                       "width": "fill_container",
-                                      "height": 3,
+                                      "height": 4,
                                       "fill": "$v2-line-strong",
                                       "cornerRadius": 2,
                                       "layout": "none",
                                       "children": [
                                         {
                                           "type": "frame",
-                                          "id": "YKVWe",
+                                          "id": "DSvFU",
                                           "x": 0,
                                           "y": 0,
                                           "name": "BarFill",
-                                          "width": 44,
-                                          "height": 3,
+                                          "width": 59,
+                                          "height": 4,
                                           "fill": "$v2-text-2",
                                           "cornerRadius": 2
                                         }
@@ -164462,217 +164474,233 @@
                             },
                             {
                               "type": "frame",
-                              "id": "AUwfe",
-                              "name": "NoQuota",
-                              "width": 489,
-                              "justifyContent": "end",
+                              "id": "XcLGY",
+                              "name": "Quota",
+                              "width": "fill_container",
+                              "stroke": "$v2-line",
+                              "strokeWidth": {
+                                "top": 1
+                              },
+                              "layout": "vertical",
+                              "gap": 10,
+                              "padding": [
+                                14,
+                                0,
+                                0,
+                                0
+                              ],
                               "children": [
                                 {
                                   "type": "text",
-                                  "id": "zRa9U",
+                                  "id": "KTy85",
                                   "name": "T",
                                   "fill": "$v2-text-3",
-                                  "content": "不限名额",
+                                  "content": "对内节点，不占运行名额",
                                   "fontFamily": "Noto Sans SC",
                                   "fontSize": 12,
                                   "fontWeight": "normal"
                                 }
                               ]
-                            },
-                            {
-                              "type": "frame",
-                              "id": "Jmu1y",
-                              "name": "Actions",
-                              "width": 120,
-                              "height": 28,
-                              "gap": 8,
-                              "justifyContent": "end",
-                              "alignItems": "center"
                             }
                           ]
                         },
                         {
                           "type": "frame",
-                          "id": "W2K7t",
+                          "id": "H9sW2",
                           "name": "Node 云端",
                           "width": "fill_container",
-                          "height": 64,
+                          "height": 252,
                           "fill": "$v2-secondary",
                           "cornerRadius": 14,
                           "stroke": "$v2-line",
                           "strokeWidth": 1,
-                          "gap": 12,
-                          "padding": [
-                            0,
-                            16
-                          ],
-                          "alignItems": "center",
+                          "layout": "vertical",
+                          "gap": 18,
+                          "padding": 18,
                           "children": [
                             {
                               "type": "frame",
-                              "id": "HqvbI",
-                              "name": "IconBox",
-                              "width": 32,
-                              "height": 32,
-                              "fill": "$v2-track",
-                              "cornerRadius": 9,
-                              "justifyContent": "center",
+                              "id": "MCG4q",
+                              "name": "Head",
+                              "width": "fill_container",
+                              "gap": 12,
                               "alignItems": "center",
                               "children": [
                                 {
-                                  "type": "icon",
-                                  "id": "H0kkV",
-                                  "name": "i-server",
-                                  "width": 16,
-                                  "height": 16,
-                                  "icon": "server",
-                                  "library": "lucide",
-                                  "fill": "$v2-text"
-                                }
-                              ]
-                            },
-                            {
-                              "type": "frame",
-                              "id": "ctOkL",
-                              "name": "Info",
-                              "width": "fill_container",
-                              "layout": "vertical",
-                              "gap": 2,
-                              "children": [
-                                {
                                   "type": "frame",
-                                  "id": "IkKPZ",
-                                  "name": "NameRow",
-                                  "gap": 6,
+                                  "id": "EuWrI",
+                                  "name": "IconBox",
+                                  "width": 34,
+                                  "height": 34,
+                                  "fill": "$v2-track",
+                                  "cornerRadius": 9,
+                                  "justifyContent": "center",
                                   "alignItems": "center",
                                   "children": [
                                     {
-                                      "type": "text",
-                                      "id": "o4G4ag",
-                                      "name": "T",
-                                      "fill": "$v2-text",
-                                      "content": "云端",
-                                      "fontFamily": "Noto Sans SC",
-                                      "fontSize": 14,
-                                      "fontWeight": "500"
-                                    },
-                                    {
-                                      "type": "frame",
-                                      "id": "NHTb0",
-                                      "name": "Tag",
-                                      "fill": "$v2-chip",
-                                      "cornerRadius": 5,
-                                      "padding": [
-                                        1,
-                                        6
-                                      ],
-                                      "children": [
-                                        {
-                                          "type": "text",
-                                          "id": "XMPn6",
-                                          "name": "T",
-                                          "fill": "$v2-text-2",
-                                          "content": "对外",
-                                          "fontFamily": "Noto Sans SC",
-                                          "fontSize": 11,
-                                          "fontWeight": "normal"
-                                        }
-                                      ]
-                                    },
-                                    {
-                                      "type": "frame",
-                                      "id": "FzBiw",
-                                      "name": "Dot",
-                                      "width": 6,
-                                      "height": 6,
-                                      "fill": "$v2-ok",
-                                      "cornerRadius": 3
+                                      "type": "icon",
+                                      "id": "Q2mLdi",
+                                      "name": "i-server",
+                                      "width": 16,
+                                      "height": 16,
+                                      "icon": "server",
+                                      "library": "lucide",
+                                      "fill": "$v2-text"
                                     }
                                   ]
                                 },
                                 {
-                                  "type": "text",
-                                  "id": "WNKLi",
-                                  "name": "Sub",
-                                  "fill": "$v2-text-3",
-                                  "content": "cowork.example.com",
-                                  "fontFamily": "JetBrains Mono",
-                                  "fontSize": 12,
-                                  "fontWeight": "normal"
+                                  "type": "frame",
+                                  "id": "A45IK",
+                                  "name": "Info",
+                                  "width": "fill_container",
+                                  "layout": "vertical",
+                                  "gap": 3,
+                                  "children": [
+                                    {
+                                      "type": "frame",
+                                      "id": "wK2k9",
+                                      "name": "NameRow",
+                                      "gap": 6,
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "id": "ygkH6",
+                                          "name": "T",
+                                          "fill": "$v2-text",
+                                          "content": "云端",
+                                          "fontFamily": "Noto Sans SC",
+                                          "fontSize": 14,
+                                          "fontWeight": "500"
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "NjeJO",
+                                          "name": "Tag",
+                                          "fill": "$v2-chip",
+                                          "cornerRadius": 5,
+                                          "padding": [
+                                            1,
+                                            6
+                                          ],
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "jUts5",
+                                              "name": "T",
+                                              "fill": "$v2-text-2",
+                                              "content": "对外",
+                                              "fontFamily": "Noto Sans SC",
+                                              "fontSize": 11,
+                                              "fontWeight": "normal"
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "QY3eo",
+                                          "name": "Dot",
+                                          "width": 6,
+                                          "height": 6,
+                                          "fill": "$v2-ok",
+                                          "cornerRadius": 3
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "Zs9K4",
+                                      "name": "Sub",
+                                      "fill": "$v2-text-3",
+                                      "content": "cowork.example.com",
+                                      "fontFamily": "JetBrains Mono",
+                                      "fontSize": 12,
+                                      "fontWeight": "normal"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "icon",
+                                  "id": "teCkm",
+                                  "name": "i-ellipsis",
+                                  "width": 16,
+                                  "height": 16,
+                                  "icon": "ellipsis",
+                                  "library": "lucide",
+                                  "fill": "$v2-text-3"
                                 }
                               ]
                             },
                             {
                               "type": "frame",
-                              "id": "cNkBh",
+                              "id": "WDrq9",
                               "name": "Resources",
-                              "width": 252,
-                              "gap": 14,
-                              "alignItems": "center",
+                              "width": "fill_container",
+                              "gap": 16,
                               "children": [
                                 {
                                   "type": "frame",
-                                  "id": "u6Jgu",
+                                  "id": "LpzKm",
                                   "name": "Meter CPU",
                                   "width": "fill_container",
                                   "layout": "vertical",
-                                  "gap": 4,
+                                  "gap": 6,
                                   "children": [
                                     {
                                       "type": "frame",
-                                      "id": "IXPip",
+                                      "id": "ntXSa",
                                       "name": "MeterText",
                                       "width": "fill_container",
-                                      "gap": 4,
                                       "alignItems": "center",
                                       "children": [
                                         {
                                           "type": "text",
-                                          "id": "D8ZUE",
+                                          "id": "o4ARmE",
                                           "name": "T",
                                           "fill": "$v2-text-3",
                                           "content": "CPU",
                                           "fontFamily": "Noto Sans SC",
-                                          "fontSize": 11,
+                                          "fontSize": 12,
                                           "fontWeight": "normal"
                                         },
                                         {
                                           "type": "frame",
-                                          "id": "j7rJxJ",
+                                          "id": "Y0HFzS",
                                           "name": "Spacer",
                                           "width": "fill_container",
                                           "height": 1
                                         },
                                         {
                                           "type": "text",
-                                          "id": "PA3fB",
+                                          "id": "GICOx",
                                           "name": "Value",
-                                          "fill": "$v2-text-2",
+                                          "fill": "$v2-text",
                                           "content": "42%",
                                           "fontFamily": "Noto Sans SC",
-                                          "fontSize": 11,
+                                          "fontSize": 12,
                                           "fontWeight": "normal"
                                         }
                                       ]
                                     },
                                     {
                                       "type": "frame",
-                                      "id": "wj3RK",
+                                      "id": "nSCpS",
                                       "name": "Bar",
                                       "width": "fill_container",
-                                      "height": 3,
+                                      "height": 4,
                                       "fill": "$v2-line-strong",
                                       "cornerRadius": 2,
                                       "layout": "none",
                                       "children": [
                                         {
                                           "type": "frame",
-                                          "id": "XyfCt",
+                                          "id": "x1ssQ2",
                                           "x": 0,
                                           "y": 0,
                                           "name": "BarFill",
-                                          "width": 31,
-                                          "height": 3,
+                                          "width": 41,
+                                          "height": 4,
                                           "fill": "$v2-text-2",
                                           "cornerRadius": 2
                                         }
@@ -164682,67 +164710,66 @@
                                 },
                                 {
                                   "type": "frame",
-                                  "id": "P6epMm",
+                                  "id": "OQY2d",
                                   "name": "Meter 内存",
                                   "width": "fill_container",
                                   "layout": "vertical",
-                                  "gap": 4,
+                                  "gap": 6,
                                   "children": [
                                     {
                                       "type": "frame",
-                                      "id": "QEzsB",
+                                      "id": "LjBnD",
                                       "name": "MeterText",
                                       "width": "fill_container",
-                                      "gap": 4,
                                       "alignItems": "center",
                                       "children": [
                                         {
                                           "type": "text",
-                                          "id": "dPKY3",
+                                          "id": "r370TD",
                                           "name": "T",
                                           "fill": "$v2-text-3",
                                           "content": "内存",
                                           "fontFamily": "Noto Sans SC",
-                                          "fontSize": 11,
+                                          "fontSize": 12,
                                           "fontWeight": "normal"
                                         },
                                         {
                                           "type": "frame",
-                                          "id": "q1khn",
+                                          "id": "DYBlG",
                                           "name": "Spacer",
                                           "width": "fill_container",
                                           "height": 1
                                         },
                                         {
                                           "type": "text",
-                                          "id": "IjVni",
+                                          "id": "S8gq9",
                                           "name": "Value",
-                                          "fill": "$v2-text-2",
+                                          "fill": "$v2-text",
                                           "content": "84%",
                                           "fontFamily": "Noto Sans SC",
-                                          "fontSize": 11,
+                                          "fontSize": 12,
                                           "fontWeight": "normal"
                                         }
                                       ]
                                     },
                                     {
                                       "type": "frame",
-                                      "id": "o6asY",
+                                      "id": "Xmeve",
                                       "name": "Bar",
                                       "width": "fill_container",
-                                      "height": 3,
+                                      "height": 4,
                                       "fill": "$v2-line-strong",
                                       "cornerRadius": 2,
                                       "layout": "none",
                                       "children": [
                                         {
                                           "type": "frame",
-                                          "id": "ZODAz",
+                                          "id": "s6MBB",
                                           "x": 0,
                                           "y": 0,
                                           "name": "BarFill",
-                                          "width": 62,
-                                          "height": 3,
+                                          "width": 82,
+                                          "height": 4,
                                           "fill": "$v2-warn",
                                           "cornerRadius": 2
                                         }
@@ -164752,67 +164779,66 @@
                                 },
                                 {
                                   "type": "frame",
-                                  "id": "m0nuvr",
+                                  "id": "XOpBR",
                                   "name": "Meter 磁盘",
                                   "width": "fill_container",
                                   "layout": "vertical",
-                                  "gap": 4,
+                                  "gap": 6,
                                   "children": [
                                     {
                                       "type": "frame",
-                                      "id": "NC00n",
+                                      "id": "kYNVE",
                                       "name": "MeterText",
                                       "width": "fill_container",
-                                      "gap": 4,
                                       "alignItems": "center",
                                       "children": [
                                         {
                                           "type": "text",
-                                          "id": "dQVkU",
+                                          "id": "UC3xP",
                                           "name": "T",
                                           "fill": "$v2-text-3",
                                           "content": "磁盘",
                                           "fontFamily": "Noto Sans SC",
-                                          "fontSize": 11,
+                                          "fontSize": 12,
                                           "fontWeight": "normal"
                                         },
                                         {
                                           "type": "frame",
-                                          "id": "RQNcx",
+                                          "id": "E0mWX",
                                           "name": "Spacer",
                                           "width": "fill_container",
                                           "height": 1
                                         },
                                         {
                                           "type": "text",
-                                          "id": "GpUFm",
+                                          "id": "qJNJm",
                                           "name": "Value",
-                                          "fill": "$v2-text-2",
+                                          "fill": "$v2-text",
                                           "content": "22%",
                                           "fontFamily": "Noto Sans SC",
-                                          "fontSize": 11,
+                                          "fontSize": 12,
                                           "fontWeight": "normal"
                                         }
                                       ]
                                     },
                                     {
                                       "type": "frame",
-                                      "id": "QhgBo",
+                                      "id": "Ynzck",
                                       "name": "Bar",
                                       "width": "fill_container",
-                                      "height": 3,
+                                      "height": 4,
                                       "fill": "$v2-line-strong",
                                       "cornerRadius": 2,
                                       "layout": "none",
                                       "children": [
                                         {
                                           "type": "frame",
-                                          "id": "EbXkd",
+                                          "id": "FgiX7",
                                           "x": 0,
                                           "y": 0,
                                           "name": "BarFill",
-                                          "width": 16,
-                                          "height": 3,
+                                          "width": 22,
+                                          "height": 4,
                                           "fill": "$v2-text-2",
                                           "cornerRadius": 2
                                         }
@@ -164824,309 +164850,332 @@
                             },
                             {
                               "type": "frame",
-                              "id": "juyPE",
-                              "name": "Quota 常驻",
-                              "width": 236,
-                              "gap": 8,
-                              "alignItems": "center",
+                              "id": "Q2M8v",
+                              "name": "Quota",
+                              "width": "fill_container",
+                              "stroke": "$v2-line",
+                              "strokeWidth": {
+                                "top": 1
+                              },
+                              "layout": "vertical",
+                              "gap": 10,
+                              "padding": [
+                                14,
+                                0,
+                                0,
+                                0
+                              ],
                               "children": [
                                 {
-                                  "type": "text",
-                                  "id": "U6geVY",
-                                  "name": "T",
-                                  "fill": "$v2-text-2",
-                                  "content": "常驻",
-                                  "fontFamily": "Noto Sans SC",
-                                  "fontSize": 12,
-                                  "fontWeight": "normal"
-                                },
-                                {
                                   "type": "frame",
-                                  "id": "BoEY0",
-                                  "name": "ChangedDot",
-                                  "width": 6,
-                                  "height": 6,
-                                  "fill": "$v2-warn",
-                                  "cornerRadius": 3
-                                },
-                                {
-                                  "type": "frame",
-                                  "id": "xifn6",
-                                  "name": "Spacer",
+                                  "id": "zm2GP",
+                                  "name": "Quota 常驻",
                                   "width": "fill_container",
-                                  "height": 1
-                                },
-                                {
-                                  "type": "frame",
-                                  "id": "LgtI0",
-                                  "name": "Slots",
-                                  "gap": 3,
+                                  "gap": 8,
+                                  "alignItems": "center",
                                   "children": [
                                     {
+                                      "type": "text",
+                                      "id": "EEow6",
+                                      "name": "T",
+                                      "fill": "$v2-text",
+                                      "content": "常驻 Main",
+                                      "fontFamily": "Noto Sans SC",
+                                      "fontSize": 13,
+                                      "fontWeight": "normal"
+                                    },
+                                    {
                                       "type": "frame",
-                                      "id": "e8Atp",
-                                      "name": "Slot",
-                                      "width": 10,
-                                      "height": 5,
-                                      "fill": "$v2-ok",
+                                      "id": "O77h2",
+                                      "name": "ChangedDot",
+                                      "width": 6,
+                                      "height": 6,
+                                      "fill": "$v2-warn",
                                       "cornerRadius": 3
                                     },
                                     {
                                       "type": "frame",
-                                      "id": "YZ1to",
-                                      "name": "Slot",
-                                      "width": 10,
-                                      "height": 5,
-                                      "fill": "$v2-ok",
-                                      "cornerRadius": 3
+                                      "id": "eiklE",
+                                      "name": "Spacer",
+                                      "width": "fill_container",
+                                      "height": 1
                                     },
                                     {
                                       "type": "frame",
-                                      "id": "dv7zR",
-                                      "name": "Slot",
-                                      "width": 10,
-                                      "height": 5,
-                                      "fill": "$v2-line-strong",
-                                      "cornerRadius": 3
+                                      "id": "kTvkg",
+                                      "name": "Slots",
+                                      "gap": 3,
+                                      "children": [
+                                        {
+                                          "type": "frame",
+                                          "id": "b5SOXs",
+                                          "name": "Slot",
+                                          "width": 12,
+                                          "height": 5,
+                                          "fill": "$v2-ok",
+                                          "cornerRadius": 3
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "CSGSD",
+                                          "name": "Slot",
+                                          "width": 12,
+                                          "height": 5,
+                                          "fill": "$v2-ok",
+                                          "cornerRadius": 3
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "HGE9u",
+                                          "name": "Slot",
+                                          "width": 12,
+                                          "height": 5,
+                                          "fill": "$v2-line-strong",
+                                          "cornerRadius": 3
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "ps1Ah",
+                                          "name": "Slot",
+                                          "width": 12,
+                                          "height": 5,
+                                          "fill": "$v2-line-strong",
+                                          "cornerRadius": 3
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "aK9LO",
+                                      "name": "T",
+                                      "fill": "$v2-text-3",
+                                      "content": "2 / 4",
+                                      "fontFamily": "Noto Sans SC",
+                                      "fontSize": 12,
+                                      "fontWeight": "normal"
                                     },
                                     {
                                       "type": "frame",
-                                      "id": "du60T",
-                                      "name": "Slot",
-                                      "width": 10,
-                                      "height": 5,
-                                      "fill": "$v2-line-strong",
-                                      "cornerRadius": 3
+                                      "id": "qVwbq",
+                                      "name": "Stepper",
+                                      "fill": "$v2-track",
+                                      "cornerRadius": 7,
+                                      "gap": 10,
+                                      "padding": [
+                                        3,
+                                        8
+                                      ],
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "icon",
+                                          "id": "NAkdq",
+                                          "name": "i-minus",
+                                          "width": 13,
+                                          "height": 13,
+                                          "icon": "minus",
+                                          "library": "lucide",
+                                          "fill": "$v2-text-2"
+                                        },
+                                        {
+                                          "type": "text",
+                                          "id": "JFZGK",
+                                          "name": "T",
+                                          "fill": "$v2-text",
+                                          "content": "4",
+                                          "fontFamily": "Noto Sans SC",
+                                          "fontSize": 13,
+                                          "fontWeight": "500"
+                                        },
+                                        {
+                                          "type": "icon",
+                                          "id": "OANs7",
+                                          "name": "i-plus",
+                                          "width": 13,
+                                          "height": 13,
+                                          "icon": "plus",
+                                          "library": "lucide",
+                                          "fill": "$v2-text-2"
+                                        }
+                                      ]
                                     }
                                   ]
                                 },
                                 {
-                                  "type": "text",
-                                  "id": "fgEnk",
-                                  "name": "Usage",
-                                  "fill": "$v2-text-3",
-                                  "content": "2 / 4",
-                                  "fontFamily": "Noto Sans SC",
-                                  "fontSize": 12,
-                                  "fontWeight": "normal"
+                                  "type": "frame",
+                                  "id": "JkePD",
+                                  "name": "Quota 接续",
+                                  "width": "fill_container",
+                                  "gap": 8,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "Jbo2Z",
+                                      "name": "T",
+                                      "fill": "$v2-text",
+                                      "content": "接续 Main",
+                                      "fontFamily": "Noto Sans SC",
+                                      "fontSize": 13,
+                                      "fontWeight": "normal"
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "WBVg9",
+                                      "name": "Spacer",
+                                      "width": "fill_container",
+                                      "height": 1
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "YhUhm",
+                                      "name": "Slots",
+                                      "gap": 3,
+                                      "children": [
+                                        {
+                                          "type": "frame",
+                                          "id": "aLYcm",
+                                          "name": "Slot",
+                                          "width": 12,
+                                          "height": 5,
+                                          "fill": "$v2-ok",
+                                          "cornerRadius": 3
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "Jq6UY",
+                                          "name": "Slot",
+                                          "width": 12,
+                                          "height": 5,
+                                          "fill": "$v2-ok",
+                                          "cornerRadius": 3
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "GhzXQ",
+                                      "name": "T",
+                                      "fill": "$v2-text-3",
+                                      "content": "2 / 2",
+                                      "fontFamily": "Noto Sans SC",
+                                      "fontSize": 12,
+                                      "fontWeight": "normal"
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "g0vrz",
+                                      "name": "Stepper",
+                                      "fill": "$v2-track",
+                                      "cornerRadius": 7,
+                                      "gap": 10,
+                                      "padding": [
+                                        3,
+                                        8
+                                      ],
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "icon",
+                                          "id": "V50rFf",
+                                          "name": "i-minus",
+                                          "width": 13,
+                                          "height": 13,
+                                          "icon": "minus",
+                                          "library": "lucide",
+                                          "fill": "$v2-text-2"
+                                        },
+                                        {
+                                          "type": "text",
+                                          "id": "enPr8",
+                                          "name": "T",
+                                          "fill": "$v2-text",
+                                          "content": "2",
+                                          "fontFamily": "Noto Sans SC",
+                                          "fontSize": 13,
+                                          "fontWeight": "500"
+                                        },
+                                        {
+                                          "type": "icon",
+                                          "id": "n1ODKS",
+                                          "name": "i-plus",
+                                          "width": 13,
+                                          "height": 13,
+                                          "icon": "plus",
+                                          "library": "lucide",
+                                          "fill": "$v2-text-2"
+                                        }
+                                      ]
+                                    }
+                                  ]
                                 },
                                 {
                                   "type": "frame",
-                                  "id": "YOYNT",
-                                  "name": "Stepper",
-                                  "fill": "$v2-track",
-                                  "cornerRadius": 7,
+                                  "id": "MiOAR",
+                                  "name": "Actions",
+                                  "width": "fill_container",
                                   "gap": 8,
                                   "padding": [
-                                    3,
-                                    7
+                                    4,
+                                    0,
+                                    0,
+                                    0
                                   ],
                                   "alignItems": "center",
                                   "children": [
                                     {
-                                      "type": "icon",
-                                      "id": "J93Zjv",
-                                      "name": "i-minus",
-                                      "width": 12,
-                                      "height": 12,
-                                      "icon": "minus",
-                                      "library": "lucide",
-                                      "fill": "$v2-text-2"
-                                    },
-                                    {
-                                      "type": "text",
-                                      "id": "XwrHg",
-                                      "name": "T",
-                                      "fill": "$v2-text",
-                                      "content": "4",
-                                      "fontFamily": "Noto Sans SC",
-                                      "fontSize": 12,
-                                      "fontWeight": "500"
-                                    },
-                                    {
-                                      "type": "icon",
-                                      "id": "gVVFs",
-                                      "name": "i-plus",
-                                      "width": 12,
-                                      "height": 12,
-                                      "icon": "plus",
-                                      "library": "lucide",
-                                      "fill": "$v2-text-2"
-                                    }
-                                  ]
-                                }
-                              ]
-                            },
-                            {
-                              "type": "frame",
-                              "id": "O1eWef",
-                              "name": "Sep",
-                              "width": 1,
-                              "height": 24,
-                              "fill": "$v2-line"
-                            },
-                            {
-                              "type": "frame",
-                              "id": "EpmK8",
-                              "name": "Quota 接续",
-                              "width": 236,
-                              "gap": 8,
-                              "alignItems": "center",
-                              "children": [
-                                {
-                                  "type": "text",
-                                  "id": "FwD7S",
-                                  "name": "T",
-                                  "fill": "$v2-text-2",
-                                  "content": "接续",
-                                  "fontFamily": "Noto Sans SC",
-                                  "fontSize": 12,
-                                  "fontWeight": "normal"
-                                },
-                                {
-                                  "type": "frame",
-                                  "id": "l3nsy",
-                                  "name": "Spacer",
-                                  "width": "fill_container",
-                                  "height": 1
-                                },
-                                {
-                                  "type": "frame",
-                                  "id": "ZtV3T",
-                                  "name": "Slots",
-                                  "gap": 3,
-                                  "children": [
-                                    {
                                       "type": "frame",
-                                      "id": "SHi2U",
-                                      "name": "Slot",
-                                      "width": 10,
-                                      "height": 5,
-                                      "fill": "$v2-ok",
-                                      "cornerRadius": 3
+                                      "id": "E6ntO",
+                                      "name": "Spacer",
+                                      "width": "fill_container",
+                                      "height": 1
                                     },
                                     {
                                       "type": "frame",
-                                      "id": "y2dVs",
-                                      "name": "Slot",
-                                      "width": 10,
-                                      "height": 5,
-                                      "fill": "$v2-ok",
-                                      "cornerRadius": 3
-                                    }
-                                  ]
-                                },
-                                {
-                                  "type": "text",
-                                  "id": "T69sJd",
-                                  "name": "Usage",
-                                  "fill": "$v2-text-3",
-                                  "content": "2 / 2",
-                                  "fontFamily": "Noto Sans SC",
-                                  "fontSize": 12,
-                                  "fontWeight": "normal"
-                                },
-                                {
-                                  "type": "frame",
-                                  "id": "tv5DU",
-                                  "name": "Stepper",
-                                  "fill": "$v2-track",
-                                  "cornerRadius": 7,
-                                  "gap": 8,
-                                  "padding": [
-                                    3,
-                                    7
-                                  ],
-                                  "alignItems": "center",
-                                  "children": [
-                                    {
-                                      "type": "icon",
-                                      "id": "QOYdp",
-                                      "name": "i-minus",
-                                      "width": 12,
-                                      "height": 12,
-                                      "icon": "minus",
-                                      "library": "lucide",
-                                      "fill": "$v2-text-2"
+                                      "id": "OieRX",
+                                      "name": "Button 还原",
+                                      "cornerRadius": 7,
+                                      "stroke": "$v2-line",
+                                      "strokeWidth": 1,
+                                      "padding": [
+                                        4,
+                                        10
+                                      ],
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "id": "yekOx",
+                                          "name": "T",
+                                          "fill": "$v2-text",
+                                          "content": "还原",
+                                          "fontFamily": "Noto Sans SC",
+                                          "fontSize": 12,
+                                          "fontWeight": "normal"
+                                        }
+                                      ]
                                     },
                                     {
-                                      "type": "text",
-                                      "id": "m9mTgz",
-                                      "name": "T",
+                                      "type": "frame",
+                                      "id": "hSyiv",
+                                      "name": "Button 保存",
                                       "fill": "$v2-text",
-                                      "content": "2",
-                                      "fontFamily": "Noto Sans SC",
-                                      "fontSize": 12,
-                                      "fontWeight": "500"
-                                    },
-                                    {
-                                      "type": "icon",
-                                      "id": "Wgqd6",
-                                      "name": "i-plus",
-                                      "width": 12,
-                                      "height": 12,
-                                      "icon": "plus",
-                                      "library": "lucide",
-                                      "fill": "$v2-text-2"
-                                    }
-                                  ]
-                                }
-                              ]
-                            },
-                            {
-                              "type": "frame",
-                              "id": "BusBX",
-                              "name": "Actions",
-                              "width": 120,
-                              "height": 28,
-                              "gap": 8,
-                              "justifyContent": "end",
-                              "alignItems": "center",
-                              "children": [
-                                {
-                                  "type": "frame",
-                                  "id": "D9QTP",
-                                  "name": "Button 还原",
-                                  "cornerRadius": 7,
-                                  "stroke": "$v2-line",
-                                  "strokeWidth": 1,
-                                  "padding": [
-                                    4,
-                                    10
-                                  ],
-                                  "children": [
-                                    {
-                                      "type": "text",
-                                      "id": "oQaAJ",
-                                      "name": "T",
-                                      "fill": "$v2-text",
-                                      "content": "还原",
-                                      "fontFamily": "Noto Sans SC",
-                                      "fontSize": 12,
-                                      "fontWeight": "normal"
-                                    }
-                                  ]
-                                },
-                                {
-                                  "type": "frame",
-                                  "id": "H0XFxf",
-                                  "name": "Button 保存",
-                                  "fill": "$v2-text",
-                                  "cornerRadius": 7,
-                                  "padding": [
-                                    4,
-                                    10
-                                  ],
-                                  "children": [
-                                    {
-                                      "type": "text",
-                                      "id": "d8v0Hi",
-                                      "name": "T",
-                                      "fill": "$v2-main",
-                                      "content": "保存",
-                                      "fontFamily": "Noto Sans SC",
-                                      "fontSize": 12,
-                                      "fontWeight": "normal"
+                                      "cornerRadius": 7,
+                                      "padding": [
+                                        4,
+                                        10
+                                      ],
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "id": "m0W4f",
+                                          "name": "T",
+                                          "fill": "$v2-main",
+                                          "content": "保存",
+                                          "fontFamily": "Noto Sans SC",
+                                          "fontSize": 12,
+                                          "fontWeight": "normal"
+                                        }
+                                      ]
                                     }
                                   ]
                                 }
@@ -165136,319 +165185,114 @@
                         },
                         {
                           "type": "frame",
-                          "id": "t2gbFo",
+                          "id": "JCSUr",
                           "name": "Node 测试机",
                           "width": "fill_container",
-                          "height": 64,
+                          "height": 252,
                           "fill": "$v2-secondary",
                           "cornerRadius": 14,
                           "stroke": "$v2-line",
                           "strokeWidth": 1,
-                          "gap": 12,
-                          "padding": [
-                            0,
-                            16
-                          ],
-                          "alignItems": "center",
+                          "layout": "vertical",
+                          "gap": 18,
+                          "padding": 18,
                           "children": [
                             {
                               "type": "frame",
-                              "id": "kvbY4",
-                              "name": "IconBox",
-                              "width": 32,
-                              "height": 32,
-                              "fill": "$v2-track",
-                              "cornerRadius": 9,
-                              "justifyContent": "center",
+                              "id": "dYG1s",
+                              "name": "Head",
+                              "width": "fill_container",
+                              "gap": 12,
                               "alignItems": "center",
                               "children": [
                                 {
-                                  "type": "icon",
-                                  "id": "hr7kC",
-                                  "name": "i-server",
-                                  "width": 16,
-                                  "height": 16,
-                                  "icon": "server",
-                                  "library": "lucide",
-                                  "fill": "$v2-text"
-                                }
-                              ]
-                            },
-                            {
-                              "type": "frame",
-                              "id": "BSqc4",
-                              "name": "Info",
-                              "width": "fill_container",
-                              "layout": "vertical",
-                              "gap": 2,
-                              "children": [
-                                {
                                   "type": "frame",
-                                  "id": "l89ea",
-                                  "name": "NameRow",
-                                  "gap": 6,
+                                  "id": "fbHH4",
+                                  "name": "IconBox",
+                                  "width": 34,
+                                  "height": 34,
+                                  "fill": "$v2-track",
+                                  "cornerRadius": 9,
+                                  "justifyContent": "center",
                                   "alignItems": "center",
                                   "children": [
                                     {
-                                      "type": "text",
-                                      "id": "qfVKU",
-                                      "name": "T",
-                                      "fill": "$v2-text-2",
-                                      "content": "测试机",
-                                      "fontFamily": "Noto Sans SC",
-                                      "fontSize": 14,
-                                      "fontWeight": "500"
-                                    },
+                                      "type": "icon",
+                                      "id": "BbQoP",
+                                      "name": "i-server",
+                                      "width": 16,
+                                      "height": 16,
+                                      "icon": "server",
+                                      "library": "lucide",
+                                      "fill": "$v2-text"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "goR1S",
+                                  "name": "Info",
+                                  "width": "fill_container",
+                                  "layout": "vertical",
+                                  "gap": 3,
+                                  "children": [
                                     {
                                       "type": "frame",
-                                      "id": "G5nWeI",
-                                      "name": "Tag",
-                                      "fill": "$v2-chip",
-                                      "cornerRadius": 5,
-                                      "padding": [
-                                        1,
-                                        6
-                                      ],
+                                      "id": "ogIsa",
+                                      "name": "NameRow",
+                                      "gap": 6,
+                                      "alignItems": "center",
                                       "children": [
                                         {
                                           "type": "text",
-                                          "id": "p0GkH",
+                                          "id": "jiQ7s",
                                           "name": "T",
                                           "fill": "$v2-text-2",
-                                          "content": "对内",
+                                          "content": "测试机",
                                           "fontFamily": "Noto Sans SC",
-                                          "fontSize": 11,
-                                          "fontWeight": "normal"
-                                        }
-                                      ]
-                                    }
-                                  ]
-                                },
-                                {
-                                  "type": "text",
-                                  "id": "nOE53",
-                                  "name": "Sub",
-                                  "fill": "$v2-text-3",
-                                  "content": "离线 · 2 小时前",
-                                  "fontFamily": "Noto Sans SC",
-                                  "fontSize": 12,
-                                  "fontWeight": "normal"
-                                }
-                              ]
-                            },
-                            {
-                              "type": "frame",
-                              "id": "RZhgd",
-                              "name": "Resources",
-                              "width": 252,
-                              "gap": 14,
-                              "alignItems": "center",
-                              "children": [
-                                {
-                                  "type": "frame",
-                                  "id": "v5nVB",
-                                  "name": "Meter CPU",
-                                  "width": "fill_container",
-                                  "layout": "vertical",
-                                  "gap": 4,
-                                  "children": [
-                                    {
-                                      "type": "frame",
-                                      "id": "loGBa",
-                                      "name": "MeterText",
-                                      "width": "fill_container",
-                                      "gap": 4,
-                                      "alignItems": "center",
-                                      "children": [
-                                        {
-                                          "type": "text",
-                                          "id": "uVu8C",
-                                          "name": "T",
-                                          "fill": "$v2-text-3",
-                                          "content": "CPU",
-                                          "fontFamily": "Noto Sans SC",
-                                          "fontSize": 11,
-                                          "fontWeight": "normal"
+                                          "fontSize": 14,
+                                          "fontWeight": "500"
                                         },
                                         {
                                           "type": "frame",
-                                          "id": "d2L6A",
-                                          "name": "Spacer",
-                                          "width": "fill_container",
-                                          "height": 1
-                                        },
-                                        {
-                                          "type": "text",
-                                          "id": "ab2Ra",
-                                          "name": "Value",
-                                          "fill": "$v2-text-3",
-                                          "content": "—",
-                                          "fontFamily": "Noto Sans SC",
-                                          "fontSize": 11,
-                                          "fontWeight": "normal"
+                                          "id": "fyrtf",
+                                          "name": "Tag",
+                                          "fill": "$v2-chip",
+                                          "cornerRadius": 5,
+                                          "padding": [
+                                            1,
+                                            6
+                                          ],
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "S4almi",
+                                              "name": "T",
+                                              "fill": "$v2-text-2",
+                                              "content": "对内",
+                                              "fontFamily": "Noto Sans SC",
+                                              "fontSize": 11,
+                                              "fontWeight": "normal"
+                                            }
+                                          ]
                                         }
                                       ]
                                     },
                                     {
-                                      "type": "frame",
-                                      "id": "Zw1b2",
-                                      "name": "Bar",
-                                      "width": "fill_container",
-                                      "height": 3,
-                                      "fill": "$v2-line-strong",
-                                      "cornerRadius": 2,
-                                      "layout": "none"
+                                      "type": "text",
+                                      "id": "A9BDk",
+                                      "name": "Sub",
+                                      "fill": "$v2-text-3",
+                                      "content": "离线 · 2 小时前",
+                                      "fontFamily": "Noto Sans SC",
+                                      "fontSize": 12,
+                                      "fontWeight": "normal"
                                     }
                                   ]
                                 },
                                 {
                                   "type": "frame",
-                                  "id": "VH2tg",
-                                  "name": "Meter 内存",
-                                  "width": "fill_container",
-                                  "layout": "vertical",
-                                  "gap": 4,
-                                  "children": [
-                                    {
-                                      "type": "frame",
-                                      "id": "Bp7Ra",
-                                      "name": "MeterText",
-                                      "width": "fill_container",
-                                      "gap": 4,
-                                      "alignItems": "center",
-                                      "children": [
-                                        {
-                                          "type": "text",
-                                          "id": "td5DO",
-                                          "name": "T",
-                                          "fill": "$v2-text-3",
-                                          "content": "内存",
-                                          "fontFamily": "Noto Sans SC",
-                                          "fontSize": 11,
-                                          "fontWeight": "normal"
-                                        },
-                                        {
-                                          "type": "frame",
-                                          "id": "Hfa2i",
-                                          "name": "Spacer",
-                                          "width": "fill_container",
-                                          "height": 1
-                                        },
-                                        {
-                                          "type": "text",
-                                          "id": "vZcYV",
-                                          "name": "Value",
-                                          "fill": "$v2-text-3",
-                                          "content": "—",
-                                          "fontFamily": "Noto Sans SC",
-                                          "fontSize": 11,
-                                          "fontWeight": "normal"
-                                        }
-                                      ]
-                                    },
-                                    {
-                                      "type": "frame",
-                                      "id": "bTubX",
-                                      "name": "Bar",
-                                      "width": "fill_container",
-                                      "height": 3,
-                                      "fill": "$v2-line-strong",
-                                      "cornerRadius": 2,
-                                      "layout": "none"
-                                    }
-                                  ]
-                                },
-                                {
-                                  "type": "frame",
-                                  "id": "gfFSL",
-                                  "name": "Meter 磁盘",
-                                  "width": "fill_container",
-                                  "layout": "vertical",
-                                  "gap": 4,
-                                  "children": [
-                                    {
-                                      "type": "frame",
-                                      "id": "sXFoV",
-                                      "name": "MeterText",
-                                      "width": "fill_container",
-                                      "gap": 4,
-                                      "alignItems": "center",
-                                      "children": [
-                                        {
-                                          "type": "text",
-                                          "id": "AiEvb",
-                                          "name": "T",
-                                          "fill": "$v2-text-3",
-                                          "content": "磁盘",
-                                          "fontFamily": "Noto Sans SC",
-                                          "fontSize": 11,
-                                          "fontWeight": "normal"
-                                        },
-                                        {
-                                          "type": "frame",
-                                          "id": "lpKgT",
-                                          "name": "Spacer",
-                                          "width": "fill_container",
-                                          "height": 1
-                                        },
-                                        {
-                                          "type": "text",
-                                          "id": "v5RdB5",
-                                          "name": "Value",
-                                          "fill": "$v2-text-3",
-                                          "content": "—",
-                                          "fontFamily": "Noto Sans SC",
-                                          "fontSize": 11,
-                                          "fontWeight": "normal"
-                                        }
-                                      ]
-                                    },
-                                    {
-                                      "type": "frame",
-                                      "id": "o7Oyyz",
-                                      "name": "Bar",
-                                      "width": "fill_container",
-                                      "height": 3,
-                                      "fill": "$v2-line-strong",
-                                      "cornerRadius": 2,
-                                      "layout": "none"
-                                    }
-                                  ]
-                                }
-                              ]
-                            },
-                            {
-                              "type": "frame",
-                              "id": "XgTuf",
-                              "name": "NoQuota",
-                              "width": 489,
-                              "justifyContent": "end",
-                              "children": [
-                                {
-                                  "type": "text",
-                                  "id": "uUGLU",
-                                  "name": "T",
-                                  "fill": "$v2-text-3",
-                                  "content": "不限名额",
-                                  "fontFamily": "Noto Sans SC",
-                                  "fontSize": 12,
-                                  "fontWeight": "normal"
-                                }
-                              ]
-                            },
-                            {
-                              "type": "frame",
-                              "id": "ZsFhD",
-                              "name": "Actions",
-                              "width": 120,
-                              "height": 28,
-                              "gap": 8,
-                              "justifyContent": "end",
-                              "alignItems": "center",
-                              "children": [
-                                {
-                                  "type": "frame",
-                                  "id": "MHbrG",
+                                  "id": "ENsRd",
                                   "name": "Button 重连",
                                   "cornerRadius": 7,
                                   "stroke": "$v2-line",
@@ -165460,7 +165304,7 @@
                                   "children": [
                                     {
                                       "type": "text",
-                                      "id": "bFj0D",
+                                      "id": "pwn5Y",
                                       "name": "T",
                                       "fill": "$v2-text",
                                       "content": "重连",
@@ -165472,13 +165316,220 @@
                                 },
                                 {
                                   "type": "icon",
-                                  "id": "cpVx8",
+                                  "id": "BMW8j",
                                   "name": "i-ellipsis",
                                   "width": 16,
                                   "height": 16,
                                   "icon": "ellipsis",
                                   "library": "lucide",
                                   "fill": "$v2-text-3"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "G60qW",
+                              "name": "Resources",
+                              "width": "fill_container",
+                              "gap": 16,
+                              "children": [
+                                {
+                                  "type": "frame",
+                                  "id": "B3pZ0",
+                                  "name": "Meter CPU",
+                                  "width": "fill_container",
+                                  "layout": "vertical",
+                                  "gap": 6,
+                                  "children": [
+                                    {
+                                      "type": "frame",
+                                      "id": "T2Emp",
+                                      "name": "MeterText",
+                                      "width": "fill_container",
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "id": "cKtkD",
+                                          "name": "T",
+                                          "fill": "$v2-text-3",
+                                          "content": "CPU",
+                                          "fontFamily": "Noto Sans SC",
+                                          "fontSize": 12,
+                                          "fontWeight": "normal"
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "TQqES",
+                                          "name": "Spacer",
+                                          "width": "fill_container",
+                                          "height": 1
+                                        },
+                                        {
+                                          "type": "text",
+                                          "id": "zE0na",
+                                          "name": "Value",
+                                          "fill": "$v2-text-3",
+                                          "content": "—",
+                                          "fontFamily": "Noto Sans SC",
+                                          "fontSize": 12,
+                                          "fontWeight": "normal"
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "ZBy50",
+                                      "name": "Bar",
+                                      "width": "fill_container",
+                                      "height": 4,
+                                      "fill": "$v2-line-strong",
+                                      "cornerRadius": 2,
+                                      "layout": "none"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "SfuK9",
+                                  "name": "Meter 内存",
+                                  "width": "fill_container",
+                                  "layout": "vertical",
+                                  "gap": 6,
+                                  "children": [
+                                    {
+                                      "type": "frame",
+                                      "id": "HiRq1",
+                                      "name": "MeterText",
+                                      "width": "fill_container",
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "id": "j9WMde",
+                                          "name": "T",
+                                          "fill": "$v2-text-3",
+                                          "content": "内存",
+                                          "fontFamily": "Noto Sans SC",
+                                          "fontSize": 12,
+                                          "fontWeight": "normal"
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "LMFZj",
+                                          "name": "Spacer",
+                                          "width": "fill_container",
+                                          "height": 1
+                                        },
+                                        {
+                                          "type": "text",
+                                          "id": "sNi2q",
+                                          "name": "Value",
+                                          "fill": "$v2-text-3",
+                                          "content": "—",
+                                          "fontFamily": "Noto Sans SC",
+                                          "fontSize": 12,
+                                          "fontWeight": "normal"
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "Xpor3",
+                                      "name": "Bar",
+                                      "width": "fill_container",
+                                      "height": 4,
+                                      "fill": "$v2-line-strong",
+                                      "cornerRadius": 2,
+                                      "layout": "none"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "W32dU",
+                                  "name": "Meter 磁盘",
+                                  "width": "fill_container",
+                                  "layout": "vertical",
+                                  "gap": 6,
+                                  "children": [
+                                    {
+                                      "type": "frame",
+                                      "id": "vGQye",
+                                      "name": "MeterText",
+                                      "width": "fill_container",
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "id": "eFc8h",
+                                          "name": "T",
+                                          "fill": "$v2-text-3",
+                                          "content": "磁盘",
+                                          "fontFamily": "Noto Sans SC",
+                                          "fontSize": 12,
+                                          "fontWeight": "normal"
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "QWMPM",
+                                          "name": "Spacer",
+                                          "width": "fill_container",
+                                          "height": 1
+                                        },
+                                        {
+                                          "type": "text",
+                                          "id": "UIrpP",
+                                          "name": "Value",
+                                          "fill": "$v2-text-3",
+                                          "content": "—",
+                                          "fontFamily": "Noto Sans SC",
+                                          "fontSize": 12,
+                                          "fontWeight": "normal"
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "ITTPR",
+                                      "name": "Bar",
+                                      "width": "fill_container",
+                                      "height": 4,
+                                      "fill": "$v2-line-strong",
+                                      "cornerRadius": 2,
+                                      "layout": "none"
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "PTE8t",
+                              "name": "Quota",
+                              "width": "fill_container",
+                              "stroke": "$v2-line",
+                              "strokeWidth": {
+                                "top": 1
+                              },
+                              "layout": "vertical",
+                              "gap": 10,
+                              "padding": [
+                                14,
+                                0,
+                                0,
+                                0
+                              ],
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "A3NBhv",
+                                  "name": "T",
+                                  "fill": "$v2-text-3",
+                                  "content": "对内节点，不占运行名额",
+                                  "fontFamily": "Noto Sans SC",
+                                  "fontSize": 12,
+                                  "fontWeight": "normal"
                                 }
                               ]
                             }
