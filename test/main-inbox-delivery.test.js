@@ -2,8 +2,10 @@ import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
 import { mkdir, mkdtemp, readFile, rename, rm, utimes, writeFile } from "node:fs/promises";
+import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 import { test } from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
 import { LocalWorkspaceStore } from "../dist/src/workspace/workspace-store.js";
@@ -1013,4 +1015,128 @@ test("extractInboxReceipts covers toolResult multi/cross-run, user, and custom r
   );
   await bridge.acknowledge(persistedEligible);
   assert.equal((await inbox.list("main")).find((m) => m.messageId === "branch-b-custom").state, "consumed");
+});
+
+test("real extension context handler refuses to consume a receipt that exists only in model context without durable disk backing", async (t) => {
+  const { root, inbox } = await fixture(t);
+  const now = new Date().toISOString();
+  await inbox.enqueue({
+    messageId: "context-only-cb",
+    recipientAgentId: "main",
+    callId: "c-context-only",
+    kind: "callback",
+    eventId: "e-context-only",
+    priority: 1,
+    state: "ready",
+    payload: { callId: "c-context-only", response: "ONLY_IN_CONTEXT" },
+    createdAt: now
+  });
+  const savedEnv = {
+    COWORK_WORKSPACE: process.env.COWORK_WORKSPACE,
+    COWORK_TASK_ID: process.env.COWORK_TASK_ID,
+    COWORK_RUN_ID: process.env.COWORK_RUN_ID,
+    COWORK_PROJECT_DIR: process.env.COWORK_PROJECT_DIR,
+    COWORK_HARNESS_ROOT: process.env.COWORK_HARNESS_ROOT,
+    COWORK_API_BASE: process.env.COWORK_API_BASE,
+    COWORK_API_KEY: process.env.COWORK_API_KEY
+  };
+  process.env.COWORK_WORKSPACE = root;
+  process.env.COWORK_TASK_ID = "task";
+  process.env.COWORK_RUN_ID = "run";
+  process.env.COWORK_PROJECT_DIR = root;
+  process.env.COWORK_HARNESS_ROOT = process.cwd();
+  process.env.COWORK_API_BASE = "http://127.0.0.1:1/v1";
+  process.env.COWORK_API_KEY = "fixture-key";
+  t.after(() => {
+    for (const [k, v] of Object.entries(savedEnv)) {
+      if (v === undefined) delete process.env[k];
+      else process.env[k] = v;
+    }
+  });
+
+  const requirePi = createRequire(import.meta.resolve("@earendil-works/pi-coding-agent"));
+  const { createJiti } = await import(requirePi.resolve("jiti"));
+  const extPath = resolve(".pi/runtime/extension.ts");
+  const jiti = createJiti(pathToFileURL(extPath).href, { interopDefault: true });
+  const extModule = await jiti.import(extPath);
+  const registerMainExtension = extModule.default ?? extModule;
+  const handlers = new Map();
+  const fakePi = {
+    on(event, fn) {
+      const list = handlers.get(event) ?? [];
+      list.push(fn);
+      handlers.set(event, list);
+    },
+    registerTool() {},
+    registerCommand() {},
+    registerProvider() {},
+    getActiveTools: () => [],
+    setActiveTools() {},
+    getThinkingLevel: () => "off",
+    setThinkingLevel() {},
+    sendMessage() {},
+    sendUserMessage() {},
+    appendEntry() {}
+  };
+  await registerMainExtension(fakePi);
+
+  const branchEntries = [
+    {
+      type: "message",
+      id: "u1",
+      parentId: null,
+      timestamp: now,
+      message: { role: "user", content: [{ type: "text", text: "hello" }], timestamp: Date.now() }
+    }
+  ];
+  const fakeCtx = {
+    ui: { notify() {}, setStatus() {} },
+    shutdown() {},
+    isIdle: () => true,
+    hasPendingMessages: () => false,
+    getContextUsage: () => undefined,
+    sessionManager: {
+      getBranch: () => branchEntries,
+      getEntries: () => branchEntries,
+      getSessionFile: () => join(root, "task/sessions/main/pi/nonexistent.jsonl")
+    }
+  };
+  for (const fn of handlers.get("session_start") ?? []) await fn({ reason: "startup" }, fakeCtx);
+  t.after(async () => {
+    for (const fn of handlers.get("session_shutdown") ?? []) await fn({}, fakeCtx);
+  });
+  const messagesPath = join(root, "task/agents/main/context/messages.json");
+  const contextOnlyMsg = {
+    role: "custom",
+    customType: "cowork-callback",
+    content: "ONLY_IN_CONTEXT",
+    details: { _coworkInbox: { taskId: "task", runId: "run", messageId: "context-only-cb" } }
+  };
+  for (const fn of handlers.get("context") ?? []) {
+    await fn({ messages: [branchEntries[0].message, contextOnlyMsg] }, fakeCtx);
+  }
+  const persistedWithoutReceipt = await readFile(messagesPath, "utf8");
+  assert.doesNotMatch(persistedWithoutReceipt, /context-only-cb/);
+  assert.notEqual(
+    (await inbox.list("main")).find((m) => m.messageId === "context-only-cb").state,
+    "consumed",
+    "receipt present only in event.messages without branch or jsonl persistence must NOT be consumed"
+  );
+  // Once the receipt is actually part of the branch, messages.json persists it and acknowledge() consumes it.
+  branchEntries.push({
+    type: "custom_message",
+    id: "c1",
+    parentId: "u1",
+    timestamp: now,
+    customType: "cowork-callback",
+    content: "ONLY_IN_CONTEXT",
+    display: true,
+    details: { _coworkInbox: { taskId: "task", runId: "run", messageId: "context-only-cb" } }
+  });
+  for (const fn of handlers.get("context") ?? []) {
+    await fn({ messages: [branchEntries[0].message, contextOnlyMsg] }, fakeCtx);
+  }
+  const persistedWithReceipt = await readFile(messagesPath, "utf8");
+  assert.match(persistedWithReceipt, /context-only-cb/);
+  assert.equal((await inbox.list("main")).find((m) => m.messageId === "context-only-cb").state, "consumed");
 });

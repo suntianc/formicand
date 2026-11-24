@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
+import { mkdir, open, readFile, rename, rm, type FileHandle } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import type { Context, Model } from "@earendil-works/pi-ai";
 import { withFileLock } from "./file-lock.js";
@@ -65,6 +65,47 @@ interface MainRequestStateSidecar {
 }
 const sidecarChecksum = (sidecar: Omit<MainRequestStateSidecar, "checksum">) =>
   hash(JSON.stringify(Object.fromEntries(Object.entries(sidecar).filter(([key]) => key !== "checksum"))));
+
+async function syncDirectory(dirPath: string): Promise<void> {
+  let handle: FileHandle | undefined;
+  try {
+    handle = await open(dirPath, "r");
+    await handle.sync();
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    if (
+      process.platform === "win32" ||
+      code === "EISDIR" ||
+      code === "EINVAL" ||
+      code === "EPERM" ||
+      code === "EBADF"
+    )
+      return;
+    throw error;
+  } finally {
+    await handle?.close();
+  }
+}
+
+async function atomicWriteDurable(targetPath: string, content: string): Promise<void> {
+  const dir = dirname(targetPath);
+  await mkdir(dir, { recursive: true, mode: 0o700 });
+  const temporary = `${targetPath}.${randomUUID()}.tmp`;
+  try {
+    const handle = await open(temporary, "wx", 0o600);
+    try {
+      await handle.chmod(0o600);
+      await handle.writeFile(content, "utf8");
+      await handle.sync();
+    } finally {
+      await handle.close();
+    }
+    await rename(temporary, targetPath);
+    await syncDirectory(dir);
+  } finally {
+    await rm(temporary, { force: true });
+  }
+}
 const validModel = (model: MainRequestModel | null | undefined) =>
   model &&
   typeof model.id === "string" &&
@@ -169,8 +210,8 @@ export class MainRequestStore {
         const base = await this.readBaseUnlocked();
         // A later request, or a newly accepted user turn, owns this slot now.
         if (base?.requestId !== requestId) return;
-        const current = await this.readUnlocked();
-        if (current?.requestId !== requestId || current.state === state) return;
+        const current = await this.mergeSidecarUnlocked(base);
+        if (current.state === state) return;
         if (state === "failed") {
           await this.writeBaseUnlocked({ ...base, state: "failed" });
           await this.removeStateUnlocked();
@@ -290,9 +331,7 @@ export class MainRequestStore {
     return sidecar;
   }
 
-  private async readUnlocked(): Promise<MainRequestSnapshot | undefined> {
-    const base = await this.readBaseUnlocked();
-    if (!base) return;
+  private async mergeSidecarUnlocked(base: MainRequestSnapshot): Promise<MainRequestSnapshot> {
     const sidecar = await this.readStateUnlocked();
     if (!sidecar) return base;
     if (
@@ -307,28 +346,22 @@ export class MainRequestStore {
     return { ...merged, checksum: checksum(merged) };
   }
 
+  private async readUnlocked(): Promise<MainRequestSnapshot | undefined> {
+    const base = await this.readBaseUnlocked();
+    if (!base) return;
+    return this.mergeSidecarUnlocked(base);
+  }
+
   private async pendingUnlocked(): Promise<MainRequestSnapshot | undefined> {
     const snapshot = await this.readUnlocked();
     return snapshot?.state === "completed" ? undefined : snapshot;
   }
 
   private async writeBaseUnlocked(snapshot: Omit<MainRequestSnapshot, "checksum">): Promise<void> {
-    await mkdir(dirname(this.filePath), { recursive: true, mode: 0o700 });
-    const temporary = `${this.filePath}.${randomUUID()}.tmp`;
-    try {
-      await writeFile(temporary, JSON.stringify({ ...snapshot, checksum: checksum(snapshot) }), {
-        mode: 0o600,
-        flag: "wx"
-      });
-      await rename(temporary, this.filePath);
-    } finally {
-      await rm(temporary, { force: true });
-    }
+    await atomicWriteDurable(this.filePath, JSON.stringify({ ...snapshot, checksum: checksum(snapshot) }));
   }
 
   private async writeStateUnlocked(base: MainRequestSnapshot, state: "failed" | "completed"): Promise<void> {
-    await mkdir(dirname(this.statePath), { recursive: true, mode: 0o700 });
-    const temporary = `${this.statePath}.${randomUUID()}.tmp`;
     const payload: Omit<MainRequestStateSidecar, "checksum"> = {
       version: 1,
       taskId: base.taskId,
@@ -337,18 +370,17 @@ export class MainRequestStore {
       state,
       snapshotChecksum: base.checksum
     };
-    try {
-      await writeFile(temporary, JSON.stringify({ ...payload, checksum: sidecarChecksum(payload) }), {
-        mode: 0o600,
-        flag: "wx"
-      });
-      await rename(temporary, this.statePath);
-    } finally {
-      await rm(temporary, { force: true });
-    }
+    await atomicWriteDurable(
+      this.statePath,
+      JSON.stringify({ ...payload, checksum: sidecarChecksum(payload) })
+    );
   }
 
   private async removeStateUnlocked(): Promise<void> {
     await rm(this.statePath, { force: true });
+    await syncDirectory(dirname(this.statePath)).catch((error: NodeJS.ErrnoException) => {
+      if (error.code === "ENOENT") return;
+      throw error;
+    });
   }
 }

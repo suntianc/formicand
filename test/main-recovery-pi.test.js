@@ -1,9 +1,11 @@
 import assert from "node:assert/strict";
+import { spawn } from "node:child_process";
 import { readFixtureRequestBody } from "./http-request-body-fixture.mjs";
 import { once } from "node:events";
-import { mkdir, readdir, readFile, realpath, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
-import { join } from "node:path";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 import { test } from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
 import { SessionManager } from "@earendil-works/pi-coding-agent";
@@ -832,11 +834,7 @@ test(
   { timeout: 60_000 },
   async (t) => {
     let phase = "step1";
-    let step2Started = false;
-    let releaseStep2;
-    const step2Gate = new Promise((resolve) => {
-      releaseStep2 = resolve;
-    });
+    let tool2Marker = "";
     const local = await fixture(t, async ({ body, response }) => {
       const toolCount = body.messages.filter((m) => m.role === "tool").length;
       if (phase === "step1" && toolCount === 0) {
@@ -857,35 +855,59 @@ test(
         return;
       }
       if (phase === "step1" && toolCount === 1) {
-        step2Started = true;
         response.writeHead(200, { "content-type": "text/event-stream" });
         stream(response, { role: "assistant", content: "PARTIAL_MID_TOOL_TEXT" });
-        await step2Gate;
-        response.destroy();
+        stream(response, {
+          tool_calls: [
+            {
+              index: 0,
+              id: "call_step2_hold",
+              type: "function",
+              function: {
+                name: "bash",
+                arguments: JSON.stringify({
+                  command: `printf 'TOOL2_RUNNING\\n' > ${shellQuote(tool2Marker)}; sleep 30`
+                })
+              }
+            }
+          ]
+        });
+        stream(response, {}, "tool_calls");
+        response.end("data: [DONE]\n\n");
         return;
       }
       return complete(response, "FOLLOW_UP_CONTINUITY_OK");
     });
 
     const taskId = "throttled-mid-tool-sigkill";
+    tool2Marker = join(local.root, "tool2-running.txt");
     await local.api("/api/tasks", { taskId, goal: "Run two steps and survive SIGKILL." });
     const started = await local.api(`/api/tasks/${taskId}/run`, {
       prompt: "Run two steps and survive SIGKILL."
     });
 
+    // Wait until tool 2 is actively running (so step 2's settle('completed') has written the sidecar
+    // and step 3's begin() has NOT started yet).
     const until = Date.now() + 20_000;
-    while (!step2Started && Date.now() < until) await delay(20);
-    assert.equal(step2Started, true);
-    // Allow partial delta to flush into runtime-output.log before SIGKILL.
-    await delay(150);
+    while (Date.now() < until) {
+      const ready = await readFile(tool2Marker, "utf8").catch(() => "");
+      if (ready.includes("TOOL2_RUNNING")) break;
+      await delay(20);
+    }
+    assert.match(await readFile(tool2Marker, "utf8"), /TOOL2_RUNNING/);
 
-    // Step 2 is a plain intermediate tool step (< 5s, < 10 entries), so messages.json was throttled
-    // and does NOT yet contain STEP1_MARKER before SIGKILL.
+    // Verify BEFORE SIGKILL:
+    // 1. messages.json was throttled on step 2 (< 5s, < 10 entries) and does NOT yet contain STEP1_MARKER.
+    // 2. request-retry.state.json ACTUALLY EXISTS with state='completed' while base file is still 'pending'.
     const rawMessagesMidTurn = await readFile(
       join(local.workspaceRoot, taskId, "agents", "main", "context", "messages.json"),
       "utf8"
     );
     assert.doesNotMatch(rawMessagesMidTurn, /STEP1_MARKER/);
+    const statePath = mainRequestStatePath(local.workspaceRoot, taskId);
+    const reqPath = mainRequestPath(local.workspaceRoot, taskId);
+    assert.equal(JSON.parse(await readFile(statePath, "utf8")).state, "completed");
+    assert.equal(JSON.parse(await readFile(reqPath, "utf8")).state, "pending");
 
     const proc = JSON.parse(
       await readFile(
@@ -895,7 +917,6 @@ test(
     );
     phase = "followup";
     process.kill(proc.pid, "SIGKILL");
-    releaseStep2();
     const failed = await local.settle(taskId, "failed");
 
     // 1. Backend loadDetail() retains original user prompt, step 1 tool output, and partial text.
@@ -904,13 +925,11 @@ test(
     assert.match(detailJson, /STEP1_MARKER/);
     assert.match(detailJson, /PARTIAL_MID_TOOL_TEXT/);
 
-    // 2. Backend exit settlement materialized request-retry.json (no lingering sidecar, valid v1).
-    await assert.rejects(readFile(mainRequestStatePath(local.workspaceRoot, taskId)), { code: "ENOENT" });
-    const materialized = await new MainRequestStore(
-      mainRequestPath(local.workspaceRoot, taskId),
-      taskId
-    ).read();
-    assert.ok(materialized, "request-retry.json must remain a valid v1 snapshot after SIGKILL settlement");
+    // 2. Backend exit settlement materialized the sidecar into native v1 request-retry.json (state='completed') and cleared sidecar.
+    await assert.rejects(readFile(statePath), { code: "ENOENT" });
+    assert.equal(JSON.parse(await readFile(reqPath, "utf8")).state, "completed");
+    const materialized = await new MainRequestStore(reqPath, taskId).read();
+    assert.equal(materialized?.state, "completed");
 
     // 3. SSE replay with `after` cursor yields contiguous runtime event indices without gaps or duplicates.
     const runtimeIndex = (eventId) => {
@@ -944,16 +963,12 @@ test(
     assert.ok(replayedIndices.length > 0, `SSE stream?after=${pivot} returned no runtime events: ${sseBuf}`);
     assert.equal(replayedIndices[0], pivot, `SSE after=${pivot} must start at pivot`);
     for (let i = 1; i < replayedIndices.length; i++) {
-      assert.equal(
-        replayedIndices[i],
-        replayedIndices[i - 1] + 1,
-        `SSE indices must be contiguous: ${JSON.stringify(replayedIndices)}`
+      assert.ok(
+        replayedIndices[i] > replayedIndices[i - 1],
+        `SSE indices must be strictly increasing without duplicates: ${JSON.stringify(replayedIndices)}`
       );
     }
-    const replayedSet = new Set(replayedIndices);
-    for (const idx of expectedTail) {
-      assert.ok(replayedSet.has(idx), `SSE replay missing settled index ${idx}`);
-    }
+    assert.deepEqual(replayedIndices, expectedTail);
 
     // 4. Follow-up message continues seamlessly and syncs messages.json.
     await local.api(`/api/tasks/${taskId}/run`, { prompt: "Continue after crash." });
@@ -1038,5 +1053,124 @@ test(
     );
     assert.match(savedMessages, /ACTIVE_BRANCH_CALLBACK_TEXT/);
     assert.doesNotMatch(savedMessages, /OTHER_BRANCH_CALLBACK_TEXT/);
+  }
+);
+
+test(
+  "real Pi standalone --print CLI launcher materializes request sidecar when Pi receives SIGKILL mid-tool",
+  { timeout: 60_000 },
+  async (t) => {
+    const root = await mkdtemp(join(tmpdir(), "atria-cli-sigkill-"));
+    const workspaceRoot = join(root, "workspace");
+    const projectDir = join(root, "project");
+    const piAgentDir = join(root, "pi-agent");
+    const pidFile = join(root, "pi-child.pid");
+    await mkdir(workspaceRoot, { recursive: true });
+    await mkdir(projectDir, { recursive: true });
+    await mkdir(piAgentDir, { recursive: true });
+    await writeFile(
+      join(piAgentDir, "settings.json"),
+      JSON.stringify({ retry: { enabled: false }, compaction: { enabled: false } })
+    );
+
+    const provider = createServer(async (request, response) => {
+      await readFixtureRequestBody(request);
+      if (request.method !== "POST") {
+        response.writeHead(200, { "content-type": "application/json" });
+        response.end(JSON.stringify({ data: [{ id: "fixture-model" }] }));
+        return;
+      }
+      response.writeHead(200, { "content-type": "text/event-stream" });
+      stream(response, { role: "assistant" });
+      stream(response, {
+        tool_calls: [
+          {
+            index: 0,
+            id: "call_cli_hold",
+            type: "function",
+            function: {
+              name: "bash",
+              arguments: JSON.stringify({
+                command: `printf '%s\\n' "$PPID" > ${shellQuote(pidFile)}; sleep 30`
+              })
+            }
+          }
+        ]
+      });
+      stream(response, {}, "tool_calls");
+      response.end("data: [DONE]\n\n");
+    });
+    provider.listen(0, "127.0.0.1");
+    await once(provider, "listening");
+    const configPath = join(root, "config.json");
+    await writeFile(
+      configPath,
+      JSON.stringify({
+        api: "openai-completions",
+        baseUrl: `http://127.0.0.1:${provider.address().port}/v1`,
+        apiKey: "fixture-key",
+        model: "fixture-model",
+        workspaceRoot
+      })
+    );
+
+    const taskId = "cli-sigkill-materialize";
+    const launcher = spawn(
+      process.execPath,
+      [resolve("scripts/start-pi.mjs"), "--print", "Run a tool and wait."],
+      {
+        cwd: projectDir,
+        env: {
+          PATH: process.env.PATH,
+          HOME: root,
+          TMPDIR: process.env.TMPDIR ?? tmpdir(),
+          COWORK_CONFIG: configPath,
+          COWORK_HARNESS_ROOT: process.cwd(),
+          COWORK_WORKSPACE: workspaceRoot,
+          COWORK_TASK_ID: taskId,
+          COWORK_PROJECT_DIR: projectDir,
+          PI_CODING_AGENT_DIR: piAgentDir
+        },
+        stdio: ["ignore", "pipe", "pipe"]
+      }
+    );
+    let stderr = "";
+    launcher.stderr.on("data", (chunk) => {
+      stderr += String(chunk);
+    });
+    t.after(async () => {
+      if (launcher.exitCode === null && launcher.signalCode === null) launcher.kill("SIGKILL");
+      provider.closeAllConnections();
+      await new Promise((done) => provider.close(done));
+      await rm(root, { recursive: true, force: true });
+    });
+
+    const until = Date.now() + 25_000;
+    let piPid = 0;
+    while (Date.now() < until) {
+      const raw = await readFile(pidFile, "utf8").catch(() => "");
+      const parsed = Number(raw.trim());
+      if (Number.isInteger(parsed) && parsed > 0) {
+        piPid = parsed;
+        break;
+      }
+      await delay(25);
+    }
+    assert.ok(piPid > 0, `Pi child did not start tool execution; stderr=${stderr}`);
+
+    const reqPath = mainRequestPath(workspaceRoot, taskId);
+    const statePath = mainRequestStatePath(workspaceRoot, taskId);
+    assert.equal(JSON.parse(await readFile(reqPath, "utf8")).state, "pending");
+    assert.equal(JSON.parse(await readFile(statePath, "utf8")).state, "completed");
+
+    const launcherClosed = once(launcher, "close");
+    process.kill(piPid, "SIGKILL");
+    const [exitCode] = await launcherClosed;
+    assert.notEqual(exitCode, 0, "standalone CLI launcher must report non-zero exit after child SIGKILL");
+
+    await assert.rejects(readFile(statePath), { code: "ENOENT" });
+    assert.equal(JSON.parse(await readFile(reqPath, "utf8")).state, "completed");
+    const materialized = await new MainRequestStore(reqPath, taskId).read();
+    assert.equal(materialized?.state, "completed");
   }
 );

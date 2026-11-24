@@ -164,6 +164,41 @@ export function extractInboxReceipts(
   return [...seen.values()];
 }
 
+export function inboxReceiptKey(receipt: Pick<InboxReceiptRef, "runId" | "messageId">): string {
+  return `${receipt.runId}:${receipt.messageId}`;
+}
+
+/** Collect receipt keys backed by an on-disk Pi transcript `.jsonl` file. */
+export async function readPersistedSessionReceiptKeys(
+  sessionFile: string | undefined,
+  taskId: string,
+  defaultRunId: string
+): Promise<Set<string>> {
+  const keys = new Set<string>();
+  if (!sessionFile) return keys;
+  let raw: string;
+  try {
+    raw = await readFile(sessionFile, "utf8");
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return keys;
+    throw error;
+  }
+  const entries: unknown[] = [];
+  for (const line of raw.split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    try {
+      entries.push(JSON.parse(trimmed));
+      // eslint-disable-next-line no-restricted-syntax -- 仅核对磁盘上已完整落盘的会话条目，忽略尾部不完整 JSON 行
+    } catch {
+      /* ignore incomplete trailing jsonl line */
+    }
+  }
+  for (const receipt of extractInboxReceipts(entries, taskId, defaultRunId))
+    keys.add(inboxReceiptKey(receipt));
+  return keys;
+}
+
 /**
  * Select entries eligible for Inbox acknowledgement:
  * - Current active branch entries are backed by `messages.json` (already persisted by the caller).
@@ -474,8 +509,11 @@ export class MainInboxDelivery {
     return delivery;
   }
 
-  async acknowledge(context: unknown[]): Promise<void> {
-    const receipts = extractInboxReceipts(context, this.taskId, this.runId);
+  async acknowledge(context: unknown[], options?: { allowedKeys?: ReadonlySet<string> }): Promise<void> {
+    const extracted = extractInboxReceipts(context, this.taskId, this.runId);
+    const receipts = options?.allowedKeys
+      ? extracted.filter((receipt) => options.allowedKeys!.has(inboxReceiptKey(receipt)))
+      : extracted;
     if (!receipts.length) return;
     const byRun = new Map<string, { ids: Set<string>; waitIds: Set<string> }>();
     for (const receipt of receipts) {

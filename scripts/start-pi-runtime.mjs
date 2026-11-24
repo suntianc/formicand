@@ -483,16 +483,29 @@ export async function startPi({ uiCompatibility } = {}) {
           ? { COWORK_SUBAGENT_UNAVAILABLE: "workspace_owned" }
           : {})
     };
-    process.exitCode = await runCliProcess({
-      bootstrap: uiCompatibility
-        ? undefined
-        : fileURLToPath(new URL("./cli-shell-boot.mjs", import.meta.url)),
-      executable: uiCompatibility ? fileURLToPath(new URL("./cli-ui-boot.mjs", import.meta.url)) : executable,
-      args,
-      env: childEnv,
-      projectDirectory,
-      uiCompatibility: Boolean(uiCompatibility)
-    });
+    try {
+      process.exitCode = await runCliProcess({
+        bootstrap: uiCompatibility
+          ? undefined
+          : fileURLToPath(new URL("./cli-shell-boot.mjs", import.meta.url)),
+        executable: uiCompatibility
+          ? fileURLToPath(new URL("./cli-ui-boot.mjs", import.meta.url))
+          : executable,
+        args,
+        env: childEnv,
+        projectDirectory,
+        uiCompatibility: Boolean(uiCompatibility)
+      });
+    } finally {
+      const { MainRequestStore, mainRequestPath } = await import("../dist/src/storage/main-request-store.js");
+      await new MainRequestStore(mainRequestPath(workspaceRoot, taskId), taskId)
+        .materialize()
+        .catch((error) => {
+          console.error(
+            `[cowork] materializing request snapshot failed: ${error instanceof Error ? error.message : String(error)}`
+          );
+        });
+    }
   } finally {
     // The delegated processes outlive this host; only its observation does not.
     await subagentHost?.close().catch((error) => {

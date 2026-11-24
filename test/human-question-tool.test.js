@@ -9,7 +9,7 @@ import { HumanRequestStore } from "../dist/src/runtime/human.js";
 import { MainInboxDelivery } from "../dist/src/runtime/main-inbox-delivery.js";
 import { LocalWorkspaceStore } from "../dist/src/workspace/workspace-store.js";
 
-async function fixture(t, timeoutMs) {
+async function fixture(t, timeoutMs, hooks = {}) {
   const root = await mkdtemp(join(tmpdir(), "atria-question-tool-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const task = new LocalWorkspaceStore(root);
@@ -23,6 +23,7 @@ async function fixture(t, timeoutMs) {
   const modulePath = resolve(".pi/runtime/tools/coordination.ts");
   const jiti = createJiti(pathToFileURL(modulePath).href, { interopDefault: true });
   const { registerCoordinationTools } = await jiti.import(modulePath);
+  const events = [];
   registerCoordinationTools(
     {
       registerTool(tool) {
@@ -36,10 +37,24 @@ async function fixture(t, timeoutMs) {
       runtimeEnv: { COWORK_HUMAN_ANSWER_TIMEOUT_MS: String(timeoutMs) },
       humanStore: human,
       inboxDelivery: inbox,
+      async flushSessionContext(ctx) {
+        events.push("flushSessionContext");
+        await hooks.flushSessionContext?.(ctx);
+      },
+      async materializeRequestSnapshot() {
+        events.push("materializeRequestSnapshot");
+        await hooks.materializeRequestSnapshot?.();
+      },
       updateRuntime() {}
     }
   );
-  return { human, inbox, tool: tools.get("askhuman"), ctx: { ui: { notify() {} } } };
+  return {
+    human,
+    inbox,
+    events,
+    tool: tools.get("askhuman"),
+    ctx: { ui: { notify() {} }, sessionManager: { getBranch: () => [] } }
+  };
 }
 
 test("aborting askhuman releases its wait promptly and clears the pending question", async (t) => {
@@ -100,4 +115,32 @@ test("several questions are one request with one answer, and a timeout lists eac
   assert.deepEqual(request.questions[0].recommended, [0, 1]);
   assert.equal(request.questions[0].multiple, true);
   assert.deepEqual(result.details.recommended, [{ question: "改哪些页面？", answer: "登录、注册" }]);
+});
+
+test("askhuman does not publish a pending question when context flush fails", async (t) => {
+  const f = await fixture(t, 1000, {
+    async flushSessionContext() {
+      throw new Error("simulated messages.json flush failure");
+    }
+  });
+  await assert.rejects(
+    f.tool.execute("ask", { questions: [{ question: "继续吗？" }] }, undefined, undefined, f.ctx),
+    /simulated messages\.json flush failure/
+  );
+  assert.deepEqual(f.events, ["flushSessionContext"]);
+  assert.deepEqual(await f.human.list("task", "pending"), []);
+});
+
+test("askhuman does not publish a pending question when request materialization fails", async (t) => {
+  const f = await fixture(t, 1000, {
+    async materializeRequestSnapshot() {
+      throw new Error("simulated materialize failure");
+    }
+  });
+  await assert.rejects(
+    f.tool.execute("ask", { questions: [{ question: "继续吗？" }] }, undefined, undefined, f.ctx),
+    /simulated materialize failure/
+  );
+  assert.deepEqual(f.events, ["flushSessionContext", "materializeRequestSnapshot"]);
+  assert.deepEqual(await f.human.list("task", "pending"), []);
 });

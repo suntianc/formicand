@@ -428,3 +428,36 @@ test("materialize() write failure preserves both base and sidecar and recovers o
   await assert.rejects(readFile(f.store.statePath), { code: "ENOENT" });
   assert.equal(JSON.parse(await readFile(f.store.filePath, "utf8")).state, "completed");
 });
+
+test("settle('completed') reads and validates the base snapshot file only once", async (t) => {
+  const f = await storage(t);
+  const largeBody = JSON.stringify({ message: "x".repeat(256 * 1024) });
+  await f.store.begin({ ...f.input, body: largeBody });
+  const { stdout } = await promisify(execFile)(
+    process.execPath,
+    [
+      "--input-type=module",
+      "-e",
+      `
+      import fsPromises from "node:fs/promises";
+      import { syncBuiltinESMExports } from "node:module";
+      const target = process.argv[1];
+      let baseReads = 0;
+      const origReadFile = fsPromises.readFile;
+      fsPromises.readFile = async function (p, ...args) {
+        if (String(p) === target) baseReads += 1;
+        return origReadFile.call(this, p, ...args);
+      };
+      syncBuiltinESMExports();
+      const { MainRequestStore } = await import(${JSON.stringify(storeModule)});
+      const store = new MainRequestStore(target, "task");
+      await store.settle(${JSON.stringify(f.input.requestId)}, "completed");
+      const readsDuringSettle = baseReads;
+      console.log(JSON.stringify({ readsDuringSettle, state: (await store.read()).state }));
+    `,
+      f.store.filePath
+    ],
+    { cwd: f.root, env: childEnvironment, timeout: 5000 }
+  );
+  assert.deepEqual(JSON.parse(stdout), { readsDuringSettle: 1, state: "completed" });
+});

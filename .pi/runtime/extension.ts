@@ -14,7 +14,11 @@ import type {
   ExtensionContext,
   SessionEntry
 } from "@earendil-works/pi-coding-agent";
-import { extractInboxReceipts } from "../../dist/src/runtime/main-inbox-delivery.js";
+import {
+  extractInboxReceipts,
+  inboxReceiptKey,
+  readPersistedSessionReceiptKeys
+} from "../../dist/src/runtime/main-inbox-delivery.js";
 import { randomUUID } from "node:crypto";
 import { join, resolve } from "node:path";
 import {
@@ -227,10 +231,10 @@ async function registerMainExtension(pi: ExtensionAPI) {
     return undefined;
   };
   const receiptKeysFor = (items: unknown[]): string[] =>
-    extractInboxReceipts(items, taskId, mainRunId).map((receipt) => `${receipt.runId}:${receipt.messageId}`);
+    extractInboxReceipts(items, taskId, mainRunId).map(inboxReceiptKey);
   const persistSessionContext = async (
     ctx: Pick<ExtensionContext, "sessionManager">,
-    options: { force: boolean; contextMessages?: unknown[] }
+    options: { force: boolean }
   ): Promise<void> => {
     if (!mainContext) return;
     const branch = ctx.sessionManager.getBranch();
@@ -239,9 +243,7 @@ async function registerMainExtension(pi: ExtensionAPI) {
     const compactionCount = countCompactions(branch);
     const userEntryId = latestUserEntryId(branch);
     const branchReceipts = receiptKeysFor(branch);
-    const messageReceipts = options.contextMessages ? receiptKeysFor(options.contextMessages) : [];
-    const allReceipts = [...new Set([...branchReceipts, ...messageReceipts])];
-    const hasUnpersistedReceipt = allReceipts.some((key) => !persistedReceiptKeys.has(key));
+    const hasUnpersistedReceipt = branchReceipts.some((key) => !persistedReceiptKeys.has(key));
     const unchanged =
       lastPersistedBranch !== undefined &&
       lastPersistedBranch.length === length &&
@@ -266,7 +268,7 @@ async function registerMainExtension(pi: ExtensionAPI) {
     await persistMainSessionContext(mainContext, branch);
     lastPersistedBranch = { length, lastEntryId, compactionCount, atMs: Date.now() };
     lastPersistedUserEntryId = userEntryId;
-    for (const key of allReceipts) persistedReceiptKeys.add(key);
+    for (const key of branchReceipts) persistedReceiptKeys.add(key);
   };
   const materializeRequestSnapshot = async (): Promise<void> => {
     await requestRetry?.store.materialize();
@@ -485,9 +487,21 @@ async function registerMainExtension(pi: ExtensionAPI) {
       });
     }
     try {
-      await persistSessionContext(ctx, { force: false, contextMessages: messages });
+      await persistSessionContext(ctx, { force: false });
       if (!requestRetry?.isReplaying) {
-        await inboxDelivery.acknowledge(messages);
+        const messageKeys = receiptKeysFor(messages);
+        if (messageKeys.length > 0) {
+          const allowedKeys = new Set(persistedReceiptKeys);
+          if (messageKeys.some((key) => !allowedKeys.has(key))) {
+            const onDiskKeys = await readPersistedSessionReceiptKeys(
+              ctx.sessionManager.getSessionFile(),
+              taskId,
+              mainRunId
+            );
+            for (const key of onDiskKeys) allowedKeys.add(key);
+          }
+          await inboxDelivery.acknowledge(messages, { allowedKeys });
+        }
         if (process.env.COWORK_MAIN_RETRY_REQUEST_ID) freshRetryContext = true;
       }
       await updateRuntime({ runtimePendingDelegations: inboxDelivery.queuedCount });
