@@ -182512,244 +182512,11 @@
       "id": "N3P53",
       "x": 8428,
       "y": 30620,
-      "name": "P4.9 需求进度 · 阶段（四个方案）",
+      "name": "P4.9 需求进度 · 阶段",
       "fill": "$v2-backdrop",
       "gap": 32,
       "padding": 40,
       "children": [
-        {
-          "type": "frame",
-          "id": "fwMAe",
-          "name": "Col A 分段进度条",
-          "layout": "vertical",
-          "gap": 12,
-          "children": [
-            {
-              "type": "text",
-              "id": "D0te0",
-              "name": "ColTitle",
-              "fill": "$v2-text-3",
-              "content": "A 分段进度条",
-              "fontFamily": "Noto Sans SC",
-              "fontSize": 13,
-              "fontWeight": "normal"
-            },
-            {
-              "type": "frame",
-              "id": "U6JPvY",
-              "name": "Panel",
-              "width": 360,
-              "fill": "$v2-main",
-              "cornerRadius": 16,
-              "stroke": "$v2-main-edge",
-              "strokeWidth": 1,
-              "strokeAlignment": "inner",
-              "layout": "vertical",
-              "gap": 14,
-              "padding": 20,
-              "children": [
-                {
-                  "type": "text",
-                  "id": "vOWJW",
-                  "name": "ReqTitle",
-                  "fill": "$v2-text",
-                  "content": "按分数文件汇总总分",
-                  "fontFamily": "Noto Sans SC",
-                  "fontSize": 18,
-                  "fontWeight": "600"
-                },
-                {
-                  "type": "frame",
-                  "id": "yWq0v",
-                  "name": "Current",
-                  "width": "fill_container",
-                  "gap": 8,
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "ellipse",
-                      "id": "T2uDO",
-                      "name": "Dot",
-                      "fill": "$v2-review",
-                      "width": 7,
-                      "height": 7
-                    },
-                    {
-                      "type": "text",
-                      "id": "vrRz5",
-                      "name": "Phase",
-                      "fill": "$v2-text",
-                      "content": "审查中",
-                      "fontFamily": "Noto Sans SC",
-                      "fontSize": 13,
-                      "fontWeight": "600"
-                    },
-                    {
-                      "type": "text",
-                      "id": "Fejvb",
-                      "name": "Who",
-                      "fill": "$v2-text-2",
-                      "content": "Reviewer Circinus",
-                      "fontFamily": "Noto Sans SC",
-                      "fontSize": 13,
-                      "fontWeight": "normal"
-                    },
-                    {
-                      "type": "frame",
-                      "id": "ASGc7",
-                      "name": "Spacer",
-                      "width": "fill_container",
-                      "height": 1
-                    },
-                    {
-                      "type": "text",
-                      "id": "hGw6i",
-                      "name": "N",
-                      "fill": "$v2-text-3",
-                      "content": "3 / 5",
-                      "fontFamily": "Noto Sans SC",
-                      "fontSize": 12,
-                      "fontWeight": "normal"
-                    }
-                  ]
-                },
-                {
-                  "type": "frame",
-                  "id": "e0NTfF",
-                  "name": "Segments",
-                  "width": "fill_container",
-                  "layout": "vertical",
-                  "gap": 6,
-                  "children": [
-                    {
-                      "type": "frame",
-                      "id": "YlfNQ",
-                      "name": "Bars",
-                      "width": "fill_container",
-                      "gap": 4,
-                      "children": [
-                        {
-                          "type": "rectangle",
-                          "cornerRadius": 2,
-                          "id": "EmA5i",
-                          "name": "Seg",
-                          "fill": "$v2-ok",
-                          "width": "fill_container",
-                          "height": 4
-                        },
-                        {
-                          "type": "rectangle",
-                          "cornerRadius": 2,
-                          "id": "GBEti",
-                          "name": "Seg",
-                          "fill": "$v2-ok",
-                          "width": "fill_container",
-                          "height": 4
-                        },
-                        {
-                          "type": "rectangle",
-                          "cornerRadius": 2,
-                          "id": "E48Uml",
-                          "name": "Seg",
-                          "fill": "$v2-review",
-                          "width": "fill_container",
-                          "height": 4
-                        },
-                        {
-                          "type": "rectangle",
-                          "cornerRadius": 2,
-                          "id": "qzpDO",
-                          "name": "Seg",
-                          "fill": "$v2-line-strong",
-                          "width": "fill_container",
-                          "height": 4
-                        },
-                        {
-                          "type": "rectangle",
-                          "cornerRadius": 2,
-                          "id": "vENpO",
-                          "name": "Seg",
-                          "fill": "$v2-line-strong",
-                          "width": "fill_container",
-                          "height": 4
-                        }
-                      ]
-                    },
-                    {
-                      "type": "frame",
-                      "id": "B7rpbz",
-                      "name": "Labels",
-                      "width": "fill_container",
-                      "gap": 4,
-                      "children": [
-                        {
-                          "type": "text",
-                          "id": "g5pAf",
-                          "name": "L",
-                          "fill": "$v2-text-2",
-                          "textGrowth": "fixed-width",
-                          "width": "fill_container",
-                          "content": "需求记录",
-                          "fontFamily": "Noto Sans SC",
-                          "fontSize": 11,
-                          "fontWeight": "normal"
-                        },
-                        {
-                          "type": "text",
-                          "id": "bdLFT",
-                          "name": "L",
-                          "fill": "$v2-text-2",
-                          "textGrowth": "fixed-width",
-                          "width": "fill_container",
-                          "content": "开发",
-                          "fontFamily": "Noto Sans SC",
-                          "fontSize": 11,
-                          "fontWeight": "normal"
-                        },
-                        {
-                          "type": "text",
-                          "id": "aPUCJ",
-                          "name": "L",
-                          "fill": "$v2-text",
-                          "textGrowth": "fixed-width",
-                          "width": "fill_container",
-                          "content": "审查",
-                          "fontFamily": "Noto Sans SC",
-                          "fontSize": 11,
-                          "fontWeight": "normal"
-                        },
-                        {
-                          "type": "text",
-                          "id": "HyyGK",
-                          "name": "L",
-                          "fill": "$v2-text-3",
-                          "textGrowth": "fixed-width",
-                          "width": "fill_container",
-                          "content": "合入",
-                          "fontFamily": "Noto Sans SC",
-                          "fontSize": 11,
-                          "fontWeight": "normal"
-                        },
-                        {
-                          "type": "text",
-                          "id": "ztSj0",
-                          "name": "L",
-                          "fill": "$v2-text-3",
-                          "textGrowth": "fixed-width",
-                          "width": "fill_container",
-                          "content": "交付",
-                          "fontFamily": "Noto Sans SC",
-                          "fontSize": 11,
-                          "fontWeight": "normal"
-                        }
-                      ]
-                    }
-                  ]
-                }
-              ]
-            }
-          ]
-        },
         {
           "type": "frame",
           "id": "vKyJE",
@@ -182762,7 +182529,7 @@
               "id": "awOYh",
               "name": "ColTitle",
               "fill": "$v2-text-3",
-              "content": "B 横向圆点",
+              "content": "定稿：A 的布局 + B 的横向圆点",
               "fontFamily": "Noto Sans SC",
               "fontSize": 13,
               "fontWeight": "normal"
@@ -182790,6 +182557,61 @@
                   "fontFamily": "Noto Sans SC",
                   "fontSize": 18,
                   "fontWeight": "600"
+                },
+                {
+                  "type": "frame",
+                  "id": "SUOnc",
+                  "name": "Current",
+                  "width": "fill_container",
+                  "gap": 8,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "ellipse",
+                      "id": "Of0Iw",
+                      "name": "Dot",
+                      "fill": "$v2-review",
+                      "width": 7,
+                      "height": 7
+                    },
+                    {
+                      "type": "text",
+                      "id": "iGrG5",
+                      "name": "Phase",
+                      "fill": "$v2-text",
+                      "content": "审查中",
+                      "fontFamily": "Noto Sans SC",
+                      "fontSize": 13,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "text",
+                      "id": "GeL3C",
+                      "name": "Who",
+                      "fill": "$v2-text-2",
+                      "content": "Reviewer Circinus",
+                      "fontFamily": "Noto Sans SC",
+                      "fontSize": 13,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "pD0B3",
+                      "name": "Spacer",
+                      "width": "fill_container",
+                      "height": 1
+                    },
+                    {
+                      "type": "text",
+                      "id": "mRIkJ",
+                      "name": "N",
+                      "fill": "$v2-text-3",
+                      "content": "3 / 5",
+                      "fontFamily": "Noto Sans SC",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    }
+                  ]
                 },
                 {
                   "type": "frame",
@@ -183130,508 +182952,6 @@
                           "fontWeight": "normal"
                         }
                       ]
-                    }
-                  ]
-                },
-                {
-                  "type": "frame",
-                  "id": "t8BJQ",
-                  "name": "Who",
-                  "width": "fill_container",
-                  "gap": 6,
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "text",
-                      "id": "SVaWw",
-                      "name": "W",
-                      "fill": "$v2-text-2",
-                      "content": "Reviewer Circinus 正在审查",
-                      "fontFamily": "Noto Sans SC",
-                      "fontSize": 12,
-                      "fontWeight": "normal"
-                    }
-                  ]
-                }
-              ]
-            }
-          ]
-        },
-        {
-          "type": "frame",
-          "id": "l429a1",
-          "name": "Col C 紧凑竖排",
-          "layout": "vertical",
-          "gap": 12,
-          "children": [
-            {
-              "type": "text",
-              "id": "gjA79",
-              "name": "ColTitle",
-              "fill": "$v2-text-3",
-              "content": "C 紧凑竖排",
-              "fontFamily": "Noto Sans SC",
-              "fontSize": 13,
-              "fontWeight": "normal"
-            },
-            {
-              "type": "frame",
-              "id": "n30o6H",
-              "name": "Panel",
-              "width": 360,
-              "fill": "$v2-main",
-              "cornerRadius": 16,
-              "stroke": "$v2-main-edge",
-              "strokeWidth": 1,
-              "strokeAlignment": "inner",
-              "layout": "vertical",
-              "gap": 14,
-              "padding": 20,
-              "children": [
-                {
-                  "type": "text",
-                  "id": "e2w2Ln",
-                  "name": "ReqTitle",
-                  "fill": "$v2-text",
-                  "content": "按分数文件汇总总分",
-                  "fontFamily": "Noto Sans SC",
-                  "fontSize": 18,
-                  "fontWeight": "600"
-                },
-                {
-                  "type": "frame",
-                  "id": "yXwga",
-                  "name": "List",
-                  "width": "fill_container",
-                  "layout": "vertical",
-                  "children": [
-                    {
-                      "type": "frame",
-                      "id": "eFbWf",
-                      "name": "Row 需求记录",
-                      "width": "fill_container",
-                      "height": 26,
-                      "fill": "#00000000",
-                      "cornerRadius": 6,
-                      "gap": 10,
-                      "padding": [
-                        0,
-                        6
-                      ],
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "ellipse",
-                          "id": "kYwfN",
-                          "name": "Dot",
-                          "fill": "$v2-ok",
-                          "width": 7,
-                          "height": 7
-                        },
-                        {
-                          "type": "text",
-                          "id": "XIP1V",
-                          "name": "L",
-                          "fill": "$v2-text-2",
-                          "content": "需求记录",
-                          "fontFamily": "Noto Sans SC",
-                          "fontSize": 13,
-                          "fontWeight": "normal"
-                        },
-                        {
-                          "type": "frame",
-                          "id": "Y8rMn",
-                          "name": "Spacer",
-                          "width": "fill_container",
-                          "height": 1
-                        },
-                        {
-                          "type": "text",
-                          "id": "wienE",
-                          "name": "M",
-                          "fill": "$v2-text-3",
-                          "content": "v1",
-                          "fontFamily": "Noto Sans SC",
-                          "fontSize": 12,
-                          "fontWeight": "normal"
-                        }
-                      ]
-                    },
-                    {
-                      "type": "frame",
-                      "id": "CUiyq",
-                      "name": "Row 开发",
-                      "width": "fill_container",
-                      "height": 26,
-                      "fill": "#00000000",
-                      "cornerRadius": 6,
-                      "gap": 10,
-                      "padding": [
-                        0,
-                        6
-                      ],
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "ellipse",
-                          "id": "a0H4Em",
-                          "name": "Dot",
-                          "fill": "$v2-ok",
-                          "width": 7,
-                          "height": 7
-                        },
-                        {
-                          "type": "text",
-                          "id": "JF0rf",
-                          "name": "L",
-                          "fill": "$v2-text-2",
-                          "content": "开发",
-                          "fontFamily": "Noto Sans SC",
-                          "fontSize": 13,
-                          "fontWeight": "normal"
-                        },
-                        {
-                          "type": "frame",
-                          "id": "UZ9vk",
-                          "name": "Spacer",
-                          "width": "fill_container",
-                          "height": 1
-                        },
-                        {
-                          "type": "text",
-                          "id": "ppVAt",
-                          "name": "M",
-                          "fill": "$v2-text-3",
-                          "content": "Executor Ara",
-                          "fontFamily": "Noto Sans SC",
-                          "fontSize": 12,
-                          "fontWeight": "normal"
-                        }
-                      ]
-                    },
-                    {
-                      "type": "frame",
-                      "id": "g9TO6",
-                      "name": "Row 审查",
-                      "width": "fill_container",
-                      "height": 26,
-                      "fill": "$v2-hover",
-                      "cornerRadius": 6,
-                      "gap": 10,
-                      "padding": [
-                        0,
-                        6
-                      ],
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "ellipse",
-                          "id": "pZPJK",
-                          "name": "Dot",
-                          "fill": "$v2-review",
-                          "width": 7,
-                          "height": 7
-                        },
-                        {
-                          "type": "text",
-                          "id": "pCJjq",
-                          "name": "L",
-                          "fill": "$v2-text",
-                          "content": "审查",
-                          "fontFamily": "Noto Sans SC",
-                          "fontSize": 13,
-                          "fontWeight": "600"
-                        },
-                        {
-                          "type": "frame",
-                          "id": "GL1SY",
-                          "name": "Spacer",
-                          "width": "fill_container",
-                          "height": 1
-                        },
-                        {
-                          "type": "text",
-                          "id": "QqfNB",
-                          "name": "M",
-                          "fill": "$v2-text-2",
-                          "content": "Reviewer Circinus",
-                          "fontFamily": "Noto Sans SC",
-                          "fontSize": 12,
-                          "fontWeight": "normal"
-                        }
-                      ]
-                    },
-                    {
-                      "type": "frame",
-                      "id": "jWuhK",
-                      "name": "Row 合入",
-                      "width": "fill_container",
-                      "height": 26,
-                      "fill": "#00000000",
-                      "cornerRadius": 6,
-                      "gap": 10,
-                      "padding": [
-                        0,
-                        6
-                      ],
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "ellipse",
-                          "id": "wV7rS",
-                          "name": "Dot",
-                          "fill": "$v2-line-strong",
-                          "width": 7,
-                          "height": 7
-                        },
-                        {
-                          "type": "text",
-                          "id": "g6vunm",
-                          "name": "L",
-                          "fill": "$v2-text-3",
-                          "content": "合入",
-                          "fontFamily": "Noto Sans SC",
-                          "fontSize": 13,
-                          "fontWeight": "normal"
-                        },
-                        {
-                          "type": "frame",
-                          "id": "h8aJMP",
-                          "name": "Spacer",
-                          "width": "fill_container",
-                          "height": 1
-                        },
-                        {
-                          "type": "text",
-                          "id": "vDj3k",
-                          "name": "M",
-                          "fill": "$v2-text-3",
-                          "content": "main",
-                          "fontFamily": "Noto Sans SC",
-                          "fontSize": 12,
-                          "fontWeight": "normal"
-                        }
-                      ]
-                    },
-                    {
-                      "type": "frame",
-                      "id": "yGD70",
-                      "name": "Row 交付",
-                      "width": "fill_container",
-                      "height": 26,
-                      "fill": "#00000000",
-                      "cornerRadius": 6,
-                      "gap": 10,
-                      "padding": [
-                        0,
-                        6
-                      ],
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "ellipse",
-                          "id": "b5r209",
-                          "name": "Dot",
-                          "fill": "$v2-line-strong",
-                          "width": 7,
-                          "height": 7
-                        },
-                        {
-                          "type": "text",
-                          "id": "FdidW",
-                          "name": "L",
-                          "fill": "$v2-text-3",
-                          "content": "交付",
-                          "fontFamily": "Noto Sans SC",
-                          "fontSize": 13,
-                          "fontWeight": "normal"
-                        },
-                        {
-                          "type": "frame",
-                          "id": "I5BsY",
-                          "name": "Spacer",
-                          "width": "fill_container",
-                          "height": 1
-                        },
-                        {
-                          "type": "text",
-                          "id": "BNrMy",
-                          "name": "M",
-                          "fill": "$v2-text-3",
-                          "fontFamily": "Noto Sans SC",
-                          "fontSize": 12,
-                          "fontWeight": "normal"
-                        }
-                      ]
-                    }
-                  ]
-                }
-              ]
-            }
-          ]
-        },
-        {
-          "type": "frame",
-          "id": "Krbt5",
-          "name": "Col D 只说现在",
-          "layout": "vertical",
-          "gap": 12,
-          "children": [
-            {
-              "type": "text",
-              "id": "HMRpt",
-              "name": "ColTitle",
-              "fill": "$v2-text-3",
-              "content": "D 只说现在",
-              "fontFamily": "Noto Sans SC",
-              "fontSize": 13,
-              "fontWeight": "normal"
-            },
-            {
-              "type": "frame",
-              "id": "jjTU0",
-              "name": "Panel",
-              "width": 360,
-              "fill": "$v2-main",
-              "cornerRadius": 16,
-              "stroke": "$v2-main-edge",
-              "strokeWidth": 1,
-              "strokeAlignment": "inner",
-              "layout": "vertical",
-              "gap": 14,
-              "padding": 20,
-              "children": [
-                {
-                  "type": "text",
-                  "id": "xFGRX",
-                  "name": "ReqTitle",
-                  "fill": "$v2-text",
-                  "content": "按分数文件汇总总分",
-                  "fontFamily": "Noto Sans SC",
-                  "fontSize": 18,
-                  "fontWeight": "600"
-                },
-                {
-                  "type": "frame",
-                  "id": "wLSUA",
-                  "name": "NowCard",
-                  "width": "fill_container",
-                  "fill": "$v2-review-soft",
-                  "cornerRadius": 10,
-                  "layout": "vertical",
-                  "gap": 10,
-                  "padding": 14,
-                  "children": [
-                    {
-                      "type": "frame",
-                      "id": "a8amP9",
-                      "name": "Top",
-                      "width": "fill_container",
-                      "gap": 8,
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "icon",
-                          "id": "O7Q9m",
-                          "name": "i",
-                          "width": 15,
-                          "height": 15,
-                          "icon": "scan-eye",
-                          "library": "lucide",
-                          "fill": "$v2-review"
-                        },
-                        {
-                          "type": "text",
-                          "id": "i3GtD",
-                          "name": "Phase",
-                          "fill": "$v2-text",
-                          "content": "审查中",
-                          "fontFamily": "Noto Sans SC",
-                          "fontSize": 14,
-                          "fontWeight": "600"
-                        },
-                        {
-                          "type": "frame",
-                          "id": "ZM9zI",
-                          "name": "Spacer",
-                          "width": "fill_container",
-                          "height": 1
-                        },
-                        {
-                          "type": "frame",
-                          "id": "zFifb",
-                          "name": "Dots",
-                          "gap": 4,
-                          "alignItems": "center",
-                          "children": [
-                            {
-                              "type": "rectangle",
-                              "cornerRadius": 3,
-                              "id": "dhSiu",
-                              "name": "d",
-                              "fill": "$v2-ok",
-                              "width": 6,
-                              "height": 6
-                            },
-                            {
-                              "type": "rectangle",
-                              "cornerRadius": 3,
-                              "id": "uunu7",
-                              "name": "d",
-                              "fill": "$v2-ok",
-                              "width": 6,
-                              "height": 6
-                            },
-                            {
-                              "type": "rectangle",
-                              "cornerRadius": 3,
-                              "id": "I2fcO",
-                              "name": "d",
-                              "fill": "$v2-review",
-                              "width": 14,
-                              "height": 6
-                            },
-                            {
-                              "type": "rectangle",
-                              "cornerRadius": 3,
-                              "id": "KOh9z",
-                              "name": "d",
-                              "fill": "$v2-line-strong",
-                              "width": 6,
-                              "height": 6
-                            },
-                            {
-                              "type": "rectangle",
-                              "cornerRadius": 3,
-                              "id": "I6vGWb",
-                              "name": "d",
-                              "fill": "$v2-line-strong",
-                              "width": 6,
-                              "height": 6
-                            }
-                          ]
-                        }
-                      ]
-                    },
-                    {
-                      "type": "text",
-                      "id": "QbQCK",
-                      "name": "Who",
-                      "fill": "$v2-text-2",
-                      "content": "Reviewer Circinus 正在审查候选 0eb1d60b",
-                      "fontFamily": "Noto Sans SC",
-                      "fontSize": 12,
-                      "fontWeight": "normal"
-                    },
-                    {
-                      "type": "text",
-                      "id": "og7aX",
-                      "name": "Next",
-                      "fill": "$v2-text-3",
-                      "content": "下一步：合入 main",
-                      "fontFamily": "Noto Sans SC",
-                      "fontSize": 12,
-                      "fontWeight": "normal"
                     }
                   ]
                 }
