@@ -217,7 +217,7 @@ async function registerMainExtension(pi: ExtensionAPI) {
   let lastPersistedBranch:
     { length: number; lastEntryId: string | undefined; compactionCount: number; atMs: number } | undefined;
   let lastPersistedUserEntryId: string | undefined;
-  const persistedReceiptKeys = new Set<string>();
+  let persistedReceiptKeys = new Set<string>();
   const countCompactions = (branch: SessionEntry[]): number => {
     let count = 0;
     for (const entry of branch) if (entry.type === "compaction") count += 1;
@@ -268,7 +268,7 @@ async function registerMainExtension(pi: ExtensionAPI) {
     await persistMainSessionContext(mainContext, branch);
     lastPersistedBranch = { length, lastEntryId, compactionCount, atMs: Date.now() };
     lastPersistedUserEntryId = userEntryId;
-    for (const key of branchReceipts) persistedReceiptKeys.add(key);
+    persistedReceiptKeys = new Set(branchReceipts);
   };
   const materializeRequestSnapshot = async (): Promise<void> => {
     await requestRetry?.store.materialize();

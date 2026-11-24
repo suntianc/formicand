@@ -764,3 +764,81 @@ test(
     }
   }
 );
+
+test("edit transaction rollback refuses to archive the journal when directory sync fails during restoration", async (t) => {
+  if (process.platform === "win32") return;
+  const f = await fixture(t);
+  const reqPath = mainRequestPath(f.root, "task");
+  await writeFile(reqPath, "BEFORE_ROLLBACK_BYTES");
+  await beginMessageEditTransaction(
+    f.root,
+    "task",
+    "rollback-sync-run",
+    {
+      version: 1,
+      taskId: "task",
+      versionId: "v0",
+      sessionFile: f.session.getSessionFile(),
+      excludedRuns: [],
+      prefixEvents: [],
+      archives: [],
+      edits: []
+    },
+    { editId: randomUUID(), prompt: "p" }
+  );
+  await writeFile(reqPath, "MUTATED_BYTES");
+  const modUrl = JSON.stringify(
+    pathToFileURL(resolve("dist/src/runtime/main-message-edit-transaction.js")).href
+  );
+  const txPath = join(f.root, "task", "sessions", "main", "edit-transaction.json");
+  const sessionsDir = join(f.root, "task", "sessions", "main");
+  const output = await childProcess(`
+    import fsPromises from "node:fs/promises";
+    import { syncBuiltinESMExports } from "node:module";
+    const sessionsDir = ${JSON.stringify(sessionsDir)};
+    const txPath = ${JSON.stringify(txPath)};
+    let failSync = true;
+    const origOpen = fsPromises.open;
+    fsPromises.open = async function (p, flags, ...rest) {
+      const handle = await origOpen.call(this, p, flags, ...rest);
+      if (String(p) === sessionsDir && flags === "r") {
+        const origSync = handle.sync.bind(handle);
+        handle.sync = async () => {
+          if (failSync) {
+            const err = new Error("EIO: rollback dir sync failed");
+            err.code = "EIO";
+            throw err;
+          }
+          return origSync();
+        };
+      }
+      return handle;
+    };
+    syncBuiltinESMExports();
+    const { rollbackMessageEditTransaction } = await import(${modUrl});
+    let errorCode = null;
+    try {
+      await rollbackMessageEditTransaction(${JSON.stringify(f.root)}, "task");
+    } catch (err) {
+      errorCode = err.code ?? err.message;
+    }
+    const txStillActive = await fsPromises.readFile(txPath, "utf8").then(() => true, () => false);
+    failSync = false;
+    await rollbackMessageEditTransaction(${JSON.stringify(f.root)}, "task");
+    const txAfterRetry = await fsPromises.readFile(txPath, "utf8").then(() => true, () => false);
+    console.log(JSON.stringify({ errorCode, txStillActive, txAfterRetry }));
+  `);
+  const res = JSON.parse(output.trim());
+  assert.equal(res.errorCode, "EIO");
+  assert.equal(
+    res.txStillActive,
+    true,
+    "active edit-transaction.json must NOT be archived if restoration sync fails"
+  );
+  assert.equal(
+    res.txAfterRetry,
+    false,
+    "retry rollback must archive edit-transaction.json after sync succeeds"
+  );
+  assert.equal(await readFile(reqPath, "utf8"), "BEFORE_ROLLBACK_BYTES");
+});

@@ -9,6 +9,7 @@ import { pathToFileURL } from "node:url";
 import { test } from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
 import { LocalWorkspaceStore } from "../dist/src/workspace/workspace-store.js";
+import { SessionManager } from "@earendil-works/pi-coding-agent";
 import {
   MainInboxDelivery,
   extractInboxReceipts,
@@ -1139,4 +1140,129 @@ test("real extension context handler refuses to consume a receipt that exists on
   const persistedWithReceipt = await readFile(messagesPath, "utf8");
   assert.match(persistedWithReceipt, /context-only-cb/);
   assert.equal((await inbox.list("main")).find((m) => m.messageId === "context-only-cb").state, "consumed");
+});
+
+test("real extension replaces persistedReceiptKeys on branch switch (A -> B) in --no-session mode so overwritten receipts are not consumed", async (t) => {
+  const { root, inbox } = await fixture(t);
+  const now = new Date().toISOString();
+  const savedEnv = {
+    COWORK_WORKSPACE: process.env.COWORK_WORKSPACE,
+    COWORK_TASK_ID: process.env.COWORK_TASK_ID,
+    COWORK_RUN_ID: process.env.COWORK_RUN_ID,
+    COWORK_PROJECT_DIR: process.env.COWORK_PROJECT_DIR,
+    COWORK_HARNESS_ROOT: process.env.COWORK_HARNESS_ROOT,
+    COWORK_API_BASE: process.env.COWORK_API_BASE,
+    COWORK_API_KEY: process.env.COWORK_API_KEY
+  };
+  process.env.COWORK_WORKSPACE = root;
+  process.env.COWORK_TASK_ID = "task";
+  process.env.COWORK_RUN_ID = "run";
+  process.env.COWORK_PROJECT_DIR = root;
+  process.env.COWORK_HARNESS_ROOT = process.cwd();
+  process.env.COWORK_API_BASE = "http://127.0.0.1:1/v1";
+  process.env.COWORK_API_KEY = "fixture-key";
+  t.after(() => {
+    for (const [k, v] of Object.entries(savedEnv)) {
+      if (v === undefined) delete process.env[k];
+      else process.env[k] = v;
+    }
+  });
+
+  const requirePi = createRequire(import.meta.resolve("@earendil-works/pi-coding-agent"));
+  const { createJiti } = await import(requirePi.resolve("jiti"));
+  const extPath = resolve(".pi/runtime/extension.ts");
+  const jiti = createJiti(pathToFileURL(extPath).href, { interopDefault: true });
+  const extModule = await jiti.import(extPath);
+  const registerMainExtension = extModule.default ?? extModule;
+  const handlers = new Map();
+  await registerMainExtension({
+    on(event, fn) {
+      const list = handlers.get(event) ?? [];
+      list.push(fn);
+      handlers.set(event, list);
+    },
+    registerTool() {},
+    registerCommand() {},
+    registerProvider() {},
+    getActiveTools: () => [],
+    setActiveTools() {},
+    getThinkingLevel: () => "off",
+    setThinkingLevel() {},
+    sendMessage() {},
+    sendUserMessage() {},
+    appendEntry() {}
+  });
+
+  const session = SessionManager.inMemory(root);
+  const rootId = session.appendMessage({
+    role: "user",
+    content: [{ type: "text", text: "root" }],
+    timestamp: Date.now()
+  });
+  const fakeCtx = {
+    ui: { notify() {}, setStatus() {} },
+    shutdown() {},
+    isIdle: () => true,
+    hasPendingMessages: () => false,
+    getContextUsage: () => undefined,
+    sessionManager: session
+  };
+  for (const fn of handlers.get("session_start") ?? []) await fn({ reason: "startup" }, fakeCtx);
+  t.after(async () => {
+    for (const fn of handlers.get("session_shutdown") ?? []) await fn({}, fakeCtx);
+  });
+
+  await inbox.enqueue({
+    messageId: "branch-a-only-cb",
+    recipientAgentId: "main",
+    callId: "c-branch-a-only",
+    kind: "callback",
+    eventId: "e-branch-a-only",
+    priority: 1,
+    state: "ready",
+    payload: { callId: "c-branch-a-only", response: "BRANCH_A_ONLY" },
+    createdAt: now
+  });
+
+  const messagesPath = join(root, "task/agents/main/context/messages.json");
+  const receiptMsg = {
+    role: "custom",
+    customType: "cowork-callback",
+    content: "BRANCH_A_ONLY",
+    details: { _coworkInbox: { taskId: "task", runId: "run", messageId: "branch-a-only-cb" } }
+  };
+
+  // Step 1: Branch A writes a snapshot containing branch-a-only-cb (via session_compact; not yet acknowledged).
+  session.appendCustomMessageEntry("cowork-callback", "BRANCH_A_ONLY", true, receiptMsg.details);
+  for (const fn of handlers.get("session_compact") ?? []) await fn({}, fakeCtx);
+  assert.match(await readFile(messagesPath, "utf8"), /branch-a-only-cb/);
+  assert.notEqual(
+    (await inbox.list("main")).find((m) => m.messageId === "branch-a-only-cb").state,
+    "consumed"
+  );
+
+  // Step 2: Switch to Branch B (without branch-a-only-cb) and overwrite messages.json.
+  session.branch(rootId);
+  session.appendMessage({
+    role: "user",
+    content: [{ type: "text", text: "branch B input" }],
+    timestamp: Date.now() + 1
+  });
+  for (const fn of handlers.get("session_compact") ?? []) await fn({}, fakeCtx);
+  assert.doesNotMatch(await readFile(messagesPath, "utf8"), /branch-a-only-cb/);
+  assert.notEqual(
+    (await inbox.list("main")).find((m) => m.messageId === "branch-a-only-cb").state,
+    "consumed"
+  );
+
+  // Step 3: Model context carries Branch A's receipt while Branch B is active and no jsonl exists.
+  for (const fn of handlers.get("context") ?? []) {
+    await fn({ messages: [receiptMsg] }, fakeCtx);
+  }
+  assert.doesNotMatch(await readFile(messagesPath, "utf8"), /branch-a-only-cb/);
+  assert.notEqual(
+    (await inbox.list("main")).find((m) => m.messageId === "branch-a-only-cb").state,
+    "consumed",
+    "overwritten Branch A receipt must NOT be consumed after Branch B replaced messages.json"
+  );
 });

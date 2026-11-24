@@ -1,6 +1,6 @@
-import { randomUUID } from "node:crypto";
-import { mkdir, readFile, writeFile, rename, rm } from "node:fs/promises";
+import { readFile, rename } from "node:fs/promises";
 import { dirname, join } from "node:path";
+import { atomicWriteDurable, durableRemove, syncDirectory } from "../storage/atomic-file.js";
 import { withFileLock } from "../storage/file-lock.js";
 import { LocalWorkspaceStore } from "../workspace/workspace-store.js";
 import { mainContextPaths } from "./main-context.js";
@@ -29,10 +29,7 @@ async function optional(path: string) {
   });
 }
 async function atomic(path: string, bytes: string) {
-  await mkdir(dirname(path), { recursive: true });
-  const temporary = `${path}.${randomUUID()}.tmp`;
-  await writeFile(temporary, bytes, { mode: 0o600 });
-  await rename(temporary, path);
+  await atomicWriteDurable(path, bytes, { mode: 0o600 });
 }
 async function read(root: string, taskId: string): Promise<EditTransaction | undefined> {
   const bytes = await optional(pathFor(root, taskId));
@@ -124,7 +121,10 @@ export async function readyMessageEditTransaction(root: string, taskId: string) 
 export async function finishMessageEditTransaction(root: string, taskId: string) {
   const path = pathFor(root, taskId);
   const value = await read(root, taskId);
-  if (value) await rename(path, join(dirname(path), `edit-transaction-${value.runId}.json`));
+  if (value) {
+    await rename(path, join(dirname(path), `edit-transaction-${value.runId}.json`));
+    await syncDirectory(dirname(path));
+  }
   live.delete(path);
 }
 export async function rollbackMessageEditTransaction(root: string, taskId: string) {
@@ -140,17 +140,17 @@ export async function rollbackMessageEditTransaction(root: string, taskId: strin
   const requestPath = mainRequestPath(root, taskId);
   const requestStatePath = mainRequestStatePath(root, taskId);
   for (const entry of value.before.slice(0, 4)) {
-    if (entry.bytes === null) await rm(entry.path, { force: true });
+    if (entry.bytes === null) await durableRemove(entry.path);
     else await atomic(entry.path, entry.bytes);
   }
   await withFileLock(
     requestPath,
     async () => {
       const requestEntry = value.before[4];
-      if (requestEntry.bytes === null) await rm(requestEntry.path, { force: true });
+      if (requestEntry.bytes === null) await durableRemove(requestEntry.path);
       else await atomic(requestEntry.path, requestEntry.bytes);
       const sidecarEntry = value.before.at(5);
-      if (!sidecarEntry || sidecarEntry.bytes === null) await rm(requestStatePath, { force: true });
+      if (!sidecarEntry || sidecarEntry.bytes === null) await durableRemove(requestStatePath);
       else await atomic(sidecarEntry.path, sidecarEntry.bytes);
     },
     { recoverDeadOwner: true }

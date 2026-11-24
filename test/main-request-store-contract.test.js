@@ -461,3 +461,148 @@ test("settle('completed') reads and validates the base snapshot file only once",
   );
   assert.deepEqual(JSON.parse(stdout), { readsDuringSettle: 1, state: "completed" });
 });
+
+test("directory sync failure prevents materialize() from removing the sidecar and retry completes directory sync before unlink", async (t) => {
+  if (process.platform === "win32") return;
+  const f = await storage(t);
+  await f.store.begin(f.input);
+  await f.store.settle(f.input.requestId, "completed");
+  const { stdout } = await promisify(execFile)(
+    process.execPath,
+    [
+      "--input-type=module",
+      "-e",
+      `
+      import fsPromises from "node:fs/promises";
+      import { dirname } from "node:path";
+      import { syncBuiltinESMExports } from "node:module";
+      const filePath = process.argv[1];
+      const statePath = process.argv[2];
+      const dir = dirname(filePath);
+      let failDirSync = true;
+      const ops = [];
+      const origOpen = fsPromises.open;
+      const origRm = fsPromises.rm;
+      fsPromises.open = async function (p, flags, ...rest) {
+        const handle = await origOpen.call(this, p, flags, ...rest);
+        if (String(p) === dir && flags === "r") {
+          const origSync = handle.sync.bind(handle);
+          handle.sync = async () => {
+            ops.push(failDirSync ? "dirSync:fail" : "dirSync:ok");
+            if (failDirSync) {
+              const err = new Error("EPERM: simulated dir sync failure");
+              err.code = "EPERM";
+              throw err;
+            }
+            return origSync();
+          };
+        }
+        return handle;
+      };
+      fsPromises.rm = async function (p, ...rest) {
+        if (String(p) === statePath) ops.push("rm:sidecar");
+        return origRm.call(this, p, ...rest);
+      };
+      syncBuiltinESMExports();
+      const { MainRequestStore } = await import(${JSON.stringify(storeModule)});
+      const store = new MainRequestStore(filePath, "task");
+      let firstErrorCode = null;
+      try {
+        await store.materialize();
+      } catch (err) {
+        firstErrorCode = err.code ?? err.message;
+      }
+      const sidecarAfterFailure = await fsPromises.readFile(statePath, "utf8").then(() => true, () => false);
+      failDirSync = false;
+      await store.materialize();
+      const sidecarAfterRetry = await fsPromises.readFile(statePath, "utf8").then(() => true, () => false);
+      const finalState = JSON.parse(await fsPromises.readFile(filePath, "utf8")).state;
+      console.log(JSON.stringify({ firstErrorCode, sidecarAfterFailure, sidecarAfterRetry, finalState, ops }));
+    `,
+      f.store.filePath,
+      f.store.statePath
+    ],
+    { cwd: f.root, env: childEnvironment, timeout: 5000 }
+  );
+  const res = JSON.parse(stdout);
+  assert.equal(res.firstErrorCode, "EPERM");
+  assert.equal(res.sidecarAfterFailure, true, "sidecar must remain on disk when base directory sync fails");
+  assert.equal(
+    res.sidecarAfterRetry,
+    false,
+    "retry materialize() must remove sidecar after syncing directory"
+  );
+  assert.equal(res.finalState, "completed");
+  const okSyncIdx = res.ops.indexOf("dirSync:ok");
+  const rmIdx = res.ops.indexOf("rm:sidecar");
+  assert.ok(
+    okSyncIdx >= 0 && rmIdx > okSyncIdx,
+    `expected dirSync:ok before rm:sidecar, got ${JSON.stringify(res.ops)}`
+  );
+});
+
+test("retrying settle('completed') after a post-rename directory sync EIO finishes directory sync without rewriting base", async (t) => {
+  if (process.platform === "win32") return;
+  const f = await storage(t);
+  await f.store.begin(f.input);
+  const { stdout } = await promisify(execFile)(
+    process.execPath,
+    [
+      "--input-type=module",
+      "-e",
+      `
+      import fsPromises from "node:fs/promises";
+      import { dirname } from "node:path";
+      import { syncBuiltinESMExports } from "node:module";
+      const filePath = process.argv[1];
+      const dir = dirname(filePath);
+      let failDirSync = true;
+      let retryDirSyncs = 0;
+      let retryBaseRenames = 0;
+      let inRetry = false;
+      const origOpen = fsPromises.open;
+      const origRename = fsPromises.rename;
+      fsPromises.open = async function (p, flags, ...rest) {
+        const handle = await origOpen.call(this, p, flags, ...rest);
+        if (String(p) === dir && flags === "r") {
+          const origSync = handle.sync.bind(handle);
+          handle.sync = async () => {
+            if (failDirSync) {
+              const err = new Error("EIO: simulated post-rename dir sync failure");
+              err.code = "EIO";
+              throw err;
+            }
+            if (inRetry) retryDirSyncs += 1;
+            return origSync();
+          };
+        }
+        return handle;
+      };
+      fsPromises.rename = async function (src, dst, ...rest) {
+        if (inRetry && String(dst) === filePath) retryBaseRenames += 1;
+        return origRename.call(this, src, dst, ...rest);
+      };
+      syncBuiltinESMExports();
+      const { MainRequestStore } = await import(${JSON.stringify(storeModule)});
+      const store = new MainRequestStore(filePath, "task");
+      let firstErrorCode = null;
+      try {
+        await store.settle(${JSON.stringify(f.input.requestId)}, "completed");
+      } catch (err) {
+        firstErrorCode = err.code ?? err.message;
+      }
+      failDirSync = false;
+      inRetry = true;
+      await store.settle(${JSON.stringify(f.input.requestId)}, "completed");
+      console.log(JSON.stringify({ firstErrorCode, retryDirSyncs, retryBaseRenames, state: (await store.read()).state }));
+    `,
+      f.store.filePath
+    ],
+    { cwd: f.root, env: childEnvironment, timeout: 5000 }
+  );
+  const res = JSON.parse(stdout);
+  assert.equal(res.firstErrorCode, "EIO");
+  assert.ok(res.retryDirSyncs >= 1, `retry settle() must complete directory sync, got ${res.retryDirSyncs}`);
+  assert.equal(res.retryBaseRenames, 0, "retry settle() must not rewrite the base snapshot");
+  assert.equal(res.state, "completed");
+});
