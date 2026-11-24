@@ -472,16 +472,19 @@ export function createSettingsPages({
     const list = Array.isArray(members()) ? members() : [];
     $("#settings-member-rows").innerHTML = list
       .map(
-        (member) => `<div class="settings-row" data-member="${esc(member.id)}">
-        <span class="settings-avatar">${esc(String(member.name || "?").slice(0, 1))}</span>
-        <span class="settings-row-name">${esc(member.name)}</span>
-        ${member.owner ? `<span class="settings-chip is-accent">${ui("负责人")}</span>` : ""}
-        <span class="settings-row-spacer"></span>
-        ${
-          member.channel
-            ? `<span class="settings-chip">${esc(member.channel)}</span>`
-            : `<span class="settings-warn">${icon("triangle-alert")}<span>${ui("未设置通道")}</span></span>`
-        }
+        (member) => `<div class="member-card" data-member="${esc(member.id)}">
+        <span class="member-card-mark is-person">${esc(String(member.name || "?").slice(0, 1))}</span>
+        <span class="member-card-text">
+          <span class="member-card-line">
+            <span class="member-card-name">${esc(member.name)}</span>
+            ${member.owner ? `<span class="settings-chip is-accent">${ui("负责人")}</span>` : ""}
+          </span>
+          ${
+            member.channel
+              ? `<span class="member-card-sub">${esc(ui("通知走 {channel}").replace("{channel}", member.channel))}</span>`
+              : `<span class="member-card-sub is-warn">${ui("未设置通道")}</span>`
+          }
+        </span>
       </div>`
       )
       .join("");

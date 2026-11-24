@@ -355,6 +355,9 @@ export default {
   成员: "Members",
   负责人: "Owner",
   未设置通道: "No channel",
+  "通知走 {channel}": "Notified via {channel}",
+  未连接: "Not connected",
+  添加通道: "Add channel",
   通知通道: "Notification channels",
   回访: "Callbacks",
   回访间隔: "Callback interval",
@@ -587,7 +590,6 @@ export default {
   简体中文: "Simplified Chinese",
   "本机不配置名额；只对远程对外节点设置常驻与接续数量":
     "This node has no capacity limits; resident and continuation slots apply only to remote external nodes",
-  三次回访都没有回复时提醒项目负责人: "Notify the project owner when three follow-ups get no reply",
   // Resizable panes: the label names whichever pane is on the left.
   会话侧栏: "session sidebar",
   调整: "Resize ",

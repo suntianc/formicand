@@ -1245,48 +1245,55 @@
             <h1 class="settings-page-title">成员与通道</h1>
             <div class="settings-group">
               <div class="settings-group-head"><h2 class="settings-group-title">成员</h2></div>
-              <div class="settings-rows" id="settings-member-rows"></div>
+              <div class="member-cards" id="settings-member-rows"></div>
             </div>
             <div class="settings-group is-placeholder">
               <div class="settings-group-head">
                 <h2 class="settings-group-title">通知通道</h2>
                 <span class="settings-phase">P5 开放</span>
-                <span class="settings-group-spacer"></span>
               </div>
-              <div class="settings-rows">
-                <div class="settings-row">
-                  <span class="settings-icon-box"
+              <div class="member-cards">
+                <div class="member-card">
+                  <span class="member-card-mark"
                     ><svg class="ui-icon" aria-hidden="true"><use href="#i-chat" /></svg
                   ></span>
-                  <span class="settings-row-text"><span class="settings-row-name">飞书</span></span>
-                  <span class="settings-row-spacer"></span>
+                  <span class="member-card-text"
+                    ><span class="member-card-name">飞书</span
+                    ><span class="member-card-sub">未连接</span></span
+                  >
                   <button class="settings-outline-button" type="button" disabled>连接</button>
                 </div>
-                <div class="settings-row">
-                  <span class="settings-icon-box"
+                <div class="member-card">
+                  <span class="member-card-mark"
                     ><svg class="ui-icon" aria-hidden="true"><use href="#i-messages-square" /></svg
                   ></span>
-                  <span class="settings-row-text"><span class="settings-row-name">企业微信</span></span>
-                  <span class="settings-row-spacer"></span>
+                  <span class="member-card-text"
+                    ><span class="member-card-name">企业微信</span
+                    ><span class="member-card-sub">未连接</span></span
+                  >
                   <button class="settings-outline-button" type="button" disabled>连接</button>
                 </div>
-                <div class="settings-row">
-                  <span class="settings-icon-box"
+                <div class="member-card">
+                  <span class="member-card-mark"
                     ><svg class="ui-icon" aria-hidden="true"><use href="#i-send" /></svg
                   ></span>
-                  <span class="settings-row-text"><span class="settings-row-name">Telegram</span></span>
-                  <span class="settings-row-spacer"></span>
+                  <span class="member-card-text"
+                    ><span class="member-card-name">Telegram</span
+                    ><span class="member-card-sub">未连接</span></span
+                  >
                   <button class="settings-outline-button" type="button" disabled>连接</button>
                 </div>
+                <button class="member-card is-add" type="button" disabled>
+                  <svg class="ui-icon" aria-hidden="true"><use href="#i-plus" /></svg><span>添加通道</span>
+                </button>
               </div>
             </div>
             <div class="settings-group is-placeholder">
               <div class="settings-group-head">
                 <h2 class="settings-group-title">回访</h2>
                 <span class="settings-phase">P5 开放</span>
-                <span class="settings-group-spacer"></span>
               </div>
-              <div class="settings-rows">
+              <div class="settings-rows callback-card">
                 <div class="settings-row">
                   <span class="settings-row-label">回访间隔</span>
                   <span class="settings-row-spacer"></span>
@@ -1296,9 +1303,6 @@
                 </div>
                 <div class="settings-row">
                   <span class="settings-row-label">3 次无回复后通知</span>
-                  <span class="settings-info" title="三次回访都没有回复时提醒项目负责人"
-                    ><svg class="ui-icon" aria-hidden="true"><use href="#i-info" /></svg
-                  ></span>
                   <span class="settings-row-spacer"></span>
                   <span class="settings-row-state">项目负责人</span>
                 </div>
