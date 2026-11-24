@@ -168512,9 +168512,52 @@
               "id": "Q2buNR",
               "name": "SidebarFoot",
               "width": "fill_container",
-              "justifyContent": "end",
+              "justifyContent": "space_between",
               "alignItems": "center",
               "children": [
+                {
+                  "type": "frame",
+                  "id": "qqLXm",
+                  "name": "FootPlaceholder",
+                  "height": 36,
+                  "fill": "#FFFFFF0A",
+                  "cornerRadius": 18,
+                  "stroke": "#FFFFFF14",
+                  "strokeWidth": 1,
+                  "strokeAlignment": "inner",
+                  "gap": 14,
+                  "padding": [
+                    0,
+                    12
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "ellipse",
+                      "id": "J3vp4",
+                      "name": "Slot 1",
+                      "fill": "#FFFFFF14",
+                      "width": 16,
+                      "height": 16
+                    },
+                    {
+                      "type": "ellipse",
+                      "id": "mX7ng",
+                      "name": "Slot 2",
+                      "fill": "#FFFFFF14",
+                      "width": 16,
+                      "height": 16
+                    },
+                    {
+                      "type": "ellipse",
+                      "id": "kwEmb",
+                      "name": "Slot 3",
+                      "fill": "#FFFFFF14",
+                      "width": 16,
+                      "height": 16
+                    }
+                  ]
+                },
                 {
                   "type": "frame",
                   "id": "dvbmR",
