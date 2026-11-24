@@ -81,14 +81,27 @@ export function createMessageEditController({
     get editingMessageId() {
       return composerSession.editing?.messageId;
     },
+    /**
+     * The edit on its way to the backend, drawn in place of its message.
+     *
+     * Sending closes the editor at once; the conversation shows the new text
+     * and a reply being prepared, and the editor returns only if sending fails.
+     */
+    resending(taskId) {
+      const target = composerSession.editing;
+      if (!target || composerSession.currentKey !== taskId || !submitting.has(taskId)) return;
+      return { messageId: target.messageId, text: composerSession.editSnapshot().text };
+    },
     markup(taskId, messageId) {
       const target = composerSession.editing;
       if (!target || composerSession.currentKey !== taskId || target.messageId !== messageId) return "";
+      if (submitting.has(taskId)) return "";
       return ui`<div class="inline-message-editor"><textarea rows="1" data-inline-message-edit="${esc(target.editId)}" aria-label="编辑消息内容"></textarea></div>`;
     },
     actions(taskId, messageId) {
       const target = composerSession.editing;
       if (!target || composerSession.currentKey !== taskId || target.messageId !== messageId) return "";
+      if (submitting.has(taskId)) return "";
       const draft = composerSession.editSnapshot();
       return ui`<div class="user-message-actions"><div class="inline-edit-actions">${draft.attachments.length ? ui`<details class="inline-edit-attachments-menu" data-activity-key="edit-attachments:${esc(target.editId)}"><summary class="app-button" role="button" aria-label="编辑附件" title="编辑附件（${draft.attachments.length}）">${icon("paperclip")}</summary><div class="inline-edit-attachments">${draft.attachments.map((file, index) => ui`<span class="inline-edit-attachment"><span title="${esc(file.name)}">${esc(file.name)}</span><button type="button" data-remove-edit-attachment="${index}" aria-label="移除附件 ${esc(file.name)}">${icon("close")}</button></span>`).join("")}</div></details>` : ""}<button type="button" class="app-button" data-cancel-message-edit aria-label="取消编辑" title="取消编辑（Esc）">取消</button><button type="button" class="app-button is-primary" data-submit-message-edit aria-label="发送编辑后的消息" title="发送（⌘/Ctrl + Enter）">发送</button></div></div>`;
     },
@@ -162,6 +175,7 @@ export function createMessageEditController({
       submitting.add(taskId);
       composerSession.save();
       sync();
+      onChange();
       try {
         // Only a draft with `/` or `@` words waits for them to be read; others send at once.
         const references = /(^|\s)[/@]\S/.test(draft.text) ? await referencesOf(draft.text) : [];
@@ -181,10 +195,13 @@ export function createMessageEditController({
             model: state.model || state.defaultModel || undefined
           })
         });
-        const restored = composerSession.finishEdit(taskId, target.editId, draft);
-        if (restored === false)
-          onError(ui("新回复已开始，发送期间继续修改的编辑内容仍保留。取消编辑可恢复原草稿。"));
-        await onAccepted(taskId, run);
+        // The preview stays until the new version is loaded, so the old
+        // message never shows again in between.
+        try {
+          await onAccepted(taskId, run);
+        } finally {
+          composerSession.finishEdit(taskId, target.editId);
+        }
       } catch (error) {
         onError(ui`修改重发失败：${error.message}。编辑内容和原草稿已保留。`);
       } finally {

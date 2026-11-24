@@ -369,8 +369,6 @@ export default {
     "Cancel or send the current edit first. Your original draft is retained.",
   "请先停止当前运行，再修改重发。": "Stop the current run before editing and resending.",
   "请输入消息或保留至少一个附件。": "Enter a message or keep at least one attachment.",
-  "新回复已开始，发送期间继续修改的编辑内容仍保留。取消编辑可恢复原草稿。":
-    "A new reply has started. Further edits are retained. Cancel editing to restore the original draft.",
   "修改重发失败：": "Could not resend edit: ",
   "。编辑内容和原草稿已保留。": ". Your edits and original draft are retained.",
   附件上传响应无效: "Invalid attachment upload response",

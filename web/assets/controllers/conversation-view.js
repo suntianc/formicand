@@ -868,6 +868,11 @@ export function createConversationView({
     }
     streamFastState = undefined;
     lastRenderArgs = { messages, task };
+    // An edit being sent replaces its message and what followed it; until the
+    // backend has the new version, the preview at the end stands in for them.
+    const resend = messageEdit?.resending?.(task.taskId);
+    const resendFrom = resend ? (messages || []).findIndex((message) => message.id === resend.messageId) : -1;
+    if (resendFrom >= 0) messages = messages.slice(0, resendFrom);
     bindVirtualScroll(scroll);
     resetToolDetails(task.taskId);
     if (virtualTaskId !== task.taskId) {
@@ -1361,10 +1366,17 @@ export function createConversationView({
     const restoredEditor = inlineEditorRendered
       ? ""
       : messageEdit?.markup(task.taskId, messageEdit.editingMessageId) || "";
+    const resendKey = `${task.taskId}:resend`;
+    const resendPreview =
+      resendFrom >= 0
+        ? `${renderUserBubble({ role: "user", content: resend.text }, `${resendKey}:user`)}<article class="chat-message main" data-view-key="${esc(`${resendKey}:response`)}" data-answer-kind="pending" aria-busy="true"><div class="message-copy">${renderThinkingPlaceholder(resendKey)}</div></article>`
+        : "";
     const trailingPart =
+      resendPreview +
       (restoredEditor
         ? `<article class="chat-message user is-editing" data-view-key="${esc(`${task.taskId}:restored-edit`)}"><div class="message-copy"><div class="user-message-bubble">${restoredEditor}${messageEdit.actions?.(task.taskId, messageEdit.editingMessageId) || ""}</div></div></article>`
-        : "") + (failure ? renderFailure(task, failure) : "");
+        : "") +
+      (failure ? renderFailure(task, failure) : "");
     parts.push(trailingPart);
     partSignatures.push(fingerprint(trailingPart));
     let changed = false;
