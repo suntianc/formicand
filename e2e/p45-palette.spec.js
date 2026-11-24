@@ -16,7 +16,6 @@ const overlays = [
   "toast-card",
   "settings-node-menu",
   "add-project-dialog",
-  "run-interrupt-confirm",
   "artifact-drawer"
 ];
 

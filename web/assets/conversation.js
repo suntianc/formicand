@@ -29,6 +29,10 @@ export function isMachineTurn(message) {
   return message?.role === "user" && messageText(message).trim() === SUPERVISOR_WAKE_TURN;
 }
 
+/** The control message Pi records when Main continues a saved turn instead of a new message. */
+const isContinuation = (message) =>
+  message?.role === "custom" && message.customType === "atria-main-continuation";
+
 export function finalAnswerIndex(messages, detail, isCurrent = true) {
   const task = detail?.task || {};
   const coordination = detail?.coordination || {};
@@ -103,6 +107,16 @@ export function buildConversationExchanges(messages, events) {
   let group;
   let prelude = [];
   let pendingRun = null;
+  const followingExchange = (user) => {
+    const index = exchanges.findIndex(
+      (exchange) =>
+        exchange.user &&
+        (user.id && exchange.user.id
+          ? exchange.user.id === user.id
+          : exchange.user.timestamp === user.timestamp)
+    );
+    return index < 0 ? undefined : exchanges.slice(index + 1).find((exchange) => exchange.user);
+  };
   const flushPendingRun = () => {
     if (!pendingRun) return;
     if (group) group.events.push(...pendingRun.events);
@@ -121,6 +135,26 @@ export function buildConversationExchanges(messages, events) {
             timestamp: incoming.timestamp
           }
         : incoming;
+    // A message edit relaunches Main on a session that already holds the
+    // edited message, so its Run starts with a continuation instead of that
+    // message. The Run answers the request after the one in progress, not the
+    // one above it.
+    if (event?.type === "message_start" && isContinuation(incoming) && group) {
+      const next = followingExchange(group.user);
+      const grouped =
+        next &&
+        (next.user.id !== undefined
+          ? groupedIds.has(next.user.id)
+          : groupedTimestamps.has(next.user.timestamp));
+      if (next && !grouped) {
+        if (pendingRun && pendingRun.runId !== record?.runId) flushPendingRun();
+        group = { user: next.user, runId: record?.runId, events: pendingRun ? pendingRun.events : [] };
+        pendingRun = null;
+        groups.push(group);
+        groupedIds.add(next.user.id);
+        groupedTimestamps.add(next.user.timestamp);
+      }
+    }
     if (userMessage?.role === "user" && ["message_start", "message_end"].includes(event.type)) {
       // A supervisor wake-up opens no exchange, so its activity belongs to the
       // exchange already in progress rather than to a group with no request.
