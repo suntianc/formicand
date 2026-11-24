@@ -328,54 +328,59 @@ test("a streamed artifact link completed mid-reply opens the artifact preview be
   });
   provider.listen(0, "127.0.0.1");
   await once(provider, "listening");
-  const dashboard = await startDashboard({
-    modelEndpoint: `http://127.0.0.1:${provider.address().port}`,
-    model: "fixture-model"
-  });
   const errors = [];
   page.on("pageerror", (error) => errors.push(error.message));
   try {
-    const taskId = "stream_artifact_click";
-    await page.request.post(`${dashboard.base}/api/tasks`, {
-      data: { taskId, goal: "流式产物链接点击验收" }
+    const dashboard = await startDashboard({
+      modelEndpoint: `http://127.0.0.1:${provider.address().port}`,
+      model: "fixture-model"
     });
-    const artifactsDir = join(dashboard.workspaceRoot, taskId, "artifacts");
-    await mkdir(artifactsDir, { recursive: true });
-    artifactAbsolutePath = join(artifactsDir, "report.md");
-    await writeFile(artifactAbsolutePath, "# 流式预览正文\n\nSTREAMED_ARTIFACT_BODY\n");
+    try {
+      const taskId = "stream_artifact_click";
+      await page.request.post(`${dashboard.base}/api/tasks`, {
+        data: { taskId, goal: "流式产物链接点击验收" }
+      });
+      const artifactsDir = join(dashboard.workspaceRoot, taskId, "artifacts");
+      await mkdir(artifactsDir, { recursive: true });
+      artifactAbsolutePath = join(artifactsDir, "report.md");
+      await writeFile(artifactAbsolutePath, "# 流式预览正文\n\nSTREAMED_ARTIFACT_BODY\n");
 
-    await page.goto(dashboard.base);
-    await page.locator(`.conversation-item[data-task="${taskId}"]`).click();
-    await page.locator("#composer-input").fill("输出报告链接");
-    await page.locator("#send-button").click();
+      await page.goto(dashboard.base);
+      await page.locator(`.conversation-item[data-task="${taskId}"]`).click();
+      await page.locator("#composer-input").fill("输出报告链接");
+      await page.locator("#send-button").click();
 
-    const streamingAnswer = page.locator("[data-streaming-answer]");
-    await expect(streamingAnswer).toContainText("查看生成结果：", { timeout: 30_000 });
-    await streamingAnswer.evaluate((node) => {
-      window.__savedStreamingAnswer = node;
-    });
+      const streamingAnswer = page.locator("[data-streaming-answer]");
+      await expect(streamingAnswer).toContainText("查看生成结果：", { timeout: 30_000 });
+      await streamingAnswer.evaluate((node) => {
+        window.__savedStreamingAnswer = node;
+      });
 
-    // Stream the completed artifact link while holding the run open before text_end.
-    releaseLinkChunk();
-    const link = streamingAnswer.locator('[data-message-artifact="report.md"]');
-    await expect(link).toBeVisible({ timeout: 30_000 });
-    expect(await streamingAnswer.evaluate((node) => node === window.__savedStreamingAnswer)).toBe(true);
-    await expect(page.locator('[data-answer-kind="final"]')).toHaveCount(0);
+      // Stream the completed artifact link while holding the run open before text_end.
+      releaseLinkChunk();
+      const link = streamingAnswer.locator('[data-message-artifact="report.md"]');
+      await expect(link).toBeVisible({ timeout: 30_000 });
+      expect(await streamingAnswer.evaluate((node) => node === window.__savedStreamingAnswer)).toBe(true);
+      await expect(page.locator('[data-answer-kind="final"]')).toHaveCount(0);
 
-    // Click the freshly streamed link BEFORE text_end arrives and verify preview opens.
-    await link.click();
-    const drawer = page.locator("#artifact-drawer");
-    await expect(drawer).toBeVisible({ timeout: 15_000 });
-    await expect(drawer.locator(".artifact-drawer-title")).toContainText("report.md");
-    await expect(drawer).toContainText("STREAMED_ARTIFACT_BODY");
+      // Click the freshly streamed link BEFORE text_end arrives and verify preview opens.
+      await link.click();
+      const drawer = page.locator("#artifact-drawer");
+      await expect(drawer).toBeVisible({ timeout: 15_000 });
+      await expect(drawer.locator(".artifact-drawer-title")).toContainText("report.md");
+      await expect(drawer).toContainText("STREAMED_ARTIFACT_BODY");
 
-    releaseFinish();
-    await expect(page.locator('[data-answer-kind="final"]')).toContainText("汇总报告", { timeout: 30_000 });
-    expect(errors).toEqual([]);
+      releaseFinish();
+      await expect(page.locator('[data-answer-kind="final"]')).toContainText("汇总报告", { timeout: 30_000 });
+      expect(errors).toEqual([]);
+    } finally {
+      releaseLinkChunk();
+      releaseFinish();
+      await dashboard.stop();
+    }
   } finally {
     releaseLinkChunk();
     releaseFinish();
-    await dashboard.stop();
     provider.closeAllConnections();
     await new Promise((done) => provider.close(done));
   }
