@@ -168512,6 +168512,7 @@
               "id": "Q2buNR",
               "name": "SidebarFoot",
               "width": "fill_container",
+              "justifyContent": "end",
               "alignItems": "center",
               "children": [
                 {
