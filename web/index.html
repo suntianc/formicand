@@ -1079,9 +1079,6 @@
           <button class="settings-nav-item" type="button" data-settings-section="memory">
             <svg class="ui-icon" aria-hidden="true"><use href="#i-brain" /></svg><span>记忆</span>
           </button>
-          <button class="settings-nav-item" type="button" data-settings-section="capacity">
-            <svg class="ui-icon" aria-hidden="true"><use href="#i-gauge" /></svg><span>运行名额</span>
-          </button>
           <button class="settings-nav-item" type="button" data-settings-section="members">
             <svg class="ui-icon" aria-hidden="true"><use href="#i-team" /></svg><span>成员与通道</span>
           </button>
@@ -1196,22 +1193,17 @@
           <section class="settings-panel is-cards" data-settings-panel="nodes" aria-label="节点连接" hidden>
             <h1 class="settings-page-title">节点连接</h1>
             <div class="settings-group">
-              <div class="settings-group-head"><h2 class="settings-group-title">本机</h2></div>
-              <div class="settings-rows" id="settings-node-local"></div>
-            </div>
-            <div class="settings-group" id="settings-node-remote-group" hidden>
               <div class="settings-group-head">
-                <h2 class="settings-group-title">远程节点</h2>
+                <h2 class="settings-group-title">节点</h2>
                 <span class="settings-group-spacer"></span>
                 <button class="settings-link" type="button" id="settings-node-add" hidden>
                   <svg class="ui-icon" aria-hidden="true"><use href="#i-plus" /></svg><span>添加节点</span>
                 </button>
               </div>
-              <div class="settings-rows" id="settings-node-remote"></div>
+              <div class="node-cards" id="settings-node-cards"></div>
             </div>
-            <div class="settings-group">
-              <div class="settings-group-head"><h2 class="settings-group-title">项目数据</h2></div>
-              <div class="settings-rows" id="settings-node-data"></div>
+            <div class="settings-group" id="settings-node-backend">
+              <div class="settings-rows" id="settings-node-local"></div>
             </div>
           </section>
           <section
@@ -1244,15 +1236,6 @@
             aria-label="记忆"
             hidden
           ></section>
-          <section class="settings-panel" data-settings-panel="capacity" aria-label="运行名额" hidden>
-            <div class="settings-title-row">
-              <h1 class="settings-page-title">运行名额</h1>
-              <span class="settings-info" title="本机不配置名额；只对远程对外节点设置常驻与接续数量"
-                ><svg class="ui-icon" aria-hidden="true"><use href="#i-info" /></svg
-              ></span>
-            </div>
-            <div id="settings-capacity-nodes"></div>
-          </section>
           <section
             class="settings-panel is-cards"
             data-settings-panel="members"

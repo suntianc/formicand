@@ -1,0 +1,176 @@
+/* Settings → Nodes: one card per node, three to a row. Top: the system's
+   mark, name, role, online dot and address; then CPU, memory and disk; an
+   external node adds its two Main quotas. */
+.node-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 16px;
+}
+.node-card {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  min-width: 0;
+  padding: 18px;
+  border: 1px solid var(--color-line);
+  border-radius: 12px;
+  background: var(--color-surface);
+}
+.node-card-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+.node-card-mark {
+  display: grid;
+  flex: 0 0 34px;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  color: var(--color-text-2);
+  background: var(--color-surface-3);
+}
+.node-card-mark.has-system {
+  color: var(--color-text);
+  background: color-mix(in srgb, var(--mark-tint, var(--color-text)) 18%, transparent);
+}
+.node-card-mark .ui-icon {
+  width: 16px;
+  height: 16px;
+}
+.node-card-system {
+  width: 18px;
+  height: 18px;
+}
+.node-card-text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.node-card-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.node-card-name {
+  overflow: hidden;
+  color: var(--color-text);
+  font: 600 14px/20px var(--ui-font);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.node-card-address {
+  overflow: hidden;
+  color: var(--color-text-3);
+  font-size: 12px;
+  line-height: 17px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.node-card .settings-outline-button {
+  height: 26px;
+  padding: 0 10px;
+  font-size: 12px;
+}
+.node-resources {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+.node-resource {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.node-resource-head {
+  display: flex;
+  justify-content: space-between;
+  color: var(--color-text-3);
+  font-size: 12px;
+  line-height: 17px;
+}
+.node-resource-value {
+  color: var(--color-text-2);
+  font-variant-numeric: tabular-nums;
+}
+.node-resource-track {
+  height: 3px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: var(--color-surface-3);
+}
+.node-resource-fill {
+  display: block;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--color-text-3);
+  transform-origin: 0 50%;
+  transition: transform var(--motion-base) var(--ease-standard);
+}
+.node-resource.is-ok .node-resource-fill {
+  background: var(--color-ok);
+}
+.node-resource.is-warn .node-resource-fill {
+  background: var(--color-warn);
+}
+.node-resource.is-danger .node-resource-fill {
+  background: var(--color-danger, var(--ui-danger));
+}
+.node-capacity {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 14px;
+  border-top: 1px solid var(--color-line);
+}
+.node-capacity[hidden] {
+  display: none;
+}
+.node-capacity-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.node-capacity-label {
+  color: var(--color-text);
+  font-size: 13px;
+}
+.node-capacity-used {
+  min-width: 34px;
+  color: var(--color-text-3);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.node-capacity .settings-capacity-seg {
+  width: 10px;
+  height: 4px;
+}
+.node-capacity .settings-capacity-seg.is-ok {
+  background: var(--color-ok);
+}
+.node-capacity .settings-stepper > button,
+.node-capacity .settings-stepper-value {
+  width: 26px;
+  height: 26px;
+}
+.node-capacity .settings-stepper-value {
+  font-size: 13px;
+}
+.node-capacity-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.node-capacity-actions[hidden] {
+  display: none;
+}
+/* The backend switch the host adds sits under the cards; nothing shows without it. */
+#settings-node-backend:not(:has(.profile-setting)) {
+  display: none;
+}

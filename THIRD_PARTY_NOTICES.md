@@ -28,9 +28,9 @@ Provider logos on the Models & roles settings page come from the linked `@lobehu
 
 ## Simple Icons 编程语言标志 / Language marks
 
-消息与需求面板里代码文件的语言标志（[web/assets/file-icons.svg](web/assets/file-icons.svg)）取自 [Simple Icons](https://simpleicons.org) 的 [`simple-icons` 13.21.0 npm 发行](https://registry.npmjs.org/simple-icons/-/simple-icons-13.21.0.tgz)，适用 **CC0-1.0**。只取各图标的路径数据放进一个符号表，填充色取 Simple Icons 记录的品牌色（黑色标志改为跟随文字颜色），图形未改动。各标志是对应项目或组织的商标，仅用于标识文件所用的语言，不表示与其存在合作或获得其认可。
+消息与需求面板里代码文件的语言标志（[web/assets/file-icons.svg](web/assets/file-icons.svg)）取自 [Simple Icons](https://simpleicons.org) 的 [`simple-icons` 13.21.0 npm 发行](https://registry.npmjs.org/simple-icons/-/simple-icons-13.21.0.tgz)，适用 **CC0-1.0**。节点卡片的操作系统标志也取自同一发行（Windows 标志为项目自绘的四格图形）。只取各图标的路径数据放进一个符号表，填充色取 Simple Icons 记录的品牌色（黑色标志改为跟随文字颜色），图形未改动。各标志是对应项目或组织的商标，仅用于标识文件所用的语言，不表示与其存在合作或获得其认可。
 
-Language marks on code files in messages and the requirement panel come from the linked `simple-icons` 13.21.0 distribution under **CC0-1.0**. Only each icon's path data is used, in one symbol sheet, filled with the brand colour Simple Icons records (black marks follow the text colour instead); the artwork is unchanged. Each mark is its project's or organisation's trademark, used only to identify a file's language, and implies no affiliation or endorsement.
+Language marks on code files in messages and the requirement panel come from the linked `simple-icons` 13.21.0 distribution under **CC0-1.0**. Operating system marks on node cards come from the same release (the Windows mark is the project's own four-pane drawing). Only each icon's path data is used, in one symbol sheet, filled with the brand colour Simple Icons records (black marks follow the text colour instead); the artwork is unchanged. Each mark is its project's or organisation's trademark, used only to identify a file's language, and implies no affiliation or endorsement.
 
 ## Documentation site / 文档站
 

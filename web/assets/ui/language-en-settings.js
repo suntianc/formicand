@@ -1,4 +1,8 @@
 export default {
+  内存: "Memory",
+  磁盘: "Disk",
+  "内存 ": "Memory ",
+  "磁盘 ": "Disk ",
   视觉: "Images",
   上下文: "context",
   供应商: "Providers",

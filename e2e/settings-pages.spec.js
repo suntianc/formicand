@@ -23,7 +23,7 @@ test("the ten sections switch from one navigation, return to the entry and no se
     await openSettings(page);
 
     await expect(page.locator("#app-layout")).toBeHidden();
-    await expect(page.locator("#settings-entry .settings-nav-item")).toHaveCount(10);
+    await expect(page.locator("#settings-entry .settings-nav-item")).toHaveCount(9);
     await expect(navItem(page, "general")).toHaveAttribute("aria-current", "page");
     await expect(section(page, "general")).toBeVisible();
     await expect(section(page, "general").getByRole("heading", { level: 1 })).toHaveText("通用");
@@ -35,7 +35,6 @@ test("the ten sections switch from one navigation, return to the entry and no se
       ["skills", "技能"],
       ["mcp", "MCP"],
       ["memory", "记忆"],
-      ["capacity", "运行名额"],
       ["members", "成员与通道"],
       ["tools", "工具"]
     ]) {
@@ -43,17 +42,7 @@ test("the ten sections switch from one navigation, return to the entry and no se
       await expect(navItem(page, name)).toHaveAttribute("aria-current", "page");
       await expect(section(page, name)).toBeVisible();
       await expect(section(page, name).getByRole("heading", { level: 1 })).toHaveText(title);
-      for (const other of [
-        "general",
-        "nodes",
-        "models",
-        "agents",
-        "skills",
-        "mcp",
-        "capacity",
-        "members",
-        "tools"
-      ])
+      for (const other of ["general", "nodes", "models", "agents", "skills", "mcp", "members", "tools"])
         if (other !== name) await expect(section(page, other)).toBeHidden();
     }
 
@@ -226,23 +215,22 @@ test("node connections, tools and members show only the information each section
     await openSettings(page);
 
     await navItem(page, "nodes").click();
-    const local = page.locator("#settings-node-local .settings-row").first();
+    const local = page.locator("#settings-node-cards [data-local-node]");
     await expect(local).toContainText("本机");
     await expect(local).toContainText("对内");
     await expect(local).toContainText("在线");
-    await expect(page.locator("#settings-node-data")).toContainText("SQLite · 由本机提供");
-    // The host appends its backend-switcher row to this box; rendering the
-    // local node must not remove it.
+    // The card reads this machine's CPU, memory and disk.
+    await expect(local.locator(".node-resource-value").first()).toHaveText(/^\d+%$/);
+    await expect(page.locator("#settings-node-data")).toHaveCount(0);
+    // The host appends its backend-switcher row under the cards.
     await expect(page.locator("#settings-node-local [data-backend-open]")).toHaveCount(1);
     await page.locator("#settings-node-local [data-backend-open]").click();
     await expect(page.getByRole("dialog", { name: "后端" })).toBeVisible();
     await page.locator("[data-backend-close]").click();
     await expect(page.getByRole("dialog", { name: "后端" })).toBeHidden();
-    // No remote node is stored yet: the group only offers the add action.
-    await expect(page.locator("#settings-node-remote-group")).toBeVisible();
+    // No remote node is stored yet: only this machine's card and the add action.
     await expect(page.locator("#settings-node-add")).toBeVisible();
-    await expect(page.locator("#settings-node-remote")).toBeHidden();
-    await expect(page.locator("#settings-node-remote .settings-row")).toHaveCount(0);
+    await expect(page.locator("#settings-node-cards [data-node]")).toHaveCount(1);
 
     await navItem(page, "tools").click();
     const tools = page.locator("#profile-settings-tools");

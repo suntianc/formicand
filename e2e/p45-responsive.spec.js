@@ -474,7 +474,6 @@ test("settings keeps a usable single column on a 390 wide window", async ({ page
     for (const [name, title] of [
       ["nodes", "节点连接"],
       ["models", "模型"],
-      ["capacity", "运行名额"],
       ["members", "成员与通道"],
       ["tools", "工具"],
       ["general", "通用"]

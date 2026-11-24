@@ -51,6 +51,7 @@ import { handleAgentRequest } from "./agent-routes.js";
 import { handleMemoryRequest } from "./memory-routes.js";
 import { handleLinkPreviewRequest } from "./link-preview-routes.js";
 import type { LinkPreviewService } from "./link-preview-service.js";
+import type { NodeResources } from "./node-resources.js";
 import type { MemoryService } from "./memory-service.js";
 import type { AgentService } from "./agent-service.js";
 import type { ComposerService } from "./composer-service.js";
@@ -97,6 +98,8 @@ export interface DashboardRoutePorts {
   memories?: MemoryService;
   /** Icons and titles behind web links in messages; absent in partial handlers. */
   linkPreviews?: LinkPreviewService;
+  /** This machine's CPU, memory and disk use for its node card; absent in partial handlers. */
+  nodeResources?: { read(): Promise<NodeResources> };
   mainCapacity?: MainCapacityService;
   uploads?: InputStore;
   computer: ComputerUse;
@@ -432,6 +435,10 @@ export function createDashboardHandler(
       if (await handleAgentRequest(request, response, url, ports.agents)) return;
       if (await handleMemoryRequest(request, response, url, ports.memories)) return;
       if (await handleLinkPreviewRequest(request, response, url, ports.linkPreviews)) return;
+      if (request.method === "GET" && url.pathname === "/api/node-resources" && ports.nodeResources) {
+        sendJson(response, 200, await ports.nodeResources.read());
+        return;
+      }
       if (await handleProjectCatalogRequest(request, response, url, ports, principal)) return;
       if (await handleModelSettingsRequest(request, response, url, ports)) return;
       if (request.method === "POST" && url.pathname === "/api/workspace/choose") {
