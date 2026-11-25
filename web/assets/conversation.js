@@ -146,7 +146,14 @@ export function buildConversationExchanges(messages, events) {
         (next.user.id !== undefined
           ? groupedIds.has(next.user.id)
           : groupedTimestamps.has(next.user.timestamp));
-      if (next && !grouped) {
+      // A resume or retry of the request in progress also starts with a
+      // continuation. A message sent after the continuation cannot be what it
+      // continues; taking it here leaves that message's own Run unmatched.
+      const sentLater =
+        Number.isFinite(next?.user.timestamp) &&
+        Number.isFinite(incoming.timestamp) &&
+        next.user.timestamp > incoming.timestamp;
+      if (next && !grouped && !sentLater) {
         if (pendingRun && pendingRun.runId !== record?.runId) flushPendingRun();
         group = { user: next.user, runId: record?.runId, events: pendingRun ? pendingRun.events : [] };
         pendingRun = null;

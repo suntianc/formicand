@@ -852,6 +852,38 @@ test("an edited message's relaunch and its stop belong to that message, not the 
   assert.equal(exchangeExecutionState(exchanges[1].events).terminal, "waiting");
 });
 
+test("resuming a paused request stays with it, and the next message keeps its own Run", () => {
+  const first = user("first request", 1_000);
+  const partial = { role: "assistant", content: [], timestamp: 2_000, stopReason: "aborted" };
+  // Resumed after a pause, before the person sends anything else.
+  const continuation = {
+    role: "custom",
+    customType: "formicand-main-continuation",
+    content: [],
+    display: false,
+    timestamp: 3_000
+  };
+  const resumed = assistant("resumed work", 3_500);
+  const next = user("continue", 5_000);
+  const answer = assistant("next answer", 6_000);
+  const events = [
+    ...[
+      { type: "message_start", message: first },
+      { type: "message_end", message: first },
+      { type: "message_end", message: partial },
+      { type: "message_start", message: continuation },
+      { type: "message_end", message: continuation },
+      { type: "message_end", message: resumed },
+      { type: "main.run_failed", payload: {} }
+    ].map((event) => ({ ...event, runId: "paused-run" })),
+    ...runEvents(next, answer).map((event) => ({ ...event, runId: "next-run" }))
+  ];
+  const exchanges = buildConversationExchanges([first, partial, resumed, next, answer], events);
+  assert.equal(exchanges.length, 2);
+  assert.deepEqual(new Set(exchanges[0].events.map((event) => event.runId)), new Set(["paused-run"]));
+  assert.deepEqual(new Set(exchanges[1].events.map((event) => event.runId)), new Set(["next-run"]));
+});
+
 test("withPendingMainInput projects an accepted edit before Pi saves it and deduplicates once persisted", () => {
   const prefix = [
     { id: "m1", role: "user", content: "same text", timestamp: 1_000 },
