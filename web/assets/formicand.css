@@ -1,7 +1,7 @@
 /* Formicand visual foundation: light and dark tokens, surfaces, brand and motion.
    The entry shell and product controls consume these tokens. */
 
-/* Palette (#34): design/formicand-p4.5-ui.pen, boards "打磨 34". Neutral
+/* Palette (#34): design/formicand-p4.5-ui.pen, boards "基础 · 色板". Neutral
    black and white carry emphasis; colour is kept for meaning (ok, warn,
    danger, review). Each theme is tuned on its own, not one set recoloured. */
 :root {

@@ -191,3 +191,56 @@ test("switching conversations never flashes a welcome page while the next one lo
     await dashboard.stop();
   }
 });
+
+test("leaving a long conversation for a new session lifts the composer from the foot, never drops it from above", async ({
+  page
+}) => {
+  const dashboard = await startConfiguredDashboard();
+  try {
+    const taskId = "long-session";
+    await createTask(page, dashboard, { taskId, goal: "长会话", projectId: dashboard.projectId });
+    const messages = Array.from({ length: 20 }, (_, index) => [
+      { role: "user", content: `问题 ${index}`, timestamp: index * 10 + 1 },
+      {
+        role: "assistant",
+        content: [{ type: "text", text: `回答 ${index}\n\n${"很长的一段内容。".repeat(40)}` }],
+        timestamp: index * 10 + 2,
+        stopReason: "stop"
+      }
+    ]).flat();
+    await page.route(`**/api/tasks/${taskId}`, async (route) => {
+      const response = await route.fetch();
+      const detail = await response.json();
+      await route.fulfill({ response, json: { ...detail, messages } });
+    });
+    await page.goto(`${dashboard.base}/?task=${taskId}`);
+    await expect(page.locator("#conversation .chat-message.user")).toHaveCount(20);
+
+    const tops = await page.evaluate(
+      () =>
+        new Promise((resolve) => {
+          const composer = document.querySelector(".composer-wrap");
+          const seen = [composer.getBoundingClientRect().top];
+          const started = performance.now();
+          const tick = () => {
+            seen.push(composer.getBoundingClientRect().top);
+            if (performance.now() - started < 600) requestAnimationFrame(tick);
+            else resolve(seen);
+          };
+          document.querySelector("#new-conversation").click();
+          requestAnimationFrame(tick);
+        })
+    );
+    await expect(page.locator(".new-session-start")).toBeVisible();
+    const [foot, ...frames] = tops;
+    const settled = frames.at(-1);
+    expect(settled).toBeLessThan(foot);
+    // Every painted frame sits between the foot it left and the middle it reaches.
+    for (const top of frames) {
+      expect(top).toBeGreaterThanOrEqual(settled - 1);
+      expect(top).toBeLessThanOrEqual(foot + 1);
+    }
+  } finally {
+    await dashboard.stop();
+  }
+});
