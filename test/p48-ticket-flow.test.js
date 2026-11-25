@@ -818,6 +818,12 @@ test(
       round1.findings[0].findingId,
       "the unfixed finding keeps its id"
     );
+    // A third round of the same rework is refused before it starts, so the
+    // ticket is not left in progress where no fresh Executor can take it.
+    await assert.rejects(
+      service.ticketForDispatch("task-rounds", developmentId, "01", true),
+      (error) => error.code === "review_round_limit"
+    );
     await commit(first, { "src/a.txt": "3\n" }, "three");
     await assert.rejects(
       service.startReview(projectId, "task-rounds", {
@@ -837,7 +843,13 @@ test(
       approach: "fresh_executor",
       basis: "第一个执行者两轮都没理解要求"
     });
-    // The change must be carried out: the old Executor's checkout is refused.
+    // The change must be carried out: the old Executor may not continue, and
+    // its checkout is refused; a fresh Executor may start the ticket.
+    await assert.rejects(
+      service.ticketForDispatch("task-rounds", developmentId, "01", true),
+      (error) => error.code === "review_approach_not_applied"
+    );
+    assert.equal((await service.ticketForDispatch("task-rounds", developmentId, "01")).start, true);
     await assert.rejects(
       service.startReview(projectId, "task-rounds", {
         developmentId,
