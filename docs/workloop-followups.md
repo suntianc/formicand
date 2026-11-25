@@ -34,7 +34,7 @@
 - **观察：** P3 所用 `cmdSend` 优先选择 merge-tip 分支，文件正文被忽略。共享接口说明可能没有进入执行者会话。
 - **已用绕行：** 单独 `send <ticket> --file <handoff.md>`，在文件内写准确的 `git merge <已接受提交>` 命令和完整交接；随后核对实际生成的消息包含正文。活动回合结束后再发送，避免重复派发。
 - **建议结果：** 两参数明确组合，或在不支持时显式拒绝；新增参数组合测试应验证实际发送内容。
-- **证据：** P3 档案 `evidence/03-merge-02-dispatch-5b894b0b.json`、`messages/03-merge-02-5b894b0b.md`；[脱敏摘录](pitfalls/evidence/os-p3-project-foundation/checks.md#交接正文与审查分类)。
+- **证据：** P3 档案 `evidence/03-merge-02-dispatch-9ddcd81c.json`、`messages/03-merge-02-9ddcd81c.md`；[脱敏摘录](pitfalls/evidence/os-p3-project-foundation/checks.md#交接正文与审查分类)。
 
 ## WL-04 审查依据解析后的范围误分类
 
@@ -42,7 +42,7 @@
 - **观察：** P3 输入丢失、草稿清除，以及 P4 实际启动选模、恢复和候选资格等验收发现被列为范围外，工具给出可集成提示。该提示与原验收语义不一致。
 - **已用处理：** Main 阅读原 AC、报告及复现，裁定范围内返修；产品修复后通过复审。原报告和工具标签保留，无 override 或 waiver。后续简报采用 ASCII `AC2:` 并核对解析结果。
 - **建议结果：** 对不可解析的 Basis 明确报出需核对的字段，保留原发现；解析失败不直接等同于范围外。规则修改需用原报告样例验证。
-- **证据：** P3 档案 `reviews/04-7b8bc726.md`、`evidence/04-review-7b8bc726/main-adjudication/`、`reviews/04-dd3a330e.md`；P4 档案 `messages/02-rework-0c5b4ed6.md`、`messages/03-rework-b3703767.md` 和 [解析摘录](pitfalls/evidence/os-p4-native-development/checks.md#审查解析与同版本恢复)。
+- **证据：** P3 档案 `reviews/04-2d7e4a8e.md`、`evidence/04-review-2d7e4a8e/main-adjudication/`、`reviews/04-abb5b72d.md`；P4 档案 `messages/02-rework-1487c9e7.md`、`messages/03-rework-9ed3dbde.md` 和 [解析摘录](pitfalls/evidence/os-p4-native-development/checks.md#审查解析与同版本恢复)。
 
 ## WL-05 共享验收准备回执
 
@@ -52,9 +52,9 @@ P4 提供了两类已采用样例：同 tip 终审仅补报告格式时复用原
 
 ## WL-06 诊断脚本的失败表达
 
-P3 #04 的真实子进程 probe 打印了恢复超额/重复执行现象，但进程 exit 0，未满足复审边界要求的明确失败命令。后来独立审查在精确旧提交 `4d90cf6` 加新测试得到 exit 1，在修复候选上通过。原 probe、后续测试和审计 narrowing 提示分别保留。
+P3 #04 的真实子进程 probe 打印了恢复超额/重复执行现象，但进程 exit 0，未满足复审边界要求的明确失败命令。后来独立审查在精确旧提交 `941ec7f` 加新测试得到 exit 1，在修复候选上通过。原 probe、后续测试和审计 narrowing 提示分别保留。
 
-建议诊断脚本用断言把违例变成非零退出，报告写清失败基线和条件。此项归证据表达质量；没有确认 Workloop 的失败判定实现存在缺陷。证据为 P3 档案 `evidence/04-review-4d90cf63/restart-bind-race-output.log`、`evidence/04-review-dd3a330e/red-atomic-reclaim-on-4d90cf6.tap`，以及 [原复盘说明](p3-retrospective.md#5-恢复回收必须复核锁内状态)。
+建议诊断脚本用断言把违例变成非零退出，报告写清失败基线和条件。此项归证据表达质量；没有确认 Workloop 的失败判定实现存在缺陷。证据为 P3 档案 `evidence/04-review-941ec7f6/restart-bind-race-output.log`、`evidence/04-review-abb5b72d/red-atomic-reclaim-on-941ec7f.tap`，以及 [原复盘说明](p3-retrospective.md#5-恢复回收必须复核锁内状态)。
 
 P4 另有探针返回契约、权限和输出断言构造错误；原失败与校正回执均保留在 [复盘 §7](p4-retrospective.md#7-失败逐项归因复用按源码和输入判断)。红复现若按预期观察缺陷后 exit 0，报告需明确红复现目标、实际观察和产品断言结果。这些构造问题归入证据质量，不单列为工具缺陷。
 
@@ -66,9 +66,9 @@ P4 另有探针返回契约、权限和输出断言构造错误；原失败与�
 
 - **触发：** P4 最终审查用 `## Verdict` 标题和 `**pass**` 表达通过。
 - **观察：** 同提交 15 条命令、56 tests 通过且零漂移，工具返回 verdict missing；有效机器字段要求未满足。
-- **已用处理：** 另存原件，第二轮在同 `762ecb8d` 核对原始回执，补 `Verdict: pass` 与完整 `Integration tip:`，复用已完成检查。没有源码返修或 waiver。
+- **已用处理：** 另存原件，第二轮在同 `3a1583b1` 核对原始回执，补 `Verdict: pass` 与完整 `Integration tip:`，复用已完成检查。没有源码返修或 waiver。
 - **建议结果：** 报告完成时即检查必需字段并定位格式错误；是否兼容 Markdown 另行决定。需保留原报告及核对过程。
-- **证据：** P4 档案 `evidence/final-1-verdict-format-reconciliation.json`、`reviews/final-2-762ecb8d.md`，以及 [脱敏摘录](pitfalls/evidence/os-p4-native-development/checks.md#审查解析与同版本恢复)。
+- **证据：** P4 档案 `evidence/final-1-verdict-format-reconciliation.json`、`reviews/final-2-3a1583b1.md`，以及 [脱敏摘录](pitfalls/evidence/os-p4-native-development/checks.md#审查解析与同版本恢复)。
 
 ## WL-09 归档数据所有权
 
@@ -92,9 +92,9 @@ P4.5 每次 integrate 都运行公共检查与全部回归命令：全量 Playwr
 
 rex.3 核对（2026-11-12）：同一合并树上已通过的命令不再重跑，命令列表去重，`--full-check` 列出的全量命令只由终审运行、finish 复用其 validate 回执，`--fresh` 才全部重跑。
 
-P4.6 第二轮核对（2026-11-13）：终审已在 `74e723ad` 上跑过 `verify:full` 与 Playwright 全量，finish 在同一提交上仍运行了 24 条检查（含两项全量，约 30 分钟）；其中一条高负载偶发失败后再跑 finish，又运行了 16 分钟 Playwright 全量。终审的 validate 回执在终审工作树上，finish 没有复用。
+P4.6 第二轮核对（2026-11-13）：终审已在 `9a69b91e` 上跑过 `verify:full` 与 Playwright 全量，finish 在同一提交上仍运行了 24 条检查（含两项全量，约 30 分钟）；其中一条高负载偶发失败后再跑 finish，又运行了 16 分钟 Playwright 全量。终审的 validate 回执在终审工作树上，finish 没有复用。
 
-P4.6 第三轮核对（2026-11-16）：终审 r4 已在 `dd7e6e5a` 上跑过全量，finish 仍在同一提交上重跑 Playwright 全量（约 17–20 分钟），三次都被既有偶发 `markdown-links:6` 卡住；之后重跑时已通过的命令被正确跳过。
+P4.6 第三轮核对（2026-11-16）：终审 r4 已在 `1dd3ec72` 上跑过全量，finish 仍在同一提交上重跑 Playwright 全量（约 17–20 分钟），三次都被既有偶发 `markdown-links:6` 卡住；之后重跑时已通过的命令被正确跳过。
 
 ## WL-12 长检查前的环境预检
 
@@ -120,7 +120,7 @@ P4.6 第一轮 #05 收到 `send --merge-tip` 后，执行者没有执行合并�
 
 ## WL-16 wait 提示与终审报告不一致
 
-P4.6 第三轮终审 r3 报告中 A8 的 Blocking 列为 yes，`wait` 却提示「next: finish — the final review's blocking findings are all waived」。按报告处理，开了修复票 #21。建议提示以报告 Findings 表为准，存在未豁免的阻断项时不提示 finish。来源：`os-p46-subagents/reviews/final-3-273c7604.md`。
+P4.6 第三轮终审 r3 报告中 A8 的 Blocking 列为 yes，`wait` 却提示「next: finish — the final review's blocking findings are all waived」。按报告处理，开了修复票 #21。建议提示以报告 Findings 表为准，存在未豁免的阻断项时不提示 finish。来源：`os-p46-subagents/reviews/final-3-aa765e41.md`。
 
 ## WL-17 Rex 会话窗口上限
 

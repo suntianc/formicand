@@ -38,7 +38,7 @@
 - **What happens：** 新代码使用的库尚未安装；P3 首次集成报 `TS2307: Cannot find module 'pg'`。
 - **Confirm：** 对照合入前后的 package/lockfile 差异及失败模块；按锁文件完成 `npm ci` 后，在同一源码候选重跑原失败检查，分别保留退出记录。
 - **Avoid：** 沿 [验证准备](../development-handoffs.md#验证前准备) 同步依赖，再固定候选环境；依赖安装失败按具体错误处理。
-- **Sources：** 2026-11-08 [P3 前置失败摘录](evidence/os-p3-project-foundation/checks.md#依赖与解释器前置)，同一 e3d2e499 候选补齐依赖后集成通过。
+- **Sources：** 2026-11-08 [P3 前置失败摘录](evidence/os-p3-project-foundation/checks.md#依赖与解释器前置)，同一 e3086626 候选补齐依赖后集成通过。
 
 ## Electron 运行时尚未准备
 
@@ -70,7 +70,7 @@
 - **What happens：** 后端返回的是本机真实状态：锁屏时提示「桌面已锁定或没有可操作的前台应用」，已授权时显示「执行主机窗口访问已关闭」，与测试预期的「不可用」不一致。改动前的基线上同样失败，容易被误认为是候选的回归。
 - **Confirm：** 在同一台机器上，对基线提交运行同一用例，结果相同即为环境原因。锁屏状态可用 `ioreg -n Root -d1 -a | grep CGSSessionScreenIsLocked` 查看，有输出即为锁屏。
 - **Avoid：** 原生和桌面检查在解锁的桌面上运行。新写的测试不要读取主机真实的权限或桌面状态，用 `page.route` 固定 `/api/computer/status` 等接口。`computer-use.spec.js` 已按此修复。
-- **Sources：** 2026-11-11 [P4.5 复盘](../p4.5-retrospective.md#2-偶发失败多数是测试自身的问题)。#14 集成中该用例在基线 `addfeed2` 上同样失败。
+- **Sources：** 2026-11-11 [P4.5 复盘](../p4.5-retrospective.md#2-偶发失败多数是测试自身的问题)。#14 集成中该用例在基线 `535f19e8` 上同样失败。
 
 ## 测试假服务器在块边界切断多字节字符
 
@@ -78,7 +78,7 @@
 - **What happens：** 每个 Buffer 块被单独转成字符串，一个字符的字节如果落在两块之间就变成 `�`（如「谱系」读成「谱���」）。请求被切成几块取决于负载，所以只在全量或高负载时偶发失败，比如 `request-recovery` 要求逐字节一致的重试检查。
 - **Confirm：** 读取失败现场的差异，出现 `�` 即为此原因。单独重复运行通常全部通过。
 - **Avoid：** 读取请求体使用 `request.setEncoding("utf8")`，或先用 `Buffer.concat` 拼接字节、最后统一解码。e2e/ 与 test/ 中已有的 38 处已改为前者。
-- **Sources：** 2026-11-11 [P4.5 复盘](../p4.5-retrospective.md#2-偶发失败多数是测试自身的问题)，修复提交 `724dcff`。
+- **Sources：** 2026-11-11 [P4.5 复盘](../p4.5-retrospective.md#2-偶发失败多数是测试自身的问题)，修复提交 `bbe6bf2`。
 
 ## 应用就绪前输入的草稿被恢复覆盖
 

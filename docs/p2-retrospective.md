@@ -2,7 +2,7 @@
 
 日期：2026-11-07。本文记录 P2 的交付结果、返修原因和后续开发可采用的做法，接续 [P1 复盘](p1-retrospective.md)。
 
-P2 交付分支为 `workloop/os-p2-electron`，验收提交为 `7f6c215311106ab365a1a13a98a570a5456407c8`。六张票均已集成，独立终审、最终交付检查和归档完成；没有豁免阻塞发现。第二张票的一次超上限返修经用户授权，第六张票的干净账户验收经用户同意后移 P6。
+P2 交付分支为 `workloop/os-p2-electron`，验收提交为 `6c1b6552764d9f3ac0b41b7e7fcbb060677dbd14`。六张票均已集成，独立终审、最终交付检查和归档完成；没有豁免阻塞发现。第二张票的一次超上限返修经用户授权，第六张票的干净账户验收经用户同意后移 P6。
 
 ## 验证范围与结果
 
@@ -72,15 +72,15 @@ P2 覆盖 Electron 45.2.3 接入独立后端、草稿与附件恢复、宿主管
 | 内容                     | 档案内路径                                                                                                           |
 | ------------------------ | -------------------------------------------------------------------------------------------------------------------- |
 | 完整复盘与正式登记副本   | `retro.md`、`retros/1794054981565-cae511c0.md`                                                                       |
-| 最终验收映射与独立终审   | `final-review.md`、`reviews/final-2-7f6c2153.md`                                                                     |
+| 最终验收映射与独立终审   | `final-review.md`、`reviews/final-2-6c1b6552.md`                                                                     |
 | 原生交接纠偏             | `messages/01-checkpoint-correction.md`、`reports/01-a3-before-5.md`                                                  |
-| 草稿恢复返修与关闭       | `messages/02-extra-rework-p3-proposal.md`、`reviews/02-38791579.md`                                                  |
+| 草稿恢复返修与关闭       | `messages/02-extra-rework-p3-proposal.md`、`reviews/02-2b7c224e.md`                                                  |
 | 验证范围与启动补测       | `messages/06-limit-validation-work.md`、`messages/06-rework-1-startup-samples.md`                                    |
-| 生成资源与审查环境修复   | `reviews/04-722135d8.md`、`reviews/final-1-7f6c2153.md`、`evidence/final-a1-environment-reconciliation/receipt.json` |
-| 共享客户端与命令凭据审查 | `reviews/03-dc8745a0.md`、`messages/05-rework-1-watch-credential.md`、`reviews/05-c764e242.md`                       |
+| 生成资源与审查环境修复   | `reviews/04-7b43946e.md`、`reviews/final-1-6c1b6552.md`、`evidence/final-a1-environment-reconciliation/receipt.json` |
+| 共享客户端与命令凭据审查 | `reviews/03-302c7f01.md`、`messages/05-rework-1-watch-credential.md`、`reviews/05-3708c7a4.md`                       |
 | 最终安装包               | `evidence/06-a1/package-rework-2/Formicand-0.1.3-mac-arm64.dmg`                                                      |
 | 引用核对与证据保留映射   | `evidence/archive-citation-inventory.json`、`evidence/archive-retained/manifest.json`                                |
-| 交付与归档结果           | `evidence/finish-7f6c2153.log`、`evidence/archive-7f6c2153.log` 及各自的 `.exit` 文件                                |
+| 交付与归档结果           | `evidence/finish-6c1b6552.log`、`evidence/archive-6c1b6552.log` 及各自的 `.exit` 文件                                |
 
 ## 后续事项
 

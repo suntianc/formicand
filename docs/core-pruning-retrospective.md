@@ -1,12 +1,12 @@
 # 科学工具与旧资产剪枝复盘
 
-日期：2026-11-07。档案标识 `formicand-p1-docs/os-core-pruning`，交付提交 `fb054a155e696663fb76ae35f57d00ab99c1cc42`。六条验收标准保持原样，独立审查、交付检查和归档完成，无豁免或集成失败。本文从运行复盘整理项目经验，当前落实状态见 [汇总](retrospectives.md)。
+日期：2026-11-07。档案标识 `formicand-p1-docs/os-core-pruning`，交付提交 `d93f8e08f82f44ce7919212dde8acd46d399d345`。六条验收标准保持原样，独立审查、交付检查和归档完成，无豁免或集成失败。本文从运行复盘整理项目经验，当前落实状态见 [汇总](retrospectives.md)。
 
 ## 交付与验证
 
 科学工具注册、执行、安装和设置接线及专项 Office 创作技能已移除；通用文件、项目 Python、Pi/Main/子代理、MCP、恢复、PDF 内建显示和必要附件读取保留。清理回执记录六项非活动旧资产及两个孤立标签，归属不明确的通用缓存保留。
 
-实现候选 `cc09ee0` 的全量检查为 2,699 tests、2,696 pass、0 fail、3 skip；最后候选 `00bd063b` 仅修改 README 英文措辞。两轮独立审查执行专项验收，最终 14/14 通过；集成和交付按原配置完成轻量验证与专项验收。CLI、Electron、原生和清理回执保留原候选身份。
+实现候选 `01b5f56` 的全量检查为 2,699 tests、2,696 pass、0 fail、3 skip；最后候选 `2d94e408` 仅修改 README 英文措辞。两轮独立审查执行专项验收，最终 14/14 通过；集成和交付按原配置完成轻量验证与专项验收。CLI、Electron、原生和清理回执保留原候选身份。
 
 ## 1. 能力删除要覆盖发布目录与双语入口
 
@@ -38,7 +38,7 @@ Terra 使用的 Python 3.13.11 有文档依赖；DSH 首次检查解析到 3.15.
 | 发布 catalog 初始失败 | `evidence/01-a1/final-verify-full/check-1.log`                                                                                                 |
 | 跨工作区红绿证据      | `evidence/01-a1/cross-root-red-v2.log`、`evidence/01-a1/cross-root-green.log`                                                                  |
 | Python 失败与通过     | `evidence/01-a2/ac6-committed.log`、`evidence/01-a2/ac6-committed-condapy.log`                                                                 |
-| 窄返修与独立复审      | `messages/01-rework-1-readme-dsh.md`、`messages/01-rereview-readme.md`、`reviews/01-00bd063b.md`                                               |
+| 窄返修与独立复审      | `messages/01-rework-1-readme-dsh.md`、`messages/01-rereview-readme.md`、`reviews/01-2d94e408.md`                                               |
 | 引用及包保留          | `evidence/archive-citation-inventory.json`、`evidence/archive-retained/manifest.json`                                                          |
 
 归档保存最终/早期 CLI tar、接受过的 Electron App ZIP、合成边界 fixture 和全部已引用失败记录，约 249 MiB 为有用途的包证据。报告引用的 11 个 scratch 路径有保留映射，其中两个为 fixture 成功删除后的预期缺失。无关工作树与开发数据保留。

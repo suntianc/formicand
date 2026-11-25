@@ -4,7 +4,7 @@
 
 ## 交付与验证
 
-交付分支 `workloop/os-p3-project-foundation`，提交 `11f0f42cb00c509d8e4cfe335b994392819bc3da`；六票、12 AC 完成独立审查、集成、终审及归档。范围包括默认 SQLite / 可选 PostgreSQL、共享需求台账与看板、项目 Main 会话、固定运行名额、角色模型配置基础及组合 UI。
+交付分支 `workloop/os-p3-project-foundation`，提交 `d34f224c093cd73d0ca214daf861c518ebed72d1`；六票、12 AC 完成独立审查、集成、终审及归档。范围包括默认 SQLite / 可选 PostgreSQL、共享需求台账与看板、项目 Main 会话、固定运行名额、角色模型配置基础及组合 UI。
 
 执行使用 DSH headless / deepseek-v4.1-flash high，审查和终审使用 Devin swe-2-max。整轮有 12 次票据审查、1 次终审、1 次集成前置失败和 1 次已授权的额外返修；没有执行者替换、retry 或接管、审查豁免或最终 waiver。
 
@@ -14,9 +14,9 @@
 | 全量确定性检查 | 2768 tests / 2765 pass / 0 fail / 3 native skip                                                                                              |
 | 组合行为       | SQLite 与真实 PostgreSQL 的相同 HTTP/进程场景；Chromium 项目、台账、看板、会话、容量与模型设置流程                                           |
 | 同包安装       | 同一 CLI tar 隔离安装，分别验证 SQLite/PG 持久化、重启、备份与恢复                                                                           |
-| 证据复用       | 最终提交与候选 `e5e9e56795dcc3fd93ebbce4bed9ab5ce4bc433b` 同树 `cf1423d3a15f99eaaae46726e8039c6c8f91f254`；复用已接受的 full/package/UI 回执 |
+| 证据复用       | 最终提交与候选 `a0d3d78b0b72886dccd44609ddd32b375c920800` 同树 `cf1423d3a15f99eaaae46726e8039c6c8f91f254`；复用已接受的 full/package/UI 回执 |
 
-最终 CLI 包大小为 39,298,827 bytes，SHA-256 为 `b613539d6cade4e680ec55aedf11877f99cf3c8a68f202612ee0a8b7dda1022f`，包内 build-info 保留 e5e9e567 身份。P2 原生与性能证据继续沿用，干净 macOS 账户验收保留到 P6。本轮未推送或发布。
+最终 CLI 包大小为 39,298,827 bytes，SHA-256 为 `b613539d6cade4e680ec55aedf11877f99cf3c8a68f202612ee0a8b7dda1022f`，包内 build-info 保留 a0d3d78b 身份。P2 原生与性能证据继续沿用，干净 macOS 账户验收保留到 P6。本轮未推送或发布。
 
 ## 1. 把依赖前置与产品缺陷分别处理
 
@@ -46,7 +46,7 @@
 
 真实子进程探针发现：重启恢复可能移除仍存活但尚未绑定 PID 的槽位。加入子进程自注册后，恢复端仍可能使用 await 前的旧快照，删除刚完成绑定的槽位，导致超额运行或同请求重派。最终把回收资格复核与条件删除放进绑定共用的锁，删除未使用的 bind-wait 配置。
 
-这次使用了用户已授权的额外返修，未更换执行者绕过计数。最终独立审查在精确旧提交 `4d90cf6` 上验证新测试失败，在修复候选上通过；较早的“禁用修复”实验分别保留。原探针只打印违例却 exit 0，属于证据形式欠缺，见 [WL-06](workloop-followups.md#wl-06-诊断脚本的失败表达)。已有真实生命周期回归继续维护，不追加同义验证框架。
+这次使用了用户已授权的额外返修，未更换执行者绕过计数。最终独立审查在精确旧提交 `941ec7f` 上验证新测试失败，在修复候选上通过；较早的“禁用修复”实验分别保留。原探针只打印违例却 exit 0，属于证据形式欠缺，见 [WL-06](workloop-followups.md#wl-06-诊断脚本的失败表达)。已有真实生命周期回归继续维护，不追加同义验证框架。
 
 ## 6. 组合 UI 与包验收发现消费者遗漏
 
@@ -80,11 +80,11 @@ UI attempt 1–12 失败，13/14 通过，之后固定候选验收通过。失�
 | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 完整复盘、正式登记     | `retro.md`、`retros/1794118328307-48d1f0b1.md`                                                                                                                          |
 | 审计与最终验收映射     | `evidence/p3-run-audit-before-archive.txt`、`evidence/p3-run-audit-after-retro.txt`（两份原件已于 2026-11-17 清理时误删，审计结论见同表 `retro.md`）、`final-review.md` |
-| 共享接口交接           | `evidence/03-merge-02-dispatch-5b894b0b.json`、`messages/04-merge-05-6da228e9.md`                                                                                       |
-| #03 所有权与并发修复   | `reviews/03-951727b9.md`、`reviews/03-cad64805.md`、`reviews/03-065fe0d6.md`                                                                                            |
-| #04 失败保留与恢复竞态 | `reviews/04-7b8bc726.md`、`reviews/04-f3543e2d.md`、`reviews/04-4d90cf63.md`、`reviews/04-dd3a330e.md`                                                                  |
+| 共享接口交接           | `evidence/03-merge-02-dispatch-9ddcd81c.json`、`messages/04-merge-05-3f3912e6.md`                                                                                       |
+| #03 所有权与并发修复   | `reviews/03-253b1526.md`、`reviews/03-c5fe29e3.md`、`reviews/03-98c1ea2d.md`                                                                                            |
+| #04 失败保留与恢复竞态 | `reviews/04-2d7e4a8e.md`、`reviews/04-6744cddd.md`、`reviews/04-941ec7f6.md`、`reviews/04-abb5b72d.md`                                                                  |
 | #06 分类及逐次原始输出 | `evidence/06-a1/classification.json`、`evidence/06-a1/classification/`、`evidence/06-a1/ac2-ui/`                                                                        |
-| 最终候选验收与独立终审 | `evidence/06-a1/acceptance/candidate-e5e9e567/`、`reviews/final-1-11f0f42c.md`                                                                                          |
+| 最终候选验收与独立终审 | `evidence/06-a1/acceptance/candidate-a0d3d78b/`、`reviews/final-1-d34f224c.md`                                                                                          |
 | 同树对应与完整差异     | `evidence/final-review-preparation/source-correspondence.json` 及同目录差异清单                                                                                         |
 | 归档保全与核对         | `evidence/archive-retained/manifest.json`、`evidence/archive-verification.json`、`evidence/archive-main-reconciled.json`                                                |
 

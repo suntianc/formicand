@@ -4,13 +4,13 @@
 
 ```json
 {
-  "head": "7f6c215311106ab365a1a13a98a570a5456407c8",
+  "head": "6c1b6552764d9f3ac0b41b7e7fcbb060677dbd14",
   "beforeStatus": "?? node_modules",
   "preflightNote": "git check-ignore node_modules/ while it was a symlink returned 128: pathspec is beyond a symbolic link. Identity and package/lock equality were verified.",
   "complete": true,
   "copyExit": 0,
   "afterStatus": "",
-  "afterHead": "7f6c215311106ab365a1a13a98a570a5456407c8",
+  "afterHead": "6c1b6552764d9f3ac0b41b7e7fcbb060677dbd14",
   "trackedDiff": "",
   "directoryIgnored": true,
   "ignoreRule": ".gitignore:1:node_modules/\tnode_modules/",

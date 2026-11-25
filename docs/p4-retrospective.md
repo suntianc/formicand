@@ -4,14 +4,14 @@
 
 ## 交付与验证
 
-最终提交为 `762ecb8d1c09739f3bbba78232fbf493982068f1`，与补修候选 `888cf982` 的受控源码树相同。七票全部合入，独立终审通过，无 waiver；finish 与归档均成功。产品使用 OS 原生 Agent 调度，只限制 Main 数量，子 Agent 数量和并发不设上限。
+最终提交为 `3a1583b12e07ce259f8a7f9d30f65cbadb5a6991`，与补修候选 `c32f748e` 的受控源码树相同。七票全部合入，独立终审通过，无 waiver；finish 与归档均成功。产品使用 OS 原生 Agent 调度，只限制 Main 数量，子 Agent 数量和并发不设上限。
 
 | 验证对象                                                                     | 已接受结果                                                                                  | 对应版本              |
 | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- | --------------------- |
-| 原六票全量回归                                                               | 2805 tests：2802 pass、0 fail、3 native skips                                               | `613c4d5f`            |
-| 组合 Chromium UI、真实模型开发、同包 SQLite/PostgreSQL 持久化与重启/备份恢复 | 通过；真实模型链路中两次人工 SIGTERM 等待 stdin 的自有 awk 进程，随后完成交付               | `613c4d5f`，旧 CLI 包 |
-| 前台命令 stdin EOF 补修                                                      | 独立 EOF 3/3、生命周期 16/16、安装包探针 6/6；保留取消、超时、父进程退出清理和 shell 重定向 | `888cf982`，新 CLI 包 |
-| 最终独立审查                                                                 | 公共检查、固定基线格式及 12 条票级回归，共 15 条命令、56 tests 通过，零漂移；M1–M15 全通过  | `762ecb8d`            |
+| 原六票全量回归                                                               | 2805 tests：2802 pass、0 fail、3 native skips                                               | `cdc38ba8`            |
+| 组合 Chromium UI、真实模型开发、同包 SQLite/PostgreSQL 持久化与重启/备份恢复 | 通过；真实模型链路中两次人工 SIGTERM 等待 stdin 的自有 awk 进程，随后完成交付               | `cdc38ba8`，旧 CLI 包 |
+| 前台命令 stdin EOF 补修                                                      | 独立 EOF 3/3、生命周期 16/16、安装包探针 6/6；保留取消、超时、父进程退出清理和 shell 重定向 | `c32f748e`，新 CLI 包 |
+| 最终独立审查                                                                 | 公共检查、固定基线格式及 12 条票级回归，共 15 条命令、56 tests 通过，零漂移；M1–M15 全通过  | `3a1583b1`            |
 
 新 CLI 包 SHA-256 为 `e51118d1aa8218e6cab0b3b9397a354cd4d9ac7116027714ecd0308d28ef4783`；旧包为 `7cdacce23a0dd044fb65193f215fa2e8f7564df7f928c80c019fbacc3d825841`。全量、UI、数据库及模型记录保留原版本身份；补修以受影响源码、新包和生命周期验证补证，未重复整套采样。详细来源见 [验收与归档摘录](pitfalls/evidence/os-p4-native-development/checks.md)。
 
@@ -65,7 +65,7 @@ P2 干净账户安装与系统权限验收继续按已批准决定延期到 P6�
 
 ### 8. 归档前保全带用户配置的验收实例
 
-归档删除 scratch 和执行工作树时，里面仍有用户配置、凭据、交付样例和 Main 管理的 UI。Main 核对实例归属与空闲状态，将同版本源码和数据移入私有持久目录，保留兼容访问并恢复服务；秘密未进入 evidence。用户现场保留原 `613c4d5f` 版本，最终交付包包含后续 stdin 修复。
+归档删除 scratch 和执行工作树时，里面仍有用户配置、凭据、交付样例和 Main 管理的 UI。Main 核对实例归属与空闲状态，将同版本源码和数据移入私有持久目录，保留兼容访问并恢复服务；秘密未进入 evidence。用户现场保留原 `cdc38ba8` 版本，最终交付包包含后续 stdin 修复。
 
 归档前后的数据、工作树和运行状态均有回执。该触发条件已加入 [归档数据坑点](pitfalls/testing.md#归档目录内仍有用户配置的实例)。后续采用独立持久目录的验收模板、工具占用预检等仍是待评估建议。
 
@@ -83,7 +83,7 @@ P2 干净账户安装与系统权限验收继续按已批准决定延期到 P6�
 
 ## 归档与追溯
 
-运行档案名为 `os-p4-native-development`。整轮原复盘位于 `retro.md` 与 `retros/1794196167522-8a2479f7.md`；验收映射为 `final-review.md`，有效终审为 `reviews/final-2-762ecb8d.md`。项目内提供 [脱敏证据摘录](pitfalls/evidence/os-p4-native-development/checks.md)，不复制用户配置或原始操作流水。
+运行档案名为 `os-p4-native-development`。整轮原复盘位于 `retro.md` 与 `retros/1794196167522-8a2479f7.md`；验收映射为 `final-review.md`，有效终审为 `reviews/final-2-3a1583b1.md`。项目内提供 [脱敏证据摘录](pitfalls/evidence/os-p4-native-development/checks.md)，不复制用户配置或原始操作流水。
 
 归档保留 16 个原始 scratch 输入、两份基线输入归档及 overlay 身份、新旧 CLI 包、安装模块身份、SQLite/PostgreSQL 备份、原失败与审查记录、27 份 turn receipt 和 21 份 Agent transcript。档案约 150.5 MiB；七个受保护工作树及其他 Docker 资源核对未变，用户运行数据独立保全。
 

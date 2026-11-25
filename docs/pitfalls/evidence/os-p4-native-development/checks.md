@@ -6,16 +6,16 @@
 
 | 对象           | 身份                                                               |
 | -------------- | ------------------------------------------------------------------ |
-| 最终集成       | `762ecb8d1c09739f3bbba78232fbf493982068f1`                         |
-| EOF 修复候选   | `888cf982375e669cfaecfd89e43ba1c13013604b`                         |
+| 最终集成       | `3a1583b12e07ce259f8a7f9d30f65cbadb5a6991`                         |
+| EOF 修复候选   | `c32f748e7320354b14c9e512563b3e783f6e77a5`                         |
 | 两者共同 tree  | `13ce12e45cc4675f95cb370f485c07efcbacf1ed`                         |
-| 原六票验收候选 | `613c4d5fe336935cdad6367742cf9de7aa09d6a3`                         |
+| 原六票验收候选 | `cdc38ba82ac2ad7d05471300448bb8aacbe22d59`                         |
 | 修复包 SHA-256 | `e51118d1aa8218e6cab0b3b9397a354cd4d9ac7116027714ecd0308d28ef4783` |
 | 原包 SHA-256   | `7cdacce23a0dd044fb65193f215fa2e8f7564df7f928c80c019fbacc3d825841` |
 
 原候选到最终树仅改动前台命令相关两模块、一项测试及四份双语文档。原 full 为 2805 tests / 2802 pass / 0 fail / 3 native skips；UI、模型交付及同包 SQLite/PostgreSQL 重启、持久化、备份恢复归于原包。新包补受影响命令和生命周期验证，独立安装探针 6/6。真实模型验收曾有两次人工 SIGTERM 等待 stdin 的自有 awk，原记录保留。
 
-来源：`evidence/final-review-preparation/source-correspondence.json`、`evidence/06-a1/INDEX.md`、`reviews/06-613c4d5f.md`、`reviews/07-888cf982.md`。两个包分别保存在 `evidence/06-a1/cli-package/` 与 `evidence/07-a1/cli-package/`。
+来源：`evidence/final-review-preparation/source-correspondence.json`、`evidence/06-a1/INDEX.md`、`reviews/06-cdc38ba8.md`、`reviews/07-c32f748e.md`。两个包分别保存在 `evidence/06-a1/cli-package/` 与 `evidence/07-a1/cli-package/`。
 
 ## 产品配置前置
 
@@ -27,9 +27,9 @@
 
 #02 的 Basis 以 spec 开头或使用没有冒号的 AC2，#03 使用全角 `AC2：`；工具提示 blocking findings 都在 boundary 外。Main 核对原 AC、调用链及复现后在原范围返修，后续独立复审通过，无 override/waiver。
 
-首轮最终报告使用 `## Verdict` 与 `**pass**`，实际回执为 15 条命令、56 tests 全通过且零漂移，工具却显示 verdict missing。原报告另存，第二轮在同 `762ecb8d` 核对原始回执，补 `Verdict: pass` 和完整 Integration tip，未重复这些检查。
+首轮最终报告使用 `## Verdict` 与 `**pass**`，实际回执为 15 条命令、56 tests 全通过且零漂移，工具却显示 verdict missing。原报告另存，第二轮在同 `3a1583b1` 核对原始回执，补 `Verdict: pass` 和完整 Integration tip，未重复这些检查。
 
-来源：`messages/02-rework-0c5b4ed6.md`、`messages/03-rework-b3703767.md`、`evidence/final-1-verdict-format-reconciliation.json`、`evidence/final-1-format-recovery/final-1-762ecb8d-original.md`、`reviews/final-2-762ecb8d.md`。
+来源：`messages/02-rework-1487c9e7.md`、`messages/03-rework-9ed3dbde.md`、`evidence/final-1-verdict-format-reconciliation.json`、`evidence/final-1-format-recovery/final-1-3a1583b1-original.md`、`reviews/final-2-3a1583b1.md`。
 
 ## 保全与审计
 

@@ -6,7 +6,7 @@
 
 | 对象        | 身份                                                    |
 | ----------- | ------------------------------------------------------- |
-| 集成        | `ab1994bd`（基线 `d3bf1c7`），快进合入 main             |
+| 集成        | `9c4618a8`（基线 `d923b2b`），快进合入 main             |
 | finish 全量 | `verify:full` 1895 pass / 0 fail / 3 skipped（共 1898） |
 | Playwright  | 330 passed                                              |
 
@@ -16,4 +16,4 @@
 
 ## 基线即败被豁免为环境问题
 
-终审 r1 的 X1（`appearance-desktop`、`model-protocol-desktop`、`p45-run-control:200` 在候选上 2/2 失败）在基线 `d3bf1c7` 上以相同签名复现后被豁免，理由里写了「两天前 P4.6 finish 通过、当前负载 20–25」。随后 finish 失败，开 #09 才查出上一节的确定性根因，与负载无关；同票中 `p45-run-control:200` 则是断言时机问题（提示只存活约 3.2 秒）。来源：`reviews/final-1-69b9d475.md`、`events.jsonl` 的 `waiver` 与 `finish_failed`、`reports/09-a2.md`。
+终审 r1 的 X1（`appearance-desktop`、`model-protocol-desktop`、`p45-run-control:200` 在候选上 2/2 失败）在基线 `d923b2b` 上以相同签名复现后被豁免，理由里写了「两天前 P4.6 finish 通过、当前负载 20–25」。随后 finish 失败，开 #09 才查出上一节的确定性根因，与负载无关；同票中 `p45-run-control:200` 则是断言时机问题（提示只存活约 3.2 秒）。来源：`reviews/final-1-436380b0.md`、`events.jsonl` 的 `waiver` 与 `finish_failed`、`reports/09-a2.md`。

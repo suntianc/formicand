@@ -37,14 +37,14 @@ Both runs confirm Main's system prompt injection (`<current_workspace>`) is pres
 
 ### Rolling back to 0.87.1
 
-Downgrading the three packages is not enough to start: the upgraded launcher passes `--no-mcp`, which only 1.x accepts, and 0.87.1 exits with `Error: Unknown option: --no-mcp`; `scripts/cli-ui-policy.json` and `scripts/cli-shell-policy.json` pin 1.5.2 bundle hashes; and the source now imports `Type` from the direct `typebox` dependency. The rollback therefore reverts the whole upgrade commit `4e5bde0` ("升级 Pi 运行时到 1.5.2（行为不变）"), restoring the 0.87.1 dependencies, launch arguments and UI policy together:
+Downgrading the three packages is not enough to start: the upgraded launcher passes `--no-mcp`, which only 1.x accepts, and 0.87.1 exits with `Error: Unknown option: --no-mcp`; `scripts/cli-ui-policy.json` and `scripts/cli-shell-policy.json` pin 1.5.2 bundle hashes; and the source now imports `Type` from the direct `typebox` dependency. The rollback therefore reverts the whole upgrade commit `b3d8e7e` ("升级 Pi 运行时到 1.5.2（行为不变）"), restoring the 0.87.1 dependencies, launch arguments and UI policy together:
 
 ```sh
 # Stop App/CLI, Main, workers and the guardian first so running processes cannot keep writing sessions.
 cd <repository root>
 git status --short                     # the worktree must be clean
 git switch -c rollback/pi-0.87.1       # keep the current branch
-git revert --no-edit 4e5bde0
+git revert --no-edit b3d8e7e
 npm ci
 npm run build:cli
 npm run build:web-assets

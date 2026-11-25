@@ -37,14 +37,14 @@ Main、子智能体和会话文件都由 Pi 运行。`@earendil-works/pi-coding-
 
 ### 回滚到 0.87.1
 
-只降级三个包不足以启动：升级后的启动器会传 1.x 才有的 `--no-mcp`，0.87.1 以 `Error: Unknown option: --no-mcp` 退出；`scripts/cli-ui-policy.json` 与 `scripts/cli-shell-policy.json` 锁定的是 1.5.2 bundle 的 hash；源码还把 `Type` 改为从直接依赖 `typebox` 导入。回滚因此撤销整个升级提交 `4e5bde0`（“升级 Pi 运行时到 1.5.2（行为不变）”），一次恢复 0.87.1 的依赖、启动参数与 UI 策略：
+只降级三个包不足以启动：升级后的启动器会传 1.x 才有的 `--no-mcp`，0.87.1 以 `Error: Unknown option: --no-mcp` 退出；`scripts/cli-ui-policy.json` 与 `scripts/cli-shell-policy.json` 锁定的是 1.5.2 bundle 的 hash；源码还把 `Type` 改为从直接依赖 `typebox` 导入。回滚因此撤销整个升级提交 `b3d8e7e`（“升级 Pi 运行时到 1.5.2（行为不变）”），一次恢复 0.87.1 的依赖、启动参数与 UI 策略：
 
 ```sh
 # 先停止 App/CLI、Main、Worker 与守护，避免运行中的进程继续写入会话。
 cd <仓库根目录>
 git status --short                     # 工作树需要干净
 git switch -c rollback/pi-0.87.1       # 保留当前分支
-git revert --no-edit 4e5bde0
+git revert --no-edit b3d8e7e
 npm ci
 npm run build:cli
 npm run build:web-assets
