@@ -17,11 +17,7 @@ import { assessTaskCompletion } from "../src/runtime/task-completion.js";
 
 async function main(): Promise<void> {
   assert.equal(configuredMainTimeout({ FORMICAND_MAIN_TIMEOUT_MS: "180000" }), 180000);
-  assert.equal(configuredSubagentTimeout({ FORMICAND_TIMEOUT_MS: "900000" }), 900000);
-  assert.equal(
-    configuredSubagentTimeout({ FORMICAND_TIMEOUT_MS: "900000", FORMICAND_SUBAGENT_TIMEOUT_MS: "0" }),
-    0
-  );
+  assert.equal(configuredSubagentTimeout({ FORMICAND_SUBAGENT_TIMEOUT_MS: "900000" }), 900000);
   assert.equal(configuredMainTimeout(runtimeSettingsEnv({ mainTimeoutMs: 0 })), 0);
   assert.equal(
     configuredWorkspaceRoot({ workspaceRoot: ".tmp-from-config" }, {}, "/repo"),

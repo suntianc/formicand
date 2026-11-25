@@ -1,7 +1,7 @@
 <p align="center">
   <picture>
     <source media="(prefers-reduced-motion: reduce)" srcset="docs/assets/readme-hero.png">
-    <img src="docs/assets/readme-hero.gif" alt="Formicand: geometric wordmark, fixed OS frame and illustrated desktop workspace" width="100%">
+    <img src="docs/assets/readme-hero.gif" alt="Formicand: five-node mark, wordmark and desktop workspace" width="100%">
   </picture>
 </p>
 
@@ -14,40 +14,44 @@
   <a href="README.zh-CN.md">简体中文</a> | <b>English</b>
 </p>
 
-**Formicand is a personal agent client that runs on your own machine.** It keeps the Main Agent, Coordinator Runtime, Subagents, durable tasks and recovery, and keeps project workspaces, execution records and configurable model services local.
+**Formicand is a multi-agent workbench that runs on your own computer.** You talk to the Main Agent; it plans, delegates and checks the results, while Subagents do the work in separate processes. Projects, conversation records and configuration stay on your machine, and you bring your own model service.
 
-- **Delegated work.** The Main Agent plans, delegates and evaluates; the Coordinator Runtime dispatches subtasks and tracks their lifecycles; Subagents run as separate processes on scoped assignments.
-- **Development delivery.** The first built-in kind of work is software development: requirement ledger and board, scoped tickets, independent review, rework and merge.
-- **Memory and context.** Main keeps user-level and project-level memory with the `memory` tool, and long sessions are compacted so work can continue. Settings → Memory lists, edits and deletes it.
-- **Tools.** CLI, files, search, MCP, custom Agents and skills, and Computer Use on macOS.
-
-What is included and what was removed is listed in [capabilities and migration](docs/en/builtin-capabilities.md).
+- **Delegation.** Main splits work, hands it to Subagents and reviews what comes back. Subagents can ask Main questions and message each other. After a quit or restart, work resumes where it stopped.
+- **Software delivery.** A built-in requirement ledger and board. Requirements become tickets, built in separate Git worktrees, then independently reviewed, reworked and merged.
+- **Memory and context.** Main keeps user-level and project-level conventions; long sessions are compacted and carry on. Settings → Memory lists and edits what it keeps.
+- **Tools.** Shell, files, web search, MCP, custom Agents and skills; on macOS it can also operate desktop apps and the browser.
+- **Three entry points.** The Mac App, a web UI and the `formicand` terminal command, sharing the same data in `~/.formicand/`.
 
 ## Run from source
 
-Requires Node.js ≥22.19.0.
+Requires Node.js ≥22.19.0; the Mac App needs macOS 14+ on Apple Silicon.
 
 ```sh
+git clone https://github.com/suntianc/formicand.git
+cd formicand
 npm ci
-npm run build
-npm run ui
-# Desktop: npm run desktop
-# CLI: npm run cli
+npm run desktop   # Mac App (development mode)
+npm run ui        # Web UI
+npm run cli       # Terminal
 ```
 
-## Documentation and contributing
+On first launch, add a model service under Settings → Models; see the [Mac App quickstart](docs/en/getting-started.md).
 
-| Guide                                                            | Description                                                  |
-| ---------------------------------------------------------------- | ------------------------------------------------------------ |
-| [User guide](docs/en/README.md)                                  | Install, configure models, and explore workflows             |
-| [Model settings](docs/en/configuration.md)                       | Configure provider routes, model IDs, and connection formats |
-| [Updates and troubleshooting](docs/en/installation-reference.md) | Updates, backup, recovery, and installation troubleshooting  |
-| [Development](docs/en/development.md)                            | Build Web/Desktop/CLI and run local checks                   |
-| [Contributing](CONTRIBUTING.en.md)                               | Contribution workflow and validation                         |
-| [Report an issue](https://github.com/suntianc/coworkos/issues)   | Report bugs or request changes                               |
+## Documentation
 
-## Acknowledgments and license
+| Guide                                                            | Description                                         |
+| ---------------------------------------------------------------- | --------------------------------------------------- |
+| [User guide](docs/en/README.md)                                  | Install, connect a model, finish a first task       |
+| [CLI quickstart](docs/en/cli-quickstart.md)                      | Install and use the `formicand` command             |
+| [Model settings](docs/en/configuration.md)                       | Service URL, model ID and API format                |
+| [Updates and troubleshooting](docs/en/installation-reference.md) | Data directory, backups, upgrades and common issues |
+| [Development guide](docs/en/development.md)                      | Build Web/Desktop/CLI and run local checks          |
+| [Contributing](CONTRIBUTING.en.md)                               | Workflow and verification requirements              |
+
+Report bugs and ideas in [Issues](https://github.com/suntianc/formicand/issues).
+
+## Credits and license
 
 This project started as a fork of [RUC-NLPIR/CoworkOS](https://github.com/RUC-NLPIR/CoworkOS) and has since been substantially reworked. Thanks to the original CoworkOS contributors.
 
-The project's own code is licensed under [MIT](LICENSE); third-party exceptions are listed in [third-party notices](THIRD_PARTY_NOTICES.md).
+Original code is licensed under [MIT](LICENSE); third-party exceptions are listed in [Third-party software](THIRD_PARTY_NOTICES.md).

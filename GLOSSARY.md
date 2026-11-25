@@ -1,6 +1,6 @@
 # Formicand 产品术语
 
-本文固定产品讨论中的用语。已交付能力见 [能力范围](docs/builtin-capabilities.md)，后续能力按阶段规划细化。
+本文固定产品讨论中的用语。已交付能力见 [README](README.zh-CN.md)，后续能力按 [阶段规划](docs/development-phases.md) 细化。
 
 ## 工作主体
 

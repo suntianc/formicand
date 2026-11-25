@@ -265,21 +265,21 @@ The App saves appearance in `appearance.json` in its user data directory; Web st
 
 These are underlying Runtime defaults, overridden by files or environment settings. New connections use 8192 output tokens and `off` / `false` reasoning settings; existing connections are not rewritten.
 
-| JSON field                  | Environment variable                     | Runtime default                                                    |
-| --------------------------- | ---------------------------------------- | ------------------------------------------------------------------ |
-| `mainMaxTurns`              | `FORMICAND_MAIN_MAX_TURNS`               | 2000                                                               |
-| `subagentMaxTurns`          | `FORMICAND_MAX_TURNS`                    | 200                                                                |
-| `mainMaxTokens`             | `FORMICAND_MAIN_MAX_TOKENS`              | 65536; new connections 8192                                        |
-| `subagentMaxTokens`         | `FORMICAND_MAX_TOKENS`                   | 65536; new connections 8192                                        |
-| `contextWindow`             | `FORMICAND_CONTEXT_WINDOW`               | 256000 tokens                                                      |
-| `mainTimeoutMs`             | `FORMICAND_MAIN_TIMEOUT_MS`              | 0, unlimited                                                       |
-| `subagentTimeoutMs`         | `FORMICAND_SUBAGENT_TIMEOUT_MS`          | 0, unlimited; legacy `FORMICAND_TIMEOUT_MS` affects subagents only |
-| `mainIdleTimeoutMs`         | `FORMICAND_MAIN_IDLE_TIMEOUT_MS`         | 300000 (5 minutes); 0 never exits while idle                       |
-| `commandTimeoutMs`          | `FORMICAND_COMMAND_TIMEOUT_MS`           | 1800000 (30 minutes); 0 is unlimited                               |
-| `maxAttempts`               | `FORMICAND_MAX_ATTEMPTS`                 | 3 including the first delegation; 1 disables delegation retries    |
-| `subagentQuestionTimeoutMs` | `FORMICAND_SUBAGENT_QUESTION_TIMEOUT_MS` | 180000 (3 minutes); 0 disables questions to Main                   |
-| `humanAnswerTimeoutMs`      | `FORMICAND_HUMAN_ANSWER_TIMEOUT_MS`      | 60000 (1 minute)                                                   |
-| `subagentMaxQuestions`      | `FORMICAND_SUBAGENT_MAX_QUESTIONS`       | 3                                                                  |
+| JSON field                  | Environment variable                     | Runtime default                                                 |
+| --------------------------- | ---------------------------------------- | --------------------------------------------------------------- |
+| `mainMaxTurns`              | `FORMICAND_MAIN_MAX_TURNS`               | 2000                                                            |
+| `subagentMaxTurns`          | `FORMICAND_MAX_TURNS`                    | 200                                                             |
+| `mainMaxTokens`             | `FORMICAND_MAIN_MAX_TOKENS`              | 65536; new connections 8192                                     |
+| `subagentMaxTokens`         | `FORMICAND_MAX_TOKENS`                   | 65536; new connections 8192                                     |
+| `contextWindow`             | `FORMICAND_CONTEXT_WINDOW`               | 256000 tokens                                                   |
+| `mainTimeoutMs`             | `FORMICAND_MAIN_TIMEOUT_MS`              | 0, unlimited                                                    |
+| `subagentTimeoutMs`         | `FORMICAND_SUBAGENT_TIMEOUT_MS`          | 0, unlimited                                                    |
+| `mainIdleTimeoutMs`         | `FORMICAND_MAIN_IDLE_TIMEOUT_MS`         | 300000 (5 minutes); 0 never exits while idle                    |
+| `commandTimeoutMs`          | `FORMICAND_COMMAND_TIMEOUT_MS`           | 1800000 (30 minutes); 0 is unlimited                            |
+| `maxAttempts`               | `FORMICAND_MAX_ATTEMPTS`                 | 3 including the first delegation; 1 disables delegation retries |
+| `subagentQuestionTimeoutMs` | `FORMICAND_SUBAGENT_QUESTION_TIMEOUT_MS` | 180000 (3 minutes); 0 disables questions to Main                |
+| `humanAnswerTimeoutMs`      | `FORMICAND_HUMAN_ANSWER_TIMEOUT_MS`      | 60000 (1 minute)                                                |
+| `subagentMaxQuestions`      | `FORMICAND_SUBAGENT_MAX_QUESTIONS`       | 3                                                               |
 
 Timeouts are milliseconds. `mainTimeoutMs` bounds one turn's model work; `mainIdleTimeoutMs` is how long a resident Main keeps its process with no turn running and no Subagent working. When it expires the process exits with its session and Task state kept, and the next message or callback starts Main again. `maxAttempts` is a delegation budget, separate from model request retries. See the [runtime reference](runtime-reference.md#request-retry-and-context-recovery) for long tasks and retries.
 

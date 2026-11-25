@@ -229,16 +229,9 @@ export function configuredMainIdleTimeout(env: NodeJS.ProcessEnv = process.env):
   return nonNegativeEnv(env, "FORMICAND_MAIN_IDLE_TIMEOUT_MS", DEFAULT_MAIN_IDLE_TIMEOUT_MS);
 }
 
-/**
- * Subagent wall-clock deadline.  `FORMICAND_TIMEOUT_MS` remains a compatibility
- * alias and deliberately applies only to Subagents, matching its historical
- * extension behavior.
- */
+/** Subagent wall-clock deadline. */
 export function configuredSubagentTimeout(env: NodeJS.ProcessEnv = process.env): number {
-  const explicit = env.FORMICAND_SUBAGENT_TIMEOUT_MS;
-  if (explicit !== undefined && explicit.trim() !== "")
-    return nonNegativeEnv(env, "FORMICAND_SUBAGENT_TIMEOUT_MS", 0);
-  return nonNegativeEnv(env, "FORMICAND_TIMEOUT_MS", 0);
+  return nonNegativeEnv(env, "FORMICAND_SUBAGENT_TIMEOUT_MS", 0);
 }
 
 /**

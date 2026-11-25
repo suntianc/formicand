@@ -14,7 +14,7 @@ test("app icon selection prefers the runtime export, falls back to the build exp
   t.after(() => rm(root, { recursive: true, force: true }));
   const runtime = join(root, "dist/src/desktop/formicand-icon.png");
   const build = join(root, "build/formicand-icon.png");
-  const raw = join(root, "web/assets/formicand-symbol.png");
+  const raw = join(root, "web/assets/brand/formicand-icon.png");
   for (const path of [runtime, build, raw]) await mkdir(dirname(path), { recursive: true });
   await writeFile(raw, "raw brand artwork");
   assert.equal(selectApplicationIcon(root), undefined, "raw brand artwork never overrides the bundle icon");

@@ -40,7 +40,7 @@ npm run test:desktop
 
 ## PR、审阅与发布
 
-只保留 main 一条长期分支；feat/fix 临时分支从 main 分出，经 PR 回 main，合并后删除。main 代表通过评审的集成代码，用户版本由固定 tag 和 Release 标识。反馈、候选与发行流程见 [版本管理](docs/beta-release-process.md)。
+只保留 main 一条长期分支；feat/fix 临时分支从 main 分出，经 PR 回 main，合并后删除。main 代表通过评审的集成代码，用户版本由固定 tag 和 Release 标识。打包与发布流程见 [Mac 发布](docs/mac-release.md)。
 
 一个 PR 完成一项职责明确的修改。使用 [PR 模板](.github/pull_request_template.md)，描述最终问题/结果、接口消费者、数据影响、实际验证及未覆盖范围；说明最终实现，省去讨论过程。模块审阅角色见 [所有权表](docs/module-ownership.md)；跨接口两端协同，真实人员未分配时维护者负责审核。角色表与工作流不代表 CODEOWNERS/分支保护已经启用。
 
@@ -50,7 +50,7 @@ npm run test:desktop
 
 公开 beta 仍须审查源码、第三方许可和包内容，绑定已审核 commit/tag，提供产物清单与 SHA-256。
 
-首批 Mac beta 为 macOS 14+ Apple Silicon 的 ad-hoc 签名 DMG，无 Developer ID、未公证，首次安装使用 DMG 并按 Gatekeeper 提示批准启动；应用内更新可在用户可写目录中校验并替换 App，保留旧版备份，不绕过系统保护。无 Developer ID 时不生成签名 ZIP/feed。CLI 要求 Node >=22.19.0，按本版记录声明实际验收的平台，其他平台不能由可编译推断通过。
+首批 Mac beta 为 macOS 14+ Apple Silicon 的 ad-hoc 签名 DMG，无 Developer ID、未公证，首次安装使用 DMG 并按 Gatekeeper 提示批准启动；没有应用内更新，新版本用 DMG 手动安装。CLI 要求 Node >=22.19.0，按本版记录声明实际验收的平台，其他平台不能由可编译推断通过。
 
 发行说明分别列出已完成的本地 verify、协议/浏览器回归、原生与安装包检查及其版本/环境证据，以及待验收项。真实模型连接和另一台无开发环境机器的安装/升级仍待独立验收；本地假模型、打包或最低系统版本设置不能替代这些结果。未执行、失败、跳过和旧候选结果均不能写成本版通过。
 

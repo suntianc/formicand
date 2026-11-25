@@ -292,7 +292,7 @@ App 将外观偏好保存在用户数据目录的 `appearance.json`，Web 按浏
 | `contextWindow`             | `FORMICAND_CONTEXT_WINDOW`               | 256000 token                                                    |
 | `mainTimeoutMs`             | `FORMICAND_MAIN_TIMEOUT_MS`              | 0，不限时                                                       |
 | `mainIdleTimeoutMs`         | `FORMICAND_MAIN_IDLE_TIMEOUT_MS`         | 300000（5 分钟）；0 不因空闲退出                                |
-| `subagentTimeoutMs`         | `FORMICAND_SUBAGENT_TIMEOUT_MS`          | 0，不限时；旧 `FORMICAND_TIMEOUT_MS` 仅兼容子智能体             |
+| `subagentTimeoutMs`         | `FORMICAND_SUBAGENT_TIMEOUT_MS`          | 0，不限时                                                       |
 | `commandTimeoutMs`          | `FORMICAND_COMMAND_TIMEOUT_MS`           | 1800000（30 分钟）；0 不限时                                    |
 | `maxAttempts`               | `FORMICAND_MAX_ATTEMPTS`                 | 3，含首次委派；1 关闭委派重试                                   |
 | `subagentQuestionTimeoutMs` | `FORMICAND_SUBAGENT_QUESTION_TIMEOUT_MS` | 180000（3 分钟）；0 关闭向 Main 提问；Main 等用户回答期间不计时 |

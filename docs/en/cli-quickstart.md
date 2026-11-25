@@ -9,8 +9,8 @@ macOS / Linux · Node.js >=22.19.0 · npm · Git
 Requires [Node.js ≥22.19.0](https://nodejs.org/en/download) (including npm) and Git. In a terminal, run:
 
 ```sh
-git clone https://github.com/suntianc/CoworkOS.git
-cd Formicand
+git clone https://github.com/suntianc/formicand.git
+cd formicand
 ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm ci
 npm run build:cli
 npm link

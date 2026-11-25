@@ -40,7 +40,7 @@ Never commit model keys, private settings, user workspaces/traces, test outputs 
 
 ## PR, review and release
 
-Keep one long-lived main branch. Temporary feat/fix branches start from main and merge through PRs, then are deleted. Main represents reviewed integration code; fixed tags and Releases identify user versions. See [version management](docs/beta-release-process.md) (Chinese).
+Keep one long-lived main branch. Temporary feat/fix branches start from main and merge through PRs, then are deleted. Main represents reviewed integration code; fixed tags and Releases identify user versions. Packaging and releases are covered in [Mac release](docs/en/mac-release.md).
 
 Keep each PR focused on one complete change. Use the [PR template](.github/pull_request_template.md): final problem/outcome, consumers, data impact, actual validation and uncovered scope. Review roles are in [module ownership](docs/module-ownership.md) (Chinese). Cross-interface work involves both ends; maintainers review until real people are assigned. Role/workflow files do not prove CODEOWNERS/branch protection is enabled.
 
@@ -50,7 +50,7 @@ Before making the corresponding product/platform commitments, a formal/stable re
 
 A public beta still requires source, third-party license and package-content review, a reviewed commit/tag, an artifact manifest and SHA-256 checksums.
 
-The initial Mac beta is an ad-hoc signed DMG targeting macOS 14+ Apple Silicon, without Developer ID or notarization; first installation uses the DMG and normal Gatekeeper approval. In-app updates can verify and replace the App in user-writable locations while retaining a previous-App backup and preserving system security. No Developer ID signed ZIP/feed is produced without that signing identity. CLI requires Node >=22.19.0; declare tested platforms from the candidate's actual evidence, without inferring other platforms from compilation.
+The initial Mac beta is an ad-hoc signed DMG targeting macOS 14+ Apple Silicon, without Developer ID or notarization; first installation uses the DMG and normal Gatekeeper approval. There is no in-app update; new versions are installed manually from the DMG. CLI requires Node >=22.19.0; declare tested platforms from the candidate's actual evidence, without inferring other platforms from compilation.
 
 Release notes separately record completed local verify, protocol/browser regressions, native/package checks and their versions/environments, alongside pending acceptance. Actual model connections and installation/upgrade on another machine without a development environment still require independent acceptance. Local fake models, packaging and minimum-OS configuration do not certify those results. Unexecuted, failed, skipped or older-candidate results must not be reported as passing this candidate.
 

@@ -7,7 +7,7 @@ import { runLocalRelease } from "../scripts/release-local.mjs";
 
 const version = "0.1.3";
 const tag = `v${version}`;
-const repo = "suntianc/coworkos";
+const repo = "suntianc/formicand";
 
 test("local release builds once and uploads candidate archives without publishing them", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "formicand-local-release-"));

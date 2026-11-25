@@ -3,7 +3,6 @@
 说明触发场景和变更后的用户可见行为。
 
 关联反馈：Refs #<issue>。合并尚不代表修复已发布；发行包验证后再关闭反馈，避免用 Closes/Fixes 提前关闭。
-修复 PR 合入后，给关联 issue 添加 `修复pr已合入` 标签；反馈状态规则见[版本管理](../docs/beta-release-process.md#开发与反馈)。
 从 main 建临时分支，PR 回 main；不使用长期 develop/pre-alpha 发布分支。
 
 ## 接口与数据

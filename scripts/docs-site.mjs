@@ -229,7 +229,7 @@ function shell(page, body) {
 <body data-page="${page.file === home ? "home" : "guide"}">
 <a class="skip-link" href="#main-content">${t("跳到正文", "Skip to content")}</a>
 <header class="site-header">
-<a class="brand" href="${pageUrl(page.file, home)}"><img src="${asset("formicand-logo.png")}" alt="" width="35" height="30"><span>Formicand <span class="brand-label">Docs</span></span></a>
+<a class="brand" href="${pageUrl(page.file, home)}"><img src="${asset("formicand-logo.png")}" alt="" width="30" height="30"><span>Formicand <span class="brand-label">Docs</span></span></a>
 <div class="header-links"><a href="${pageUrl(page.file, readme)}">${t("项目", "Project")}</a><a class="language-switch" href="${pageUrl(page.file, langTarget)}" lang="${en ? "zh-CN" : "en"}" title="${hasTranslation ? t("Read this page in English", "阅读本页中文") : t("English documentation home", "中文文档首页")}">${en ? "简体中文" : "English"}</a><button class="header-search" type="button" data-search aria-label="${t("搜索", "Search")}">${searchIcon}</button><button class="mobile-menu" type="button" aria-label="${t("导航", "Navigation")}" aria-controls="site-sidebar" aria-expanded="false">${menuIcon}</button></div>
 </header>
 <div class="sidebar-backdrop"></div><div class="docs-layout">

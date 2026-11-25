@@ -12,8 +12,6 @@ await copyFile(
   resolve(source, "../../web/assets/fonts/InterVariable.woff2"),
   resolve(output, "InterVariable.woff2")
 );
-await copyFile(resolve(source, "react-bits/LICENSE.md"), resolve(output, "react-bits-LICENSE.md"));
-await copyFile(resolve(source, "react-bits/SOURCES.md"), resolve(output, "react-bits-SOURCES.md"));
 const options = {
   absWorkingDir: source,
   entryPoints: ["scene.jsx"],
@@ -23,8 +21,7 @@ const options = {
   minify: true,
   jsx: "automatic",
   format: "esm",
-  define: { "process.env.NODE_ENV": '"production"' },
-  legalComments: "linked"
+  define: { "process.env.NODE_ENV": '"production"' }
 };
 if (process.argv.includes("--serve")) {
   const session = await context(options);

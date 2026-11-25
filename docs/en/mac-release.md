@@ -30,7 +30,7 @@ The default release builds on a local Apple Silicon Mac to avoid hosted macOS mi
 
 The [Mac release workflow](../../.github/workflows/release-mac.yml) remains available as a manual cloud fallback. It rebuilds the candidate on macOS 15 arm64 and consumes hosted macOS minutes.
 
-Review and commit release source, documentation and validation before tagging. Follow the [version process](../beta-release-process.md) (Chinese) and existing release notes. Use a new version to repair an already-published artifact; never overwrite published assets or move a published tag. Publish the GitHub Release draft after reviewing its assets.
+Review and commit release source, documentation and validation before tagging. Follow the steps above and existing release notes. Use a new version to repair an already-published artifact; never overwrite published assets or move a published tag. Publish the GitHub Release draft after reviewing its assets.
 
 ## App updates and signing
 

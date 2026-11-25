@@ -24,7 +24,7 @@ test(
     await writeFile(join(root, "config.json"), "{}");
     const uploads = new InputStore(join(root, "uploads"));
     const txt = await uploads.receive("材料.txt", Readable.from(["实际附件内容 😀"]));
-    const imageBytes = await readFile("web/assets/formicand-symbol.png");
+    const imageBytes = await readFile("web/assets/brand/formicand-icon.png");
     const img = await uploads.receive("截图.png", Readable.from([imageBytes]));
     await uploads.attach(workspace, "publish-task", [txt.uploadId, img.uploadId]);
     let requests = 0,
