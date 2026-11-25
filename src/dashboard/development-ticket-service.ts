@@ -1,4 +1,5 @@
 import { conflict } from "./development-errors.js";
+import { chainOf, checkRound } from "./development-review-rounds.js";
 import { mergeCheckCommands } from "../domain/development-merge.js";
 import {
   outsideScope,
@@ -285,7 +286,14 @@ export function createDevelopmentTicketService({
     // A continuation keeps the session that already read the brief: a rework
     // restarts the ticket, a follow-up while it is still running leaves it alone.
     if (continuation) {
-      if (ticket.state === "rework") return { ticketId: ticket.ticketId, criteria, start: true };
+      if (ticket.state === "rework") {
+        // Starting the round marks the ticket in progress, so a round its
+        // review could never take is refused here, before the ticket is held
+        // by work that cannot be reviewed and a fresh Executor cannot replace.
+        const reviews = await (await gateway()).queryReviews(found.projectId, developmentId);
+        checkRound(chainOf(set.tickets, reviews, ticket), set.tickets, ticket);
+        return { ticketId: ticket.ticketId, criteria, start: true };
+      }
       if (ticket.state === "in_progress") return { ticketId: ticket.ticketId, criteria, start: false };
       throw conflict(`票 ${ticket.ticketId} 现在不需要返修`, "ticket_state_conflict");
     }
