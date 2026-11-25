@@ -135,9 +135,10 @@ test("project skills appear after the project is trusted, and long lists page", 
     await page.goto(fixture.dashboard.base);
     // The work view asks about the project's skills first; leaving it unanswered keeps the decision for settings.
     const ask = page.getByRole("dialog", { name: /信任项目/ });
-    await expect(ask).toContainText("1 个技能：deploy");
-    await ask.getByLabel("记住我的选择（可在设置 · Agent · 项目中撤销）").uncheck();
-    await ask.getByRole("button", { name: "不信任，忽略这些配置" }).click();
+    await expect(ask).toContainText("1 个技能");
+    await expect(ask.locator(".trust-names li")).toHaveText(["deploy"]);
+    await ask.getByLabel("记住选择，可在设置里撤销").uncheck();
+    await ask.getByRole("button", { name: "不信任" }).click();
     const settings = await openSettings(page, "skills");
     const list = settings.locator("[data-skill-list]");
     // Paging is checked on the test's own twelve skills; the bundled ones vary by release.
