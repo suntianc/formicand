@@ -429,6 +429,11 @@
   color: var(--color-text);
   border-color: var(--color-line-strong);
 }
+.agent-add:has(select:disabled) {
+  color: var(--color-text-3);
+  border-color: var(--color-line);
+  cursor: default;
+}
 .agent-add:focus-within {
   border-color: var(--field-focus-edge);
   box-shadow: 0 0 0 3px var(--field-focus-ring);

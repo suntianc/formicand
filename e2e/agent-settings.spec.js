@@ -51,6 +51,8 @@ test("global Agents: a built-in's fixed fields stay locked, a copy is edited, sa
     await detail.getByRole("radio", { name: "指定", exact: true }).click();
     await detail.getByLabel("添加技能").selectOption("pg-migration");
     await detail.getByLabel("添加 MCP 服务").selectOption("postgres");
+    // Once every server is added, 添加 stays in place but cannot open.
+    await expect(detail.getByLabel("添加 MCP 服务")).toBeDisabled();
     await detail.getByLabel("附加提示词").fill("先在临时库演练。");
     await expectNoHorizontalOverflow(page, settings.locator(".settings-content"));
     await detail.getByRole("button", { name: "保存" }).click();

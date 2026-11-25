@@ -239,6 +239,7 @@ export default {
   "中删除这个服务，Main 下一轮起不再连接它；已选用它的 Agent 也将失去它的工具。":
     "; Main stops connecting to it from its next turn, and Agents that use it lose its tools.",
   "添加 MCP 服务": "Add MCP server",
+  没有可添加的了: "Nothing left to add",
   "新建 MCP 服务": "New MCP server",
   指定: "Chosen",
   "理解需求、拆分与委派，并给出最终结论。":
