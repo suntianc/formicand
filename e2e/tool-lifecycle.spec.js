@@ -63,15 +63,16 @@ test("returned async tools retain real work status through progress, callbacks a
       window.lifecycleFixture = { state, render: () => view.renderConversation([user], state.detail.task) };
       window.lifecycleFixture.render();
     });
-    // Scheme A: running subagent row stays directly visible in L1 while ordinary tools fold into .process-segment.
+    // A running subagent row stays directly visible in L1, one line with no disclosure, while
+    // ordinary tools fold into .process-segment.
     const agent = page.locator(".subagent-step");
     await expect(page.locator(".subagent-group")).toContainText("派出 1 个子助手");
     await expect(agent.locator(".subagent-status")).toHaveText("运行中");
     await expect(agent.locator(".ant-mark")).toHaveCount(0);
     await expect(agent.locator(".tool-status-dot")).toHaveCount(1);
+    await expect(agent.locator("summary")).toHaveCount(0);
     for (const summary of await page.locator(".process-segment > summary").all()) await summary.click();
     await expect(page.locator(".tool-step .activity-status")).toHaveText(["未答复，已继续", "已入队"]);
-    await agent.locator("summary").first().click();
     await mkdir(".tmp/status-verification", { recursive: true });
     await page.screenshot({ path: test.info().outputPath("running.png"), fullPage: true });
     await page.evaluate(() => {
@@ -86,7 +87,6 @@ test("returned async tools retain real work status through progress, callbacks a
     // Done but not yet read by Main is still done for the person.
     await expect(agent.locator(".subagent-status")).toHaveText("完成");
     await expect(page.locator(".live-workflow-head")).toHaveCount(0);
-    await expect(agent).toHaveAttribute("open", "");
     await page.evaluate(() => {
       window.lifecycleFixture.state.detail.coordination.callbackPending = [];
       window.lifecycleFixture.render();

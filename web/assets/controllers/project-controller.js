@@ -4,6 +4,8 @@ import { createModal } from "../ui/modal.js";
 import { animate, motionDuration, reducedMotion } from "../ui/motion.js";
 import { createMenu } from "../ui/menu.js";
 import { escapeHtml as esc } from "../ui/html.js";
+import { agentAvatar } from "../agent-names.js";
+import { formatRunDuration } from "../run-overview.js";
 
 /** Project navigation, directory settings and creation do not mutate conversation drafts. */
 export function createProjectController({
@@ -78,17 +80,23 @@ export function createProjectController({
     (task.activity?.agents || []).filter(
       (agent) => agent.role === "subagent" && ["running", "waiting", "queued"].includes(agent.state)
     );
-  const roleLabel = (agent) =>
-    agent.workAgent ||
-    (agent.workRole === "reviewer" ? "Reviewer" : agent.workRole === "executor" ? "Executor" : "");
-  // A paused conversation holds its Subagents too: they show the pause, still.
+  // A paused conversation holds its Subagents too, and a queued one has not
+  // started: both say so instead of counting.
+  // The time is filled in by the clock after each render, so the markup stays
+  // the same between polls.
   const subagentRow = (agent, paused) => {
-    const tone = paused ? "is-paused" : agent.workRole === "reviewer" ? "is-review" : "is-running";
-    const role = esc(roleLabel(agent));
-    return `<div class="subagent-row" data-agent="${esc(agent.agentId)}" data-state="${esc(paused ? "paused" : agent.state)}"><span class="subagent-guide" aria-hidden="true"></span><span class="subagent-state ${tone}" aria-hidden="true">${icon(paused ? "pause" : "loader-circle")}</span><span class="subagent-name">${esc(agent.name || agent.agentId)}</span>${role ? `<span class="subagent-role">${role}</span>` : ""}</div>`;
+    const since = Date.parse(agent.startedAt);
+    const time = paused
+      ? `<span class="subagent-time">${esc(ui("已暂停"))}</span>`
+      : agent.state === "queued"
+        ? `<span class="subagent-time">${esc(ui("排队中"))}</span>`
+        : Number.isFinite(since)
+          ? `<span class="subagent-time" data-live-since="${since}"></span>`
+          : "";
+    return `<div class="subagent-row" data-agent="${esc(agent.agentId)}" data-state="${esc(paused ? "paused" : agent.state)}"><span class="subagent-guide" aria-hidden="true"></span>${agentAvatar(agent.agentId)}<span class="subagent-name">${esc(agent.name || agent.agentId)}</span>${time}</div>`;
   };
   const taskLabel = (task) =>
-    `<span class="conversation-item-title">${task.pendingQuestion ? `<span class="conversation-question" role="img" aria-label="${esc(ui("有待回答的问题"))}"></span>` : ""}<span class="conversation-title-text">${esc(conversationTitle(task))}</span>${isUnread(task.taskId) ? ui('<span class="conversation-unread" role="img" aria-label="未读"></span>') : ""}</span>`;
+    `<span class="conversation-item-title">${task.pendingQuestion ? `<span class="conversation-question" role="img" aria-label="${esc(ui("有待回答的问题"))}"></span>` : ""}${task.status === "running" ? `<span class="conversation-activity" data-state="running" role="img" aria-label="${esc(ui("运行中"))}"></span>` : ""}<span class="conversation-title-text">${esc(conversationTitle(task))}</span>${isUnread(task.taskId) ? ui('<span class="conversation-unread" role="img" aria-label="未读"></span>') : ""}</span>`;
   const taskRow = (task) => {
     const id = esc(task.taskId),
       agents = subagentsOf(task),
@@ -246,6 +254,24 @@ export function createProjectController({
 
   const byRecent = (a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || "");
 
+  // Running Subagents count their own time between renders.
+  let clockTimer;
+  function syncClocks(roots) {
+    const tick = () => {
+      const clocks = roots.flatMap((scope) =>
+        scope ? [...scope.querySelectorAll("[data-live-since]")] : []
+      );
+      for (const clock of clocks)
+        clock.textContent = formatRunDuration(Date.now() - Number(clock.dataset.liveSince));
+      if (!clocks.length) {
+        clearInterval(clockTimer);
+        clockTimer = undefined;
+      }
+      return clocks.length > 0;
+    };
+    if (tick()) clockTimer ??= setInterval(tick, 1000);
+  }
+
   function render({ fold } = {}) {
     const root = $("#project-list");
     const pinnedRoot = $("#pinned-section");
@@ -336,6 +362,7 @@ export function createProjectController({
       root.innerHTML = markup;
     }
     if (fold) playFold(fold);
+    syncClocks([root, pinnedRoot]);
     scrollHost.scrollTop = scrollTop;
     if (!fold) animateRowChanges(scrollHost, rowsBefore);
 

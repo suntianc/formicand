@@ -727,7 +727,7 @@ test("tool rows show delegation purpose and avoid repeating an already visible s
   assert.equal(document.querySelector(".tool-step .tool-context"), null);
   const group = document.querySelector(".subagent-group");
   assert.match(group.querySelector(".activity-step-head").textContent, /派出 1 个子助手/);
-  const agent = group.querySelector(".subagent-step > summary");
+  const agent = group.querySelector(".subagent-step > .activity-step-head");
   assert.equal(agent.querySelector("strong").textContent, "Ara");
   assert.equal(agent.querySelector(".subagent-role-tag").textContent, "执行");
   assert.equal(agent.querySelector(".tool-subject").textContent, "核对文稿的引用和文件链接");
@@ -1532,7 +1532,7 @@ test("upload filenames and thumbnails render without exposing prompt metadata or
   );
 });
 
-test("an async delegation row follows real progress without changing its disclosure identity", () => {
+test("a delegation row says who took the task and where it stands, without a clock or a disclosure", () => {
   const { document, state, render } = fixture("async-status", "");
   state.detail.runtimeEvents.push(
     update("toolcall_end", 1, {
@@ -1549,21 +1549,19 @@ test("an async delegation row follows real progress without changing its disclos
     agents: [{ callId: "call-one", status: "running", role: "reviewer", elapsedMs: 36_000 }]
   };
   render();
-  // Scheme A: running Subagents stay directly visible in L1 without expanding a process fold.
   let row = document.querySelector(".subagent-step");
-  row.open = true;
+  assert.equal(row.tagName, "DIV");
   assert.equal(row.querySelector("strong").textContent, "Ara");
   assert.equal(row.querySelector(".subagent-role-tag").textContent, "审查");
-  assert.equal(row.querySelector(".subagent-status").textContent, "运行中 36 秒");
+  assert.equal(row.querySelector(".tool-subject").textContent, "核对机构");
+  assert.equal(row.querySelector(".subagent-status").textContent, "运行中");
+  assert.equal(document.querySelector("[data-live-since]"), null);
   assert.equal(row.querySelectorAll(".ant-mark").length, 0);
-  assert.equal(row.querySelectorAll(".tool-status-dot").length, 1);
-  // Main's own turn ends while Ara works; Ara's row keeps its running state without logo animation.
+  // Main's own turn ends while Ara works; Ara's row keeps its running state.
   state.detail.runtime.active = false;
   render();
   row = document.querySelector(".subagent-step");
-  assert.equal(row.open, true);
   assert.equal(row.classList.contains("is-running"), true);
-  assert.equal(row.querySelectorAll(".ant-mark").length, 0);
   assert.equal(document.querySelectorAll(".live-workflow-head").length, 0);
   state.detail.progress.agents[0] = {
     ...state.detail.progress.agents[0],
@@ -1573,16 +1571,14 @@ test("an async delegation row follows real progress without changing its disclos
     lastAssistantText: "机构名称全部核对无误。另附两处拼写建议。"
   };
   render();
-  assert.equal(row.querySelector(".subagent-status").textContent, "完成 1 分钟 24 秒");
-  // Once done the row says what came back instead of what was asked.
-  assert.equal(row.querySelector(".tool-subject").textContent, "机构名称全部核对无误。");
-  assert.equal(row.querySelectorAll(".tool-step .ant-mark").length, 0);
+  // Main reports what came back; the row keeps the task it was given.
+  assert.equal(row.querySelector(".subagent-status").textContent, "完成");
+  assert.equal(row.querySelector(".tool-subject").textContent, "核对机构");
   state.detail.progress.agents[0].callbackPending = false;
   state.detail.coordination = { calls: [{ callId: "call-one", status: "completed" }] };
   render();
   assert.equal(document.querySelector(".subagent-step"), row);
-  assert.equal(row.open, true);
-  assert.equal(row.querySelector(".subagent-status").textContent, "完成 1 分钟 24 秒");
+  assert.equal(row.querySelector(".subagent-status").textContent, "完成");
 });
 
 test("an ended question and queued message use action-specific labels", () => {
@@ -1752,38 +1748,6 @@ test("cached earlier replies refresh after edits, disclosure changes and externa
   state.detail.runtimeEvents = [];
   render([{ role: "user", content: "other request", timestamp: 10 }]);
   assert.doesNotMatch(document.querySelector("#conversation").textContent, /revised answer/);
-});
-
-test("a running Subagent's time counts from when it was handed out, not from the last snapshot", () => {
-  const { document, state, render } = fixture("live-subagent-clock");
-  const startedAt = new Date(Date.now() - 65_000).toISOString();
-  state.detail.progress = {
-    agents: [{ callId: "call-vela", name: "Vela", status: "running", elapsedMs: 3_000, startedAt }]
-  };
-  state.detail.runtimeEvents.push(
-    update("toolcall_end", 1, {
-      toolCall: {
-        id: "vela",
-        name: "call_subagent",
-        arguments: { name: "Vela", task: "跑一分钟" }
-      }
-    }),
-    {
-      type: "tool_execution_end",
-      toolCallId: "vela",
-      result: { content: [], details: { callId: "call-vela", accepted: true } }
-    }
-  );
-  render();
-  // Scheme A: running Subagent row and live clock are directly visible in L1.
-  const status = document.querySelector(".subagent-step .subagent-status");
-  assert.equal(status.dataset.liveSince, String(Date.parse(startedAt)));
-  assert.match(status.textContent, /运行中 1 分钟 [5-9] 秒/);
-  // Once it finishes nothing counts any more, and the page's clock stops itself.
-  state.detail.progress.agents[0].status = "succeeded";
-  state.detail.runtime.active = false;
-  render();
-  assert.equal(document.querySelector("[data-live-since]"), null);
 });
 
 test("running process stays collapsed with coarse live action, expands L1 -> L2 -> L3, and breaks onto new lines for mid-round speech", () => {

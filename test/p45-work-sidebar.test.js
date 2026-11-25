@@ -51,6 +51,11 @@ function fixture(t, records = new Map()) {
     getNavigationIdentity: () => ""
   });
   t.after(() => {
+    // An empty tree has no running Subagent, so its clock stops. Another
+    // fixture's teardown may already have put the globals back.
+    Object.assign(globalThis, { window, document, CSS: { escape: (value) => value } });
+    controller.accept({ projects: [], tasks: [] });
+    controller.render();
     for (const [key, value] of Object.entries(previous)) {
       if (value === undefined) delete globalThis[key];
       else globalThis[key] = value;
@@ -59,7 +64,7 @@ function fixture(t, records = new Map()) {
   return { state, $, controller, storage, records };
 }
 
-test("the work tree nests Subagents, marks questions and remembers a folded project", (t) => {
+test("the work tree marks running sessions, nests Subagents with their time, marks questions and remembers a folded project", (t) => {
   const records = new Map();
   const first = fixture(t, records);
   const main = {
@@ -89,7 +94,8 @@ test("the work tree nests Subagents, marks questions and remembers a folded proj
           name: "Norma",
           role: "subagent",
           workRole: "reviewer",
-          state: "running"
+          state: "running",
+          startedAt: new Date(Date.now() - 65_000).toISOString()
         }
       ]
     }
@@ -105,18 +111,20 @@ test("the work tree nests Subagents, marks questions and remembers a folded proj
   first.controller.render();
 
   assert.equal(first.$('[data-task="main-a"]').getAttribute("aria-description"), null);
-  assert.equal(first.$(".conversation-activity"), null, "the tree shows no stage marker");
-  assert.equal(first.$(".subagent-row").textContent.includes("Executor"), true);
+  // A running session says so; a waiting one does not.
+  assert.ok(first.$('[data-task="main-a"] .conversation-activity[data-state="running"]'));
+  assert.equal(first.$('[data-task="main-b"] .conversation-activity'), null);
   assert.deepEqual(
     [...first.$("#project-list").querySelectorAll(".subagent-row .subagent-name")].map(
       (node) => node.textContent
     ),
     ["Ara", "Norma"]
   );
-  assert.deepEqual(
-    [...first.$("#project-list").querySelectorAll(".subagent-role")].map((node) => node.textContent),
-    ["Executor", "Reviewer"]
-  );
+  const rows = [...first.$("#project-list").querySelectorAll(".subagent-row")];
+  assert.match(rows[1].querySelector(".agent-avatar").getAttribute("style"), /ant-02-light\.webp/);
+  // A queued Subagent has not started; a running one counts from when it was handed out.
+  assert.equal(rows[0].querySelector(".subagent-time").textContent, "排队中");
+  assert.match(rows[1].querySelector(".subagent-time").textContent, /^01:0[5-9]$/);
   assert.ok(first.$('[data-task="main-b"] .conversation-question'));
   assert.equal(first.$(".project-question"), null, "an expanded project marks the session itself");
 

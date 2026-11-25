@@ -84,10 +84,6 @@ function toolCategory(call) {
   return "other";
 }
 
-export function liveClockText(label, since) {
-  return [label, formatExecutionDuration(Math.max(0, Date.now() - since))].filter(Boolean).join(" ");
-}
-
 function subagentRunState(presentation, detail) {
   const status = presentation.status;
   const finished = status === "completed" || presentation.statusLabel === "结果待接收";
@@ -310,8 +306,7 @@ export function createConversationActivityView({
       const segmentMarkup = segments
         .map((segment, segmentIndex) => {
           if (segment.kind === "answer") return renderAnswerSegment(segment.item);
-          if (segment.kind === "subagents")
-            return renderSubagentGroup(segment, presentations, detail, taskId, active);
+          if (segment.kind === "subagents") return renderSubagentGroup(segment, presentations, detail);
           const currentProcessIndex = processIndex++;
           const isLastSegment = segmentIndex === segments.length - 1;
           const segmentKey = `${historyKey}:proc:${currentProcessIndex}`;
@@ -475,25 +470,16 @@ export function createConversationActivityView({
     return `<details class="execution-history" data-task="${esc(taskId)}" data-history-key="${esc(historyKey)}"${open ? ' data-l0-expanded="1" open' : ""}><summary aria-label="${esc(heading)}"><strong>${esc(heading)}</strong><span class="history-chevron" aria-hidden="true">${icon("chevron-down")}</span></summary>${body}</details>`;
   }
 
-  /** The Subagents one step sent out: a header row, then one indented row each. */
-  function renderSubagentGroup(group, presentations, detail, taskId, active) {
+  /** The Subagents one step sent out: a header row, then one line each saying who
+   * took which task and where it stands. Main reports what they found; the work
+   * sidebar shows who is still running and for how long. */
+  function renderSubagentGroup(group, presentations, detail) {
     const rows = group.items.map((item) => {
-      const open = Boolean(isActivityOpen(item.key));
-      const resolved = open ? resolveExpandedCall(item.call, taskId) : undefined;
-      const presentation = open
-        ? presentToolCall(resolved.call, {
-            active,
-            workspaceRoot: detail?.storageRoot || detail?.workspaceRoot,
-            taskId,
-            detail,
-            includeDetails: resolved.state !== "loading"
-          })
-        : presentations.get(item.call);
+      const presentation = presentations.get(item.call);
       const agent = presentation.agent;
-      const elapsed = formatExecutionDuration(agent.elapsedMs);
       const { status, finished, held, running } = subagentRunState(presentation, detail);
-      const right = finished
-        ? [ui("完成"), elapsed].filter(Boolean).join(" ")
+      const statusText = finished
+        ? ui("完成")
         : status === "failed"
           ? presentation.statusLabel
           : held
@@ -504,21 +490,11 @@ export function createConversationActivityView({
                 ? ui("已派发")
                 : status === "waiting"
                   ? ui("等待中")
-                  : [presentation.statusLabel === "协作排队中" ? ui("排队中") : ui("运行中"), elapsed]
-                      .filter(Boolean)
-                      .join(" ");
-      // A running one counts up in the page from when it was handed out,
-      // rather than showing the time of the last snapshot.
-      const since = running && presentation.statusLabel !== "协作排队中" ? Date.parse(agent.startedAt) : NaN;
-      const liveClock = Number.isFinite(since)
-        ? ` data-live-since="${since}" data-live-label="${esc(ui("运行中"))}"`
-        : "";
-      const statusText = liveClock ? liveClockText(ui("运行中"), since) : right;
+                  : presentation.statusLabel === "协作排队中"
+                    ? ui("排队中")
+                    : ui("运行中");
       const mark = agentAvatar(agent.agentId) || '<span class="tool-status-dot" aria-hidden="true"></span>';
-      const text = finished && agent.outcome ? agent.outcome : agent.task;
-      const sections = open ? presentation.detailSections || [] : [];
-      const body = open ? renderToolDetailsBody(sections, resolved.state, resolved.detailKey) : "";
-      return `<details class="tool-details subagent-step is-${finished ? "done" : status === "failed" ? "failed" : running ? "running" : "waiting"}" data-activity-key="${esc(item.key)}" data-view-key="${esc(item.key)}"${open ? " open" : ""}><summary class="activity-step-head">${mark}<span class="tool-action"><strong>${esc(agent.name)}</strong><span class="subagent-role-tag">${esc(agent.role)}</span>${text ? `<span class="tool-subject" title="${esc(text)}">${esc(text)}</span>` : ""}</span><span class="subagent-status"${liveClock}>${esc(statusText)}</span><span class="tool-chevron" aria-hidden="true">${icon("chevron-right")}</span></summary>${body}</details>`;
+      return `<div class="subagent-step is-${finished ? "done" : status === "failed" ? "failed" : running ? "running" : "waiting"}" data-view-key="${esc(item.key)}"><div class="activity-step-head">${mark}<span class="tool-action"><strong>${esc(agent.name)}</strong><span class="subagent-role-tag">${esc(agent.role)}</span>${agent.task ? `<span class="tool-subject" title="${esc(agent.task)}">${esc(agent.task)}</span>` : ""}</span><span class="subagent-status">${esc(statusText)}</span></div></div>`;
     });
     return `<div class="activity-step subagent-group" data-view-key="${esc(group.key)}"><div class="activity-step-content"><div class="activity-step-head"><span class="tool-status-dot" aria-hidden="true"></span><strong>${esc(ui`派出 ${group.items.length} 个子助手`)}</strong></div><div class="subagent-nest">${rows.join("")}</div></div></div>`;
   }

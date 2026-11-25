@@ -53,6 +53,8 @@ export interface AgentActivityMetrics {
   workRole?: "executor" | "reviewer";
   /** The durable work item this agent runs; absent for Main. */
   callId?: string;
+  /** When the work item was handed out; absent for Main. */
+  startedAt?: string;
   state: ActivityState;
   /** What the agent is doing now, or how its work ended. */
   stage: ActivityStage;
@@ -245,6 +247,7 @@ export async function readTaskActivity(input: {
         ? { workAgent: work.payload.agentDefinition.name }
         : {}),
       ...(typeof work?.stepId === "string" ? { callId: work.stepId } : {}),
+      ...(typeof work?.createdAt === "string" ? { startedAt: work.createdAt } : {}),
       state: agentState,
       stage,
       stageChangedAt: new Date(changedAt).toISOString(),

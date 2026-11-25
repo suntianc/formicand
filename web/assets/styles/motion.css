@@ -90,21 +90,14 @@
    attachments menu is a popover, and lazy conversation disclosures mount and
    unmount their bodies on toggle (transitioning content-visibility on them
    would keep newly mounted inner controls unfocusable for a frame). */
-details:not(
-  .inline-edit-attachments-menu,
-  .execution-history,
-  .process-segment,
-  .tool-details,
-  .subagent-step
-) {
+details:not(.inline-edit-attachments-menu, .execution-history, .process-segment, .tool-details) {
   interpolate-size: allow-keywords;
 }
 details:not(
     .inline-edit-attachments-menu,
     .execution-history,
     .process-segment,
-    .tool-details,
-    .subagent-step
+    .tool-details
   )::details-content {
   block-size: 0;
   overflow-y: clip;
@@ -116,8 +109,7 @@ details:not(
     .inline-edit-attachments-menu,
     .execution-history,
     .process-segment,
-    .tool-details,
-    .subagent-step
+    .tool-details
   )[open]::details-content {
   block-size: auto;
 }
