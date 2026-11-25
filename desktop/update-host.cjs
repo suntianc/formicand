@@ -2,10 +2,8 @@ const path = require("node:path");
 const fs = require("node:fs/promises");
 const { spawn } = require("node:child_process");
 const { createDesktopUpdates } = require("./updates.cjs");
-const { isSignedMacApplication } = require("./update-signature.cjs");
-const { createManagedUpdateInstaller } = require("./update-install.cjs");
 
-/** Installed builds use a local installer; source builds retain their development updater. */
+/** Installed builds are upgraded by hand with a local installer; source builds follow their Git upstream. */
 async function createApplicationUpdateHost(options) {
   if (options.profile.development) return createDesktopUpdateHost(options);
   const manifest = JSON.parse(await fs.readFile(path.join(options.profile.appRoot, "package.json"), "utf8"));
@@ -31,40 +29,30 @@ async function createApplicationUpdateHost(options) {
   };
 }
 
-/** The host owns preferences and installation side effects; the coordinator owns update state. */
+/** The host owns backend preparation and the development restart; the coordinator owns update state. */
 async function createDesktopUpdateHost(options) {
   const {
     profile,
     userData,
-    autoUpdater,
     onStatus,
     beforeApply,
     recover,
     quitForSource,
-    installNative,
-    quitForManaged,
     executable = process.execPath,
     env = process.env
   } = options;
   const manifest = JSON.parse(await fs.readFile(path.join(profile.appRoot, "package.json"), "utf8"));
-  const managedInstaller = profile.development
-    ? undefined
-    : options.managedInstaller || createManagedUpdateInstaller({ executable, userData });
   const nodeExecutable = env.COWORK_DESKTOP_NODE_EXECUTABLE;
   const npmCli = env.COWORK_DESKTOP_NPM_CLI;
   let active = false;
   let applying = false;
   let failure;
-  const previousInstall = await managedInstaller?.readResult?.();
-  if (["failed", "rolled-back"].includes(previousInstall?.phase)) failure = previousInstall.message;
   function reflect(value) {
     return {
       ...value,
       busy: active || value?.busy === true,
       applying,
-      ...(failure
-        ? { phase: "error", error: failure, message: failure, installReady: false, needsRelaunch: false }
-        : {})
+      ...(failure ? { phase: "error", error: failure, message: failure, needsRelaunch: false } : {})
     };
   }
   function publish(value = updates.status()) {
@@ -84,19 +72,14 @@ async function createDesktopUpdateHost(options) {
     publish();
   }
   const updates = (options.createUpdates || createDesktopUpdates)({
-    mode: profile.development ? "source" : "release",
     root: profile.appRoot,
     currentVersion: manifest.version,
-    signed: !profile.development && (await (options.isSigned || isSignedMacApplication)(executable)),
-    autoUpdater,
-    downloadDirectory: path.join(userData, "updates"),
     toolchain:
       nodeExecutable && path.isAbsolute(nodeExecutable)
         ? { nodeExecutable, ...(npmCli && path.isAbsolute(npmCli) ? { npmCli } : {}) }
         : undefined,
     onStatus: publish,
-    beforeApply,
-    managedInstaller
+    beforeApply
   });
   const status = () => reflect(updates.status());
   async function exclusive(isApply, operation) {
@@ -121,12 +104,12 @@ async function createDesktopUpdateHost(options) {
   return {
     status,
     async dispose() {
-      await Promise.all([updates.dispose(), managedInstaller?.dispose()]);
+      await updates.dispose();
     },
     check(input = {}) {
       if (!input || typeof input !== "object" || Array.isArray(input) || Object.keys(input).length)
         return Promise.reject(new Error("更新检查不接受配置参数"));
-      const pendingRestart = profile.development && updates.status().updated === true;
+      const pendingRestart = updates.status().updated === true;
       const restartFailure = failure;
       return exclusive(false, async () => {
         if (pendingRestart)
@@ -137,35 +120,11 @@ async function createDesktopUpdateHost(options) {
     },
     apply() {
       return exclusive(true, async () => {
-        if (profile.development && (!nodeExecutable || !path.isAbsolute(nodeExecutable)))
+        if (!nodeExecutable || !path.isAbsolute(nodeExecutable))
           throw new Error("请先退出 App，在仓库运行 npm run desktop 刷新开发入口，之后即可在设置中更新。");
         try {
           const value = await updates.apply();
-          if (value.installMethod === "managed" && value.installReady) {
-            try {
-              await managedInstaller.schedule();
-              quitForManaged();
-            } catch (error) {
-              let failure = error;
-              try {
-                await managedInstaller.discard?.();
-              } catch (cleanupError) {
-                failure = new Error(error.message + "；暂存清理未完成，请重启 Formicand 后重试", {
-                  cause: cleanupError
-                });
-              } finally {
-                updates.installationFailed(failure, { discard: true });
-              }
-              throw failure;
-            }
-          } else if (value.installReady) {
-            try {
-              await installNative();
-            } catch (error) {
-              updates.installationFailed(error);
-              throw error;
-            }
-          } else if (value.updated && value.needsRelaunch) {
+          if (value.updated && value.needsRelaunch) {
             await (options.scheduleRestart || scheduleDevelopmentRestart)({
               root: profile.appRoot,
               userData,

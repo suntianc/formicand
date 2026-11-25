@@ -75,7 +75,7 @@ npm run cli -- update --check
 npm run cli -- update
 ```
 
-更新目标是 CoworkOS 所在的真实 Git 检出，即使从其他业务项目启动 `coworkos` 也不更新那个项目。当前分支必须有 upstream；检查 fetch 上游并比较提交，同 package version 的新提交也可被识别。detached HEAD、合并/变基中、已跟踪修改、非忽略的新文件、本地独有提交或分叉都会拒绝更新。源码跟随自身上游分支，`--channel` 仅用于已安装的发行包。
+更新目标是 CoworkOS 所在的真实 Git 检出，即使从其他业务项目启动 `coworkos` 也不更新那个项目。当前分支必须有 upstream；检查 fetch 上游并比较提交，同 package version 的新提交也可被识别。detached HEAD、合并/变基中、已跟踪修改、非忽略的新文件、本地独有提交或分叉都会拒绝更新。源码跟随自身上游分支；安装包版本没有自动更新。
 
 CLI 准备 `build:cli`；开发 App 从“设置 → 更新”准备完整 `build`。CLI 已同步到最新提交但 App 构建尚未更新时，App 仍会提示重建并可在同一提交准备完整构建。Web 宿主先停止、更新，再用 `npm run ui` 重启以生成完整浏览器构建。
 
@@ -83,11 +83,11 @@ CLI 准备 `build:cli`；开发 App 从“设置 → 更新”准备完整 `buil
 
 发布阶段失败尝试回退；发现并发编辑或回退失败时保留恢复副本并报告人工恢复。忽略的用户配置/任务不复制进候选，也不清理。更新器不 reset、stash 或 clean 检出。
 
-App 启动后检查一次，用户主动执行才更新。草稿保存与运行任务检查属于桌面宿主，后端在退出后继续运行；构建完成后重启启用新代码，中断或失败不能显示为已安装。更新回归使用本地 Git 远端与假发行响应，不修改真实仓库或发布 Release。
+App 启动后检查一次，用户主动执行才更新。草稿保存与运行任务检查属于桌面宿主，后端在退出后继续运行；构建完成后重启启用新代码，中断或失败不能显示为已安装。更新回归使用本地 Git 远端，不修改真实仓库或发布 Release。
 
 开发 App 更新后由独立 [重启 helper](../scripts/restart-development.mjs) 等待旧进程退出，再刷新开发入口并启动新构建。旧开发入口若缺少工具链元数据，先退出 App，用 `npm run desktop` 或 `npm run desktop:install-dev` 刷新，再使用应用内更新；宿主会在修改源码前给出该提示。
 
-更新实现分别位于 [源码事务](../scripts/update-source.mjs)、[CLI 调度](../scripts/update.mjs)、[发行下载/安装](../scripts/update-release.mjs)、[桌面生命周期](../desktop/updates.cjs) 和 [UI](../web/assets/controllers/desktop-updates.js)。先跑 `test/source-update.test.js`、`test/development-restart.test.js`、`test/update-release.test.js`、`test/desktop-updates.test.js`、`e2e/desktop-updates.spec.js`，再运行对应验证。发布 feed 生成与签名守卫见 `scripts/update-feed.mjs`、`test/update-feed.test.js`。CLI 包必须携带所 import 的更新脚本，桌面专用依赖不进入 CLI 包。
+更新实现分别位于 [源码事务](../scripts/update-source.mjs)、[CLI 调度](../scripts/update.mjs)、[桌面生命周期](../desktop/updates.cjs) 和 [UI](../web/assets/controllers/desktop-updates.js)。先跑 `test/source-update.test.js`、`test/development-restart.test.js`、`test/desktop-updates.test.js`、`e2e/desktop-updates.spec.js`，再运行对应验证。CLI 包必须携带所 import 的更新脚本，桌面专用依赖不进入 CLI 包。
 
 ## 日常修改闭环
 

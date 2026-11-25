@@ -2,7 +2,7 @@
 
 [English](en/mac-release.md) | 中文
 
-当前 App 目标是 macOS 14+、Apple Silicon（arm64）Mac。Electron 自带运行时，用户无需 Node、npm 或仓库源码。当前未提供 Developer ID 签名、公证或 Intel 构建；更新安装方式取决于包签名与已发布更新源。候选包与 Release 说明必须明确这些限制。用户安装与配置见 [安装指南](getting-started.md) 和 [配置指南](configuration.md)。
+当前 App 目标是 macOS 14+、Apple Silicon（arm64）Mac。Electron 自带运行时，用户无需 Node、npm 或仓库源码。当前未提供 Developer ID 签名、公证或 Intel 构建，也没有应用内更新，新版本用本地 DMG 手动安装。候选包与 Release 说明必须明确这些限制。用户安装与配置见 [安装指南](getting-started.md) 和 [配置指南](configuration.md)。
 
 ## 构建候选包
 
@@ -20,7 +20,7 @@ npm run desktop:dist
 npm run test:desktop
 ```
 
-`desktop:pack` 生成 `.tmp/release/mac-arm64/CoworkOS.app`；`desktop:dist` 使用系统 hdiutil 创建、校验 `release/CoworkOS-<version>-mac-arm64.dmg` 并写入 SHA-256。没有 Developer ID 证书时使用 ad-hoc 签名并严格验证 App，仅生成 DMG；签名条件满足后才生成更新 ZIP/feed。以脚本实际输出为准；本地构建不会上传或发布。构建 App 放在隐藏的 `.tmp` 下，避免成为 Spotlight/Launchpad 中重复的安装项。
+`desktop:pack` 生成 `.tmp/release/mac-arm64/CoworkOS.app`；`desktop:dist` 使用系统 hdiutil 创建、校验 `release/CoworkOS-<version>-mac-arm64.dmg` 并写入 SHA-256。没有 Developer ID 证书时使用 ad-hoc 签名并严格验证 App。以脚本实际输出为准；本地构建不会上传或发布。构建 App 放在隐藏的 `.tmp` 下，避免成为 Spotlight/Launchpad 中重复的安装项。
 
 `npm run test:desktop` 验证宿主、会话与产出物预览、Pi 与本地模型、草稿、退出/恢复及搬移升级。组件安装与已移除的编辑器不再打包。
 
@@ -35,7 +35,7 @@ npm ci
 npm run release:local -- v0.1.3
 ```
 
-完整本地回归应在建立 tag 前完成。该命令校验 tag、版本和干净工作区，构建 DMG、CLI 与两个 npm 包，生成发行清单和校验文件，并上传 GitHub Release 草稿及 npm 包候选。它会停在可审查的草稿，不会发布 npm 或公开 Release。检查草稿资产后，在 Actions 手动运行 Publish npm packages 并输入同一 tag；npm Environment 的 Required reviewers 仍会照常生效。npm 验证通过后，再手动发布 GitHub Release。tag 推送本身不会触发云端 Mac 重建。默认测试版使用 ad-hoc 签名、未公证；预发布版本自动标记 Pre-release。
+完整本地回归应在建立 tag 前完成。该命令校验 tag、版本和干净工作区，构建 DMG 与 CLI 包，生成发行清单和校验文件，并上传 GitHub Release 草稿。它会停在可审查的草稿，不会发布公开 Release；检查草稿资产后再手动发布。tag 推送本身不会触发云端 Mac 重建。默认测试版使用 ad-hoc 签名、未公证；预发布版本自动标记 Pre-release。
 
 [Release Mac 工作流](../.github/workflows/release-mac.yml)保留为手动云端备用流程。它从选定 tag 在 macOS 15 arm64 上重新构建候选，适合本地构建机不可用时使用；手动运行会消耗 macOS Actions 分钟。
 
@@ -52,7 +52,7 @@ git push origin HEAD
 git push origin v0.1.2-beta.7
 ```
 
-`GITHUB_TOKEN` 由 Actions 提供，工作流需要 `contents: write`，不在仓库存放个人 token。检查 Release Mac DMG 的实际日志，然后在 Releases 核对草稿版本、tag、DMG/CLI、校验文件、说明与安装结果；签名发行另核对 ZIP/feed。
+`GITHUB_TOKEN` 由 Actions 提供，工作流需要 `contents: write`，不在仓库存放个人 token。检查 Release Mac DMG 的实际日志，然后在 Releases 核对草稿版本、tag、DMG/CLI、校验文件、说明与安装结果。
 
 维护者审阅后手动点击 Publish release；ad-hoc 测试包应在说明中标明无 Developer ID/公证的限制，并按发布策略选择 Pre-release。
 
@@ -64,58 +64,24 @@ git push origin v0.1.2-beta.7
 
 ## 应用内更新与发布产物
 
-当前安装版“设置 → 更新”显示本地安装包手动升级入口，不发起远程更新检查。先备份数据、结束任务并停止独立后端，保留旧 App，再安装本地 DMG；完整步骤见 [安装参考](installation-reference.md#更新)。源码开发 App 跟随 Git upstream，独立准备完整构建并重启；脏检出/分叉会拒绝，详见 [源码更新](development.md#更新源码检出)。正式签名、公证与自动更新由 P6 验收。
+当前安装版“设置 → 更新”只显示本地安装包手动升级入口，不发起远程更新检查。先备份数据、结束任务并停止独立后端，保留旧 App，再安装本地 DMG；完整步骤见 [安装参考](installation-reference.md#更新)。源码开发 App 跟随 Git upstream，独立准备完整构建并重启；脏检出/分叉会拒绝，详见 [源码更新](development.md#更新源码检出)。
 
-CLI 的首次安装命令可读取 npm 平台包，并校验 registry SRI、包内文件清单和 DMG SHA-256；它不会替换已有 App。以下发行与更新模块保留供旧客户端兼容和后续阶段验收，不是当前安装版的更新入口。
+上游留下的 npm 包、公开更新清单、签名 ZIP/feed 与应用内下载安装已于 2026-11-25 删除（P9）；自有的发布与更新渠道之后另定。
 
-旧 App 的 GitHub 更新地址固化在旧二进制中，发布 npm 包不会改变它。保留旧 GitHub 更新发布流程用于尚能访问该来源的历史 App；无法使用旧来源的用户需按 [安装指南](getting-started.md) 一次性迁移。不要将这次迁移描述为自动升级。
+| 产物                                                     | 用途                                   |
+| -------------------------------------------------------- | -------------------------------------- |
+| `coworkos-cli-<version>.tgz` 与 `.sha256`                | CLI 安装包，手动安装到用户目录         |
+| `CoworkOS-<version>-mac-arm64.dmg` 与 `.sha256`          | Mac App 安装包，手动拖入 Applications  |
+| `CoworkOS-<version>-mac-arm64.signing.json` 与 `.sha256` | 精确记录候选 App 的签名状态            |
+| `atria-release-<version>.json` 与 `.sha256`              | 源码仓库/tag/commit 与发行产物来源记录 |
 
-历史受管更新实现提供候选校验、退出后替换和失败恢复；当前安装版不启用该入口。
+发布顺序为：先完成本地回归，再推送与 `package.json` 完全一致的 `vX.Y.Z` tag；在该 tag 的干净检出运行 `npm ci` 和 `npm run release:local -- vX.Y.Z`，它构建 DMG 与 CLI 包、生成来源清单并上传到 GitHub Release 草稿。审查草稿后由维护者手动发布。版本一旦发布不可覆盖；下一个公开版本须递增。
 
-| 产物                                                     | 用途                                                       |
-| -------------------------------------------------------- | ---------------------------------------------------------- |
-| `coworkos-cli-<version>.tgz` 与 `.sha256`                | CLI 在原全局 prefix 内准备、校验启动后替换程序包           |
-| `CoworkOS-<version>-mac-arm64.dmg` 与 `.sha256`          | App 下载校验、准备同父候选并在退出后安装；也供首次手动安装 |
-| `CoworkOS-<version>-mac-arm64.signing.json` 与 `.sha256` | 精确记录候选 App 的签名状态                                |
-| `atria-release-<version>.json` 与 `.sha256`              | 原始私有源码仓库/tag/commit 与发行产物来源记录             |
-
-下一版 npm 安装器和 App 更新包由 [Publish npm packages 工作流](../.github/workflows/publish-npm.yml)发布。它在 Ubuntu runner 校验 tag 和草稿，从草稿下载本地构建的两个 npm 包并核对 SHA-256、包名和版本，然后依次发布桌面包与 CLI 包，再用匿名 `npm view` 验证。不会在 Actions 上安装项目依赖或重建 Mac App。平台 tgz 只包含对应 DMG、许可和版本/校验清单；CLI tgz 包含安装器代码。两个包使用 npm 官方 registry，用户仍可直接运行 `npx coworkos-app@latest` 或 `npm install -g coworkos-app`。
-
-首次启用前，在 npm 的两个包设置中分别配置 Trusted Publisher：仓库填写 `suntianc/coworkos`，工作流填写 `publish-npm.yml`，Environment 填写 `npm-publish`。GitHub Actions 使用 OIDC，不把 npm token 放进仓库。可在 GitHub 的 `npm-publish` Environment 设置 Required reviewers，发布前由维护者批准；npm 版本一旦发布不可覆盖。
-
-发布顺序为：先完成本地回归，再推送与 `package.json` 完全一致的 `vX.Y.Z` tag；在该 tag 的干净检出运行 `npm ci` 和 `npm run release:local -- vX.Y.Z`。审查草稿中的 Mac、CLI 及 npm 候选资产，然后手动运行 Publish npm packages。保留 npm Trusted Publishing Environment 的 Required reviewers；核对 npm 发布成功后，再手动发布 GitHub Release。公开分发 Release 与更新指针若本版本需要，也按下文步骤单独验收和发布。版本一旦发布不可覆盖；下一个公开版本须递增。
-
-npm 接收上传后可能仍需处理，匿名查询会暂时返回 404。发布 workflow 会重试查询并核对两个包的 SHA-512 与候选一致；若处理仍未完成，从 `main` 运行同一 workflow，填相同 tag 并勾选 `verify_only`，只验证已接收的包，不再次发布。`verify_only` 可读取草稿或已公开 Release 的固定附件，继续核对 tag 提交、候选包校验值和 npm SHA-512；普通发布仍要求草稿。历史失败运行的红叉会保留，应查看后续验证运行的结果。
-
-本地也可分别生成 npm 候选包进行验收：
-
-```sh
-VERSION=0.1.3
-ATRIA_DESKTOP_NPM_PACKAGE_DIR="$PWD/.tmp/npm-release" npm run desktop:npm:pack
-ATRIA_PACKAGE_DIR="$PWD/.tmp/npm-release" npm run npm:pack
-```
-
-两个包均不可覆盖已发布版本。`latest` / `beta` tag 由包的 `publishConfig` 选择。平台包发布后、CLI 发布前，应先通过真实 npm 下载路径验收 installer；App 更新 provider 留待 P6 验收。若当前版本属于旧 GitHub 更新客户端，还需按旧发布流程构建兼容迁移版本；新 npm 发布本身不会改写旧 App 的下载地址。
-
-GitHub DMG/CLI Release 与静态更新指针只保留给旧客户端兼容和明确的手动归档分发。对已审核的干净 tag，仍可执行 `node scripts/release-artifacts.mjs` 生成来源清单，再运行 `npm run release:publish:public`；发布器通过旧内容 SHA 比较更新 `updates/coworkos-latest.json`，不可覆盖已发布附件或回退指针。
-
-已发布附件与 tag 不覆盖；更新指针失败时保留已发布的固定版本，处理并发或网络原因后，以 `npm run release:publish:public -- --resume-pointer` 只核对既有附件并恢复指针更新。
-
-维护者本机使用已有 `gh` 授权；跨仓库 Actions 需单独配置只写分发仓库的发布授权，不能将 token 放进 App。
-
-公开仓库 Git 分支只存下载说明和更新清单；不推送开发检出、用户配置、任务、临时日志或私有测试证据。默认 ad-hoc 发行仅上传上述八个文件。Developer ID ZIP/feed 的跨仓库发布需显式扩展白名单并重新验收，当前公开发布器拒绝不支持的组合，不能丢弃签名产物后冒充完整签名发行。
-
-构建机安装维护者自己的 Developer ID Application 证书后，通过 `CSC_NAME` 显式选择证书名称或团队 ID；名称不含 `Developer ID Application:` 前缀，符合 [electron-builder 签名规则](https://www.electron.build/v26/docs/features/code-signing/code-signing-mac/)。设置后强制签名；签名失败、ad-hoc 或开发证书都不能生成更新 ZIP。未设置时关闭自动寻找签名身份，并移除本次版本残留的 ZIP/feed，保留 DMG 构建。
+构建机安装维护者自己的 Developer ID Application 证书后，通过 `CSC_NAME` 显式选择证书名称或团队 ID；名称不含 `Developer ID Application:` 前缀，符合 [electron-builder 签名规则](https://www.electron.build/v26/docs/features/code-signing/code-signing-mac/)。设置后强制签名并校验 Developer ID；未设置时关闭自动寻找签名身份，生成 ad-hoc 签名的 DMG。
 
 GitHub 工作流可选读取仓库变量 `CSC_NAME`、仓库 secrets `CSC_LINK` 与 `CSC_KEY_PASSWORD`；未配置时仍为未签名 DMG。证书、私钥与公证凭据不进仓库；当前未完成公证配置与生产安装验收。
 
-签名验证通过后，脚本才对 App 使用 ditto 生成并检查 ZIP，根据实际 ZIP 写入 SHA-256 和 [Squirrel.Mac 静态 JSON feed](https://github.com/Squirrel/Squirrel.Mac#update-file-json-format)。feed 的 URL 使用 `ATRIA_UPDATE_REPOSITORY`、`GITHUB_REPOSITORY` 或包 repository 指定的 GitHub 仓库，并绑定 `v<version>` 资产；版本与 lock/tag 必须一致。
-
-生成签名 ZIP/feed仍需完成公证、Gatekeeper 与真实旧版→新版安装验收；当前 ad-hoc 测试包使用经校验的本地 DMG 手动安装流程。草稿审查后由维护者手动 Publish；更新功能不自动推送 tag 或发布 Release。
-
-CLI/DMG 下载通过发行 helper 验证版本、资产来源、大小及 SHA-256；签名 ZIP 由 Electron 原生更新机制下载并核验签名。失败时报告原因并保留用户数据；不可把下载完成等同于安装完成。Web renderer 只传检查/执行动作，真实路径、URL、命令与保存/退出决策由可信宿主管理。
-
-实现见 [桌面更新](../desktop/updates.cjs)、[npm 桌面包下载](../scripts/update-npm-desktop.mjs)、[旧版发行下载](../scripts/update-release.mjs)、[feed 生成与签名守卫](../scripts/update-feed.mjs)，对应回归见 `test/desktop-updates.test.js`、`test/update-npm-desktop.test.js`、`test/package-desktop-npm.test.js`、`test/update-release.test.js`、`test/update-feed.test.js`、`e2e/desktop-updates.spec.js`；最终签名更新另验。
+实现见 [桌面更新](../desktop/updates.cjs) 与 [Mac 打包](../scripts/package-mac.mjs)，对应回归见 `test/desktop-updates.test.js`、`test/release-artifacts.test.js`、`e2e/desktop-updates.spec.js`。
 
 ## 安装、数据与升级
 

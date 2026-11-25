@@ -495,52 +495,26 @@ test("a concurrent edit after publication begins prevents destructive source rol
   assert.equal(await readFile(join(f.root, "dist/src/runtime/config.js"), "utf8"), "old build\n");
 });
 
-test("CLI update options reject typos and distinguish an explicitly selected release channel", () => {
-  assert.deepEqual(parseUpdateOptions(["--check", "--channel", "preview"]), {
-    check: true,
-    channel: "preview",
-    explicitChannel: true,
-    help: false
-  });
-  assert.equal(parseUpdateOptions([]).explicitChannel, false);
-  assert.equal(parseUpdateOptions([]).channel, undefined);
-  assert.throws(() => parseUpdateOptions(["--channel", "nightly"]), /stable or preview/);
+test("CLI update options reject typos", () => {
+  assert.deepEqual(parseUpdateOptions(["--check"]), { check: true, help: false });
+  assert.throws(() => parseUpdateOptions(["--channel", "preview"]), /Unknown update option/);
   assert.throws(() => parseUpdateOptions(["--force"]), /Unknown update option/);
 });
 
-test("installed CLI dispatch leaves repository and implicit channel defaults to the release helper", async (t) => {
+test("an installed CLI has no updater and says to install a newer package by hand", async (t) => {
   const directory = await mkdtemp(join(tmpdir(), "atria-update-cli-"));
   t.after(() => rm(directory, { recursive: true, force: true }));
   const scripts = join(directory, "scripts");
   await mkdir(scripts);
-  await writeFile(
-    join(directory, "package.json"),
-    JSON.stringify({ type: "module", version: "0.1.2-beta.1" })
-  );
+  await writeFile(join(directory, "package.json"), JSON.stringify({ type: "module", version: "0.1.2" }));
   for (const file of ["atria.mjs", "cli-information.mjs", "data-home.cjs", "update.mjs", "update-source.mjs"])
     await writeFile(join(scripts, file), await readFile(new URL(`../scripts/${file}`, import.meta.url)));
-  await writeFile(
-    join(scripts, "update-release.mjs"),
-    `
-export async function checkRelease(options) {
-  if ('repository' in options || options.channel !== undefined) throw new Error('Implicit defaults were overridden');
-  if (process.env.ATRIA_UPDATE_REPOSITORY !== 'example/new-public-repo') throw new Error('Repository override absent');
-  return {mode:'release', available:true, version:'0.1.2-beta.2'};
-}
-export async function installCliRelease(options) { return {mode:'release', updated:true, version:options.channel}; }
-`
-  );
-  const result = await execute(process.execPath, [join(scripts, "atria.mjs"), "update", "--check"], {
+  const failed = await execute(process.execPath, [join(scripts, "atria.mjs"), "update", "--check"], {
     cwd: directory,
-    env: { ...environment, ATRIA_UPDATE_REPOSITORY: "example/new-public-repo" }
-  });
-  assert.match(result.stdout, /0\.1\.2-beta\.2/);
-  const explicit = await execute(
-    process.execPath,
-    [join(scripts, "atria.mjs"), "update", "--channel", "preview"],
-    { cwd: directory, env: environment }
-  );
-  assert.match(explicit.stdout, /preview/);
+    env: environment
+  }).catch((error) => error);
+  assert.equal(failed.code, 1);
+  assert.match(failed.stderr, /手动安装新版本/);
   const help = await execute(process.execPath, [join(scripts, "atria.mjs"), "update", "--help"], {
     cwd: directory,
     env: environment

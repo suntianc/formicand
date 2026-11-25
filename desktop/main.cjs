@@ -17,7 +17,6 @@ const {
   session,
   safeStorage,
   globalShortcut,
-  autoUpdater,
   Menu,
   clipboard,
   nativeTheme,
@@ -68,13 +67,6 @@ const {
 const { createSettingsTargetGuard } = require("./settings-target.cjs");
 const { installBundledWeb } = require("./bundled-web.cjs");
 const { desktopProfile } = require("./profile.cjs");
-const {
-  managedUpdateLaunch,
-  recordManagedUpdateLaunch,
-  confirmManagedUpdateLaunch
-} = require("./update-install.cjs");
-const managedLaunch = managedUpdateLaunch();
-if (managedLaunch) process.env.COWORK_DESKTOP_DATA = managedLaunch.userData;
 
 const profile = desktopProfile({
   isPackaged: app.isPackaged,
@@ -139,7 +131,6 @@ app.setPath("userData", profile.userData);
 app.setName(PRODUCT_NAME);
 const owner = app.requestSingleInstanceLock();
 if (!owner) app.quit();
-else recordManagedUpdateLaunch(managedLaunch);
 const credentialStorage =
   process.platform === "darwin"
     ? createRetryableStorage({
@@ -558,7 +549,6 @@ async function initializeUpdates(userData) {
   updates = await createApplicationUpdateHost({
     profile,
     userData,
-    autoUpdater,
     onStatus: (value) => mainWindow?.webContents.send("bookman:update-status", value),
     beforeApply: async () => {
       if (closing || quitting || restarting) throw new Error("本地服务正在关闭或重启，请稍后更新");
@@ -592,24 +582,6 @@ async function initializeUpdates(userData) {
         restarting = false;
       }
     },
-    quitForManaged: () => {
-      quitting = true;
-      setTimeout(() => app.quit(), 100);
-    },
-    installNative: () =>
-      new Promise((resolve, reject) => {
-        // Native installation closes windows before before-quit; preparation already saved and stopped them.
-        setTimeout(() => {
-          quitting = true;
-          try {
-            autoUpdater.quitAndInstall();
-            resolve();
-          } catch (error) {
-            quitting = false;
-            reject(error);
-          }
-        }, 100);
-      }),
     quitForSource: () => {
       restarting = false;
       setTimeout(() => app.quit(), 100);
@@ -691,7 +663,6 @@ if (owner)
       await initializeUpdates(userData);
       createWindow();
       await launchBackend();
-      await confirmManagedUpdateLaunch(managedLaunch);
     })
     .catch((error) => {
       dialog.showErrorBox("Formicand 无法启动", error.message);

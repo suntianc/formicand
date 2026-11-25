@@ -6,13 +6,13 @@
 
 ## 名称与旧版兼容
 
-产品名称为 CoworkOS，logo 保持不变。主命令为 `coworkos`，发行包保留 `atria` 兼容别名；npm 包仅提供 `coworkos` 命令。
+产品名称为 CoworkOS，logo 保持不变。主命令为 `coworkos`，并保留 `atria` 兼容别名。
 
 首次启动或运行 `coworkos doctor` 时会刷新旧版搜索适配器的运行时路径；仅处理本产品标记的脚本，保留用户自行安装的工具和符号链接。
 
-现有的 `~/.atria/`、`ATRIA_*` 环境变量、桌面 bundle ID、系统钥匙串身份和持久格式标识保持不变，已有配置与任务无需迁移。GitHub 仓库地址与历史版本附件保持原地址；新构建使用 CoworkOS 应用名及 `coworkos-cli` 附件名（Release 发行包内部包名保留 `atria-cowork-cli` 以兼容升级；npm registry 包名为 `coworkos-app`），并能读取旧版更新附件。
+现有的 `~/.atria/`、`ATRIA_*` 环境变量、桌面 bundle ID、系统钥匙串身份和持久格式标识保持不变，已有配置与任务无需迁移。新构建使用 CoworkOS 应用名及 `coworkos-cli` 附件名（发行包内部包名保留 `atria-cowork-cli`）。
 
-旧版 App 的更新地址保存在旧二进制中；当前安装版使用本地 DMG 手动升级，旧数据保留在用户目录。
+安装版没有应用内更新，使用本地 DMG 手动升级，旧数据保留在用户目录。
 
 旧版源码更新器也会拒绝新的项目名称。首次跨越更名时，先保存并结束任务，在干净、有上游分支的检出中执行 `git pull --ff-only`、`npm ci` 和 `npm run build`，然后重启。新更新器支持旧项目名 `cowork-harness` 向 `coworkos` 的单向升级，仍拒绝其他项目标识及反向更名。
 
@@ -26,17 +26,9 @@ Mac App 使用本地 DMG 手动升级：
 2. 核对 DMG 的 SHA-256，打开 DMG。将旧 App 改名保留，再把新 App 拖到原安装目录。安装资源与用户数据分开，替换 App 不覆盖用户数据。
 3. 打开新 App，检查连接、会话、附件与设置。若启动或数据校验失败，退出新 App，恢复保留的旧 App 和必要的数据备份，再重试。
 
-独立后端的启动、状态与停止命令见 [开发指南](development.md#独立后端)。正式签名、公证和自动更新属于后续 P6。
+独立后端的启动、状态与停止命令见 [开发指南](development.md#独立后端)。
 
-npm 安装先退出 CLI，再更新：
-
-```sh
-npm install -g coworkos-app@latest
-```
-
-`coworkos update --check` 检查 npm 版本，`coworkos update` 显示对应的 npm 命令。npm 安装器不替换独立桌面 App；App 按上面的步骤手动升级。
-
-Release 发行包或源码安装先退出交互界面，再在系统终端运行：
+源码安装先退出交互界面，再在系统终端运行：
 
 ```sh
 coworkos update --check
@@ -44,7 +36,7 @@ coworkos update
 coworkos --version
 ```
 
-`--check` 只检查，不安装；`update` 完成后，下次启动使用新版本。非全局 CLI 安装使用原包管理方式升级。源码检出的更新条件与命令见 [开发指南](development.md#更新源码检出)。
+`--check` 只检查，不安装；`update` 完成后，下次启动使用新版本。源码检出的更新条件见 [开发指南](development.md#更新源码检出)。自行打包的 CLI 安装包没有自动更新，安装新版本的包即可。
 
 ## 数据与备份
 
@@ -71,52 +63,33 @@ npm --version
 
 ### `coworkos: command not found`
 
-如果按快速开始安装到了 `~/.local`，在当前终端运行：
+`npm link` 把命令放在 npm 的全局 `bin` 目录。先查看这个目录：
 
 ```sh
-export PATH="$HOME/.local/bin:$PATH"
-coworkos --version
+echo "$(npm prefix -g)/bin"
 ```
 
-要在新终端保留 PATH，按实际使用的 shell 选择下面一条命令，只需添加一次。可先用 `echo "$SHELL"` 查看。
-
-zsh（macOS 默认）：
+把输出的目录加入 PATH，按实际使用的 shell 选择一条命令，只需添加一次（可先用 `echo "$SHELL"` 查看）：
 
 ```sh
-printf '%s\n' 'export PATH="$HOME/.local/bin:$PATH"' >> "$HOME/.zshrc"
-```
-
-bash（常见 Linux 终端）：
-
-```sh
-printf '%s\n' 'export PATH="$HOME/.local/bin:$PATH"' >> "$HOME/.bashrc"
+# zsh（macOS 默认）
+printf '%s\n' "export PATH=\"$(npm prefix -g)/bin:\$PATH\"" >> "$HOME/.zshrc"
+# bash（常见 Linux 终端）
+printf '%s\n' "export PATH=\"$(npm prefix -g)/bin:\$PATH\"" >> "$HOME/.bashrc"
 ```
 
 重新打开终端，运行 `coworkos --version` 确认。
 
-### 安装或校验提示 `ENOENT` / `No such file or directory`
+### `npm link` 提示权限错误
 
-先进入保存安装包的目录，再检查两个文件是否都在。若不在 `~/Downloads`，替换第一行路径：
-
-```sh
-cd "$HOME/Downloads"
-ls coworkos-cli-0.1.2-beta.12.tgz coworkos-cli-0.1.2-beta.12.tgz.sha256
-```
-
-文件名中的版本必须与实际下载版本一致。缺少文件时，从 [CLI 下载步骤](cli-quickstart.md#下载并安装)重新下载，再校验和安装。若校验显示 `FAILED`，重新下载两个文件；校验通过后再安装。
-
-### npm 全局安装提示权限错误
-
-如果错误指向系统全局安装目录，改用用户目录安装。从安装包所在目录运行：
+npm 全局目录不可写时，把它改到用户目录，再在源码检出里重新运行：
 
 ```sh
-archive="coworkos-cli-<version>.tgz"
-npm install --global --prefix "$HOME/.local" "./$archive"
-export PATH="$HOME/.local/bin:$PATH"
-coworkos --version
+npm config set prefix "$HOME/.local"
+npm link
 ```
 
-若安装在下载平台依赖时失败，恢复网络后重新运行安装命令；不要用 `--ignore-scripts` 跳过安装脚本。
+然后按上一条把 `$HOME/.local/bin` 加入 PATH。不要用 `sudo` 安装。
 
 ### `配置已存在，未覆盖`
 

@@ -49,12 +49,6 @@
       "kind": "node",
       "pattern": "Finder development entry|Mac launch gives",
       "enableEnv": "ATRIA_NATIVE_DESKTOP_TEST"
-    },
-    {
-      "file": "test/desktop-update-install.test.js",
-      "kind": "node",
-      "pattern": "native disposable App update",
-      "enableEnv": "ATRIA_MANAGED_UPDATE_NATIVE"
     }
   ],
   "anchors": [

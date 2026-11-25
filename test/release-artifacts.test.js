@@ -13,7 +13,6 @@ import {
   writeReleaseArtifacts
 } from "../scripts/release-artifacts.mjs";
 import { readReleaseDraft, uploadReleaseDraft } from "../scripts/release-draft.mjs";
-import { macUpdateFeed } from "../scripts/update-feed.mjs";
 
 const repository = "fixture-owner/atria";
 const version = "0.1.2-beta.1";
@@ -180,7 +179,7 @@ test("actual signing reports and their generated checksum are included in distri
   await assert.rejects(verifyReleaseArtifacts(f.options), /checksum/);
 });
 
-test("invalid signing evidence and ad-hoc native-update artifacts cannot enter a release", async (t) => {
+test("invalid signing evidence cannot enter a release", async (t) => {
   const f = await fixture(t);
   for (const invalid of [
     { version: "0.1.1" },
@@ -194,23 +193,6 @@ test("invalid signing evidence and ad-hoc native-update artifacts cannot enter a
     await addSigningReport(f, invalid);
     await assert.rejects(writeReleaseArtifacts(f.options), /Mac signing report/);
   }
-  await addSigningReport(f);
-  const zip = "CoworkOS-" + version + "-mac-arm64.zip";
-  const bytes = Buffer.from("isolated native update fixture");
-  await writeFile(join(f.root, "release", zip), bytes);
-  await f.checksum(zip);
-  await writeFile(
-    join(f.root, "release", "atria-update-mac-arm64.json"),
-    JSON.stringify(
-      macUpdateFeed({
-        version,
-        repository,
-        sha256: hash(bytes),
-        size: bytes.length
-      })
-    )
-  );
-  await assert.rejects(writeReleaseArtifacts(f.options), /distribution disagree/);
 });
 
 test("dirty sources, foreign repositories and stale or dirty CLI provenance are rejected", async (t) => {
@@ -242,22 +224,6 @@ test("missing payloads, wrong checksums and symlink artifacts fail before writin
   await symlink(join(f.root, "scratch", "fixture-dmg"), join(f.root, "release", f.dmg));
   await assert.rejects(writeReleaseArtifacts(f.options), /regular file/);
   await assert.rejects(readFile(join(f.root, "release", releaseFiles(version).manifest)), { code: "ENOENT" });
-});
-
-test("signed update artifacts must be complete and the feed must match the actual ZIP", async (t) => {
-  const f = await fixture(t);
-  const zip = "CoworkOS-" + version + "-mac-arm64.zip";
-  const bytes = Buffer.from("isolated ZIP fixture; not signature acceptance");
-  await writeFile(join(f.root, "release", zip), bytes);
-  await assert.rejects(writeReleaseArtifacts(f.options), /present together/);
-  await f.checksum(zip);
-  const feed = macUpdateFeed({ version, repository, sha256: hash(bytes), size: bytes.length });
-  const feedPath = join(f.root, "release", "atria-update-mac-arm64.json");
-  await writeFile(feedPath, JSON.stringify(feed));
-  assert.equal((await writeReleaseArtifacts(f.options)).artifacts.length, 7);
-  feed.releases[0].updateTo.url = "https://example.invalid/update.zip";
-  await writeFile(feedPath, JSON.stringify(feed));
-  await assert.rejects(writeReleaseArtifacts(f.options), /feed differs/);
 });
 
 test("manifest verification detects replaced payloads or edited provenance before upload", async (t) => {

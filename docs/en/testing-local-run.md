@@ -172,11 +172,4 @@ For a feature, add user actions and acceptance criteria to the catalog documenta
 
 ## In-app update acceptance
 
-Public checking/publishing regressions live in `test/update-release-public.test.js` and `test/public-release-publish.test.js`; desktop coordination, save gates and installation boundaries are in the desktop update tests. Ordinary Node verification does not replace real Apps. Explicit native checks use only disposable App copies, DMGs and profiles:
-
-```sh
-ATRIA_MANAGED_UPDATE_NATIVE=1 node --test test/desktop-update-install.test.js
-ATRIA_PUBLIC_APP_UPDATES_SMOKE=1 ATRIA_DESKTOP_APP=.tmp/release/mac-arm64/CoworkOS.app npx playwright test e2e/public-app-updates-desktop.spec.js --workers=1 --output=.tmp/public-app-update-native
-```
-
-The packaged test maps fixed public URLs to local HTTP only inside its test process, preserving production URL and integrity validation. It exercises the real download, DMG/signature checks, exit, installer helper, replacement, new-process receipt and version/draft recovery after reopening. Public network access is separate: after publication, anonymously verify the real static feed, installers and complete SHA-256. Clean-machine installation, Gatekeeper, Developer ID/notarization and actual providers remain independent checks.
+Installed builds have no in-app updater and only show the manual upgrade note; source-checkout checks, save gates and restarts are covered by `test/desktop-updates.test.js`, `test/desktop-update-host.test.js`, `test/source-update.test.js` and `e2e/desktop-updates.spec.js`.

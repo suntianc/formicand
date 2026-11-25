@@ -51,8 +51,6 @@ module.exports = {
     "scripts/main-session.mjs",
     "scripts/main-worker.mjs",
     "scripts/main-capacity-gate.mjs",
-    "scripts/update-release.mjs",
-    "scripts/update-npm-desktop.mjs",
     "package.json",
     "LICENSE",
     "THIRD_PARTY_NOTICES.md",

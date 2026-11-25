@@ -153,11 +153,6 @@ test("the actual CLI packer excludes retained Mac helpers and tolerates optional
       await mkdir(dirname(join(root, file)), { recursive: true });
       await cp(new URL(`../${file}`, import.meta.url), join(root, file));
     }
-    await mkdir(join(root, "desktop"), { recursive: true });
-    await cp(
-      new URL("../desktop/update-install.cjs", import.meta.url),
-      join(root, "desktop/update-install.cjs")
-    );
     await put(root, "desktop/main.cjs", "// Desktop entrypoint must not enter the CLI package.\n");
     await put(
       root,
@@ -219,70 +214,14 @@ test("the actual CLI packer excludes retained Mac helpers and tolerates optional
     const manifest = JSON.parse(
       execFileSync("tar", ["-xOf", archive, "package/package.json"], { encoding: "utf8" })
     );
-    assert.equal(manifest.name, "atria-cowork-cli", "the renamed archive retains npm upgrade ownership");
+    assert.equal(manifest.name, "atria-cowork-cli");
     assert.deepEqual(manifest.bin, { coworkos: "scripts/atria.mjs", atria: "scripts/atria.mjs" });
     const files = execFileSync("tar", ["-tzf", archive], { encoding: "utf8" }).trim().split("\n");
-    assert.ok(files.includes("package/scripts/desktop.mjs"));
     // The worker and the Pi runtime load this gate at run time, so the archive
     // has to carry it or an external-capacity CLI fails in the consumer's tree.
     assert.ok(files.includes("package/scripts/main-capacity-gate.mjs"));
-    assert.ok(files.includes("package/desktop/update-install.cjs"));
     assert.ok(!files.includes("package/desktop/main.cjs"));
     assert.ok(!files.some((path) => path.startsWith("package/docs/site/node_modules/")));
-    const fixtureDependency = {
-      version: "1.0.0",
-      resolved:
-        "https://ms-feed-25.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/" +
-        `${parentName}/-/${parentName}-1.0.0.tgz`,
-      integrity: "sha512-" + createHash("sha512").update("fixture archive").digest("base64")
-    };
-    const sourceManifest = JSON.parse(await readFile(join(root, "package.json"), "utf8"));
-    sourceManifest.dependencies[parentName] = "1.0.0";
-    const sourceLock = JSON.parse(await readFile(join(root, "package-lock.json"), "utf8"));
-    sourceLock.packages[""].dependencies[parentName] = "1.0.0";
-    sourceLock.packages[`node_modules/${parentName}`] = fixtureDependency;
-    await put(root, "package.json", sourceManifest);
-    await put(root, "package-lock.json", sourceLock);
-    await put(root, `node_modules/${parentName}/package.json`, {
-      name: parentName,
-      version: "1.0.0"
-    });
-    execFileSync(process.execPath, [join(root, "scripts/package-cli.mjs"), "--npm"], {
-      cwd: root,
-      env,
-      encoding: "utf8",
-      timeout: 120_000,
-      maxBuffer: 4 * 1024 * 1024
-    });
-    const npmArchive = join(root, "archives", `coworkos-app-${version}.tgz`);
-    const npmFiles = execFileSync("tar", ["-tzf", npmArchive], { encoding: "utf8" }).trim().split("\n");
-    assert.ok(!npmFiles.some((path) => path.startsWith("package/docs/site/node_modules/")));
-    assert.ok(npmFiles.includes(`package/node_modules/${parentName}/package.json`));
-    const npmJson = (member) =>
-      JSON.parse(execFileSync("tar", ["-xOf", npmArchive, `package/${member}`], { encoding: "utf8" }));
-    const npmManifest = npmJson("package.json");
-    assert.equal(npmManifest.name, "coworkos-app");
-    assert.deepEqual(npmManifest.bin, { coworkos: "scripts/atria.mjs" });
-    assert.deepEqual(npmManifest.publishConfig, {
-      registry: "https://registry.npmjs.org",
-      access: "public",
-      tag: "latest"
-    });
-    assert.equal(npmJson("build-info.json").distribution, "npm");
-    const npmLock = npmJson("npm-shrinkwrap.json");
-    assert.equal(npmLock.name, "coworkos-app");
-    assert.equal(npmLock.packages[""].name, "coworkos-app");
-    assert.equal(
-      npmLock.packages[`node_modules/${parentName}`].resolved,
-      `https://registry.npmjs.org/${parentName}/-/${parentName}-1.0.0.tgz`
-    );
-    assert.equal(npmLock.packages[`node_modules/${parentName}`].integrity, fixtureDependency.integrity);
-    assert.equal(
-      JSON.parse(await readFile(join(root, "package-lock.json"), "utf8")).packages[
-        `node_modules/${parentName}`
-      ].resolved,
-      fixtureDependency.resolved
-    );
     for (const name of [
       "cad",
       "blender",

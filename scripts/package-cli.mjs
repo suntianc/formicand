@@ -11,9 +11,7 @@ import {
 } from "./cli-package-lock.mjs";
 
 const arguments_ = process.argv.slice(2);
-if (arguments_.length > 1 || arguments_.some((argument) => argument !== "--npm"))
-  throw new Error("Usage: node scripts/package-cli.mjs [--npm]");
-const npmDistribution = arguments_.includes("--npm");
+if (arguments_.length) throw new Error("Usage: node scripts/package-cli.mjs");
 const stage = await mkdtemp(join(tmpdir(), "atria-cli-package-"));
 const npm = process.platform === "win32" ? "npm.cmd" : "npm";
 const optionalSourceFiles = new Set(["licenses", "ROADMAP.md", "ROADMAP.en.md"]);
@@ -50,10 +48,6 @@ try {
     "scripts/cli-session-picker.mjs",
     "scripts/update.mjs",
     "scripts/update-source.mjs",
-    "scripts/update-release.mjs",
-    "scripts/update-npm-desktop.mjs",
-    "scripts/desktop.mjs",
-    "desktop/update-install.cjs",
     "scripts/start-pi.mjs",
     "scripts/start-pi-runtime.mjs",
     "scripts/cli-runtime-host.mjs",
@@ -140,8 +134,7 @@ try {
     });
   }
   const manifest = {
-    // Keep npm ownership of the legacy global bin while exposing the new command.
-    name: npmDistribution ? "coworkos-app" : "atria-cowork-cli",
+    name: "atria-cowork-cli",
     version: pkg.version,
     type: "module",
     description: "CoworkOS local multi-agent CLI harness",
@@ -152,17 +145,8 @@ try {
     engines: pkg.engines,
     bin: {
       coworkos: "scripts/atria.mjs",
-      ...(!npmDistribution ? { atria: "scripts/atria.mjs" } : {})
+      atria: "scripts/atria.mjs"
     },
-    ...(npmDistribution
-      ? {
-          publishConfig: {
-            registry: "https://registry.npmjs.org",
-            access: "public",
-            tag: pkg.version.split("+")[0].includes("-") ? "beta" : "latest"
-          }
-        }
-      : {}),
     dependencies,
     overrides: pkg.overrides,
     bundleDependencies: Object.keys(dependencies),
@@ -170,7 +154,6 @@ try {
       "dist",
       ".pi",
       "scripts",
-      "desktop/update-install.cjs",
       "docs",
       "README.md",
       "README.zh-CN.md",
@@ -191,18 +174,6 @@ try {
   };
   await writeFile(join(stage, "package.json"), JSON.stringify(manifest, null, 2) + "\n");
   const shrinkwrap = cliShrinkwrap(manifest, lock);
-  if (npmDistribution) {
-    // Consumer installs must not depend on the build machine's registry mirror.
-    // Keep the locked version and integrity while replacing only known mirror URLs.
-    for (const entry of Object.values(shrinkwrap.packages)) {
-      if (typeof entry.resolved !== "string") continue;
-      const mirror = /^https:\/\/ms-feed-[^/]+\.pkgs\.visualstudio\.com\/[^?#]+\/npm\/registry\/(.+)$/.exec(
-        entry.resolved
-      );
-      const proxy = /^https:\/\/packagefeedproxy\.microsoft\.io\/npm\/(.+)$/.exec(entry.resolved);
-      if (mirror || proxy) entry.resolved = `https://registry.npmjs.org/${(mirror || proxy)[1]}`;
-    }
-  }
   await writeFile(join(stage, "npm-shrinkwrap.json"), JSON.stringify(shrinkwrap, null, 2) + "\n");
   let commit = "unknown",
     dirty = true;
@@ -220,7 +191,7 @@ try {
         version: pkg.version,
         commit,
         dirty,
-        distribution: npmDistribution ? "npm" : "release",
+        distribution: "release",
         builtAt: new Date().toISOString()
       },
       null,
@@ -236,14 +207,9 @@ try {
       maxBuffer: 32 * 1024 * 1024
     })
   );
-  if (
-    result.files.some(
-      ({ path }) =>
-        /^(\.cowork|\.tools|desktop|task-[^/]+)\//.test(path) && path !== "desktop/update-install.cjs"
-    )
-  )
+  if (result.files.some(({ path }) => /^(\.cowork|\.tools|desktop|task-[^/]+)\//.test(path)))
     throw new Error("CLI 包中发现禁止分发的目录");
-  const filename = `${npmDistribution ? "coworkos-app" : "coworkos-cli"}-${pkg.version}.tgz`;
+  const filename = `coworkos-cli-${pkg.version}.tgz`;
   const path = join(destination, filename);
   await rename(join(destination, result.filename), path);
   const digest = createHash("sha256")

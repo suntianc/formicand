@@ -46,16 +46,14 @@ RELEASE_TAG=v0.1.2-beta.7 GITHUB_REPOSITORY=suntianc/coworkos node scripts/relea
 
 重跑草稿默认保留维护者编辑过的说明，显式 --replace-notes 才替换。
 
-当前提供 macOS 14+ Apple Silicon DMG 和 Node >=22.19.0 的 CLI，另附 SHA-256、发行清单、安装与已知限制。CoworkOS 从 0.1.0 开始使用独立更新源和 npm 包 `coworkos-app`；旧版 Atria 的版本与更新源保持独立，不回退旧指针。用户可运行 `npm install -g coworkos-app`，再用 `coworkos desktop install` 显式安装 Mac App。其他平台验收分别记录，不能由源码可编译推断安装通过。
-
-维护者先构建并验证 Mac DMG，再用 `npm run desktop:npm:pack` 生成 `coworkos-desktop-darwin-arm64-<version>.tgz`，用 `npm run npm:pack` 生成 `coworkos-app-<version>.tgz`。隔离安装并验证两个候选后，先发布平台包，再发布 CLI 包，避免 CLI 提前引用尚未发布的桌面包。新 App 的首次安装与应用内更新都从 npm registry 下载；CLI 本身也从 npm 更新。旧 App 仍使用其内置的 GitHub 更新地址，必须通过受支持的兼容发布或一次性迁移升级。`npm run cli:pack` 仍为旧 Release 更新生成兼容 CLI tgz，不替换 npm 包。
+当前提供 macOS 14+ Apple Silicon DMG 和 Node >=22.19.0 的 CLI，另附 SHA-256、发行清单、安装与已知限制。安装包从 GitHub Release 手动下载安装，没有 npm 包和应用内更新。其他平台验收分别记录，不能由源码可编译推断安装通过。
 
 ## 无证书测试版与公开入口
 
-没有 Developer ID 证书的 Mac 测试版使用 ad-hoc 签名维护包完整性，仍未经过 Apple 公证，首次启动可能需要“系统设置 → 隐私与安全性 → 仍要打开”。ad-hoc 不表示 Apple 已验证开发者，原生 ZIP 自动更新只对通过 Developer ID 验证的包生成；当前测试版首次通过 DMG 安装，应用内更新可在用户可写目录中校验后受管替换并保留旧版备份。按 [安装指南](getting-started.md)操作，不关闭系统安全保护。
+没有 Developer ID 证书的 Mac 测试版使用 ad-hoc 签名维护包完整性，仍未经过 Apple 公证，首次启动可能需要“系统设置 → 隐私与安全性 → 仍要打开”。ad-hoc 不表示 Apple 已验证开发者。新版本同样通过 DMG 手动安装。按 [安装指南](getting-started.md)操作，不关闭系统安全保护。
 
 公开 beta 发布前核对源代码和第三方对应源码可访问、许可文件完整、发行包不含用户配置/任务，并记录实际安装与模型任务的验收状态。版本说明分开列出已完成和待人工验收项，声明未经真实模型或干净机器验收的范围；协议夹具不能代替这些结果。正式/稳定版承诺须完成 [P0 门槛](../CONTRIBUTING.md#pr审阅与发布)。
 
-公开源码仓库提供代码与 Release 候选；npm 是当前 CLI 和 Mac App 安装/更新渠道。旧客户端使用的 [Atria-Releases](https://github.com/ignorejjj/Atria-Releases/releases) 保留历史安装包与兼容更新清单。普通用户安装 npm 版本不需要仓库凭据。
+公开源码仓库提供代码与 Release 安装包。
 
 发布器验证固定来源 tag 与白名单产物，先核对服务端 digest 再发布，并通过内容 SHA 比较更新当前版本指针；流程见 [Mac 发布](mac-release.md)。公开组件与第三方对应源码材料独立保存在 [Atria-Components](https://github.com/ignorejjj/Atria-Components/releases)。反馈仍由维护者在私有项目管理，公开下载不会自动授予源码访问权。

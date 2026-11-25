@@ -180,11 +180,4 @@ npm run test:release:runner
 
 ## 应用内更新专项
 
-公开检查与发布边界见 `test/update-release-public.test.js` 和 `test/public-release-publish.test.js`；桌面状态、保存门槛与安装边界见 `test/desktop-updates.test.js`、`test/desktop-update-host.test.js`、`test/desktop-update-install.test.js`。普通 Node 回归不执行真实 App 替换。原生检查只操作自己的临时 App、DMG 与用户目录：
-
-```sh
-ATRIA_MANAGED_UPDATE_NATIVE=1 node --test test/desktop-update-install.test.js
-ATRIA_PUBLIC_APP_UPDATES_SMOKE=1 ATRIA_DESKTOP_APP=.tmp/release/mac-arm64/CoworkOS.app npx playwright test e2e/public-app-updates-desktop.spec.js --workers=1 --output=.tmp/public-app-update-native
-```
-
-第二项仅在测试进程内把固定公开 URL 映射到本地 HTTP，仍执行真实下载、DMG/签名校验、退出、helper 替换、新进程回执和重开后的版本/草稿核对。它不证明真实公网连通性；发布后另以无凭据客户端核对真实静态清单、公开安装包和完整 SHA-256。另一台干净机器、Gatekeeper、Developer ID/公证与真实模型仍分别验收。
+安装版没有应用内更新，只显示手动升级提示；源码开发版的检查、保存门槛与重启见 `test/desktop-updates.test.js`、`test/desktop-update-host.test.js`、`test/source-update.test.js` 和 `e2e/desktop-updates.spec.js`。

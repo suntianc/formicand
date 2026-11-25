@@ -122,9 +122,7 @@ Usage:
   coworkos init                 Configure a model (API Key input is hidden)
   coworkos doctor               Check Node, dependencies and configuration
   coworkos doctor --test-connection  Test streaming, tools and optional image input (uses model quota)
-  coworkos desktop install [--directory PATH]  Install the published Mac App
-  coworkos update [--check]     Update this source checkout or installed CLI package
-  coworkos update --channel preview  Use preview releases for an installed CLI package
+  coworkos update [--check]     Update this source checkout from its Git upstream
   coworkos [start] [options]    Start Main in the current project; Main can delegate Subagents
   coworkos --continue          Restore the latest conversation and its Task in this project
   coworkos --session ID|PATH   Restore a specific conversation
