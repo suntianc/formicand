@@ -1,4 +1,4 @@
-import { agentDisplayName } from "../agent-names.js";
+import { agentAvatar, agentDisplayName } from "../agent-names.js";
 import { escapeHtml as esc } from "../ui/html.js";
 import { icon } from "../ui/icons.js";
 import { ui } from "../ui/language.js";
@@ -242,6 +242,7 @@ export function createObserveRunMarkup(subsShown) {
       <div class="runs-sublane-label">
         <span class="runs-branch" aria-hidden="true"></span>
         <span class="runs-role">${esc(role)}</span>
+        ${agentAvatar(agent.agentId)}
         <span class="runs-agent">${esc(name)}</span>
       </div>
       ${wave}

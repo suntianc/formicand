@@ -210,6 +210,7 @@ test("runs renders Main lanes, Subagent branches and the stage colouring", async
   assert.match(sub.textContent, /已完成/);
   assert.equal(sub.querySelector(".runs-done, .runs-head"), null);
   assert.equal(sub.dataset.state, "completed");
+  assert.match(sub.querySelector(".agent-avatar").getAttribute("style"), /ant-01-light\.webp/);
 
   const reviewBranch = card.querySelector('[data-runs-agent="subagent_3"]');
   assert.match(reviewBranch.textContent, /Reviewer/);
