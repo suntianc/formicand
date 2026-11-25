@@ -2,6 +2,8 @@
 
 ## 中文
 
+用在 [README](../../README.md) 与 [README.zh-CN](../../README.zh-CN.md) 顶部，本页是它的构建说明。
+
 独立的 React + SVG 头图工程，与产品同为黑白配色。左侧是产品的五节点标志，取自 [应用图标](../../web/assets/brand/app-icon.svg)；中间是用仓库 Inter 字体排的 `Formicand` 字标；右侧是按当前深色界面用代码重画的桌面窗口左上角，不含真实截图或用户数据。
 
 动画每 6 秒循环一次：一道信号环从最大的节点出发，每 1.2 秒依次经过下一个节点，代表 Main 把工作分派给子代理。字标与窗口保持静止。
@@ -40,6 +42,8 @@ python3 encode.py ../../.tmp/readme-hero-frames
 预览构建输出到 `.tmp/readme-hero/`；依赖隔离在本目录，不接入产品运行时。
 
 ## English
+
+Shown at the top of [README.md](../../README.md) and [README.zh-CN.md](../../README.zh-CN.md); this page explains how to build it.
 
 A standalone React + SVG hero in the product's black and white. On the left is the five-node mark, taken from the [application icon](../../web/assets/brand/app-icon.svg); in the middle, the `Formicand` wordmark set in the repository's Inter font; on the right, the top-left corner of the desktop window redrawn in code from the current dark theme, with no screenshot or user data.
 

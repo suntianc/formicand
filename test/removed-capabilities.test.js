@@ -390,7 +390,17 @@ const REMOVED = [
   docFile("docs/long-term-goals-architecture.md"),
   docFile("docs/long-term-goals-ux.md"),
   docFile("docs/monitoring-pause-contract.md"),
-  docFile("docs/watch-program-design.md")
+  docFile("docs/watch-program-design.md"),
+
+  // Retired process documents: the phase plan, the P4.5 backlog, three design
+  // drafts and the Workloop records. docs/adr-history.md records each one.
+  docFile("docs/development-phases.md"),
+  docFile("docs/p4.5-polish-backlog.md"),
+  docFile("docs/prompt-and-delivery-design.md"),
+  docFile("docs/memory-and-compaction-design.md"),
+  docFile("docs/context-retrieval-design.md"),
+  docFile("docs/workloop-comparison.md"),
+  docFile("docs/workloop-followups.md")
 ];
 
 /** Maintained documents, and the wording each must not use again. */
@@ -443,7 +453,7 @@ const DOCUMENTED_ANYWHERE = [
   "流星"
 ];
 /** Documents that record the removal itself are history, not advertising. */
-const HISTORY_DOCUMENTS = new Set(["docs/development-phases.md", "docs/p4.5-retrospective.md"]);
+const HISTORY_DOCUMENTS = new Set(["docs/adr-history.md", "docs/p4.5-retrospective.md"]);
 
 async function* walkFiles(directory) {
   for (const entry of await readdir(directory, { withFileTypes: true })) {
