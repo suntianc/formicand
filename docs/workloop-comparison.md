@@ -74,7 +74,7 @@
 
 ### 通用技能
 
-Workloop 带着、我们没有内置的：查疑难问题（diagnosing-bugs：先做出能稳定复现的检查再猜原因）、测试驱动（tdd）、追问（grilling）、领域建模（domain-modeling：用词表和架构决定）、写给助手的文档（writing-for-agents）、模块设计（codebase-design）、交接（handoff）。我们内置的只有 `requirement-delivery` 和电脑操作。
+Workloop 的通用技能大多已改编内置：查疑难问题（diagnosing-bugs）、测试驱动（tdd）、追问（grilling）、领域建模（domain-modeling）、模块设计（codebase-design）、写给助手的文档（writing-for-agents）等，来源见 [scripts/upstream-skills.json](../scripts/upstream-skills.json)。没有内置的：交接（handoff），以及代码图谱（codegraph，依赖本机的 codegraph 命令和项目索引）。
 
 ## 四、我们有而 Workloop 没有的
 

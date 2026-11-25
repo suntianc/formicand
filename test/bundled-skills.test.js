@@ -28,7 +28,8 @@ const names = [
   "code-review",
   "diagnosing-bugs",
   "retro",
-  "tidy-docs"
+  "tidy-docs",
+  "writing-for-agents"
 ];
 const source = resolve(".");
 const require = createRequire(import.meta.url);
