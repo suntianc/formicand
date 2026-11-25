@@ -37,12 +37,10 @@ const layers = (page) =>
     };
   });
 
-// Light mode lays one faint white wash on the body so the material reads as a
-// pale sheet; the other layers stay clear and nothing paints a gradient.
-const expectClearPage = (value, theme) => {
+// Both themes leave the page clear so the desktop shows through the material.
+const expectClearPage = (value) => {
   for (const layer of [value.html, value.body, value.shell]) {
-    const wash = layer === value.body && theme === "light";
-    expect(layer.color).toBe(wash ? "rgba(255, 255, 255, 0.4)" : "rgba(0, 0, 0, 0)");
+    expect(layer.color).toBe("rgba(0, 0, 0, 0)");
     expect(layer.image).toBe("none");
   }
   for (const panel of [value.conversation, value.taskPanel]) {
@@ -133,7 +131,7 @@ test("macOS window material shows the desktop through the page, keeps the glass 
       const value = await layers(page);
       expect(value.material).toEqual({ material: "under-window" });
       expect(value.title).toBe("Formicand");
-      expectClearPage(value, theme);
+      expectClearPage(value);
       await expect(page.locator("canvas")).toHaveCount(0);
     }
   } finally {
