@@ -399,7 +399,7 @@
    follow sidebar/editor resizing without recreating content or draft nodes. */
 .chat-pane .conversation-pane {
   container-type: inline-size;
-  --conversation-reading-width: 960px;
+  --conversation-reading-width: 768px;
   --conversation-reading-gutter: clamp(16px, 4cqw, 28px);
 }
 .chat-pane .conversation-pane .chat-scroll,

@@ -80,7 +80,7 @@ async function geometry(page) {
 async function checkColumn(page) {
   const boxes = await geometry(page);
   for (const key of ["answer", "history", "composer"]) {
-    expect(boxes[key].width, key).toBeLessThanOrEqual(960.5);
+    expect(boxes[key].width, key).toBeLessThanOrEqual(768.5);
     expect(Math.abs(boxes[key].center - boxes.pane.center), key).toBeLessThanOrEqual(1);
     expect(Math.abs(boxes[key].x - boxes.composer.x), key).toBeLessThanOrEqual(1);
     expect(Math.abs(boxes[key].width - boxes.composer.width), key).toBeLessThanOrEqual(1);
