@@ -7,8 +7,8 @@ import { referenceIcon } from "./ui/reference-icons.js";
  * and sent bubbles each reference renders as a compact inline icon + name chip.
  */
 
-const OPEN = "<atria_references>\n";
-const CLOSE_TAG = "\n</atria_references>";
+const OPEN = "<formicand_references>\n";
+const CLOSE_TAG = "\n</formicand_references>";
 const CLOSE = `${CLOSE_TAG}\n\n`;
 const TOKEN = /(^|[\s(（])([/@])([^\s，。、；！？（）()]+)/g;
 const SERVER_URI = /^([A-Za-z0-9_-]{1,64}):(.+)$/;

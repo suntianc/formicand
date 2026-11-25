@@ -10,7 +10,7 @@
 | ------------------------------------- | ----------------------------------------------------------------------------------------------- |
 | `baseUrl`                             | 服务根地址或 `/v1`；兼容旧字段 `apiBase`                                                        |
 | `model`                               | 服务商模型 ID                                                                                   |
-| `apiKey`                              | 私有配置中的密钥，也可用 `COWORK_API_KEY`                                                       |
+| `apiKey`                              | 私有配置中的密钥，也可用 `FORMICAND_API_KEY`                                                    |
 | `api`                                 | `openai-responses`、`openai-completions` 或 `anthropic-messages`；缺失时为 `openai-completions` |
 | `supportsImages`                      | 新连接默认 `false`                                                                              |
 | `thinkingFormat`                      | `auto`（默认）、`openai` 或 `zai`，仅影响 Chat Completions                                      |
@@ -76,44 +76,44 @@ App 与 Web 的“设置 → 模型”按供应商保存模型，写在执行主
 
 启动器选择第一份匹配的文件，文件间不合并：
 
-1. `COWORK_CONFIG` 指定的文件。
-2. 启动目录的 `.cowork/config.json`。
+1. `FORMICAND_CONFIG` 指定的文件。
+2. 启动目录的 `.formicand/config.json`。
 3. 启动目录的 `config.json`。
-4. `~/.atria/config.json`，或 `ATRIA_HOME/config.json`。
+4. `~/.formicand/config.json`，或 `FORMICAND_HOME/config.json`。
 
-启动或运行 `doctor` 时，`COWORK_CONFIG` 指定的文件必须存在；`init` 可以在该路径创建新文件。选中文件的 JSON 或字段无效时直接报错，不回退到下一项。
+启动或运行 `doctor` 时，`FORMICAND_CONFIG` 指定的文件必须存在；`init` 可以在该路径创建新文件。选中文件的 JSON 或字段无效时直接报错，不回退到下一项。
 
 环境变量覆盖选中文件，对应入口的显式参数再覆盖同名设置，例如 Main 的 `--thinking low`。相对配置路径按启动目录解析。
 
-`coworkos init` 默认创建用户配置；若已有项目配置或设置了 `COWORK_CONFIG`，则使用对应文件。已有文件默认拒绝覆盖。`coworkos init --force` 读取并更新已有配置，复用已保存的地址、模型和密钥，只询问缺失的必填值。修改地址或模型时传入 `--base-url`、`--model`；更换密钥时先设置 `COWORK_API_KEY`，或用 `--api-key-env` 指定保存新密钥的环境变量。其他字段及既有消息格式保留。
+`formicand init` 默认创建用户配置；若已有项目配置或设置了 `FORMICAND_CONFIG`，则使用对应文件。已有文件默认拒绝覆盖。`formicand init --force` 读取并更新已有配置，复用已保存的地址、模型和密钥，只询问缺失的必填值。修改地址或模型时传入 `--base-url`、`--model`；更换密钥时先设置 `FORMICAND_API_KEY`，或用 `--api-key-env` 指定保存新密钥的环境变量。其他字段及既有消息格式保留。
 
 已有文件无法解析或字段无效时，先修正文件；`--force` 仍会读取它。自动化初始化可从已设置的环境变量读取密钥：
 
 ```sh
-coworkos init --base-url https://your-service.example/v1 --model your-model-id --api-key-env COWORK_API_KEY
+formicand init --base-url https://your-service.example/v1 --model your-model-id --api-key-env FORMICAND_API_KEY
 ```
 
-可选参数：`--images`、`--reasoning`、`--thinking high`、`--max-tokens 8192`、`--force`。`init` 没有消息格式选项。仅支持 Chat Completions 的服务需在所选配置文件中设置 `"api": "openai-completions"`，或在启动 CLI 时设置 `COWORK_MODEL_API=openai-completions`。
+可选参数：`--images`、`--reasoning`、`--thinking high`、`--max-tokens 8192`、`--force`。`init` 没有消息格式选项。仅支持 Chat Completions 的服务需在所选配置文件中设置 `"api": "openai-completions"`，或在启动 CLI 时设置 `FORMICAND_MODEL_API=openai-completions`。
 
 要为当前项目创建独立配置，在项目目录运行：
 
 ```sh
-COWORK_CONFIG="$PWD/.cowork/config.json" coworkos init
+FORMICAND_CONFIG="$PWD/.formicand/config.json" formicand init
 ```
 
-初始化会创建所需目录。完成后运行 `coworkos doctor` 确认实际选中的配置路径。
+初始化会创建所需目录。完成后运行 `formicand doctor` 确认实际选中的配置路径。
 
-源码开发也可在 CoworkOS 源码仓库根目录复制示例：
+源码开发也可在 Formicand 源码仓库根目录复制示例：
 
 ```sh
-mkdir -p .cowork
-cp config.example.json .cowork/config.json
-chmod 600 .cowork/config.json
+mkdir -p .formicand
+cp config.example.json .formicand/config.json
+chmod 600 .formicand/config.json
 ```
 
 替换示例地址、模型和密钥，也可移除 `apiKey` 并使用环境变量。示例 `workspaceRoot: ".tmp"` 适用于源码开发；跨项目复用任务宜使用固定绝对目录。不要将真实密钥写进命令参数或共享脚本。
 
-源码 Web 使用同一文件优先级，已安装 App 由宿主管理配置。`coworkos doctor` 会检查环境、配置和工作区写入，并以临时文件验证离线查找、内容搜索及忽略规则，不打印密钥。加上 `--test-connection` 才请求模型。
+源码 Web 使用同一文件优先级，已安装 App 由宿主管理配置。`formicand doctor` 会检查环境、配置和工作区写入，并以临时文件验证离线查找、内容搜索及忽略规则，不打印密钥。加上 `--test-connection` 才请求模型。
 
 Finder/Dock 启动的 macOS App 会将存在的 `~/.local/bin`、Homebrew `bin`/`sbin`、`/usr/local/bin`/`sbin` 和用户或系统 LibreOffice 目录补入后端 `PATH`，由 Main、子智能体和命令继承。仅含系统目录时，工具目录前置；已有自定义顺序则保留，在末尾补充缺项。不执行 shell 配置或猜测版本管理器目录。终端 CLI 使用调用方环境。
 
@@ -121,11 +121,11 @@ Finder/Dock 启动的 macOS App 会将存在的 `~/.local/bin`、Homebrew `bin`/
 
 App 使用 Electron safeStorage 加密客户端会话凭据，保存在桌面数据目录的 `client-sessions.json`；系统授权失败时显示错误，重试不会覆盖已保存凭据。模型和搜索密钥属于所选执行主机。
 
-独立执行主机把模型与搜索密钥保存在配置文件旁的 `credentials.json`（0600，可用 `COWORK_CREDENTIALS` 指定路径；模型密钥按供应商 ID 保存在 `modelProviders` 下，CLI 单连接写在 `default`）。设置接口只返回 `configured` 及具体 `credentialError`，不返回密钥；空白密钥保留原值，显式清除搜索密钥会删除保存项。凭据文件损坏时报告具体错误并保留原文件，不覆盖。设置页和真实运行使用同一份主机凭据，密钥不会进入界面状态、日志或事件。
+独立执行主机把模型与搜索密钥保存在配置文件旁的 `credentials.json`（0600，可用 `FORMICAND_CREDENTIALS` 指定路径；模型密钥按供应商 ID 保存在 `modelProviders` 下，CLI 单连接写在 `default`）。设置接口只返回 `configured` 及具体 `credentialError`，不返回密钥；空白密钥保留原值，显式清除搜索密钥会删除保存项。凭据文件损坏时报告具体错误并保留原文件，不覆盖。设置页和真实运行使用同一份主机凭据，密钥不会进入界面状态、日志或事件。
 
 删除供应商时同时删除它的密钥。
 
-客户端会话使用独立钥匙串进程的 `CoworkOS Client` 加密标识，旧开发标识加密的密钥可能需要重新输入，原密文与源目录保留。系统钥匙串被重置（如重装系统）后，保存的客户端会话密文无法再解开，App 自动向后端申请新会话并覆盖该条记录，不再停在授权错误；钥匙串本身不可用时仍提示检查系统授权。原生钥匙串和签名兼容需单独验收。
+客户端会话使用独立钥匙串进程的 `Formicand Client` 加密标识，旧开发标识加密的密钥可能需要重新输入，原密文与源目录保留。系统钥匙串被重置（如重装系统）后，保存的客户端会话密文无法再解开，App 自动向后端申请新会话并覆盖该条记录，不再停在授权错误；钥匙串本身不可用时仍提示检查系统授权。原生钥匙串和签名兼容需单独验收。
 
 ## 角色模型
 
@@ -157,11 +157,11 @@ App 使用 Electron safeStorage 加密客户端会话凭据，保存在桌面数
 
 ## 联网搜索
 
-搜索为 Exa 或关闭：默认使用 Exa，`webSearch.provider: "off"` 或 `COWORK_WEB_TOOLS=0` 关闭，环境关闭优先。
+搜索为 Exa 或关闭：默认使用 Exa，`webSearch.provider: "off"` 或 `FORMICAND_WEB_TOOLS=0` 关闭，环境关闭优先。
 
-自有 Exa 密钥可用 `webSearch.exaApiKey` 或 `COWORK_EXA_API_KEY` / `EXA_API_KEY`，环境变量优先。Main、子智能体和恢复会话使用同一搜索配置；常驻 Main 在每回合开始时重读，页面保存后下一回合即生效。
+自有 Exa 密钥可用 `webSearch.exaApiKey` 或 `FORMICAND_EXA_API_KEY` / `EXA_API_KEY`，环境变量优先。Main、子智能体和恢复会话使用同一搜索配置；常驻 Main 在每回合开始时重读，页面保存后下一回合即生效。
 
-默认连接 [Exa 官方托管 MCP](https://exa.ai/docs/get-started/exa-mcp)：`https://mcp.exa.ai/mcp?tools=web_search_exa,web_fetch_exa`。仅启用基础搜索和读取，支持 JSON/SSE、会话及协议头、取消与 30 秒总期限。`COWORK_EXA_MCP_ENDPOINT` 仅用于可信测试服务，界面不提供地址输入。
+默认连接 [Exa 官方托管 MCP](https://exa.ai/docs/get-started/exa-mcp)：`https://mcp.exa.ai/mcp?tools=web_search_exa,web_fetch_exa`。仅启用基础搜索和读取，支持 JSON/SSE、会话及协议头、取消与 30 秒总期限。`FORMICAND_EXA_MCP_ENDPOINT` 仅用于可信测试服务，界面不提供地址输入。
 
 工具保留来源的标题、URL、正文和可用日期，缺失日期不补造。单 URL 读取需有效来源及非空正文，并保留重定向后的 URL；多来源需匹配请求 URL。无效来源、空结构、仅元数据或无法关联的正文均算工具失败，供应商 JSON 包装不作为网页证据。只有服务返回真实空列表才算零结果；网络、代理、协议、超时及取消均为失败。
 
@@ -185,7 +185,7 @@ App 使用 Electron safeStorage 加密客户端会话凭据，保存在桌面数
 {
   "projectData": {
     "engine": "postgres",
-    "postgres": { "connectionString": "postgresql://coworkos@db.example:5432/coworkos" }
+    "postgres": { "connectionString": "postgresql://formicand@db.example:5432/formicand" }
   }
 }
 ```
@@ -200,11 +200,11 @@ App 使用 Electron safeStorage 加密客户端会话凭据，保存在桌面数
 }
 ```
 
-`authority` 与 `engine`、`sqlite`、`postgres` 互斥。客户端启动时用主机凭据换取一个本地会话，之后只出示该会话；凭据保存在服务端配置或 `COWORK_PROJECT_DATA_TOKEN`，不进入界面、工具参数或错误文本。权威服务不可达返回 `storage_unavailable`，会话被撤销返回 `shared_auth_failed`；两者都不伪造认领成功，也不自动转移归属。主会话记录、需求开发记录、审查记录与看板一样经该客户端共享；Task、Pi 历史、现场检出目录与执行归属仍留在创建它的后端，另一个后端不能为不属于自己的会话记录或结算 Run，也只能读取自己准备的现场。项目合入配置中的仓库与目标分支由配置的执行后端在自己的主机上校验；权威只保存验证后的共享事实，不对远端路径执行 Git。共享项目沿用同一 `projectId`，每个后端只登记自己的本机目录绑定；远端绝对路径不会成为本机执行目录。备份与恢复在权威服务所在后端执行，远程客户端会明确拒绝。
+`authority` 与 `engine`、`sqlite`、`postgres` 互斥。客户端启动时用主机凭据换取一个本地会话，之后只出示该会话；凭据保存在服务端配置或 `FORMICAND_PROJECT_DATA_TOKEN`，不进入界面、工具参数或错误文本。权威服务不可达返回 `storage_unavailable`，会话被撤销返回 `shared_auth_failed`；两者都不伪造认领成功，也不自动转移归属。主会话记录、需求开发记录、审查记录与看板一样经该客户端共享；Task、Pi 历史、现场检出目录与执行归属仍留在创建它的后端，另一个后端不能为不属于自己的会话记录或结算 Run，也只能读取自己准备的现场。项目合入配置中的仓库与目标分支由配置的执行后端在自己的主机上校验；权威只保存验证后的共享事实，不对远端路径执行 Git。共享项目沿用同一 `projectId`，每个后端只登记自己的本机目录绑定；远端绝对路径不会成为本机执行目录。备份与恢复在权威服务所在后端执行，远程客户端会明确拒绝。
 
-需求现场是目标仓库之外的独立 `git worktree`，按数据根放在 `ATRIA_HOME/runtime/development-workspaces/<developmentId>`（默认 `~/.atria/runtime/development-workspaces`）；它不会放进共享记录，也不会写进用户自己的工作目录。绑定需求的工作项在同一层级的 `work-items/<callId>` 分出各自现场，恢复时复用原目录与分支。合入在 `merges/<mergeId>` 建立自己的临时组合现场，目标更新后或失败时删除；它不覆盖用户现场、先前合入或未合入分支。目标已更新、共享记录尚未写入的交付事实按项目保存在 `ATRIA_HOME/runtime/delivery-sync/<项目哈希>.json`（0600、原子替换）：它只含合入身份、目标、提交和最近错误，属于执行主机的本机恢复事实，不进入共享记录或项目数据库备份；读取、`apply_merge`、重试或重启会从该事实和真实分支补齐同一次交付。
+需求现场是目标仓库之外的独立 `git worktree`，按数据根放在 `FORMICAND_HOME/runtime/development-workspaces/<developmentId>`（默认 `~/.formicand/runtime/development-workspaces`）；它不会放进共享记录，也不会写进用户自己的工作目录。绑定需求的工作项在同一层级的 `work-items/<callId>` 分出各自现场，恢复时复用原目录与分支。合入在 `merges/<mergeId>` 建立自己的临时组合现场，目标更新后或失败时删除；它不覆盖用户现场、先前合入或未合入分支。目标已更新、共享记录尚未写入的交付事实按项目保存在 `FORMICAND_HOME/runtime/delivery-sync/<项目哈希>.json`（0600、原子替换）：它只含合入身份、目标、提交和最近错误，属于执行主机的本机恢复事实，不进入共享记录或项目数据库备份；读取、`apply_merge`、重试或重启会从该事实和真实分支补齐同一次交付。
 
-SQLite 的默认文件是数据根下的 `project-data.sqlite`（`ATRIA_HOME/runtime/project-data.sqlite`，默认 `~/.atria/runtime/project-data.sqlite`）；`projectData.sqlite.path` 可指定文件，相对路径按数据根解析。PostgreSQL 也可用 `host`、`port`、`database`、`user`、`password`、`ssl` 分开填写。连接凭据只保存在服务端配置或 `COWORK_PROJECT_DATA_URL`，不进入界面、工具参数或错误文本。
+SQLite 的默认文件是数据根下的 `project-data.sqlite`（`FORMICAND_HOME/runtime/project-data.sqlite`，默认 `~/.formicand/runtime/project-data.sqlite`）；`projectData.sqlite.path` 可指定文件，相对路径按数据根解析。PostgreSQL 也可用 `host`、`port`、`database`、`user`、`password`、`ssl` 分开填写。连接凭据只保存在服务端配置或 `FORMICAND_PROJECT_DATA_URL`，不进入界面、工具参数或错误文本。
 
 本阶段的整合验证使用 Node 22.23.4（最低要求 22.19.0）、内置 `node:sqlite`（SQLite 3.53.4）、PostgreSQL 18.6 服务端（官方 `postgres:18.6-alpine3.24` 镜像）和锁定版本 `pg` 8.23.1 客户端；其他引擎版本未在本阶段验证。启动时引擎即固定，切换引擎不会读取另一引擎的数据。
 
@@ -215,8 +215,8 @@ SQLite 的默认文件是数据根下的 `project-data.sqlite`（`ATRIA_HOME/run
 服务启动时创建当前 schema。`GET /api/project-data` 报告当前引擎、服务端版本和 schema 版本；`target` 是文件路径或 `postgresql://host:port/database`，不含凭据。当前 schema 为 v14，包含长期功能需求（功能描述、现状、历史与别名）、台账上次维护读到的时间、看板、主会话、需求开发、票、审查（含整体终审的对照表）、合入操作与交付记录。升级到 v14 会按已有维护和交付记录初始化每个项目的有序时钟。同一毫秒内的读取和交付按事务先后排序。旧版时间精度无法区分上次维护边界内外的记录，升级后会重新列出边界上那一毫秒的交付与历史一次。升级前尚未提交的维护需重新读取快照，再原样回传新的 `readAt`。打开 v12 的数据库时，在同一事务里去掉项目上的维护读取时间，改由每次读取交回自己的读取时间。打开 v10 的数据库时，在同一事务里给审查加上对照表，原有审查都没有。打开 v9 的数据库时，除此之外还给项目加上台账维护时间，原有项目记为从未维护；给每条需求加上功能描述，取现状的第一句，现状为空时取标题。打开 v8 的数据库时，在同一事务里换成 v14：需求原文与仍生效的决定合为现状，撤回的决定和每次合入记成历史，已交付的开发记为已合入，每个项目补一条杂项需求。打开记录为其他版本的数据库会被拒绝，错误指明文件（或 `postgresql://host:port/database`）与版本，文件不被改写；此时请从备份恢复或使用对应版本打开。备份与恢复使用同一服务，按当前引擎读取和写入：
 
 ```sh
-coworkos data backup --to ~/backups/project-data.json
-coworkos data restore --from ~/backups/project-data.json
+formicand data backup --to ~/backups/project-data.json
+formicand data restore --from ~/backups/project-data.json
 ```
 
 备份是本机逻辑快照（文件权限 0600），包含共享项目、本机目录绑定、需求、修订、决定、引用、看板条目与事件（含实际合入提交）、Main 会话与运行归属、需求开发记录、审查通道判断、固定候选审查及其发现与裁定、各后端的现场绑定、项目合入配置、合入操作与回执、以及交付记录和其台账/看板同步状态；Pi 历史和现场目录中的检出文件不在快照里，仍由执行后端本地保管。恢复在一个事务里按外键顺序整体替换这些记录，并拒绝来自另一引擎或旧 schema 的备份文件。恢复前先停止写入该数据根的后端，恢复后重启后端读取。使用 `projectData.authority` 的后端没有本地数据库，备份和恢复在权威服务所在后端执行。
@@ -231,49 +231,49 @@ external 服务的外部 Main 配额写在本机配置中；未配置时保持�
 
 `resident` 限制同时运行的外部常规 Main，`continuation` 保留给接续 Main，二者不能互相借用；内部 Main 不占外部配额。每个项目可保存的外部常规会话数等于 `resident`，保存但未运行不占运行名额，接续会话不计入项目常规上限。降低配额若低于正在运行的数量或任何项目已保存的常规会话数会被拒绝并说明原因，已有运行不会被终止。
 
-配额与容量状态经 `GET /api/main-capacity` 读取、`POST /api/main-capacity` 修改；运行与排队事实保存在数据根的 `main-capacity/state.json`（默认 `~/.atria/runtime/main-capacity/state.json`），随本机后端身份，不写入共享项目数据。程序按到达顺序占用空闲名额，进程结束、启动失败、取消、崩溃和重启对账都会释放名额并推进队列；重启只核对本机自有进程，不终止无关进程。共享服务暂时不可达等可恢复故障会释放名额但保留已接受的需求，按退避重试并在容量视图显示等待/失败状态与最近错误；不可自动恢复的永久拒绝同样保留输入，直接记为失败而不消耗重试。失败的需求仍保留输入，可由 `POST /api/main-capacity` 的 `retry` 操作重新排队。被派发的 Main 在开始工作前会把自己的进程号登记到名额；对账在同一容量写入内确认预留仍与先前观察一致才回收，期间完成登记的 Main 保留名额并被计入，名额已被释放的 Main 拒绝启动。CLI 与 main-worker 启动 external Main 时读取同一文件并写入同一队列；排队中的需求只保留显式 profile/model/推理选择，默认连接在真正获得名额时按角色配置解析，因此在等待期间修改的 host/项目默认作用于这次 Run。
+配额与容量状态经 `GET /api/main-capacity` 读取、`POST /api/main-capacity` 修改；运行与排队事实保存在数据根的 `main-capacity/state.json`（默认 `~/.formicand/runtime/main-capacity/state.json`），随本机后端身份，不写入共享项目数据。程序按到达顺序占用空闲名额，进程结束、启动失败、取消、崩溃和重启对账都会释放名额并推进队列；重启只核对本机自有进程，不终止无关进程。共享服务暂时不可达等可恢复故障会释放名额但保留已接受的需求，按退避重试并在容量视图显示等待/失败状态与最近错误；不可自动恢复的永久拒绝同样保留输入，直接记为失败而不消耗重试。失败的需求仍保留输入，可由 `POST /api/main-capacity` 的 `retry` 操作重新排队。被派发的 Main 在开始工作前会把自己的进程号登记到名额；对账在同一容量写入内确认预留仍与先前观察一致才回收，期间完成登记的 Main 保留名额并被计入，名额已被释放的 Main 拒绝启动。CLI 与 main-worker 启动 external Main 时读取同一文件并写入同一队列；排队中的需求只保留显式 profile/model/推理选择，默认连接在真正获得名额时按角色配置解析，因此在等待期间修改的 host/项目默认作用于这次 Run。
 
 接口说明见 [Product API](product-api.md#external-main-capacity)。
 
 ## 路径与环境变量
 
-| 环境变量                                              | 用途                                                                  |
-| ----------------------------------------------------- | --------------------------------------------------------------------- |
-| `COWORK_CONFIG`                                       | 显式配置文件                                                          |
-| `COWORK_API_BASE` / `COWORK_MODEL` / `COWORK_API_KEY` | 模型地址、ID、密钥                                                    |
-| `COWORK_MODEL_API`                                    | 与 `api` 取值相同                                                     |
-| `COWORK_THINKING_FORMAT`                              | 当前进程的思考格式                                                    |
-| `COWORK_SUPPORTS_IMAGES`                              | `1` / `true` 开启，`0` / `false` 关闭                                 |
-| `COWORK_REASONING_EFFORT`                             | 推理强度                                                              |
-| `COWORK_SUPPORTS_REASONING_EFFORT`                    | `1` / `true` 开启，`0` / `false` 禁止强度字段                         |
-| `COWORK_SUPPORTS_PROMPT_CACHE_KEY`                    | `1` / `true` 开启，`0` / `false` 关闭第三方缓存键                     |
-| `ATRIA_HOME`                                          | App、CLI、Web 用户目录，默认 `~/.atria`；显式路径覆盖仍优先           |
-| `COWORK_DESKTOP_DATA`                                 | 独立桌面数据目录                                                      |
-| `COWORK_WORKSPACE`                                    | 持久任务数据目录，默认 `~/.atria/workspace`                           |
-| `COWORK_PROJECT_DIR`                                  | Main 文件与命令的项目目录                                             |
-| `PI_CODING_AGENT_DIR`                                 | Pi 状态目录，默认 `~/.atria/pi`                                       |
-| `COWORK_TASK_ID`                                      | 固定 Main Task，恢复时配合原 Pi 会话                                  |
-| `COWORK_UI_PORT`                                      | 源码 Web 端口，默认 3880                                              |
-| `COWORK_PROJECT_DATA_ENGINE`                          | 项目数据引擎：`sqlite`（默认）或 `postgres`                           |
-| `COWORK_PROJECT_DATA_SQLITE`                          | SQLite 数据文件路径                                                   |
-| `COWORK_PROJECT_DATA_URL`                             | PostgreSQL 连接地址，覆盖配置文件中的 `projectData.postgres`          |
-| `COWORK_PROJECT_DATA_AUTHORITY`                       | 共享项目数据权威服务地址，覆盖 `projectData.authority.url`            |
-| `COWORK_PROJECT_DATA_TOKEN`                           | 权威服务访问凭据，覆盖 `projectData.authority.token`                  |
-| `COWORK_TRUSTED_CLIENT_ORIGINS`                       | 受信本机页面来源，逗号分隔的精确 `http://127.0.0.1:<port>` 等回环地址 |
+| 环境变量                                                       | 用途                                                                  |
+| -------------------------------------------------------------- | --------------------------------------------------------------------- |
+| `FORMICAND_CONFIG`                                             | 显式配置文件                                                          |
+| `FORMICAND_API_BASE` / `FORMICAND_MODEL` / `FORMICAND_API_KEY` | 模型地址、ID、密钥                                                    |
+| `FORMICAND_MODEL_API`                                          | 与 `api` 取值相同                                                     |
+| `FORMICAND_THINKING_FORMAT`                                    | 当前进程的思考格式                                                    |
+| `FORMICAND_SUPPORTS_IMAGES`                                    | `1` / `true` 开启，`0` / `false` 关闭                                 |
+| `FORMICAND_REASONING_EFFORT`                                   | 推理强度                                                              |
+| `FORMICAND_SUPPORTS_REASONING_EFFORT`                          | `1` / `true` 开启，`0` / `false` 禁止强度字段                         |
+| `FORMICAND_SUPPORTS_PROMPT_CACHE_KEY`                          | `1` / `true` 开启，`0` / `false` 关闭第三方缓存键                     |
+| `FORMICAND_HOME`                                               | App、CLI、Web 用户目录，默认 `~/.formicand`；显式路径覆盖仍优先       |
+| `FORMICAND_DESKTOP_DATA`                                       | 独立桌面数据目录                                                      |
+| `FORMICAND_WORKSPACE`                                          | 持久任务数据目录，默认 `~/.formicand/workspace`                       |
+| `FORMICAND_PROJECT_DIR`                                        | Main 文件与命令的项目目录                                             |
+| `PI_CODING_AGENT_DIR`                                          | Pi 状态目录，默认 `~/.formicand/pi`                                   |
+| `FORMICAND_TASK_ID`                                            | 固定 Main Task，恢复时配合原 Pi 会话                                  |
+| `FORMICAND_UI_PORT`                                            | 源码 Web 端口，默认 3880                                              |
+| `FORMICAND_PROJECT_DATA_ENGINE`                                | 项目数据引擎：`sqlite`（默认）或 `postgres`                           |
+| `FORMICAND_PROJECT_DATA_SQLITE`                                | SQLite 数据文件路径                                                   |
+| `FORMICAND_PROJECT_DATA_URL`                                   | PostgreSQL 连接地址，覆盖配置文件中的 `projectData.postgres`          |
+| `FORMICAND_PROJECT_DATA_AUTHORITY`                             | 共享项目数据权威服务地址，覆盖 `projectData.authority.url`            |
+| `FORMICAND_PROJECT_DATA_TOKEN`                                 | 权威服务访问凭据，覆盖 `projectData.authority.token`                  |
+| `FORMICAND_TRUSTED_CLIENT_ORIGINS`                             | 受信本机页面来源，逗号分隔的精确 `http://127.0.0.1:<port>` 等回环地址 |
 
-`COWORK_TRUSTED_CLIENT_ORIGINS` 只接受精确的本机 `http://` 来源，不接受通配符；命名的来源可以跨端口读取该后端的响应并出现在其页面 `connect-src` 中。真实请求仍走凭据校验，监听地址仍为 `127.0.0.1`。浏览器页面管理另一个本机后端时，两者需要互相命名对方来源。详见 [Product API](product-api.md#trusted-local-client-origins)。
+`FORMICAND_TRUSTED_CLIENT_ORIGINS` 只接受精确的本机 `http://` 来源，不接受通配符；命名的来源可以跨端口读取该后端的响应并出现在其页面 `connect-src` 中。真实请求仍走凭据校验，监听地址仍为 `127.0.0.1`。浏览器页面管理另一个本机后端时，两者需要互相命名对方来源。详见 [Product API](product-api.md#trusted-local-client-origins)。
 
-各入口运行状态默认位于 `~/.atria/runtime`。项目设置保存 `projectName`、`projectId`、`projectDirectory`，首条消息才创建会话。项目工作目录与 `workspaceRoot` / `COWORK_WORKSPACE` 下的内部存储相互独立。
+各入口运行状态默认位于 `~/.formicand/runtime`。项目设置保存 `projectName`、`projectId`、`projectDirectory`，首条消息才创建会话。项目工作目录与 `workspaceRoot` / `FORMICAND_WORKSPACE` 下的内部存储相互独立。
 
-显式旧 `.tmp` / `.tmp/pi-agent` 路径继续生效，源码入口不再隐式使用仓库 `.tmp`。App 正式版与开发版共用数据及单实例锁；`COWORK_DESKTOP_DATA` 和 `ATRIA_HOME` 显式覆盖仍可指向独立目录。
+显式旧 `.tmp` / `.tmp/pi-agent` 路径继续生效，源码入口不再隐式使用仓库 `.tmp`。App 正式版与开发版共用数据及单实例锁；`FORMICAND_DESKTOP_DATA` 和 `FORMICAND_HOME` 显式覆盖仍可指向独立目录。
 
-`coworkos data paths` 显示实际路径。
+`formicand data paths` 显示实际路径。
 
 ## 界面语言
 
 在“设置 → 通用 → 语言”选择“简体中文”或“English”，默认简体中文。切换前会保存会话与人工回复草稿；无法安全保存时保留当前界面。切换后刷新页面生效。
 
-Web 将偏好按站点保存在 `localStorage` 的 `atria.language`；App 将偏好保存在用户数据目录的 `language.json`，不受本地后端随机端口影响。此设置用于共用 App/Web 主界面、设置和会话；不修改已有用户内容、模型回复语言、CLI、系统原生弹窗或第三方工具的独立语言设置。后端和外部工具返回的原始错误保留原文。
+Web 将偏好按站点保存在 `localStorage` 的 `formicand.language`；App 将偏好保存在用户数据目录的 `language.json`，不受本地后端随机端口影响。此设置用于共用 App/Web 主界面、设置和会话；不修改已有用户内容、模型回复语言、CLI、系统原生弹窗或第三方工具的独立语言设置。后端和外部工具返回的原始错误保留原文。
 
 ## 外观存储
 
@@ -283,21 +283,21 @@ App 将外观偏好保存在用户数据目录的 `appearance.json`，Web 按浏
 
 下表为底层 Runtime 默认值；文件和环境覆盖优先。新连接的输出上限为 8192，推理设置为 `off` / `false`，已有连接不自动改写。
 
-| JSON 字段                   | 环境变量                              | Runtime 默认值                                                  |
-| --------------------------- | ------------------------------------- | --------------------------------------------------------------- |
-| `mainMaxTurns`              | `COWORK_MAIN_MAX_TURNS`               | 2000                                                            |
-| `subagentMaxTurns`          | `COWORK_MAX_TURNS`                    | 200                                                             |
-| `mainMaxTokens`             | `COWORK_MAIN_MAX_TOKENS`              | 65536；新连接 8192                                              |
-| `subagentMaxTokens`         | `COWORK_MAX_TOKENS`                   | 65536；新连接 8192                                              |
-| `contextWindow`             | `COWORK_CONTEXT_WINDOW`               | 256000 token                                                    |
-| `mainTimeoutMs`             | `COWORK_MAIN_TIMEOUT_MS`              | 0，不限时                                                       |
-| `mainIdleTimeoutMs`         | `COWORK_MAIN_IDLE_TIMEOUT_MS`         | 300000（5 分钟）；0 不因空闲退出                                |
-| `subagentTimeoutMs`         | `COWORK_SUBAGENT_TIMEOUT_MS`          | 0，不限时；旧 `COWORK_TIMEOUT_MS` 仅兼容子智能体                |
-| `commandTimeoutMs`          | `COWORK_COMMAND_TIMEOUT_MS`           | 1800000（30 分钟）；0 不限时                                    |
-| `maxAttempts`               | `COWORK_MAX_ATTEMPTS`                 | 3，含首次委派；1 关闭委派重试                                   |
-| `subagentQuestionTimeoutMs` | `COWORK_SUBAGENT_QUESTION_TIMEOUT_MS` | 180000（3 分钟）；0 关闭向 Main 提问；Main 等用户回答期间不计时 |
-| `humanAnswerTimeoutMs`      | `COWORK_HUMAN_ANSWER_TIMEOUT_MS`      | 60000（1 分钟）                                                 |
-| `subagentMaxQuestions`      | `COWORK_SUBAGENT_MAX_QUESTIONS`       | 3                                                               |
+| JSON 字段                   | 环境变量                                 | Runtime 默认值                                                  |
+| --------------------------- | ---------------------------------------- | --------------------------------------------------------------- |
+| `mainMaxTurns`              | `FORMICAND_MAIN_MAX_TURNS`               | 2000                                                            |
+| `subagentMaxTurns`          | `FORMICAND_MAX_TURNS`                    | 200                                                             |
+| `mainMaxTokens`             | `FORMICAND_MAIN_MAX_TOKENS`              | 65536；新连接 8192                                              |
+| `subagentMaxTokens`         | `FORMICAND_MAX_TOKENS`                   | 65536；新连接 8192                                              |
+| `contextWindow`             | `FORMICAND_CONTEXT_WINDOW`               | 256000 token                                                    |
+| `mainTimeoutMs`             | `FORMICAND_MAIN_TIMEOUT_MS`              | 0，不限时                                                       |
+| `mainIdleTimeoutMs`         | `FORMICAND_MAIN_IDLE_TIMEOUT_MS`         | 300000（5 分钟）；0 不因空闲退出                                |
+| `subagentTimeoutMs`         | `FORMICAND_SUBAGENT_TIMEOUT_MS`          | 0，不限时；旧 `FORMICAND_TIMEOUT_MS` 仅兼容子智能体             |
+| `commandTimeoutMs`          | `FORMICAND_COMMAND_TIMEOUT_MS`           | 1800000（30 分钟）；0 不限时                                    |
+| `maxAttempts`               | `FORMICAND_MAX_ATTEMPTS`                 | 3，含首次委派；1 关闭委派重试                                   |
+| `subagentQuestionTimeoutMs` | `FORMICAND_SUBAGENT_QUESTION_TIMEOUT_MS` | 180000（3 分钟）；0 关闭向 Main 提问；Main 等用户回答期间不计时 |
+| `humanAnswerTimeoutMs`      | `FORMICAND_HUMAN_ANSWER_TIMEOUT_MS`      | 60000（1 分钟）                                                 |
+| `subagentMaxQuestions`      | `FORMICAND_SUBAGENT_MAX_QUESTIONS`       | 3                                                               |
 
 超时单位为毫秒。`mainTimeoutMs` 是一轮模型工作的截止时间；`mainIdleTimeoutMs` 是常驻 Main 在没有进行中的回合、也没有在跑的子代理时保留进程的时长，到时保留会话与任务状态退出，之后的消息或回调会重新拉起 Main。`maxAttempts` 是委派预算，独立于模型请求重试。长任务与重试行为见 [运行时参考](runtime-reference.md#请求重试与上下文恢复)。
 

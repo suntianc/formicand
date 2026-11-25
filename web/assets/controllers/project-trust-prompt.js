@@ -6,8 +6,8 @@ import { createModal } from "../ui/modal.js";
 /**
  * The trust question in the work view.
  *
- * A project that carries its own Agents (`.atria/agents`) or skills
- * (`.atria/skills`, `.agents/skills`) is asked about the first time it is
+ * A project that carries its own Agents (`.formicand/agents`) or skills
+ * (`.formicand/skills`, `.agents/skills`) is asked about the first time it is
  * opened: until the user says yes, none of it reaches Main or a Subagent.
  * Only names are read to ask. An answer not remembered holds for this page.
  */
@@ -55,10 +55,10 @@ export function createProjectTrustPrompt({ api, getProjectId, showToast = () => 
     $("[data-trust-path]").textContent = preview.project.displayDirectory;
     $("[data-trust-list]").innerHTML = [
       preview.agents.length
-        ? `<li>${icon("bot")}<span class="is-mono">.atria/agents/</span><span>${esc(agentLine(preview.agents))}</span></li>`
+        ? `<li>${icon("bot")}<span class="is-mono">.formicand/agents/</span><span>${esc(agentLine(preview.agents))}</span></li>`
         : "",
       preview.skills.length
-        ? `<li>${icon("book-open")}<span class="is-mono">.atria/skills/ · .agents/skills/</span><span>${esc(skillLine(preview.skills))}</span></li>`
+        ? `<li>${icon("book-open")}<span class="is-mono">.formicand/skills/ · .agents/skills/</span><span>${esc(skillLine(preview.skills))}</span></li>`
         : ""
     ].join("");
     $("[data-trust-remember]").checked = true;

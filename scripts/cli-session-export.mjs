@@ -61,7 +61,7 @@ export async function exportCliSession({
   validateSessionExportEntries(records.slice(1));
   const destination = resolve(
     directory,
-    outputPath ?? `coworkos-session-${header.id.replace(/[^a-zA-Z0-9._-]/g, "_")}.${format}`
+    outputPath ?? `formicand-session-${header.id.replace(/[^a-zA-Z0-9._-]/g, "_")}.${format}`
   );
   const sourceStat = await stat(path);
   const destinationStat = await stat(destination).catch((error) => {
@@ -70,7 +70,7 @@ export async function exportCliSession({
   });
   if (destinationStat?.dev === sourceStat.dev && destinationStat?.ino === sourceStat.ino)
     throw new Error("导出不能覆盖原始会话文件。");
-  const temporary = await mkdtemp(join(tmpdir(), "atria-session-export-"));
+  const temporary = await mkdtemp(join(tmpdir(), "formicand-session-export-"));
   try {
     const copy = join(temporary, "session.jsonl");
     await writeFile(copy, original, { mode: 0o600 });
@@ -121,7 +121,7 @@ export async function exportCliSession({
 export function parseSessionExportArgs(values) {
   const source = values[0];
   if (!source || source.startsWith("--"))
-    throw new Error("用法：coworkos session export ID|PATH [--format json|html] [--output FILE] [--force]");
+    throw new Error("用法：formicand session export ID|PATH [--format json|html] [--output FILE] [--force]");
   const options = { source, format: "json", force: false };
   for (let index = 1; index < values.length; index++) {
     const flag = values[index];

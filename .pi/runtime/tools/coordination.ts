@@ -8,13 +8,13 @@ import { recommendedAnswer } from "../../../dist/src/runtime/human.js";
 import { assessTaskCompletion } from "../../../dist/src/runtime/task-completion.js";
 import { LocalWorkspaceStore } from "../../../dist/src/workspace/workspace-store.js";
 import { createSubagentClient } from "../../../dist/src/runtime/subagent-client.js";
-import type { CoworkToolContext } from "../extension.ts";
+import type { FormicandToolContext } from "../extension.ts";
 import type { RuntimeToolResult } from "../helpers.ts";
 
 import { delegationRenderers } from "../cli-ui.ts";
 
 /** coordination tools depend only on explicit runtime ports. */
-export function registerCoordinationTools(pi: ExtensionAPI, context: CoworkToolContext) {
+export function registerCoordinationTools(pi: ExtensionAPI, context: FormicandToolContext) {
   pi.registerTool({
     name: "askhuman",
     label: "Ask Human",
@@ -249,7 +249,7 @@ export function registerCoordinationTools(pi: ExtensionAPI, context: CoworkToolC
     ...delegationRenderers(() => context.cliDebugEnabled()),
     async execute(_toolCallId, params, signal, _onUpdate, ctx): Promise<RuntimeToolResult> {
       if (!context.baseUrl || !context.apiKey)
-        throw new Error("Cowork requires COWORK_API_BASE/COWORK_API_KEY or .cowork/config.json");
+        throw new Error("Formicand requires FORMICAND_API_BASE/FORMICAND_API_KEY or .formicand/config.json");
       // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- task 由模型以 JSON 参数传入，运行期可能缺失；空串回退后由下面的 !goal 拒绝，否则 String(undefined) 会变成 "undefined" 通过校验
       const goal = String(params.task ?? "").trim();
       if (!goal) throw new Error("call_subagent requires task");
@@ -549,7 +549,7 @@ export function registerCoordinationTools(pi: ExtensionAPI, context: CoworkToolC
       await context.deliverCallbacks().catch(() => {});
       return {
         content: [{ type: "text", text: JSON.stringify(result) }],
-        details: { ...result, _coworkInboxMessages: claimedCallbacks }
+        details: { ...result, _formicandInboxMessages: claimedCallbacks }
       };
     }
   });
@@ -656,7 +656,7 @@ export function registerCoordinationTools(pi: ExtensionAPI, context: CoworkToolC
   });
 }
 
-type HumanInput = Parameters<CoworkToolContext["humanStore"]["create"]>[0];
+type HumanInput = Parameters<FormicandToolContext["humanStore"]["create"]>[0];
 
 /**
  * Ask the user and wait, so the answer is the calling tool's result.
@@ -667,12 +667,12 @@ type HumanInput = Parameters<CoworkToolContext["humanStore"]["create"]>[0];
  * answer still reaches Main through the durable path) and the turn goes on.
  */
 export async function askHumanAndWait(
-  context: CoworkToolContext,
+  context: FormicandToolContext,
   input: Omit<HumanInput, "taskId" | "runId">,
   signal: AbortSignal | undefined,
   ctx: {
     ui: { notify(message: string, type?: "info" | "warning" | "error"): void };
-    sessionManager?: Parameters<CoworkToolContext["flushSessionContext"]>[0]["sessionManager"];
+    sessionManager?: Parameters<FormicandToolContext["flushSessionContext"]>[0]["sessionManager"];
   },
   requestId?: string
 ) {

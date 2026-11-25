@@ -9,8 +9,8 @@ const { createComposerDraftStore } = createRequire(import.meta.url)("../desktop/
 const preload = await readFile("desktop/preload.cjs", "utf8");
 const activeDraft = (store) => {
   const entries = store.snapshot().entries;
-  const key = JSON.parse(entries["atria.composer.v1:active"] || '"new"');
-  return entries[`atria.composer.v1:${key}`];
+  const key = JSON.parse(entries["formicand.composer.v1:active"] || '"new"');
+  return entries[`formicand.composer.v1:${key}`];
 };
 
 async function installNativeBridge(page, store, persist, seed = false) {
@@ -20,7 +20,7 @@ async function installNativeBridge(page, store, persist, seed = false) {
     content: `(() => {
     const snapshot = ${JSON.stringify(snapshot)};
     if (${seed}) {
-      localStorage.setItem("atria.composer.v1:obsolete", "old-origin-data");
+      localStorage.setItem("formicand.composer.v1:obsolete", "old-origin-data");
       localStorage.setItem("other-preference", "keep-this-preference");
     }
     const listeners = {};
@@ -30,16 +30,16 @@ async function installNativeBridge(page, store, persist, seed = false) {
         sendSync: () => snapshot,
         on: (channel, handler) => { listeners[channel] = handler; },
         invoke: async (channel, ...args) => {
-          if (channel === "bookman:save-composer-drafts") return window.__persistDrafts(args[0], location.origin);
-          if (channel === "bookman:model-status") return { baseUrl: "https://fixture.example", model: "fixture", configured: true };
-          if (channel === "bookman:documents-ready") { window.__lastDraftAck = args[1]; return; }
+          if (channel === "formicand:save-composer-drafts") return window.__persistDrafts(args[0], location.origin);
+          if (channel === "formicand:model-status") return { baseUrl: "https://fixture.example", model: "fixture", configured: true };
+          if (channel === "formicand:documents-ready") { window.__lastDraftAck = args[1]; return; }
         }
       }
     };
     window.__sendNative = (channel, ...args) => listeners[channel]?.({}, ...args);
     (function(require, process) { ${preload} })((name) => electron, { platform: "darwin", env: {} });
-    const active = JSON.parse(localStorage.getItem("atria.composer.v1:active") || '"new"');
-    window.__draftAtPreload = localStorage.getItem("atria.composer.v1:" + active);
+    const active = JSON.parse(localStorage.getItem("formicand.composer.v1:active") || '"new"');
+    window.__draftAtPreload = localStorage.getItem("formicand.composer.v1:" + active);
   })();`
   });
 }
@@ -48,7 +48,7 @@ test("desktop preload restores drafts before page modules on a new origin and re
   page,
   context
 }) => {
-  const root = await mkdtemp(join(tmpdir(), "atria-chromium-draft-profile-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-chromium-draft-profile-"));
   const first = await startDashboard();
   const store = createComposerDraftStore(root);
   await store.load();
@@ -74,14 +74,14 @@ test("desktop preload restores drafts before page modules on a new origin and re
     expect(await restored.evaluate(() => JSON.parse(window.__draftAtPreload).text)).toContain(
       "修改模型并重启服务"
     );
-    expect(await restored.evaluate(() => localStorage.getItem("atria.composer.v1:obsolete"))).toBeNull();
+    expect(await restored.evaluate(() => localStorage.getItem("formicand.composer.v1:obsolete"))).toBeNull();
     expect(await restored.evaluate(() => localStorage.getItem("other-source-setting"))).toBeNull();
     expect(await restored.evaluate(() => localStorage.getItem("other-preference"))).toBe(
       "keep-this-preference"
     );
     fail = true;
     await restored.locator("#composer-input").fill("保存失败时必须留在当前窗口的草稿");
-    await restored.evaluate(() => window.__sendNative("bookman:prepare-close", "draft-flush"));
+    await restored.evaluate(() => window.__sendNative("formicand:prepare-close", "draft-flush"));
     await expect.poll(() => restored.evaluate(() => window.__lastDraftAck)).toBe(false);
     await expect(restored.locator("#composer-input")).toHaveValue("保存失败时必须留在当前窗口的草稿");
   } finally {
@@ -93,7 +93,7 @@ test("desktop preload restores drafts before page modules on a new origin and re
 test("the native draft bridge captures async attachment saves and programmatic clearing without input events", async ({
   page
 }) => {
-  const root = await mkdtemp(join(tmpdir(), "atria-programmatic-drafts-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-programmatic-drafts-"));
   const dashboard = await startDashboard();
   const store = createComposerDraftStore(root);
   await store.load();
@@ -103,20 +103,22 @@ test("the native draft bridge captures async attachment saves and programmatic c
     await page.evaluate(async () => {
       await new Promise((resolve) => setTimeout(resolve, 20));
       localStorage.setItem(
-        "atria.composer.v1:new",
+        "formicand.composer.v1:new",
         JSON.stringify({
           text: "async attachment",
           attachments: [{ name: "read-later.txt", text: "attachment finished reading", size: 27 }]
         })
       );
-      window.bookmanDesktop.saveComposerDrafts();
+      window.formicandDesktop.saveComposerDrafts();
     });
-    await expect.poll(() => store.snapshot().entries["atria.composer.v1:new"]).toContain("read-later.txt");
+    await expect
+      .poll(() => store.snapshot().entries["formicand.composer.v1:new"])
+      .toContain("read-later.txt");
     await page.evaluate(() => {
-      localStorage.removeItem("atria.composer.v1:new");
-      window.bookmanDesktop.saveComposerDrafts();
+      localStorage.removeItem("formicand.composer.v1:new");
+      window.formicandDesktop.saveComposerDrafts();
     });
-    await expect.poll(() => store.snapshot().entries["atria.composer.v1:new"]).toBeUndefined();
+    await expect.poll(() => store.snapshot().entries["formicand.composer.v1:new"]).toBeUndefined();
   } finally {
     await dashboard.stop();
     await rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
@@ -126,7 +128,7 @@ test("the native draft bridge captures async attachment saves and programmatic c
 test("real composer attachment changes reach the desktop mirror and memory-only drafts refuse closing", async ({
   page
 }) => {
-  const root = await mkdtemp(join(tmpdir(), "atria-composer-storage-recovery-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-composer-storage-recovery-"));
   const dashboard = await startDashboard();
   const store = createComposerDraftStore(root);
   await store.load();
@@ -145,19 +147,19 @@ test("real composer attachment changes reach the desktop mirror and memory-only 
     await page.evaluate(() => {
       window.__restoreStorageWrite = Storage.prototype.setItem;
       Storage.prototype.setItem = function (key, value) {
-        if (key.startsWith("atria.composer.v1:"))
+        if (key.startsWith("formicand.composer.v1:"))
           throw new DOMException("quota fixture", "QuotaExceededError");
         return window.__restoreStorageWrite.call(this, key, value);
       };
     });
     await page.locator("#composer-input").fill("存储配额失败后的最新内存草稿");
-    await page.evaluate(() => window.__sendNative("bookman:prepare-close", "quota-refuse-close"));
+    await page.evaluate(() => window.__sendNative("formicand:prepare-close", "quota-refuse-close"));
     await expect.poll(() => page.evaluate(() => window.__lastDraftAck)).toBe(false);
     await expect(page.locator("#composer-input")).toHaveValue("存储配额失败后的最新内存草稿");
     expect(activeDraft(store)).not.toContain("最新内存草稿");
     await page.evaluate(() => {
       Storage.prototype.setItem = window.__restoreStorageWrite;
-      window.__sendNative("bookman:prepare-close", "quota-recovered-close");
+      window.__sendNative("formicand:prepare-close", "quota-recovered-close");
     });
     await expect.poll(() => page.evaluate(() => window.__lastDraftAck)).toBe(true);
     expect(JSON.parse(activeDraft(store)).text).toBe("存储配额失败后的最新内存草稿");
@@ -170,7 +172,7 @@ test("real composer attachment changes reach the desktop mirror and memory-only 
 test("an attachment still being read keeps the window open until its complete text can be saved", async ({
   page
 }) => {
-  const root = await mkdtemp(join(tmpdir(), "atria-pending-attachment-close-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-pending-attachment-close-"));
   const dashboard = await startDashboard();
   const store = createComposerDraftStore(root);
   await store.load();
@@ -192,13 +194,13 @@ test("an attachment still being read keeps the window open until its complete te
       buffer: Buffer.from("必须完整保存的附件首尾")
     });
     await expect.poll(() => received).toBe(true);
-    await page.evaluate(() => window.__sendNative("bookman:prepare-close", "pending-attachment"));
+    await page.evaluate(() => window.__sendNative("formicand:prepare-close", "pending-attachment"));
     await expect.poll(() => page.evaluate(() => window.__lastDraftAck)).toBe(false);
     await expect(page.locator("#toast")).toContainText("附件仍在读取");
     await expect(page.locator("#composer-input")).toHaveValue("带完整附件的退出草稿");
     release();
     await expect(page.locator("#attachment-strip")).toContainText("still-reading.txt");
-    await page.evaluate(() => window.__sendNative("bookman:prepare-close", "complete-attachment"));
+    await page.evaluate(() => window.__sendNative("formicand:prepare-close", "complete-attachment"));
     await expect.poll(() => page.evaluate(() => window.__lastDraftAck)).toBe(true);
     expect(JSON.parse(activeDraft(store))).toMatchObject({
       text: "带完整附件的退出草稿",
@@ -217,7 +219,7 @@ test("an attachment still being read keeps the window open until its complete te
 });
 
 test("a kept upload still blocks closing after its draft is activated again", async ({ page }) => {
-  const root = await mkdtemp(join(tmpdir(), "atria-kept-upload-close-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-kept-upload-close-"));
   const dashboard = await startDashboard();
   const store = createComposerDraftStore(root);
   await store.load();
@@ -254,12 +256,12 @@ test("a kept upload still blocks closing after its draft is activated again", as
     await expect.poll(() => uploading).toBe(true);
     releaseCatalog();
     await expect(page.locator("#composer-project")).toBeVisible();
-    await page.evaluate(() => window.__sendNative("bookman:prepare-close", "kept-upload"));
+    await page.evaluate(() => window.__sendNative("formicand:prepare-close", "kept-upload"));
     await expect.poll(() => page.evaluate(() => window.__lastDraftAck)).toBe(false);
     await expect(page.locator("#toast")).toContainText("附件仍在读取");
     releaseUpload();
     await expect(page.locator("#attachment-strip")).toContainText("kept.txt");
-    await page.evaluate(() => window.__sendNative("bookman:prepare-close", "kept-upload-done"));
+    await page.evaluate(() => window.__sendNative("formicand:prepare-close", "kept-upload-done"));
     await expect.poll(() => page.evaluate(() => window.__lastDraftAck)).toBe(true);
   } finally {
     releaseCatalog();

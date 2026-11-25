@@ -880,7 +880,7 @@ test(
     const beforeNext = await observer.query("PRAGMA data_version");
     const nextResponse = await fetch(`${dashboard.base}/api/projects/${project.projectId}/developments`, {
       method: "POST",
-      headers: { "content-type": "application/json", "x-cowork-read-only": "1" },
+      headers: { "content-type": "application/json", "x-formicand-read-only": "1" },
       body: JSON.stringify({ action: "next", developmentId: boardDevelopment.developmentId })
     });
     assert.equal(nextResponse.status, 200, await nextResponse.text());
@@ -918,7 +918,7 @@ test(
 );
 
 test("a failed merge record keeps its published receipt when Git cannot verify the target", async (t) => {
-  const root = await mkdtemp(join(tmpdir(), "coworkos-delivery-git-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-delivery-git-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const repository = await makeRepository(join(root, "repo"));
   await git(repository, ["config", "gc.auto", "0"]);
@@ -1046,7 +1046,7 @@ test(
       config: {
         projectData: { authority: { url: proxy.url, token: authorityInstance.token } }
       },
-      env: { COWORK_DELIVERY_SYNC_TICK_MS: "50" }
+      env: { FORMICAND_DELIVERY_SYNC_TICK_MS: "50" }
     });
     let stopped = false;
     t.after(async () => {

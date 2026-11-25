@@ -34,7 +34,7 @@ export function createExaSearchProvider(options: ExaOptions): SearchProvider {
   const call = async (name: string, args: Record<string, unknown>, signal: AbortSignal): Promise<unknown> => {
     signal.throwIfAborted();
     const http = createHttpTransport();
-    const client = new Client({ name: "atria-web-search", version: "0.1" });
+    const client = new Client({ name: "formicand-web-search", version: "0.1" });
     const transport = new StreamableHTTPClientTransport(endpoint, {
       requestInit: { headers: options.exaApiKey ? { "x-api-key": options.exaApiKey } : {} },
       fetch: async (url, init) => {

@@ -11,40 +11,40 @@ test("source, Finder development and release apps share one user home and instan
     isPackaged: true,
     appRoot: "/dev-bootstrap",
     env: {
-      COWORK_DESKTOP_DEV: "1",
-      COWORK_DESKTOP_SOURCE_ROOT: "/checkout"
+      FORMICAND_DESKTOP_DEV: "1",
+      FORMICAND_DESKTOP_SOURCE_ROOT: "/checkout"
     }
   });
   assert.deepEqual(source, finder);
-  assert.equal(source.name, "CoworkOS Dev");
-  assert.equal(source.userData, join(homedir(), ".atria"));
+  assert.equal(source.name, "Formicand Dev");
+  assert.equal(source.userData, join(homedir(), ".formicand"));
   const release = desktopProfile({
     isPackaged: true,
     appRoot: "/release",
-    env: { COWORK_DESKTOP_SOURCE_ROOT: "/checkout" }
+    env: { FORMICAND_DESKTOP_SOURCE_ROOT: "/checkout" }
   });
-  assert.equal(release.name, "CoworkOS");
+  assert.equal(release.name, "Formicand");
   assert.equal(source.encryptionName, release.encryptionName);
-  assert.equal(release.encryptionName, "Atria");
+  assert.equal(release.encryptionName, "Formicand");
   assert.equal(release.userData, source.userData);
   assert.equal(release.appRoot, "/release");
 });
 
-test("ATRIA_HOME moves release and development together, while explicit desktop test data wins", () => {
+test("FORMICAND_HOME moves release and development together, while explicit desktop test data wins", () => {
   const base = { appRoot: "/checkout" };
   assert.equal(
-    desktopProfile({ ...base, isPackaged: true, env: { ATRIA_HOME: "/shared" } }).userData,
+    desktopProfile({ ...base, isPackaged: true, env: { FORMICAND_HOME: "/shared" } }).userData,
     "/shared"
   );
   assert.equal(
-    desktopProfile({ ...base, isPackaged: false, env: { ATRIA_HOME: "/shared" } }).userData,
+    desktopProfile({ ...base, isPackaged: false, env: { FORMICAND_HOME: "/shared" } }).userData,
     "/shared"
   );
   assert.equal(
     desktopProfile({
       ...base,
       isPackaged: false,
-      env: { ATRIA_HOME: "/shared", COWORK_DESKTOP_DATA: "/fixture" }
+      env: { FORMICAND_HOME: "/shared", FORMICAND_DESKTOP_DATA: "/fixture" }
     }).userData,
     "/fixture"
   );
@@ -54,7 +54,7 @@ test("explicit desktop data overrides remain available to isolated native tests"
   const profile = desktopProfile({
     isPackaged: false,
     appRoot: "/checkout",
-    env: { COWORK_DESKTOP_DATA: "/fixture" }
+    env: { FORMICAND_DESKTOP_DATA: "/fixture" }
   });
   assert.equal(profile.userData, "/fixture");
 });

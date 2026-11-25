@@ -1,7 +1,7 @@
 <p align="center">
   <picture>
     <source media="(prefers-reduced-motion: reduce)" srcset="docs/assets/readme-hero.png">
-    <img src="docs/assets/readme-hero.gif" alt="CoworkOS: geometric wordmark, fixed OS frame and illustrated desktop workspace" width="100%">
+    <img src="docs/assets/readme-hero.gif" alt="Formicand: geometric wordmark, fixed OS frame and illustrated desktop workspace" width="100%">
   </picture>
 </p>
 
@@ -14,7 +14,7 @@
   <a href="README.zh-CN.md">简体中文</a> | <b>English</b>
 </p>
 
-**CoworkOS is a personal agent client that runs on your own machine.** The desktop and Web interface is called Formicand. It keeps the Main Agent, Coordinator Runtime, Subagents, durable tasks and recovery, and keeps project workspaces, execution records and configurable model services local.
+**Formicand is a personal agent client that runs on your own machine.** It keeps the Main Agent, Coordinator Runtime, Subagents, durable tasks and recovery, and keeps project workspaces, execution records and configurable model services local.
 
 - **Delegated work.** The Main Agent plans, delegates and evaluates; the Coordinator Runtime dispatches subtasks and tracks their lifecycles; Subagents run as separate processes on scoped assignments.
 - **Development delivery.** The first built-in kind of work is software development: requirement ledger and board, scoped tickets, independent review, rework and merge.

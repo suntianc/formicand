@@ -17,7 +17,7 @@ import { splitUploadedFiles } from "../web/assets/uploaded-files.js";
 import { listTaskArtifacts } from "../dist/src/workspace/artifact-store.js";
 const execute = promisify(execFile);
 async function fixture(t) {
-  const root = await mkdtemp(join(tmpdir(), "atria-inputs-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-inputs-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const workspace = join(root, "workspace");
   await mkdir(join(workspace, "task-a"), { recursive: true });
@@ -41,8 +41,8 @@ test("originals survive staging and task association; prompt references are hidd
   assert.equal(displayed.text, "原始提问\n代码 `x`");
   assert.equal(displayed.files[0].name, file.name);
   assert.equal(
-    splitUploadedFiles("用户自己输入<atria_uploaded_files>").text,
-    "用户自己输入<atria_uploaded_files>"
+    splitUploadedFiles("用户自己输入<formicand_uploaded_files>").text,
+    "用户自己输入<formicand_uploaded_files>"
   );
   assert.deepEqual(await listTaskArtifacts({ workspaceRoot: workspace, taskId: "task-a" }), []);
   await writeFile(join(workspace, "task-a", "inputs", file.uploadId, file.relativePath), "tampered");
@@ -91,7 +91,7 @@ test("task boundaries reject missing IDs, excessive counts, modified originals a
 });
 test("PDF, DOCX, PPTX and XLSX use document extraction; PDF pages and images return image blocks", async (t) => {
   const { root, workspace, store } = await fixture(t);
-  await execute(process.env.COWORK_PYTHON || "python3", [
+  await execute(process.env.FORMICAND_PYTHON || "python3", [
     "-c",
     `import fitz, os\nfrom docx import Document\nfrom pptx import Presentation\nfrom pptx.util import Inches\nfrom openpyxl import Workbook\nr=${JSON.stringify(root)}\nd=fitz.open(); p=d.new_page();p.insert_text((50,50),'PDF fixture');d.new_page();d.save(os.path.join(r,'x.pdf'))\nd=Document();d.add_paragraph('Word fixture');d.save(os.path.join(r,'x.docx'))\nd=Presentation();s=d.slides.add_slide(d.slide_layouts[6]);s.shapes.add_textbox(Inches(1),Inches(1), Inches(4), Inches(2)).text='Slide fixture';d.save(os.path.join(r,'x.pptx'))\nd=Workbook();d.active.append(['Sheet fixture','=SUM(1,2)']);d.save(os.path.join(r,'x.xlsx'))`
   ]);
@@ -131,7 +131,7 @@ test("PDF, DOCX, PPTX and XLSX use document extraction; PDF pages and images ret
       );
     }
   }
-  const bytes = await readFile("web/assets/atria-symbol.png");
+  const bytes = await readFile("web/assets/formicand-symbol.png");
   const image = await store.receive("x.png", Readable.from([bytes]));
   await store.attach(workspace, "task-a", [image.uploadId]);
   await assert.rejects(

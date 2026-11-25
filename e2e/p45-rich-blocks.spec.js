@@ -93,7 +93,7 @@ for (const scheme of ["dark", "light"])
   }, testInfo) => {
     test.setTimeout(120_000);
     await context.grantPermissions(["clipboard-read", "clipboard-write"]);
-    await page.addInitScript((value) => localStorage.setItem("atria.appearance", value), scheme);
+    await page.addInitScript((value) => localStorage.setItem("formicand.appearance", value), scheme);
     const local = await setup();
     try {
       const taskId = `rich-blocks-${scheme}`;

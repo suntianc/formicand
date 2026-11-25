@@ -1,10 +1,10 @@
-# CoworkOS README 头图 / README hero
+# Formicand README 头图 / README hero
 
 ## 中文
 
-独立 React + SVG 头图工程。`CoworkOS` 使用参考图风格的原创粗体几何路径，左侧是矢量重绘的品牌 Logo，右侧是用代码提炼的桌面应用左上角。右侧组件不引用产品截图。
+独立 React + SVG 头图工程。`Formicand` 使用参考图风格的原创粗体几何路径，左侧是矢量重绘的品牌 Logo，右侧是用代码提炼的桌面应用左上角。右侧组件不引用产品截图。
 
-选框参考 [React Bits Tech Text](https://www.reactbits.dev/text-animations/tech-text)，用本地 [TechText.jsx](TechText.jsx) 独立实现，未复制上游组件源码。`Cowork` 完全静止；只有 `OS` 在蓝色与淡紫色之间连续渐变，始终实心且不改变透明度。选框固定在 `OS`，两组亮点带尾迹沿框缓慢绕行，周围方粒子保持静止，不闪烁、不重生。动画每 6 秒平滑循环。窗口向右留出间距，同时收紧侧栏宽度和行距，保留品牌、导航、`Long-term tasks` 与项目区。主区域为简短的示意对话，文字完整落在可见范围内，不显示欢迎语或重复 Logo；窗口使用经典红黄绿圆点。
+选框参考 [React Bits Tech Text](https://www.reactbits.dev/text-animations/tech-text)，用本地 [TechText.jsx](TechText.jsx) 独立实现，未复制上游组件源码。`Formicand` 完全静止；只有 `OS` 在蓝色与淡紫色之间连续渐变，始终实心且不改变透明度。选框固定在 `OS`，两组亮点带尾迹沿框缓慢绕行，周围方粒子保持静止，不闪烁、不重生。动画每 6 秒平滑循环。窗口向右留出间距，同时收紧侧栏宽度和行距，保留品牌、导航、`Long-term tasks` 与项目区。主区域为简短的示意对话，文字完整落在可见范围内，不显示欢迎语或重复 Logo；窗口使用经典红黄绿圆点。
 
 ### 预览与导出
 
@@ -33,7 +33,7 @@ python3 encode.py ../../.tmp/readme-tech-frames
 ### 编辑入口
 
 - [scene.jsx](scene.jsx)：画布、Logo 与应用窗口位置、播放时钟。
-- [TechText.jsx](TechText.jsx)：专为 `CoworkOS` 绘制的字形、颜色渐变与固定 `OS` 框；不是通用字体组件。
+- [TechText.jsx](TechText.jsx)：专为 `Formicand` 绘制的字形、颜色渐变与固定 `OS` 框；不是通用字体组件。
 - [Logo.jsx](Logo.jsx)：按提供的品牌图重绘的蓝紫色矢量路径。
 - [HarnessCorner.jsx](HarnessCorner.jsx)：窗口栏、导航和任务区的艺术化提炼。
 - [render.mjs](render.mjs)、[encode.py](encode.py)：确定帧导出、GIF 编码与循环校验。
@@ -42,9 +42,9 @@ python3 encode.py ../../.tmp/readme-tech-frames
 
 ## English
 
-A standalone React + SVG hero with original geometric `CoworkOS` letterforms, a vector reconstruction of the supplied ribbon logo, and an illustrated upper-left corner of the desktop harness. The application illustration is code, with no embedded product screenshot.
+A standalone React + SVG hero with original geometric `Formicand` letterforms, a vector reconstruction of the supplied ribbon logo, and an illustrated upper-left corner of the desktop harness. The application illustration is code, with no embedded product screenshot.
 
-The fixed selection frame is inspired by [React Bits Tech Text](https://www.reactbits.dev/text-animations/tech-text), implemented independently in [TechText.jsx](TechText.jsx) without copying upstream source. `Cowork` stays completely static. Only `OS` smoothly changes between blue and lilac, with constant opacity and solid geometry. Two packets with short trails travel around the fixed frame; surrounding specks stay still, with no blinking or respawning. The animation loops every six seconds. The window shifts right without lowering it; a narrower sidebar and tighter row spacing keep the brand, navigation, `Long-term tasks` and project area visible. The main area contains a short illustrative conversation with complete visible lines, without a welcome heading or duplicate logo. Controls use classic red, yellow and green.
+The fixed selection frame is inspired by [React Bits Tech Text](https://www.reactbits.dev/text-animations/tech-text), implemented independently in [TechText.jsx](TechText.jsx) without copying upstream source. `Formicand` stays completely static. Only `OS` smoothly changes between blue and lilac, with constant opacity and solid geometry. Two packets with short trails travel around the fixed frame; surrounding specks stay still, with no blinking or respawning. The animation loops every six seconds. The window shifts right without lowering it; a narrower sidebar and tighter row spacing keep the brand, navigation, `Long-term tasks` and project area visible. The main area contains a short illustrative conversation with complete visible lines, without a welcome heading or duplicate logo. Controls use classic red, yellow and green.
 
 ### Preview and export
 
@@ -72,6 +72,6 @@ python3 encode.py ../../.tmp/readme-tech-frames
 
 The output is a **1440 × 480, six-second, 20 fps** looping [GIF](../assets/readme-hero.gif) and a matching static [PNG](../assets/readme-hero.png), shared by all README languages. The renderer samples 120 deterministic frames; the encoder uses a shared palette and validates duration and looping. Frames and `contact.png` remain in `.tmp/readme-tech-frames/`.
 
-Edit layout and time in [scene.jsx](scene.jsx), path lettering and the fixed frame in [TechText.jsx](TechText.jsx), logo paths in [Logo.jsx](Logo.jsx), and the application illustration in [HarnessCorner.jsx](HarnessCorner.jsx). The custom TechText component supports only the CoworkOS wordmark. Preview output stays in `.tmp/readme-hero/`, with no product runtime dependency. Small interface labels reuse the repository's Inter font.
+Edit layout and time in [scene.jsx](scene.jsx), path lettering and the fixed frame in [TechText.jsx](TechText.jsx), logo paths in [Logo.jsx](Logo.jsx), and the application illustration in [HarnessCorner.jsx](HarnessCorner.jsx). The custom TechText component supports only the Formicand wordmark. Preview output stays in `.tmp/readme-hero/`, with no product runtime dependency. Small interface labels reuse the repository's Inter font.
 
 The previous ElectricLogo sources and licenses remain in `react-bits/`; see [SOURCES.md](react-bits/SOURCES.md). The current scene does not import them.

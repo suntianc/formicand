@@ -49,7 +49,7 @@ import {
   normalizeReasoningEffort,
   runtimeSettingsEnv
 } from "../../dist/src/runtime/runtime-settings.js";
-import { createCoworkModel } from "../../dist/src/runtime/model-profile.js";
+import { createFormicandModel } from "../../dist/src/runtime/model-profile.js";
 import { withEndpointLimits } from "../../dist/src/runtime/model-catalog.js";
 import { MAIN_MODEL_FROM_CONFIG, resolveMainTurnModel } from "../../dist/src/runtime/main-turn-model.js";
 import { recordModelRequests } from "../../dist/src/runtime/model-request-recording.js";
@@ -60,7 +60,7 @@ import {
   parseMainRequestModel
 } from "../../dist/src/storage/main-request-store.js";
 import { MainRequestRetry, mainRequestEnvironment } from "../../dist/src/runtime/main-request-retry.js";
-import { projectAtriaSystemMessage } from "../../dist/src/domain/agent-identity.js";
+import { projectFormicandSystemMessage } from "../../dist/src/domain/agent-identity.js";
 import { JsonlEventStore } from "../../dist/src/storage/event-store.js";
 import { LocalWorkspaceStore } from "../../dist/src/workspace/workspace-store.js";
 import { capabilityProvider } from "../../dist/src/runtime/capability-provider.js";
@@ -94,7 +94,7 @@ import { registerSearchTools } from "./tools/file-search.ts";
 import { registerImageTools } from "./tools/images.ts";
 import { registerSubagentAgent } from "./subagent-agent.ts";
 import { blockedToolCall, taskProtectedPaths } from "./protected-call.ts";
-import { registerCoworkProvider } from "./provider.ts";
+import { registerFormicandProvider } from "./provider.ts";
 import { createMcpRegistration } from "./mcp.ts";
 import { registerSessionContext } from "./session-context.ts";
 import { registerContextWindows } from "./context-windows.ts";
@@ -110,9 +110,9 @@ import { mainContextUsagePath } from "../../dist/src/runtime/session-context-usa
  * launched it with; it loads the same file, tools and lifecycle hooks rather
  * than a second extension that would drift from Main's.
  */
-export default async function registerCoworkExtension(pi: ExtensionAPI) {
+export default async function registerFormicandExtension(pi: ExtensionAPI) {
   registerSessionHistoryTools(pi);
-  const role = process.env.COWORK_AGENT_ROLE;
+  const role = process.env.FORMICAND_AGENT_ROLE;
   if (role === "executor" || role === "reviewer") {
     await registerSubagentAgent(pi, role);
     return;
@@ -128,26 +128,26 @@ async function registerMainExtension(pi: ExtensionAPI) {
   const currentThinkingLevel = (): PiThinkingLevel =>
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- 旧版 Pi 宿主不提供 getThinkingLevel，缺方法时回退到配置的推理强度
     normalizeReasoningEffort(pi.getThinkingLevel?.() ?? configuredReasoningEffort(runtimeEnv));
-  const baseUrl = process.env.COWORK_API_BASE ?? config.baseUrl ?? config.apiBase;
-  const apiKey = process.env.COWORK_API_KEY ?? config.apiKey;
-  const modelId = process.env.COWORK_MODEL ?? config.model ?? "glm-5.3";
+  const baseUrl = process.env.FORMICAND_API_BASE ?? config.baseUrl ?? config.apiBase;
+  const apiKey = process.env.FORMICAND_API_KEY ?? config.apiKey;
+  const modelId = process.env.FORMICAND_MODEL ?? config.model ?? "glm-5.3";
   // Main is resident, so the search choice saved in the settings page must reach
   // this process's next turn rather than wait for a new process; the turn
   // boundary below re-reads it and keeps `search`/`visit` in step.
   let web = configuredWebTools(config);
   let memoryTool: ReturnType<typeof registerMemoryTool>;
   const workspaceRoot = configuredWorkspaceRoot(config);
-  const taskId = process.env.COWORK_TASK_ID ?? config.taskId ?? `task-${randomUUID()}`;
+  const taskId = process.env.FORMICAND_TASK_ID ?? config.taskId ?? `task-${randomUUID()}`;
   registerSessionContext(pi, mainContextUsagePath(workspaceRoot, taskId));
   // A stable task id gives the Main Run a stable Inbox across Pi restarts.
   // Override either value when deliberately starting a fresh run.
-  const mainRunId = process.env.COWORK_RUN_ID ?? `main-${taskId}`;
-  const dashboardUrl = process.env.COWORK_DASHBOARD_URL;
+  const mainRunId = process.env.FORMICAND_RUN_ID ?? `main-${taskId}`;
+  const dashboardUrl = process.env.FORMICAND_DASHBOARD_URL;
   const windows = registerContextWindows(pi, {
     workspaceRoot,
     taskId,
     runId: mainRunId,
-    ...(dashboardUrl && process.env.COWORK_API_TOKEN
+    ...(dashboardUrl && process.env.FORMICAND_API_TOKEN
       ? {
           readDevelopment: async (signal) => {
             const response = await createProjectDevelopmentClient({ dashboardUrl, taskId })(
@@ -160,8 +160,8 @@ async function registerMainExtension(pi: ExtensionAPI) {
       : {})
   });
   const taskWorkspace = resolve(workspaceRoot, taskId);
-  const projectDirectory = resolve(process.env.COWORK_PROJECT_DIR ?? process.cwd());
-  const harnessRoot = process.env.COWORK_HARNESS_ROOT ?? process.cwd();
+  const projectDirectory = resolve(process.env.FORMICAND_PROJECT_DIR ?? process.cwd());
+  const harnessRoot = process.env.FORMICAND_HARNESS_ROOT ?? process.cwd();
   const cliPresentation = createCliPresentation(pi, { harnessRoot, projectDirectory });
   const cliCommands = registerCliCommands(pi, {
     workspaceRoot,
@@ -169,9 +169,9 @@ async function registerMainExtension(pi: ExtensionAPI) {
     runId: mainRunId,
     projectDirectory,
     secrets: [
-      process.env.COWORK_API_KEY,
+      process.env.FORMICAND_API_KEY,
       config.apiKey,
-      process.env.COWORK_EXA_API_KEY,
+      process.env.FORMICAND_EXA_API_KEY,
       process.env.EXA_API_KEY,
       config.webSearch?.exaApiKey,
       web?.exaApiKey,
@@ -182,7 +182,7 @@ async function registerMainExtension(pi: ExtensionAPI) {
   /**
    * The one skill catalog Main sees in its prompt and loads with load_skill.
    *
-   * Pi's own discovery is switched off at launch (`--no-skills`); CoworkOS
+   * Pi's own discovery is switched off at launch (`--no-skills`); Formicand
    * resolves the sources, the trust decision and the removed index itself, so
    * a Subagent in the same project sees the same list.
    */
@@ -304,7 +304,7 @@ async function registerMainExtension(pi: ExtensionAPI) {
     windows,
     pollJobs: jobs.pollJobs,
     isReplaying: () => requestRetry?.isReplaying === true,
-    replayWithoutNewContext: () => Boolean(process.env.COWORK_MAIN_RETRY_REQUEST_ID) && !freshRetryContext,
+    replayWithoutNewContext: () => Boolean(process.env.FORMICAND_MAIN_RETRY_REQUEST_ID) && !freshRetryContext,
     async persistSession(ctx) {
       await persistSessionContext(ctx, { force: true });
     },
@@ -440,7 +440,7 @@ async function registerMainExtension(pi: ExtensionAPI) {
   });
 
   let continuationSections: Awaited<ReturnType<typeof prepareMainTurnSections>> | undefined;
-  if (process.env.COWORK_MAIN_CONTINUATION) {
+  if (process.env.FORMICAND_MAIN_CONTINUATION) {
     registerMainContinuation(pi, async (ctx) => {
       continuationSections = await prepareMainTurnSections();
       await requestRetry?.restore();
@@ -473,7 +473,7 @@ async function registerMainExtension(pi: ExtensionAPI) {
       const withSkills = skillSection
         ? { ...message, sections: { ...message.sections, skills: skillSection } }
         : message;
-      return projectDefaultIdentity ? projectAtriaSystemMessage(withSkills) : withSkills;
+      return projectDefaultIdentity ? projectFormicandSystemMessage(withSkills) : withSkills;
     });
     return { messages: scoped };
   });
@@ -513,7 +513,7 @@ async function registerMainExtension(pi: ExtensionAPI) {
           }
           await inboxDelivery.acknowledge(messages, { allowedKeys });
         }
-        if (process.env.COWORK_MAIN_RETRY_REQUEST_ID) freshRetryContext = true;
+        if (process.env.FORMICAND_MAIN_RETRY_REQUEST_ID) freshRetryContext = true;
       }
       await updateRuntime({ runtimePendingDelegations: inboxDelivery.queuedCount });
       // Refresh between model requests, including changes made during a turn.
@@ -542,16 +542,16 @@ async function registerMainExtension(pi: ExtensionAPI) {
    * every later turn re-reads the connection, protocol, model and image
    * capability saved now; the launch values are only the first turn's.
    */
-  let currentModel: ReturnType<typeof createCoworkModel> | undefined;
+  let currentModel: ReturnType<typeof createFormicandModel> | undefined;
   let currentApiKey = apiKey;
   let currentCacheKey = configuredSupportsPromptCacheKey(runtimeEnv);
   let currentSupportsImages = supportsImages;
   let currentSupportsReasoningEffort = supportsReasoningEffort;
   let currentModelId = modelId;
   if (baseUrl && apiKey) {
-    const model = process.env.COWORK_MAIN_RETRY_MODEL
-      ? parseMainRequestModel(process.env.COWORK_MAIN_RETRY_MODEL)
-      : createCoworkModel({
+    const model = process.env.FORMICAND_MAIN_RETRY_MODEL
+      ? parseMainRequestModel(process.env.FORMICAND_MAIN_RETRY_MODEL)
+      : createFormicandModel({
           baseUrl,
           api: configuredModelApi(runtimeEnv),
           thinkingFormat: configuredThinkingFormat(runtimeEnv),
@@ -565,7 +565,7 @@ async function registerMainExtension(pi: ExtensionAPI) {
       new MainRequestStore(mainRequestPath(workspaceRoot, taskId), taskId),
       mainRunId,
       () => mainRequestEnvironment(workspaceRoot, taskId, projectDirectory),
-      process.env.COWORK_MAIN_RETRY_REQUEST_ID || undefined,
+      process.env.FORMICAND_MAIN_RETRY_REQUEST_ID || undefined,
       (names) => capabilityTools.restoreSelection(names),
       async (deferredContext) => {
         try {
@@ -576,7 +576,7 @@ async function registerMainExtension(pi: ExtensionAPI) {
               { triggerTurn: true, deliverAs: "steer" }
             );
         } catch (error) {
-          console.error(`[CoworkOS] Deferred callback delivery: ${errorMessage(error)}`);
+          console.error(`[Formicand] Deferred callback delivery: ${errorMessage(error)}`);
         }
       }
     );
@@ -587,14 +587,14 @@ async function registerMainExtension(pi: ExtensionAPI) {
       [apiKey, web?.exaApiKey].filter((secret): secret is string => Boolean(secret))
     );
     const publishModel = (
-      next: ReturnType<typeof createCoworkModel>,
+      next: ReturnType<typeof createFormicandModel>,
       key: string,
       supportsPromptCacheKey: boolean
     ) =>
-      registerCoworkProvider(pi, {
+      registerFormicandProvider(pi, {
         model: next,
         apiKey: key,
-        sessionId: `atria:${taskId}:main`,
+        sessionId: `formicand:${taskId}:main`,
         supportsPromptCacheKey,
         wrap: (streams) => recordModelRequests(streams, recorder, retry)
       });
@@ -625,7 +625,7 @@ async function registerMainExtension(pi: ExtensionAPI) {
         ? await readAcceptedMainMessage(workspaceRoot, taskId, identity.messageId).catch((error) => {
             // A record this turn cannot use only drops its optional level: the
             // saved connection's own level still applies to the turn.
-            console.error(`[CoworkOS] Turn input record: ${errorMessage(error)}`);
+            console.error(`[Formicand] Turn input record: ${errorMessage(error)}`);
             return undefined;
           })
         : undefined;
@@ -639,7 +639,7 @@ async function registerMainExtension(pi: ExtensionAPI) {
       // turn must not re-resolve from the host file alone, which would drop the
       // advertised output cap, context window and image support.
       const turn = await withEndpointLimits(selection, saved);
-      const next = createCoworkModel({
+      const next = createFormicandModel({
         baseUrl: turn.baseUrl,
         ...(turn.connectionId ? { connectionId: turn.connectionId } : {}),
         api: turn.profile.api,
@@ -743,11 +743,13 @@ async function registerMainExtension(pi: ExtensionAPI) {
   pi.on("session_shutdown", async () => {
     if (lifecycle.sessionContext) {
       await persistSessionContext(lifecycle.sessionContext, { force: true }).catch((error) => {
-        console.error(`[CoworkOS] Session context flush on shutdown failed: ${errorMessage(error)}`);
+        console.error(`[Formicand] Session context flush on shutdown failed: ${errorMessage(error)}`);
       });
     }
     await materializeRequestSnapshot().catch((error) => {
-      console.error(`[CoworkOS] Request snapshot materialization on shutdown failed: ${errorMessage(error)}`);
+      console.error(
+        `[Formicand] Request snapshot materialization on shutdown failed: ${errorMessage(error)}`
+      );
     });
     await lifecycle.close();
     await cuaScripts.dispose();
@@ -763,8 +765,8 @@ async function registerMainExtension(pi: ExtensionAPI) {
       return currentSupportsImages;
     }
   });
-  pi.registerCommand("cowork-status", {
-    description: "Show Cowork workspace and active Coordinator jobs",
+  pi.registerCommand("formicand-status", {
+    description: "Show Formicand workspace and active Coordinator jobs",
     handler: async (_args, ctx) =>
       ctx.ui.notify(
         `workspace=${workspaceRoot}; task=${taskId}; mainTurns=${lifecycle.turnCount}/${lifecycle.maxTurns}`,
@@ -772,8 +774,8 @@ async function registerMainExtension(pi: ExtensionAPI) {
       )
   });
 
-  pi.registerCommand("cowork-tools", {
-    description: "Show Cowork tools currently visible to Main",
+  pi.registerCommand("formicand-tools", {
+    description: "Show Formicand tools currently visible to Main",
     handler: async (_args, ctx) => ctx.ui.notify(`active tools: ${pi.getActiveTools().join(", ")}`, "info")
   });
 
@@ -785,7 +787,7 @@ async function registerMainExtension(pi: ExtensionAPI) {
     }
     cliPresentation.configure(ctx);
     cliCommands.configure(ctx);
-    // Direct `pi -e cowork.ts` launches need the same defaults as npm start.
+    // Direct `pi -e formicand.ts` launches need the same defaults as npm start.
     // Pi has already applied --thinking before session_start; preserve it,
     // and preserve interactive changes when an extension is reloaded/forked.
     const cliArgs = process.argv.slice(2);
@@ -796,7 +798,7 @@ async function registerMainExtension(pi: ExtensionAPI) {
       pi.setThinkingLevel?.(configuredReasoningEffort(runtimeEnv));
     }
     if (!baseUrl || !apiKey)
-      ctx.ui.notify("CoworkOS 模型未配置：请运行 coworkos init，或设置模型环境变量。", "warning");
+      ctx.ui.notify("Formicand 模型未配置：请运行 formicand init，或设置模型环境变量。", "warning");
     else {
       const activeTools = pi.getActiveTools();
       const requiredTools = [...CORE_TOOLS, "find", "grep"];
@@ -805,18 +807,18 @@ async function registerMainExtension(pi: ExtensionAPI) {
       const taskStore = new LocalWorkspaceStore(workspaceRoot);
       await taskStore.createTask(taskId, { projectDirectory });
       await taskStore.createRun(taskId, mainRunId);
-      if (process.env.COWORK_CLI_SESSION === "1") {
+      if (process.env.FORMICAND_CLI_SESSION === "1") {
         const binding = await recordCliSessionBinding({
           sessionManager: ctx.sessionManager,
           workspaceRoot,
           taskId,
           projectDirectory,
           appendEntry: (type, data) => pi.appendEntry(type, data),
-          allowOverride: event.reason === "startup" && process.env.COWORK_CLI_TASK_EXPLICIT === "1"
+          allowOverride: event.reason === "startup" && process.env.FORMICAND_CLI_TASK_EXPLICIT === "1"
         });
         if (binding.status === "conflict") {
           ctx.ui.notify(
-            "当前会话与任务不匹配。请退出后使用 coworkos --continue 或 coworkos --session <ID|path> 恢复。",
+            "当前会话与任务不匹配。请退出后使用 formicand --continue 或 formicand --session <ID|path> 恢复。",
             "error"
           );
           ctx.shutdown();
@@ -837,15 +839,18 @@ async function registerMainExtension(pi: ExtensionAPI) {
         })
       ) {
         ctx.ui.notify(
-          `CoworkOS loaded · workspace ${workspaceRoot} · task ${taskId} · tools ${requiredTools.join(", ")}`,
+          `Formicand loaded · workspace ${workspaceRoot} · task ${taskId} · tools ${requiredTools.join(", ")}`,
           "info"
         );
       }
     }
   });
-  if (process.env.COWORK_CLI_SESSION === "1") {
+  if (process.env.FORMICAND_CLI_SESSION === "1") {
     const refuseSessionSwitch = async (_event: unknown, ctx: ExtensionContext) => {
-      ctx.ui.notify("请先退出当前会话，再运行 coworkos 新建，或 coworkos --session <ID|path> 恢复。", "info");
+      ctx.ui.notify(
+        "请先退出当前会话，再运行 formicand 新建，或 formicand --session <ID|path> 恢复。",
+        "info"
+      );
       return { cancel: true };
     };
     pi.on("session_before_switch", refuseSessionSwitch);
@@ -854,4 +859,4 @@ async function registerMainExtension(pi: ExtensionAPI) {
   return toolContext;
 }
 
-export type CoworkToolContext = Awaited<ReturnType<typeof registerMainExtension>>;
+export type FormicandToolContext = Awaited<ReturnType<typeof registerMainExtension>>;

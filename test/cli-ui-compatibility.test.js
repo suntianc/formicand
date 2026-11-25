@@ -22,14 +22,14 @@ test("shell source mismatches are rejected before headless runtime and user-stat
   const shell = preflightCliShell({ piPackageDir: f.sdk });
   const target = fileURLToPath(new URL(shell.targets[0].targetURL));
   await writeFile(target, (await readFile(target, "utf8")) + "\n// private unsupported shell fixture\n");
-  assert.throws(() => preflightCliShell({ piPackageDir: f.sdk }), /CoworkOS Agent.*兼容性校验失败/);
+  assert.throws(() => preflightCliShell({ piPackageDir: f.sdk }), /Formicand Agent.*兼容性校验失败/);
   const before = await snapshot(state);
   const result = await exec(
     process.execPath,
-    [join(f.root, "scripts/atria.mjs"), "start", "--mode", "json", "--print", "fixture"],
+    [join(f.root, "scripts/formicand.mjs"), "start", "--mode", "json", "--print", "fixture"],
     {
       cwd: f.root,
-      env: { ...f.env, ATRIA_HOME: state },
+      env: { ...f.env, FORMICAND_HOME: state },
       timeout: 10000
     }
   ).then(
@@ -39,13 +39,13 @@ test("shell source mismatches are rejected before headless runtime and user-stat
     (error) => error
   );
   assert.equal(result.code, 1);
-  assert.match(result.stderr, /CoworkOS Agent.*兼容性校验失败/);
+  assert.match(result.stderr, /Formicand Agent.*兼容性校验失败/);
   assert.doesNotMatch(result.stderr, /UNEXPECTED_RUNTIME_IMPORT|file:\/\/|SyntaxError/);
   assert.deepEqual(await snapshot(state), before);
 });
 
 async function guardedFixture(t) {
-  const root = await mkdtemp(join(tmpdir(), "atria-ui-guard-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-ui-guard-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const sdk = join(root, "node_modules/@earendil-works/pi-coding-agent");
   for (const file of ["package.json", ...Object.keys(policy.files)]) {
@@ -57,7 +57,7 @@ async function guardedFixture(t) {
   await cp(resolve("node_modules/undici"), join(root, "node_modules/undici"), { recursive: true });
   await mkdir(join(root, "scripts"));
   for (const file of [
-    "atria.mjs",
+    "formicand.mjs",
     "start-pi.mjs",
     "cli-information.mjs",
     "cli-startup-error.mjs",
@@ -84,13 +84,13 @@ async function guardedFixture(t) {
   );
   const env = {
     ...Object.fromEntries(
-      Object.entries(process.env).filter(([k]) => !/^(COWORK_|PI_|ATRIA_|NODE_OPTIONS)/.test(k))
+      Object.entries(process.env).filter(([k]) => !/^(FORMICAND_|PI_|FORMICAND_|NODE_OPTIONS)/.test(k))
     ),
     HOME: root,
-    COWORK_HARNESS_ROOT: root,
-    COWORK_API_KEY: "fixture-local",
-    COWORK_API_BASE: "http://127.0.0.1:1/v1",
-    COWORK_MODEL: "fixture",
+    FORMICAND_HARNESS_ROOT: root,
+    FORMICAND_API_KEY: "fixture-local",
+    FORMICAND_API_BASE: "http://127.0.0.1:1/v1",
+    FORMICAND_MODEL: "fixture",
     PI_OFFLINE: "1"
   };
   async function run(args, extraEnv) {
@@ -103,7 +103,7 @@ async function guardedFixture(t) {
     child.stderr.on("data", (b) => (err += b));
     child.stdin.end(
       JSON.stringify({
-        command: [process.execPath, join(root, "scripts/atria.mjs"), ...args],
+        command: [process.execPath, join(root, "scripts/formicand.mjs"), ...args],
         cwd: root,
         env: { ...env, ...extraEnv },
         ready: "兼容性校验失败",
@@ -156,7 +156,7 @@ test(
       const home = join(state, kind),
         workspace = join(home, "workspace"),
         profile = join(home, "pi");
-      const extra = { ATRIA_HOME: home, COWORK_WORKSPACE: workspace, PI_CODING_AGENT_DIR: profile };
+      const extra = { FORMICAND_HOME: home, FORMICAND_WORKSPACE: workspace, PI_CODING_AGENT_DIR: profile };
       if (kind !== "new") {
         await mkdir(join(workspace, "existing"), { recursive: true });
         await writeFile(
@@ -169,7 +169,7 @@ test(
         );
         await mkdir(profile, { recursive: true });
         await writeFile(join(profile, "keep.jsonl"), '{"user":"Pi retained"}\n');
-        extra.COWORK_TASK_ID = "existing";
+        extra.FORMICAND_TASK_ID = "existing";
       }
       const before = await snapshot(state),
         args = kind === "resume" ? ["--continue"] : [];
@@ -178,7 +178,7 @@ test(
       );
       for (const result of results) {
         assert.equal(result.exitCode, 1, result.plain);
-        assert.match(result.plain, /CoworkOS Agent.*兼容性校验失败/);
+        assert.match(result.plain, /Formicand Agent.*兼容性校验失败/);
         assert.doesNotMatch(result.plain, /UNEXPECTED_RUNTIME_IMPORT|file:\/\/|SyntaxError/);
       }
       assert.deepEqual(await snapshot(state), before);
@@ -201,7 +201,7 @@ import {runCliProcess} from "./cli-runtime-host.mjs";
 import {beginProjectExecution} from "../dist/src/workspace/project-execution.js";
 export async function startPi(){
 await appendFile(${JSON.stringify(join(f.sdk, policy.target))},"\\n// private TOCTOU fixture");
-const lease=await beginProjectExecution(process.env.COWORK_WORKSPACE,"fixture-task");
+const lease=await beginProjectExecution(process.env.FORMICAND_WORKSPACE,"fixture-task");
 try {
 process.exitCode=await runCliProcess({executable:${JSON.stringify(join(f.root, "scripts/cli-ui-boot.mjs"))},args:[],env:process.env,
 projectDirectory:process.cwd(),uiCompatibility:true,
@@ -210,8 +210,8 @@ onSdkReady:()=>appendFile(${JSON.stringify(join(home, "unexpected-supervisor"))}
 }`
     );
     const result = await f.run(["start"], {
-      ATRIA_HOME: home,
-      COWORK_WORKSPACE: workspace,
+      FORMICAND_HOME: home,
+      FORMICAND_WORKSPACE: workspace,
       PI_CODING_AGENT_DIR: join(home, "pi")
     });
     assert.equal(result.exitCode, 1, result.plain);
@@ -224,7 +224,7 @@ onSdkReady:()=>appendFile(${JSON.stringify(join(home, "unexpected-supervisor"))}
 );
 
 test("missing hook API fails before SDK lookup, and non-target modules retain their exact exports", async (t) => {
-  const root = await mkdtemp(join(tmpdir(), "atria-ui-api-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-ui-api-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const copy = (await readFile(resolve("scripts/cli-ui-compatibility.mjs"), "utf8")).replace(
     'import * as nodeModule from "node:module";',
@@ -253,7 +253,7 @@ test("missing hook API fails before SDK lookup, and non-target modules retain th
 });
 
 test("UI manifest covers six reviewed positions and rejects corrupt or unsupported inputs without writes", async (t) => {
-  const root = await mkdtemp(join(tmpdir(), "atria-ui-preflight-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-ui-preflight-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const manifestPath = join(root, "manifest.json");
   const manifest = await buildCliUiManifest(manifestPath);
@@ -289,7 +289,7 @@ test("UI manifest covers six reviewed positions and rejects corrupt or unsupport
     await writeFile(manifestPath, JSON.stringify(altered));
     assert.throws(
       () => preflightCliUi({ piPackageDir: sdk, manifestPath }),
-      /CoworkOS Agent.*兼容性校验失败/
+      /Formicand Agent.*兼容性校验失败/
     );
   }
   await writeFile(manifestPath, JSON.stringify(manifest));
@@ -308,15 +308,15 @@ test("UI manifest covers six reviewed positions and rejects corrupt or unsupport
 });
 
 test("the real bundle boot loads with cache enabled while SDK source and empty profiles remain intact", async (t) => {
-  const root = await mkdtemp(join(tmpdir(), "atria-ui-boot-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-ui-boot-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const before = await Promise.all(Object.keys(policy.files).map((file) => readFile(join(sdkRoot, file))));
   const env = {
     ...Object.fromEntries(
-      Object.entries(process.env).filter(([key]) => !/^(COWORK_|PI_|ATRIA_|NODE_OPTIONS)/.test(key))
+      Object.entries(process.env).filter(([key]) => !/^(FORMICAND_|PI_|FORMICAND_|NODE_OPTIONS)/.test(key))
     ),
     HOME: root,
-    ATRIA_HOME: join(root, "home"),
+    FORMICAND_HOME: join(root, "home"),
     PI_CODING_AGENT_DIR: join(root, "profile"),
     PI_OFFLINE: "1",
     PI_SKIP_VERSION_CHECK: "1",

@@ -10,22 +10,22 @@ import { connectModelThroughUi, setupDialog } from "./model-provider-ui.js";
 test("desktop response links leave through the system browser and local viewers stay unprivileged", async () => {
   test.skip(process.platform !== "darwin", "Native desktop acceptance requires macOS");
   test.setTimeout(90000);
-  const root = await mkdtemp(join(tmpdir(), "atria-desktop-links-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-desktop-links-"));
   const project = join(root, "project");
   await mkdir(project);
   const provider = await modelProtocolFixture("openai-completions", () => ({
-    text: "参考资料：[产品文档](https://example.com/reference?q=atria#section)"
+    text: "参考资料：[产品文档](https://example.com/reference?q=formicand#section)"
   }));
   const env = Object.fromEntries(
     Object.entries(process.env).filter(
-      ([name]) => !/^(?:COWORK_|ATRIA_|PI_|ELECTRON_RUN_AS_NODE$|NODE_OPTIONS$)/.test(name)
+      ([name]) => !/^(?:FORMICAND_|FORMICAND_|PI_|ELECTRON_RUN_AS_NODE$|NODE_OPTIONS$)/.test(name)
     )
   );
   Object.assign(env, {
-    COWORK_DESKTOP_DATA: join(root, "profile"),
-    ATRIA_HOME: join(root, "home"),
+    FORMICAND_DESKTOP_DATA: join(root, "profile"),
+    FORMICAND_HOME: join(root, "home"),
     PI_CODING_AGENT_DIR: join(root, "pi"),
-    COWORK_DISABLE_MAIN_GUARDIAN: "1",
+    FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
     PI_OFFLINE: "1"
   });
   let native;
@@ -64,7 +64,7 @@ test("desktop response links leave through the system browser and local viewers 
     await page.getByRole("link", { name: "产品文档", exact: true }).click();
     await expect
       .poll(() => native.evaluate(() => globalThis.openedExternalLinks))
-      .toEqual(["https://example.com/reference?q=atria#section"]);
+      .toEqual(["https://example.com/reference?q=formicand#section"]);
     expect(await native.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().length)).toBe(1);
 
     const opened = native.waitForEvent("window");
@@ -73,7 +73,7 @@ test("desktop response links leave through the system browser and local viewers 
     const viewer = await opened;
     viewer.on("pageerror", (error) => errors.push(error.message));
     await expect(viewer.locator("body")).toContainText("Back to settings");
-    expect(await viewer.evaluate(() => typeof window.bookmanDesktop)).toBe("undefined");
+    expect(await viewer.evaluate(() => typeof window.formicandDesktop)).toBe("undefined");
     expect(
       await native.evaluate(({ BrowserWindow }) => {
         const window = BrowserWindow.getAllWindows().find(
@@ -92,7 +92,7 @@ test("desktop response links leave through the system browser and local viewers 
   } finally {
     await native?.close();
     // The backend outlives the window by design; stop this test's own (#35), found
-    // under the desktop data root (COWORK_DESKTOP_DATA), not ATRIA_HOME.
+    // under the desktop data root (FORMICAND_DESKTOP_DATA), not FORMICAND_HOME.
     await stopNativeBackend(join(root, "profile"));
     await provider.close();
     await rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });

@@ -107,9 +107,9 @@ npm run test:release -- --native --stage app
 
 Browser checks build and run Playwright; native variants follow the tests and release catalog prerequisites. Use independent `--output` directories for parallel local browser processes. Real model smoke checks consume model service resources; configure them explicitly using the [model configuration](configuration.md). Final installation, upgrades, signing/notarization and manual experience require separate records using the [Mac release guide](../mac-release.md).
 
-`npm run test:desktop` verifies conversations, artifact previews, Pi/local-model tasks, save/recovery, quit/restart and relocated upgrades. With a current candidate, run `ATRIA_DESKTOP_APP=.tmp/release/mac-arm64/CoworkOS.app node scripts/desktop-smoke.mjs` to avoid rebuilding.
+`npm run test:desktop` verifies conversations, artifact previews, Pi/local-model tasks, save/recovery, quit/restart and relocated upgrades. With a current candidate, run `FORMICAND_DESKTOP_APP=.tmp/release/mac-arm64/Formicand.app node scripts/desktop-smoke.mjs` to avoid rebuilding.
 
-For the settings stage on an existing candidate package, run `ATRIA_DESKTOP_APP=.tmp/release/mac-arm64/CoworkOS.app node scripts/desktop-smoke.mjs --settings-only`. It checks the first save, redacted read and rejection of model/search changes during a run; the other desktop smoke stages are skipped.
+For the settings stage on an existing candidate package, run `FORMICAND_DESKTOP_APP=.tmp/release/mac-arm64/Formicand.app node scripts/desktop-smoke.mjs --settings-only`. It checks the first save, redacted read and rejection of model/search changes during a run; the other desktop smoke stages are skipped.
 
 The development-entry relaunch, composer and model-connection native tests use a temporary App, isolated data and Chromium's test keychain to verify encrypted client credentials, ciphertext compatibility, drafts and native process lifecycle without prompting for real keychain access under temporary signatures. This isolation applies only to tests. The product uses the system keychain; actual permission prompts, signed packages and upgrades between versions need separate acceptance.
 

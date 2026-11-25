@@ -10,7 +10,7 @@ export function createComposerSession({
   onPersist,
   locks = globalThis.navigator?.locks
 }) {
-  const storagePrefix = "atria.composer.v1:";
+  const storagePrefix = "formicand.composer.v1:";
   let pendingStageBind;
   const journalKey = `${storagePrefix}migration-journal:active`;
   /**
@@ -398,7 +398,7 @@ export function createComposerSession({
   restoreMigrations();
   const deferredGroups = new Set(
     [...deferredSources]
-      .map((key) => key.match(/^(atria\.composer\.v1:__prebind__:[a-f0-9]{32}:)/)?.[1])
+      .map((key) => key.match(/^(formicand\.composer\.v1:__prebind__:[a-f0-9]{32}:)/)?.[1])
       .filter(Boolean)
   );
   const finishDeferredGroup = (group) => {

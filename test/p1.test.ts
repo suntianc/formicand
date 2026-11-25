@@ -7,7 +7,7 @@ import { browseWorkspace } from "../src/tools/workspace-browse.js";
 import { createLoadSkillTool, discoverSkills, skillCatalogPrompt } from "../src/runtime/skill-registry.js";
 
 async function main(): Promise<void> {
-  const root = await mkdtemp(join(tmpdir(), "cowork-p1-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-p1-"));
   try {
     const skillRoot = join(root, ".pi", "skills", "demo");
     await mkdir(skillRoot, { recursive: true });
@@ -37,7 +37,7 @@ async function main(): Promise<void> {
       /private-network/
     );
 
-    const shared = await mkdtemp(join(tmpdir(), "cowork-p1-shared-"));
+    const shared = await mkdtemp(join(tmpdir(), "formicand-p1-shared-"));
     try {
       await mkdir(join(shared, "agents", "subagents", "s1"), { recursive: true });
       await writeFile(join(shared, "agents", "subagents", "s1", "progress.md"), "tests are green\n");

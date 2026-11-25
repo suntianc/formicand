@@ -24,7 +24,7 @@ import { messagesWithRuntimeHistory } from "../dist/src/runtime/conversation-his
 import { withFileLock } from "../dist/src/storage/file-lock.js";
 
 async function fixture(t) {
-  const root = await mkdtemp(join(tmpdir(), "atria-main-inbox-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-main-inbox-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   await new LocalWorkspaceStore(root).createRun("task", "run");
   const path = join(root, "task", "runs", "run", "agents", "main", "inbox-store.json");
@@ -43,21 +43,21 @@ async function fixture(t) {
   return { root, path, inbox, bridge: new MainInboxDelivery(root, "task", "run") };
 }
 
-const runtimeVariable = /^(?:COWORK_|PI_|ATRIA_|EXA_)/;
+const runtimeVariable = /^(?:FORMICAND_|PI_|FORMICAND_|EXA_)/;
 async function mainExtensionEnv(root) {
   await writeFile(join(root, "config.json"), "{}");
   return {
-    ATRIA_HOME: join(root, "home"),
-    COWORK_CONFIG: join(root, "config.json"),
+    FORMICAND_HOME: join(root, "home"),
+    FORMICAND_CONFIG: join(root, "config.json"),
     PI_CODING_AGENT_DIR: join(root, "pi"),
     PI_OFFLINE: "1",
-    COWORK_WORKSPACE: root,
-    COWORK_TASK_ID: "task",
-    COWORK_RUN_ID: "run",
-    COWORK_PROJECT_DIR: root,
-    COWORK_HARNESS_ROOT: process.cwd(),
-    COWORK_API_BASE: "http://127.0.0.1:1/v1",
-    COWORK_API_KEY: "fixture-key"
+    FORMICAND_WORKSPACE: root,
+    FORMICAND_TASK_ID: "task",
+    FORMICAND_RUN_ID: "run",
+    FORMICAND_PROJECT_DIR: root,
+    FORMICAND_HARNESS_ROOT: process.cwd(),
+    FORMICAND_API_BASE: "http://127.0.0.1:1/v1",
+    FORMICAND_API_KEY: "fixture-key"
   };
 }
 async function isolateMainExtension(t, root) {
@@ -90,7 +90,7 @@ function waitToolResult(result, isError = false) {
     role: "toolResult",
     toolName: "wait_for_subagents",
     isError,
-    details: { _coworkInboxMessages: result.claimedCallbacks }
+    details: { _formicandInboxMessages: result.claimedCallbacks }
   };
 }
 
@@ -134,7 +134,7 @@ test("a startup batch appends the queue and lets only the user turn open the run
   await bridge.deliver(
     (message, options) => {
       sends.push({
-        id: message.details?._coworkInbox?.messageId,
+        id: message.details?._formicandInbox?.messageId,
         triggerTurn: options.triggerTurn,
         userTurn: options.userTurn?.messageId
       });
@@ -376,7 +376,7 @@ test("a waiting question gets its answer only through the tool while callbacks s
   });
   assert.deepEqual(
     sent.map((message) => message.customType),
-    ["cowork-callback"]
+    ["formicand-callback"]
   );
   assert.equal(
     (await inbox.list("main")).find((message) => message.messageId.startsWith("human-answer-")).state,
@@ -397,7 +397,7 @@ test("a waiting question gets its answer only through the tool while callbacks s
   await bridge.deliver((message) => {
     sent.push(message);
   });
-  assert.equal(sent[1].customType, "cowork-human-answer");
+  assert.equal(sent[1].customType, "formicand-human-answer");
 });
 
 test("callback is pending until it reaches Main context, with no replay during slow tools", async (t) => {
@@ -491,7 +491,7 @@ test("a consumed follow-up recovers its failed receipt once without replaying th
   });
   let delivered;
   await bridge.deliver((message) => {
-    if (message.details._coworkInbox.messageId === messageId) delivered = message;
+    if (message.details._formicandInbox.messageId === messageId) delivered = message;
   });
   const context = [{ type: "custom_message", ...delivered }];
 
@@ -513,7 +513,11 @@ test("a consumed follow-up recovers its failed receipt once without replaying th
   ]);
   await restored.acknowledge(context);
   await restored.deliver((message) => {
-    assert.notEqual(message.details._coworkInbox.messageId, messageId, "consumed input must not be resent");
+    assert.notEqual(
+      message.details._formicandInbox.messageId,
+      messageId,
+      "consumed input must not be resent"
+    );
   });
   const ledger = await events.list("run");
   assert.equal(
@@ -547,7 +551,7 @@ test(
       {
         cwd: root,
         env: Object.fromEntries(
-          Object.entries(process.env).filter(([key]) => !/^(?:COWORK_|ATRIA_|PI_)/.test(key))
+          Object.entries(process.env).filter(([key]) => !/^(?:FORMICAND_|FORMICAND_|PI_)/.test(key))
         ),
         stdio: "ignore"
       }
@@ -627,7 +631,7 @@ test("delivery failures keep callbacks recoverable and unrelated contexts cannot
     {
       role: "custom",
       ...delivered,
-      details: { _coworkInbox: { taskId: "other", runId: "run", messageId: "callback-one" } }
+      details: { _formicandInbox: { taskId: "other", runId: "run", messageId: "callback-one" } }
     }
   ]);
   assert.equal((await inbox.list("main"))[0].state, "leased");
@@ -636,7 +640,7 @@ test("delivery failures keep callbacks recoverable and unrelated contexts cannot
 });
 
 test("a Subagent question reaches Main as its own kind, not as a callback", async (t) => {
-  const root = await mkdtemp(join(tmpdir(), "atria-main-inbox-question-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-main-inbox-question-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   await new LocalWorkspaceStore(root).createRun("task", "run");
   const inbox = new InboxStore(join(root, "task", "runs", "run", "agents", "main", "inbox-store.json"));
@@ -663,7 +667,7 @@ test("a Subagent question reaches Main as its own kind, not as a callback", asyn
     sent.push({ message, options });
   });
   assert.equal(sent.length, 1);
-  assert.equal(sent[0].message.customType, "cowork-subagent-question");
+  assert.equal(sent[0].message.customType, "formicand-subagent-question");
   assert.match(sent[0].message.content, /subagent question/);
   assert.equal(sent[0].options.deliverAs, "steer");
   assert.equal(sent[0].options.triggerTurn, true);
@@ -833,7 +837,7 @@ test("follow-ups remain durable until completion and one can be promoted without
   const sent = [];
   const send = (message, options) => sent.push({ message, options });
   await bridge.deliver(send, { includeFollowUps: false });
-  assert.equal(sent.filter(({ message }) => message.customType === "cowork-user-message").length, 0);
+  assert.equal(sent.filter(({ message }) => message.customType === "formicand-user-message").length, 0);
   const reloaded = new InboxStore(path);
   assert.equal((await reloaded.list()).find((m) => m.messageId === "later").state, "ready");
   await reloaded.promoteUserMessage("now");
@@ -842,7 +846,7 @@ test("follow-ups remain durable until completion and one can be promoted without
   await bridge.deliver(send, { includeFollowUps: false });
   assert.deepEqual(
     sent
-      .filter(({ message }) => message.customType === "cowork-user-message")
+      .filter(({ message }) => message.customType === "formicand-user-message")
       .map(({ message, options }) => [message.details.message, options.deliverAs]),
     [["now", "steer"]]
   );
@@ -977,9 +981,9 @@ test("extractInboxReceipts covers toolResult multi/cross-run, user, and custom r
   const branchAEntry = {
     type: "custom_message",
     id: "entry-a",
-    customType: "cowork-human-answer",
+    customType: "formicand-human-answer",
     content: "answer",
-    details: { _coworkInbox: { taskId: "task", runId: "run", messageId: "branch-a-custom" } }
+    details: { _formicandInbox: { taskId: "task", runId: "run", messageId: "branch-a-custom" } }
   };
   const waitEntry = {
     type: "message",
@@ -989,7 +993,7 @@ test("extractInboxReceipts covers toolResult multi/cross-run, user, and custom r
       toolName: "wait_for_subagents",
       isError: false,
       details: {
-        _coworkInboxMessages: [
+        _formicandInboxMessages: [
           { taskId: "task", runId: "run", messageId: "cb-1" },
           { taskId: "task", runId: "prior-run", messageId: "cross-run-cb" }
         ]
@@ -999,9 +1003,9 @@ test("extractInboxReceipts covers toolResult multi/cross-run, user, and custom r
   const branchBEntry = {
     type: "custom_message",
     id: "entry-b",
-    customType: "cowork-callback",
+    customType: "formicand-callback",
     content: "branch b",
-    details: { _coworkInbox: { taskId: "task", runId: "run", messageId: "branch-b-custom" } }
+    details: { _formicandInbox: { taskId: "task", runId: "run", messageId: "branch-b-custom" } }
   };
 
   const receipts = extractInboxReceipts([branchAEntry, waitEntry, branchBEntry], "task", "run");
@@ -1116,9 +1120,9 @@ test("real extension context handler refuses to consume a receipt that exists on
   const messagesPath = join(root, "task/agents/main/context/messages.json");
   const contextOnlyMsg = {
     role: "custom",
-    customType: "cowork-callback",
+    customType: "formicand-callback",
     content: "ONLY_IN_CONTEXT",
-    details: { _coworkInbox: { taskId: "task", runId: "run", messageId: "context-only-cb" } }
+    details: { _formicandInbox: { taskId: "task", runId: "run", messageId: "context-only-cb" } }
   };
   for (const fn of handlers.get("context") ?? []) {
     await fn({ messages: [branchEntries[0].message, contextOnlyMsg] }, fakeCtx);
@@ -1136,10 +1140,10 @@ test("real extension context handler refuses to consume a receipt that exists on
     id: "c1",
     parentId: "u1",
     timestamp: now,
-    customType: "cowork-callback",
+    customType: "formicand-callback",
     content: "ONLY_IN_CONTEXT",
     display: true,
-    details: { _coworkInbox: { taskId: "task", runId: "run", messageId: "context-only-cb" } }
+    details: { _formicandInbox: { taskId: "task", runId: "run", messageId: "context-only-cb" } }
   });
   for (const fn of handlers.get("context") ?? []) {
     await fn({ messages: [branchEntries[0].message, contextOnlyMsg] }, fakeCtx);
@@ -1213,13 +1217,13 @@ test("real extension replaces persistedReceiptKeys on branch switch (A -> B) in 
   const messagesPath = join(root, "task/agents/main/context/messages.json");
   const receiptMsg = {
     role: "custom",
-    customType: "cowork-callback",
+    customType: "formicand-callback",
     content: "BRANCH_A_ONLY",
-    details: { _coworkInbox: { taskId: "task", runId: "run", messageId: "branch-a-only-cb" } }
+    details: { _formicandInbox: { taskId: "task", runId: "run", messageId: "branch-a-only-cb" } }
   };
 
   // Step 1: Branch A writes a snapshot containing branch-a-only-cb (via session_compact; not yet acknowledged).
-  session.appendCustomMessageEntry("cowork-callback", "BRANCH_A_ONLY", true, receiptMsg.details);
+  session.appendCustomMessageEntry("formicand-callback", "BRANCH_A_ONLY", true, receiptMsg.details);
   for (const fn of handlers.get("session_compact") ?? []) await fn({}, fakeCtx);
   assert.match(await readFile(messagesPath, "utf8"), /branch-a-only-cb/);
   assert.notEqual(
@@ -1340,13 +1344,13 @@ test("partial snapshot write failure (messages.json written, state.json EIO) inv
 
       const receiptMsg = {
         role: "custom",
-        customType: "cowork-callback",
+        customType: "formicand-callback",
         content: "PARTIAL_WRITE_MARKER",
-        details: { _coworkInbox: { taskId: "task", runId: "run", messageId: "partial-write-cb" } }
+        details: { _formicandInbox: { taskId: "task", runId: "run", messageId: "partial-write-cb" } }
       };
       // 1. Branch A persists messages.json containing partial-write-cb.
       const leafA = session.appendCustomMessageEntry(
-        "cowork-callback",
+        "formicand-callback",
         "PARTIAL_WRITE_MARKER",
         true,
         receiptMsg.details

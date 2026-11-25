@@ -20,11 +20,11 @@ import { privateDataRefusal } from "../dist/src/tools/private-data.js";
 import { configuredProtectedPaths } from "../dist/src/tools/protected-paths.js";
 
 async function layout(t) {
-  const root = await mkdtemp(join(tmpdir(), "cowork-skill-catalog-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-skill-catalog-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const paths = {
     harnessRoot: join(root, "install"),
-    home: join(root, "user", ".atria"),
+    home: join(root, "user", ".formicand"),
     userHome: join(root, "user"),
     repository: join(root, "repo"),
     projectDirectory: join(root, "repo", "packages", "app")
@@ -54,7 +54,7 @@ test("five sources resolve to one catalog, higher sources winning on the same na
   const installed = await skill(join(paths.home, "skills", "pdf"), "pdf");
   const repoAgents = await skill(join(paths.repository, ".agents", "skills", "release"), "release");
   const nearAgents = await skill(join(paths.projectDirectory, ".agents", "skills", "release"), "release");
-  const projectOwn = await skill(join(paths.projectDirectory, ".atria", "skills", "shared"), "shared");
+  const projectOwn = await skill(join(paths.projectDirectory, ".formicand", "skills", "shared"), "shared");
   // Pi's own locations are no longer read.
   await skill(join(paths.projectDirectory, ".pi", "skills", "legacy"), "legacy");
   await skill(join(paths.home, "pi", "skills", "legacy-state"), "legacy-state");
@@ -81,7 +81,7 @@ test("five sources resolve to one catalog, higher sources winning on the same na
 
 test("an untrusted project contributes no skills until the user trusts it", async (t) => {
   const paths = await layout(t);
-  await skill(join(paths.projectDirectory, ".atria", "skills", "deploy"), "deploy");
+  await skill(join(paths.projectDirectory, ".formicand", "skills", "deploy"), "deploy");
   await skill(join(paths.repository, ".agents", "skills", "release"), "release");
   await skill(join(paths.home, "skills", "pdf"), "pdf");
 
@@ -91,7 +91,7 @@ test("an untrusted project contributes no skills until the user trusts it", asyn
   );
   assert.equal(await projectTrustDecision(paths.home, paths.projectDirectory), undefined);
   assert.deepEqual(projectDefinitionFolders(paths.projectDirectory), [
-    join(paths.projectDirectory, ".atria", "skills"),
+    join(paths.projectDirectory, ".formicand", "skills"),
     join(paths.repository, ".agents", "skills")
   ]);
 
@@ -135,13 +135,13 @@ test("a removed skill leaves every catalog but keeps its files, and a restore br
 
 test("Agents may read installed skills but file tools never write them", () => {
   const userHome = "/Users/example";
-  const home = "/Users/example/.atria";
+  const home = "/Users/example/.formicand";
   assert.equal(privateDataRefusal({ path: `${home}/skills/pdf/SKILL.md` }, home, userHome), undefined);
   assert.equal(
-    privateDataRefusal({ command: "cat ~/.atria/skills/pdf/scripts/run.py" }, home, userHome),
+    privateDataRefusal({ command: "cat ~/.formicand/skills/pdf/scripts/run.py" }, home, userHome),
     undefined
   );
-  assert.ok(privateDataRefusal({ command: "cat ~/.atria/skills/../config.json" }, home, userHome));
+  assert.ok(privateDataRefusal({ command: "cat ~/.formicand/skills/../config.json" }, home, userHome));
 
   const guard = configuredProtectedPaths("/Users/example/project", {}, [`${home}/skills`]);
   assert.throws(() => guard.assertWritable(`${home}/skills/pdf/SKILL.md`), /read-only for agents/);

@@ -211,13 +211,13 @@ test("settings and Main read one store; Main reaches only its own project and on
   );
 
   // A delegated subprocess has no run credential, so it has no memory.
-  const previous = process.env.COWORK_API_TOKEN;
-  delete process.env.COWORK_API_TOKEN;
+  const previous = process.env.FORMICAND_API_TOKEN;
+  delete process.env.FORMICAND_API_TOKEN;
   try {
     const delegated = createMemoryTool({ dashboardUrl: f.base, taskId: "task-a" });
     await assert.rejects(delegated.execute({ action: "list" }), /记忆工具不可用：本次运行没有本地服务凭据/);
   } finally {
-    if (previous !== undefined) process.env.COWORK_API_TOKEN = previous;
+    if (previous !== undefined) process.env.FORMICAND_API_TOKEN = previous;
   }
 
   // Deleting from settings removes the file.

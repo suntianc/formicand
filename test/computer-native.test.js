@@ -29,20 +29,20 @@ test(
       t.skip(`native input unavailable: ${initial.reason || "unlocked foreground desktop required"}`);
       return;
     }
-    const root = await mkdtemp(join(tmpdir(), "atria-computer-native-"));
+    const root = await mkdtemp(join(tmpdir(), "formicand-computer-native-"));
     let child, fixturePid;
     const computer = new ComputerUse(driver);
     try {
-      const contents = join(root, "AtriaCUAProbe.app", "Contents");
+      const contents = join(root, "FormicandCUAProbe.app", "Contents");
       await mkdir(join(contents, "MacOS"), { recursive: true });
       await writeFile(
         join(contents, "Info.plist"),
-        `<?xml version="1.0" encoding="UTF-8"?><plist version="1.0"><dict><key>CFBundleIdentifier</key><string>org.atria.computer-use-probe</string><key>CFBundleExecutable</key><string>probe</string><key>CFBundleName</key><string>AtriaCUAProbe</string><key>CFBundlePackageType</key><string>APPL</string></dict></plist>`
+        `<?xml version="1.0" encoding="UTF-8"?><plist version="1.0"><dict><key>CFBundleIdentifier</key><string>org.formicand.computer-use-probe</string><key>CFBundleExecutable</key><string>probe</string><key>CFBundleName</key><string>FormicandCUAProbe</string><key>CFBundlePackageType</key><string>APPL</string></dict></plist>`
       );
       const binary = join(contents, "MacOS", "probe");
       execFileSync("/usr/bin/xcrun", ["swiftc", "test/fixtures/computer-window.swift", "-o", binary]);
       await writeFile(join(root, "events"), "");
-      child = spawn("/usr/bin/open", ["-n", "-W", join(root, "AtriaCUAProbe.app"), "--args", root], {
+      child = spawn("/usr/bin/open", ["-n", "-W", join(root, "FormicandCUAProbe.app"), "--args", root], {
         stdio: "ignore"
       });
       const events = [];
@@ -82,7 +82,7 @@ test(
       await delay(250);
       observation = await computer.observe("native-probe", grant.sessionId);
       observation = await focusObservation();
-      const fieldText = `CoworkOS CUA 中文 😀 ${"长文本".repeat(30)}`;
+      const fieldText = `Formicand CUA 中文 😀 ${"长文本".repeat(30)}`;
       await computer.act("native-probe", grant.sessionId, observation.observationId, {
         type: "click",
         x: observation.width / 2,
@@ -100,12 +100,12 @@ test(
         text: fieldText
       });
       observation = await focusObservation();
-      if (process.env.COWORK_KEEP_CUA_PROBE === "1")
+      if (process.env.FORMICAND_KEEP_CUA_PROBE === "1")
         await writeFile(".tmp/computer-native-probe.png", Buffer.from(observation.image, "base64"));
       await wait((value) => value.text === fieldText);
       observation = await focusObservation();
       if (observation.accessibilityText) assert.ok(observation.accessibilityText.includes(fieldText));
-      if (process.env.COWORK_KEEP_CUA_PROBE === "1")
+      if (process.env.FORMICAND_KEEP_CUA_PROBE === "1")
         await writeFile(".tmp/computer-native-probe.png", Buffer.from(observation.image, "base64"));
       await computer.act("native-probe", grant.sessionId, observation.observationId, {
         type: "click",
@@ -182,7 +182,7 @@ test(
         { errorCode: "stale_element", dispatchStatus: "not_sent" }
       );
       observation = await computer.observe("native-probe", grant.sessionId);
-      if (process.env.COWORK_KEEP_CUA_PROBE === "1")
+      if (process.env.FORMICAND_KEEP_CUA_PROBE === "1")
         await writeFile(".tmp/computer-native-saved.png", Buffer.from(observation.image, "base64"));
       await writeFile(join(root, "control"), "move");
       await wait((value) => value.moved);

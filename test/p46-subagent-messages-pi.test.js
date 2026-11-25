@@ -120,17 +120,17 @@ function childEnvironment(f) {
   return isolatedPiEnvironment({
     HOME: f.root,
     TMPDIR: f.root,
-    ATRIA_HOME: join(f.root, "home"),
-    COWORK_CONFIG: join(f.root, "config.json"),
-    COWORK_CONFIG_ROOT: f.root,
-    COWORK_HARNESS_ROOT: harness,
-    COWORK_WORKSPACE: f.workspace,
-    COWORK_DISABLE_MAIN_GUARDIAN: "1",
-    COWORK_API_BASE: f.provider.baseUrl,
-    COWORK_API_KEY: "{{SECRET_p46_message_key}}",
-    COWORK_MODEL: MODEL,
-    COWORK_MODEL_API: "openai-completions",
-    COWORK_REASONING_EFFORT: "off",
+    FORMICAND_HOME: join(f.root, "home"),
+    FORMICAND_CONFIG: join(f.root, "config.json"),
+    FORMICAND_CONFIG_ROOT: f.root,
+    FORMICAND_HARNESS_ROOT: harness,
+    FORMICAND_WORKSPACE: f.workspace,
+    FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
+    FORMICAND_API_BASE: f.provider.baseUrl,
+    FORMICAND_API_KEY: "{{SECRET_p46_message_key}}",
+    FORMICAND_MODEL: MODEL,
+    FORMICAND_MODEL_API: "openai-completions",
+    FORMICAND_REASONING_EFFORT: "off",
     PI_CODING_AGENT_DIR: join(f.root, "pi"),
     PI_OFFLINE: "1"
   });
@@ -189,7 +189,7 @@ function startBackend(f) {
   const child = spawn(
     process.execPath,
     [
-      join(harness, "dist", "src", "cli", "cowork.js"),
+      join(harness, "dist", "src", "cli", "formicand.js"),
       "worker",
       "--task",
       TASK_ID,
@@ -317,7 +317,7 @@ test(
     const f = await fixture(t, {
       // The answer arrives when the OS reports the write, which on a loaded
       // host takes about a second; the budget only has to outlive one wake.
-      env: { COWORK_SUBAGENT_QUESTION_TIMEOUT_MS: "6000" },
+      env: { FORMICAND_SUBAGENT_QUESTION_TIMEOUT_MS: "6000" },
       handle: (_body, requests) => {
         if (requests.length === 1)
           return {
@@ -600,7 +600,7 @@ test(
   { timeout: 120_000 },
   async (t) => {
     const f = await fixture(t, {
-      env: { COWORK_SUBAGENT_QUESTION_TIMEOUT_MS: "600000" },
+      env: { FORMICAND_SUBAGENT_QUESTION_TIMEOUT_MS: "600000" },
       handle: () => ({
         name: "ask_main",
         arguments: {

@@ -341,8 +341,8 @@ test(
         method: "POST",
         headers: {
           "content-type": "application/json",
-          "x-atria-token": authorityToken,
-          "x-cowork-backend-id": "backend_somewhere_else"
+          "x-formicand-token": authorityToken,
+          "x-formicand-backend-id": "backend_somewhere_else"
         },
         body: JSON.stringify({
           action: "record_run",
@@ -408,8 +408,8 @@ test(
         method: "POST",
         headers: {
           "content-type": "application/json",
-          "x-atria-token": authorityToken,
-          "x-cowork-backend-id": session.backendId
+          "x-formicand-token": authorityToken,
+          "x-formicand-backend-id": session.backendId
         },
         body: JSON.stringify({ action: "find_by_task", taskId: session.taskId })
       }
@@ -424,8 +424,8 @@ test(
         method: "POST",
         headers: {
           "content-type": "application/json",
-          "x-atria-token": authorityToken,
-          "x-cowork-backend-id": session.backendId
+          "x-formicand-token": authorityToken,
+          "x-formicand-backend-id": session.backendId
         },
         body: JSON.stringify({ action: "find_by_task", taskId: "task-not-a-session" })
       }

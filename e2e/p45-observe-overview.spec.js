@@ -25,7 +25,7 @@ test("two nodes' cards, phase matrix and running table follow their snapshots an
   const local = await startDashboard({
     port: portA,
     defaultProject: false,
-    env: { COWORK_TRUSTED_CLIENT_ORIGINS: origins }
+    env: { FORMICAND_TRUSTED_CLIENT_ORIGINS: origins }
   });
   let remote;
   try {
@@ -33,7 +33,7 @@ test("two nodes' cards, phase matrix and running table follow their snapshots an
       port: portB,
       defaultProject: false,
       config: { mainCapacity: { resident: 3, continuation: 2 } },
-      env: { COWORK_TRUSTED_CLIENT_ORIGINS: origins }
+      env: { FORMICAND_TRUSTED_CLIENT_ORIGINS: origins }
     });
     const localProject = await createProject(page, local, "本机项目", `${local.root}/local-project`);
     const remoteProject = await createProject(page, remote, "远程项目", `${remote.root}/remote-project`);

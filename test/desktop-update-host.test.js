@@ -7,7 +7,7 @@ import { test } from "node:test";
 const { createDesktopUpdateHost } = createRequire(import.meta.url)("../desktop/update-host.cjs");
 
 async function fixture(t, { development = false, version = "0.1.1", env = {}, observe } = {}) {
-  const directory = await mkdtemp(join(tmpdir(), "atria-update-host-"));
+  const directory = await mkdtemp(join(tmpdir(), "formicand-update-host-"));
   t.after(() => rm(directory, { recursive: true, force: true }));
   const root = join(directory, "program"),
     userData = join(directory, "profile");
@@ -52,7 +52,7 @@ async function fixture(t, { development = false, version = "0.1.1", env = {}, ob
     profile: { development, appRoot: root },
     userData,
     env,
-    executable: "/fixture/CoworkOS.app/Contents/MacOS/CoworkOS",
+    executable: "/fixture/Formicand.app/Contents/MacOS/Formicand",
     createUpdates,
     onStatus: (state) => {
       snapshots.push(state);
@@ -133,8 +133,8 @@ test("source host refreshes the development runtime before quitting and recovers
   const f = await fixture(t, {
     development: true,
     env: {
-      COWORK_DESKTOP_NODE_EXECUTABLE: process.execPath,
-      COWORK_DESKTOP_NPM_CLI: "/fixture/npm-cli.js"
+      FORMICAND_DESKTOP_NODE_EXECUTABLE: process.execPath,
+      FORMICAND_DESKTOP_NPM_CLI: "/fixture/npm-cli.js"
     }
   });
   assert.deepEqual(f.constructor.toolchain, {
@@ -178,7 +178,7 @@ test("host serializes the full public check before another update operation", as
 test("source apply remains busy until the restart helper is scheduled, even after promotion finishes", async (t) => {
   const f = await fixture(t, {
     development: true,
-    env: { COWORK_DESKTOP_NODE_EXECUTABLE: process.execPath }
+    env: { FORMICAND_DESKTOP_NODE_EXECUTABLE: process.execPath }
   });
   const schedule = deferred();
   f.setRestartWait(schedule.promise);
@@ -206,7 +206,7 @@ test("source apply remains busy until the restart helper is scheduled, even afte
 test("recovery keeps apply exclusive and exposes the restart error to a newly loaded renderer", async (t) => {
   const f = await fixture(t, {
     development: true,
-    env: { COWORK_DESKTOP_NODE_EXECUTABLE: process.execPath }
+    env: { FORMICAND_DESKTOP_NODE_EXECUTABLE: process.execPath }
   });
   const recovery = deferred();
   f.setRecoverWait(recovery.promise);
@@ -247,7 +247,7 @@ test("recovery keeps apply exclusive and exposes the restart error to a newly lo
 test("a failed backend recovery releases the transaction with an actionable persistent error", async (t) => {
   const f = await fixture(t, {
     development: true,
-    env: { COWORK_DESKTOP_NODE_EXECUTABLE: process.execPath }
+    env: { FORMICAND_DESKTOP_NODE_EXECUTABLE: process.execPath }
   });
   f.setResult(new Error("fixture build failure"));
   f.setRecoverError(new Error("private recovery diagnostic"));
@@ -279,7 +279,7 @@ test("a source check is busy without becoming an installation or blocking source
 test("a closing renderer observer cannot break host restart scheduling or final cleanup", async (t) => {
   const f = await fixture(t, {
     development: true,
-    env: { COWORK_DESKTOP_NODE_EXECUTABLE: process.execPath },
+    env: { FORMICAND_DESKTOP_NODE_EXECUTABLE: process.execPath },
     observe: () => {
       throw new Error("renderer destroyed");
     }

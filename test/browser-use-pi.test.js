@@ -16,7 +16,7 @@ test(
   "real Main Pi → owned Chromium → semantic action → downloaded file and archived PNG feedback",
   { ...browserTestOptions, timeout: 60000 },
   async (t) => {
-    const root = await mkdtemp(join(tmpdir(), "atria-browser-pi-")),
+    const root = await mkdtemp(join(tmpdir(), "formicand-browser-pi-")),
       fixture = await browserFixture();
     t.after(async () => {
       await fixture.close();
@@ -125,7 +125,7 @@ test(
       })
     );
     const env = Object.fromEntries(
-      Object.entries(process.env).filter(([name]) => !/^(COWORK_|PI_|ATRIA_)/.test(name))
+      Object.entries(process.env).filter(([name]) => !/^(FORMICAND_|PI_|FORMICAND_)/.test(name))
     );
     const pending = exec(
       process.execPath,
@@ -142,14 +142,14 @@ test(
         maxBuffer: 16 * 1024 * 1024,
         env: {
           ...env,
-          COWORK_CONFIG: configPath,
-          COWORK_PROJECT_DIR: project,
-          COWORK_WORKSPACE: workspace,
-          COWORK_TASK_ID: "browser-task",
-          COWORK_RUN_ID: "browser-run",
-          COWORK_BROWSER_EXECUTABLE: chromium.executablePath(),
+          FORMICAND_CONFIG: configPath,
+          FORMICAND_PROJECT_DIR: project,
+          FORMICAND_WORKSPACE: workspace,
+          FORMICAND_TASK_ID: "browser-task",
+          FORMICAND_RUN_ID: "browser-run",
+          FORMICAND_BROWSER_EXECUTABLE: chromium.executablePath(),
           PI_CODING_AGENT_DIR: join(root, "pi"),
-          COWORK_DISABLE_MAIN_GUARDIAN: "1",
+          FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
           PI_OFFLINE: "1"
         }
       }
@@ -179,7 +179,7 @@ test(
     assert.match(reread.content, /Image loaded/);
     assert.ok(download, stdout);
     const bytes = await readFile(join(task, download.path));
-    assert.equal(bytes.toString(), "Saved report: CoworkOS 中文\n");
+    assert.equal(bytes.toString(), "Saved report: Formicand 中文\n");
     assert.equal(download.sha256, createHash("sha256").update(bytes).digest("hex"));
     const archived = await createImageArchive({ taskDirectory: task }).read(imageRef);
     assert.equal(archived.record.source.kind, "browser");

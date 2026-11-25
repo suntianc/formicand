@@ -21,8 +21,8 @@ const TOOL = 1024;
 const bytes = (text) => Buffer.byteLength(text ?? "");
 
 test("the base prompt and every bundled skill stay within their limits", async () => {
-  const base = await readFile(".pi/prompts/cowork-main.md", "utf8");
-  assert.ok(bytes(base) <= BASE, `cowork-main.md is ${bytes(base)} bytes, over ${BASE}`);
+  const base = await readFile(".pi/prompts/formicand-main.md", "utf8");
+  assert.ok(bytes(base) <= BASE, `formicand-main.md is ${bytes(base)} bytes, over ${BASE}`);
   const skills = await readdir(".pi/skills", { withFileTypes: true });
   assert.ok(skills.length > 0);
   // Skills adapted from upstream keep the length their method needs; the limit is for ours.
@@ -36,7 +36,7 @@ test("the base prompt and every bundled skill stay within their limits", async (
 });
 
 test("each Main tool's text stays within its limit", async (t) => {
-  const root = await mkdtemp(join(tmpdir(), "cowork-prompt-budget-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-prompt-budget-"));
   const previous = { ...process.env };
   t.after(async () => {
     for (const name of Object.keys(process.env)) if (!(name in previous)) delete process.env[name];
@@ -45,14 +45,14 @@ test("each Main tool's text stays within its limit", async (t) => {
   });
   await writeFile(join(root, "config.json"), "{}");
   Object.assign(process.env, {
-    COWORK_CONFIG: join(root, "config.json"),
-    COWORK_WORKSPACE: join(root, "workspace"),
-    COWORK_TASK_ID: "budget-task",
-    COWORK_RUN_ID: "budget-run",
-    COWORK_DASHBOARD_URL: "http://127.0.0.1:1"
+    FORMICAND_CONFIG: join(root, "config.json"),
+    FORMICAND_WORKSPACE: join(root, "workspace"),
+    FORMICAND_TASK_ID: "budget-task",
+    FORMICAND_RUN_ID: "budget-run",
+    FORMICAND_DASHBOARD_URL: "http://127.0.0.1:1"
   });
-  delete process.env.COWORK_API_BASE;
-  delete process.env.COWORK_API_KEY;
+  delete process.env.FORMICAND_API_BASE;
+  delete process.env.FORMICAND_API_KEY;
   const registered = new Map();
   const pi = {
     on() {},
@@ -63,7 +63,7 @@ test("each Main tool's text stays within its limit", async (t) => {
     setActiveTools() {},
     sendMessage: async () => {}
   };
-  const extensionPath = resolve(".pi/extensions/cowork.ts");
+  const extensionPath = resolve(".pi/extensions/formicand.ts");
   const requirePi = createRequire(import.meta.resolve("@earendil-works/pi-coding-agent"));
   const { createJiti } = await import(requirePi.resolve("jiti"));
   const extension = await createJiti(pathToFileURL(extensionPath).href, { interopDefault: true }).import(
@@ -106,7 +106,7 @@ test("Main's workspace state section stays within its limit", { timeout: 60_000 
   assert.equal(sections?.length, 1, "one current_workspace section, wrapped once");
   // The paths are this machine's; the limit is for the words around them.
   const words = sections[0]
-    .replace(/<atria_main_context>[^]*?<\/atria_main_context>/, "")
+    .replace(/<formicand_main_context>[^]*?<\/formicand_main_context>/, "")
     .replaceAll(dashboard.workspaceRoot, "<root>")
     .replace(/<root>\/[^\s]+/g, "<path>");
   assert.ok(bytes(words) <= STATE, `current_workspace is ${bytes(words)} bytes without paths, over ${STATE}`);

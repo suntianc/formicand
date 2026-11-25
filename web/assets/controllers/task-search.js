@@ -24,7 +24,7 @@ const statusLabel = {
 const stateText = (value) => statusLabel[value] || value || ui("未知");
 
 function shortDate(value) {
-  return formatStamp(value, window.atriaPreferences?.format() ?? "relative");
+  return formatStamp(value, window.formicandPreferences?.format() ?? "relative");
 }
 
 export function createTaskSearch({ $, tasks, selectConversation }) {

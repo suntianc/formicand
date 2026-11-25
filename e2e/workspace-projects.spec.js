@@ -51,7 +51,7 @@ test("creating and editing an empty project survives a service restart without c
     await expect(page.locator("#composer-input")).toHaveValue("创建前未发送的草稿");
     expect((await (await page.request.get(`${dashboard.base}/api/tasks`)).json()).projects).toEqual([]);
     await page.evaluate((directory) => {
-      window.bookmanDesktop = { chooseProject: async () => directory };
+      window.formicandDesktop = { chooseProject: async () => directory };
     }, original);
     await page.locator("#new-project").click();
     dialog = page.getByRole("dialog", { name: "添加项目", exact: true });

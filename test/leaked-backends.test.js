@@ -11,7 +11,7 @@ function plant(home) {
   const child = spawn(process.execPath, ["-e", "setInterval(() => {}, 1000)"], {
     detached: true,
     stdio: "ignore",
-    env: { ...process.env, ATRIA_HOME: home }
+    env: { ...process.env, FORMICAND_HOME: home }
   });
   child.unref();
   return child.pid;
@@ -41,7 +41,7 @@ test(
       rmSync(outside, { recursive: true, force: true });
     });
     const root = await openTestRun();
-    const leaked = plant(join(root, "atria-desktop-links-x", "home"));
+    const leaked = plant(join(root, "formicand-desktop-links-x", "home"));
     // Another run's backend, or the user's own, is never touched.
     const foreign = plant(join(outside, "home"));
     others.push(leaked, foreign);
@@ -79,9 +79,9 @@ test(
     // The runner of this root has exited; its backend is still running.
     const gone = spawnSync(process.execPath, ["-p", "process.pid"], { encoding: "utf8" }).stdout.trim();
     const abandoned = join(parent, "formicand-run-abandoned");
-    mkdirSync(join(abandoned, "atria-recovery-handoff-x", "home"), { recursive: true });
+    mkdirSync(join(abandoned, "formicand-recovery-handoff-x", "home"), { recursive: true });
     writeFileSync(join(abandoned, "owner.json"), JSON.stringify({ pid: Number(gone) }));
-    leaked = plant(join(abandoned, "atria-recovery-handoff-x", "home"));
+    leaked = plant(join(abandoned, "formicand-recovery-handoff-x", "home"));
     for (let waited = 0; !(await backendsUnder(abandoned)).length && waited < 3000; waited += 50)
       await new Promise((done) => setTimeout(done, 50));
 

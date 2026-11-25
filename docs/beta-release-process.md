@@ -1,6 +1,6 @@
-# CoworkOS 测试版与版本管理
+# Formicand 测试版与版本管理
 
-CoworkOS 源码在公开的 [suntianc/coworkos](https://github.com/suntianc/coworkos) 仓库维护；版本以固定 tag 和已发布 Release 为准。用户实际安装的版本以已发布包为准，main 上的最新提交不一定已发版。
+Formicand 源码在公开的 [suntianc/coworkos](https://github.com/suntianc/coworkos) 仓库维护；版本以固定 tag 和已发布 Release 为准。用户实际安装的版本以已发布包为准，main 上的最新提交不一定已发版。
 
 ## 开发与反馈
 
@@ -40,7 +40,7 @@ RELEASE_TAG=v0.1.2-beta.7 GITHUB_REPOSITORY=suntianc/coworkos node scripts/relea
 RELEASE_TAG=v0.1.2-beta.7 GITHUB_REPOSITORY=suntianc/coworkos node scripts/release-draft.mjs upload
 ```
 
-清单为 release/atria-release-<version>.json，记录 schemaVersion、version、prerelease、source.repository/commit/tag、generatedAt、实际 Mac 签名状态及每个产物的 name/size/sha256，附同名校验文件。签名报告 CoworkOS-<version>-mac-arm64.signing.json 及其 SHA-256 一起分发。说明为 release/atria-release-<version>.md，优先采用 docs/releases/<version>.md，再附自动生成的源码与清单链接。
+清单为 release/formicand-release-<version>.json，记录 schemaVersion、version、prerelease、source.repository/commit/tag、generatedAt、实际 Mac 签名状态及每个产物的 name/size/sha256，附同名校验文件。签名报告 Formicand-<version>-mac-arm64.signing.json 及其 SHA-256 一起分发。说明为 release/formicand-release-<version>.md，优先采用 docs/releases/<version>.md，再附自动生成的源码与清单链接。
 
 上传前重新核对源码和所有产物；已经发布的版本拒绝覆盖。上传工作流全部结束、核对最终附件与验收结果后再 Publish；服务器端不可变发行设置为已发布 tag 和附件提供保护。
 
@@ -56,4 +56,4 @@ RELEASE_TAG=v0.1.2-beta.7 GITHUB_REPOSITORY=suntianc/coworkos node scripts/relea
 
 公开源码仓库提供代码与 Release 安装包。
 
-发布器验证固定来源 tag 与白名单产物，先核对服务端 digest 再发布，并通过内容 SHA 比较更新当前版本指针；流程见 [Mac 发布](mac-release.md)。公开组件与第三方对应源码材料独立保存在 [Atria-Components](https://github.com/ignorejjj/Atria-Components/releases)。反馈仍由维护者在私有项目管理，公开下载不会自动授予源码访问权。
+发布器验证固定来源 tag 与白名单产物，先核对服务端 digest 再发布，并通过内容 SHA 比较更新当前版本指针；流程见 [Mac 发布](mac-release.md)。公开组件与第三方对应源码材料独立保存在 [Formicand-Components](https://github.com/ignorejjj/Formicand-Components/releases)。反馈仍由维护者在私有项目管理，公开下载不会自动授予源码访问权。

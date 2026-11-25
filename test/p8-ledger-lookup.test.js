@@ -104,7 +104,7 @@ test("a large ledger leaves out the catalog only when one feature is likely", ()
 });
 
 async function openLedger(t) {
-  const root = await mkdtemp(join(tmpdir(), "coworkos-lookup-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-lookup-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const runtime = new ProjectDataRuntime({
     config: { sqlite: { path: join(root, "project-data.sqlite") } },
@@ -178,7 +178,7 @@ test("a development keeps the user's words as an alias only when lookup would mi
 const run = (cwd, ...args) => execFileSync("git", args, { cwd, encoding: "utf8" }).trim();
 
 test("context names the feature's decisions, developments and where its code changed", async (t) => {
-  const root = await mkdtemp(join(tmpdir(), "coworkos-context-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-context-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   run(root, "init", "-q", "-b", "main");
   run(root, "config", "user.email", "test@example.com");

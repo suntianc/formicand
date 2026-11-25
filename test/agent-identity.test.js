@@ -6,7 +6,7 @@ import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { atriaRoleIdentity, projectAtriaSystemMessage } from "../dist/src/domain/agent-identity.js";
+import { formicandRoleIdentity, projectFormicandSystemMessage } from "../dist/src/domain/agent-identity.js";
 import { createSessionExport, sessionExportHtml } from "../dist/src/storage/session-export.js";
 
 const { buildSystemPromptSections, buildSystemPromptState } = await import(
@@ -26,49 +26,49 @@ test("known SDK defaults project idempotently and preserve dynamic instructions"
   input.sections.rules += "\nKeep this extra rule.";
   input.sections.tools = "User supplied tool instructions";
   const original = structuredClone(input);
-  const output = projectAtriaSystemMessage(input);
-  assert.equal(output.sections.preamble, atriaRoleIdentity("Main"));
+  const output = projectFormicandSystemMessage(input);
+  assert.equal(output.sections.preamble, formicandRoleIdentity("Main"));
   assert.equal(output.sections.docs, null);
   assert.equal(output.sections.rules, input.sections.rules);
   assert.equal(output.sections.tools, input.sections.tools);
-  assert.equal(projectAtriaSystemMessage(output), output);
+  assert.equal(projectFormicandSystemMessage(output), output);
   assert.deepEqual(input, original);
   const paths = snapshot();
   paths.sections.docs = paths.sections.docs
     .replace(/- Main documentation: [^\n]+/, "- Main documentation: C:\\fixture\\README.md")
     .replace(/- Additional docs: [^\n]+/, "- Additional docs: /fixture with spaces/docs")
     .replace(/- Examples: [^\n]+/, "- Examples: /fixture/examples (extensions, custom tools, SDK)");
-  assert.equal(projectAtriaSystemMessage(paths).sections.docs, null);
+  assert.equal(projectFormicandSystemMessage(paths).sections.docs, null);
 });
 
 test("custom and unknown docs, empty identities and opaque forced prompts remain intact", () => {
   const mixed = snapshot();
   mixed.content = "User-added Pi instructions";
-  assert.equal(projectAtriaSystemMessage(mixed), mixed);
+  assert.equal(projectFormicandSystemMessage(mixed), mixed);
   for (const forceSystemPrompt of ["User forced Pi identity", ""]) {
     const forced = {
       role: "system",
       ...buildSystemPromptState({ forceSystemPrompt, cwd: "/fixture", skills: [], contextFiles: [] }),
       timestamp: 1
     };
-    assert.equal(projectAtriaSystemMessage(forced), forced);
+    assert.equal(projectFormicandSystemMessage(forced), forced);
   }
   const customized = snapshot();
   customized.sections.docs = customized.sections.docs.replace(
     "- Additional docs:",
     "User policy: preserve this instruction.\n- Additional docs:"
   );
-  const projected = projectAtriaSystemMessage(customized);
-  assert.equal(projected.sections.preamble, atriaRoleIdentity("Main"));
+  const projected = projectFormicandSystemMessage(customized);
+  assert.equal(projected.sections.preamble, formicandRoleIdentity("Main"));
   assert.equal(projected.sections.docs, customized.sections.docs);
   for (const preamble of ["", undefined, null, "User selected a Pi identity"]) {
     const input = snapshot();
     input.sections.preamble = preamble;
-    assert.equal(projectAtriaSystemMessage(input), input);
+    assert.equal(projectFormicandSystemMessage(input), input);
   }
   const unknown = snapshot();
   unknown.sections.docs = "<docs>\nAn unknown historical SDK template\n</docs>";
-  assert.equal(projectAtriaSystemMessage(unknown).sections.docs, unknown.sections.docs);
+  assert.equal(projectFormicandSystemMessage(unknown).sections.docs, unknown.sections.docs);
   for (const input of [
     null,
     "pi",
@@ -77,7 +77,7 @@ test("custom and unknown docs, empty identities and opaque forced prompts remain
     { role: "system", sections: [] },
     { role: "system", sections: { docs: snapshot().sections.docs } }
   ])
-    assert.equal(projectAtriaSystemMessage(input), input);
+    assert.equal(projectFormicandSystemMessage(input), input);
 });
 
 test("current and historical compactions project only exported copies of their system snapshot", async () => {
@@ -121,7 +121,7 @@ test("current and historical compactions project only exported copies of their s
     branchEntryIds: ["start", "current", "custom"]
   });
   for (const event of data.events.slice(0, 2)) {
-    assert.equal(event.data.systemMessage.sections.preamble, atriaRoleIdentity("Main"));
+    assert.equal(event.data.systemMessage.sections.preamble, formicandRoleIdentity("Main"));
     assert.equal(event.data.systemMessage.sections.docs, null);
   }
   assert.equal(data.events[0].inCurrentBranch, false);
@@ -134,7 +134,7 @@ test("current and historical compactions project only exported copies of their s
 });
 
 test("public JSON and HTML exports project real SDK compaction snapshots while preserving raw history bytes", async (t) => {
-  const root = await mkdtemp(join(tmpdir(), "atria-sdk-compaction-export-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-sdk-compaction-export-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const project = join(root, "project");
   await mkdir(project);
@@ -166,16 +166,18 @@ test("public JSON and HTML exports project real SDK compaction snapshots while p
   const source = manager.getSessionFile(),
     before = await readFile(source);
   const env = {
-    ...Object.fromEntries(Object.entries(process.env).filter(([k]) => !/^(COWORK_|PI_|ATRIA_)/.test(k))),
+    ...Object.fromEntries(
+      Object.entries(process.env).filter(([k]) => !/^(FORMICAND_|PI_|FORMICAND_)/.test(k))
+    ),
     HOME: root,
-    ATRIA_HOME: join(root, "home"),
-    COWORK_HARNESS_ROOT: resolve(".")
+    FORMICAND_HOME: join(root, "home"),
+    FORMICAND_HARNESS_ROOT: resolve(".")
   };
   for (const format of ["json", "html"])
     await promisify(execFile)(
       process.execPath,
       [
-        resolve(process.env.TEST_ATRIA_CLI_ENTRY || "scripts/atria.mjs"),
+        resolve(process.env.TEST_FORMICAND_CLI_ENTRY || "scripts/formicand.mjs"),
         "session",
         "export",
         source,
@@ -191,7 +193,7 @@ test("public JSON and HTML exports project real SDK compaction snapshots while p
   for (const entryId of [historical, current]) {
     const event = data.events.find((e) => e.eventId === entryId || e.id === entryId);
     assert.ok(event, JSON.stringify(data.events.map((e) => Object.keys(e))));
-    assert.equal(event.data.systemMessage.sections.preamble, atriaRoleIdentity("Main"));
+    assert.equal(event.data.systemMessage.sections.preamble, formicandRoleIdentity("Main"));
     assert.equal(event.data.systemMessage.sections.docs, null);
     assert.equal(event.inCurrentBranch, entryId === current);
   }
@@ -200,13 +202,13 @@ test("public JSON and HTML exports project real SDK compaction snapshots while p
   assert.equal(customEvent.data.systemMessage.content, "User-added Pi instructions");
   const html = await readFile(join(root, "export.html"), "utf8");
   assert.match(html, /User-added Pi instructions/);
-  if (process.env.TEST_ATRIA_IDENTITY_EVIDENCE_DIR) {
-    await mkdir(process.env.TEST_ATRIA_IDENTITY_EVIDENCE_DIR, { recursive: true });
+  if (process.env.TEST_FORMICAND_IDENTITY_EVIDENCE_DIR) {
+    await mkdir(process.env.TEST_FORMICAND_IDENTITY_EVIDENCE_DIR, { recursive: true });
     for (const [name, content] of [
       ["raw-sdk-history.jsonl", before],
       ["public-compaction-export.json", JSON.stringify(data, null, 2)],
       ["public-compaction-export.html", html]
     ])
-      await writeFile(join(process.env.TEST_ATRIA_IDENTITY_EVIDENCE_DIR, name), content);
+      await writeFile(join(process.env.TEST_FORMICAND_IDENTITY_EVIDENCE_DIR, name), content);
   }
 });

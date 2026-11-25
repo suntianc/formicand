@@ -10,7 +10,7 @@ const FILE_CACHE_MS = 15_000;
 const SKIPPED_FOLDERS = new Set([
   ".git",
   "node_modules",
-  ".atria",
+  ".formicand",
   "dist",
   "build",
   ".next",

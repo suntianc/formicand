@@ -7,20 +7,20 @@ import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { createInterface } from "node:readline/promises";
 import { emitKeypressEvents } from "node:readline";
-import { atriaHome, atriaDataPaths } from "./data-home.cjs";
-import { classifyCliInformation, printAtriaHelp, printAtriaVersion } from "./cli-information.mjs";
+import { formicandHome, formicandDataPaths } from "./data-home.cjs";
+import { classifyCliInformation, printFormicandHelp, printFormicandVersion } from "./cli-information.mjs";
 
 const harness = fileURLToPath(new URL("../", import.meta.url));
-const userHome = atriaHome();
+const userHome = formicandHome();
 const cwd = process.cwd();
-const local = [join(cwd, ".cowork/config.json"), join(cwd, "config.json")].find(existsSync);
-const configPath = resolve(process.env.COWORK_CONFIG || local || join(userHome, "config.json"));
+const local = [join(cwd, ".formicand/config.json"), join(cwd, "config.json")].find(existsSync);
+const configPath = resolve(process.env.FORMICAND_CONFIG || local || join(userHome, "config.json"));
 const args = process.argv.slice(2);
 const command = args.shift() || "start";
 
 async function help(topic) {
   if (topic === "init") {
-    console.log(`Usage: coworkos init [--base-url URL] [--model ID] [--api-key-env NAME]
+    console.log(`Usage: formicand init [--base-url URL] [--model ID] [--api-key-env NAME]
   --images                   Enable image input
   --reasoning                Enable reasoning parameters
   --thinking off|minimal|low|medium|high|xhigh|max
@@ -31,14 +31,14 @@ API Key input is hidden. Use an environment variable for non-interactive setup.`
     return;
   }
   if (topic === "doctor") {
-    console.log(`Usage: coworkos doctor [--test-connection]
+    console.log(`Usage: formicand doctor [--test-connection]
   --test-connection  Test the model connection; sends a request and uses quota
   -h, --help         Show help without probing or changing user data
 The default check runs locally and does not send model requests.`);
     return;
   }
   if (topic === "backend") {
-    console.log(`Usage: coworkos backend <start|status|stop>
+    console.log(`Usage: formicand backend <start|status|stop>
   start    Start a detached backend for the current data root, or report the running one
   status   Report the backend instance for the current data root
   stop     Ask the backend to finish managed work and exit
@@ -46,9 +46,9 @@ The backend keeps running after the client that started it exits. It never insta
     return;
   }
   if (topic === "data") {
-    console.log(`Usage: coworkos data paths
-       coworkos data backup --to PATH
-       coworkos data restore --from PATH
+    console.log(`Usage: formicand data paths
+       formicand data backup --to PATH
+       formicand data restore --from PATH
   -h, --help  Show help without changing user data
 Backup writes one logical snapshot of the project ledger; restore replaces it from
 the same engine.`);
@@ -59,7 +59,7 @@ the same engine.`);
     console.log(cliHelp(topic, args[1]));
     return;
   }
-  printAtriaHelp();
+  printFormicandHelp();
 }
 
 function flags(values, allowed) {
@@ -98,21 +98,21 @@ async function runtime() {
 }
 
 function validateConnection(config, env = process.env) {
-  const baseUrl = env.COWORK_API_BASE ?? config.baseUrl ?? config.apiBase;
-  const model = env.COWORK_MODEL ?? config.model;
-  const apiKey = env.COWORK_API_KEY ?? config.apiKey;
+  const baseUrl = env.FORMICAND_API_BASE ?? config.baseUrl ?? config.apiBase;
+  const model = env.FORMICAND_MODEL ?? config.model;
+  const apiKey = env.FORMICAND_API_KEY ?? config.apiKey;
   let url;
   try {
     url = new URL(baseUrl);
   } catch {
-    throw new Error("请配置有效的 API 地址；运行 coworkos init 或修改所选配置文件。");
+    throw new Error("请配置有效的 API 地址；运行 formicand init 或修改所选配置文件。");
   }
   if (!["http:", "https:"].includes(url.protocol) || url.username || url.password || url.search || url.hash)
     throw new Error("API 地址须为不含凭据、查询参数或片段的 HTTP(S) 地址。");
   if (!/^[A-Za-z0-9][A-Za-z0-9._:/-]{0,159}$/.test(model || ""))
     throw new Error("请填写服务商提供的模型 ID。");
   if (!apiKey || apiKey === "replace-with-your-api-key" || apiKey.length > 4096 || /[\r\n\0]/.test(apiKey))
-    throw new Error("请配置 API Key；运行 coworkos init，或设置 COWORK_API_KEY。");
+    throw new Error("请配置 API Key；运行 formicand init，或设置 FORMICAND_API_KEY。");
   return { baseUrl: url.href.replace(/\/+$/, ""), model, apiKey };
 }
 
@@ -153,15 +153,15 @@ async function init() {
     "--max-tokens",
     "--force"
   ]);
-  const { readCoworkConfig, connectionProfile, parseConnectionProfile, NEW_CONNECTION_PROFILE } =
+  const { readFormicandConfig, connectionProfile, parseConnectionProfile, NEW_CONNECTION_PROFILE } =
     await runtime();
   if (existsSync(configPath) && !options["--force"])
-    throw new Error("配置已存在，未覆盖。修改该文件，或用 coworkos init --force 明确更新；其他设置会保留。");
-  const previous = existsSync(configPath) ? readCoworkConfig(cwd, { COWORK_CONFIG: configPath }) : {};
+    throw new Error("配置已存在，未覆盖。修改该文件，或用 formicand init --force 明确更新；其他设置会保留。");
+  const previous = existsSync(configPath) ? readFormicandConfig(cwd, { FORMICAND_CONFIG: configPath }) : {};
   let baseUrl = options["--base-url"] ?? previous.baseUrl;
   let model = options["--model"] ?? previous.model;
   const keyEnv = options["--api-key-env"];
-  let apiKey = keyEnv ? process.env[keyEnv] : (process.env.COWORK_API_KEY ?? previous.apiKey);
+  let apiKey = keyEnv ? process.env[keyEnv] : (process.env.FORMICAND_API_KEY ?? previous.apiKey);
   if (keyEnv && !apiKey) throw new Error("指定的 API Key 环境变量为空，未保存。");
   if ((!baseUrl || !model || !apiKey) && process.stdin.isTTY && process.stdout.isTTY) {
     const prompt = createInterface({ input: process.stdin, output: process.stdout });
@@ -211,23 +211,23 @@ async function init() {
     await rm(temporary, { force: true });
   }
   console.log(
-    `连接配置已保存：${configPath}\nCLI 密钥以本机权限 0600 保存；模型测试请运行 coworkos doctor --test-connection。`
+    `连接配置已保存：${configPath}\nCLI 密钥以本机权限 0600 保存；模型测试请运行 formicand doctor --test-connection。`
   );
 }
 
 function cliDataPaths(config = {}) {
-  const paths = atriaDataPaths(process.env, config, cwd);
+  const paths = formicandDataPaths(process.env, config, cwd);
   return { workspace: paths.workspaceRoot, pi: paths.piAgentDir };
 }
 
 async function dataCommand() {
   const action = args.shift() || "paths";
   if (!["paths", "backup", "restore"].includes(action))
-    throw new Error("Usage: coworkos data paths|backup --to PATH|restore --from PATH");
+    throw new Error("Usage: formicand data paths|backup --to PATH|restore --from PATH");
   const options = flags(args, action === "backup" ? ["--to"] : action === "restore" ? ["--from"] : []);
-  const { readCoworkConfig } = await runtime();
-  const config = readCoworkConfig(cwd);
-  const paths = atriaDataPaths(process.env, config, cwd);
+  const { readFormicandConfig } = await runtime();
+  const config = readFormicandConfig(cwd);
+  const paths = formicandDataPaths(process.env, config, cwd);
   if (action === "paths") {
     console.log(JSON.stringify({ ...paths, configPath }, null, 2));
     return;
@@ -270,7 +270,7 @@ async function doctor() {
       console.error(`FAIL ${name} — ${error.message}`);
     }
   };
-  console.log(`CoworkOS doctor\n配置路径：${configPath}`);
+  console.log(`Formicand doctor\n配置路径：${configPath}`);
   await check("Node.js", () => {
     requireNode();
     return process.version;
@@ -285,8 +285,8 @@ async function doctor() {
   let config, input;
   await check("模型配置", () => {
     if (!modules) throw new Error("先修复 CLI 构建。");
-    config = modules.readHostCoworkConfig(cwd, {
-      COWORK_CONFIG: existsSync(configPath) || process.env.COWORK_CONFIG ? configPath : undefined
+    config = modules.readHostFormicandConfig(cwd, {
+      FORMICAND_CONFIG: existsSync(configPath) || process.env.FORMICAND_CONFIG ? configPath : undefined
     });
     input = {
       ...validateConnection(config),
@@ -297,7 +297,7 @@ async function doctor() {
   await check("工作区写入", async () => {
     const workspace = cliDataPaths(config).workspace;
     await mkdir(workspace, { recursive: true });
-    const probe = join(workspace, `.atria-doctor-${randomUUID()}`);
+    const probe = join(workspace, `.formicand-doctor-${randomUUID()}`);
     try {
       await writeFile(probe, "", { flag: "wx", mode: 0o600 });
     } finally {
@@ -326,8 +326,8 @@ function requireNode() {
 
 async function sessionExport(values) {
   // Export redaction must cover every effective key, including host-stored ones.
-  const { readHostCoworkConfig } = await runtime();
-  const config = readHostCoworkConfig(cwd);
+  const { readHostFormicandConfig } = await runtime();
+  const config = readHostFormicandConfig(cwd);
   const data = cliDataPaths(config);
   const { exportCliSession, parseSessionExportArgs } = await import("./cli-session-export.mjs");
   const result = await exportCliSession({
@@ -336,10 +336,10 @@ async function sessionExport(values) {
     workspaceRoot: data.workspace,
     directory: cwd,
     secrets: [
-      process.env.COWORK_API_KEY,
+      process.env.FORMICAND_API_KEY,
       config.apiKey,
       config.webSearch?.exaApiKey,
-      process.env.COWORK_EXA_API_KEY,
+      process.env.FORMICAND_EXA_API_KEY,
       process.env.EXA_API_KEY,
       ...(config.modelProviders?.providers.map((provider) => provider.apiKey) ?? [])
     ].filter(Boolean)
@@ -356,7 +356,7 @@ function legacySessionExport(values) {
   if (!source || source.startsWith("--")) throw new Error("--export requires a session ID or path");
   const rest = values.filter((_value, position) => position !== index && position !== index + 1);
   if (rest.some((value) => !["--output", "--force"].includes(value) && value.startsWith("--")))
-    throw new Error("--export 不能与运行参数混用；请使用 coworkos session export。");
+    throw new Error("--export 不能与运行参数混用；请使用 formicand session export。");
   if (rest.length && !rest[0].startsWith("--")) rest.splice(0, 1, "--output", rest[0]);
   return [source, "--format", "html", ...rest];
 }
@@ -374,18 +374,18 @@ async function launch() {
       console.log(cliHelp(command));
       return;
     }
-    if (!parsed.options.task && !process.env.COWORK_TASK_ID)
+    if (!parsed.options.task && !process.env.FORMICAND_TASK_ID)
       throw new Error("main-worker requires --task ID");
-    if (!parsed.options.task && !/^(?!\.{1,2}$)[a-zA-Z0-9._-]+$/.test(process.env.COWORK_TASK_ID))
-      throw new Error("COWORK_TASK_ID requires a valid task ID");
+    if (!parsed.options.task && !/^(?!\.{1,2}$)[a-zA-Z0-9._-]+$/.test(process.env.FORMICAND_TASK_ID))
+      throw new Error("FORMICAND_TASK_ID requires a valid task ID");
     workerArgs = Object.entries(parsed.options).flatMap(([name, value]) => [`--${name}`, value]);
   }
-  const { readHostCoworkConfig } = await runtime();
-  const explicit = process.env.COWORK_CONFIG;
+  const { readHostFormicandConfig } = await runtime();
+  const explicit = process.env.FORMICAND_CONFIG;
   const config = helpOnly
     ? {}
-    : readHostCoworkConfig(cwd, {
-        COWORK_CONFIG: existsSync(configPath) || explicit ? configPath : undefined
+    : readHostFormicandConfig(cwd, {
+        FORMICAND_CONFIG: existsSync(configPath) || explicit ? configPath : undefined
       });
   const pi = command === "start" || command.startsWith("-");
   if (pi && !args.includes("--help") && ![command, ...args].includes("-h") && command !== "--help")
@@ -393,18 +393,18 @@ async function launch() {
   const data = cliDataPaths(config);
   const env = {
     ...process.env,
-    COWORK_HARNESS_ROOT: harness,
-    COWORK_PROJECT_DIR: process.env.COWORK_PROJECT_DIR || cwd,
-    COWORK_WORKSPACE: data.workspace,
+    FORMICAND_HARNESS_ROOT: harness,
+    FORMICAND_PROJECT_DIR: process.env.FORMICAND_PROJECT_DIR || cwd,
+    FORMICAND_WORKSPACE: data.workspace,
     PI_CODING_AGENT_DIR: data.pi,
-    ...(pi ? { COWORK_CLI_SESSION: "1" } : {}),
-    ...(existsSync(configPath) || explicit ? { COWORK_CONFIG: configPath } : {})
+    ...(pi ? { FORMICAND_CLI_SESSION: "1" } : {}),
+    ...(existsSync(configPath) || explicit ? { FORMICAND_CONFIG: configPath } : {})
   };
   const entry = pi
     ? "scripts/start-pi.mjs"
     : command === "main-worker"
       ? "scripts/main-worker.mjs"
-      : "dist/src/cli/cowork.js";
+      : "dist/src/cli/formicand.js";
   const forwarded = pi
     ? command === "start"
       ? args
@@ -422,7 +422,7 @@ async function launch() {
   process.once("SIGINT", interrupt);
   process.once("SIGTERM", interrupt);
   child.once("error", () => {
-    console.error("CLI 子进程启动失败，请运行 coworkos doctor。");
+    console.error("CLI 子进程启动失败，请运行 formicand doctor。");
     process.exitCode = 1;
   });
   child.once("exit", (code, signal) => {
@@ -454,14 +454,14 @@ try {
           : undefined
     );
   else if (["--version", "-v"].includes(command)) {
-    if (args.length) throw new Error("coworkos --version does not accept options");
-    await printAtriaVersion();
-  } else if (startInformation === "version") await printAtriaVersion();
-  else if (startInformation === "help") printAtriaHelp();
+    if (args.length) throw new Error("formicand --version does not accept options");
+    await printFormicandVersion();
+  } else if (startInformation === "version") await printFormicandVersion();
+  else if (startInformation === "help") printFormicandHelp();
   else if (command === "session") {
     if (args.shift() !== "export")
       throw new Error(
-        "Usage: coworkos session export ID|PATH [--format json|html] [--output FILE] [--force]"
+        "Usage: formicand session export ID|PATH [--format json|html] [--output FILE] [--force]"
       );
     await sessionExport(args);
   } else if (exportArgs) await sessionExport(exportArgs);
@@ -480,8 +480,8 @@ try {
     await runUpdate({ root: harness, args });
   } else await launch();
 } catch (error) {
-  const key = process.env.COWORK_API_KEY;
+  const key = process.env.FORMICAND_API_KEY;
   const message = error instanceof Error ? error.message : String(error);
-  console.error(`CoworkOS: ${key ? message.replaceAll(key, "[REDACTED]") : message}`);
+  console.error(`Formicand: ${key ? message.replaceAll(key, "[REDACTED]") : message}`);
   process.exitCode = 1;
 }

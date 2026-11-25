@@ -130,7 +130,7 @@ export interface DashboardRoutePorts {
   createTemporaryTask: WorkspaceDirectory["createTemporaryTask"];
   createTemporaryWorkspace: WorkspaceDirectory["createTemporaryWorkspace"];
   normalizeModel(value: unknown): string | undefined;
-  runtimeValue(name: "COWORK_API_BASE" | "COWORK_API_KEY" | "COWORK_MODEL"): string | undefined;
+  runtimeValue(name: "FORMICAND_API_BASE" | "FORMICAND_API_KEY" | "FORMICAND_MODEL"): string | undefined;
   startMainRun: RunService["startMainRun"];
   pauseTask: RunService["pauseTask"];
   compactMainContext: RunService["compactMainContext"];
@@ -172,8 +172,8 @@ export function createDashboardHandler(
           request.headers.origin !== undefined ||
           request.headers["sec-fetch-site"] !== undefined ||
           request.headers.cookie !== undefined ||
-          typeof request.headers["x-atria-token"] !== "string" ||
-          !request.headers["x-atria-token"] ||
+          typeof request.headers["x-formicand-token"] !== "string" ||
+          !request.headers["x-formicand-token"] ||
           !ports.access
         )
           throw new HttpError(403, "需要本地连接凭据", "host_credential_required");

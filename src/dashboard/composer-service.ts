@@ -90,7 +90,7 @@ async function serverResources(name: string, config: McpServerConfig): Promise<C
       stderr: "ignore"
     });
   }
-  const client = new Client({ name: "coworkos-composer", version: "1" });
+  const client = new Client({ name: "formicand-composer", version: "1" });
   try {
     await client.connect(transport, { timeout: RESOURCE_TIMEOUT_MS });
     if (!client.getServerCapabilities()?.resources) return [];
@@ -176,7 +176,7 @@ export function createComposerService(options: ComposerServiceOptions) {
   async function prompts(directory: string | undefined): Promise<ComposerPrompt[]> {
     const global = await promptsIn(join(options.home, "prompts"), "global");
     if (!directory) return global;
-    const project = await promptsIn(join(directory, ".atria", "prompts"), "project");
+    const project = await promptsIn(join(directory, ".formicand", "prompts"), "project");
     const names = new Set(project.map((prompt) => prompt.name));
     return [...project, ...global.filter((prompt) => !names.has(prompt.name))].sort((a, b) =>
       a.name.localeCompare(b.name)

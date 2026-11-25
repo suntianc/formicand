@@ -31,7 +31,7 @@ test(
       assert.notEqual(replacement.pid, original.pid);
       await assert.rejects(original.stop(), /身份|实例|变化|不一致/);
       const response = await fetch(`${replacement.url}/api/backend`, {
-        headers: { "x-atria-token": replacement.token },
+        headers: { "x-formicand-token": replacement.token },
         signal: AbortSignal.timeout(5000)
       });
       assert.equal(response.status, 200);
@@ -49,7 +49,7 @@ test(
       ]) {
         await assert.rejects(stopBackend(env, { ...replacement, [field]: value }), /身份/);
         const current = await fetch(`${replacement.url}/api/backend`, {
-          headers: { "x-atria-token": replacement.token },
+          headers: { "x-formicand-token": replacement.token },
           signal: AbortSignal.timeout(5000)
         });
         assert.equal(current.status, 200, `backend must survive ${field} mismatch`);

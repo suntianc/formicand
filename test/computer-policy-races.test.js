@@ -12,7 +12,13 @@ import { createDashboardApplication } from "../dist/src/dashboard/application.js
 const { createComputerPolicyController, createComputerPolicyStore } = createRequire(import.meta.url)(
   "../desktop/computer-policy.cjs"
 );
-const target = { pid: 11, windowId: 12, bundleId: "org.atria.race", application: "Fixture", title: "Test" };
+const target = {
+  pid: 11,
+  windowId: 12,
+  bundleId: "org.formicand.race",
+  application: "Fixture",
+  title: "Test"
+};
 const status = {
   available: true,
   screenRecording: true,
@@ -53,7 +59,7 @@ async function waitFor(predicate) {
   }
 }
 async function fixture(t, driver, cleanup = () => {}) {
-  const root = await mkdtemp(join(tmpdir(), "atria-computer-races-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-computer-races-"));
   await writeFile(join(root, "config.json"), "{}");
   const probe = createServer();
   probe.listen(0, "127.0.0.1");

@@ -5,7 +5,7 @@ import { installModelProviders } from "./model-providers.js";
 
 /** Both hosts share one settings UI; keys are submitted once and never read back. */
 export function installDesktopSettings({ showToast, onSaved, host, api, identity = () => location.origin }) {
-  const desktop = window.bookmanDesktop;
+  const desktop = window.formicandDesktop;
   const errorMessage = (error) => {
     const message = typeof error?.message === "string" ? error.message : ui("模型设置暂时不可用，请稍后重试");
     if (/Failed to fetch|fetch failed|NetworkError/.test(message))

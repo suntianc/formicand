@@ -25,7 +25,7 @@ for (const api of ["openai-completions", "openai-responses"]) {
       const body = JSON.parse(raw);
       requests.push(body);
       const probe = body.tools?.some(
-        (tool) => (tool.name ?? tool.function?.name) === "atria_connection_check"
+        (tool) => (tool.name ?? tool.function?.name) === "formicand_connection_check"
       );
       const usage =
         api === "openai-completions"
@@ -40,7 +40,7 @@ for (const api of ["openai-completions", "openai-responses"]) {
         api,
         probe
           ? {
-              name: "atria_connection_check",
+              name: "formicand_connection_check",
               arguments: { status: "connected", color: "none", code: "none" }
             }
           : { text: `第${turns}轮缓存验证完成` }
@@ -78,7 +78,7 @@ for (const api of ["openai-completions", "openai-responses"]) {
       await saveProviderEdits(page);
       await expect(page.locator("[data-provider-save]")).toBeHidden();
       await expect(await checkProvider(page)).toContainText("连接通过");
-      expect(requests[0].prompt_cache_key).toBe("atria-connection-check");
+      expect(requests[0].prompt_cache_key).toBe("formicand-connection-check");
       await page.reload();
       const status = await (await page.request.get(`${dashboard.base}/api/model-settings`)).json();
       expect(status.providers[0].supportsPromptCacheKey).toBe(true);

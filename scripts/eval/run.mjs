@@ -7,7 +7,7 @@
  *
  * Needs `npm run build` first. Each run starts its own Dashboard in a temporary
  * data home, with copies of the desktop's model settings and keys
- * (`~/.atria/model-config.json`, `credentials.json`, or `EVAL_MODEL_CONFIG` and
+ * (`~/.formicand/model-config.json`, `credentials.json`, or `EVAL_MODEL_CONFIG` and
  * `EVAL_CREDENTIALS`); the user's own data home and running app are not touched.
  * The copies are removed when the run ends. This calls a paid model.
  */
@@ -163,7 +163,7 @@ async function leftovers(repo, word) {
 }
 
 async function runTask(dashboard, task, attempt, out) {
-  const dir = await mkdtemp(join(tmpdir(), `atria-eval-${task.id}-`));
+  const dir = await mkdtemp(join(tmpdir(), `formicand-eval-${task.id}-`));
   const repo = join(dir, "todo-cli");
   await cp(join(here, "repo"), repo, { recursive: true });
   await task.setup?.(repo);
@@ -295,9 +295,9 @@ async function runTask(dashboard, task, attempt, out) {
     ),
     // Compaction entries in the Main sessions, counted the same way for the
     // summary compaction before P4.9 and the handoff after it.
-    windows: await windowChanges(dashboard.env.COWORK_WORKSPACE, taskIds),
+    windows: await windowChanges(dashboard.env.FORMICAND_WORKSPACE, taskIds),
     contextWindow: detail.contextUsage?.contextWindow ?? null,
-    memories: await savedMemories(dashboard.env.ATRIA_HOME),
+    memories: await savedMemories(dashboard.env.FORMICAND_HOME),
     finalReply: textOf(final ?? {})
   };
   await writeFile(join(out, `${task.id}-${attempt}.json`), JSON.stringify(result, null, 2));
@@ -357,15 +357,18 @@ function verdicts(task, result) {
 async function main() {
   const { tasks: selected, repeat, out, contextWindow } = options(process.argv.slice(2));
   await mkdir(out, { recursive: true });
-  const secrets = await mkdtemp(join(tmpdir(), "atria-eval-config-"));
+  const secrets = await mkdtemp(join(tmpdir(), "formicand-eval-config-"));
   const config = join(secrets, "model-config.json");
   const credentials = join(secrets, "credentials.json");
-  await copyFile(process.env.EVAL_MODEL_CONFIG ?? join(homedir(), ".atria", "model-config.json"), config);
-  await copyFile(process.env.EVAL_CREDENTIALS ?? join(homedir(), ".atria", "credentials.json"), credentials);
+  await copyFile(process.env.EVAL_MODEL_CONFIG ?? join(homedir(), ".formicand", "model-config.json"), config);
+  await copyFile(
+    process.env.EVAL_CREDENTIALS ?? join(homedir(), ".formicand", "credentials.json"),
+    credentials
+  );
   if (contextWindow) await shrinkContextWindow(config, contextWindow);
   const dashboard = await startDashboard({
     defaultProject: false,
-    env: { COWORK_CONFIG: config, COWORK_CREDENTIALS: credentials }
+    env: { FORMICAND_CONFIG: config, FORMICAND_CREDENTIALS: credentials }
   });
   const rows = [];
   try {

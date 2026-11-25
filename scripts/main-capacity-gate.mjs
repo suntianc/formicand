@@ -1,6 +1,6 @@
 import { hostname } from "node:os";
 import { resolve } from "node:path";
-import { atriaDataPaths } from "./data-home.cjs";
+import { formicandDataPaths } from "./data-home.cjs";
 
 const dist = (path) => import(new URL(`../dist/src/${path}`, import.meta.url).href);
 
@@ -13,17 +13,17 @@ const dist = (path) => import(new URL(`../dist/src/${path}`, import.meta.url).hr
  * keeps the old behavior and no process state is read at all.
  */
 export async function openMainCapacityGate({ taskId, cwd = process.cwd(), env = process.env } = {}) {
-  const { coworkConfigPath, readCoworkConfig } = await dist("runtime/config.js");
+  const { formicandConfigPath, readFormicandConfig } = await dist("runtime/config.js");
   let config;
   try {
-    config = readCoworkConfig(cwd, env);
+    config = readFormicandConfig(cwd, env);
   } catch (error) {
     throw new Error(`外部 Main 配置无法读取：${error instanceof Error ? error.message : String(error)}`);
   }
   if (!config.mainCapacity) return undefined;
   const { MainCapacityStore, mainCapacityStatePath } = await dist("storage/main-capacity-store.js");
   const { createMainCapacityLedger } = await dist("runtime/main-capacity.js");
-  const data = atriaDataPaths(env, config, cwd);
+  const data = formicandDataPaths(env, config, cwd);
   const { dirname } = await import("node:path");
   const store = new MainCapacityStore(mainCapacityStatePath(dirname(data.globalIndex)));
   const ledger = createMainCapacityLedger({
@@ -36,7 +36,7 @@ export async function openMainCapacityGate({ taskId, cwd = process.cwd(), env = 
     settings: config.mainCapacity,
     /** The local Task of an external session, when this backend owns one. */
     external,
-    configPath: env.COWORK_CONFIG ? resolve(cwd, env.COWORK_CONFIG) : coworkConfigPath(cwd, env),
+    configPath: env.FORMICAND_CONFIG ? resolve(cwd, env.FORMICAND_CONFIG) : formicandConfigPath(cwd, env),
     admit: (request) => ledger.admit(request),
     bindProcess: (requestId, pid) => ledger.bindProcess(requestId, pid),
     release: (requestId) => ledger.release(requestId)

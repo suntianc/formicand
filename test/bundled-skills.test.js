@@ -55,7 +55,7 @@ test("the delegated roles' default skills are all bundled", () => {
 });
 
 test("bundled skills load on demand and every local resource survives installed desktop selection", async (t) => {
-  const root = await mkdtemp(join(tmpdir(), "atria-creative-skills-package-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-creative-skills-package-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const config = require("../electron-builder.config.cjs");
   const filter = new FileMatcher(source, root, (pattern) => pattern, config.files).createFilter();

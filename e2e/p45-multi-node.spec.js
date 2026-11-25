@@ -39,13 +39,13 @@ test("two local nodes aggregate in observation while work stays on this machine"
   const a = await startConfiguredDashboard({
     port: portA,
     defaultProject: false,
-    env: { COWORK_TRUSTED_CLIENT_ORIGINS: origins }
+    env: { FORMICAND_TRUSTED_CLIENT_ORIGINS: origins }
   });
   let b;
   const tokens = new Map();
   page.on("request", (request) => {
     const origin = new URL(request.url()).origin;
-    const token = request.headers()["x-atria-token"];
+    const token = request.headers()["x-formicand-token"];
     if (!token) return;
     if (!tokens.has(origin)) tokens.set(origin, new Set());
     tokens.get(origin).add(token);
@@ -54,7 +54,7 @@ test("two local nodes aggregate in observation while work stays on this machine"
     b = await startDashboard({
       port: portB,
       defaultProject: false,
-      env: { COWORK_TRUSTED_CLIENT_ORIGINS: origins }
+      env: { FORMICAND_TRUSTED_CLIENT_ORIGINS: origins }
     });
     const localProject = await createProject(page, a, "本机项目", `${a.root}/local-project`);
     const remoteProject = await createProject(page, b, "远程项目", `${b.root}/remote-project`);

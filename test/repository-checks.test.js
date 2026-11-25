@@ -21,7 +21,7 @@ import { cleanCompiled } from "../scripts/clean-compiled.mjs";
 import { verify, verificationScripts, fullVerificationScripts } from "../scripts/verify.mjs";
 
 async function fixture(callback) {
-  const root = await mkdtemp(join(tmpdir(), "atria-repository-check-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-repository-check-"));
   const put = async (file, text = "") => {
     await mkdir(join(root, file, ".."), { recursive: true });
     await writeFile(join(root, file), text);
@@ -94,8 +94,8 @@ test("compiler cleanup removes moved source emissions and preserves native, Pyth
       await put(`dist/src/runtime/live${extension}`);
     }
     await put("src/runtime/live.ts");
-    await put("dist/src/gui/atria-computer-use", "native");
-    await put("dist/src/desktop/atria-icon.png", "image");
+    await put("dist/src/gui/formicand-computer-use", "native");
+    await put("dist/src/desktop/formicand-icon.png", "image");
     await put("dist/src/software/blender/runner.py", "python");
     await put("dist/unrelated/custom.js", "outside compiler roots");
     const removed = await cleanCompiled(root);
@@ -103,8 +103,8 @@ test("compiler cleanup removes moved source emissions and preserves native, Pyth
     assert.ok(removed.every((file) => file.startsWith("dist/src/cli/moved")));
     for (const file of [
       "dist/src/runtime/live.js",
-      "dist/src/gui/atria-computer-use",
-      "dist/src/desktop/atria-icon.png",
+      "dist/src/gui/formicand-computer-use",
+      "dist/src/desktop/formicand-icon.png",
       "dist/src/software/blender/runner.py",
       "dist/unrelated/custom.js"
     ])

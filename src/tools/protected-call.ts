@@ -36,7 +36,7 @@ export interface ProtectedCallRefusal {
 export function protectedPathReason(path: string, pattern: string): string {
   return (
     `${path} is read-only for agents (protected by "${pattern}"). ` +
-    `Evaluation code, the CoworkOS runtime and version-control metadata stay outside the optimization loop so results remain trustworthy. ` +
+    `Evaluation code, the Formicand runtime and version-control metadata stay outside the optimization loop so results remain trustworthy. ` +
     `Change what is being measured instead, or ask the user to change what is protected.`
   );
 }

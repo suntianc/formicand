@@ -62,7 +62,7 @@ test(
   "real Pi Main discovers search first turn, reads sources, delegates and resumes the same anonymous config",
   { timeout: 90_000 },
   async (t) => {
-    const root = await mkdtemp(join(tmpdir(), "atria-web-pi-"));
+    const root = await mkdtemp(join(tmpdir(), "formicand-web-pi-"));
     const project = join(root, "project"),
       workspace = join(root, "workspace"),
       sessions = join(root, "sessions");
@@ -140,24 +140,24 @@ test(
     const env = Object.fromEntries(
       Object.entries(process.env).filter(
         ([name]) =>
-          !/^(?:COWORK_|PI_|ATRIA_|EXA_|HTTP_PROXY|HTTPS_PROXY|NO_PROXY|http_proxy|https_proxy|no_proxy)/.test(
+          !/^(?:FORMICAND_|PI_|FORMICAND_|EXA_|HTTP_PROXY|HTTPS_PROXY|NO_PROXY|http_proxy|https_proxy|no_proxy)/.test(
             name
           )
       )
     );
     Object.assign(env, {
-      COWORK_CONFIG: join(root, "config.json"),
-      COWORK_WORKSPACE: workspace,
-      COWORK_PROJECT_DIR: project,
-      COWORK_TASK_ID: "search-task",
-      COWORK_RUN_ID: "search-run",
-      COWORK_API_BASE: provider.baseUrl,
-      COWORK_API_KEY: "local-fixture",
-      COWORK_MODEL: "protocol-fixture",
-      COWORK_EXA_MCP_ENDPOINT: exa.endpoint,
-      COWORK_DISABLE_MAIN_GUARDIAN: "1",
-      COWORK_REASONING_EFFORT: "off",
-      COWORK_SUPPORTS_REASONING_EFFORT: "0",
+      FORMICAND_CONFIG: join(root, "config.json"),
+      FORMICAND_WORKSPACE: workspace,
+      FORMICAND_PROJECT_DIR: project,
+      FORMICAND_TASK_ID: "search-task",
+      FORMICAND_RUN_ID: "search-run",
+      FORMICAND_API_BASE: provider.baseUrl,
+      FORMICAND_API_KEY: "local-fixture",
+      FORMICAND_MODEL: "protocol-fixture",
+      FORMICAND_EXA_MCP_ENDPOINT: exa.endpoint,
+      FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
+      FORMICAND_REASONING_EFFORT: "off",
+      FORMICAND_SUPPORTS_REASONING_EFFORT: "0",
       PI_CODING_AGENT_DIR: join(root, "pi"),
       PI_OFFLINE: "1",
       PI_TELEMETRY: "0"
@@ -166,7 +166,7 @@ test(
       child = spawn(
         process.execPath,
         [
-          "scripts/atria.mjs",
+          "scripts/formicand.mjs",
           "--print",
           "--mode",
           "json",

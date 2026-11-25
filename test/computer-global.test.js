@@ -5,7 +5,7 @@ import { ComputerUse } from "../dist/src/gui/computer-use.js";
 const target = {
   pid: 11,
   windowId: 12,
-  bundleId: "org.atria.fixture",
+  bundleId: "org.formicand.fixture",
   application: "Fixture",
   title: "Test"
 };
@@ -202,7 +202,7 @@ test("global renewal checks current target identity, system permissions and secu
   advance(300_001);
   await assert.rejects(computer.observe("a", grant.sessionId), /系统设置/);
   recording = true;
-  windows = [{ ...target, bundleId: "org.atria.other" }];
+  windows = [{ ...target, bundleId: "org.formicand.other" }];
   await assert.rejects(computer.observe("a", grant.sessionId), /身份/);
   assert.equal(computer.current("a").state, "ended");
   assert.deepEqual(effects, [["observe", 12]]);

@@ -29,7 +29,7 @@ test("project rows keep disclosure, titles and actions aligned across widths and
       });
       expect(task.ok()).toBeTruthy();
     }
-    await page.addInitScript(() => localStorage.setItem("atria.appearance", "system"));
+    await page.addInitScript(() => localStorage.setItem("formicand.appearance", "system"));
     await page.goto(dashboard.base);
     await page.waitForFunction(
       () => getComputedStyle(document.querySelector(".project-list")).transform === "none"

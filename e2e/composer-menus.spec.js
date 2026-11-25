@@ -5,7 +5,7 @@ import { startDashboard } from "../test/dashboard-fixture.mjs";
 import { modelProtocolFixture } from "../test/model-protocol-fixture.mjs";
 
 async function seed(dashboard) {
-  const home = dashboard.env.ATRIA_HOME;
+  const home = dashboard.env.FORMICAND_HOME;
   const skill = join(home, "skills", "pg-migration");
   await mkdir(skill, { recursive: true });
   await writeFile(
@@ -59,7 +59,7 @@ test("/ and @ leave words in the draft and send what they name to Main", async (
     await expect(menu.locator(".composer-menu-group")).toHaveText(["技能", "指令模板"]);
     await expect(menu.locator(".composer-menu-item.is-active")).toContainText("/pg-migration");
     await expect(menu).toContainText("全局");
-    await expect(menu).toContainText("~/.atria/prompts");
+    await expect(menu).toContainText("~/.formicand/prompts");
     await input.press("ArrowDown");
     await expect(menu.locator(".composer-menu-item.is-active")).not.toContainText("/pg-migration");
     await input.press("ArrowUp");
@@ -147,7 +147,7 @@ test("/ and @ leave words in the draft and send what they name to Main", async (
     await expect.poll(() => provider.requests.length, { timeout: 30_000 }).toBeGreaterThan(0);
     const sent = JSON.stringify(provider.requests[0].body.messages);
     const manifest = JSON.parse(
-      JSON.parse(`"${/<atria_references>\\n(.*?)\\n<\/atria_references>/.exec(sent)[1]}"`)
+      JSON.parse(`"${/<formicand_references>\\n(.*?)\\n<\/formicand_references>/.exec(sent)[1]}"`)
     );
     expect(manifest.references).toEqual([
       { kind: "skill", name: "pg-migration" },
@@ -164,12 +164,12 @@ test("/ and @ leave words in the draft and send what they name to Main", async (
       "public/tasks"
     ]);
     await expect(message.locator(".reference-chip svg.ref-icon")).toHaveCount(3);
-    await expect(message).not.toContainText("atria_references");
+    await expect(message).not.toContainText("formicand_references");
     // The conversation title uses the person's words rather than the hidden manifest.
     await expect(page.locator("#topbar-task")).toContainText("/pg-migration");
-    await expect(page.locator("#topbar-task")).not.toContainText("atria_references");
+    await expect(page.locator("#topbar-task")).not.toContainText("formicand_references");
     await expect(page.locator(".conversation-item.active")).toContainText("/pg-migration");
-    await expect(page.locator(".conversation-item.active")).not.toContainText("atria_references");
+    await expect(page.locator(".conversation-item.active")).not.toContainText("formicand_references");
 
     // Editing the first message with references keeps the title free of the manifest too.
     await expect(page.locator(".chat-message.main").first()).toBeVisible({ timeout: 30_000 });
@@ -181,9 +181,9 @@ test("/ and @ leave words in the draft and send what they name to Main", async (
     await page.getByRole("button", { name: "发送编辑后的消息", exact: true }).click();
     await expect.poll(() => provider.requests.length, { timeout: 30_000 }).toBeGreaterThan(1);
     await expect(page.locator("#topbar-task")).toContainText("/pg-migration 复核");
-    await expect(page.locator("#topbar-task")).not.toContainText("atria_references");
+    await expect(page.locator("#topbar-task")).not.toContainText("formicand_references");
     await expect(page.locator(".conversation-item.active")).toContainText("/pg-migration 复核");
-    await expect(page.locator(".conversation-item.active")).not.toContainText("atria_references");
+    await expect(page.locator(".conversation-item.active")).not.toContainText("formicand_references");
 
     // A command runs at once and leaves nothing in the draft.
     await expect(input).toHaveValue("");

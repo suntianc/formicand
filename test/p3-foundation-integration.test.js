@@ -279,7 +279,7 @@ for (const engine of PROJECT_DATA_ENGINES) {
         config: { mainCapacity: { resident: 1, continuation: 1 } },
         // A resident Main holds its external slot between turns; the idle exit
         // is what frees it for the next demand, as spec rule 10 describes.
-        env: { COWORK_MAIN_IDLE_TIMEOUT_MS: "1200" }
+        env: { FORMICAND_MAIN_IDLE_TIMEOUT_MS: "1200" }
       });
       const request = client(authority);
       await saveConnection(request, {
@@ -292,7 +292,7 @@ for (const engine of PROJECT_DATA_ENGINES) {
         t,
         authority,
         { mainCapacity: { resident: 1, continuation: 1 } },
-        { env: { COWORK_MAIN_IDLE_TIMEOUT_MS: "1200" } }
+        { env: { FORMICAND_MAIN_IDLE_TIMEOUT_MS: "1200" } }
       );
       await saveConnection(secondary.request, {
         profileName: "执行主机",
@@ -562,7 +562,7 @@ for (const engine of PROJECT_DATA_ENGINES) {
         config: { mainCapacity: { resident: 1, continuation: 1 } },
         // A resident Main holds its external slot between turns; the idle exit
         // is what frees it for the next demand, as spec rule 10 describes.
-        env: { COWORK_MAIN_IDLE_TIMEOUT_MS: "1200" }
+        env: { FORMICAND_MAIN_IDLE_TIMEOUT_MS: "1200" }
       });
       const request = client(authority);
       const hostSaved = await saveConnection(request, {

@@ -27,7 +27,7 @@ const layers = (page) =>
     const conversation = getComputedStyle(document.querySelector(".chat-pane"));
     const taskPanel = getComputedStyle(document.querySelector(".agent-pane"));
     return {
-      material: window.bookmanDesktop.windowMaterial,
+      material: window.formicandDesktop.windowMaterial,
       title: document.title,
       html: read("html"),
       body: read("body"),
@@ -53,17 +53,17 @@ const expectClearPage = (value) => {
 test("macOS window material shows the desktop through the page, keeps the glass panels and names Formicand while packages stay", async () => {
   test.skip(process.platform !== "darwin", "Native window material acceptance requires macOS");
   test.setTimeout(180_000);
-  const root = await mkdtemp(join(tmpdir(), "atria-backdrop-desktop-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-backdrop-desktop-"));
   const env = Object.fromEntries(
     Object.entries(process.env).filter(
-      ([key]) => !/^(?:COWORK_|ATRIA_|PI_|EXA_|ELECTRON_RUN_AS_NODE$|NODE_OPTIONS$)/.test(key)
+      ([key]) => !/^(?:FORMICAND_|FORMICAND_|PI_|EXA_|ELECTRON_RUN_AS_NODE$|NODE_OPTIONS$)/.test(key)
     )
   );
   Object.assign(env, {
-    COWORK_DESKTOP_DATA: root,
-    ATRIA_HOME: join(root, "home"),
+    FORMICAND_DESKTOP_DATA: root,
+    FORMICAND_HOME: join(root, "home"),
     PI_CODING_AGENT_DIR: join(root, "pi"),
-    COWORK_DISABLE_MAIN_GUARDIAN: "1",
+    FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
     PI_OFFLINE: "1"
   });
   const executablePath = await developmentExecutable();
@@ -101,7 +101,7 @@ test("macOS window material shows the desktop through the page, keeps the glass 
     expect(window.background).toBe("#000000");
     expect(window.userData).toBe(root);
 
-    const icon = PNG.sync.read(await readFile("build/atria-icon.png"));
+    const icon = PNG.sync.read(await readFile("build/formicand-icon.png"));
     expect(icon.width).toBe(1024);
     expect(icon.height).toBe(1024);
     const alpha = (x, y) => icon.data[(y * icon.width + x) * 4 + 3];
@@ -117,15 +117,17 @@ test("macOS window material shows the desktop through the page, keeps the glass 
     expect(pixels.light).toBeGreaterThan(50_000);
 
     const packageJson = JSON.parse(await readFile("package.json", "utf8"));
-    expect(packageJson.name).toBe("coworkos");
-    expect(packageJson.bin).toEqual({ coworkos: "scripts/atria.mjs", atria: "scripts/atria.mjs" });
+    expect(packageJson.name).toBe("formicand");
+    expect(packageJson.bin).toEqual({
+      formicand: "scripts/formicand.mjs"
+    });
     const builder = await import("../electron-builder.config.cjs");
-    expect(builder.default.productName).toBe("CoworkOS");
-    expect(builder.default.dmg.title).toContain("CoworkOS");
+    expect(builder.default.productName).toBe("Formicand");
+    expect(builder.default.dmg.title).toContain("Formicand");
 
     // The real host exposes the material and switches appearance through IPC.
     for (const theme of ["dark", "light"]) {
-      await page.evaluate((value) => window.bookmanDesktop.appearance.set(value), theme);
+      await page.evaluate((value) => window.formicandDesktop.appearance.set(value), theme);
       await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
       await expect(page.locator("html")).toHaveAttribute("data-window-material", "under-window");
       const value = await layers(page);

@@ -40,15 +40,15 @@ export function parseCapabilityGrants(raw: string | undefined): CapabilityGrant[
   try {
     value = JSON.parse(raw);
   } catch {
-    throw new Error("CoworkOS 子代理能力授权无法读取");
+    throw new Error("Formicand 子代理能力授权无法读取");
   }
-  if (!Array.isArray(value)) throw new Error("CoworkOS 子代理能力授权格式不合法");
+  if (!Array.isArray(value)) throw new Error("Formicand 子代理能力授权格式不合法");
   return value.map((entry) => {
     if (!entry || typeof entry !== "object" || Array.isArray(entry))
-      throw new Error("CoworkOS 子代理能力授权格式不合法");
+      throw new Error("Formicand 子代理能力授权格式不合法");
     const grant = entry as Record<string, unknown>;
     if (typeof grant.provider !== "string" || !grant.provider.trim())
-      throw new Error("CoworkOS 子代理能力授权缺少提供方");
+      throw new Error("Formicand 子代理能力授权缺少提供方");
     return { provider: grant.provider, scope: grant.scope };
   });
 }

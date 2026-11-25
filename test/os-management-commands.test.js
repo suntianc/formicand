@@ -31,7 +31,7 @@ const alive = (pid) => {
 
 function isolatedEnv(overrides) {
   const inherited = Object.fromEntries(
-    Object.entries(process.env).filter(([name]) => !/^(?:COWORK_|PI_|ATRIA_)/.test(name))
+    Object.entries(process.env).filter(([name]) => !/^(?:FORMICAND_|PI_|FORMICAND_)/.test(name))
   );
   return { ...inherited, ...overrides };
 }
@@ -49,16 +49,16 @@ async function createRoot(prefix) {
   await writeFile(configPath, "{}");
   const env = isolatedEnv({
     HOME: userHome,
-    ATRIA_HOME: home,
+    FORMICAND_HOME: home,
     PI_CODING_AGENT_DIR: join(base, "pi"),
     PI_OFFLINE: "1",
     PI_TELEMETRY: "0",
-    COWORK_HARNESS_ROOT: repositoryRoot,
-    COWORK_WORKSPACE: workspace,
-    COWORK_GLOBAL_INDEX: join(home, "runtime", "workspaces.json"),
-    COWORK_CONFIG: configPath,
-    COWORK_DISABLE_MAIN_GUARDIAN: "1",
-    COWORK_SUPERVISOR_INTERVAL_MS: "1000"
+    FORMICAND_HARNESS_ROOT: repositoryRoot,
+    FORMICAND_WORKSPACE: workspace,
+    FORMICAND_GLOBAL_INDEX: join(home, "runtime", "workspaces.json"),
+    FORMICAND_CONFIG: configPath,
+    FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
+    FORMICAND_SUPERVISOR_INTERVAL_MS: "1000"
   });
   return { base, home, workspace, project, userHome, configPath, env };
 }
@@ -116,7 +116,7 @@ async function api(root, method, path, body, credential) {
   const instance = await readInstance(root);
   const token = credential === undefined ? instance.token : credential;
   const headers = {};
-  if (token) headers["x-atria-token"] = token;
+  if (token) headers["x-formicand-token"] = token;
   if (body !== undefined) headers["content-type"] = "application/json";
   const response = await fetch(`${instance.url}${path}`, {
     method,
@@ -168,7 +168,7 @@ test(
   "a local session reads backend protocol and capabilities, and revocation ends it",
   { timeout: 90_000 },
   async (t) => {
-    const root = await createRoot("atria-mgmt-session-");
+    const root = await createRoot("formicand-mgmt-session-");
     t.after(async () => {
       await stopQuietly(root);
       await rm(root.base, { recursive: true, force: true });
@@ -258,7 +258,7 @@ test(
   "a repeated command replays its result, refuses different content, and a stale revision cannot overwrite",
   { timeout: 120_000 },
   async (t) => {
-    const root = await createRoot("atria-mgmt-command-");
+    const root = await createRoot("formicand-mgmt-command-");
     t.after(async () => {
       await stopQuietly(root);
       await rm(root.base, { recursive: true, force: true });
@@ -277,11 +277,11 @@ test(
     assert.equal(created.status, 201, JSON.stringify(created.body));
     const project = created.body.project;
     assert.ok(project.projectId);
-    assert.equal(created.headers["x-cowork-replayed"], undefined);
+    assert.equal(created.headers["x-formicand-replayed"], undefined);
 
     const replay = await api(root, "POST", "/api/projects", projectBody, client.token);
     assert.equal(replay.status, 201, JSON.stringify(replay.body));
-    assert.equal(replay.headers["x-cowork-replayed"], "1");
+    assert.equal(replay.headers["x-formicand-replayed"], "1");
     assert.deepEqual(replay.body, created.body, "the retry returns the saved result");
     const afterReplay = await api(root, "GET", "/api/tasks", undefined, client.token);
     assert.equal(
@@ -308,7 +308,7 @@ test(
       JSON.stringify(concurrent.map((entry) => entry.body))
     );
     assert.equal(
-      concurrent.filter((entry) => entry.headers["x-cowork-replayed"] === "1").length,
+      concurrent.filter((entry) => entry.headers["x-formicand-replayed"] === "1").length,
       1,
       "exactly one attempt applied the command"
     );
@@ -402,7 +402,7 @@ test(
       renameBody,
       client.token
     );
-    assert.equal(renameReplay.headers["x-cowork-replayed"], "1");
+    assert.equal(renameReplay.headers["x-formicand-replayed"], "1");
     assert.deepEqual(renameReplay.body, renamed.body);
     const renameConflict = await api(
       root,
@@ -433,7 +433,7 @@ test(
     assert.equal(task.body.taskId, "managed-task");
     const taskReplay = await api(root, "POST", "/api/tasks", taskBody, client.token);
     assert.equal(taskReplay.status, 201, JSON.stringify(taskReplay.body));
-    assert.equal(taskReplay.headers["x-cowork-replayed"], "1");
+    assert.equal(taskReplay.headers["x-formicand-replayed"], "1");
     assert.deepEqual(taskReplay.body, task.body);
     const taskConflict = await api(
       root,
@@ -466,7 +466,7 @@ test(
     const generated = await api(root, "POST", "/api/tasks", generatedBody, client.token);
     assert.equal(generated.status, 201, JSON.stringify(generated.body));
     const generatedRetry = await api(root, "POST", "/api/tasks", generatedBody, client.token);
-    assert.equal(generatedRetry.headers["x-cowork-replayed"], "1");
+    assert.equal(generatedRetry.headers["x-formicand-replayed"], "1");
     assert.equal(generatedRetry.body.taskId, generated.body.taskId);
     assert.deepEqual(generatedRetry.body, generated.body);
   }
@@ -546,7 +546,7 @@ test(
   "a saved command survives a lost response and a real restart, and the local boundary stays closed",
   { timeout: 150_000 },
   async (t) => {
-    const root = await createRoot("atria-mgmt-restart-");
+    const root = await createRoot("formicand-mgmt-restart-");
     t.after(async () => {
       await stopQuietly(root);
       await rm(root.base, { recursive: true, force: true });
@@ -584,7 +584,7 @@ test(
       requestText(instance, {
         method: "POST",
         path: "/api/tasks",
-        headers: { "x-atria-token": session.token },
+        headers: { "x-formicand-token": session.token },
         body: JSON.stringify(create)
       })
     );
@@ -621,7 +621,7 @@ test(
     assert.deepEqual(afterRestartReceipt.body, saved);
     const retry = await api(root, "POST", "/api/tasks", create, session.token);
     assert.equal(retry.status, 201, JSON.stringify(retry.body));
-    assert.equal(retry.headers["x-cowork-replayed"], "1");
+    assert.equal(retry.headers["x-formicand-replayed"], "1");
     assert.deepEqual(retry.body, saved.body);
     const reconnected = await api(root, "GET", "/api/tasks/lost-task", undefined, session.token);
     assert.equal(reconnected.status, 200);
@@ -649,25 +649,25 @@ test(
     const allowed = await rawRequest(restartedInstance, {
       method: "GET",
       path: "/api/backend",
-      headers: { host: `localhost:${restartedInstance.port}`, "x-atria-token": token }
+      headers: { host: `localhost:${restartedInstance.port}`, "x-formicand-token": token }
     });
     assert.equal(allowed.status, 200, allowed.raw);
     const foreignHost = await rawRequest(restartedInstance, {
       method: "GET",
       path: "/api/backend",
-      headers: { host: `attacker.invalid:${restartedInstance.port}`, "x-atria-token": token }
+      headers: { host: `attacker.invalid:${restartedInstance.port}`, "x-formicand-token": token }
     });
     assert.equal(foreignHost.status, 403, foreignHost.raw);
     const foreignOrigin = await rawRequest(restartedInstance, {
       method: "GET",
       path: "/api/backend",
-      headers: { origin: "http://attacker.invalid", "x-atria-token": token }
+      headers: { origin: "http://attacker.invalid", "x-formicand-token": token }
     });
     assert.equal(foreignOrigin.status, 403, foreignOrigin.raw);
     const crossSite = await rawRequest(restartedInstance, {
       method: "GET",
       path: "/api/backend",
-      headers: { "sec-fetch-site": "cross-site", "x-atria-token": token }
+      headers: { "sec-fetch-site": "cross-site", "x-formicand-token": token }
     });
     assert.equal(crossSite.status, 403, crossSite.raw);
     const noCredential = await rawRequest(restartedInstance, { method: "GET", path: "/api/backend" });

@@ -1,9 +1,9 @@
 import { Type } from "typebox";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { createImageTools } from "../../../dist/src/tools/read-image.js";
-import type { CoworkToolContext } from "../extension.ts";
+import type { FormicandToolContext } from "../extension.ts";
 
-export function registerImageTools(pi: ExtensionAPI, context: CoworkToolContext) {
+export function registerImageTools(pi: ExtensionAPI, context: FormicandToolContext) {
   const tools = createImageTools({
     rootDirectory: context.projectDirectory,
     taskDirectory: context.taskWorkspace,

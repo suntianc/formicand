@@ -15,12 +15,12 @@ import { readFixtureRequestBody } from "../http-request-body-fixture.mjs";
  * test at once instead of drifting per file.
  */
 
-/** Remove every inherited Cowork/Pi/model setting before applying the fixture's own. */
+/** Remove every inherited Formicand/Pi/model setting before applying the fixture's own. */
 export function isolatedPiEnvironment(overrides = {}) {
   return {
     ...Object.fromEntries(
       Object.entries(process.env).filter(
-        ([key]) => !/^(?:COWORK_|PI_|ATRIA_|OPENAI_|ANTHROPIC_|EXA_|NODE_OPTIONS)/.test(key)
+        ([key]) => !/^(?:FORMICAND_|PI_|FORMICAND_|OPENAI_|ANTHROPIC_|EXA_|NODE_OPTIONS)/.test(key)
       )
     ),
     ...overrides
@@ -61,7 +61,7 @@ export async function startLocalProvider({ model = "p46-fixture-model", handle }
 /**
  * One real Pi process driven through its documented newline-delimited RPC.
  *
- * `command`/`args` stay explicit so a test can select the Cowork launcher or a
+ * `command`/`args` stay explicit so a test can select the Formicand launcher or a
  * specific Pi bundle without this fixture deciding which runtime it is testing.
  */
 export function spawnPiRpc({ command, args, cwd, env, label = "p46" }) {

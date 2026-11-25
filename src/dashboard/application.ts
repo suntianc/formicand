@@ -17,11 +17,11 @@ import { createServer } from "node:http";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import { id, now } from "../domain/types.js";
 import { InboxStore } from "../runtime/scheduler.js";
-import { coworkConfigPath, readCoworkConfig, readHostCoworkConfig } from "../runtime/config.js";
+import { formicandConfigPath, readFormicandConfig, readHostFormicandConfig } from "../runtime/config.js";
 import { normalizeReasoningEffort } from "../runtime/runtime-settings.js";
 import { availableModels as catalogModels, selectionLimits } from "../runtime/model-catalog.js";
 import { modelLevels, type ModelLevels } from "../runtime/model-levels.js";
-import { atriaDataPaths } from "../../scripts/data-home.cjs";
+import { formicandDataPaths } from "../../scripts/data-home.cjs";
 import { CoordinatorRuntime } from "../runtime/coordinator-runtime.js";
 import { findSubagentCall } from "../runtime/progress.js";
 import { JsonlEventStore } from "../storage/event-store.js";
@@ -73,8 +73,8 @@ export function createDashboardApplication(
     backendIdentity?: { backendId: string; startedAt: string };
   } = {}
 ) {
-  const projectRoot = resolve(options.projectRoot ?? process.env.COWORK_HARNESS_ROOT ?? process.cwd());
-  const port = options.port ?? Number(process.env.COWORK_UI_PORT ?? 3880);
+  const projectRoot = resolve(options.projectRoot ?? process.env.FORMICAND_HARNESS_ROOT ?? process.cwd());
+  const port = options.port ?? Number(process.env.FORMICAND_UI_PORT ?? 3880);
   const backendIdentity = options.backendIdentity ?? { backendId: id("backend"), startedAt: now() };
   /**
    * Where this Dashboard answers.
@@ -86,8 +86,8 @@ export function createDashboardApplication(
    */
   const dashboardUrl = `http://127.0.0.1:${port}`;
   // The host-owned credential store is overlaid here, so child processes and routes share it.
-  const runtimeConfig = readHostCoworkConfig(projectRoot);
-  const data = atriaDataPaths(process.env, runtimeConfig, projectRoot);
+  const runtimeConfig = readHostFormicandConfig(projectRoot);
+  const data = formicandDataPaths(process.env, runtimeConfig, projectRoot);
   let workspaceRoot = data.workspaceRoot;
   const coordinator = new CoordinatorRuntime();
   const computerDriver = new MacComputerDriver();
@@ -102,8 +102,8 @@ export function createDashboardApplication(
    */
   const access = new LocalAccess(
     dirname(globalIndexPath),
-    () => process.env.COWORK_API_TOKEN,
-    () => options.localAccessToken ?? process.env.COWORK_API_TOKEN
+    () => process.env.FORMICAND_API_TOKEN,
+    () => options.localAccessToken ?? process.env.FORMICAND_API_TOKEN
   );
   const computerApproval = new ComputerApproval(
     options.computerApprovalAuthenticate ?? createMacComputerApproval(projectRoot),
@@ -131,7 +131,7 @@ export function createDashboardApplication(
   const projectData = new ProjectDataRuntime({
     config: runtimeConfig.projectData,
     env: process.env,
-    configPath: coworkConfigPath(projectRoot),
+    configPath: formicandConfigPath(projectRoot),
     dataRoot: dirname(globalIndexPath),
     backendId: backendIdentity.backendId
   });
@@ -174,9 +174,9 @@ export function createDashboardApplication(
     backendId: backendIdentity.backendId,
     settings: () => runtimeConfig.mainCapacity,
     persistSettings: async (next) => {
-      const path = coworkConfigPath(projectRoot);
+      const path = formicandConfigPath(projectRoot);
       await withFileLock(path, async () => {
-        const previous = existsSync(path) ? readCoworkConfig(projectRoot, { COWORK_CONFIG: path }) : {};
+        const previous = existsSync(path) ? readFormicandConfig(projectRoot, { FORMICAND_CONFIG: path }) : {};
         const persisted = { ...previous, mainCapacity: next };
         await mkdir(dirname(path), { recursive: true });
         const temporary = `${path}.tmp-${randomUUID()}`;
@@ -191,8 +191,8 @@ export function createDashboardApplication(
         projectName: project.projectName
       })),
     sessions: async (projectId) => await (await projectData.service()).listMainSessions(projectId),
-    ...(process.env.COWORK_MAIN_CAPACITY_RETRY_MS
-      ? { retryBaseMs: Number(process.env.COWORK_MAIN_CAPACITY_RETRY_MS) }
+    ...(process.env.FORMICAND_MAIN_CAPACITY_RETRY_MS
+      ? { retryBaseMs: Number(process.env.FORMICAND_MAIN_CAPACITY_RETRY_MS) }
       : {}),
     taskState: async (taskId) => {
       // eslint-disable-next-line no-restricted-syntax -- 容量查询的 taskId 可能刚被删除，定位失败按没有活动 Run 处理
@@ -239,8 +239,8 @@ export function createDashboardApplication(
     deliveryRoot: join(dirname(globalIndexPath), "delivery-sync"),
     // Test-only crash window: kill this process between the target update and
     // its record so recovery has to reconcile against real Git facts.
-    ...(process.env.COWORK_MERGE_FAULT_INJECT
-      ? { mergeFaultInject: process.env.COWORK_MERGE_FAULT_INJECT }
+    ...(process.env.FORMICAND_MERGE_FAULT_INJECT
+      ? { mergeFaultInject: process.env.FORMICAND_MERGE_FAULT_INJECT }
       : {}),
     // Review identity comes from this Task's own durable queue, never a body.
     call: async (taskId, callId) => {
@@ -294,7 +294,7 @@ export function createDashboardApplication(
   // Retry delivery facts this host published but could not record while the
   // shared service was unreachable. One bounded interval in this process only
   // looks at local pending facts, so no user read or restart is required.
-  const deliverySyncTickMs = Number(process.env.COWORK_DELIVERY_SYNC_TICK_MS);
+  const deliverySyncTickMs = Number(process.env.FORMICAND_DELIVERY_SYNC_TICK_MS);
   developments.startDeliveryRecovery(
     Number.isFinite(deliverySyncTickMs) && deliverySyncTickMs > 0 ? deliverySyncTickMs : undefined
   );
@@ -309,14 +309,16 @@ export function createDashboardApplication(
    */
   const catalogEvents = createCatalogEvents({
     ledger: EventLedger.open(join(dirname(globalIndexPath), "events"), backendIdentity.backendId, {
-      ...(process.env.COWORK_EVENT_LEDGER_RECORDS
-        ? { maxRecords: Number(process.env.COWORK_EVENT_LEDGER_RECORDS) }
+      ...(process.env.FORMICAND_EVENT_LEDGER_RECORDS
+        ? { maxRecords: Number(process.env.FORMICAND_EVENT_LEDGER_RECORDS) }
         : {}),
-      ...(process.env.COWORK_EVENT_FAULT_INJECT ? { faultInject: process.env.COWORK_EVENT_FAULT_INJECT } : {})
+      ...(process.env.FORMICAND_EVENT_FAULT_INJECT
+        ? { faultInject: process.env.FORMICAND_EVENT_FAULT_INJECT }
+        : {})
     }),
     readCatalog: globalTaskPayload,
-    ...(process.env.COWORK_EVENT_RECONCILE_MS
-      ? { reconcileMs: Number(process.env.COWORK_EVENT_RECONCILE_MS) }
+    ...(process.env.FORMICAND_EVENT_RECONCILE_MS
+      ? { reconcileMs: Number(process.env.FORMICAND_EVENT_RECONCILE_MS) }
       : {})
   });
   /**
@@ -383,9 +385,11 @@ export function createDashboardApplication(
         await agentLocations(data.home, (await locateTask(taskId)).task.projectDirectory),
         name
       ),
-    configPath: () => coworkConfigPath(projectRoot),
+    configPath: () => formicandConfigPath(projectRoot),
     piAgentDir: () => data.piAgentDir,
-    ...(process.env.COWORK_SUBAGENT_POLL_MS ? { pollMs: Number(process.env.COWORK_SUBAGENT_POLL_MS) } : {})
+    ...(process.env.FORMICAND_SUBAGENT_POLL_MS
+      ? { pollMs: Number(process.env.FORMICAND_SUBAGENT_POLL_MS) }
+      : {})
   });
   const runs = createDashboardRunService({
     onRunFinalized: async (location, runId, status) => {
@@ -410,7 +414,7 @@ export function createDashboardApplication(
       workspaceRoots: knownWorkspaceRoots,
       // A host with no Main connection has nothing to launch, and a connection
       // added later is seen on the next cycle.
-      modelConfigured: () => Boolean(runtimeValue("COWORK_API_BASE") && runtimeValue("COWORK_API_KEY"))
+      modelConfigured: () => Boolean(runtimeValue("FORMICAND_API_BASE") && runtimeValue("FORMICAND_API_KEY"))
     },
     withTaskProjectLock: workspaces.withTaskProjectLock,
     resolveMainModel: (request) => resolveModelRole(runtimeConfig, request),
@@ -467,12 +471,14 @@ export function createDashboardApplication(
     if (result.status === "failed") throw new Error(result.error);
   });
 
-  const uiRoot = process.env.COWORK_UI_DIR ?? join(projectRoot, "web");
+  const uiRoot = process.env.FORMICAND_UI_DIR ?? join(projectRoot, "web");
 
-  function runtimeValue(name: "COWORK_API_BASE" | "COWORK_API_KEY" | "COWORK_MODEL"): string | undefined {
-    if (name === "COWORK_API_BASE")
+  function runtimeValue(
+    name: "FORMICAND_API_BASE" | "FORMICAND_API_KEY" | "FORMICAND_MODEL"
+  ): string | undefined {
+    if (name === "FORMICAND_API_BASE")
       return process.env[name] || runtimeConfig.baseUrl || runtimeConfig.apiBase;
-    if (name === "COWORK_API_KEY") return process.env[name] || runtimeConfig.apiKey;
+    if (name === "FORMICAND_API_KEY") return process.env[name] || runtimeConfig.apiKey;
     return process.env[name] || runtimeConfig.model || "glm-5.3";
   }
 
@@ -490,12 +496,12 @@ export function createDashboardApplication(
 
   /** The connection's models, each with the reasoning levels it accepts (#27). */
   async function availableModels(): Promise<Array<{ id: string } & ModelLevels>> {
-    const baseUrl = runtimeValue("COWORK_API_BASE");
+    const baseUrl = runtimeValue("FORMICAND_API_BASE");
     const catalog = await catalogModels({
       ...runtimeConfig,
-      model: runtimeValue("COWORK_MODEL") ?? "glm-5.3",
+      model: runtimeValue("FORMICAND_MODEL") ?? "glm-5.3",
       baseUrl,
-      apiKey: runtimeValue("COWORK_API_KEY")
+      apiKey: runtimeValue("FORMICAND_API_KEY")
     });
     return Promise.all(
       catalog.map(async (entry) => ({
@@ -556,16 +562,16 @@ export function createDashboardApplication(
         process.platform === "darwin"
           ? [
               "-e",
-              'try\nreturn POSIX path of (choose folder with prompt "选择 Cowork 工作空间")\non error number -128\nreturn ""\nend try'
+              'try\nreturn POSIX path of (choose folder with prompt "选择 Formicand 工作空间")\non error number -128\nreturn ""\nend try'
             ]
           : process.platform === "win32"
             ? [
                 "-NoProfile",
                 "-STA",
                 "-Command",
-                'Add-Type -AssemblyName System.Windows.Forms; $picker = New-Object System.Windows.Forms.FolderBrowserDialog; $picker.Description = "选择 Cowork 工作空间"; if ($picker.ShowDialog() -eq "OK") { Write-Output $picker.SelectedPath }; $picker.Dispose()'
+                'Add-Type -AssemblyName System.Windows.Forms; $picker = New-Object System.Windows.Forms.FolderBrowserDialog; $picker.Description = "选择 Formicand 工作空间"; if ($picker.ShowDialog() -eq "OK") { Write-Output $picker.SelectedPath }; $picker.Dispose()'
               ]
-            : ["--file-selection", "--directory", "--title=选择 Cowork 工作空间"];
+            : ["--file-selection", "--directory", "--title=选择 Formicand 工作空间"];
       const selected = await new Promise<string>((resolveSelection, reject) => {
         const picker = spawn(command, args, { stdio: ["ignore", "pipe", "pipe"] });
         let output = "";
@@ -601,7 +607,7 @@ export function createDashboardApplication(
     coordinator,
     runs,
     runtimeConfig,
-    runtimeValue: () => runtimeValue("COWORK_MODEL"),
+    runtimeValue: () => runtimeValue("FORMICAND_MODEL"),
     modelSettings
   });
   const projectFiles = createProjectFileIndex();

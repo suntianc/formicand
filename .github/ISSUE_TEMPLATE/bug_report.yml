@@ -11,8 +11,8 @@ body:
   - type: input
     id: version
     attributes:
-      label: CoworkOS version / 版本
-      description: CLI 运行 atria --version；App 查看版本。源码用户同时填写 commit。
+      label: Formicand version / 版本
+      description: CLI 运行 formicand --version；App 查看版本。源码用户同时填写 commit。
       placeholder: 0.1.2-beta.1
     validations:
       required: true

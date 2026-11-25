@@ -6,7 +6,7 @@ import { join } from "node:path";
 
 const { createDesktopUpdates } = createRequire(import.meta.url)("../desktop/updates.cjs");
 const { prepareDesktopChange } = createRequire(import.meta.url)("../desktop/update-lifecycle.cjs");
-const root = join(tmpdir(), "atria-update-controller-fixture");
+const root = join(tmpdir(), "formicand-update-controller-fixture");
 const sourceCheck = {
   mode: "source",
   available: true,

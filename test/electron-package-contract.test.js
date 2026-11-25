@@ -9,9 +9,9 @@ const require = createRequire(import.meta.url);
 const { createApplicationUpdateHost } = require("../desktop/update-host.cjs");
 
 test("installed application requires a manual local upgrade without contacting an updater", async (t) => {
-  const root = await mkdtemp(join(tmpdir(), "cowork-package-contract-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-package-contract-"));
   t.after(() => rm(root, { recursive: true, force: true }));
-  const appRoot = join(root, "CoworkOS.app", "Contents", "Resources", "app");
+  const appRoot = join(root, "Formicand.app", "Contents", "Resources", "app");
   const userData = join(root, "data");
   await mkdir(appRoot, { recursive: true });
   await mkdir(userData);
@@ -44,12 +44,12 @@ test("installed application requires a manual local upgrade without contacting a
 test("upgrading an installed app retains backed up user files and rejects incompatible data until restored", async (t) => {
   const { cp } = await import("node:fs/promises");
   const { desktopPaths, prepareDesktopData } = require("../desktop/paths.cjs");
-  const root = await mkdtemp(join(tmpdir(), "cowork-package-upgrade-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-package-upgrade-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const home = join(root, "user-data");
   const backup = join(root, "backup");
-  const oldApp = join(root, "old", "CoworkOS.app", "Contents", "Resources", "app");
-  const newApp = join(root, "new", "CoworkOS.app", "Contents", "Resources", "app");
+  const oldApp = join(root, "old", "Formicand.app", "Contents", "Resources", "app");
+  const newApp = join(root, "new", "Formicand.app", "Contents", "Resources", "app");
   await mkdir(join(home, "workspace", "task"), { recursive: true });
   await mkdir(oldApp, { recursive: true });
   await mkdir(newApp, { recursive: true });
@@ -86,13 +86,13 @@ test("upgrading an installed app retains backed up user files and rejects incomp
 test("packaged backend selects the accessory runtime and refuses a missing helper until restored", async (t) => {
   const { chmod, unlink } = await import("node:fs/promises");
   const { backendExecutable } = require("../desktop/backend-executable.cjs");
-  const root = await mkdtemp(join(tmpdir(), "cowork-package-helper-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-package-helper-"));
   t.after(() => rm(root, { recursive: true, force: true }));
-  const contents = join(root, "CoworkOS.app", "Contents");
-  const executable = join(contents, "MacOS", "CoworkOS");
+  const contents = join(root, "Formicand.app", "Contents");
+  const executable = join(contents, "MacOS", "Formicand");
   const appRoot = join(contents, "Resources", "app");
-  const helperContents = join(contents, "Frameworks", "CoworkOS Helper.app", "Contents");
-  const helper = join(helperContents, "MacOS", "CoworkOS Helper");
+  const helperContents = join(contents, "Frameworks", "Formicand Helper.app", "Contents");
+  const helper = join(helperContents, "MacOS", "Formicand Helper");
   await mkdir(join(helperContents, "MacOS"), { recursive: true });
   await mkdir(appRoot, { recursive: true });
   await writeFile(join(helperContents, "Info.plist"), "<plist><key>LSUIElement</key><true/></plist>");
@@ -109,7 +109,7 @@ test("packaged backend selects the accessory runtime and refuses a missing helpe
 test("client credentials release the private keychain worker and remain readable after restart", async (t) => {
   const { createRetryableStorage } = require("../desktop/retryable-storage.cjs");
   const { createSessionCredentialStore } = require("../desktop/session-credentials.cjs");
-  const root = await mkdtemp(join(tmpdir(), "cowork-package-keychain-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-package-keychain-"));
   const worker = join(root, "worker.cjs");
   const attempts = join(root, "attempts");
   await writeFile(
@@ -123,7 +123,7 @@ readline.createInterface({input:process.stdin}).on('line', line => {
   if (request.operation === 'available') value = true;
   if (request.operation === 'encrypt') value = Buffer.from('fixture:' + request.value).toString('base64');
   if (request.operation === 'decrypt') value = Buffer.from(request.value, 'base64').toString().slice(8);
-  process.stdout.write('atria-keychain:' + JSON.stringify({id:request.id,ok:true,value}) + '\\n');
+  process.stdout.write('formicand-keychain:' + JSON.stringify({id:request.id,ok:true,value}) + '\\n');
 });`
   );
   const storage = createRetryableStorage({ executable: process.execPath, args: [worker], timeout: 5000 });
@@ -156,7 +156,7 @@ readline.createInterface({input:process.stdin}).on('line', line => {
 test("failed client credential access retains its retry state until the user retries", async (t) => {
   const { createRetryableStorage } = require("../desktop/retryable-storage.cjs");
   const { createSessionCredentialStore } = require("../desktop/session-credentials.cjs");
-  const root = await mkdtemp(join(tmpdir(), "cowork-package-keychain-failure-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-package-keychain-failure-"));
   const worker = join(root, "worker.cjs");
   const attempts = join(root, "attempts");
   await writeFile(
@@ -169,7 +169,7 @@ fs.writeFileSync(path, String(attempt));
 readline.createInterface({input:process.stdin}).on('line', line => {
   const request = JSON.parse(line);
   const value = request.operation === 'available' ? attempt > 1 : Buffer.from('encrypted').toString('base64');
-  process.stdout.write('atria-keychain:' + JSON.stringify({id:request.id,ok:true,value}) + '\\n');
+  process.stdout.write('formicand-keychain:' + JSON.stringify({id:request.id,ok:true,value}) + '\\n');
 });`
   );
   const storage = createRetryableStorage({ executable: process.execPath, args: [worker], timeout: 5000 });

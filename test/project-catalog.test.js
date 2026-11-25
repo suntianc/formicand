@@ -10,7 +10,7 @@ import { LocalWorkspaceStore } from "../dist/src/workspace/workspace-store.js";
 import { createWorkspaceDirectory } from "../dist/src/dashboard/workspace-directory.js";
 
 async function fixture(t) {
-  const root = await mkdtemp(join(tmpdir(), "atria-project-catalog-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-project-catalog-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const storageRoot = join(root, "workspace");
   const first = join(root, "first"),

@@ -10,14 +10,14 @@ const { createUiPreferenceStore, isPreferenceKey } = createRequire(import.meta.u
 );
 
 test("remembered choices are kept privately with the origin that wrote them", async (t) => {
-  const root = await mkdtemp(join(tmpdir(), "atria-ui-preferences-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-ui-preferences-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const store = createUiPreferenceStore(root);
   await store.load();
   assert.deepEqual(store.snapshot(), { entries: {}, origin: undefined, persisted: false });
   const entries = {
-    "atria.model.level-by-task": JSON.stringify({ "task-1": "high" }),
-    "atria.time-format": "24h"
+    "formicand.model.level-by-task": JSON.stringify({ "task-1": "high" }),
+    "formicand.time-format": "24h"
   };
   await store.save(entries, "http://127.0.0.1:5000");
   assert.equal((await stat(join(root, "ui-preferences.json"))).mode & 0o777, 0o600);
@@ -27,16 +27,16 @@ test("remembered choices are kept privately with the origin that wrote them", as
 });
 
 test("drafts and foreign keys are refused, and a damaged file is set aside", async (t) => {
-  const root = await mkdtemp(join(tmpdir(), "atria-ui-preferences-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-ui-preferences-"));
   t.after(() => rm(root, { recursive: true, force: true }));
-  assert.equal(isPreferenceKey("atria.composer.v1:new"), false);
-  assert.equal(isPreferenceKey("atria.human.v1:x"), false);
+  assert.equal(isPreferenceKey("formicand.composer.v1:new"), false);
+  assert.equal(isPreferenceKey("formicand.human.v1:x"), false);
   assert.equal(isPreferenceKey("other"), false);
-  assert.equal(isPreferenceKey("atria.collapsed-projects.v1"), true);
+  assert.equal(isPreferenceKey("formicand.collapsed-projects.v1"), true);
   const store = createUiPreferenceStore(root);
   await store.load();
-  await assert.rejects(store.save({ "atria.composer.v1:new": "{}" }, "o"), /格式/);
-  await assert.rejects(store.save({ "atria.x": 1 }, "o"), /格式/);
+  await assert.rejects(store.save({ "formicand.composer.v1:new": "{}" }, "o"), /格式/);
+  await assert.rejects(store.save({ "formicand.x": 1 }, "o"), /格式/);
   await writeFile(join(root, "ui-preferences.json"), "{broken");
   const damaged = createUiPreferenceStore(root);
   await damaged.load();

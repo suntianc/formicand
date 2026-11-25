@@ -24,7 +24,7 @@ test("human replies use the shared palette and retain answers through a visible 
       route.fulfill({ contentType: "application/javascript", body: "// Mount the shipped reply controller." })
     );
     // Follow the system appearance so emulated color schemes drive both themes.
-    await page.addInitScript(() => localStorage.setItem("atria.appearance", "system"));
+    await page.addInitScript(() => localStorage.setItem("formicand.appearance", "system"));
     await page.goto(dashboard.base);
     await page.evaluate(async () => {
       const { createHumanQuestions } = await import("/assets/human-questions.js");

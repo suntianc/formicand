@@ -7,7 +7,7 @@ import { letterMark } from "../ui/letter-mark.js";
 /**
  * Settings → MCP.
  *
- * One global list, `~/.atria/mcp.json`, shared by every project. The backend
+ * One global list, `~/.formicand/mcp.json`, shared by every project. The backend
  * checks each server through Pi and reports its state and tools; a server's
  * default exposure and single tools' exposure are set here. Which Agent uses
  * which server is chosen on the Agent's own page, not here.

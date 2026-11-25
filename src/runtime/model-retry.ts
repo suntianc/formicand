@@ -17,11 +17,11 @@ export async function ensurePiRetryDefaults(agentDir: string, keepRecentTokens?:
       settings = value as Record<string, unknown>;
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "ENOENT")
-        throw new Error(`CoworkOS 的 Agent 设置无法读取（${path}），已保留原文件`, { cause: error });
+        throw new Error(`Formicand 的 Agent 设置无法读取（${path}），已保留原文件`, { cause: error });
     }
     const retry = settings.retry;
     if (retry !== undefined && (!retry || typeof retry !== "object" || Array.isArray(retry)))
-      throw new Error(`CoworkOS 的 Agent 重试设置无效（${path}），已保留原文件`);
+      throw new Error(`Formicand 的 Agent 重试设置无效（${path}），已保留原文件`);
     const retrySettings = retry as Record<string, unknown> | undefined;
     const rawCompaction = settings.compaction;
     if (
@@ -29,7 +29,7 @@ export async function ensurePiRetryDefaults(agentDir: string, keepRecentTokens?:
       rawCompaction !== undefined &&
       (!rawCompaction || typeof rawCompaction !== "object" || Array.isArray(rawCompaction))
     )
-      throw new Error(`CoworkOS 的 Agent 压缩设置无效（${path}），已保留原文件`);
+      throw new Error(`Formicand 的 Agent 压缩设置无效（${path}），已保留原文件`);
     const compaction = rawCompaction as Record<string, unknown> | undefined;
     const seedCompaction = keepRecentTokens !== undefined && compaction?.keepRecentTokens === undefined;
     if (retrySettings?.maxRetries !== undefined && !seedCompaction) return;

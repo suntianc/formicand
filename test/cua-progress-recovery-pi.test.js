@@ -29,7 +29,7 @@ for (const progress of ["confirmed", "unknown", "intent"])
     `real Main resumes ${progress} CUA progress from its continued session after ${progress === "intent" ? "a hard crash before recording the outcome" : "compaction and process restart"} without resubmitting`,
     { ...browserTestOptions, timeout: 90_000 },
     async (t) => {
-      const root = await mkdtemp(join(tmpdir(), "atria-cua-progress-"));
+      const root = await mkdtemp(join(tmpdir(), "formicand-cua-progress-"));
       const project = join(root, "project");
       const workspace = join(root, "workspace");
       const taskId = `progress-${progress}`;
@@ -151,7 +151,7 @@ ${state === "confirmed" ? `- confirmed: ${operation} saved; evidence ${download.
           const steps = phase === "initial" ? initialSteps : recoverySteps;
           if (phase === "recovery" && phaseRequest === 0 && progress !== "intent") {
             assert.ok(body.messages.some((message) => text(message.content).includes(checkpoint.trim())));
-            assert.equal(JSON.stringify(body.messages).includes("/atria-internal-continue"), false);
+            assert.equal(JSON.stringify(body.messages).includes("/formicand-internal-continue"), false);
           }
           if (phase === "recovery" && phaseRequest === 0 && progress === "intent") {
             assert.equal(
@@ -168,7 +168,7 @@ ${state === "confirmed" ? `- confirmed: ${operation} saved; evidence ${download.
                 message.role === "tool" && text(message.content).includes('"dispatchStatus":"sent"')
             );
             assert.equal(sent.length, 1, "the continued session carries the sent action's result");
-            assert.equal(JSON.stringify(body.messages).includes("/atria-internal-continue"), false);
+            assert.equal(JSON.stringify(body.messages).includes("/formicand-internal-continue"), false);
           }
           if (phaseRequest < steps.length) {
             reply = steps[phaseRequest++]();
@@ -227,27 +227,27 @@ ${state === "confirmed" ? `- confirmed: ${operation} saved; evidence ${download.
       await saveMainInput(input, { version: 1, prompt, submittedAt: Date.now() });
       const inherited = Object.fromEntries(
         Object.entries(process.env).filter(
-          ([name]) => !/^(?:COWORK_|PI_|ATRIA_|OPENAI_|ANTHROPIC_)/.test(name)
+          ([name]) => !/^(?:FORMICAND_|PI_|FORMICAND_|OPENAI_|ANTHROPIC_)/.test(name)
         )
       );
       const env = {
         ...inherited,
-        ATRIA_HOME: join(root, "home"),
-        COWORK_CONFIG: config,
-        COWORK_PROJECT_DIR: project,
-        COWORK_WORKSPACE: workspace,
-        COWORK_TASK_ID: taskId,
-        COWORK_RUN_ID: runId,
-        COWORK_API_BASE: `http://127.0.0.1:${provider.address().port}/v1`,
-        COWORK_API_KEY: "local-progress-fixture",
-        COWORK_MODEL: "fixture",
-        COWORK_MODEL_API: "openai-completions",
-        COWORK_SUPPORTS_IMAGES: "1",
-        COWORK_REASONING_EFFORT: "off",
-        COWORK_SUPPORTS_REASONING_EFFORT: "0",
-        COWORK_BROWSER_EXECUTABLE: chromium.executablePath(),
-        COWORK_DISABLE_MAIN_GUARDIAN: "1",
-        COWORK_WEB_TOOLS: "0",
+        FORMICAND_HOME: join(root, "home"),
+        FORMICAND_CONFIG: config,
+        FORMICAND_PROJECT_DIR: project,
+        FORMICAND_WORKSPACE: workspace,
+        FORMICAND_TASK_ID: taskId,
+        FORMICAND_RUN_ID: runId,
+        FORMICAND_API_BASE: `http://127.0.0.1:${provider.address().port}/v1`,
+        FORMICAND_API_KEY: "local-progress-fixture",
+        FORMICAND_MODEL: "fixture",
+        FORMICAND_MODEL_API: "openai-completions",
+        FORMICAND_SUPPORTS_IMAGES: "1",
+        FORMICAND_REASONING_EFFORT: "off",
+        FORMICAND_SUPPORTS_REASONING_EFFORT: "0",
+        FORMICAND_BROWSER_EXECUTABLE: chromium.executablePath(),
+        FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
+        FORMICAND_WEB_TOOLS: "0",
         PI_CODING_AGENT_DIR: join(root, "pi"),
         PI_OFFLINE: "1"
       };
@@ -336,8 +336,8 @@ ${state === "confirmed" ? `- confirmed: ${operation} saved; evidence ${download.
       const firstPid = child.pid;
       phase = "recovery";
       phaseRequest = 0;
-      env.COWORK_MAIN_CONTINUATION = input;
-      await launch(["--continue", "/atria-internal-continue"]);
+      env.FORMICAND_MAIN_CONTINUATION = input;
+      await launch(["--continue", "/formicand-internal-continue"]);
       assert.notEqual(child.pid, firstPid);
       assert.ok(output.includes("RECOVERED_WITH_RECEIPT"), output);
       assert.notEqual(

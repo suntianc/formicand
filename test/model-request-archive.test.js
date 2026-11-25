@@ -25,7 +25,7 @@ function payload(input, { systemPrompt = "You are Main", toolSet = tools, instru
 }
 
 test("a request that extends an earlier one stores only what is new and rebuilds exactly", async (t) => {
-  const root = await mkdtemp(join(tmpdir(), "atria-request-archive-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-request-archive-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const path = join(root, "requests.jsonl");
   const recorder = new ModelRequestRecorder(path, identity);
@@ -80,7 +80,7 @@ test("a request that extends an earlier one stores only what is new and rebuilds
 });
 
 test("a broken chain is refused instead of rebuilt wrongly", async (t) => {
-  const root = await mkdtemp(join(tmpdir(), "atria-request-archive-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-request-archive-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const path = join(root, "requests.jsonl");
   const recorder = new ModelRequestRecorder(path, identity);

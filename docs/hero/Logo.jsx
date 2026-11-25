@@ -1,4 +1,4 @@
-// Vector reconstruction of the supplied CoworkOS ribbon mark.
+// Vector reconstruction of the supplied Formicand ribbon mark.
 // The transparent paths avoid the white matte in the older PNG asset.
 export default function Logo({ x, y, width, height, id }) {
   return (

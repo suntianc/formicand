@@ -20,7 +20,7 @@ jobs:
       - run: npm run desktop:dist
       - uses: actions/upload-artifact@v4
         with:
-          name: CoworkOS-mac-arm64-internal
+          name: Formicand-mac-arm64-internal
           path: |
             release/*.dmg
             release/*.sha256

@@ -3,7 +3,7 @@ import { startDashboard } from "../test/dashboard-fixture.mjs";
 
 const model = "Example-Model-with-a-very-long-provider-model-identifier";
 const folder = "研究项目与团队协作的超长工作文件夹名称-示例项目";
-const workspacePath = `/tmp/atria-layout/${folder}`;
+const workspacePath = `/tmp/formicand-layout/${folder}`;
 
 async function configuredModel(page, models = [model]) {
   await page.route(/\/api\/models(\?.*)?$/, (route) =>
@@ -97,7 +97,7 @@ test("the composer keeps one compact action row with long model and project name
       // A pick keeps the popover open; Esc closes it.
       await page.keyboard.press("Escape");
       await expect(page.locator("#model-menu")).toBeHidden();
-      if (process.env.COWORK_KEEP_COMPOSER_PROBE === "1") {
+      if (process.env.FORMICAND_KEEP_COMPOSER_PROBE === "1") {
         await page.locator(".composer").screenshot({ path: test.info().outputPath(`toolbar-${width}.png`) });
         if (width === 1440) await page.screenshot({ path: test.info().outputPath("home-1440.png") });
         if (width === 320)
@@ -194,7 +194,7 @@ test("the running composer switches one primary action and preserves the draft t
       expect(box.width).toBe(34);
       expect(box.height).toBe(34);
       expect(await stop.evaluate((node) => getComputedStyle(node).borderRadius)).toBe("50%");
-      if (process.env.COWORK_KEEP_STOP_PROBE === "1")
+      if (process.env.FORMICAND_KEEP_STOP_PROBE === "1")
         await page.locator(".composer").screenshot({
           path: test.info().outputPath(`composer-stop-${width}.png`)
         });
@@ -213,7 +213,7 @@ test("the running composer switches one primary action and preserves the draft t
           return node.contains(document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2));
         })
       ).toBe(true);
-      if (process.env.COWORK_KEEP_STOP_PROBE === "1" && [1440, 320].includes(width))
+      if (process.env.FORMICAND_KEEP_STOP_PROBE === "1" && [1440, 320].includes(width))
         await page.locator(".composer").screenshot({
           path: test.info().outputPath(`composer-steer-${width}.png`)
         });
@@ -281,7 +281,7 @@ test("the running composer switches one primary action and preserves the draft t
     await expect(stop.locator("svg use")).toHaveAttribute("href", "#i-stop");
     expect(followUps).toHaveLength(3);
     expect(cancellations).toEqual([{ action: "stop" }]);
-    if (process.env.COWORK_KEEP_STOP_PROBE === "1")
+    if (process.env.FORMICAND_KEEP_STOP_PROBE === "1")
       await page.locator(".composer").screenshot({
         path: test.info().outputPath("composer-stopping-draft-1440.png")
       });

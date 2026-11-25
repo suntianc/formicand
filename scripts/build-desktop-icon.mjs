@@ -9,10 +9,10 @@ if (process.platform === "darwin") {
   const source = resolve("web/assets/brand/formicand-icon.png");
   const renderer = resolve("scripts/render-desktop-icon.swift");
   const build = resolve("build");
-  const master = join(build, "atria-icon.png");
-  const runtime = resolve("dist/src/desktop/atria-icon.png");
-  const icns = join(build, "atria.icns");
-  const marker = join(build, "atria-icon-source.sha256");
+  const master = join(build, "formicand-icon.png");
+  const runtime = resolve("dist/src/desktop/formicand-icon.png");
+  const icns = join(build, "formicand.icns");
+  const marker = join(build, "formicand-icon-source.sha256");
   const hash = createHash("sha256")
     .update("formicand-icon-v1")
     .update(await readFile(source))
@@ -26,7 +26,7 @@ if (process.platform === "darwin") {
     () => false
   );
   if (previous !== hash || !outputsExist) {
-    const iconset = join(build, "atria.iconset");
+    const iconset = join(build, "formicand.iconset");
     await mkdir(iconset, { recursive: true });
     await mkdir(resolve("dist/src/desktop"), { recursive: true });
     execFileSync(

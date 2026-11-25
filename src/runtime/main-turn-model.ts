@@ -1,4 +1,4 @@
-import type { CoworkConfig } from "./config.js";
+import type { FormicandConfig } from "./config.js";
 import { resolveModelRole, type ResolvedModelRole } from "./role-models.js";
 import type { PiThinkingLevel } from "./runtime-settings.js";
 
@@ -9,32 +9,32 @@ import type { PiThinkingLevel } from "./runtime-settings.js";
  * A connection pinned by the launch environment itself must stay pinned for the
  * process's life, so only a marked launch re-reads a connection at a turn
  * boundary. Both cases look identical in the child process otherwise: the
- * Dashboard copies the resolved values into `COWORK_API_*` either way.
+ * Dashboard copies the resolved values into `FORMICAND_API_*` either way.
  */
-export const MAIN_MODEL_FROM_CONFIG = "COWORK_MAIN_MODEL_FROM_CONFIG";
+export const MAIN_MODEL_FROM_CONFIG = "FORMICAND_MAIN_MODEL_FROM_CONFIG";
 
 /**
  * Model values a launch already fixed.
  *
  * A resident Main re-reads the host file for the next turn, so every value the
  * Dashboard copied into the environment at launch would otherwise outrank that
- * file: role resolution reads `COWORK_API_BASE`, `COWORK_MODEL` and the profile
+ * file: role resolution reads `FORMICAND_API_BASE`, `FORMICAND_MODEL` and the profile
  * keys straight from the environment.
  */
 const LAUNCH_MODEL_ENV = [
-  "COWORK_API_BASE",
-  "COWORK_API_KEY",
-  "COWORK_MODEL",
-  "COWORK_CONNECTION_ID",
-  "COWORK_MODEL_API",
-  "COWORK_THINKING_FORMAT",
-  "COWORK_REASONING_EFFORT",
-  "COWORK_SUPPORTS_REASONING_EFFORT",
-  "COWORK_SUPPORTS_PROMPT_CACHE_KEY",
-  "COWORK_SUPPORTS_IMAGES",
-  "COWORK_CONTEXT_WINDOW",
-  "COWORK_MAIN_MAX_TOKENS",
-  "COWORK_MAX_TOKENS"
+  "FORMICAND_API_BASE",
+  "FORMICAND_API_KEY",
+  "FORMICAND_MODEL",
+  "FORMICAND_CONNECTION_ID",
+  "FORMICAND_MODEL_API",
+  "FORMICAND_THINKING_FORMAT",
+  "FORMICAND_REASONING_EFFORT",
+  "FORMICAND_SUPPORTS_REASONING_EFFORT",
+  "FORMICAND_SUPPORTS_PROMPT_CACHE_KEY",
+  "FORMICAND_SUPPORTS_IMAGES",
+  "FORMICAND_CONTEXT_WINDOW",
+  "FORMICAND_MAIN_MAX_TOKENS",
+  "FORMICAND_MAX_TOKENS"
 ] as const;
 
 /**
@@ -48,7 +48,7 @@ const LAUNCH_MODEL_ENV = [
  * turn chose; the connection's own level is the default for every other turn.
  */
 export function resolveMainTurnModel(
-  config: CoworkConfig,
+  config: FormicandConfig,
   input: { thinkingLevel?: PiThinkingLevel; projectDirectory?: string } = {},
   env: NodeJS.ProcessEnv = process.env
 ): ResolvedModelRole | undefined {

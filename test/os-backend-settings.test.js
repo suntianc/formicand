@@ -13,7 +13,7 @@ import { protocolStream } from "./model-protocol-fixture.mjs";
 import { createModelSettings } from "../dist/src/dashboard/model-settings.js";
 import { createWebSearchSettings } from "../dist/src/dashboard/web-search-settings.js";
 import { HostCredentialStore } from "../dist/src/security/host-credentials.js";
-import { readCoworkConfig } from "../dist/src/runtime/config.js";
+import { readFormicandConfig } from "../dist/src/runtime/config.js";
 import { connectionsOf, providerConfig, saveTestConnection } from "./model-provider-fixture.mjs";
 
 const configureTimeout = { timeout: 120_000 };
@@ -219,20 +219,21 @@ test("host settings keep multi-connection, default model, image input and search
 });
 
 test("a damaged host credential store is reported and left for recovery", async (t) => {
-  const root = await mkdtemp(join(tmpdir(), "atria-host-credentials-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-host-credentials-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const path = join(root, "config.json");
   const credentialsPath = join(root, "credentials.json");
   const savedEnv = Object.fromEntries(
-    Object.entries(process.env).filter(([name]) => /^(?:COWORK_|EXA_)/.test(name))
+    Object.entries(process.env).filter(([name]) => /^(?:FORMICAND_|EXA_)/.test(name))
   );
   for (const name of Object.keys(savedEnv)) delete process.env[name];
   t.after(() => {
-    for (const name of Object.keys(process.env)) if (/^(?:COWORK_|EXA_)/.test(name)) delete process.env[name];
+    for (const name of Object.keys(process.env))
+      if (/^(?:FORMICAND_|EXA_)/.test(name)) delete process.env[name];
     Object.assign(process.env, savedEnv);
   });
-  process.env.COWORK_CONFIG = path;
-  t.after(() => delete process.env.COWORK_CONFIG);
+  process.env.FORMICAND_CONFIG = path;
+  t.after(() => delete process.env.FORMICAND_CONFIG);
   await writeFile(
     path,
     JSON.stringify({
@@ -248,7 +249,7 @@ test("a damaged host credential store is reported and left for recovery", async 
     })
   );
   await writeFile(credentialsPath, "{not json");
-  const config = readCoworkConfig(root);
+  const config = readFormicandConfig(root);
   const model = createModelSettings(root, config);
   assert.equal(model.status().configured, false);
   assert.match(model.status().credentialError, /凭据存储无法读取/);
@@ -259,7 +260,7 @@ test("a damaged host credential store is reported and left for recovery", async 
 });
 
 test("session export redacts host-stored connection and search keys", async (t) => {
-  const root = await mkdtemp(join(tmpdir(), "atria-host-export-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-host-export-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const project = join(root, "project");
   await mkdir(project, { recursive: true });
@@ -334,18 +335,18 @@ test("session export redacts host-stored connection and search keys", async (t) 
       .join("\n") + "\n";
   await writeFile(sessionPath, sessionText);
   const env = Object.fromEntries(
-    Object.entries(process.env).filter(([name]) => !/^(?:COWORK_|ATRIA_|PI_|EXA_)/.test(name))
+    Object.entries(process.env).filter(([name]) => !/^(?:FORMICAND_|FORMICAND_|PI_|EXA_)/.test(name))
   );
   Object.assign(env, {
-    ATRIA_HOME: join(root, "home"),
-    COWORK_CONFIG: configPath,
-    COWORK_DISABLE_MAIN_GUARDIAN: "1",
+    FORMICAND_HOME: join(root, "home"),
+    FORMICAND_CONFIG: configPath,
+    FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
     PI_OFFLINE: "1"
   });
   const exportSession = async (args) => {
     const { stdout } = await execute(
       process.execPath,
-      [resolve("scripts/atria.mjs"), "session", "export", ...args],
+      [resolve("scripts/formicand.mjs"), "session", "export", ...args],
       {
         cwd: root,
         env,
@@ -370,7 +371,7 @@ test("session export redacts host-stored connection and search keys", async (t) 
 });
 
 test("the CLI config writer never copies a host-stored key into the public config", async (t) => {
-  const root = await mkdtemp(join(tmpdir(), "atria-host-writer-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-host-writer-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const configPath = join(root, "config.json");
   await writeFile(
@@ -397,17 +398,17 @@ test("the CLI config writer never copies a host-stored key into the public confi
   };
   await writeFile(credentialsPath, JSON.stringify(credentials), { mode: 0o600 });
   const env = Object.fromEntries(
-    Object.entries(process.env).filter(([name]) => !/^(?:COWORK_|ATRIA_|PI_|EXA_)/.test(name))
+    Object.entries(process.env).filter(([name]) => !/^(?:FORMICAND_|FORMICAND_|PI_|EXA_)/.test(name))
   );
   Object.assign(env, {
-    ATRIA_HOME: join(root, "home"),
-    COWORK_CONFIG: configPath,
+    FORMICAND_HOME: join(root, "home"),
+    FORMICAND_CONFIG: configPath,
     WRITER_FIXTURE_KEY: "init-plaintext-key"
   });
   await execute(
     process.execPath,
     [
-      resolve("scripts/atria.mjs"),
+      resolve("scripts/formicand.mjs"),
       "init",
       "--force",
       "--base-url",

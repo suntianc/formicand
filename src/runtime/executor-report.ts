@@ -66,6 +66,6 @@ export function executorReportText(report: ExecutorReport): string {
 export function parseTicketCriteria(raw: string | undefined): string[] | undefined {
   if (!raw) return undefined;
   const value = JSON.parse(raw) as unknown;
-  if (!Array.isArray(value) || !value.length) throw new Error("COWORK_TICKET_CRITERIA has no criteria");
+  if (!Array.isArray(value) || !value.length) throw new Error("FORMICAND_TICKET_CRITERIA has no criteria");
   return value.map(String);
 }

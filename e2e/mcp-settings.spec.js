@@ -13,7 +13,7 @@ test("a local server is tested, saved, tuned, switched off and deleted", async (
   // `${HOST_TOKEN}` is read from the backend's environment when Pi connects.
   const dashboard = await startDashboard({ env: { HOST_TOKEN: "token-value" } });
   try {
-    const home = dashboard.env.ATRIA_HOME;
+    const home = dashboard.env.FORMICAND_HOME;
     await page.goto(dashboard.base);
     const settings = await openSettings(page, "mcp");
     const list = settings.locator("[data-mcp-list]");
@@ -95,7 +95,7 @@ test("pasted JSON imports several servers and problems are listed with their rea
       JSON.stringify({
         mcpServers: {
           echoes: { command: process.execPath, args: [echoServer] },
-          broken: { command: join(dashboard.env.ATRIA_HOME, "missing-binary") },
+          broken: { command: join(dashboard.env.FORMICAND_HOME, "missing-binary") },
           remote: { url: `http://127.0.0.1:${locked.address().port}/mcp` }
         }
       })
@@ -131,7 +131,7 @@ test("a long tool list scrolls inside the server's details, not the whole settin
   const dashboard = await startDashboard();
   try {
     await writeFile(
-      join(dashboard.env.ATRIA_HOME, "mcp.json"),
+      join(dashboard.env.FORMICAND_HOME, "mcp.json"),
       JSON.stringify({
         mcpServers: {
           many: { command: process.execPath, args: [echoServer], env: { ECHO_EXTRA_TOOLS: "40" } }

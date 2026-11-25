@@ -17,7 +17,7 @@ async function call(instance, operation, credential = instance.token, headers = 
     method: "POST",
     headers: {
       "content-type": "application/json",
-      ...(credential ? { "x-atria-token": credential } : {}),
+      ...(credential ? { "x-formicand-token": credential } : {}),
       ...headers
     },
     body: JSON.stringify({
@@ -33,7 +33,7 @@ async function call(instance, operation, credential = instance.token, headers = 
 
 async function access(instance) {
   const response = await fetch(`${instance.url}/api/computer/access`, {
-    headers: { "x-atria-token": instance.token }
+    headers: { "x-formicand-token": instance.token }
   });
   assert.equal(response.status, 200);
   return response.json();
@@ -43,11 +43,11 @@ test(
   "desktop host reaches only its verified independent backend computer controller",
   { timeout: 90000 },
   async (t) => {
-    const base = await mkdtemp(join(tmpdir(), "cowork-computer-host-"));
+    const base = await mkdtemp(join(tmpdir(), "formicand-computer-host-"));
     const env = { ...process.env };
     for (const key of Object.keys(process.env))
-      if (/^(COWORK_|PI_|ATRIA_|ELECTRON_)/.test(key)) delete process.env[key];
-    process.env.COWORK_DISABLE_MAIN_GUARDIAN = "1";
+      if (/^(FORMICAND_|PI_|FORMICAND_|ELECTRON_)/.test(key)) delete process.env[key];
+    process.env.FORMICAND_DISABLE_MAIN_GUARDIAN = "1";
     process.env.PI_OFFLINE = "1";
     process.env.PI_TELEMETRY = "0";
     const paths = desktopPaths(root, join(base, "home"), {});
@@ -55,7 +55,7 @@ test(
     t.after(async () => {
       if (backend) await backend.stop();
       for (const key of Object.keys(process.env))
-        if (/^(COWORK_|PI_|ATRIA_|ELECTRON_)/.test(key)) delete process.env[key];
+        if (/^(FORMICAND_|PI_|FORMICAND_|ELECTRON_)/.test(key)) delete process.env[key];
       Object.assign(process.env, env);
       await rm(base, { recursive: true, force: true });
     });
@@ -75,13 +75,13 @@ test(
     );
     const authorization = await fetch(`${backend.url}/api/session`, {
       method: "POST",
-      headers: { "x-atria-token": backend.token, "content-type": "application/json" },
+      headers: { "x-formicand-token": backend.token, "content-type": "application/json" },
       body: JSON.stringify({ clientName: "test", protocolVersion: "1.0" })
     });
     const session = (await authorization.json()).session.token;
     assert.equal((await call(backend, { operation: "resume" }, session)).status, 403);
     assert.equal(
-      (await call(backend, { operation: "pause" }, null, { cookie: `atria-session=${backend.token}` }))
+      (await call(backend, { operation: "pause" }, null, { cookie: `formicand-session=${backend.token}` }))
         .status,
       403
     );
@@ -108,18 +108,18 @@ test(
   "choosing a second host binds computer control to that host and invalidates old handles",
   { timeout: 90000 },
   async (t) => {
-    const base = await mkdtemp(join(tmpdir(), "cowork-computer-target-"));
+    const base = await mkdtemp(join(tmpdir(), "formicand-computer-target-"));
     const env = { ...process.env };
     for (const key of Object.keys(process.env))
-      if (/^(COWORK_|PI_|ATRIA_|ELECTRON_)/.test(key)) delete process.env[key];
-    process.env.COWORK_DISABLE_MAIN_GUARDIAN = "1";
+      if (/^(FORMICAND_|PI_|FORMICAND_|ELECTRON_)/.test(key)) delete process.env[key];
+    process.env.FORMICAND_DISABLE_MAIN_GUARDIAN = "1";
     process.env.PI_OFFLINE = "1";
     process.env.PI_TELEMETRY = "0";
     const hosts = [];
     t.after(async () => {
       for (const host of hosts) await host.stop();
       for (const key of Object.keys(process.env))
-        if (/^(COWORK_|PI_|ATRIA_|ELECTRON_)/.test(key)) delete process.env[key];
+        if (/^(FORMICAND_|PI_|FORMICAND_|ELECTRON_)/.test(key)) delete process.env[key];
       Object.assign(process.env, env);
       await rm(base, { recursive: true, force: true });
     });
@@ -189,7 +189,7 @@ test(
   "open development dashboard keeps ordinary API open while host control requires its instance token",
   { timeout: 90000 },
   async (t) => {
-    const base = await mkdtemp(join(tmpdir(), "cowork-open-dashboard-"));
+    const base = await mkdtemp(join(tmpdir(), "formicand-open-dashboard-"));
     const paths = desktopPaths(root, join(base, "home"), {});
     await prepareDesktopData(paths, "test");
     await writeFile(paths.configPath, "{}\n");
@@ -202,20 +202,20 @@ test(
       });
     });
     const env = Object.fromEntries(
-      Object.entries(process.env).filter(([key]) => !/^(COWORK_|PI_|ATRIA_|ELECTRON_)/.test(key))
+      Object.entries(process.env).filter(([key]) => !/^(FORMICAND_|PI_|FORMICAND_|ELECTRON_)/.test(key))
     );
     const child = spawn(process.execPath, [join(root, "dist/src/cli/dashboard.js")], {
       cwd: root,
       env: {
         ...env,
-        ATRIA_HOME: paths.userData,
-        COWORK_UI_PORT: String(port),
-        COWORK_HARNESS_ROOT: root,
-        COWORK_CONFIG: paths.configPath,
-        COWORK_WORKSPACE: paths.workspaceRoot,
-        COWORK_GLOBAL_INDEX: paths.globalIndex,
+        FORMICAND_HOME: paths.userData,
+        FORMICAND_UI_PORT: String(port),
+        FORMICAND_HARNESS_ROOT: root,
+        FORMICAND_CONFIG: paths.configPath,
+        FORMICAND_WORKSPACE: paths.workspaceRoot,
+        FORMICAND_GLOBAL_INDEX: paths.globalIndex,
         PI_CODING_AGENT_DIR: paths.piAgentDir,
-        COWORK_DISABLE_MAIN_GUARDIAN: "1",
+        FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
         PI_OFFLINE: "1"
       },
       stdio: ["ignore", "pipe", "pipe"]
@@ -265,16 +265,16 @@ test(
   "host HTTP bridge keeps a saved policy pending until explicit local approval",
   { timeout: 90000 },
   async (t) => {
-    const base = await mkdtemp(join(tmpdir(), "cowork-computer-permission-"));
+    const base = await mkdtemp(join(tmpdir(), "formicand-computer-permission-"));
     const previous = { ...process.env };
     for (const key of Object.keys(process.env))
-      if (/^(COWORK_|PI_|ATRIA_|ELECTRON_)/.test(key)) delete process.env[key];
-    process.env.ATRIA_HOME = base;
-    process.env.COWORK_HARNESS_ROOT = root;
-    process.env.COWORK_WORKSPACE = join(base, "workspace");
-    process.env.COWORK_DISABLE_MAIN_GUARDIAN = "1";
+      if (/^(FORMICAND_|PI_|FORMICAND_|ELECTRON_)/.test(key)) delete process.env[key];
+    process.env.FORMICAND_HOME = base;
+    process.env.FORMICAND_HARNESS_ROOT = root;
+    process.env.FORMICAND_WORKSPACE = join(base, "workspace");
+    process.env.FORMICAND_DISABLE_MAIN_GUARDIAN = "1";
     process.env.PI_OFFLINE = "1";
-    process.env.COWORK_API_TOKEN = "synthetic-host-token";
+    process.env.FORMICAND_API_TOKEN = "synthetic-host-token";
     const port = await new Promise((done, fail) => {
       const server = createServer();
       server.once("error", fail);
@@ -283,7 +283,7 @@ test(
         server.close(() => done(value));
       });
     });
-    process.env.COWORK_UI_PORT = String(port);
+    process.env.FORMICAND_UI_PORT = String(port);
     const calls = [];
     const status = {
       available: true,
@@ -323,7 +323,7 @@ test(
     t.after(async () => {
       await app.stop();
       for (const key of Object.keys(process.env))
-        if (/^(COWORK_|PI_|ATRIA_|ELECTRON_)/.test(key)) delete process.env[key];
+        if (/^(FORMICAND_|PI_|FORMICAND_|ELECTRON_)/.test(key)) delete process.env[key];
       Object.assign(process.env, previous);
       await rm(base, { recursive: true, force: true });
     });

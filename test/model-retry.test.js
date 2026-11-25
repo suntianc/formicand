@@ -7,7 +7,7 @@ import { SettingsManager } from "@earendil-works/pi-coding-agent";
 import { ensurePiRetryDefaults } from "../dist/src/runtime/model-retry.js";
 
 test("Main retry defaults reach native Pi without overwriting explicit settings", async (t) => {
-  const root = await mkdtemp(join(tmpdir(), "atria-retry-settings-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-retry-settings-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const path = join(root, "settings.json");
   await writeFile(

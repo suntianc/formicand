@@ -1,7 +1,7 @@
 const { contextBridge, ipcRenderer, webUtils } = require("electron");
 
-const composerPrefix = "atria.composer.v1:";
-const isDraftKey = (key) => key?.startsWith(composerPrefix) || key?.startsWith("atria.human.v1:");
+const composerPrefix = "formicand.composer.v1:";
+const isDraftKey = (key) => key?.startsWith(composerPrefix) || key?.startsWith("formicand.human.v1:");
 let draftWarning;
 const draftErrorListeners = new Set();
 let lastDraftError;
@@ -34,7 +34,7 @@ function draftSnapshot() {
 }
 if (location.protocol === "http:" || location.protocol === "https:") {
   try {
-    const snapshot = ipcRenderer.sendSync("bookman:composer-drafts");
+    const snapshot = ipcRenderer.sendSync("formicand:composer-drafts");
     draftWarning = snapshot.warning;
     const existing = {};
     for (let index = 0; index < localStorage.length; index++) {
@@ -82,7 +82,7 @@ function persistComposerDrafts(force = false) {
   draftWrites = draftWrites
     // eslint-disable-next-line no-restricted-syntax -- draftWrites holds the previous write whose rejection was already reported through reportDraftFailure
     .catch(() => {})
-    .then(() => ipcRenderer.invoke("bookman:save-composer-drafts", entries));
+    .then(() => ipcRenderer.invoke("formicand:save-composer-drafts", entries));
   // eslint-disable-next-line no-restricted-syntax -- the rejection is already reported by reportDraftFailure, so this branch only has to drop the deduplication snapshot for the next attempt
   draftWrites.catch(() => {
     lastDraftSnapshot = undefined;
@@ -117,7 +117,7 @@ window.addEventListener("beforeunload", () => {
 // restart. A page on a new origin takes the profile's last copy; the copy is
 // refreshed whenever the choices change and when the window goes away.
 const isPreferenceKey = (key) =>
-  typeof key === "string" && key.startsWith("atria.") && key.length <= 256 && !isDraftKey(key);
+  typeof key === "string" && key.startsWith("formicand.") && key.length <= 256 && !isDraftKey(key);
 function preferenceSnapshot() {
   const entries = {};
   for (let index = 0; index < localStorage.length; index++) {
@@ -139,13 +139,13 @@ function persistPreferences() {
   if (serialized === lastPreferences) return;
   lastPreferences = serialized;
   // eslint-disable-next-line no-restricted-syntax -- 偏好写盘失败只是这次没记住；清掉比对值，下一次检查会重试
-  ipcRenderer.invoke("bookman:save-ui-preferences", entries).catch(() => {
+  ipcRenderer.invoke("formicand:save-ui-preferences", entries).catch(() => {
     lastPreferences = undefined;
   });
 }
 if (location.protocol === "http:" || location.protocol === "https:") {
   try {
-    const snapshot = ipcRenderer.sendSync("bookman:ui-preferences");
+    const snapshot = ipcRenderer.sendSync("formicand:ui-preferences");
     // The current origin's own storage is newer than the copy it wrote.
     if (snapshot?.persisted && snapshot.origin !== location.origin) {
       for (const key of Object.keys(preferenceSnapshot())) localStorage.removeItem(key);
@@ -171,7 +171,7 @@ function reflectWindowState() {
   document.documentElement.dataset.desktopFullscreen = String(fullscreen);
 }
 document.addEventListener("DOMContentLoaded", reflectWindowState, { once: true });
-ipcRenderer.on("bookman:window-state", (_event, value) => {
+ipcRenderer.on("formicand:window-state", (_event, value) => {
   if (typeof value !== "boolean") return;
   fullscreen = value;
   reflectWindowState();
@@ -179,53 +179,53 @@ ipcRenderer.on("bookman:window-state", (_event, value) => {
 
 let initialAppearance;
 try {
-  initialAppearance = ipcRenderer.sendSync("bookman:appearance");
+  initialAppearance = ipcRenderer.sendSync("formicand:appearance");
   // eslint-disable-next-line no-restricted-syntax -- the synchronous reply is null when the sender is untrusted or the host is not ready, and the theme then follows the system
 } catch {
   /* System fallback. */
 }
 let initialLanguage;
 try {
-  initialLanguage = ipcRenderer.sendSync("bookman:language");
+  initialLanguage = ipcRenderer.sendSync("formicand:language");
   // eslint-disable-next-line no-restricted-syntax -- the synchronous reply is null when the sender is untrusted or the host is not ready, and the language keeps its zh-CN default
 } catch {
   /* Chinese fallback. */
 }
 let initialWindowMaterial;
 try {
-  initialWindowMaterial = ipcRenderer.sendSync("bookman:window-material");
+  initialWindowMaterial = ipcRenderer.sendSync("formicand:window-material");
   // eslint-disable-next-line no-restricted-syntax -- a null reply means the host has no material or the sender is untrusted; the page then paints its gradient
 } catch {
   /* Painted backdrop fallback. */
 }
 let capabilities;
 try {
-  capabilities = ipcRenderer.sendSync("bookman:capabilities");
+  capabilities = ipcRenderer.sendSync("formicand:capabilities");
   // eslint-disable-next-line no-restricted-syntax -- the synchronous reply is null when the sender is untrusted or the host is not ready, and capabilities stay null
 } catch {
   capabilities = null;
 }
 let transportNonce;
 try {
-  transportNonce = ipcRenderer.sendSync("bookman:transport-nonce");
+  transportNonce = ipcRenderer.sendSync("formicand:transport-nonce");
   // eslint-disable-next-line no-restricted-syntax -- the synchronous reply is null when the sender is untrusted or the host is not ready, and the transport nonce stays null
 } catch {
   transportNonce = null;
 }
-contextBridge.exposeInMainWorld("bookmanDesktop", {
+contextBridge.exposeInMainWorld("formicandDesktop", {
   capabilities,
   windowMaterial: initialWindowMaterial,
   transportNonce,
   language: {
     initial: initialLanguage,
-    set: (value) => ipcRenderer.invoke("bookman:set-language", value)
+    set: (value) => ipcRenderer.invoke("formicand:set-language", value)
   },
   appearance: {
     initial: initialAppearance,
-    set: (value) => ipcRenderer.invoke("bookman:set-appearance", value),
+    set: (value) => ipcRenderer.invoke("formicand:set-appearance", value),
     onChange: (handler) => {
       if (typeof handler !== "function") return;
-      ipcRenderer.on("bookman:appearance-changed", (_event, value) => handler(value));
+      ipcRenderer.on("formicand:appearance-changed", (_event, value) => handler(value));
     }
   },
   platform: process.platform,
@@ -237,7 +237,7 @@ contextBridge.exposeInMainWorld("bookmanDesktop", {
     if (draftWarning) handler(draftWarning);
   },
   onPrepareClose: (handler) => {
-    ipcRenderer.on("bookman:prepare-close", async (_event, requestId) => {
+    ipcRenderer.on("formicand:prepare-close", async (_event, requestId) => {
       let saved = false;
       try {
         for (;;) {
@@ -255,41 +255,41 @@ contextBridge.exposeInMainWorld("bookmanDesktop", {
         reportDraftFailure(error);
         /* the host will keep the app open */
       }
-      await ipcRenderer.invoke("bookman:documents-ready", requestId, saved === true);
+      await ipcRenderer.invoke("formicand:documents-ready", requestId, saved === true);
     });
   },
   backend: {
-    choose: () => ipcRenderer.invoke("bookman:choose-backend"),
-    authorize: (input) => ipcRenderer.invoke("bookman:authorize-backend", input)
+    choose: () => ipcRenderer.invoke("formicand:choose-backend"),
+    authorize: (input) => ipcRenderer.invoke("formicand:authorize-backend", input)
   },
   artifactViewer: {
-    open: (url, pdf) => ipcRenderer.invoke("bookman:open-artifact-viewer", url, pdf),
+    open: (url, pdf) => ipcRenderer.invoke("formicand:open-artifact-viewer", url, pdf),
     onClosed: (handler) => {
       if (typeof handler !== "function") return () => {};
       const listener = (_event, value) => handler(value);
-      ipcRenderer.on("bookman:artifact-viewer-closed", listener);
-      return () => ipcRenderer.removeListener("bookman:artifact-viewer-closed", listener);
+      ipcRenderer.on("formicand:artifact-viewer-closed", listener);
+      return () => ipcRenderer.removeListener("formicand:artifact-viewer-closed", listener);
     }
   },
   // Global policy mutation and human resume stay on the trusted main-frame IPC surface.
-  computerUse: (input) => ipcRenderer.invoke("bookman:computer-use", input),
-  updateStatus: () => ipcRenderer.invoke("bookman:update-status"),
-  checkUpdates: (options = {}) => ipcRenderer.invoke("bookman:check-updates", options),
-  applyUpdate: () => ipcRenderer.invoke("bookman:apply-update"),
+  computerUse: (input) => ipcRenderer.invoke("formicand:computer-use", input),
+  updateStatus: () => ipcRenderer.invoke("formicand:update-status"),
+  checkUpdates: (options = {}) => ipcRenderer.invoke("formicand:check-updates", options),
+  applyUpdate: () => ipcRenderer.invoke("formicand:apply-update"),
   onUpdateStatus: (handler) => {
     if (typeof handler !== "function") return () => {};
     const listener = (_event, value) => handler(value);
-    ipcRenderer.on("bookman:update-status", listener);
-    return () => ipcRenderer.removeListener("bookman:update-status", listener);
+    ipcRenderer.on("formicand:update-status", listener);
+    return () => ipcRenderer.removeListener("formicand:update-status", listener);
   },
   version: process.env.npm_package_version || "0.1.0",
   pathForFile: (file) => webUtils.getPathForFile(file),
-  chooseProject: () => ipcRenderer.invoke("bookman:choose-project"),
+  chooseProject: () => ipcRenderer.invoke("formicand:choose-project"),
   // A previewed file is named by session, source and path; the host resolves it.
   files: {
-    defaultIcon: () => ipcRenderer.invoke("bookman:file-default-icon"),
-    apps: (taskId, target) => ipcRenderer.invoke("bookman:file-apps", taskId, target),
-    open: (taskId, target, appId) => ipcRenderer.invoke("bookman:open-file", taskId, target, appId)
+    defaultIcon: () => ipcRenderer.invoke("formicand:file-default-icon"),
+    apps: (taskId, target) => ipcRenderer.invoke("formicand:file-apps", taskId, target),
+    open: (taskId, target, appId) => ipcRenderer.invoke("formicand:open-file", taskId, target, appId)
   },
-  notify: (notice) => ipcRenderer.invoke("bookman:notify", notice)
+  notify: (notice) => ipcRenderer.invoke("formicand:notify", notice)
 });

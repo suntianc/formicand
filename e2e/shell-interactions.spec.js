@@ -59,7 +59,7 @@ test("search confines keyboard focus, navigates results and restores the invokin
     await input.dispatchEvent("keydown", { key: "Escape", isComposing: true });
     await expect(dialog).toBeVisible();
     await expect(input).toBeFocused();
-    if (process.env.COWORK_KEEP_QUALITY_PROBE === "1")
+    if (process.env.FORMICAND_KEEP_QUALITY_PROBE === "1")
       await page.screenshot({ path: test.info().outputPath("search-desktop.png") });
     await input.press("Shift+Tab");
     await expect(dialog.locator(".search-result").last()).toBeFocused();
@@ -107,7 +107,7 @@ test("search remains usable in narrow and short windows without changing the dra
       expect(bounds.y + bounds.height).toBeLessThanOrEqual(550);
       await expect(dialog.getByRole("button", { name: "关闭搜索" })).toBeInViewport();
       expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
-      if (process.env.COWORK_KEEP_QUALITY_PROBE === "1")
+      if (process.env.FORMICAND_KEEP_QUALITY_PROBE === "1")
         await page.screenshot({ path: test.info().outputPath(`search-${width}.png`) });
       await page.keyboard.press("Escape");
       await expect(dialog).toBeHidden();

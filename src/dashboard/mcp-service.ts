@@ -104,7 +104,7 @@ function lastLine(text: string): string | undefined {
 }
 
 /**
- * MCP settings: `~/.atria/mcp.json` and what Pi reports about each server.
+ * MCP settings: `~/.formicand/mcp.json` and what Pi reports about each server.
  *
  * Checking a connection and signing in run Pi's own `pi mcp list` and
  * `pi mcp login` against a scratch folder whose `.pi/mcp.json` holds only the

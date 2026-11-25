@@ -5,7 +5,7 @@ import { resolve } from "node:path";
 
 /** The backend chooses the installed helper and receives its answer over its own pipe. */
 export function createMacComputerApproval(projectRoot: string) {
-  const executable = resolve(projectRoot, "dist/src/gui/atria-computer-use");
+  const executable = resolve(projectRoot, "dist/src/gui/formicand-computer-use");
   return async (identity: { backendId: string }, signal: AbortSignal): Promise<boolean> => {
     signal.throwIfAborted();
     if (process.platform !== "darwin") throw new Error("local authentication unavailable");

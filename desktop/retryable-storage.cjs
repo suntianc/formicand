@@ -33,7 +33,7 @@ function createRetryableStorage({ executable, args = [], env = process.env, time
     await rm(worker.data, { recursive: true, force: true });
   }
   async function start() {
-    const data = await mkdtemp(join(tmpdir(), "atria-keychain-"));
+    const data = await mkdtemp(join(tmpdir(), "formicand-keychain-"));
     if (closed) {
       await rm(data, { recursive: true, force: true });
       throw storageError();
@@ -41,15 +41,15 @@ function createRetryableStorage({ executable, args = [], env = process.env, time
     const cleanEnv = Object.fromEntries(
       Object.entries(env).filter(
         ([key]) =>
-          !/^(?:ATRIA_|COWORK_|PI_|NODE_OPTIONS$|ELECTRON_RUN_AS_NODE$)/.test(key) &&
+          !/^(?:FORMICAND_|FORMICAND_|PI_|NODE_OPTIONS$|ELECTRON_RUN_AS_NODE$)/.test(key) &&
           !/(?:KEY|TOKEN|SECRET|PASSWORD|CREDENTIAL)/i.test(key)
       )
     );
     const child = spawn(executable, [...args, workerFlag], {
       env: {
         ...cleanEnv,
-        ATRIA_KEYCHAIN_WORKER_DATA: data,
-        ...(appName ? { ATRIA_KEYCHAIN_WORKER_NAME: appName } : {})
+        FORMICAND_KEYCHAIN_WORKER_DATA: data,
+        ...(appName ? { FORMICAND_KEYCHAIN_WORKER_NAME: appName } : {})
       },
       stdio: ["pipe", "pipe", "ignore"]
     });
@@ -60,10 +60,10 @@ function createRetryableStorage({ executable, args = [], env = process.env, time
     });
     worker.lines = createInterface({ input: child.stdout });
     worker.lines.on("line", (line) => {
-      if (!line.startsWith("atria-keychain:")) return;
+      if (!line.startsWith("formicand-keychain:")) return;
       try {
         if (line.length > maxMessage) throw new Error();
-        const message = JSON.parse(line.slice("atria-keychain:".length));
+        const message = JSON.parse(line.slice("formicand-keychain:".length));
         if (message.id !== worker.id) throw new Error();
         worker.finish?.(message);
         // eslint-disable-next-line no-restricted-syntax -- an unparsable or mismatched worker line rejects the pending request with the storage error instead of leaking the parse detail

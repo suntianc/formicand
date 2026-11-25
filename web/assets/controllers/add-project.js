@@ -148,7 +148,7 @@ export function createAddProjectController({
   }
 
   async function chooseDirectory() {
-    const desktop = globalThis.window?.bookmanDesktop;
+    const desktop = globalThis.window?.formicandDesktop;
     if (desktop?.chooseProject) return desktop.chooseProject();
     return (await api("/api/projects/choose-directory", { method: "POST" })).projectDirectory;
   }

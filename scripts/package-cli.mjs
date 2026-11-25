@@ -12,7 +12,7 @@ import {
 
 const arguments_ = process.argv.slice(2);
 if (arguments_.length) throw new Error("Usage: node scripts/package-cli.mjs");
-const stage = await mkdtemp(join(tmpdir(), "atria-cli-package-"));
+const stage = await mkdtemp(join(tmpdir(), "formicand-cli-package-"));
 const npm = process.platform === "win32" ? "npm.cmd" : "npm";
 const optionalSourceFiles = new Set(["licenses", "ROADMAP.md", "ROADMAP.en.md"]);
 try {
@@ -28,7 +28,7 @@ try {
     ".pi/runtime",
     ".pi/prompts",
     ".pi/skills",
-    "scripts/atria.mjs",
+    "scripts/formicand.mjs",
     "scripts/data-home.cjs",
     "scripts/file-search.mjs",
     "scripts/file-search.d.mts",
@@ -87,14 +87,14 @@ try {
         ) &&
         !path.endsWith(".map") &&
         !path.endsWith(".DS_Store") &&
-        !path.endsWith("atria-computer-use") &&
-        !path.endsWith("atria-computer-use.sha256") &&
-        !path.endsWith("atria-speech-input") &&
-        !path.endsWith("atria-speech-input.sha256") &&
-        !path.endsWith("atria-icon.png")
+        !path.endsWith("formicand-computer-use") &&
+        !path.endsWith("formicand-computer-use.sha256") &&
+        !path.endsWith("formicand-speech-input") &&
+        !path.endsWith("formicand-speech-input.sha256") &&
+        !path.endsWith("formicand-icon.png")
     });
   }
-  await chmod(join(stage, "scripts/atria.mjs"), 0o755);
+  await chmod(join(stage, "scripts/formicand.mjs"), 0o755);
   // Local tgz consumers do not consistently honor registry shrinkwrap metadata.
   // Bundle the portable tested tree. esbuild's pristine JS installer downloads
   // its exact, hash-checked native runtime for the consumer's OS/CPU.
@@ -134,18 +134,17 @@ try {
     });
   }
   const manifest = {
-    name: "atria-cowork-cli",
+    name: "formicand-cli",
     version: pkg.version,
     type: "module",
-    description: "CoworkOS local multi-agent CLI harness",
+    description: "Formicand local multi-agent CLI harness",
     license: "MIT",
     repository: pkg.repository,
     bugs: pkg.bugs,
     homepage: pkg.homepage,
     engines: pkg.engines,
     bin: {
-      coworkos: "scripts/atria.mjs",
-      atria: "scripts/atria.mjs"
+      formicand: "scripts/formicand.mjs"
     },
     dependencies,
     overrides: pkg.overrides,
@@ -198,7 +197,7 @@ try {
       2
     )
   );
-  const destination = resolve(process.env.ATRIA_PACKAGE_DIR ?? "release");
+  const destination = resolve(process.env.FORMICAND_PACKAGE_DIR ?? "release");
   await mkdir(destination, { recursive: true });
   const [result] = JSON.parse(
     execFileSync(npm, ["pack", "--json", "--ignore-scripts", "--pack-destination", destination], {
@@ -207,9 +206,9 @@ try {
       maxBuffer: 32 * 1024 * 1024
     })
   );
-  if (result.files.some(({ path }) => /^(\.cowork|\.tools|desktop|task-[^/]+)\//.test(path)))
+  if (result.files.some(({ path }) => /^(\.formicand|\.tools|desktop|task-[^/]+)\//.test(path)))
     throw new Error("CLI 包中发现禁止分发的目录");
-  const filename = `coworkos-cli-${pkg.version}.tgz`;
+  const filename = `formicand-cli-${pkg.version}.tgz`;
   const path = join(destination, filename);
   await rename(join(destination, result.filename), path);
   const digest = createHash("sha256")

@@ -492,7 +492,7 @@ test("the light theme keeps every page's text and status colours readable at eac
 }) => {
   const dashboard = await startDashboard();
   try {
-    await page.addInitScript(() => localStorage.setItem("atria.appearance", "light"));
+    await page.addInitScript(() => localStorage.setItem("formicand.appearance", "light"));
     await openWork(page, dashboard);
     await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
 

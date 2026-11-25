@@ -86,10 +86,10 @@ export function mainSessionRunState(value: unknown): MainSessionRunState {
   return value as MainSessionRunState;
 }
 
-const REFERENCES_OPEN = "<atria_references>\n";
-const REFERENCES_CLOSE_TAG = "\n</atria_references>";
+const REFERENCES_OPEN = "<formicand_references>\n";
+const REFERENCES_CLOSE_TAG = "\n</formicand_references>";
 
-/** Strip a leading `<atria_references>` manifest (see `composer-references.ts`). */
+/** Strip a leading `<formicand_references>` manifest (see `composer-references.ts`). */
 function stripReferencesPrefix(text: string): string {
   if (!text.startsWith(REFERENCES_OPEN)) return text;
   const end = text.indexOf(REFERENCES_CLOSE_TAG, REFERENCES_OPEN.length);

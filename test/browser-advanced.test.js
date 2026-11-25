@@ -10,7 +10,7 @@ import { browserFixture, browserTestOptions } from "./browser-fixture.mjs";
 const role = (name, role = "button") => ({ kind: "role", role, name });
 const error = (code) => (value) => value.errorCode === code && value.dispatchStatus === "not_sent";
 async function setup(t) {
-  const taskDirectory = await mkdtemp(join(tmpdir(), "atria-browser-advanced-"));
+  const taskDirectory = await mkdtemp(join(tmpdir(), "formicand-browser-advanced-"));
   const fixture = await browserFixture();
   const controller = new BrowserUse({ taskDirectory, executablePath: chromium.executablePath() });
   t.after(async () => {

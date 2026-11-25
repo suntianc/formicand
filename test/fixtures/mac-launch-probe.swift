@@ -20,10 +20,10 @@ if CommandLine.arguments[1] != "--child" {
     child.waitUntilExit()
     guard child.terminationStatus == 0 else { exit(1) }
     report["child"] = try JSONSerialization.jsonObject(with: data)
-    report["marker"] = ProcessInfo.processInfo.environment["ATRIA_LAUNCH_FIXTURE_MARKER"] ?? ""
-    report["data"] = ProcessInfo.processInfo.environment["COWORK_DESKTOP_DATA"] ?? ""
+    report["marker"] = ProcessInfo.processInfo.environment["FORMICAND_LAUNCH_FIXTURE_MARKER"] ?? ""
+    report["data"] = ProcessInfo.processInfo.environment["FORMICAND_DESKTOP_DATA"] ?? ""
     report["arguments"] = Array(CommandLine.arguments.dropFirst(2))
-    let reportPath = ProcessInfo.processInfo.environment["ATRIA_LAUNCH_FIXTURE_REPORT"] ?? CommandLine.arguments[1]
+    let reportPath = ProcessInfo.processInfo.environment["FORMICAND_LAUNCH_FIXTURE_REPORT"] ?? CommandLine.arguments[1]
     try JSONSerialization.data(withJSONObject: report).write(to: URL(fileURLWithPath: reportPath), options: .atomic)
 } else {
     FileHandle.standardOutput.write(try JSONSerialization.data(withJSONObject: report))

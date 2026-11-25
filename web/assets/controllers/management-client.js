@@ -28,8 +28,8 @@ export const CLIENT_PROTOCOL_VERSION = "1.0";
 /** What the catalog view cannot work without; a backend without them is named, not guessed at. */
 export const REQUIRED_CAPABILITIES = ["session.authorize", "events.snapshot", "events.stream"];
 
-const SESSION_STORE = "cowork.management.sessions.v1";
-const TARGET_STORE = "cowork.management.target.v1";
+const SESSION_STORE = "formicand.management.sessions.v1";
+const TARGET_STORE = "formicand.management.target.v1";
 const SELF_KEY = "self";
 
 function memoryStorage() {
@@ -164,7 +164,7 @@ export function createManagementClient({
 
   function authHeaders(extra = {}) {
     const headers = { ...transportHeaders, ...extra };
-    if (typeof token === "string") headers["x-atria-token"] = token;
+    if (typeof token === "string") headers["x-formicand-token"] = token;
     return headers;
   }
 

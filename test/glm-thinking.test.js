@@ -6,7 +6,7 @@ import { mkdtemp, mkdir, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import {
-  createCoworkModel,
+  createFormicandModel,
   connectionProfile,
   parseConnectionProfile
 } from "../dist/src/runtime/model-profile.js";
@@ -18,28 +18,29 @@ const exec = promisify(execFile);
 
 test("thinking format is explicit, validated and leaves legacy SDK detection intact", () => {
   assert.equal(configuredThinkingFormat({}), "auto");
-  assert.equal(configuredThinkingFormat({ COWORK_THINKING_FORMAT: "zai" }), "zai");
-  assert.throws(() => configuredThinkingFormat({ COWORK_THINKING_FORMAT: "unknown" }), /thinkingFormat/);
+  assert.equal(configuredThinkingFormat({ FORMICAND_THINKING_FORMAT: "zai" }), "zai");
+  assert.throws(() => configuredThinkingFormat({ FORMICAND_THINKING_FORMAT: "unknown" }), /thinkingFormat/);
   const options = { baseUrl: "https://gateway.example/v1", supportsReasoningEffort: true };
-  assert.equal(createCoworkModel(options).compat.thinkingFormat, undefined);
-  assert.equal(createCoworkModel({ ...options, thinkingFormat: "zai" }).compat.thinkingFormat, "zai");
+  assert.equal(createFormicandModel(options).compat.thinkingFormat, undefined);
+  assert.equal(createFormicandModel({ ...options, thinkingFormat: "zai" }).compat.thinkingFormat, "zai");
   assert.equal(
-    createCoworkModel({ ...options, api: "openai-responses", thinkingFormat: "zai" }).compat.thinkingFormat,
+    createFormicandModel({ ...options, api: "openai-responses", thinkingFormat: "zai" }).compat
+      .thinkingFormat,
     undefined
   );
   assert.throws(
     () => parseConnectionProfile({ thinkingFormat: null }, connectionProfile({})),
     /thinkingFormat/
   );
-  const previous = process.env.COWORK_THINKING_FORMAT;
+  const previous = process.env.FORMICAND_THINKING_FORMAT;
   try {
-    delete process.env.COWORK_THINKING_FORMAT;
-    assert.equal(runtimeSettingsEnv({ thinkingFormat: "zai" }).COWORK_THINKING_FORMAT, "zai");
-    process.env.COWORK_THINKING_FORMAT = "openai";
-    assert.equal(runtimeSettingsEnv({ thinkingFormat: "zai" }).COWORK_THINKING_FORMAT, "openai");
+    delete process.env.FORMICAND_THINKING_FORMAT;
+    assert.equal(runtimeSettingsEnv({ thinkingFormat: "zai" }).FORMICAND_THINKING_FORMAT, "zai");
+    process.env.FORMICAND_THINKING_FORMAT = "openai";
+    assert.equal(runtimeSettingsEnv({ thinkingFormat: "zai" }).FORMICAND_THINKING_FORMAT, "openai");
   } finally {
-    if (previous === undefined) delete process.env.COWORK_THINKING_FORMAT;
-    else process.env.COWORK_THINKING_FORMAT = previous;
+    if (previous === undefined) delete process.env.FORMICAND_THINKING_FORMAT;
+    else process.env.FORMICAND_THINKING_FORMAT = previous;
   }
 });
 
@@ -73,7 +74,7 @@ test("the connection probe uses the selected GLM format without affecting other 
 test("real Main launcher sends the connection's GLM format", { timeout: 45000 }, async (t) => {
   const fixture = await modelProtocolFixture("openai-completions", () => ({ text: "GLM format confirmed." }));
   t.after(() => fixture.close());
-  const root = await mkdtemp(join(tmpdir(), "atria-thinking-main-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-thinking-main-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const project = join(root, "project");
   await mkdir(project);
@@ -90,7 +91,7 @@ test("real Main launcher sends the connection's GLM format", { timeout: 45000 },
     })
   );
   const env = Object.fromEntries(
-    Object.entries(process.env).filter(([name]) => !/^(COWORK_|PI_|ATRIA_)/.test(name))
+    Object.entries(process.env).filter(([name]) => !/^(FORMICAND_|PI_|FORMICAND_)/.test(name))
   );
   const pending = exec(
     process.execPath,
@@ -101,13 +102,13 @@ test("real Main launcher sends the connection's GLM format", { timeout: 45000 },
       maxBuffer: 4000000,
       env: {
         ...env,
-        COWORK_CONFIG: configPath,
-        COWORK_PROJECT_DIR: project,
-        COWORK_WORKSPACE: join(root, "workspace"),
-        COWORK_TASK_ID: "format-task",
-        COWORK_RUN_ID: "format-run",
+        FORMICAND_CONFIG: configPath,
+        FORMICAND_PROJECT_DIR: project,
+        FORMICAND_WORKSPACE: join(root, "workspace"),
+        FORMICAND_TASK_ID: "format-task",
+        FORMICAND_RUN_ID: "format-run",
         PI_CODING_AGENT_DIR: join(root, "pi"),
-        COWORK_DISABLE_MAIN_GUARDIAN: "1",
+        FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
         PI_OFFLINE: "1"
       }
     }

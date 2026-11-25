@@ -33,7 +33,7 @@ export function releaseMetadata(version, lockVersion, tag) {
   if (lockVersion !== version)
     throw new Error("package.json and package-lock.json versions differ; update them together");
   if (tag !== `v${version}`) throw new Error(`Release tag must be v${version}, matching package.json`);
-  const dmg = `release/CoworkOS-${version}-mac-arm64.dmg`;
+  const dmg = `release/Formicand-${version}-mac-arm64.dmg`;
   return {
     tag,
     version,

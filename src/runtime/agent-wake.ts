@@ -61,7 +61,7 @@ export function agentWakeEndpoint(processDirectory: string, token: string): stri
     .slice(0, 24);
   // Windows has no filesystem socket name; its named pipe is the same
   // process-local, same-user channel under the same digest.
-  if (process.platform === "win32") return `\\\\.\\pipe\\cowork-wake-${digest}`;
+  if (process.platform === "win32") return `\\\\.\\pipe\\formicand-wake-${digest}`;
   const name = `wake-${digest}.sock`;
   const { preferred, fallback } = wakeDirectories();
   const endpoint = join(preferred, name);
@@ -101,7 +101,7 @@ let binding: Promise<AgentWakeListener | undefined> | undefined;
 /**
  * Bind this process's wake endpoint, when the backend registered one.
  *
- * `COWORK_WAKE_ENDPOINT` is written by the backend at launch and recorded with
+ * `FORMICAND_WAKE_ENDPOINT` is written by the backend at launch and recorded with
  * the process, so the receiver binds exactly the endpoint a writer reads from
  * the record — one decision, not two computations that could disagree. One
  * binding per process: a second session must not unlink the first one's socket
@@ -121,7 +121,7 @@ export async function stopAgentWake(): Promise<void> {
 }
 
 async function openWakeChannel(): Promise<AgentWakeListener | undefined> {
-  const endpoint = process.env.COWORK_WAKE_ENDPOINT;
+  const endpoint = process.env.FORMICAND_WAKE_ENDPOINT;
   if (!endpoint) return undefined;
   if (process.platform !== "win32") {
     await mkdir(dirname(endpoint), { recursive: true, mode: 0o700 });
@@ -209,6 +209,6 @@ function wakeDirectories(): { preferred: string; fallback: string } {
   // Per-user on Linux (a shared /tmp) and already per-user under macOS
   // `$TMPDIR`; the socket mode is the second lock on the same door.
   const uid = process.getuid?.();
-  const name = uid === undefined ? "cowork-wake" : `cowork-wake-${uid}`;
+  const name = uid === undefined ? "formicand-wake" : `formicand-wake-${uid}`;
   return { preferred: join(tmpdir(), name), fallback: join("/tmp", name) };
 }

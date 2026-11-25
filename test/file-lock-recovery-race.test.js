@@ -43,10 +43,10 @@ test(
   "a delayed recovery claimant cannot delete a replacement live claim or steal its parent lock",
   { timeout: 10000 },
   async (t) => {
-    const root = await mkdtemp(join(tmpdir(), "atria-lock-claim-race-"));
+    const root = await mkdtemp(join(tmpdir(), "formicand-lock-claim-race-"));
     const children = new Set();
     const env = Object.fromEntries(
-      Object.entries(process.env).filter(([key]) => !/^(?:COWORK_|ATRIA_|PI_)/.test(key))
+      Object.entries(process.env).filter(([key]) => !/^(?:FORMICAND_|FORMICAND_|PI_)/.test(key))
     );
     t.after(async () => {
       for (const child of children) {
@@ -146,11 +146,11 @@ test(
   "a delayed initial owner publication cannot overwrite a new live owner or enter its action",
   { timeout: 10000 },
   async (t) => {
-    const root = await mkdtemp(join(tmpdir(), "atria-lock-owner-race-"));
+    const root = await mkdtemp(join(tmpdir(), "formicand-lock-owner-race-"));
     const target = join(root, "projects.json.operation");
     const ownerPath = `${target}.lock/owner.json`;
     const env = Object.fromEntries(
-      Object.entries(process.env).filter(([key]) => !/^(?:COWORK_|ATRIA_|PI_)/.test(key))
+      Object.entries(process.env).filter(([key]) => !/^(?:FORMICAND_|FORMICAND_|PI_)/.test(key))
     );
     const child = spawn(
       process.execPath,
@@ -250,7 +250,7 @@ test(
   "a newly published owner waits for an already validated recovery claim before entering its action",
   { timeout: 10000 },
   async (t) => {
-    const root = await mkdtemp(join(tmpdir(), "atria-lock-publication-barrier-"));
+    const root = await mkdtemp(join(tmpdir(), "formicand-lock-publication-barrier-"));
     const target = join(root, "projects.json.operation");
     const lockPath = `${target}.lock`;
     const ownerPath = join(lockPath, "owner.json");
@@ -258,7 +258,7 @@ test(
     const actionPath = join(root, "entered-action.txt");
     const children = new Set();
     const env = Object.fromEntries(
-      Object.entries(process.env).filter(([key]) => !/^(?:COWORK_|ATRIA_|PI_)/.test(key))
+      Object.entries(process.env).filter(([key]) => !/^(?:FORMICAND_|FORMICAND_|PI_)/.test(key))
     );
     t.after(async () => {
       for (const child of children) {
@@ -409,14 +409,14 @@ test(
   "a timed-out publisher remains alive and can recover its cancelled owner after a live claim settles",
   { timeout: 10000 },
   async (t) => {
-    const root = await mkdtemp(join(tmpdir(), "atria-lock-cancelled-publication-"));
+    const root = await mkdtemp(join(tmpdir(), "formicand-lock-cancelled-publication-"));
     const target = join(root, "projects.json.operation");
     const lockPath = `${target}.lock`;
     const ownerPath = join(lockPath, "owner.json");
     const claimPath = join(lockPath, ".dead-owner-recovery");
     const children = new Set();
     const env = Object.fromEntries(
-      Object.entries(process.env).filter(([key]) => !/^(?:COWORK_|ATRIA_|PI_)/.test(key))
+      Object.entries(process.env).filter(([key]) => !/^(?:FORMICAND_|FORMICAND_|PI_)/.test(key))
     );
     t.after(async () => {
       for (const child of children) {
@@ -580,7 +580,7 @@ test(
   "a lock directory left without an owner record is reclaimed once its grace has passed",
   { timeout: 15000 },
   async (t) => {
-    const root = await mkdtemp(join(tmpdir(), "atria-lock-ownerless-"));
+    const root = await mkdtemp(join(tmpdir(), "formicand-lock-ownerless-"));
     t.after(() => rm(root, { recursive: true, force: true }));
     const target = join(root, "inbox-store.json");
     const lockPath = `${target}.lock`;

@@ -15,7 +15,7 @@ import { promisify } from "node:util";
 /**
  * Test runs own their temporary directories. A run gets one root under the
  * system temporary directory and points TMPDIR at it, so every `mkdtemp`
- * a test makes, and every isolated backend data root (ATRIA_HOME) inside it,
+ * a test makes, and every isolated backend data root (FORMICAND_HOME) inside it,
  * belongs to that run. A backend left alive under the root after the run is a
  * leak (#35): it is stopped and the run fails. Roots left by a runner that was
  * killed outright are swept at the start of the next run.
@@ -55,7 +55,7 @@ export async function backendsUnder(root) {
   return stdout.split("\n").flatMap((line) => {
     const match = /^\s*(\d+)\s+(.*)$/.exec(line);
     if (!match || Number(match[1]) === process.pid) return [];
-    const home = /(?:^|\s)ATRIA_HOME=(\S+)/.exec(match[2])?.[1];
+    const home = /(?:^|\s)FORMICAND_HOME=(\S+)/.exec(match[2])?.[1];
     return home && roots.some((prefix) => `${home}/`.startsWith(prefix))
       ? [{ pid: Number(match[1]), home }]
       : [];
@@ -103,7 +103,7 @@ export async function openTestRun(owner = process.pid) {
 export async function closeTestRun(root) {
   const leaked = await stopBackendsUnder(root);
   for (const { pid, home } of leaked)
-    console.error(`Leaked backend ${pid} (ATRIA_HOME=${home}): the test that started it must stop it.`);
+    console.error(`Leaked backend ${pid} (FORMICAND_HOME=${home}): the test that started it must stop it.`);
   if (existsSync(root)) rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   return leaked;
 }

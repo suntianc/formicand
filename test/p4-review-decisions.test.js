@@ -80,12 +80,12 @@ test(
   "Main rules findings, asks the owner about scope, and the controller reads persisted reviews",
   { timeout: 300_000 },
   async (t) => {
-    const root = await mkdtemp(join(tmpdir(), "atria-p4-decisions-"));
+    const root = await mkdtemp(join(tmpdir(), "formicand-p4-decisions-"));
     const repository = await makeRepository(join(root, "repository"));
     await mkdir(join(root, "project-b"), { recursive: true });
     const dashboard = await startDashboard({
       defaultProject: false,
-      env: { COWORK_PROJECT_WRITE: "1", COWORK_DISABLE_MAIN_GUARDIAN: "1" }
+      env: { FORMICAND_PROJECT_WRITE: "1", FORMICAND_DISABLE_MAIN_GUARDIAN: "1" }
     });
     t.after(async () => {
       await dashboard.stop();
@@ -143,7 +143,7 @@ test(
         .filter((message) => ["system", "developer"].includes(message.role))
         .map(messageText)
         .join("\n");
-      if (!system.includes("You are a CoworkOS Subagent")) return "main";
+      if (!system.includes("You are a Formicand Subagent")) return "main";
       const match = userText(body).match(/工作项 ([A-D])/);
       return match ? match[1].toLowerCase() : "unknown";
     };

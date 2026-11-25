@@ -1,6 +1,6 @@
 import { Type } from "typebox";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { atriaHome } from "../../../scripts/data-home.cjs";
+import { formicandHome } from "../../../scripts/data-home.cjs";
 import {
   agentDefinitionSchema,
   agentLocations,
@@ -16,7 +16,7 @@ import { displayPath } from "../../../dist/src/runtime/display-path.js";
 import type { AgentProposal } from "../../../dist/src/runtime/human.js";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import type { CoworkToolContext } from "../extension.ts";
+import type { FormicandToolContext } from "../extension.ts";
 import type { RuntimeToolResult } from "../helpers.ts";
 import { askHumanAndWait } from "./coordination.ts";
 
@@ -48,8 +48,8 @@ function result(payload: Record<string, unknown>, isError = false): RuntimeToolR
  * only after they confirm; a timeout or any other answer writes nothing. Main
  * can name MCP servers the user configured but cannot add one.
  */
-export function registerAgentTools(pi: ExtensionAPI, context: CoworkToolContext) {
-  const home = () => atriaHome();
+export function registerAgentTools(pi: ExtensionAPI, context: FormicandToolContext) {
+  const home = () => formicandHome();
 
   async function places() {
     const locations = await agentLocations(home(), context.projectDirectory);
@@ -144,7 +144,7 @@ export function registerAgentTools(pi: ExtensionAPI, context: CoworkToolContext)
         scope: Type.Optional(
           Type.Union([Type.Literal("global"), Type.Literal("project")], {
             description:
-              "global (~/.atria/agents, every project) or project (this project's .atria/agents). Default global."
+              "global (~/.formicand/agents, every project) or project (this project's .formicand/agents). Default global."
           })
         ),
         name: Type.Optional(Type.String({ description: "The Agent to switch off or on." })),

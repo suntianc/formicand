@@ -11,7 +11,7 @@ const jobsUrl = new URL("../dist/src/tools/jobs.js", import.meta.url).href;
 
 for (const failure of ["missing-cwd", "missing-executable", "invalid-command"]) {
   test(`job startup failure is recoverable in the same process: ${failure}`, async (t) => {
-    const root = await mkdtemp(join(tmpdir(), "atria-spawn-error-"));
+    const root = await mkdtemp(join(tmpdir(), "formicand-spawn-error-"));
     t.after(() => rm(root, { recursive: true, force: true }));
     // A separate Node process proves that an unhandled ChildProcess error
     // cannot be hidden by the test runner's own uncaught-exception handling.

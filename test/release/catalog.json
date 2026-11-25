@@ -48,7 +48,7 @@
       "file": "test/desktop-dev.test.js",
       "kind": "node",
       "pattern": "Finder development entry|Mac launch gives",
-      "enableEnv": "ATRIA_NATIVE_DESKTOP_TEST"
+      "enableEnv": "FORMICAND_NATIVE_DESKTOP_TEST"
     }
   ],
   "anchors": [

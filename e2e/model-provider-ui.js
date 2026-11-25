@@ -157,8 +157,8 @@ export const windowRequest = (page) => (path, body) =>
   page.evaluate(
     async ([target, payload]) => {
       const headers = { "content-type": "application/json" };
-      const nonce = window.bookmanDesktop?.transportNonce;
-      if (nonce) headers["x-cowork-desktop-nonce"] = nonce;
+      const nonce = window.formicandDesktop?.transportNonce;
+      if (nonce) headers["x-formicand-desktop-nonce"] = nonce;
       const response = await fetch(target, {
         method: payload === undefined ? "GET" : "POST",
         headers,

@@ -21,7 +21,7 @@ test(
   "Main Pi tools share project CWD, require Task paths and recover from ambiguous edits",
   { timeout: 60_000 },
   async (t) => {
-    const root = await realpath(await mkdtemp(join(tmpdir(), "atria-main-task-paths-")));
+    const root = await realpath(await mkdtemp(join(tmpdir(), "formicand-main-task-paths-")));
     const project = join(root, "Selected Project");
     const workspace = join(root, "Task Workspace");
     const taskId = "path-task";
@@ -211,19 +211,19 @@ const footer = "draft";
         stdio: ["ignore", "pipe", "pipe"],
         env: {
           ...process.env,
-          COWORK_CONFIG: join(root, "config.json"),
-          COWORK_WORKSPACE: workspace,
-          COWORK_PROJECT_DIR: project,
-          COWORK_TASK_ID: taskId,
-          COWORK_RUN_ID: "paths-run",
-          COWORK_API_BASE: `http://127.0.0.1:${server.address().port}/v1`,
-          COWORK_API_KEY: "local-path-fixture",
-          COWORK_MODEL: "task-path-fixture",
-          COWORK_DASHBOARD_URL: "",
-          COWORK_DISABLE_MAIN_GUARDIAN: "1",
-          COWORK_REASONING_EFFORT: "off",
-          COWORK_SUPPORTS_REASONING_EFFORT: "0",
-          COWORK_WEB_TOOLS: "0",
+          FORMICAND_CONFIG: join(root, "config.json"),
+          FORMICAND_WORKSPACE: workspace,
+          FORMICAND_PROJECT_DIR: project,
+          FORMICAND_TASK_ID: taskId,
+          FORMICAND_RUN_ID: "paths-run",
+          FORMICAND_API_BASE: `http://127.0.0.1:${server.address().port}/v1`,
+          FORMICAND_API_KEY: "local-path-fixture",
+          FORMICAND_MODEL: "task-path-fixture",
+          FORMICAND_DASHBOARD_URL: "",
+          FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
+          FORMICAND_REASONING_EFFORT: "off",
+          FORMICAND_SUPPORTS_REASONING_EFFORT: "0",
+          FORMICAND_WEB_TOOLS: "0",
           PI_CODING_AGENT_DIR: join(root, "pi"),
           PI_OFFLINE: "1"
         }
@@ -291,8 +291,8 @@ const footer = "draft";
         .replace('title: "First", color: "blue"', 'title: "First", color: "green"')
         .replace(footerEdit.oldText, footerEdit.newText)
     );
-    if (process.env.ATRIA_TASK_PATHS_RECEIPT) {
-      const receiptPath = resolve(process.env.ATRIA_TASK_PATHS_RECEIPT);
+    if (process.env.FORMICAND_TASK_PATHS_RECEIPT) {
+      const receiptPath = resolve(process.env.FORMICAND_TASK_PATHS_RECEIPT);
       await mkdir(dirname(receiptPath), { recursive: true });
       await writeFile(
         receiptPath,

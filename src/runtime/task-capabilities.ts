@@ -41,9 +41,9 @@ export function resolveCapabilities(
 }
 
 function environmentPreset(env: NodeJS.ProcessEnv): ResolvedCapabilities {
-  const projectWrite = flag(env.COWORK_PROJECT_WRITE);
-  const configured = projectWrite !== undefined || env.COWORK_MAX_ATTEMPTS !== undefined;
-  const maxAttempts = positive(env.COWORK_MAX_ATTEMPTS) ?? DEFAULT_MAX_ATTEMPTS;
+  const projectWrite = flag(env.FORMICAND_PROJECT_WRITE);
+  const configured = projectWrite !== undefined || env.FORMICAND_MAX_ATTEMPTS !== undefined;
+  const maxAttempts = positive(env.FORMICAND_MAX_ATTEMPTS) ?? DEFAULT_MAX_ATTEMPTS;
   return {
     projectWrite: projectWrite === true,
     // A shell is what makes project edits usable — pipes, redirection,

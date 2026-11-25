@@ -46,7 +46,7 @@ function createBackendAuthorization({ appRoot, fetchImpl = fetch, sessionStore }
     )
       throw new Error("后端地址或进程无效");
     const response = await fetchImpl(`${instance.url}/api/backend`, {
-      headers: { "x-atria-token": instance.token },
+      headers: { "x-formicand-token": instance.token },
       redirect: "error",
       signal: AbortSignal.timeout(3000)
     });
@@ -152,7 +152,7 @@ function createBackendAuthorization({ appRoot, fetchImpl = fetch, sessionStore }
         if (!current()) throw new Error("后端已切换，请重新授权");
         if (saved) {
           const check = await fetchImpl(`${instance.url}/api/session`, {
-            headers: { "x-atria-token": saved.token },
+            headers: { "x-formicand-token": saved.token },
             redirect: "error",
             signal: AbortSignal.timeout(10000)
           });
@@ -177,7 +177,7 @@ function createBackendAuthorization({ appRoot, fetchImpl = fetch, sessionStore }
       }
       const response = await fetchImpl(`${instance.url}/api/session`, {
         method: "POST",
-        headers: { "content-type": "application/json", "x-atria-token": instance.token },
+        headers: { "content-type": "application/json", "x-formicand-token": instance.token },
         body: JSON.stringify({ clientName: input.clientName, protocolVersion: input.protocolVersion }),
         redirect: "error",
         signal: AbortSignal.timeout(10000)

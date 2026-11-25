@@ -94,7 +94,7 @@ test(
   async (t) => {
     const requests = { main: 0, subagent: 0 };
     const provider = await modelProtocolFixture("openai-completions", (body) => {
-      const subagent = systemText(body).includes("You are a CoworkOS Subagent");
+      const subagent = systemText(body).includes("You are a Formicand Subagent");
       const tools = (body.messages ?? []).filter((message) => message.role === "tool");
       if (subagent) {
         requests.subagent += 1;
@@ -112,7 +112,7 @@ test(
       modelEndpoint: provider.baseUrl,
       model: "protocol-fixture",
       // Catalog diffs are what carry the metrics; publish them quickly.
-      env: { COWORK_EVENT_RECONCILE_MS: "200" }
+      env: { FORMICAND_EVENT_RECONCILE_MS: "200" }
     });
     t.after(() => dashboard.stop());
 
@@ -218,7 +218,7 @@ test(
  * their own, exactly as the real one does.
  */
 async function traceFixture(t, { startedMs, activity, subagentActivity = [] }) {
-  const root = await mkdtemp(join(tmpdir(), "atria-activity-window-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-activity-window-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const storage = join(root, "workspace");
   const projectDirectory = join(root, "project");

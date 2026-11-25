@@ -1,4 +1,4 @@
-# CoworkOS Docs
+# Formicand Docs
 
 English | [简体中文](../README.md)
 

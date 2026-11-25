@@ -42,7 +42,7 @@ export interface SkillView {
   removed: boolean;
   shadowedBy?: string;
   scripts: string[];
-  /** Installed by CoworkOS into a `.atria/skills` folder, so it may be deleted. */
+  /** Installed by Formicand into a `.formicand/skills` folder, so it may be deleted. */
   deletable: boolean;
 }
 
@@ -168,7 +168,7 @@ export function createSkillService(options: SkillServiceOptions) {
     const view = await project(target.projectId);
     if (view.trust !== "trusted")
       throw new HttpError(409, "请先信任这个项目，再添加项目技能", "skill_project_untrusted");
-    return join(view.projectDirectory, ".atria", "skills");
+    return join(view.projectDirectory, ".formicand", "skills");
   }
 
   async function pruneStaging(): Promise<void> {

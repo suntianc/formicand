@@ -17,9 +17,9 @@ async function skill(directory, name, description, scripts = []) {
 
 /** A backend whose user home is a temporary folder, so `~/.agents/skills` is the test's own. */
 async function startWithHome() {
-  const userHome = await mkdtemp(join(tmpdir(), "atria-skill-home-"));
+  const userHome = await mkdtemp(join(tmpdir(), "formicand-skill-home-"));
   const dashboard = await startDashboard({ env: { HOME: userHome } });
-  const home = dashboard.env.ATRIA_HOME;
+  const home = dashboard.env.FORMICAND_HOME;
   return {
     dashboard,
     userHome,
@@ -125,7 +125,7 @@ test("project skills appear after the project is trusted, and long lists page", 
   const fixture = await startWithHome();
   try {
     const project = fixture.dashboard.workspaceRoot;
-    await skill(join(project, ".atria", "skills", "deploy"), "deploy", "Deploy this project");
+    await skill(join(project, ".formicand", "skills", "deploy"), "deploy", "Deploy this project");
     for (let index = 0; index < 12; index += 1)
       await skill(
         join(fixture.home, "skills", `bulk-${String(index).padStart(2, "0")}`),
@@ -153,7 +153,7 @@ test("project skills appear after the project is trusted, and long lists page", 
     await expect(list).toContainText("信任这个项目后");
     await expect(settings.getByRole("button", { name: "添加到此项目" })).toBeDisabled();
     await settings.getByRole("button", { name: "信任此项目" }).click();
-    await expect(list.getByRole("button", { name: /deploy/ })).toContainText(".atria");
+    await expect(list.getByRole("button", { name: /deploy/ })).toContainText(".formicand");
     await expect(settings.locator("[data-skill-trust]")).toContainText("已信任");
     await expect(settings.getByRole("button", { name: "添加到此项目" })).toBeEnabled();
   } finally {

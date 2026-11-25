@@ -8,11 +8,11 @@ import { piDependencyBoundary } from "../eslint.config.mjs";
 /**
  * The repository's import boundaries, asserted through the ESLint rules that
  * enforce them in the build: the layer restrictions (`no-restricted-imports`)
- * and the Pi runtime boundary (`cowork/pi-import-boundary`) whose allowlist
+ * and the Pi runtime boundary (`formicand/pi-import-boundary`) whose allowlist
  * must stay identical to the architecture section it documents.
  */
 
-const PI_BOUNDARY_RULE = "cowork/pi-import-boundary";
+const PI_BOUNDARY_RULE = "formicand/pi-import-boundary";
 const eslint = new ESLint();
 
 async function imports(filePath, source) {
@@ -27,12 +27,12 @@ async function boundaryReports(filePath, source) {
 
 test("shared modules cannot import a CLI entrypoint or dashboard orchestration", async () => {
   for (const file of ["src/runtime/subagent-processes.ts", "src/runtime/skill-registry.ts"]) {
-    for (const target of ["../cli/cowork.js", "../dashboard/application.js"]) {
+    for (const target of ["../cli/formicand.js", "../dashboard/application.js"]) {
       assert.equal((await imports(file, `import { example } from "${target}";`)).length, 1);
     }
   }
   assert.equal(
-    (await imports("src/storage/atomic-file.ts", 'import { example } from "../cli/cowork.js";')).length,
+    (await imports("src/storage/atomic-file.ts", 'import { example } from "../cli/formicand.js";')).length,
     1
   );
   assert.equal(
@@ -71,7 +71,7 @@ test("HTTP routers cannot launch processes and run orchestration cannot write HT
 });
 
 test("GUI drivers remain independent of application persistence and CLI hosts", async () => {
-  for (const target of ["../dashboard/routes.js", "../cli/cowork.js"]) {
+  for (const target of ["../dashboard/routes.js", "../cli/formicand.js"]) {
     assert.equal(
       (await imports("src/gui/macos-driver.ts", `import { example } from "${target}";`)).length,
       1

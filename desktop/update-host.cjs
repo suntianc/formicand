@@ -42,8 +42,8 @@ async function createDesktopUpdateHost(options) {
     env = process.env
   } = options;
   const manifest = JSON.parse(await fs.readFile(path.join(profile.appRoot, "package.json"), "utf8"));
-  const nodeExecutable = env.COWORK_DESKTOP_NODE_EXECUTABLE;
-  const npmCli = env.COWORK_DESKTOP_NPM_CLI;
+  const nodeExecutable = env.FORMICAND_DESKTOP_NODE_EXECUTABLE;
+  const npmCli = env.FORMICAND_DESKTOP_NPM_CLI;
   let active = false;
   let applying = false;
   let failure;
@@ -149,7 +149,7 @@ async function createDesktopUpdateHost(options) {
 }
 
 async function scheduleDevelopmentRestart({ root, userData, executable, env: environment }) {
-  const nodeExecutable = environment.COWORK_DESKTOP_NODE_EXECUTABLE;
+  const nodeExecutable = environment.FORMICAND_DESKTOP_NODE_EXECUTABLE;
   if (!nodeExecutable || !path.isAbsolute(nodeExecutable))
     throw new Error("源码已更新。请退出 App，在仓库运行 npm run desktop 完成首次运行时升级。");
   const directory = path.join(userData, "updates");
@@ -164,11 +164,11 @@ async function scheduleDevelopmentRestart({ root, userData, executable, env: env
       pid: process.pid,
       entry: executable,
       nodeExecutable,
-      npmCli: environment.COWORK_DESKTOP_NPM_CLI,
+      npmCli: environment.FORMICAND_DESKTOP_NPM_CLI,
       runtimeEnvironment: {
-        COWORK_DESKTOP_DATA: userData,
-        ...(environment.COWORK_WORKSPACE
-          ? { COWORK_WORKSPACE: path.resolve(environment.COWORK_WORKSPACE) }
+        FORMICAND_DESKTOP_DATA: userData,
+        ...(environment.FORMICAND_WORKSPACE
+          ? { FORMICAND_WORKSPACE: path.resolve(environment.FORMICAND_WORKSPACE) }
           : {})
       }
     }),
@@ -176,7 +176,7 @@ async function scheduleDevelopmentRestart({ root, userData, executable, env: env
   );
   const env = { ...environment };
   for (const name of Object.keys(env)) {
-    if (/^(?:COWORK_|PI_|ATRIA_|ELECTRON_RUN_AS_NODE$|NODE_OPTIONS$)/.test(name)) delete env[name];
+    if (/^(?:FORMICAND_|PI_|FORMICAND_|ELECTRON_RUN_AS_NODE$|NODE_OPTIONS$)/.test(name)) delete env[name];
   }
   const log = await fs.open(path.join(directory, "restart-development.log"), "a", 0o600);
   try {

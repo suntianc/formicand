@@ -88,12 +88,12 @@ test(
   "a real Main edits the requirement checkout directly and runs isolated role work items",
   { timeout: 240_000 },
   async (t) => {
-    const root = await mkdtemp(join(tmpdir(), "atria-p4-native-"));
+    const root = await mkdtemp(join(tmpdir(), "formicand-p4-native-"));
     const repository = await makeRepository(join(root, "repository"));
     const baselineHead = await git(repository, ["rev-parse", "HEAD"]);
     const dashboard = await startDashboard({
       defaultProject: false,
-      env: { COWORK_PROJECT_WRITE: "1", COWORK_DISABLE_MAIN_GUARDIAN: "1" }
+      env: { FORMICAND_PROJECT_WRITE: "1", FORMICAND_DISABLE_MAIN_GUARDIAN: "1" }
     });
     t.after(async () => {
       await dashboard.stop();
@@ -145,7 +145,7 @@ test(
         .filter((message) => ["system", "developer"].includes(message.role))
         .map(messageText)
         .join("\n");
-      if (!system.includes("You are a CoworkOS Subagent")) return "main";
+      if (!system.includes("You are a Formicand Subagent")) return "main";
       const text = userText(body);
       const match = text.match(/工作项 ([A-D])/);
       return match ? match[1].toLowerCase() : "unknown";
@@ -493,21 +493,21 @@ test(
  * unrelated directory is preserved and reported rather than deleted.
  */
 test("a work item's own checkout is reused instead of reset, and never placed inside the integration site", async (t) => {
-  const root = await mkdtemp(join(tmpdir(), "atria-p4-site-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-p4-site-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const repository = await makeRepository(join(root, "repository"));
   const baseline = await git(repository, ["rev-parse", "HEAD"]);
   const integration = join(root, "development");
   await prepareDevelopmentWorkspace({
     repository,
-    branch: "coworkos/development/fixture",
+    branch: "formicand/development/fixture",
     commit: baseline,
     directory: integration
   });
   const site = {
     developmentDirectory: integration,
     directory: join(root, "work-items", "call-1"),
-    branch: "coworkos/work/call-1"
+    branch: "formicand/work/call-1"
   };
   await prepareWorkItemSite(site);
   assert.equal(await git(site.directory, ["rev-parse", "--abbrev-ref", "HEAD"]), site.branch);
@@ -538,7 +538,7 @@ test("a work item's own checkout is reused instead of reset, and never placed in
     prepareWorkItemSite({
       developmentDirectory: integration,
       directory: join(integration, "inside"),
-      branch: "coworkos/work/inside"
+      branch: "formicand/work/inside"
     }),
     /不能放在需求集成现场内/
   );
@@ -550,7 +550,7 @@ test("a work item's own checkout is reused instead of reset, and never placed in
     prepareWorkItemSite({
       developmentDirectory: integration,
       directory: foreign,
-      branch: "coworkos/work/call-foreign"
+      branch: "formicand/work/call-foreign"
     }),
     /已有内容/
   );

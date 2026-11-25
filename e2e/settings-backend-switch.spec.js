@@ -42,14 +42,14 @@ test("dirty model and search settings stay with their backend when switching", a
   const a = await startDashboard({
     defaultProject: false,
     port: portA,
-    env: { COWORK_TRUSTED_CLIENT_ORIGINS: origins }
+    env: { FORMICAND_TRUSTED_CLIENT_ORIGINS: origins }
   });
   let b;
   try {
     b = await startDashboard({
       defaultProject: false,
       port: portB,
-      env: { COWORK_TRUSTED_CLIENT_ORIGINS: origins }
+      env: { FORMICAND_TRUSTED_CLIENT_ORIGINS: origins }
     });
     for (const [backend, name] of [
       [a, "a"],

@@ -20,8 +20,8 @@ test("a lost HTTP response after action dispatch reports unknown and never retri
   });
   server.listen(0, "127.0.0.1");
   await once(server, "listening");
-  const previousBase = process.env.COWORK_DASHBOARD_URL;
-  process.env.COWORK_DASHBOARD_URL = `http://127.0.0.1:${server.address().port}`;
+  const previousBase = process.env.FORMICAND_DASHBOARD_URL;
+  process.env.FORMICAND_DASHBOARD_URL = `http://127.0.0.1:${server.address().port}`;
   try {
     const requirePi = createRequire(import.meta.resolve("@earendil-works/pi-coding-agent"));
     const { createJiti } = await import(requirePi.resolve("jiti"));
@@ -62,15 +62,15 @@ test("a lost HTTP response after action dispatch reports unknown and never retri
     assert.equal(beforeSend.details.dispatchStatus, "not_sent");
     assert.equal(attempts, 1);
   } finally {
-    if (previousBase === undefined) delete process.env.COWORK_DASHBOARD_URL;
-    else process.env.COWORK_DASHBOARD_URL = previousBase;
+    if (previousBase === undefined) delete process.env.FORMICAND_DASHBOARD_URL;
+    else process.env.FORMICAND_DASHBOARD_URL = previousBase;
     server.closeAllConnections();
     await new Promise((done) => server.close(done));
   }
 });
 
 test("computer HTTP consumes only desktop grants and isolates tasks, observations and pause", async () => {
-  const root = await mkdtemp(join(tmpdir(), "atria-computer-http-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-computer-http-"));
   await writeFile(join(root, "config.json"), "{}");
   await symlink(resolve("web"), join(root, "web"));
   const probe = createServer();
@@ -81,7 +81,7 @@ test("computer HTTP consumes only desktop grants and isolates tasks, observation
   const target = {
     pid: 11,
     windowId: 12,
-    bundleId: "org.atria.probe",
+    bundleId: "org.formicand.probe",
     application: "Probe",
     title: "Safe fixture"
   };
@@ -192,8 +192,8 @@ test("computer HTTP consumes only desktop grants and isolates tasks, observation
       ).status,
       200
     );
-    const previousBase = process.env.COWORK_DASHBOARD_URL;
-    process.env.COWORK_DASHBOARD_URL = base;
+    const previousBase = process.env.FORMICAND_DASHBOARD_URL;
+    process.env.FORMICAND_DASHBOARD_URL = base;
     try {
       const requirePi = createRequire(import.meta.resolve("@earendil-works/pi-coding-agent"));
       const { createJiti } = await import(requirePi.resolve("jiti"));
@@ -321,12 +321,12 @@ test("computer HTTP consumes only desktop grants and isolates tasks, observation
           400
         );
     } finally {
-      if (previousBase === undefined) delete process.env.COWORK_DASHBOARD_URL;
-      else process.env.COWORK_DASHBOARD_URL = previousBase;
+      if (previousBase === undefined) delete process.env.FORMICAND_DASHBOARD_URL;
+      else process.env.FORMICAND_DASHBOARD_URL = previousBase;
     }
     await dashboard.computerHostRequest({ operation: "pause" });
-    const pausedPreviousBase = process.env.COWORK_DASHBOARD_URL;
-    process.env.COWORK_DASHBOARD_URL = base;
+    const pausedPreviousBase = process.env.FORMICAND_DASHBOARD_URL;
+    process.env.FORMICAND_DASHBOARD_URL = base;
     try {
       const paused = await agentTools.get("computer_status").execute("paused", {});
       assert.equal(paused.details.authorizationRequired, true);
@@ -343,8 +343,8 @@ test("computer HTTP consumes only desktop grants and isolates tasks, observation
       assert.equal(denied.details.authorizationRequired, true);
       assert.match(denied.details.nextStep, /computer_status/);
     } finally {
-      if (pausedPreviousBase === undefined) delete process.env.COWORK_DASHBOARD_URL;
-      else process.env.COWORK_DASHBOARD_URL = pausedPreviousBase;
+      if (pausedPreviousBase === undefined) delete process.env.FORMICAND_DASHBOARD_URL;
+      else process.env.FORMICAND_DASHBOARD_URL = pausedPreviousBase;
     }
     assert.equal(
       (await post("/api/tasks/computer-task/computer/observe", { sessionId: grant.sessionId })).status,

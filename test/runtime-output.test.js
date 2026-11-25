@@ -17,7 +17,7 @@ const ended = { role: "assistant", timestamp: 1, content: [{ type: "text", text:
 const line = (event) => `${JSON.stringify(event)}\n`;
 
 async function fixture(t) {
-  const root = await fs.mkdtemp(join(tmpdir(), "atria-runtime-output-"));
+  const root = await fs.mkdtemp(join(tmpdir(), "formicand-runtime-output-"));
   t.after(() => fs.rm(root, { recursive: true, force: true }));
   const run = join(root, "task", "runs", "run");
   await fs.mkdir(run, { recursive: true });

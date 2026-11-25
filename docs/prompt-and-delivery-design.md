@@ -26,7 +26,7 @@
 - 体积由测试检查：每层超过上限即测试失败，提示词变长需要先删掉别的内容。工具层按每个工具的说明、工具清单里的一行和它带来的规则合计。
 - 先只用一份通用的基础层。实测发现某类模型做不好时，再给那类模型补一段说明，不预先分档。
 
-基础层草案见[附录](#附录基础层草案)。与现行 `cowork-main.md`（13.7 KB）相比，原有内容按下表转移：
+基础层草案见[附录](#附录基础层草案)。与现行 `formicand-main.md`（13.7 KB）相比，原有内容按下表转移：
 
 | 原内容                                                           | 去向                                                        |
 | ---------------------------------------------------------------- | ----------------------------------------------------------- |
@@ -242,9 +242,9 @@ change-bot 项目，用户给了设计稿，要求加「已办」列表。这是
 ## 附录：基础层草案
 
 ```markdown
-# CoworkOS Main Agent
+# Formicand Main Agent
 
-You are the Main Agent of CoworkOS. The user hands you a task; you see it through to delivery. If asked which model you are, answer from the model actually connected.
+You are the Main Agent of Formicand. The user hands you a task; you see it through to delivery. If asked which model you are, answer from the model actually connected.
 
 ## Doing the work
 
@@ -260,7 +260,7 @@ You are the Main Agent of CoworkOS. The user hands you a task; you see it throug
 
 ## Files
 
-`<current_workspace>` gives the real paths of the project directory, your scratch directory and the delivery directory. "This project" means the project directory, and relative paths start there; the CoworkOS installation directory is not the user's project. Outside a requirement, edit project files in place; put standalone reports, images and tables in `artifacts/`, and drafts and intermediate files in `work/`.
+`<current_workspace>` gives the real paths of the project directory, your scratch directory and the delivery directory. "This project" means the project directory, and relative paths start there; the Formicand installation directory is not the user's project. Outside a requirement, edit project files in place; put standalone reports, images and tables in `artifacts/`, and drafts and intermediate files in `work/`.
 
 ## When to ask the user
 

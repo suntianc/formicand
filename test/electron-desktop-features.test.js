@@ -7,7 +7,7 @@ const { backendEnvironment } = require("../desktop/backend.cjs");
 
 test("desktop leaves model and search configuration under the execution host", async () => {
   const previous = Object.fromEntries(
-    ["COWORK_API_BASE", "COWORK_API_KEY", "COWORK_MODEL", "COWORK_EXA_API_KEY"].map((key) => [
+    ["FORMICAND_API_BASE", "FORMICAND_API_KEY", "FORMICAND_MODEL", "FORMICAND_EXA_API_KEY"].map((key) => [
       key,
       process.env[key]
     ])
@@ -23,7 +23,7 @@ test("desktop leaves model and search configuration under the execution host", a
       configPath: "/fixture/config"
     });
     for (const key of Object.keys(previous)) assert.equal(env[key], undefined, key);
-    assert.equal(env.COWORK_CONFIG, "/fixture/config");
+    assert.equal(env.FORMICAND_CONFIG, "/fixture/config");
   } finally {
     for (const [key, value] of Object.entries(previous)) {
       if (value === undefined) delete process.env[key];
@@ -91,7 +91,7 @@ test("desktop session credentials are encrypted per backend and recover after a 
   const { mkdtemp, readFile, rm } = await import("node:fs/promises");
   const { tmpdir } = await import("node:os");
   const { join } = await import("node:path");
-  const root = await mkdtemp(join(tmpdir(), "cowork-client-credentials-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-client-credentials-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   let fail = false;
   const storage = {
@@ -123,7 +123,7 @@ test("host keeps the session secret, reuses it after restart, and reports revoca
   const { mkdtemp, mkdir, writeFile, rm } = await import("node:fs/promises");
   const { tmpdir } = await import("node:os");
   const { join } = await import("node:path");
-  const root = await mkdtemp(join(tmpdir(), "cowork-client-auth-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-client-auth-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   let systemKey = 0x5a;
   const storage = {
@@ -143,7 +143,7 @@ test("host keeps the session secret, reuses it after restart, and reports revoca
   let instance;
   const server = createServer((req, res) => {
     res.setHeader("content-type", "application/json");
-    if (req.url === "/api/backend" && req.headers["x-atria-token"] === "bootstrap") {
+    if (req.url === "/api/backend" && req.headers["x-formicand-token"] === "bootstrap") {
       res.end(
         JSON.stringify({
           ...instance,
@@ -153,7 +153,7 @@ test("host keeps the session secret, reuses it after restart, and reports revoca
     } else if (
       req.url === "/api/session" &&
       req.method === "POST" &&
-      req.headers["x-atria-token"] === "bootstrap"
+      req.headers["x-formicand-token"] === "bootstrap"
     ) {
       minted += 1;
       res.end(
@@ -165,7 +165,7 @@ test("host keeps the session secret, reuses it after restart, and reports revoca
       );
     } else if (
       req.url === "/api/session" &&
-      req.headers["x-atria-token"] === `secret-${minted}` &&
+      req.headers["x-formicand-token"] === `secret-${minted}` &&
       !revoked
     ) {
       res.end(JSON.stringify({ current: { kind: "session", sessionId: `session-${minted}` } }));
@@ -230,30 +230,30 @@ test("host injects credentials only for the current desktop capability and selec
   });
   const nonce = transport.rotate();
   const headers = (url, extra = {}) => transport.authorize(new Request(url, { headers: extra })).headers;
-  const granted = headers(`${selected.url}/api/models`, { "x-cowork-desktop-nonce": nonce });
-  assert.equal(granted.get("x-atria-token"), "host-secret");
-  assert.equal(granted.has("x-cowork-desktop-nonce"), false);
-  assert.equal(headers(`${selected.url}/api/models`).has("x-atria-token"), false);
+  const granted = headers(`${selected.url}/api/models`, { "x-formicand-desktop-nonce": nonce });
+  assert.equal(granted.get("x-formicand-token"), "host-secret");
+  assert.equal(granted.has("x-formicand-desktop-nonce"), false);
+  assert.equal(headers(`${selected.url}/api/models`).has("x-formicand-token"), false);
   assert.equal(
     headers("http://127.0.0.1:31338/api/models", {
-      "x-cowork-desktop-nonce": nonce,
-      "x-atria-token": "host-secret"
-    }).has("x-atria-token"),
+      "x-formicand-desktop-nonce": nonce,
+      "x-formicand-token": "host-secret"
+    }).has("x-formicand-token"),
     false
   );
   assert.equal(
-    headers(`${selected.url}/assets/app.js`, { "x-cowork-desktop-nonce": nonce }).has("x-atria-token"),
+    headers(`${selected.url}/assets/app.js`, { "x-formicand-desktop-nonce": nonce }).has("x-formicand-token"),
     false
   );
   transport.rotate();
   assert.equal(
-    headers(`${selected.url}/api/models`, { "x-cowork-desktop-nonce": nonce }).has("x-atria-token"),
+    headers(`${selected.url}/api/models`, { "x-formicand-desktop-nonce": nonce }).has("x-formicand-token"),
     false
   );
   selected = { backendId: "backend-b", url: "http://127.0.0.1:31338" };
   assert.equal(
-    headers("http://127.0.0.1:31337/api/models", { "x-cowork-desktop-nonce": transport.nonce() }).has(
-      "x-atria-token"
+    headers("http://127.0.0.1:31337/api/models", { "x-formicand-desktop-nonce": transport.nonce() }).has(
+      "x-formicand-token"
     ),
     false
   );
@@ -275,16 +275,16 @@ test("bundled protocol forwards a marked request without exposing its capability
     authorizeRequest: (request) => transport.authorize(request),
     fetch: async (request) => {
       seen.push({
-        session: request.headers.get("x-atria-token"),
-        marker: request.headers.get("x-cowork-desktop-nonce")
+        session: request.headers.get("x-formicand-token"),
+        marker: request.headers.get("x-formicand-desktop-nonce")
       });
-      return new Response(null, { status: request.headers.has("x-atria-token") ? 200 : 401 });
+      return new Response(null, { status: request.headers.has("x-formicand-token") ? 200 : 401 });
     }
   });
   assert.equal(
     (
       await handler(
-        new Request(`${selected.url}/api/models`, { headers: { "x-cowork-desktop-nonce": marker } })
+        new Request(`${selected.url}/api/models`, { headers: { "x-formicand-desktop-nonce": marker } })
       )
     ).status,
     200
@@ -337,9 +337,9 @@ test("shared management client uses a host-managed session without a renderer to
   assert.equal((await client.connect()).status, "connected");
   assert.equal(inputs[0].reuse, true);
   assert.deepEqual(await client.request("/api/models"), { ok: true });
-  assert.ok(requests.every((request) => !request.headers?.["x-atria-token"]));
+  assert.ok(requests.every((request) => !request.headers?.["x-formicand-token"]));
   assert.deepEqual(writes, []);
-  assert.deepEqual(removed, ["cowork.management.sessions.v1"]);
+  assert.deepEqual(removed, ["formicand.management.sessions.v1"]);
   client.stop();
 });
 
@@ -413,7 +413,7 @@ test(
   { timeout: 120000 },
   async (t) => {
     for (const name of Object.keys(process.env))
-      if (/^(?:COWORK_|ATRIA_|PI_|ELECTRON_|EXA_)/.test(name)) delete process.env[name];
+      if (/^(?:FORMICAND_|FORMICAND_|PI_|ELECTRON_|EXA_)/.test(name)) delete process.env[name];
     const { createManagementClient } = await import("../web/assets/controllers/management-client.js");
     const { createSettingsBackend } = await import("../web/assets/controllers/settings-backend.js");
     const { createBackendAuthorization } = require("../desktop/backend-authorization.cjs");
@@ -424,7 +424,7 @@ test(
     const { mkdtemp, writeFile, rm, readFile } = await import("node:fs/promises");
     const { tmpdir } = await import("node:os");
     const { join } = await import("node:path");
-    const root = await mkdtemp(join(tmpdir(), "cowork-desktop-two-hosts-"));
+    const root = await mkdtemp(join(tmpdir(), "formicand-desktop-two-hosts-"));
     const processes = [];
     let client;
     t.after(async () => {
@@ -456,7 +456,7 @@ test(
     const nonce = transport.rotate();
     client = createManagementClient({
       hostManagedSession: true,
-      transportHeaders: { "x-cowork-desktop-nonce": nonce },
+      transportHeaders: { "x-formicand-desktop-nonce": nonce },
       authorizeSession: (input) =>
         host.authorize({ ...input, baseUrl: selected.url, backendId: selected.backendId }),
       fetch: (url, options) => {

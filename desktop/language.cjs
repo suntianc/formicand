@@ -21,7 +21,7 @@ function createLanguageHost({ userData, ipcMain, getWindow, getDashboardUrl, onC
       }
     },
     register() {
-      ipcMain.on("bookman:language", (event) => {
+      ipcMain.on("formicand:language", (event) => {
         try {
           trust(event);
           event.returnValue = language;
@@ -30,7 +30,7 @@ function createLanguageHost({ userData, ipcMain, getWindow, getDashboardUrl, onC
           event.returnValue = null;
         }
       });
-      ipcMain.handle("bookman:set-language", (event, value) => {
+      ipcMain.handle("formicand:set-language", (event, value) => {
         trust(event);
         if (!valid(value)) throw new Error("Invalid language preference");
         const save = writes

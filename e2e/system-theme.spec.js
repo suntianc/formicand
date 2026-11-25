@@ -32,7 +32,8 @@ test("system appearance responds to OS changes while the page remains open", asy
   const dashboard = await startDashboard();
   try {
     await page.addInitScript(() => {
-      if (!localStorage.getItem("atria.appearance")) localStorage.setItem("atria.appearance", "system");
+      if (!localStorage.getItem("formicand.appearance"))
+        localStorage.setItem("formicand.appearance", "system");
     });
     await page.emulateMedia({ colorScheme: "dark" });
     await page.goto(dashboard.base);
@@ -53,7 +54,8 @@ for (const initial of ["light", "dark"]) {
     page.on("pageerror", (error) => errors.push(error.message));
     try {
       await page.addInitScript(() => {
-        if (!localStorage.getItem("atria.appearance")) localStorage.setItem("atria.appearance", "system");
+        if (!localStorage.getItem("formicand.appearance"))
+          localStorage.setItem("formicand.appearance", "system");
       });
       await page.request.post(`${dashboard.base}/api/tasks`, {
         data: { taskId: "theme", goal: "Theme fixture" }
@@ -247,7 +249,7 @@ test("light search and sidebar text remain readable in ordinary and hovered stat
     const empty = await textContrast(page.locator(".search-no-results"));
     expect(empty.ratio, JSON.stringify(empty)).toBeGreaterThanOrEqual(4.5);
     // The search dialog covers the sidebar, so the preference is set through the page API.
-    await page.evaluate(() => window.atriaAppearance.set("dark"));
+    await page.evaluate(() => window.formicandAppearance.set("dark"));
     const darkColors = await uiColors(page);
     await expect(input).toHaveCSS("color", darkColors.text);
     await expect(brand).toHaveCSS("color", darkColors.text);
@@ -255,7 +257,7 @@ test("light search and sidebar text remain readable in ordinary and hovered stat
     await page.locator(".search-dialog-head button").click();
     await searchButton.hover();
     await expect(searchButton).toHaveCSS("color", darkColors.text);
-    await page.evaluate(() => window.atriaAppearance.set("light"));
+    await page.evaluate(() => window.formicandAppearance.set("light"));
     expect((await textContrast(searchButton)).ratio).toBeGreaterThanOrEqual(4.5);
   } finally {
     await dashboard.stop();
@@ -266,7 +268,8 @@ test("tool outcomes and recovery summaries stay readable in both neutral themes"
   const dashboard = await startDashboard();
   try {
     await page.addInitScript(() => {
-      if (!localStorage.getItem("atria.appearance")) localStorage.setItem("atria.appearance", "system");
+      if (!localStorage.getItem("formicand.appearance"))
+        localStorage.setItem("formicand.appearance", "system");
     });
     await page.route("**/app.js", (route) =>
       route.fulfill({ contentType: "application/javascript", body: "// Isolated outcome theme fixture." })
@@ -364,7 +367,8 @@ test("manual appearance persists, ignores OS overrides and can return to system 
   const dashboard = await startDashboard();
   try {
     await page.addInitScript(() => {
-      if (!localStorage.getItem("atria.appearance")) localStorage.setItem("atria.appearance", "system");
+      if (!localStorage.getItem("formicand.appearance"))
+        localStorage.setItem("formicand.appearance", "system");
     });
     await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
     await page.goto(dashboard.base);
@@ -401,7 +405,7 @@ test("manual appearance persists, ignores OS overrides and can return to system 
     await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
     await chooseAppearance(page, "system");
     await expect(page.locator("html")).toHaveAttribute("data-appearance", "system");
-    expect(await page.evaluate(() => localStorage.getItem("atria.appearance"))).toBe("system");
+    expect(await page.evaluate(() => localStorage.getItem("formicand.appearance"))).toBe("system");
     await page.locator("#settings-back").click();
     await input.focus();
     await input.evaluate((el) => {
@@ -435,7 +439,7 @@ test("rapid native selections keep the last saved appearance when a later save f
     await page.addInitScript(() => {
       window.appearanceWrites = [];
       window.savedAppearance = "dark";
-      window.bookmanDesktop = {
+      window.formicandDesktop = {
         appearance: {
           initial: { preference: "dark", effective: "dark" },
           onChange: (handler) => (window.appearanceChange = handler),
@@ -480,7 +484,7 @@ test("a late native system save cannot overwrite a newer host theme change", asy
       route.fulfill({ contentType: "application/javascript", body: "// isolated appearance host fixture" })
     );
     await page.addInitScript(() => {
-      window.bookmanDesktop = {
+      window.formicandDesktop = {
         appearance: {
           initial: { preference: "light", effective: "light" },
           onChange: (handler) => (window.appearanceChange = handler),
@@ -512,8 +516,8 @@ test("native system appearance uses host changes even when browser media differs
       route.fulfill({ contentType: "application/javascript", body: "// isolated appearance host fixture" })
     );
     await page.addInitScript(() => {
-      localStorage.setItem("atria.appearance", "light");
-      window.bookmanDesktop = {
+      localStorage.setItem("formicand.appearance", "light");
+      window.formicandDesktop = {
         appearance: {
           initial: { preference: "system", effective: "dark" },
           onChange: (handler) => (window.appearanceChange = handler),
@@ -549,10 +553,12 @@ test("web tabs sync appearance preferences and storage removal restores each tab
   const peer = await context.newPage();
   try {
     await page.addInitScript(() => {
-      if (!localStorage.getItem("atria.appearance")) localStorage.setItem("atria.appearance", "system");
+      if (!localStorage.getItem("formicand.appearance"))
+        localStorage.setItem("formicand.appearance", "system");
     });
     await peer.addInitScript(() => {
-      if (!localStorage.getItem("atria.appearance")) localStorage.setItem("atria.appearance", "system");
+      if (!localStorage.getItem("formicand.appearance"))
+        localStorage.setItem("formicand.appearance", "system");
     });
     await page.emulateMedia({ colorScheme: "light" });
     await peer.emulateMedia({ colorScheme: "dark" });
@@ -578,8 +584,8 @@ test("web tabs sync appearance preferences and storage removal restores each tab
       await expect(peerHtml).toHaveAttribute("data-appearance", "dark");
       await peer.evaluate((operation) => {
         if (operation === "clear") localStorage.clear();
-        else if (operation === "remove") localStorage.removeItem("atria.appearance");
-        else localStorage.setItem("atria.appearance", "invalid");
+        else if (operation === "remove") localStorage.removeItem("formicand.appearance");
+        else localStorage.setItem("formicand.appearance", "invalid");
       }, operation);
       await expect(html).toHaveAttribute("data-appearance", "system");
       await expect(html).toHaveAttribute("data-theme", "light");
@@ -602,11 +608,11 @@ test("system appearance still follows OS changes when browser preference storage
       const read = Storage.prototype.getItem;
       const write = Storage.prototype.setItem;
       Storage.prototype.getItem = function (key) {
-        if (key === "atria.appearance") throw new DOMException("Storage blocked", "SecurityError");
+        if (key === "formicand.appearance") throw new DOMException("Storage blocked", "SecurityError");
         return read.call(this, key);
       };
       Storage.prototype.setItem = function (key, value) {
-        if (key === "atria.appearance") throw new DOMException("Storage blocked", "SecurityError");
+        if (key === "formicand.appearance") throw new DOMException("Storage blocked", "SecurityError");
         return write.call(this, key, value);
       };
     });
@@ -633,8 +639,8 @@ test("system, invalid and empty web preferences follow the current OS after relo
     await page.goto(dashboard.base);
     for (const value of ["system", "invalid", "", null]) {
       await page.evaluate((value) => {
-        if (value === null) localStorage.removeItem("atria.appearance");
-        else localStorage.setItem("atria.appearance", value);
+        if (value === null) localStorage.removeItem("formicand.appearance");
+        else localStorage.setItem("formicand.appearance", value);
       }, value);
       await page.reload();
       const followsSystem = value === "system";

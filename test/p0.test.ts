@@ -16,10 +16,10 @@ import {
 import { assessTaskCompletion } from "../src/runtime/task-completion.js";
 
 async function main(): Promise<void> {
-  assert.equal(configuredMainTimeout({ COWORK_MAIN_TIMEOUT_MS: "180000" }), 180000);
-  assert.equal(configuredSubagentTimeout({ COWORK_TIMEOUT_MS: "900000" }), 900000);
+  assert.equal(configuredMainTimeout({ FORMICAND_MAIN_TIMEOUT_MS: "180000" }), 180000);
+  assert.equal(configuredSubagentTimeout({ FORMICAND_TIMEOUT_MS: "900000" }), 900000);
   assert.equal(
-    configuredSubagentTimeout({ COWORK_TIMEOUT_MS: "900000", COWORK_SUBAGENT_TIMEOUT_MS: "0" }),
+    configuredSubagentTimeout({ FORMICAND_TIMEOUT_MS: "900000", FORMICAND_SUBAGENT_TIMEOUT_MS: "0" }),
     0
   );
   assert.equal(configuredMainTimeout(runtimeSettingsEnv({ mainTimeoutMs: 0 })), 0);
@@ -30,14 +30,14 @@ async function main(): Promise<void> {
   assert.equal(
     configuredWorkspaceRoot(
       { workspaceRoot: ".tmp-from-config" },
-      { COWORK_WORKSPACE: "/tmp/from-env" },
+      { FORMICAND_WORKSPACE: "/tmp/from-env" },
       "/repo"
     ),
     "/tmp/from-env"
   );
   assert.equal(
-    configuredWorkspaceRoot({}, { ATRIA_HOME: "/fixture/atria" }, "/repo"),
-    "/fixture/atria/workspace"
+    configuredWorkspaceRoot({}, { FORMICAND_HOME: "/fixture/formicand" }, "/repo"),
+    "/fixture/formicand/workspace"
   );
   assert.deepEqual(assessTaskCompletion({ hasFinalAnswer: true }), { ready: true, reason: "ready" });
   assert.deepEqual(assessTaskCompletion({ hasFinalAnswer: false }), {
@@ -82,7 +82,7 @@ async function main(): Promise<void> {
   assert.equal(transitionCall(call, "accepted").state, "accepted");
   assert.throws(() => transitionCall(call, "succeeded"), /invalid call transition/);
 
-  const dir = await mkdtemp(join(tmpdir(), "cowork-p0-"));
+  const dir = await mkdtemp(join(tmpdir(), "formicand-p0-"));
   try {
     const store = new JsonlEventStore(join(dir, "events.jsonl"));
     await store.append(fakeEvent("run_a"));
@@ -93,7 +93,7 @@ async function main(): Promise<void> {
     await rm(dir, { recursive: true, force: true });
   }
 
-  const workspaceRoot = await mkdtemp(join(tmpdir(), "cowork-workspace-"));
+  const workspaceRoot = await mkdtemp(join(tmpdir(), "formicand-workspace-"));
   try {
     const workspace = new LocalWorkspaceStore(workspaceRoot);
     await workspace.createRun("task_1", "run_1");

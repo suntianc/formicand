@@ -1,4 +1,4 @@
-# CoworkOS {{VERSION}}
+# Formicand {{VERSION}}
 
 <!-- 这是草稿模板。发布者须填写本版内容、验收证据与限制；不要把构建成功写成安装/真实模型验收通过。 -->
 
@@ -14,11 +14,11 @@ Mac App 目前面向 Apple Silicon、macOS 14 或以上。下载本版本的 DMG
 CLI 需要 Node.js >=22.19.0 与 npm。下载本版本的 tgz 和同名 .sha256，校验后安装；安装仍需要网络和安装脚本：
 
 ```sh
-shasum -a 256 -c coworkos-cli-{{VERSION}}.tgz.sha256
-npm install --global --prefix "$HOME/.local" ./coworkos-cli-{{VERSION}}.tgz
+shasum -a 256 -c formicand-cli-{{VERSION}}.tgz.sha256
+npm install --global --prefix "$HOME/.local" ./formicand-cli-{{VERSION}}.tgz
 export PATH="$HOME/.local/bin:$PATH"
-coworkos init
-coworkos doctor
+formicand init
+formicand doctor
 ```
 
 详细步骤见 [安装指南]({{REPOSITORY_URL}}/blob/{{TAG}}/docs/getting-started.md)。需要自备模型服务与 API Key；连接测试和任务会消耗模型额度。

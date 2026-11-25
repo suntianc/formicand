@@ -81,10 +81,10 @@ export async function extractDocument(
   if (!Number.isFinite(page)) throw new Error("页码不合法");
   try {
     const { stdout } = await execute(
-      process.env.COWORK_PYTHON || "python3",
+      process.env.FORMICAND_PYTHON || "python3",
       [
         join(
-          resolve(options.harnessRoot || process.env.COWORK_HARNESS_ROOT || process.cwd()),
+          resolve(options.harnessRoot || process.env.FORMICAND_HARNESS_ROOT || process.cwd()),
           "scripts",
           "read-attachment.py"
         ),

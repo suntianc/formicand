@@ -47,7 +47,7 @@ test("the mapping is numbered by the program and each row needs a requirement an
 });
 
 test("a version 10 ledger gains the review mapping", async (t) => {
-  const root = await mkdtemp(join(tmpdir(), "coworkos-mapping-v10-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-mapping-v10-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const open = async () => {
     const runtime = new ProjectDataRuntime({

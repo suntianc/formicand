@@ -15,11 +15,11 @@ import { fakeEventHandlers } from "./fixtures/fake-pi-events.mjs";
 
 const runFile = promisify(execFile);
 const launcherPath = resolve("scripts/start-pi.mjs");
-const extensionPath = resolve(".pi/extensions/cowork.ts");
+const extensionPath = resolve(".pi/extensions/formicand.ts");
 const requirePi = createRequire(import.meta.resolve("@earendil-works/pi-coding-agent"));
 
 async function launch({ args = [], config = {}, env = {} } = {}) {
-  const root = await mkdtemp(join(tmpdir(), "atria-reasoning-launcher-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-reasoning-launcher-"));
   try {
     await mkdir(join(root, "node_modules", ".bin"), { recursive: true });
     await writeFile(
@@ -27,28 +27,28 @@ async function launch({ args = [], config = {}, env = {} } = {}) {
       `
 console.log(JSON.stringify({
   args: process.argv.slice(2),
-  dataHome: process.env.ATRIA_HOME,
-  globalIndex: process.env.COWORK_GLOBAL_INDEX,
-  thinkingLevel: process.env.COWORK_REASONING_EFFORT,
-  thinkingFormat: process.env.COWORK_THINKING_FORMAT,
-  supportsReasoningEffort: process.env.COWORK_SUPPORTS_REASONING_EFFORT
+  dataHome: process.env.FORMICAND_HOME,
+  globalIndex: process.env.FORMICAND_GLOBAL_INDEX,
+  thinkingLevel: process.env.FORMICAND_REASONING_EFFORT,
+  thinkingFormat: process.env.FORMICAND_THINKING_FORMAT,
+  supportsReasoningEffort: process.env.FORMICAND_SUPPORTS_REASONING_EFFORT
 }));
 `
     );
     const configPath = join(root, "config.json");
     await writeFile(configPath, JSON.stringify(config));
     const launchEnv = Object.fromEntries(
-      Object.entries(process.env).filter(([key]) => !/^(COWORK_|PI_|ATRIA_)/.test(key))
+      Object.entries(process.env).filter(([key]) => !/^(FORMICAND_|PI_|FORMICAND_)/.test(key))
     );
     const { stdout } = await runFile(process.execPath, [launcherPath, ...args], {
       cwd: root,
       env: {
         ...launchEnv,
-        ATRIA_HOME: join(root, "home"),
+        FORMICAND_HOME: join(root, "home"),
         PI_CODING_AGENT_DIR: join(root, "pi"),
-        COWORK_GLOBAL_INDEX: join(root, "global.json"),
-        COWORK_CONFIG: configPath,
-        COWORK_DISABLE_MAIN_GUARDIAN: "1",
+        FORMICAND_GLOBAL_INDEX: join(root, "global.json"),
+        FORMICAND_CONFIG: configPath,
+        FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
         ...env
       }
     });
@@ -78,7 +78,7 @@ test("Pi launch reasoning settings honor CLI, environment, then local config", a
   assert.equal(thinkingArg(configured), "max");
   assert.equal(configured.supportsReasoningEffort, "0");
 
-  const env = { COWORK_REASONING_EFFORT: "low", COWORK_SUPPORTS_REASONING_EFFORT: "1" };
+  const env = { FORMICAND_REASONING_EFFORT: "low", FORMICAND_SUPPORTS_REASONING_EFFORT: "1" };
   const overridden = await launch({ config, env });
   assert.equal(thinkingArg(overridden), "low");
   assert.equal(overridden.supportsReasoningEffort, "1");
@@ -89,7 +89,7 @@ test("Pi launch reasoning settings honor CLI, environment, then local config", a
   assert.equal(explicit.args.filter((arg) => arg === "--thinking").length, 1);
 
   const canonical = await launch({
-    env: { COWORK_REASONING_EFFORT: "hight" },
+    env: { FORMICAND_REASONING_EFFORT: "hight" },
     args: ["--thinking", " high "]
   });
   assert.equal(thinkingArg(canonical), "high", "the normalized value must reach Pi's strict native parser");
@@ -99,7 +99,7 @@ test("Pi launcher preserves explicit thinking format and its environment overrid
   assert.equal((await launch()).thinkingFormat, "auto");
   assert.equal((await launch({ config: { thinkingFormat: "zai" } })).thinkingFormat, "zai");
   assert.equal(
-    (await launch({ config: { thinkingFormat: "zai" }, env: { COWORK_THINKING_FORMAT: "openai" } }))
+    (await launch({ config: { thinkingFormat: "zai" }, env: { FORMICAND_THINKING_FORMAT: "openai" } }))
       .thinkingFormat,
     "openai"
   );
@@ -108,7 +108,7 @@ test("Pi launcher preserves explicit thinking format and its environment overrid
 
 test("Pi launcher rejects misspelled or missing effort before starting the model", async () => {
   for (const options of [
-    { env: { COWORK_REASONING_EFFORT: "hight" } },
+    { env: { FORMICAND_REASONING_EFFORT: "hight" } },
     { config: { reasoningEffort: "hight" } },
     { args: ["--thinking", "hight"] },
     { args: ["--thinking"] }
@@ -169,20 +169,20 @@ function fakePi(initialThinkingLevel = "off") {
   };
 }
 
-test("Cowork provider and new delegations use the active Main effort", async (t) => {
-  const root = await mkdtemp(join(tmpdir(), "atria-reasoning-extension-"));
+test("Formicand provider and new delegations use the active Main effort", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "formicand-reasoning-extension-"));
   const keys = [
-    "ATRIA_HOME",
+    "FORMICAND_HOME",
     "PI_CODING_AGENT_DIR",
-    "COWORK_GLOBAL_INDEX",
-    "COWORK_CONFIG",
-    "COWORK_API_BASE",
-    "COWORK_API_KEY",
-    "COWORK_WORKSPACE",
-    "COWORK_TASK_ID",
-    "COWORK_RUN_ID",
-    "COWORK_REASONING_EFFORT",
-    "COWORK_SUPPORTS_REASONING_EFFORT"
+    "FORMICAND_GLOBAL_INDEX",
+    "FORMICAND_CONFIG",
+    "FORMICAND_API_BASE",
+    "FORMICAND_API_KEY",
+    "FORMICAND_WORKSPACE",
+    "FORMICAND_TASK_ID",
+    "FORMICAND_RUN_ID",
+    "FORMICAND_REASONING_EFFORT",
+    "FORMICAND_SUPPORTS_REASONING_EFFORT"
   ];
   const previousEnv = Object.fromEntries(keys.map((key) => [key, process.env[key]]));
   const previousArgv = process.argv;
@@ -204,17 +204,17 @@ test("Cowork provider and new delegations use the active Main effort", async (t)
     for (const key of keys) delete process.env[key];
     await writeFile(join(root, "config.json"), "{}\n");
     Object.assign(process.env, {
-      ATRIA_HOME: join(root, "home"),
+      FORMICAND_HOME: join(root, "home"),
       PI_CODING_AGENT_DIR: join(root, "pi"),
-      COWORK_GLOBAL_INDEX: join(root, "global.json"),
-      COWORK_CONFIG: join(root, "config.json"),
-      COWORK_API_BASE: "https://example.test",
-      COWORK_API_KEY: "test-key",
-      COWORK_WORKSPACE: root,
-      COWORK_TASK_ID: "reasoning",
-      COWORK_RUN_ID: "main",
-      COWORK_SUBAGENT_BACKEND_URL: backend.url,
-      COWORK_SUBAGENT_BACKEND_TOKEN: backend.token
+      FORMICAND_GLOBAL_INDEX: join(root, "global.json"),
+      FORMICAND_CONFIG: join(root, "config.json"),
+      FORMICAND_API_BASE: "https://example.test",
+      FORMICAND_API_KEY: "test-key",
+      FORMICAND_WORKSPACE: root,
+      FORMICAND_TASK_ID: "reasoning",
+      FORMICAND_RUN_ID: "main",
+      FORMICAND_SUBAGENT_BACKEND_URL: backend.url,
+      FORMICAND_SUBAGENT_BACKEND_TOKEN: backend.token
     });
     process.argv = [process.execPath, "pi"];
     await new LocalWorkspaceStore(root).createTask("reasoning", { goal: "Reasoning regression" });
@@ -228,7 +228,7 @@ test("Cowork provider and new delegations use the active Main effort", async (t)
     };
     await pi.handlers.get("session_start")({ reason: "startup" }, ctx);
     assert.equal(pi.getThinkingLevel(), "high", "direct extension startup must replace a legacy off default");
-    assert.equal(pi.providers.get("cowork-glm").models[0].compat.supportsReasoningEffort, true);
+    assert.equal(pi.providers.get("formicand-glm").models[0].compat.supportsReasoningEffort, true);
 
     for (const level of ["low", "max", "off"]) {
       pi.setThinkingLevel(level);
@@ -240,12 +240,12 @@ test("Cowork provider and new delegations use the active Main effort", async (t)
     await pi.handlers.get("context")({ messages: [] }, ctx);
 
     process.argv = [process.execPath, "pi", "--thinking", "off"];
-    process.env.COWORK_SUPPORTS_REASONING_EFFORT = "0";
+    process.env.FORMICAND_SUPPORTS_REASONING_EFFORT = "0";
     const explicit = fakePi("off");
     await extension(explicit);
     await explicit.handlers.get("session_start")({ reason: "startup" }, ctx);
     assert.deepEqual(explicit.selected, [], "session_start must not overwrite native CLI --thinking off");
-    assert.equal(explicit.providers.get("cowork-glm").models[0].compat.supportsReasoningEffort, false);
+    assert.equal(explicit.providers.get("formicand-glm").models[0].compat.supportsReasoningEffort, false);
   } finally {
     await backend.close();
     // Startup recovery queues Inbox delivery asynchronously. Drain both fake

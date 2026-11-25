@@ -8,14 +8,14 @@ import { tmpdir } from "node:os";
 import { basename, join, resolve } from "node:path";
 import { protocolStream } from "./model-protocol-fixture.mjs";
 
-const harness = resolve(process.env.TEST_ATRIA_CLI_ROOT || ".");
-const node = process.env.TEST_ATRIA_NODE || process.execPath;
+const harness = resolve(process.env.TEST_FORMICAND_CLI_ROOT || ".");
+const node = process.env.TEST_FORMICAND_NODE || process.execPath;
 const quote = (s) => "'" + s.replaceAll("'", "'\\''") + "'";
 const nodeCommand = (source) => quote(node) + " -e " + quote(source);
-const expected = "ENV=coworkos;ENGINE=true\n" + "完整输出\n".repeat(12000);
+const expected = "ENV=formicand;ENGINE=true\n" + "完整输出\n".repeat(12000);
 
 async function fixture(t, command) {
-  const root = await mkdtemp(join(tmpdir(), "atria-shell-identity-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-shell-identity-"));
   const profile = join(root, "profile"),
     project = join(root, "project");
   await mkdir(profile);
@@ -69,21 +69,21 @@ async function fixture(t, command) {
   const env = {
     ...Object.fromEntries(
       Object.entries(process.env).filter(
-        ([k]) => !/^(COWORK_|PI_|ATRIA_|OPENAI_|ANTHROPIC_|NODE_OPTIONS)/.test(k)
+        ([k]) => !/^(FORMICAND_|PI_|FORMICAND_|OPENAI_|ANTHROPIC_|NODE_OPTIONS)/.test(k)
       )
     ),
     HOME: root,
-    ATRIA_HOME: join(root, "home"),
+    FORMICAND_HOME: join(root, "home"),
     TMPDIR: root,
-    COWORK_CONFIG: join(root, "config.json"),
-    COWORK_HARNESS_ROOT: harness,
-    COWORK_WORKSPACE: join(root, "workspace"),
-    COWORK_DISABLE_MAIN_GUARDIAN: "1",
-    COWORK_API_BASE: baseUrl,
-    COWORK_API_KEY: "fixture-local",
-    COWORK_MODEL: "fixture",
-    COWORK_MODEL_API: "openai-completions",
-    COWORK_REASONING_EFFORT: "off",
+    FORMICAND_CONFIG: join(root, "config.json"),
+    FORMICAND_HARNESS_ROOT: harness,
+    FORMICAND_WORKSPACE: join(root, "workspace"),
+    FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
+    FORMICAND_API_BASE: baseUrl,
+    FORMICAND_API_KEY: "fixture-local",
+    FORMICAND_MODEL: "fixture",
+    FORMICAND_MODEL_API: "openai-completions",
+    FORMICAND_REASONING_EFFORT: "off",
     PI_CODING_AGENT_DIR: profile,
     PI_OFFLINE: "1",
     AI_AGENT: "outside-user-value"
@@ -91,7 +91,7 @@ async function fixture(t, command) {
   const child = spawn(
     node,
     [
-      join(harness, "scripts/atria.mjs"),
+      join(harness, "scripts/formicand.mjs"),
       "start",
       "--mode",
       "rpc",
@@ -187,7 +187,7 @@ async function fixture(t, command) {
 }
 
 test(
-  "public RPC shell exposes CoworkOS identity, retains the engine marker and creates a readable CoworkOS output file",
+  "public RPC shell exposes Formicand identity, retains the engine marker and creates a readable Formicand output file",
   { timeout: 20000 },
   async (t) => {
     const f = await fixture(t);
@@ -199,7 +199,7 @@ test(
     assert.equal(result.exitCode, 0);
     assert.equal(result.cancelled, false);
     assert.equal(result.truncated, true);
-    assert.match(basename(result.fullOutputPath), /^atria-bash-[a-f0-9]+\.log$/);
+    assert.match(basename(result.fullOutputPath), /^formicand-bash-[a-f0-9]+\.log$/);
     assert.equal(await readFile(result.fullOutputPath, "utf8"), expected);
     const failure = await f.request("bash", { command: nodeCommand("process.exit(7)") });
     assert.equal(failure.exitCode, 7);
@@ -213,7 +213,7 @@ test(
 );
 
 test(
-  "model-issued native bash and its streaming/final metadata point to the same genuine CoworkOS file",
+  "model-issued native bash and its streaming/final metadata point to the same genuine Formicand file",
   { timeout: 20000 },
   async (t) => {
     const f = await fixture(
@@ -226,7 +226,7 @@ test(
     const end = await f.waitFor((e) => e.type === "tool_execution_end" && e.toolName === "bash");
     assert.equal(end.isError, false);
     const path = end.result.details.fullOutputPath;
-    assert.match(basename(path), /^atria-bash-[a-f0-9]+\.log$/);
+    assert.match(basename(path), /^formicand-bash-[a-f0-9]+\.log$/);
     assert.equal(await readFile(path, "utf8"), expected);
     assert.ok(end.result.content.some((p) => p.text?.includes(path)));
     for (const event of f.events.filter(

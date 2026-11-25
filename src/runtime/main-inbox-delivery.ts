@@ -29,7 +29,7 @@ interface ContextMessage {
   toolName?: string;
   isError?: boolean;
   message?: ContextMessage;
-  details?: { _coworkInbox?: InboxIdentity; _coworkInboxMessages?: InboxIdentity[] };
+  details?: { _formicandInbox?: InboxIdentity; _formicandInboxMessages?: InboxIdentity[] };
 }
 
 /**
@@ -142,7 +142,7 @@ export function extractInboxReceipts(
     // the callbacks that carried the same results are acknowledged with it;
     // leaving them queued would show the model the outcome a second time.
     if (user.role === "toolResult" && user.toolName === "wait_for_subagents" && !user.isError) {
-      const receipts = user.details?._coworkInboxMessages;
+      const receipts = user.details?._formicandInboxMessages;
       for (const receipt of Array.isArray(receipts) ? receipts : []) {
         if (
           // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- 回执数组来自 Pi 会话上下文，历史 transcript 里可能混入 null 条目
@@ -157,7 +157,7 @@ export function extractInboxReceipts(
     const initial = user.role === "user" ? readQueuedUserTurn(user.content) : undefined;
     if (initial?.taskId === taskId) record(initial.runId, initial.messageId);
     if (message.role !== "custom" && message.type !== "custom_message") continue;
-    const identity = message.details?._coworkInbox;
+    const identity = message.details?._formicandInbox;
     if (identity?.taskId === taskId && identity.runId === defaultRunId && identity.messageId)
       record(identity.runId, identity.messageId);
   }
@@ -458,18 +458,18 @@ export class MainInboxDelivery {
           await send(
             {
               customType: initialTurn
-                ? "cowork-user-turn"
+                ? "formicand-user-turn"
                 : isUserMessage
-                  ? "cowork-user-message"
+                  ? "formicand-user-message"
                   : isJobFinished
-                    ? "cowork-job-finished"
+                    ? "formicand-job-finished"
                     : isExternalEvent
-                      ? "cowork-external-event"
+                      ? "formicand-external-event"
                       : isHumanAnswer
-                        ? "cowork-human-answer"
+                        ? "formicand-human-answer"
                         : isSubagentQuestion
-                          ? "cowork-subagent-question"
-                          : "cowork-callback",
+                          ? "formicand-subagent-question"
+                          : "formicand-callback",
               // A user message is delivered as what it is — the person speaking —
               // rather than wrapped in the Inbox envelope the machinery uses. The
               // envelope reads as a system notice, and Main treated it as one.
@@ -479,11 +479,11 @@ export class MainInboxDelivery {
                   ? followUp
                     ? `用户排队的下一条请求（当前工作结束后处理）：\n${String(payload.message ?? "")}`
                     : `用户在你工作期间补充了一句话：\n${String(payload.message ?? "")}\n\n如果它改变了当前该做的事，就据此调整；如果只是补充信息，记下来继续。不要重新开始已经完成的部分。`
-                  : `Cowork ${isJobFinished ? "job finished" : isExternalEvent ? "external event" : isHumanAnswer ? "human answer" : isSubagentQuestion ? "subagent question" : "callback"} received from Inbox:\n${JSON.stringify(message.payload)}`,
+                  : `Formicand ${isJobFinished ? "job finished" : isExternalEvent ? "external event" : isHumanAnswer ? "human answer" : isSubagentQuestion ? "subagent question" : "callback"} received from Inbox:\n${JSON.stringify(message.payload)}`,
               display: true,
               details: {
                 ...payload,
-                _coworkInbox: { taskId: this.taskId, runId: this.runId, messageId: message.messageId }
+                _formicandInbox: { taskId: this.taskId, runId: this.runId, messageId: message.messageId }
               }
             },
             {

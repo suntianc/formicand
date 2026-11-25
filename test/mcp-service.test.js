@@ -10,7 +10,7 @@ import { enabledMcpServers, parseMcpImport, readMcpServers } from "../dist/src/r
 const echo = { command: process.execPath, args: [resolve("test/fixtures/mcp-echo-server.mjs")] };
 
 async function setup(t) {
-  const root = await mkdtemp(join(tmpdir(), "cowork-mcp-service-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-mcp-service-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const home = join(root, "home");
   const piAgentDir = join(root, "pi");

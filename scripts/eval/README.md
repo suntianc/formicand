@@ -7,7 +7,7 @@ npm run build
 node scripts/eval/run.mjs [--tasks fix,due] [--repeat 2] [--label 名字] [--context-window 40000]
 ```
 
-- 会调用真实模型并产生费用。模型使用桌面版的设置：脚本把 `~/.atria/model-config.json` 和 `credentials.json` 复制到临时目录，跑完删除；也可以用 `EVAL_MODEL_CONFIG`、`EVAL_CREDENTIALS` 指定。
+- 会调用真实模型并产生费用。模型使用桌面版的设置：脚本把 `~/.formicand/model-config.json` 和 `credentials.json` 复制到临时目录，跑完删除；也可以用 `EVAL_MODEL_CONFIG`、`EVAL_CREDENTIALS` 指定。
 - 每次运行另起一个后端，数据放在临时目录，不影响正在用的程序和数据。
 - 每个任务从 `repo/` 复制一份示例仓库，建成 Git 仓库后交给 Main。Main 结束后，用 `hidden/` 里对应的测试检查结果。
 - Main 提问时，脚本统一回答“按自己的判断决定”，并记一次提问。确认卡片（票、自定义 Agent）按用户同意处理，记为确认，不算提问。Main 停在问句上而检查没通过时，脚本发一次“继续。”，并记为中途停下。

@@ -10,7 +10,7 @@ import {
 import { LocalWorkspaceStore } from "../dist/src/workspace/workspace-store.js";
 
 test("temporary allocation commits distinct validated records and restart discovery ignores incomplete staging", async (t) => {
-  const data = await mkdtemp(join(tmpdir(), "atria-temporary-storage-"));
+  const data = await mkdtemp(join(tmpdir(), "formicand-temporary-storage-"));
   t.after(() => rm(data, { recursive: true, force: true }));
   const store = new TemporaryWorkspaceStore(data);
   const spaces = await Promise.all(Array.from({ length: 12 }, () => store.create(join(data, "history"))));
@@ -28,22 +28,22 @@ test("temporary allocation commits distinct validated records and restart discov
   }
   const first = spaces[0];
   await writeFile(
-    join(first.root, ".atria-temporary-workspace.json"),
+    join(first.root, ".formicand-temporary-workspace.json"),
     JSON.stringify({ ...first.record, holdingTaskId: "workspace" })
   );
   await assert.rejects(store.roots(), /记录无效/);
-  await writeFile(join(first.root, ".atria-temporary-workspace.json"), JSON.stringify(first.record));
+  await writeFile(join(first.root, ".formicand-temporary-workspace.json"), JSON.stringify(first.record));
   const fake = join(data, first.record.workspaceId);
   await symlink(first.root, fake);
   await assert.rejects(readTemporaryWorkspace(fake), /路径与记录不一致/);
   assert.deepEqual(
-    JSON.parse(await readFile(join(first.root, ".atria-temporary-workspace.json"), "utf8")),
+    JSON.parse(await readFile(join(first.root, ".formicand-temporary-workspace.json"), "utf8")),
     first.record
   );
 });
 
 test("temporary Task metadata requires its own managed root and rejects unvalidated records", async (t) => {
-  const root = await mkdtemp(join(tmpdir(), "atria-temporary-tasks-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-temporary-tasks-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const store = new LocalWorkspaceStore(join(root, "history"));
   await store.createTask("legacy", { goal: "legacy null project" });

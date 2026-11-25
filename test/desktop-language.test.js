@@ -20,15 +20,15 @@ function fixture(userData, port) {
 }
 
 test("desktop language survives new backend origins and rejects invalid or untrusted IPC", async () => {
-  const root = await mkdtemp(path.join(tmpdir(), "cowork-language-"));
+  const root = await mkdtemp(path.join(tmpdir(), "formicand-language-"));
   try {
     const first = fixture(root, 1234);
     await first.host.load();
     first.host.register();
-    const read = first.handlers.get("bookman:language");
+    const read = first.handlers.get("formicand:language");
     read(first.event);
     assert.equal(first.event.returnValue, "zh-CN");
-    const save = first.handlers.get("bookman:set-language");
+    const save = first.handlers.get("formicand:set-language");
     for (const value of [null, {}, "fr", "EN", "../en", 1])
       assert.throws(() => save(first.event, value), /Invalid language/);
     for (const event of [
@@ -46,9 +46,9 @@ test("desktop language survives new backend origins and rejects invalid or untru
     const next = fixture(root, 5678);
     await next.host.load();
     next.host.register();
-    next.handlers.get("bookman:language")(next.event);
+    next.handlers.get("formicand:language")(next.event);
     assert.equal(next.event.returnValue, "en");
-    await next.handlers.get("bookman:set-language")(next.event, "zh-CN");
+    await next.handlers.get("formicand:set-language")(next.event, "zh-CN");
     assert.deepEqual(JSON.parse(await readFile(path.join(root, "language.json"), "utf8")), {
       language: "zh-CN"
     });
@@ -58,27 +58,27 @@ test("desktop language survives new backend origins and rejects invalid or untru
 });
 
 test("invalid preference falls back safely and failed saves can be retried", async () => {
-  const root = await mkdtemp(path.join(tmpdir(), "cowork-language-failure-"));
+  const root = await mkdtemp(path.join(tmpdir(), "formicand-language-failure-"));
   try {
     await writeFile(path.join(root, "language.json"), "invalid");
     const entry = fixture(root, 1234);
     await entry.host.load();
     entry.host.register();
-    entry.handlers.get("bookman:language")(entry.event);
+    entry.handlers.get("formicand:language")(entry.event);
     assert.equal(entry.event.returnValue, "zh-CN");
     await writeFile(path.join(root, "language.json.tmp"), "locked");
     const { mkdir } = await import("node:fs/promises");
     await rm(path.join(root, "language.json.tmp"));
     await mkdir(path.join(root, "language.json.tmp"));
     await assert.rejects(
-      entry.handlers.get("bookman:set-language")(entry.event, "en"),
+      entry.handlers.get("formicand:set-language")(entry.event, "en"),
       /Could not save language/
     );
-    entry.handlers.get("bookman:language")(entry.event);
+    entry.handlers.get("formicand:language")(entry.event);
     assert.equal(entry.event.returnValue, "zh-CN");
     await rm(path.join(root, "language.json.tmp"), { recursive: true });
-    await entry.handlers.get("bookman:set-language")(entry.event, "en");
-    entry.handlers.get("bookman:language")(entry.event);
+    await entry.handlers.get("formicand:set-language")(entry.event, "en");
+    entry.handlers.get("formicand:language")(entry.event);
     assert.equal(entry.event.returnValue, "en");
   } finally {
     await rm(root, { recursive: true, force: true });

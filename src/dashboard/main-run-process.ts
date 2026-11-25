@@ -164,7 +164,7 @@ export function createMainRunProcess({
     // This resolution is a readiness check and is not stored anywhere.
     const configuredSelection = resolveMainModel(roleRequest);
     if (!configuredSelection.baseUrl || !configuredSelection.apiKey)
-      throw new Error("模型 API 未配置：请填写 config.json 或 .cowork/config.json");
+      throw new Error("模型 API 未配置：请填写 config.json 或 .formicand/config.json");
     if (prompt.includes("\0")) throw new Error("消息包含不支持的二进制字符，请移除附件后重试");
     if (Buffer.byteLength(prompt, "utf8") > 512 * 1024) throw new Error("消息及附件合计不能超过 512 KB");
     if (!prompt.trim() && !continuation) throw new Error("prompt must not be empty");
@@ -353,7 +353,7 @@ export function createMainRunProcess({
     pendingTurns.set(taskId, Date.now());
     const launchEnv: NodeJS.ProcessEnv = {
       ...process.env,
-      COWORK_API_TOKEN: runCredential,
+      FORMICAND_API_TOKEN: runCredential,
       ...mainRunEnv({
         baseUrl,
         apiKey,
@@ -373,12 +373,12 @@ export function createMainRunProcess({
       // A continuation restores the accepted input this Run inherits, and an
       // edit restores its rewritten input, into the selected session before
       // Pi starts. The resident process never reads stdin.
-      COWORK_MAIN_CONTINUATION: continuation || submission?.edit ? inputPath : "",
+      FORMICAND_MAIN_CONTINUATION: continuation || submission?.edit ? inputPath : "",
       // Admission is this process's budget decision; the launcher must not
       // ask for a second slot for the same Run.
-      ...(admission.requestId ? { COWORK_MAIN_CAPACITY_GRANTED: admission.requestId } : {}),
-      COWORK_MAIN_RETRY_REQUEST_ID: retryRequest?.requestId ?? "",
-      COWORK_MAIN_RETRY_MODEL: retryRequest ? JSON.stringify(retryRequest.model) : ""
+      ...(admission.requestId ? { FORMICAND_MAIN_CAPACITY_GRANTED: admission.requestId } : {}),
+      FORMICAND_MAIN_RETRY_REQUEST_ID: retryRequest?.requestId ?? "",
+      FORMICAND_MAIN_RETRY_MODEL: retryRequest ? JSON.stringify(retryRequest.model) : ""
     };
     const outputPath = join(taskWorkspace, taskId, "runs", runId, "runtime-output.log");
     const stderrPath = join(taskWorkspace, taskId, "runs", runId, "runtime-stderr.log");
@@ -413,7 +413,7 @@ export function createMainRunProcess({
         .then(() => appendFile(path, chunk))
         .catch((error) =>
           console.error(
-            `[cowork] output persist failed: ${error instanceof Error ? error.message : String(error)}`
+            `[formicand] output persist failed: ${error instanceof Error ? error.message : String(error)}`
           )
         );
     };
@@ -464,7 +464,7 @@ export function createMainRunProcess({
         // resumes exactly the version it rewrote.
         sessionDirectory: join(taskWorkspace, taskId, "sessions", "main", "pi"),
         resultPath: join(taskWorkspace, taskId, "runs", runId, "agents", "main", "process-result.json"),
-        env: { COWORK_API_TOKEN: runCredential },
+        env: { FORMICAND_API_TOKEN: runCredential },
         mode: "resident",
         ...(versionSessionFile
           ? { sessionArgs: ["--session", versionSessionFile] }
@@ -500,7 +500,7 @@ export function createMainRunProcess({
         await finalizeSessionRun({ ...location, task: failed }, runId, "failed");
       } catch (error) {
         console.error(
-          `[cowork] settling startup failure for ${taskId} failed: ${error instanceof Error ? error.message : String(error)}`
+          `[formicand] settling startup failure for ${taskId} failed: ${error instanceof Error ? error.message : String(error)}`
         );
       }
       if (admission.requestId && mainCapacity)
@@ -528,7 +528,7 @@ export function createMainRunProcess({
         .bindProcess(admission.requestId, record.pid)
         .catch((error) =>
           console.error(
-            `[cowork] external capacity process record failed: ${
+            `[formicand] external capacity process record failed: ${
               error instanceof Error ? error.message : String(error)
             }`
           )
@@ -539,7 +539,7 @@ export function createMainRunProcess({
     if (submission?.edit) {
       // A spawned edit is already accepted. Task lookup retries journal archival.
       await finishMessageEditTransaction(taskWorkspace, taskId).catch((error) =>
-        console.error(`[cowork] archiving started edit ${taskId}/${runId} failed:`, error)
+        console.error(`[formicand] archiving started edit ${taskId}/${runId} failed:`, error)
       );
     }
     return {

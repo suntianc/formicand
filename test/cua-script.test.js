@@ -72,7 +72,7 @@ test("Window SDK executes continuous actions with successive real ComputerUse cr
     windowId: 2,
     application: "Fixture",
     title: "Local",
-    bundleId: "org.atria.fixture"
+    bundleId: "org.formicand.fixture"
   };
   const computer = new ComputerUse({
     status: async () => ({ available: true, screenRecording: true, accessibility: true, windows: [target] }),

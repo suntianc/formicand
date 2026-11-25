@@ -21,24 +21,24 @@ for (const reasoningEffort of ["off", "max"]) {
   test(`native desktop persists each protocol and ${reasoningEffort} across saves and application relaunch`, async ({}, testInfo) => {
     test.skip(process.platform !== "darwin", "Native desktop acceptance requires macOS");
     test.setTimeout(120_000);
-    const root = await mkdtemp(join(tmpdir(), "atria-protocol-desktop-"));
+    const root = await mkdtemp(join(tmpdir(), "formicand-protocol-desktop-"));
     const executablePath = await developmentExecutable();
     const env = {
       ...process.env,
-      COWORK_DESKTOP_DATA: root,
-      ATRIA_HOME: join(root, "home"),
+      FORMICAND_DESKTOP_DATA: root,
+      FORMICAND_HOME: join(root, "home"),
       PI_CODING_AGENT_DIR: join(root, "pi"),
-      COWORK_DISABLE_MAIN_GUARDIAN: "1",
+      FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
       PI_OFFLINE: "1"
     };
     for (const name of Object.keys(env))
       if (
-        /^(?:COWORK_|ATRIA_|PI_)/.test(name) &&
+        /^(?:FORMICAND_|FORMICAND_|PI_)/.test(name) &&
         ![
-          "COWORK_DESKTOP_DATA",
-          "ATRIA_HOME",
+          "FORMICAND_DESKTOP_DATA",
+          "FORMICAND_HOME",
           "PI_CODING_AGENT_DIR",
-          "COWORK_DISABLE_MAIN_GUARDIAN",
+          "FORMICAND_DISABLE_MAIN_GUARDIAN",
           "PI_OFFLINE"
         ].includes(name)
       )
@@ -112,7 +112,7 @@ for (const reasoningEffort of ["off", "max"]) {
         );
         // The connection test reads the saved effort directly; a run keeps its own level.
         const probes = provider.requests.filter(({ body }) =>
-          JSON.stringify(body).includes("atria_connection_check")
+          JSON.stringify(body).includes("formicand_connection_check")
         );
         expect(probes.length).toBeGreaterThan(0);
         for (const { body } of probes)

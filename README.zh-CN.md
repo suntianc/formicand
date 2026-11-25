@@ -1,7 +1,7 @@
 <p align="center">
   <picture>
     <source media="(prefers-reduced-motion: reduce)" srcset="docs/assets/readme-hero.png">
-    <img src="docs/assets/readme-hero.gif" alt="CoworkOS：几何字标、固定 OS 选框与代码绘制的桌面工作区" width="100%">
+    <img src="docs/assets/readme-hero.gif" alt="Formicand：几何字标、固定 OS 选框与代码绘制的桌面工作区" width="100%">
   </picture>
 </p>
 
@@ -14,7 +14,7 @@
   <b>简体中文</b> | <a href="README.md">English</a>
 </p>
 
-**CoworkOS 是一个在本机运行的个人 Agent 客户端。** 桌面与 Web 界面名为 Formicand。它保留 Main Agent、Coordinator Runtime、Subagent、持久任务与恢复，项目工作区、执行记录和可配置的模型服务都留在本机。
+**Formicand 是一个在本机运行的个人 Agent 客户端。**它保留 Main Agent、Coordinator Runtime、Subagent、持久任务与恢复，项目工作区、执行记录和可配置的模型服务都留在本机。
 
 - **委派工作。** Main Agent 负责计划、委派和评估；Coordinator Runtime 分发子任务并跟踪生命周期；Subagent 以独立进程执行限定范围的任务。
 - **开发交付。** 第一类内置工作是软件开发：需求台账与看板、拆票、独立审查、返修与合入。

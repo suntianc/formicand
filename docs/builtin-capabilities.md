@@ -2,12 +2,12 @@
 
 中文 | [English](en/builtin-capabilities.md)
 
-这个分支保留 CoworkOS 的完整编排链路：Main、Coordinator Runtime、Subagent、Jobs、人工问答、工作区与会话恢复。通用文件与附件工具、图像读取、搜索、Computer Use 继续提供。
+这个分支保留 Formicand 的完整编排链路：Main、Coordinator Runtime、Subagent、Jobs、人工问答、工作区与会话恢复。通用文件与附件工具、图像读取、搜索、Computer Use 继续提供。
 
 已移除的产品能力包括：
 
 - 原来的用户记忆（含手动记忆）、自动学习与项目经验：存储、HTTP 接口、Pi 工具、界面入口与专门测试一并移除，项目上下文改由需求台账提供。P4.9 重新做了记忆：Main 用 `memory` 工具自己判断后直接写，分用户级与项目级，设置页「记忆」查看、修改与删除，不再有后台自动学习，见 [记忆与上下文压缩设计](memory-and-compaction-design.md#四记忆)。
-- 视觉模型：独立的图片分析连接角色（`modelConnections.visionId`、`COWORK_VISION_*` 环境变量、设置页的图片分析用途）以及把图片转交该模型分析的路径一并移除；读图只使用本身接受图片输入的当前连接。
+- 视觉模型：独立的图片分析连接角色（`modelConnections.visionId`、`FORMICAND_VISION_*` 环境变量、设置页的图片分析用途）以及把图片转交该模型分析的路径一并移除；读图只使用本身接受图片输入的当前连接。
 - 长期目标与监控：长期目标、目标决策与委托、监控规则与定时唤醒，及其 Pi 工具、HTTP 接口、界面入口与专门测试；Main 的恢复职责改由运行服务的守护按期检查。
 - 应用与工作台：应用注册、应用实例、共享资源与 revision 协议、应用绑定、Adapter、MCP 托管、文本与 Markdown 编辑器、工作台标签页及界面入口。
 - Blender 工作台、引擎、安装器、Blender Harness，以及对应工具与技能。

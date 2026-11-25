@@ -31,14 +31,14 @@ test("a node without metrics falls back to stage blocks and reduced motion refre
   const a = await startDashboard({
     port: portA,
     defaultProject: false,
-    env: { COWORK_TRUSTED_CLIENT_ORIGINS: origins }
+    env: { FORMICAND_TRUSTED_CLIENT_ORIGINS: origins }
   });
   let b;
   try {
     b = await startDashboard({
       port: portB,
       defaultProject: false,
-      env: { COWORK_TRUSTED_CLIENT_ORIGINS: origins }
+      env: { FORMICAND_TRUSTED_CLIENT_ORIGINS: origins }
     });
     const projectA = await createProject(page, a, "P4 验收示例项目", `${a.root}/p4-project`);
     const projectB = await createProject(page, b, "Formicand", `${b.root}/app-project`);

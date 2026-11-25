@@ -2,8 +2,8 @@ const fs = require("node:fs/promises");
 const { join } = require("node:path");
 const { randomUUID } = require("node:crypto");
 
-const prefix = "atria.composer.v1:";
-const humanPrefix = "atria.human.v1:";
+const prefix = "formicand.composer.v1:";
+const humanPrefix = "formicand.human.v1:";
 const maximumBytes = 16 * 1024 * 1024;
 const validAttachments = (files) =>
   Array.isArray(files) &&

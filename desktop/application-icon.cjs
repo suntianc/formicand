@@ -3,9 +3,10 @@ const { join } = require("node:path");
 
 /** Only exported app icons are suitable for the Dock; never substitute raw brand artwork. */
 function selectApplicationIcon(appRoot) {
-  return [join(appRoot, "dist/src/desktop/atria-icon.png"), join(appRoot, "build/atria-icon.png")].find(
-    (candidate) => existsSync(candidate)
-  );
+  return [
+    join(appRoot, "dist/src/desktop/formicand-icon.png"),
+    join(appRoot, "build/formicand-icon.png")
+  ].find((candidate) => existsSync(candidate));
 }
 
 function refreshDockIcon(appRoot, dock) {

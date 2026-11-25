@@ -10,7 +10,7 @@ import { addProviderThroughUi } from "./model-provider-ui.js";
 test("fresh Keychain helpers preserve the existing Electron ciphertext format", async () => {
   test.skip(process.platform !== "darwin", "macOS Keychain process acceptance");
   test.setTimeout(180000);
-  const data = await mkdtemp(join(tmpdir(), "atria-keychain-compat-"));
+  const data = await mkdtemp(join(tmpdir(), "formicand-keychain-compat-"));
   let native;
   try {
     native = await electron.launch({
@@ -75,8 +75,8 @@ test("fresh Keychain helpers preserve the existing Electron ciphertext format", 
             (
               await (
                 await fetch("/api/model-settings", {
-                  headers: window.bookmanDesktop?.transportNonce
-                    ? { "x-cowork-desktop-nonce": window.bookmanDesktop.transportNonce }
+                  headers: window.formicandDesktop?.transportNonce
+                    ? { "x-formicand-desktop-nonce": window.formicandDesktop.transportNonce }
                     : {}
                 })
               ).json()

@@ -1,19 +1,19 @@
 const { createInterface } = require("node:readline");
 
-const workerFlag = "--atria-keychain-worker";
+const workerFlag = "--formicand-keychain-worker";
 const maxMessage = 128 * 1024;
 
 /** A fresh Electron process gets a fresh OSCrypt attempt, with the same signed app identity. */
 async function runKeychainWorker({ app, BrowserWindow, safeStorage }) {
   // Retain the historical Safe Storage key so existing encrypted connections remain readable.
-  app.setName(process.env.ATRIA_KEYCHAIN_WORKER_NAME || "Atria");
-  app.setPath("userData", process.env.ATRIA_KEYCHAIN_WORKER_DATA);
+  app.setName(process.env.FORMICAND_KEYCHAIN_WORKER_NAME || "Formicand");
+  app.setPath("userData", process.env.FORMICAND_KEYCHAIN_WORKER_DATA);
   await app.whenReady();
   app.dock?.hide();
   // Initialize Chromium's application identity before accessing Safe Storage.
   const window = new BrowserWindow({ show: false, webPreferences: { sandbox: true } });
   const lines = createInterface({ input: process.stdin });
-  const reply = (value) => process.stdout.write(`atria-keychain:${JSON.stringify(value)}\n`);
+  const reply = (value) => process.stdout.write(`formicand-keychain:${JSON.stringify(value)}\n`);
   lines.on("line", (line) => {
     let request;
     try {

@@ -24,7 +24,7 @@ const TASK_PATH = /^\/api\/tasks\/([^/]+)\/(developments|reviews|merges|deliveri
 const BACKEND_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,200}$/;
 
 function declaredBackend(request: IncomingMessage): string | undefined {
-  const value = request.headers["x-cowork-backend-id"];
+  const value = request.headers["x-formicand-backend-id"];
   if (value === undefined) return undefined;
   const text = typeof value === "string" ? value : "";
   if (!BACKEND_ID.test(text)) throw new HttpError(400, "后端身份格式不合法", "invalid_backend_id");
@@ -39,7 +39,7 @@ function declaredBackend(request: IncomingMessage): string | undefined {
  * replays that node's pending deliveries on its behalf.
  */
 function readOnlyRead(request: IncomingMessage): boolean {
-  const value = request.headers["x-cowork-read-only"];
+  const value = request.headers["x-formicand-read-only"];
   if (value === undefined) return false;
   if (value !== "1") throw new HttpError(400, "只读标记格式不合法", "invalid_read_only");
   return true;
@@ -427,7 +427,7 @@ export async function handleDevelopmentRequest(
   let scopedTaskId: string | undefined;
   if (projectMatch) {
     projectId = decodeURIComponent(projectMatch[1]);
-    const scopedTask = request.headers["x-cowork-task-id"];
+    const scopedTask = request.headers["x-formicand-task-id"];
     if (scopedTask !== undefined) {
       const task = typeof scopedTask === "string" ? scopedTask : "";
       // eslint-disable-next-line no-restricted-syntax -- 请求头的任务可能在本机目录里查不到，绑定查询失败按不匹配处理，下面回 403 不越权读取别的项目

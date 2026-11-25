@@ -10,7 +10,7 @@ import { commitExists, isAncestor, publishMerge, targetTip } from "../dist/src/w
 const run = promisify(execFile);
 
 async function fixture(t) {
-  const root = await mkdtemp(join(tmpdir(), "coworkos-publish-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-publish-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const repo = join(root, "repo");
   const real = (await run("which", ["git"])).stdout.trim();

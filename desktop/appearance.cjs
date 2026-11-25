@@ -14,7 +14,7 @@ function createAppearanceHost({ userData, nativeTheme, ipcMain, getWindow, getDa
   });
   const publish = () => {
     const window = getWindow();
-    if (window && !window.isDestroyed()) window.webContents.send("bookman:appearance-changed", snapshot());
+    if (window && !window.isDestroyed()) window.webContents.send("formicand:appearance-changed", snapshot());
   };
   const trust = (event) => assertTrustedSender(event, getWindow(), getDashboardUrl());
   return {
@@ -30,7 +30,7 @@ function createAppearanceHost({ userData, nativeTheme, ipcMain, getWindow, getDa
     },
     register() {
       nativeTheme.on("updated", publish);
-      ipcMain.on("bookman:appearance", (event) => {
+      ipcMain.on("formicand:appearance", (event) => {
         try {
           trust(event);
           event.returnValue = snapshot();
@@ -39,7 +39,7 @@ function createAppearanceHost({ userData, nativeTheme, ipcMain, getWindow, getDa
           event.returnValue = null;
         }
       });
-      ipcMain.handle("bookman:set-appearance", (event, value) => {
+      ipcMain.handle("formicand:set-appearance", (event, value) => {
         trust(event);
         if (!valid(value)) throw new Error("Invalid appearance preference");
         const save = writes

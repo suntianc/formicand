@@ -125,24 +125,24 @@ function startBackend(f, provider) {
   const env = isolatedPiEnvironment({
     HOME: f.root,
     TMPDIR: f.root,
-    ATRIA_HOME: join(f.root, "home"),
-    COWORK_CONFIG: join(f.root, "config.json"),
-    COWORK_CONFIG_ROOT: f.root,
-    COWORK_HARNESS_ROOT: harness,
-    COWORK_WORKSPACE: f.workspace,
-    COWORK_DISABLE_MAIN_GUARDIAN: "1",
-    COWORK_API_BASE: provider.baseUrl,
-    COWORK_API_KEY: "fixture-key",
-    COWORK_MODEL: "p46-subagent-model",
-    COWORK_MODEL_API: "openai-completions",
-    COWORK_REASONING_EFFORT: "off",
+    FORMICAND_HOME: join(f.root, "home"),
+    FORMICAND_CONFIG: join(f.root, "config.json"),
+    FORMICAND_CONFIG_ROOT: f.root,
+    FORMICAND_HARNESS_ROOT: harness,
+    FORMICAND_WORKSPACE: f.workspace,
+    FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
+    FORMICAND_API_BASE: provider.baseUrl,
+    FORMICAND_API_KEY: "fixture-key",
+    FORMICAND_MODEL: "p46-subagent-model",
+    FORMICAND_MODEL_API: "openai-completions",
+    FORMICAND_REASONING_EFFORT: "off",
     PI_CODING_AGENT_DIR: join(f.root, "pi"),
     PI_OFFLINE: "1"
   });
   const child = spawn(
     process.execPath,
     [
-      join(harness, "dist", "src", "cli", "cowork.js"),
+      join(harness, "dist", "src", "cli", "formicand.js"),
       "worker",
       "--task",
       TASK_ID,
@@ -853,17 +853,17 @@ test(
         env: isolatedPiEnvironment({
           HOME: root,
           TMPDIR: root,
-          ATRIA_HOME: join(root, "home"),
-          COWORK_CONFIG_ROOT: site,
-          COWORK_HARNESS_ROOT: harness,
-          COWORK_WORKSPACE: join(root, "workspace"),
-          COWORK_TASK_ID: "launcher-task",
-          COWORK_RUN_ID: "launcher-run",
-          COWORK_AGENT_ROLE: "executor",
-          COWORK_AGENT_ID: "subagent_x",
-          COWORK_SUBAGENT_CALL_ID: "launcher-call",
-          COWORK_SUBAGENT_TOKEN: "launcher-token",
-          COWORK_SUBAGENT_RESULT: join(root, "result.json"),
+          FORMICAND_HOME: join(root, "home"),
+          FORMICAND_CONFIG_ROOT: site,
+          FORMICAND_HARNESS_ROOT: harness,
+          FORMICAND_WORKSPACE: join(root, "workspace"),
+          FORMICAND_TASK_ID: "launcher-task",
+          FORMICAND_RUN_ID: "launcher-run",
+          FORMICAND_AGENT_ROLE: "executor",
+          FORMICAND_AGENT_ID: "subagent_x",
+          FORMICAND_SUBAGENT_CALL_ID: "launcher-call",
+          FORMICAND_SUBAGENT_TOKEN: "launcher-token",
+          FORMICAND_SUBAGENT_RESULT: join(root, "result.json"),
           PI_CODING_AGENT_DIR: join(root, "pi"),
           PI_OFFLINE: "1"
         }),
@@ -882,7 +882,7 @@ test(
       assert.fail(`the launcher kept running without model environment: ${output}`);
     }
     assert.notEqual(outcome, 0, `the launcher must refuse to start: ${output}`);
-    assert.match(output, /COWORK_API_BASE/, "the error names the missing environment variable");
+    assert.match(output, /FORMICAND_API_BASE/, "the error names the missing environment variable");
     assert.equal(
       provider.requests.length,
       0,

@@ -7,7 +7,7 @@ const { createWorkspaceDirectory } = await import("../dist/src/dashboard/workspa
 const { LocalWorkspaceStore } = await import("../dist/src/workspace/workspace-store.js");
 
 test("empty storage roots are omitted and project edits keep conversations in their storage root", async (t) => {
-  const root = await mkdtemp(join(tmpdir(), "atria-workspace-directory-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-workspace-directory-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const a = join(root, "a");
   const b = join(root, "b");
@@ -36,7 +36,7 @@ test("empty storage roots are omitted and project edits keep conversations in th
 });
 
 test("a Task without a project is left off the list and on disk, while explicit empty projects remain", async (t) => {
-  const root = await mkdtemp(join(tmpdir(), "atria-project-evidence-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-project-evidence-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const storage = join(root, "workspace"),
     emptyRoot = join(root, "empty");
@@ -62,7 +62,7 @@ test("a Task without a project is left off the list and on disk, while explicit 
 });
 
 test("project order stays fixed when conversations in a later project are updated", async (t) => {
-  const root = await mkdtemp(join(tmpdir(), "atria-project-order-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-project-order-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const storage = join(root, "workspace");
   const dirA = join(root, "alpha");

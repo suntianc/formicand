@@ -36,13 +36,13 @@ export function createCliPresentation(
   pi: ExtensionAPI,
   options: { harnessRoot: string; projectDirectory: string }
 ) {
-  let debug = ["1", "true"].includes(process.env.ATRIA_DEBUG ?? "");
+  let debug = ["1", "true"].includes(process.env.FORMICAND_DEBUG ?? "");
   let diagnostics: CliDiagnostics | undefined;
   const renderDiagnostics = (ctx: ExtensionContext) => {
     if (!diagnostics) return;
     ctx.ui.notify(
       [
-        "CoworkOS diagnostics",
+        "Formicand diagnostics",
         `workspace=${diagnostics.workspaceRoot}`,
         `task=${diagnostics.taskId}; run=${diagnostics.mainRunId}; model=${diagnostics.modelId}`,
         `active tools: ${diagnostics.tools.join(", ")}`
@@ -52,18 +52,18 @@ export function createCliPresentation(
       "info"
     );
   };
-  for (const name of ["coworkos-debug", "atria-debug"])
+  for (const name of ["formicand-debug", "formicand-debug"])
     pi.registerCommand(name, {
-      description: "Show CoworkOS runtime diagnostics; on/off controls detailed tool output",
+      description: "Show Formicand runtime diagnostics; on/off controls detailed tool output",
       handler: async (args, ctx) => {
         const choice = args.trim();
         if (!["", "on", "off"].includes(choice)) {
-          ctx.ui.notify("用法：/coworkos-debug [on|off]", "warning");
+          ctx.ui.notify("用法：/formicand-debug [on|off]", "warning");
           return;
         }
         if (choice === "off") {
           debug = false;
-          ctx.ui.notify("CoworkOS 详细诊断已关闭；Ctrl+O 仍可展开单次工具结果。", "info");
+          ctx.ui.notify("Formicand 详细诊断已关闭；Ctrl+O 仍可展开单次工具结果。", "info");
           return;
         }
         debug = true;
@@ -79,7 +79,7 @@ export function createCliPresentation(
         (_tui, theme) =>
           new Text(
             [
-              `${theme.bold(theme.fg("accent", "CoworkOS"))}${version ? theme.fg("dim", ` v${clean(version)}`) : ""}`,
+              `${theme.bold(theme.fg("accent", "Formicand"))}${version ? theme.fg("dim", ` v${clean(version)}`) : ""}`,
               theme.fg("muted", `项目：${clean(options.projectDirectory)}`),
               theme.fg("dim", "输入任务开始 · /help 查看命令 · Ctrl+D 退出 · Ctrl+O 展开详情")
             ].join("\n"),
@@ -87,7 +87,7 @@ export function createCliPresentation(
             0
           )
       );
-      ctx.ui.setTitle(`CoworkOS — ${clean(basename(options.projectDirectory))}`);
+      ctx.ui.setTitle(`Formicand — ${clean(basename(options.projectDirectory))}`);
     },
     startup(ctx: ExtensionContext, value: CliDiagnostics) {
       diagnostics = value;

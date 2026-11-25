@@ -1,4 +1,4 @@
-import type { CoworkConfig } from "./config.js";
+import type { FormicandConfig } from "./config.js";
 import { modelConnections, type ModelConnection } from "./model-providers.js";
 import { connectionProfile, parseConnectionProfile, type ConnectionProfile } from "./model-profile.js";
 import { resolve } from "node:path";
@@ -207,7 +207,7 @@ export function validateRoleModelConfig(value: unknown): void {
 
 /** A project's own settings for one role, or none. */
 export function projectRoleSettings(
-  config: CoworkConfig,
+  config: FormicandConfig,
   role: ModelRoleKey,
   projectDirectory: string | undefined
 ): RoleSettings | undefined {
@@ -217,7 +217,7 @@ export function projectRoleSettings(
 
 /** One role's settings for a place: each field from the project when it set one, else the host's. */
 export function roleSettings(
-  config: CoworkConfig,
+  config: FormicandConfig,
   role: ModelRoleKey,
   projectDirectory?: string
 ): RoleSettings {
@@ -270,7 +270,7 @@ export function builtinAgentDefaults(role: BuiltinRole): BuiltinAgentSettings {
 
 /** Skills, MCP servers and extra prompt a built-in Agent runs with in one place. */
 export function builtinAgentSettings(
-  config: CoworkConfig,
+  config: FormicandConfig,
   role: BuiltinRole,
   projectDirectory?: string
 ): BuiltinAgentSettings {
@@ -318,7 +318,7 @@ function connectionFor(
  * delegation to Main's account.
  */
 export function resolveModelRole(
-  config: CoworkConfig,
+  config: FormicandConfig,
   request: ModelRoleRequest = {},
   env: NodeJS.ProcessEnv = process.env
 ): ResolvedModelRole {
@@ -329,7 +329,7 @@ export function resolveModelRole(
   const explicitProfileId = request.profileId?.trim() || undefined;
   // A model forced by the launch environment is an explicit choice, as it was
   // before roles existed; it still uses the connection resolved for this Run.
-  const explicitModel = request.model?.trim() || env.COWORK_MODEL?.trim() || undefined;
+  const explicitModel = request.model?.trim() || env.FORMICAND_MODEL?.trim() || undefined;
   const retryModel = request.retryModel?.trim() || undefined;
   const sourceModel = (fallback: string) => retryModel ?? explicitModel ?? fallback;
   const sourceName = (base: RoleModelSource): RoleModelSource => (retryModel ? "retry" : base);
@@ -345,7 +345,7 @@ export function resolveModelRole(
     // An environment key belongs to the forced endpoint, so only the active
     // connection may fall back to it; a role connection must keep its own key.
     const apiKey = active
-      ? env.COWORK_API_KEY || connection.apiKey || config.apiKey || ""
+      ? env.FORMICAND_API_KEY || connection.apiKey || config.apiKey || ""
       : connection.apiKey || "";
     if (!apiKey)
       throw new Error(
@@ -369,16 +369,16 @@ export function resolveModelRole(
     return fromConnection("explicit", connectionFor(registry, explicitProfileId, "指定的模型连接"));
   }
 
-  const forcedBase = env.COWORK_API_BASE;
+  const forcedBase = env.FORMICAND_API_BASE;
   if (forcedBase) {
     const profile = connectionProfile(config);
     return {
       role,
       source: sourceName("environment"),
       baseUrl: forcedBase,
-      apiKey: env.COWORK_API_KEY || config.apiKey || "",
+      apiKey: env.FORMICAND_API_KEY || config.apiKey || "",
       model: sourceModel(
-        env.COWORK_MODEL ||
+        env.FORMICAND_MODEL ||
           (registry.activeId ? config.model : request.taskModel) ||
           config.model ||
           DEFAULT_MODEL
@@ -406,8 +406,8 @@ export function resolveModelRole(
     role,
     source: sourceName("active"),
     baseUrl: config.baseUrl || config.apiBase || "",
-    apiKey: env.COWORK_API_KEY || config.apiKey || "",
-    model: sourceModel(request.taskModel || env.COWORK_MODEL || config.model || DEFAULT_MODEL),
+    apiKey: env.FORMICAND_API_KEY || config.apiKey || "",
+    model: sourceModel(request.taskModel || env.FORMICAND_MODEL || config.model || DEFAULT_MODEL),
     profile,
     thinkingLevel: level(profile),
     supportsImages: configuredSupportsImages(runtimeSettingsEnv(config))
@@ -417,19 +417,19 @@ export function resolveModelRole(
 /** The environment a launched process receives for the resolved connection. */
 export function roleConnectionEnv(selection: ResolvedModelRole): Record<string, string> {
   return {
-    COWORK_API_BASE: selection.baseUrl,
-    COWORK_API_KEY: selection.apiKey,
-    COWORK_MODEL: selection.model,
-    ...(selection.connectionId ? { COWORK_CONNECTION_ID: selection.connectionId } : {}),
-    COWORK_MODEL_API: selection.profile.api,
-    COWORK_THINKING_FORMAT: selection.profile.thinkingFormat ?? "auto",
-    COWORK_REASONING_EFFORT: selection.thinkingLevel,
-    COWORK_SUPPORTS_REASONING_EFFORT: selection.profile.supportsReasoningEffort ? "1" : "0",
-    COWORK_SUPPORTS_PROMPT_CACHE_KEY: selection.profile.supportsPromptCacheKey ? "1" : "0",
-    COWORK_SUPPORTS_IMAGES: selection.supportsImages ? "1" : "0",
-    COWORK_CONTEXT_WINDOW: String(selection.profile.contextWindow),
-    COWORK_MAIN_MAX_TOKENS: String(selection.profile.mainMaxTokens),
-    COWORK_MAX_TOKENS: String(selection.profile.subagentMaxTokens)
+    FORMICAND_API_BASE: selection.baseUrl,
+    FORMICAND_API_KEY: selection.apiKey,
+    FORMICAND_MODEL: selection.model,
+    ...(selection.connectionId ? { FORMICAND_CONNECTION_ID: selection.connectionId } : {}),
+    FORMICAND_MODEL_API: selection.profile.api,
+    FORMICAND_THINKING_FORMAT: selection.profile.thinkingFormat ?? "auto",
+    FORMICAND_REASONING_EFFORT: selection.thinkingLevel,
+    FORMICAND_SUPPORTS_REASONING_EFFORT: selection.profile.supportsReasoningEffort ? "1" : "0",
+    FORMICAND_SUPPORTS_PROMPT_CACHE_KEY: selection.profile.supportsPromptCacheKey ? "1" : "0",
+    FORMICAND_SUPPORTS_IMAGES: selection.supportsImages ? "1" : "0",
+    FORMICAND_CONTEXT_WINDOW: String(selection.profile.contextWindow),
+    FORMICAND_MAIN_MAX_TOKENS: String(selection.profile.mainMaxTokens),
+    FORMICAND_MAX_TOKENS: String(selection.profile.subagentMaxTokens)
   };
 }
 
@@ -439,7 +439,7 @@ export function isDelegatedModelRole(value: unknown): value is DelegatedModelRol
 
 /** The model a delegated role names in this place, if any. */
 export function delegatedRoleProfile(
-  config: CoworkConfig,
+  config: FormicandConfig,
   role: DelegatedModelRole,
   projectDirectory?: string
 ): string | undefined {
@@ -457,7 +457,7 @@ export function delegatedRoleProfile(
  * child's environment choice and every secret stays on this host.
  */
 export function resolveDelegatedModelRole(
-  config: CoworkConfig,
+  config: FormicandConfig,
   request: DelegatedModelRequest,
   env: NodeJS.ProcessEnv = {}
 ): ResolvedModelRole | undefined {
@@ -500,7 +500,7 @@ export interface PublicModelRoles {
 }
 
 /** Redacted role view for the settings API; never includes a key or endpoint. */
-export function publicModelRoles(config: CoworkConfig): PublicModelRoles {
+export function publicModelRoles(config: FormicandConfig): PublicModelRoles {
   const roles = MODEL_ROLE_KEYS.map((role): PublicModelRole => {
     const host = config.roleModels?.host?.[role] ?? null;
     const wired = WIRED_MODEL_ROLES.includes(role);
@@ -541,9 +541,9 @@ export function publicModelRoles(config: CoworkConfig): PublicModelRoles {
  * broken configuration.
  */
 export function saveRoleSettings(
-  config: CoworkConfig,
+  config: FormicandConfig,
   input: { role: unknown; projectDirectory?: string; settings: unknown }
-): CoworkConfig {
+): FormicandConfig {
   if (!isBuiltinRole(input.role)) throw new Error("请选择有效的内置 Agent");
   const role = input.role;
   // The parser keeps only fields that are set, so an empty record means "follow the level above".
@@ -554,7 +554,7 @@ export function saveRoleSettings(
     if (!registry.profiles.some((profile) => profile.id === settings.profileId))
       throw new Error("模型不存在，请刷新设置后重试");
   }
-  const next: CoworkConfig = { ...config };
+  const next: FormicandConfig = { ...config };
   const roles: RoleModelConfig = { version: 1, ...config.roleModels };
   if (input.projectDirectory) {
     const key = resolve(input.projectDirectory);

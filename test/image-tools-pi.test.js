@@ -19,7 +19,7 @@ for (const api of ["openai-completions", "openai-responses"])
     `real Main ${api} read_image returns native pixels for every accepted source`,
     { timeout: 45000 },
     async (t) => {
-      const root = await mkdtemp(join(tmpdir(), "atria-image-tools-pi-"));
+      const root = await mkdtemp(join(tmpdir(), "formicand-image-tools-pi-"));
       t.after(() => rm(root, { recursive: true, force: true }));
       const project = join(root, "project"),
         workspace = join(root, "workspace");
@@ -68,7 +68,7 @@ for (const api of ["openai-completions", "openai-responses"])
       const configPath = join(root, "config.json");
       await writeFile(configPath, JSON.stringify(config));
       const env = Object.fromEntries(
-        Object.entries(process.env).filter(([name]) => !/^(COWORK_|PI_|ATRIA_)/.test(name))
+        Object.entries(process.env).filter(([name]) => !/^(FORMICAND_|PI_|FORMICAND_)/.test(name))
       );
       const pending = exec(
         process.execPath,
@@ -80,14 +80,14 @@ for (const api of ["openai-completions", "openai-responses"])
           env: {
             ...env,
             // Keep every host-owned path inside this disposable fixture.
-            ATRIA_HOME: join(root, "home"),
-            COWORK_CONFIG: configPath,
-            COWORK_PROJECT_DIR: project,
-            COWORK_WORKSPACE: workspace,
-            COWORK_TASK_ID: "image-task",
-            COWORK_RUN_ID: "image-run",
+            FORMICAND_HOME: join(root, "home"),
+            FORMICAND_CONFIG: configPath,
+            FORMICAND_PROJECT_DIR: project,
+            FORMICAND_WORKSPACE: workspace,
+            FORMICAND_TASK_ID: "image-task",
+            FORMICAND_RUN_ID: "image-run",
             PI_CODING_AGENT_DIR: join(root, "pi"),
-            COWORK_DISABLE_MAIN_GUARDIAN: "1",
+            FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
             PI_OFFLINE: "1"
           }
         }

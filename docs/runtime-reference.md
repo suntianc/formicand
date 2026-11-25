@@ -22,7 +22,7 @@ Main 常驻：一个 Run 由同一个 Pi 进程服务，一轮结束后进程不
 
 ## Pi 版本与回滚
 
-Main、子智能体和会话文件都由 Pi 运行。`@earendil-works/pi-coding-agent`、`@earendil-works/pi-ai` 与 `@earendil-works/pi-agent-core` 保持同一版本，当前为 1.5.2；会话文件由 Pi 原样写入 `sessions/`（位置见[数据布局](task-workspace-layout.md)），CoworkOS 不做自有格式转换。
+Main、子智能体和会话文件都由 Pi 运行。`@earendil-works/pi-coding-agent`、`@earendil-works/pi-ai` 与 `@earendil-works/pi-agent-core` 保持同一版本，当前为 1.5.2；会话文件由 Pi 原样写入 `sessions/`（位置见[数据布局](task-workspace-layout.md)），Formicand 不做自有格式转换。
 
 ### 两个方向读取会话的结果
 
@@ -56,7 +56,7 @@ npm run verify
 回滚后的会话处理：
 
 - 升级期间由 1.5.x 写下的 Main 会话按上表继续，不需要转换或改写会话文件；不要手工编辑会话 JSONL 来“修复”它。
-- 若某个会话在 0.87.1 下无法打开或继续（例如用到 0.87.1 没有的条目），保留原文件并先备份，用 `coworkos session export <session-id-or-path> --format json --output audit.json` 留证，然后新建会话，在首条消息里复述仍在进行的目标与已完成结果。恢复入口见[请求重试与上下文恢复](#请求重试与上下文恢复)。
+- 若某个会话在 0.87.1 下无法打开或继续（例如用到 0.87.1 没有的条目），保留原文件并先备份，用 `formicand session export <session-id-or-path> --format json --output audit.json` 留证，然后新建会话，在首条消息里复述仍在进行的目标与已完成结果。恢复入口见[请求重试与上下文恢复](#请求重试与上下文恢复)。
 - 再次升级时，0.87.1 写下的会话仍可在 1.5.x 继续（上表第一行），但升级提交会重新引入上述启动参数与 UI 策略，不能只改 `package.json` 的版本。
 
 ## 输入格式
@@ -67,7 +67,7 @@ Web/App 支持行内 `\(...\)`、`$...$` 与独立公式 `\[...\]`、`$$...$$`�
 
 ## 通用能力与按需工具
 
-终端和 App 的 Main 共用 Cowork 扩展与能力规则；委派子代理由同一个扩展按角色收窄工具。Coordinator 可接收外部 `capabilityProvider`。
+终端和 App 的 Main 共用 Formicand 扩展与能力规则；委派子代理由同一个扩展按角色收窄工具。Coordinator 可接收外部 `capabilityProvider`。
 
 `enable_tools({})` 查询可用工具组，`enable_tools({groups:["attachments"]})` 加载附件读取工具，`delivery` 组提供产出物发布。显式加载随 Main Run 恢复；附件和已授权任务也可按上下文启用工具。加载不代表授权，jobs 仍需 `longRunning`，电脑操作仍逐次核对有效授权。
 
@@ -77,13 +77,13 @@ Main 与委派子代理都用 Pi 原生的 `bash` / 文件工具，`cwd` 默认�
 
 ### MCP 服务
 
-MCP 服务只有一份全局配置 `~/.atria/mcp.json`（`mcpServers` 格式，与其他客户端相同），所有项目共用，智能体不能读取它。Main 保留 Pi 内置的 MCP 客户端，但服务只经扩展注册（[MCP 注册](../.pi/runtime/mcp.ts)）：进程启动时注册已启用的服务，之后每轮开始重读配置，新增或修改的重新注册，删除或停用的注销，读取失败时沿用已有服务并提示一次。Pi 自己目录下的 `mcp.json` 保持为空；Main 与委派进程都以 `--no-approve` 启动，项目里的 `.pi/mcp.json`、设置与扩展不会被加载。可见方式只有三种：`deferred`（默认，经 `tool_search` 找到后才声明给模型）、`direct`（直接声明）与 `hidden`（不可达），单个工具可另设；CoworkOS 不启用 codemode，配置里的 `codemode` 会被拒绝。Main 只注册它在设置页「Agent」里选的服务（默认全部已启用的）；内置 Executor 与 Reviewer 默认以 `--no-mcp` 启动，设置里选了服务时只注册所选的。
+MCP 服务只有一份全局配置 `~/.formicand/mcp.json`（`mcpServers` 格式，与其他客户端相同），所有项目共用，智能体不能读取它。Main 保留 Pi 内置的 MCP 客户端，但服务只经扩展注册（[MCP 注册](../.pi/runtime/mcp.ts)）：进程启动时注册已启用的服务，之后每轮开始重读配置，新增或修改的重新注册，删除或停用的注销，读取失败时沿用已有服务并提示一次。Pi 自己目录下的 `mcp.json` 保持为空；Main 与委派进程都以 `--no-approve` 启动，项目里的 `.pi/mcp.json`、设置与扩展不会被加载。可见方式只有三种：`deferred`（默认，经 `tool_search` 找到后才声明给模型）、`direct`（直接声明）与 `hidden`（不可达），单个工具可另设；Formicand 不启用 codemode，配置里的 `codemode` 会被拒绝。Main 只注册它在设置页「Agent」里选的服务（默认全部已启用的）；内置 Executor 与 Reviewer 默认以 `--no-mcp` 启动，设置里选了服务时只注册所选的。
 
-设置页「MCP」检查连接、列出工具与 OAuth 登录都调用 Pi 自己的 `pi mcp list --json` 与 `pi mcp login`：后端在 `~/.atria/runtime/mcp-probe/` 下为每次操作建一个只含相关服务的临时目录（用完即删），该目录在 Pi 目录的 `trust.json` 中登记为信任；登录凭据写入 Pi 目录的 `mcp-auth.json`，按服务名与地址对应，Main 连接同名同址的服务时直接使用。
+设置页「MCP」检查连接、列出工具与 OAuth 登录都调用 Pi 自己的 `pi mcp list --json` 与 `pi mcp login`：后端在 `~/.formicand/runtime/mcp-probe/` 下为每次操作建一个只含相关服务的临时目录（用完即删），该目录在 Pi 目录的 `trust.json` 中登记为信任；登录凭据写入 Pi 目录的 `mcp-auth.json`，按服务名与地址对应，Main 连接同名同址的服务时直接使用。
 
 ### 自定义 Agent
 
-自定义 Agent 是 Markdown 文件（[定义与校验](../src/runtime/agent-definitions.ts)）：头部写 `name`、给 Main 的 `description`、`permission`（`write` 或 `read`），可选 `profile`/`model`、`thinking`（推理强度）、`tools`、`skills`、`mcp`、`enabled`，正文是附加提示词。没写模型时可写的跟 Executor、只读的跟 Reviewer。全局放在 `~/.atria/agents/`，项目放在 `.atria/agents/`（项目信任后才读），同名时项目的生效；`main`、`executor`、`reviewer` 是内置名称。
+自定义 Agent 是 Markdown 文件（[定义与校验](../src/runtime/agent-definitions.ts)）：头部写 `name`、给 Main 的 `description`、`permission`（`write` 或 `read`），可选 `profile`/`model`、`thinking`（推理强度）、`tools`、`skills`、`mcp`、`enabled`，正文是附加提示词。没写模型时可写的跟 Executor、只读的跟 Reviewer。全局放在 `~/.formicand/agents/`，项目放在 `.formicand/agents/`（项目信任后才读），同名时项目的生效；`main`、`executor`、`reviewer` 是内置名称。
 
 代码保证的规则：`read` 不能有 `edit`、`write`；可选工具只有 `read`、`bash`、`edit`、`write`、`grep`、`find`、`ls`、`browse_workspace`、`search`、`visit`，Main 专用工具与桌面、浏览器操控都不在其中；`ask_main`、`send_peer_message` 始终持有；不写 `skills` 时可见全部技能，写空列表则没有技能；不写 `mcp` 时不注册任何服务。
 
@@ -93,13 +93,13 @@ Main 每轮在系统提示的 `<custom_agents>` 里看到已启用、有效的 A
 
 Main 用 `manage_agent`（[工具](../.pi/runtime/tools/agents.ts)）列出、新建、修改、停用或启用 Agent。每次写入前，它以带 `proposal` 的提问把完整定义交给用户：会话里显示定义卡片，用户点「确认」才写文件；拒绝、写修改意见、选「在设置里修改」或超时都不写入，「在设置里修改」会打开设置页并带上这份草稿。Main 只能引用已配置的 MCP 服务，不能新增；项目未信任时不能写项目 Agent。设置页的「让 Main 帮我写」新开会话，把请求放进输入框。
 
-设置页「Agent」分全局与项目两页（[接口](../src/dashboard/agent-routes.ts)），可新建、复制、修改、启停、删除，并标出引用了不存在或已停用的技能、MCP 服务的 Agent。两页都列出内置的 Main、Executor、Reviewer：名称、使用说明、权限和工具不可改，模型、推理强度、技能、MCP 和附加提示词存在执行主机配置的 `roleModels` 里，项目页可逐项覆盖（见[角色模型](configuration-reference.md#角色模型)）。Executor、Reviewer 派单时把这些设置写进工作项，子进程据此过滤技能、注册服务并把附加提示词接在角色提示之后；Main 每轮重读，附加提示词放在系统提示的 `<user_main_instructions>` 里。工作区里第一次打开带 `.atria/agents`、`.atria/skills` 或 `.agents/skills` 的项目时，会询问是否信任（[询问](../web/assets/controllers/project-trust-prompt.js)），只读取名称来提问。
+设置页「Agent」分全局与项目两页（[接口](../src/dashboard/agent-routes.ts)），可新建、复制、修改、启停、删除，并标出引用了不存在或已停用的技能、MCP 服务的 Agent。两页都列出内置的 Main、Executor、Reviewer：名称、使用说明、权限和工具不可改，模型、推理强度、技能、MCP 和附加提示词存在执行主机配置的 `roleModels` 里，项目页可逐项覆盖（见[角色模型](configuration-reference.md#角色模型)）。Executor、Reviewer 派单时把这些设置写进工作项，子进程据此过滤技能、注册服务并把附加提示词接在角色提示之后；Main 每轮重读，附加提示词放在系统提示的 `<user_main_instructions>` 里。工作区里第一次打开带 `.formicand/agents`、`.formicand/skills` 或 `.agents/skills` 的项目时，会询问是否信任（[询问](../web/assets/controllers/project-trust-prompt.js)），只读取名称来提问。
 
 ### 输入框 `/` 与 `@`
 
-输入框里打 `/` 列出技能、指令模板和命令，打 `@` 搜索项目文件、自定义 Agent 和 MCP 资源（[菜单](../web/assets/controllers/composer-menu.js)，列表来自 [输入框服务](../src/dashboard/composer-service.ts)）。技能清单与 Main 看到的一致；指令模板是 `~/.atria/prompts/` 与项目 `.atria/prompts/` 下的 Markdown，同名时项目的优先，选中后直接展开成可再编辑的文字；文件列表在 Git 仓库里按 `.gitignore` 过滤，否则遍历目录并跳过 `node_modules` 等；MCP 资源由后端连接已启用的服务读取，`ui://` 界面资源不列，需要登录或用 `!命令` 取值的服务不列资源。
+输入框里打 `/` 列出技能、指令模板和命令，打 `@` 搜索项目文件、自定义 Agent 和 MCP 资源（[菜单](../web/assets/controllers/composer-menu.js)，列表来自 [输入框服务](../src/dashboard/composer-service.ts)）。技能清单与 Main 看到的一致；指令模板是 `~/.formicand/prompts/` 与项目 `.formicand/prompts/` 下的 Markdown，同名时项目的优先，选中后直接展开成可再编辑的文字；文件列表在 Git 仓库里按 `.gitignore` 过滤，否则遍历目录并跳过 `node_modules` 等；MCP 资源由后端连接已启用的服务读取，`ui://` 界面资源不列，需要登录或用 `!命令` 取值的服务不列资源。
 
-选中的技能、文件、Agent 与资源在消息里留下 `/名称`、`@路径`、`@Agent 名`、`@服务:地址`，发送、运行中插话与修改重发时由前端识别成引用随请求发送。后端只保留能解析的引用（技能在清单里、文件在项目内且存在、服务已启用），在消息开头加上 `<atria_references>` 清单（[格式](../src/runtime/composer-references.ts)），写明每类引用的用法，技能只给名称，由 Main 用 `load_skill` 加载；清单在会话里不显示，只把对应的词标成标签。
+选中的技能、文件、Agent 与资源在消息里留下 `/名称`、`@路径`、`@Agent 名`、`@服务:地址`，发送、运行中插话与修改重发时由前端识别成引用随请求发送。后端只保留能解析的引用（技能在清单里、文件在项目内且存在、服务已启用），在消息开头加上 `<formicand_references>` 清单（[格式](../src/runtime/composer-references.ts)），写明每类引用的用法，技能只给名称，由 Main 用 `load_skill` 加载；清单在会话里不显示，只把对应的词标成标签。
 
 ## 显式委派附件
 
@@ -118,7 +118,7 @@ call_subagent({
 
 `call_subagent` 只向后端登记工作项：后端把登记写进该 Run 的持久队列（`queue.json`）并答复 `callId`，依赖满足后由后端启动独立的子代理 Pi 进程，进程结束时把结论写回队列、运行事件与 Main 的回调。派单只有异步一种：登记落盘后立即返回，结果经回调送达；本轮必须拿到结果时用 `wait_for_subagents` 等待，协作者提问或用户插话会让等待提前返回。`wait_for_subagents`、`get_subagent_status` 与 `get_task_status` 读同一份队列、回调与结果记录，不依赖后端内存。
 
-每个工作区根只有一个属主启动与结算委派进程：Dashboard 运行时 CLI worker 不接管（`coworkos worker` 报告属主后退出），跨重启接管、启动排队项和结算都由属主完成。属主启动时从持久记录接管仍在运行的子代理，并在停机期间结束的子代理上补发回调；结算由进程记录上的文件锁去重，所以同一工作项不会产生两份回调。中止启动的拒单在任何持久写入之前完成，不留下无人结算的工作项；已入队后启动失败按该工作项自己的失败结算。
+每个工作区根只有一个属主启动与结算委派进程：Dashboard 运行时 CLI worker 不接管（`formicand worker` 报告属主后退出），跨重启接管、启动排队项和结算都由属主完成。属主启动时从持久记录接管仍在运行的子代理，并在停机期间结束的子代理上补发回调；结算由进程记录上的文件锁去重，所以同一工作项不会产生两份回调。中止启动的拒单在任何持久写入之前完成，不留下无人结算的工作项；已入队后启动失败按该工作项自己的失败结算。
 
 前端（Dashboard）在派单时确定工作项的现场与候选：`developmentId` 取本后端就绪的需求现场；Reviewer 的 `reviewSite` 固定为需求当前冻结候选的提交（没有独立审查时按派单那一刻的提交冻结），因此冻结之后 Executor 现场再前进也不会移动 Reviewer 的审查对象。工作项现场、会话目录与结论都在持久记录里，返修续接同一个 Executor 的 Pi 会话文件（`sessions/<agentId>/pi/<原 callId>`）与现场，追加一轮。附件授权随工作项传递：被授权的上传 ID 在派单时校验，委派进程只在有授权时注册 `read_attachment`，未授权不注册。
 
@@ -136,10 +136,10 @@ call_subagent({
 
 ### 角色工具与审查结论
 
-子代理进程与 Main 加载同一个扩展，按角色声明工具表。Executor 得到 `read`、`bash`、`edit`、`write`、只读的 `browse_workspace`、`ask_main`、`send_peer_message` 与 `search`/`visit`；Reviewer 得到 `read`、`bash`、`grep`、`find`、`ls`、`browse_workspace`、同样的两个通道工具、`search`/`visit` 与 `submit_review`，没有 `write`/`edit`。`search`/`visit` 与 Main 同一实现、同一配置：未关闭搜索时注册，`COWORK_WEB_TOOLS=0` 或 `provider: "off"` 时两个角色都不声明。两个角色都能用 `load_skill`：与 Main 同一实现、同一份技能清单，只加载指令，不取得新工具或权限。清单由 [技能清单](../src/runtime/skill-registry.ts) 计算，按优先级依次读取项目 `.atria/skills/`、项目 `.agents/skills/`（自项目目录向上到仓库根）、`~/.atria/skills/`、`~/.agents/skills/` 与随产品提供的 `.pi/skills/`，同名时前者覆盖后者；项目里的两处只在用户信任该项目后读取（记录在 `~/.atria/project-trust.json`），从索引移除的技能（`~/.atria/skill-index.json`）不进入清单，文件不动。Pi 自带的技能发现以 `--no-skills` 关闭，Main 与子代理的系统提示和 `load_skill` 用同一份清单；系统提示只列技能名称与说明，不给文件路径，技能一律用 `load_skill` 加载。子代理按原项目目录判断信任，不按自己的隔离副本。后端从被审候选的提交为 Reviewer 建一份 detach 的独立 checkout 作为它的项目目录；成功的审查保留这份现场，因为 Main 在进程结束后才绑定审查并核对候选是否漂移；没有产出结论的失败尝试立即清理，审查漂移时随漂移结论释放，需求合入后释放该需求的全部审查现场，记录本身保留 Reviewer 身份与现场路径。没有需求现场时按派单时刻的 HEAD 冻结候选并建同样的副本，项目不是 Git 仓库则在派单前拒绝。它运行的测试与写入的文件留在这份副本里，不进入候选提交、Executor 的现场或用户工作树。两个角色都没有 `call_subagent`、`send_subagent_message`、`cancel_subagent`、`get_subagent_status`、`wait_for_subagents`、`get_task_status`、`finish_task`、`askhuman`、`sleep_until`、`grant_capabilities`、`clear_context`、`enable_tools`、`project_ledger`、`project_development` 与 `publish_artifact`，因此子代理不能再派子代理或改变 Task 生命周期。角色说明沿用同一段文本；角色只决定工具，不扩大授权：电脑操控、浏览器与 CUA 等能力由 Main 的扩展注册，委派进程当前不提供。附件授权随工作项传递，只有被授权的上传 ID 才让委派进程注册 `read_attachment`。Main 与两个角色对受保护路径的 `write`、`edit` 与 `bash` 写入按同一规则拦截并返回同一段错误；`bash` 拦截跟随 `cd`、`pushd`/`popd`、`git -C` 与子 shell 的目录切换解析相对目标，目录无法确定时只要项目内存在受保护路径就保守拒绝。它尽力识别常见写法，不是沙箱：解释器内写入、引号内的命令替换、反引号、`xargs`、`find -delete`、`git clean`、目录级目标的 `git restore .` 与 `git checkout .`、`tar`/`unzip` 解包写入等仍可能绕过。Main 与两个角色的任何工具调用，只要参数里写到 CoworkOS 自己的数据目录（`ATRIA_HOME`，默认 `~/.atria`），就整条拒绝，读、列目录和写入都一样；只有任务工作区 `workspace/`、需求现场 `runtime/development-workspaces/`、临时工作区 `runtime/temporary-workspaces/` 与已安装技能 `skills/` 可以访问；已安装技能对 `write`、`edit` 和 `bash` 写入同样受保护。`backend-instance.json`、`project-data.sqlite` 等 CoworkOS 自有文件名出现在参数的任何位置也会拒绝，因此从允许目录用相对路径向上找到的文件同样被拦下。CoworkOS 自己的程序目录（源码或安装目录）同样拒绝读、列和运行，只放行随产品提供的 `.pi/skills/` 与技能引用的 `docs/`；用户的项目就是 CoworkOS 本身、在它里面或包含它时不拦。这条规则针对一次 Main 读取后端主机凭据、绕开缺失的合入配置的事件；它同样不是沙箱，运行时拼出来的路径看不到，对外工作的系统级隔离在 P5 交付。委派进程与 Main 一样对 `cache_warming_decision` 返回 `stop`，不进行提示缓存保温。委派会话与 Main 共用上下文管理和历史工具。
-Reviewer 的结论只经 `submit_review({verdict, findings, previousFindings?})` 提交：`verdict` 为 `pass` 或 `changes_requested`，每条 finding 含 `title`、`location`、`evidence` 与 `blocking`，拦截的还要写 `basis`：本次审查的某条验收标准编号（票的 `AC1`…，整体审查的完成标准 `CC1`…），或四类底线之一 `regression`、`data_loss`、`security`、`project_rule`；不拦截的是建议。复审还要在 `previousFindings` 里逐条回答上一轮要修的发现修好没有，新提的发现只能拦截，依据为验收标准，或出在这一轮改到的文件里的底线问题。`changes_requested` 需要一条拦截的发现或一条没修好的上一轮发现，`pass` 两者都不能有；可引用的编号、上一轮的发现和这一轮改到的文件在冻结候选时由程序定下，随派单传给 Reviewer 进程（`COWORK_REVIEW_SCOPE`），后端导入时再按同一份规则核对；不合法的提交作为工具错误返回，模型可改正后重试。结论写入该工作项结果记录的 `review` 字段并随回调送达 Main；Reviewer 没有提交结论就结束记为失败，后端读取结果记录时按同一格式复核。验证 [真实角色工具表与结论](../test/subagent-roles-pi.test.js)。
+子代理进程与 Main 加载同一个扩展，按角色声明工具表。Executor 得到 `read`、`bash`、`edit`、`write`、只读的 `browse_workspace`、`ask_main`、`send_peer_message` 与 `search`/`visit`；Reviewer 得到 `read`、`bash`、`grep`、`find`、`ls`、`browse_workspace`、同样的两个通道工具、`search`/`visit` 与 `submit_review`，没有 `write`/`edit`。`search`/`visit` 与 Main 同一实现、同一配置：未关闭搜索时注册，`FORMICAND_WEB_TOOLS=0` 或 `provider: "off"` 时两个角色都不声明。两个角色都能用 `load_skill`：与 Main 同一实现、同一份技能清单，只加载指令，不取得新工具或权限。清单由 [技能清单](../src/runtime/skill-registry.ts) 计算，按优先级依次读取项目 `.formicand/skills/`、项目 `.agents/skills/`（自项目目录向上到仓库根）、`~/.formicand/skills/`、`~/.agents/skills/` 与随产品提供的 `.pi/skills/`，同名时前者覆盖后者；项目里的两处只在用户信任该项目后读取（记录在 `~/.formicand/project-trust.json`），从索引移除的技能（`~/.formicand/skill-index.json`）不进入清单，文件不动。Pi 自带的技能发现以 `--no-skills` 关闭，Main 与子代理的系统提示和 `load_skill` 用同一份清单；系统提示只列技能名称与说明，不给文件路径，技能一律用 `load_skill` 加载。子代理按原项目目录判断信任，不按自己的隔离副本。后端从被审候选的提交为 Reviewer 建一份 detach 的独立 checkout 作为它的项目目录；成功的审查保留这份现场，因为 Main 在进程结束后才绑定审查并核对候选是否漂移；没有产出结论的失败尝试立即清理，审查漂移时随漂移结论释放，需求合入后释放该需求的全部审查现场，记录本身保留 Reviewer 身份与现场路径。没有需求现场时按派单时刻的 HEAD 冻结候选并建同样的副本，项目不是 Git 仓库则在派单前拒绝。它运行的测试与写入的文件留在这份副本里，不进入候选提交、Executor 的现场或用户工作树。两个角色都没有 `call_subagent`、`send_subagent_message`、`cancel_subagent`、`get_subagent_status`、`wait_for_subagents`、`get_task_status`、`finish_task`、`askhuman`、`sleep_until`、`grant_capabilities`、`clear_context`、`enable_tools`、`project_ledger`、`project_development` 与 `publish_artifact`，因此子代理不能再派子代理或改变 Task 生命周期。角色说明沿用同一段文本；角色只决定工具，不扩大授权：电脑操控、浏览器与 CUA 等能力由 Main 的扩展注册，委派进程当前不提供。附件授权随工作项传递，只有被授权的上传 ID 才让委派进程注册 `read_attachment`。Main 与两个角色对受保护路径的 `write`、`edit` 与 `bash` 写入按同一规则拦截并返回同一段错误；`bash` 拦截跟随 `cd`、`pushd`/`popd`、`git -C` 与子 shell 的目录切换解析相对目标，目录无法确定时只要项目内存在受保护路径就保守拒绝。它尽力识别常见写法，不是沙箱：解释器内写入、引号内的命令替换、反引号、`xargs`、`find -delete`、`git clean`、目录级目标的 `git restore .` 与 `git checkout .`、`tar`/`unzip` 解包写入等仍可能绕过。Main 与两个角色的任何工具调用，只要参数里写到 Formicand 自己的数据目录（`FORMICAND_HOME`，默认 `~/.formicand`），就整条拒绝，读、列目录和写入都一样；只有任务工作区 `workspace/`、需求现场 `runtime/development-workspaces/`、临时工作区 `runtime/temporary-workspaces/` 与已安装技能 `skills/` 可以访问；已安装技能对 `write`、`edit` 和 `bash` 写入同样受保护。`backend-instance.json`、`project-data.sqlite` 等 Formicand 自有文件名出现在参数的任何位置也会拒绝，因此从允许目录用相对路径向上找到的文件同样被拦下。Formicand 自己的程序目录（源码或安装目录）同样拒绝读、列和运行，只放行随产品提供的 `.pi/skills/` 与技能引用的 `docs/`；用户的项目就是 Formicand 本身、在它里面或包含它时不拦。这条规则针对一次 Main 读取后端主机凭据、绕开缺失的合入配置的事件；它同样不是沙箱，运行时拼出来的路径看不到，对外工作的系统级隔离在 P5 交付。委派进程与 Main 一样对 `cache_warming_decision` 返回 `stop`，不进行提示缓存保温。委派会话与 Main 共用上下文管理和历史工具。
+Reviewer 的结论只经 `submit_review({verdict, findings, previousFindings?})` 提交：`verdict` 为 `pass` 或 `changes_requested`，每条 finding 含 `title`、`location`、`evidence` 与 `blocking`，拦截的还要写 `basis`：本次审查的某条验收标准编号（票的 `AC1`…，整体审查的完成标准 `CC1`…），或四类底线之一 `regression`、`data_loss`、`security`、`project_rule`；不拦截的是建议。复审还要在 `previousFindings` 里逐条回答上一轮要修的发现修好没有，新提的发现只能拦截，依据为验收标准，或出在这一轮改到的文件里的底线问题。`changes_requested` 需要一条拦截的发现或一条没修好的上一轮发现，`pass` 两者都不能有；可引用的编号、上一轮的发现和这一轮改到的文件在冻结候选时由程序定下，随派单传给 Reviewer 进程（`FORMICAND_REVIEW_SCOPE`），后端导入时再按同一份规则核对；不合法的提交作为工具错误返回，模型可改正后重试。结论写入该工作项结果记录的 `review` 字段并随回调送达 Main；Reviewer 没有提交结论就结束记为失败，后端读取结果记录时按同一格式复核。验证 [真实角色工具表与结论](../test/subagent-roles-pi.test.js)。
 
-带票派出的 Executor 另有 `submit_report({criteria})`：票的每条验收标准一项，写 `criterionId`、`met` 与 `evidence`，编号随派单传给进程（`COWORK_TICKET_CRITERIA`），缺项、重复或编号不对作为工具错误返回。报告写入结果记录的 `report` 字段，后端按同一规则复核后接在 Executor 的交回之后送达 Main；没交报告就结束记为失败。两个角色的 `bash` 里按名字结束进程（`pkill`、`killall`，或由 `pgrep`/`pidof` 喂给 `kill`）一律拒绝，因为会连带用户自己的应用和服务；按自己启动时记下的 PID 结束不受影响。验证 [票的报告与按名字结束进程](../test/subagent-roles-pi.test.js) 和 [规则单测](../test/executor-rules.test.js)。
+带票派出的 Executor 另有 `submit_report({criteria})`：票的每条验收标准一项，写 `criterionId`、`met` 与 `evidence`，编号随派单传给进程（`FORMICAND_TICKET_CRITERIA`），缺项、重复或编号不对作为工具错误返回。报告写入结果记录的 `report` 字段，后端按同一规则复核后接在 Executor 的交回之后送达 Main；没交报告就结束记为失败。两个角色的 `bash` 里按名字结束进程（`pkill`、`killall`，或由 `pgrep`/`pidof` 喂给 `kill`）一律拒绝，因为会连带用户自己的应用和服务；按自己启动时记下的 PID 结束不受影响。验证 [票的报告与按名字结束进程](../test/subagent-roles-pi.test.js) 和 [规则单测](../test/executor-rules.test.js)。
 
 ### 子代理的持久收件箱与追加消息
 
@@ -176,7 +176,7 @@ Main 发给运行中子代理的追加消息、对 `ask_main` 问题的回答与
 
 ## 请求重试与上下文恢复
 
-Main 与子智能体默认最多自动重试 5 次，不含首次请求。Main 通常按 2、4、8、16、32 秒退避，已有 Pi 显式设置保留；子智能体可用 `maxErrorRetries` 覆盖。明确的模型不存在、认证、权限和额度耗尽不自动重试，连接测试只请求一次。`COWORK_MAX_ATTEMPTS` 是另一层委派预算。
+Main 与子智能体默认最多自动重试 5 次，不含首次请求。Main 通常按 2、4、8、16、32 秒退避，已有 Pi 显式设置保留；子智能体可用 `maxErrorRetries` 覆盖。明确的模型不存在、认证、权限和额度耗尽不自动重试，连接测试只请求一次。`FORMICAND_MAX_ATTEMPTS` 是另一层委派预算。
 
 App/Web 的“重试”重发失败请求保存的序列化正文，包括系统消息、模型、工具定义、附件和生成参数，不追加“继续”指令。成功的工具结果沿用。重放期间的新回调先排队，成功后再处理；未进入原正文的输入和文档变更不会被视为已经读取。
 
@@ -184,7 +184,7 @@ App/Web 的“重试”重发失败请求保存的序列化正文，包括系统
 
 Headless Run 恢复时读取该 Run 的 Pi 会话与运行记录；若最后已是完整结束文本且没有未完成工具调用，只完成落盘，不重新请求模型。已成功的 Run ID 不能复用；新增工作使用新 Run。生命周期命令本身不等于启动模型执行。
 
-CLI 显式 `COWORK_TASK_ID` 优先于自动关联。Task 与会话属于不同项目时拒绝恢复。未记录关联的旧会话可使用 `COWORK_TASK_ID=my-task coworkos --session <session-id-or-path>`，此后按关联继续。
+CLI 显式 `FORMICAND_TASK_ID` 优先于自动关联。Task 与会话属于不同项目时拒绝恢复。未记录关联的旧会话可使用 `FORMICAND_TASK_ID=my-task formicand --session <session-id-or-path>`，此后按关联继续。
 
 ### 上下文窗口与交接页
 
@@ -205,34 +205,34 @@ Main 与子代理共用五级上下文管理。前三级不调用模型；换窗
 以下导出不需要模型连接：
 
 ```sh
-coworkos session export <session-id-or-path> --format json --output audit.json
-coworkos session export <session-id-or-path> --format html --output conversation.html
+formicand session export <session-id-or-path> --format json --output audit.json
+formicand session export <session-id-or-path> --format html --output conversation.html
 # 兼容旧的离线 HTML 导出入口。
-coworkos --export /path/to/session.jsonl conversation.html
+formicand --export /path/to/session.jsonl conversation.html
 ```
 
-会话参数可为完整 ID、唯一前缀或路径。默认不覆盖已有文件；`--force` 也不能覆盖源会话或其链接。导出校验分支引用，失败时保留源文件和已有导出。JSON 包含所有分支，HTML 可独立打开且不含脚本或外部资源。格式见[会话导出](task-workspace-layout.md#coworkos-会话导出格式)。
+会话参数可为完整 ID、唯一前缀或路径。默认不覆盖已有文件；`--force` 也不能覆盖源会话或其链接。导出校验分支引用，失败时保留源文件和已有导出。JSON 包含所有分支，HTML 可独立打开且不含脚本或外部资源。格式见[会话导出](task-workspace-layout.md#formicand-会话导出格式)。
 
-交互终端支持 `/export [json|html] [文件路径]`、`/share [文件路径]` 和 `/bug [描述]`。分享副本和反馈报告只存本机，不自动上传；`/help` 查看命令，`/changelog` 查看更新记录。诊断可用 `/coworkos-debug`、`ATRIA_DEBUG=1 coworkos` 和 `Ctrl+O`。
+交互终端支持 `/export [json|html] [文件路径]`、`/share [文件路径]` 和 `/bug [描述]`。分享副本和反馈报告只存本机，不自动上传；`/help` 查看命令，`/changelog` 查看更新记录。诊断可用 `/formicand-debug`、`FORMICAND_DEBUG=1 formicand` 和 `Ctrl+O`。
 
 模型请求归档与私有重试快照分别保存。归档里每次请求只写比之前多出来的内容：对话只记新增的条目，并附上沿用前一条请求的条数和校验值；系统提示词、工具定义和请求里其他没变的字段不重写。压缩改写了历史、接不上时整条重写。按 `parseModelRequestArchive` 读取即可逐字还原每次实际发送的请求；链断开或校验不符时报错，不猜测。Pi 自己那份上下文副本只留在重试快照里。归档包含用户内容、工具结果和模型响应，虽不写认证 headers，仍应按私有数据保护。用量只代表服务实际报告的字段，缺失值不能当作零或据此证明上游缓存状态。路径、格式与保留范围统一见[数据布局](task-workspace-layout.md)。
 
 ## Task、Worker 与人工问题
 
-安装包可将 `npm run cli --` 换成 `coworkos`。以下示例使用独立开发工作区：
+安装包可将 `npm run cli --` 换成 `formicand`。以下示例使用独立开发工作区：
 
 ```sh
-npm run cli -- task cancel <task-id> --workspace /tmp/atria-dev
-npm run cli -- task resume <task-id> --workspace /tmp/atria-dev
+npm run cli -- task cancel <task-id> --workspace /tmp/formicand-dev
+npm run cli -- task resume <task-id> --workspace /tmp/formicand-dev
 ```
 
-`coworkos start` 这类没有本地服务的 Run 由启动器装配自己的子代理后端；不需要单独 `single` 命令或进程内会话入口。
+`formicand start` 这类没有本地服务的 Run 由启动器装配自己的子代理后端；不需要单独 `single` 命令或进程内会话入口。
 
 Main 等待人工回答时，可离线列出并回答持久问题：
 
 ```sh
-npm run cli -- human list --workspace /tmp/atria-dev --task <task-id> --status pending
-npm run cli -- human reply --workspace /tmp/atria-dev --task <task-id> --request <request-id> --answer "确认后的答案"
+npm run cli -- human list --workspace /tmp/formicand-dev --task <task-id> --status pending
+npm run cli -- human reply --workspace /tmp/formicand-dev --task <task-id> --request <request-id> --answer "确认后的答案"
 ```
 
 已接受的回答只消费一次。人工回复草稿按任务和问题保存，提交失败或切换会话时保留。等待结束与后台回调共用持久投递机制；只读状态查询不消费回调结果。
@@ -241,12 +241,12 @@ npm run cli -- human reply --workspace /tmp/atria-dev --task <task-id> --request
 
 ```sh
 # 恢复子智能体队列，检查一次。
-npm run cli -- worker --workspace /tmp/atria-dev --task <task-id> --run <run-id> --once
+npm run cli -- worker --workspace /tmp/formicand-dev --task <task-id> --run <run-id> --once
 # 恢复 Main Inbox。
-npm run main-worker -- --workspace /tmp/atria-dev --task <task-id> --once true
+npm run main-worker -- --workspace /tmp/formicand-dev --task <task-id> --once true
 # 默认只报告；--spawn true 才启动模型进程。
-npm run cli -- main-supervisor --workspace /tmp/atria-dev
-npm run cli -- main-supervisor --workspace /tmp/atria-dev --spawn true
+npm run cli -- main-supervisor --workspace /tmp/formicand-dev
+npm run cli -- main-supervisor --workspace /tmp/formicand-dev --spawn true
 ```
 
 Task/Worker 命令在执行前验证选项。以 `-` 开头的任务或回答文本放在 `--` 后。帮助和版本查询不启动后台进程。
@@ -255,7 +255,7 @@ Task/Worker 命令在执行前验证选项。以 `-` 开头的任务或回答文
 
 `sleep_until(reason, wakeInSeconds)` 把当前 Task 记为等待：Task 跨进程重启保持打开，到期后由 Main 守护把一条持久 Inbox 唤醒消息写入 Task 当前活动 Run 的收件箱，并在写入后清除停泊记录。停泊后 Task 可能已经换了 Run，只有当前 Run 的 Main 会读取收件箱，所以唤醒不写回停泊时那个 Run。`wakeInSeconds` 最小 60 秒；没有到期时间的停泊会被拒绝，因为已经没有别的调度器能唤醒它。结束一轮不等于停泊：没有停泊记录且没有未了结工作的 Task 按完成处理。
 
-`COWORK_DISABLE_MAIN_GUARDIAN=1` 关闭守护；`COWORK_MAIN_GUARDIAN_INTERVAL_MS` 默认为 60000。守护只读取 Task、Inbox、人工问题和停泊记录；有未消费回调、没有存活 Main、且没有等待人回答的 Task 会被重新拉起。
+`FORMICAND_DISABLE_MAIN_GUARDIAN=1` 关闭守护；`FORMICAND_MAIN_GUARDIAN_INTERVAL_MS` 默认为 60000。守护只读取 Task、Inbox、人工问题和停泊记录；有未消费回调、没有存活 Main、且没有等待人回答的 Task 会被重新拉起。
 
 ## 通用工具接口
 

@@ -136,7 +136,7 @@ test("the work tree marks running sessions, nests Subagents with their time, mar
   assert.match(first.$('[data-project="a"]').getAttribute("class"), /collapsed/);
   assert.equal(first.$(".project-count").textContent, "2");
   assert.ok(first.$(".project-question"));
-  assert.deepEqual(JSON.parse(records.get("atria.collapsed-projects.v1")), ["a"]);
+  assert.deepEqual(JSON.parse(records.get("formicand.collapsed-projects.v1")), ["a"]);
 
   const reloaded = fixture(t, records);
   reloaded.controller.accept({ projects: [project("a", [main, waiting])], tasks: [main, waiting] });
@@ -237,7 +237,7 @@ test("projects show latest 5 unpinned conversations, paginate by 5, hide arrows 
   // Collapsing pinned section persists and toggles class.
   pinnedSection.querySelector("[data-pinned-toggle]").click();
   assert.match(f.$("#pinned-section").getAttribute("class"), /collapsed/);
-  assert.equal(records.get("atria.collapsed-pinned.v1"), "1");
+  assert.equal(records.get("formicand.collapsed-pinned.v1"), "1");
 
   // Project defaults to latest 5 unpinned conversations (t-12 down to t-8).
   const visibleIds = () =>

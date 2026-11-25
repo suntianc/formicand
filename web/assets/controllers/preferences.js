@@ -1,8 +1,8 @@
 // Applies the two accessibility/format preferences before the first paint, then
 // owns their changes. A page that never opens settings still reads them here.
 (() => {
-  const motionKey = "atria.reduced-motion";
-  const formatKey = "atria.time-format";
+  const motionKey = "formicand.reduced-motion";
+  const formatKey = "formicand.time-format";
   const motionValues = ["system", "on", "off"];
   const formatValues = ["relative", "absolute"];
   const listeners = new Set();
@@ -44,7 +44,7 @@
   }
 
   paint();
-  window.atriaPreferences = {
+  window.formicandPreferences = {
     motion: () => motion,
     format: () => format,
     setMotion(value) {
@@ -79,11 +79,11 @@
     () => {
       for (const button of document.querySelectorAll("[data-reduced-motion-value]"))
         button.addEventListener("click", () =>
-          window.atriaPreferences.setMotion(button.dataset.reducedMotionValue)
+          window.formicandPreferences.setMotion(button.dataset.reducedMotionValue)
         );
       for (const button of document.querySelectorAll("[data-time-format-value]"))
         button.addEventListener("click", () =>
-          window.atriaPreferences.setFormat(button.dataset.timeFormatValue)
+          window.formicandPreferences.setFormat(button.dataset.timeFormatValue)
         );
       paint();
     },

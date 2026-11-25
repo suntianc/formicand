@@ -13,32 +13,32 @@ test("desktop draft migration, switching and recovery survive restart", async ()
   const otherHome = join(root, "other-backend");
   const inherited = Object.fromEntries(
     Object.entries(process.env).filter(
-      ([name]) => !/^(?:COWORK_|ATRIA_|PI_|ELECTRON_|NODE_OPTIONS$)/.test(name)
+      ([name]) => !/^(?:FORMICAND_|FORMICAND_|PI_|ELECTRON_|NODE_OPTIONS$)/.test(name)
     )
   );
   const env = {
     ...inherited,
     HOME: join(root, "user-home"),
-    COWORK_DESKTOP_DATA: profile,
+    FORMICAND_DESKTOP_DATA: profile,
     PI_OFFLINE: "1",
     PI_TELEMETRY: "0",
-    COWORK_DISABLE_MAIN_GUARDIAN: "1"
+    FORMICAND_DISABLE_MAIN_GUARDIAN: "1"
   };
   const otherEnv = {
     ...inherited,
     HOME: env.HOME,
-    ATRIA_HOME: otherHome,
+    FORMICAND_HOME: otherHome,
     PI_CODING_AGENT_DIR: join(root, "other-pi"),
     PI_OFFLINE: "1",
     PI_TELEMETRY: "0",
-    COWORK_HARNESS_ROOT: resolve("."),
-    COWORK_WORKSPACE: join(root, "other-workspace"),
-    COWORK_CONFIG: join(root, "other-config.json"),
-    COWORK_DISABLE_MAIN_GUARDIAN: "1"
+    FORMICAND_HARNESS_ROOT: resolve("."),
+    FORMICAND_WORKSPACE: join(root, "other-workspace"),
+    FORMICAND_CONFIG: join(root, "other-config.json"),
+    FORMICAND_DISABLE_MAIN_GUARDIAN: "1"
   };
   await mkdir(env.HOME, { recursive: true });
-  await mkdir(otherEnv.COWORK_WORKSPACE, { recursive: true });
-  await writeFile(otherEnv.COWORK_CONFIG, "{}");
+  await mkdir(otherEnv.FORMICAND_WORKSPACE, { recursive: true });
+  await writeFile(otherEnv.FORMICAND_CONFIG, "{}");
   const { startBackend, stopBackend } = await import("../dist/src/cli/backend.js");
   const started = await startBackend(otherEnv, resolve("."), process.execPath);
   const other = JSON.parse(await readFile(join(otherHome, "runtime/backend-instance.json"), "utf8"));
@@ -113,7 +113,7 @@ test("desktop draft migration, switching and recovery survive restart", async ()
     const migration = await page.evaluate(async () => {
       const { createComposerSession } = await import("/assets/controllers/composer-session.js");
       let fail = false;
-      const target = "atria.composer.v1:native-probe-a:new:p1";
+      const target = "formicand.composer.v1:native-probe-a:new:p1";
       const storage = {
         get length() {
           return localStorage.length;
@@ -135,7 +135,7 @@ test("desktop draft migration, switching and recovery survive restart", async ()
         setAttachments: (next) => {
           attachments = next;
         },
-        onPersist: () => window.bookmanDesktop.saveComposerDrafts()
+        onPersist: () => window.formicandDesktop.saveComposerDrafts()
       });
       session.setBackend("native-probe-a");
       session.activate(null);
@@ -145,7 +145,7 @@ test("desktop draft migration, switching and recovery survive restart", async ()
       fail = true;
       session.activate(null, { projectId: "p1" });
       const beforeRecovery = {
-        source: JSON.parse(localStorage.getItem("atria.composer.v1:native-probe-a:new")),
+        source: JSON.parse(localStorage.getItem("formicand.composer.v1:native-probe-a:new")),
         destination: localStorage.getItem(target)
       };
       session.setBackend("native-probe-b");
@@ -164,7 +164,7 @@ test("desktop draft migration, switching and recovery survive restart", async ()
         recovered,
         restored,
         deleted,
-        source: localStorage.getItem("atria.composer.v1:native-probe-a:new"),
+        source: localStorage.getItem("formicand.composer.v1:native-probe-a:new"),
         destination: localStorage.getItem(target)
       };
     });
@@ -236,7 +236,7 @@ test("desktop draft migration, switching and recovery survive restart", async ()
       console.log(
         JSON.stringify({
           event: "primary-stop",
-          ...(await stopBackend({ ...env, ATRIA_HOME: profile }, primary)),
+          ...(await stopBackend({ ...env, FORMICAND_HOME: profile }, primary)),
           pid: primary.pid
         })
       );

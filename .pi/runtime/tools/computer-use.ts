@@ -16,7 +16,7 @@ class ComputerRequestError extends Error {
 
 /** Tools consume human desktop policy or a legacy window grant; none can expand or resume policy. */
 export function registerComputerTools(pi: ExtensionAPI, taskId: string, taskDirectory?: string) {
-  const base = process.env.COWORK_DASHBOARD_URL;
+  const base = process.env.FORMICAND_DASHBOARD_URL;
   if (!base) return;
   const archivedFeedback = taskDirectory ? createVisualFeedback(taskDirectory) : undefined;
   const path = `/api/tasks/${encodeURIComponent(taskId)}/computer`;
@@ -29,7 +29,7 @@ export function registerComputerTools(pi: ExtensionAPI, taskId: string, taskDire
         signal,
         headers: {
           "content-type": "application/json",
-          ...(process.env.COWORK_API_TOKEN ? { "x-atria-token": process.env.COWORK_API_TOKEN } : {})
+          ...(process.env.FORMICAND_API_TOKEN ? { "x-formicand-token": process.env.FORMICAND_API_TOKEN } : {})
         },
         ...(body === undefined ? {} : { body: JSON.stringify(body) })
       });

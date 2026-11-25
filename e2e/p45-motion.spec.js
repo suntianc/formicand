@@ -132,7 +132,7 @@ test("selected backgrounds glide between options and the sidebar eases open and 
 for (const source of ["system", "setting"])
   test(`reduced motion (${source}) moves selections and the sidebar at once`, async ({ page }) => {
     if (source === "system") await page.emulateMedia({ reducedMotion: "reduce" });
-    else await page.addInitScript(() => localStorage.setItem("atria.reduced-motion", "on"));
+    else await page.addInitScript(() => localStorage.setItem("formicand.reduced-motion", "on"));
     const dashboard = await startDashboard();
     try {
       await page.setViewportSize({ width: 1440, height: 900 });

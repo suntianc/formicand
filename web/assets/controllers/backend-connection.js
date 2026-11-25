@@ -37,7 +37,7 @@ export function createBackendConnection({ management, settingsHost, showToast, o
     host: settingsHost,
     returnFocus: () => row.querySelector("[data-backend-open]").focus()
   });
-  const desktopBackend = window.bookmanDesktop?.backend;
+  const desktopBackend = window.formicandDesktop?.backend;
   if (desktopBackend) {
     form.querySelector("[data-backend-choose]").hidden = false;
     form.querySelector("[data-backend-page]").hidden = true;

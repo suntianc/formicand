@@ -1,9 +1,9 @@
 // Runs before styles for the first paint, then attaches only the settings control.
 (() => {
-  const key = "atria.appearance";
-  const materialKey = "atria.window-material";
-  const host = window.bookmanDesktop?.appearance;
-  const windowMaterial = window.bookmanDesktop?.windowMaterial?.material;
+  const key = "formicand.appearance";
+  const materialKey = "formicand.window-material";
+  const host = window.formicandDesktop?.appearance;
+  const windowMaterial = window.formicandDesktop?.windowMaterial?.material;
   const media = window.matchMedia("(prefers-color-scheme: dark)");
   const valid = (value) => ["system", "light", "dark"].includes(value);
   const validTheme = (value) => ["light", "dark"].includes(value);
@@ -56,7 +56,7 @@
       meta.removeAttribute("media");
       meta.content = effective === "dark" ? "#0b0b0c" : "#f2f2f4";
     });
-    window.dispatchEvent(new CustomEvent("atria:appearance", { detail: { preference, effective } }));
+    window.dispatchEvent(new CustomEvent("formicand:appearance", { detail: { preference, effective } }));
   }
   paint();
   host?.onChange((value) => {
@@ -114,8 +114,8 @@
       pending--;
     }
   }
-  window.atriaAppearance = { preference: () => preference, set: (next) => void choose(next) };
-  window.atriaWindowMaterial = {
+  window.formicandAppearance = { preference: () => preference, set: (next) => void choose(next) };
+  window.formicandWindowMaterial = {
     available: () => materialAvailable,
     enabled: () => materialAvailable && materialPreference === "on",
     set(value) {
@@ -140,7 +140,7 @@
       document
         .querySelector("#window-material-toggle")
         ?.addEventListener("click", () =>
-          window.atriaWindowMaterial.set(!window.atriaWindowMaterial.enabled())
+          window.formicandWindowMaterial.set(!window.formicandWindowMaterial.enabled())
         );
     },
     { once: true }

@@ -1,8 +1,8 @@
 /** Signing is explicit; signing/notarization and installation still have separate release gates. */
 const signingConfigured = Boolean(process.env.CSC_NAME?.trim());
 module.exports = {
-  appId: "org.atria.cowork",
-  productName: "CoworkOS",
+  appId: "io.github.suntianc.formicand",
+  productName: "Formicand",
   directories: { output: ".tmp/release" },
   extraMetadata: { main: "desktop/main.cjs" },
   // Pi loads TypeScript extensions and spawns scripts by real path.
@@ -17,8 +17,8 @@ module.exports = {
     "!dist/src/tools/science-tools.*",
     "!dist/src/runtime/science-*",
     "!dist/src/dashboard/science-settings*",
-    "!dist/src/gui/atria-speech-input",
-    "!dist/src/gui/atria-speech-input.sha256",
+    "!dist/src/gui/formicand-speech-input",
+    "!dist/src/gui/formicand-speech-input.sha256",
     "dist/cli-ui-manifest.json",
     "dist/scripts/data-home.cjs",
     "dist/web/assets/agent-names.js",
@@ -69,7 +69,7 @@ module.exports = {
     }
   ],
   mac: {
-    icon: "build/atria.icns",
+    icon: "build/formicand.icns",
     minimumSystemVersion: "14.0",
     target: [{ target: "dmg", arch: ["arm64"] }],
     category: "public.app-category.productivity",
@@ -83,12 +83,12 @@ module.exports = {
     ...(signingConfigured ? {} : { identity: null })
   },
   dmg: {
-    title: "CoworkOS 内测版",
+    title: "Formicand 内测版",
     contents: [
       { x: 150, y: 180 },
       { x: 430, y: 180, type: "link", path: "/Applications" }
     ]
   },
-  artifactName: "CoworkOS-${version}-mac-${arch}.${ext}",
+  artifactName: "Formicand-${version}-mac-${arch}.${ext}",
   publish: null
 };

@@ -92,13 +92,13 @@ test("a mid-run instruction separates earlier activity from the continuing respo
   };
   const delivered = {
     role: "custom",
-    customType: "cowork-user-message",
+    customType: "formicand-user-message",
     content: "用户在你工作期间补充了一句话：你现在再试试",
     timestamp: 3,
     details: {
       message: instruction.content,
       delivery: "steer",
-      _coworkInbox: { messageId: instruction.id }
+      _formicandInbox: { messageId: instruction.id }
     }
   };
   state.detail.runtimeEvents.push(
@@ -178,10 +178,10 @@ test("a settled multi-interjection round collapses into one L0 fold above stacke
   };
   const deliver = (msg) => ({
     role: "custom",
-    customType: "cowork-user-message",
+    customType: "formicand-user-message",
     content: `用户在你工作期间补充了一句话：${msg.content}`,
     timestamp: msg.timestamp,
-    details: { message: msg.content, delivery: "steer", _coworkInbox: { messageId: msg.id } }
+    details: { message: msg.content, delivery: "steer", _formicandInbox: { messageId: msg.id } }
   });
   const answer = {
     role: "assistant",
@@ -1500,7 +1500,7 @@ test("upload filenames and thumbnails render without exposing prompt metadata or
   const id = "upload-00000000-0000-0000-0000-000000000000";
   const source =
     "用户原话" +
-    "\n\n<atria_uploaded_files>\n" +
+    "\n\n<formicand_uploaded_files>\n" +
     JSON.stringify({
       version: 1,
       files: [
@@ -1512,7 +1512,7 @@ test("upload filenames and thumbnails render without exposing prompt metadata or
         }
       ]
     }) +
-    "\n</atria_uploaded_files>";
+    "\n</formicand_uploaded_files>";
   state.detail.runtimeEvents = [];
   render([{ role: "user", content: source, timestamp: 1 }]);
   const attachments = document.querySelector(".message-attachments");
@@ -1528,7 +1528,7 @@ test("upload filenames and thumbnails render without exposing prompt metadata or
   );
   assert.doesNotMatch(
     document.querySelector("#conversation").textContent,
-    /atria_uploaded_files|private\/inputs/
+    /formicand_uploaded_files|private\/inputs/
   );
 });
 
@@ -2245,10 +2245,10 @@ test("multi-input settled round does not skip structural fingerprint when lifecy
   };
   const deliver = {
     role: "custom",
-    customType: "cowork-user-message",
+    customType: "formicand-user-message",
     content: "用户在你工作期间补充了一句话：补充一下",
     timestamp: 3,
-    details: { message: "补充一下", delivery: "steer", _coworkInbox: { messageId: "steer-cache" } }
+    details: { message: "补充一下", delivery: "steer", _formicandInbox: { messageId: "steer-cache" } }
   };
   const final1 = {
     role: "assistant",

@@ -4,7 +4,7 @@ import { basename, dirname, join, resolve } from "node:path";
 import { SessionManager, SettingsManager } from "@earendil-works/pi-coding-agent";
 import { LocalWorkspaceStore } from "../dist/src/workspace/workspace-store.js";
 
-export const CLI_TASK_ENTRY = "atria-cli-task";
+export const CLI_TASK_ENTRY = "formicand-cli-task";
 
 export async function canonical(path) {
   const candidate = resolve(path);
@@ -123,7 +123,7 @@ export async function resolveCliSession({
   const explicitDirectory =
     optionValue(options, "--session-dir") ??
     env.PI_CODING_AGENT_SESSION_DIR ??
-    env.ATRIA_CODING_AGENT_SESSION_DIR ??
+    env.FORMICAND_CODING_AGENT_SESSION_DIR ??
     SettingsManager.create(project, agentDir, { projectTrusted: false }).getSessionDir();
   // Pi's documented project-local profile layout; pass it explicitly to both discovery and launch.
   const sessionDirectory = explicitDirectory

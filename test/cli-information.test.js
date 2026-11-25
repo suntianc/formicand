@@ -48,11 +48,11 @@ test("information scanning preserves SDK values, boundaries and extension execut
 });
 
 test("public root, start, npm and thin version queries work without SDK/dist/config or writable profile", async (t) => {
-  const root = await mkdtemp(join(tmpdir(), "atria-info-only-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-info-only-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   await mkdir(join(root, "scripts"));
   for (const file of [
-    "atria.mjs",
+    "formicand.mjs",
     "cli-information.mjs",
     "cli-startup-error.mjs",
     "data-home.cjs",
@@ -62,36 +62,36 @@ test("public root, start, npm and thin version queries work without SDK/dist/con
   await writeFile(
     join(root, "package.json"),
     JSON.stringify({
-      name: "atria-fixture",
+      name: "formicand-fixture",
       type: "module",
       version: "0.1.2-test",
-      scripts: { start: "node scripts/atria.mjs start" }
+      scripts: { start: "node scripts/formicand.mjs start" }
     })
   );
   const config = join(root, "config.json");
   await writeFile(config, "invalid configuration containing fixture-private-key");
   const env = {
     ...Object.fromEntries(
-      Object.entries(process.env).filter(([key]) => !/^(COWORK_|PI_|ATRIA_|NODE_OPTIONS)/.test(key))
+      Object.entries(process.env).filter(([key]) => !/^(FORMICAND_|PI_|FORMICAND_|NODE_OPTIONS)/.test(key))
     ),
     HOME: join(root, "home"),
-    ATRIA_HOME: join(root, "uncreated-home"),
-    COWORK_CONFIG: config,
-    COWORK_HARNESS_ROOT: root,
-    COWORK_API_KEY: "fixture-private-key"
+    FORMICAND_HOME: join(root, "uncreated-home"),
+    FORMICAND_CONFIG: config,
+    FORMICAND_HARNESS_ROOT: root,
+    FORMICAND_API_KEY: "fixture-private-key"
   };
   const run = (entry, args) =>
     exec(process.execPath, [join(root, "scripts", entry), ...args], { cwd: root, env, timeout: 10000 });
   for (const args of [["--version"], ["-v"], ["start", "--version"], ["start", "-v"]])
-    assert.equal((await run("atria.mjs", args)).stdout.trim(), "CoworkOS 0.1.2-test");
+    assert.equal((await run("formicand.mjs", args)).stdout.trim(), "Formicand 0.1.2-test");
   for (const args of [["--version"], ["-v"]])
-    assert.equal((await run("start-pi.mjs", args)).stdout.trim(), "CoworkOS 0.1.2-test");
+    assert.equal((await run("start-pi.mjs", args)).stdout.trim(), "Formicand 0.1.2-test");
   for (const args of [
     ["--version", "--help"],
     ["-v", "extra"]
   ])
     await assert.rejects(
-      run("atria.mjs", args),
+      run("formicand.mjs", args),
       (error) => error.code === 1 && /does not accept options/.test(error.stderr)
     );
   for (const args of [
@@ -99,17 +99,17 @@ test("public root, start, npm and thin version queries work without SDK/dist/con
     ["start", "--help", "--version"],
     ["--help", "--version"]
   ])
-    assert.match((await run("atria.mjs", args)).stdout, /CoworkOS — local/);
+    assert.match((await run("formicand.mjs", args)).stdout, /Formicand — local/);
   // The in-process single-agent entry no longer exists, so help must not list it.
-  assert.doesNotMatch((await run("atria.mjs", ["--help"])).stdout, /coworkos single/);
+  assert.doesNotMatch((await run("formicand.mjs", ["--help"])).stdout, /formicand single/);
   assert.deepEqual((await readdir(root)).sort(), ["config.json", "package.json", "scripts"]);
   const npm = await exec(process.platform === "win32" ? "npm.cmd" : "npm", ["start", "--", "--version"], {
     cwd: root,
     env: { ...env, npm_config_cache: join(root, "npm-cache"), npm_config_update_notifier: "false" },
     timeout: 15000
   });
-  assert.match(npm.stdout, /CoworkOS 0\.1\.2-test/);
+  assert.match(npm.stdout, /Formicand 0\.1\.2-test/);
   assert.equal(await readFile(config, "utf8"), "invalid configuration containing fixture-private-key");
-  // npm may create its own cache; the CoworkOS profile must still be untouched.
-  await assert.rejects(readdir(env.ATRIA_HOME), { code: "ENOENT" });
+  // npm may create its own cache; the Formicand profile must still be untouched.
+  await assert.rejects(readdir(env.FORMICAND_HOME), { code: "ENOENT" });
 });

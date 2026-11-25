@@ -37,7 +37,7 @@ function mainTrace({ startMs, spanMs, everyMs, text = "step" }) {
 }
 
 async function runFixture(t, { startedMs, output }) {
-  const root = await mkdtemp(join(tmpdir(), "atria-activity-bounds-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-activity-bounds-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const storage = join(root, "workspace");
   const projectDirectory = join(root, "project");
@@ -285,7 +285,7 @@ test(
  * retained memory from garbage.
  */
 test("a record past the line budget is dropped instead of buffered", { timeout: 180_000 }, async (t) => {
-  const root = await mkdtemp(join(tmpdir(), "atria-activity-huge-line-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-activity-huge-line-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const moduleUrl = JSON.stringify(new URL("../dist/src/runtime/activity-metrics.js", import.meta.url).href);
   const child = spawn(
@@ -299,7 +299,7 @@ test("a record past the line budget is dropped instead of buffered", { timeout: 
         import { tmpdir } from "node:os";
         import { dirname, join } from "node:path";
         import { readTaskActivity } from ${moduleUrl};
-        const storage = await mkdtemp(join(tmpdir(), "atria-activity-huge-workspace-"));
+        const storage = await mkdtemp(join(tmpdir(), "formicand-activity-huge-workspace-"));
         const runRoot = join(storage, "task", "runs", "run");
         await mkdir(runRoot, { recursive: true });
         const now = Date.now();
@@ -381,7 +381,7 @@ test("a record past the line budget is dropped instead of buffered", { timeout: 
  * slice (plus one when the stage itself changes).
  */
 test("continuous output publishes at most one catalog change per slice", { timeout: 180_000 }, async (t) => {
-  const root = await mkdtemp(join(tmpdir(), "atria-activity-cadence-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-activity-cadence-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const storage = join(root, "workspace");
   const store = new LocalWorkspaceStore(storage);

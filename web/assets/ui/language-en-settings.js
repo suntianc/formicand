@@ -108,7 +108,7 @@ export default {
   讯飞星火: "iFlytek Spark",
   "正在读取模型列表…": "Reading the model list…",
   " 个模型。": " models.",
-  本产品: "CoworkOS",
+  本产品: "Formicand",
   自带: "Bundled",
   技能: "Skills",
   全局: "Global",
@@ -128,8 +128,8 @@ export default {
   尚未决定是否信任: "Not decided yet",
   信任此项目: "Trust this project",
   先添加一个项目: "Add a project first",
-  "信任这个项目后，才会读取它的 .atria/skills 和 .agents/skills":
-    "Its .atria/skills and .agents/skills are read only after you trust this project",
+  "信任这个项目后，才会读取它的 .formicand/skills 和 .agents/skills":
+    "Its .formicand/skills and .agents/skills are read only after you trust this project",
   没有从索引移除的技能: "No skills removed from the index",
   没有匹配的技能: "No matching skills",
   还没有技能: "No skills yet",
@@ -174,10 +174,10 @@ export default {
   勾选要安装的: "Tick the ones to install",
   "支持子目录，如 …/tree/main/skills": "A subfolder works too, e.g. …/tree/main/skills",
   "可以是一个技能，或装着多个技能的文件夹": "One skill, or a folder holding several",
-  "安装到此项目的 .atria/skills/，跟着项目走。":
-    "Installs into this project's .atria/skills/ and travels with the project.",
-  "安装到 ~/.atria/skills/，只给本产品用；不会写入通用目录 ~/.agents/skills/。":
-    "Installs into ~/.atria/skills/ for this product only; nothing is written to the shared ~/.agents/skills/.",
+  "安装到此项目的 .formicand/skills/，跟着项目走。":
+    "Installs into this project's .formicand/skills/ and travels with the project.",
+  "安装到 ~/.formicand/skills/，只给本产品用；不会写入通用目录 ~/.agents/skills/。":
+    "Installs into ~/.formicand/skills/ for this product only; nothing is written to the shared ~/.agents/skills/.",
   安装: "Install",
   添加技能到此项目: "Add skills to this project",
   "请选择一个 zip 文件": "Choose a zip file",
@@ -204,8 +204,8 @@ export default {
   "连接失败 ·": "Connection failed ·",
   配置有误: "Invalid configuration",
   "正在检查…": "Checking…",
-  "保存在 ~/.atria/mcp.json，所有项目共用；每个 Agent 再单独选用":
-    "Saved in ~/.atria/mcp.json and shared by all projects; each Agent picks its own",
+  "保存在 ~/.formicand/mcp.json，所有项目共用；每个 Agent 再单独选用":
+    "Saved in ~/.formicand/mcp.json and shared by all projects; each Agent picks its own",
   "粘贴 JSON 导入": "Import JSON",
   搜索服务或工具: "Search servers or tools",
   状态: "Status",
@@ -284,10 +284,10 @@ export default {
   "MCP 资源": "MCP resources",
   "菜单加载失败：": "Menu failed to load: ",
   "MCP 资源读取失败：": "MCP resources failed to load: ",
-  "项目 Agent 存在 .atria/agents/，跟着项目走；同名时覆盖全局":
-    "Project Agents live in .atria/agents/ and travel with the project; they replace global ones of the same name",
-  "项目技能存在 .atria/skills/ 和 .agents/skills/，跟着项目走；同名时覆盖全局":
-    "Project skills live in .atria/skills/ and .agents/skills/ and travel with the project; they replace global ones of the same name",
+  "项目 Agent 存在 .formicand/agents/，跟着项目走；同名时覆盖全局":
+    "Project Agents live in .formicand/agents/ and travel with the project; they replace global ones of the same name",
+  "项目技能存在 .formicand/skills/ 和 .agents/skills/，跟着项目走；同名时覆盖全局":
+    "Project skills live in .formicand/skills/ and .agents/skills/ and travel with the project; they replace global ones of the same name",
   "Main 按「使用说明」决定派给谁；同名时项目覆盖全局":
     "Main picks an Agent by its usage note; a project Agent replaces a global one of the same name",
   "新建 Agent": "New Agent",
@@ -303,7 +303,8 @@ export default {
   "可写 · 实现与验证": "Writable · Implement and verify",
   全部技能: "All skills",
   已信任此项目: "This project is trusted",
-  "信任这个项目后，才会读取它的 .atria/agents": "Its .atria/agents is read only after you trust this project",
+  "信任这个项目后，才会读取它的 .formicand/agents":
+    "Its .formicand/agents is read only after you trust this project",
   "没有匹配的 Agent": "No matching Agents",
   "还没有 Agent": "No Agents yet",
   引用失效: "Broken reference",

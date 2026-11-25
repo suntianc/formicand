@@ -3,7 +3,7 @@ import { openAICompletionsApi } from "@earendil-works/pi-ai/api/openai-completio
 import { openAIResponsesApi } from "@earendil-works/pi-ai/api/openai-responses.lazy";
 import { anthropicMessagesApi } from "@earendil-works/pi-ai/api/anthropic-messages.lazy";
 import { withModelCache } from "./model-cache.js";
-import type { CoworkModelApi, PiThinkingLevel } from "./runtime-settings.js";
+import type { FormicandModelApi, PiThinkingLevel } from "./runtime-settings.js";
 
 /** Use the same capability clamping as the Pi coding-agent Main session. */
 export function modelThinkingLevel(model: Model<Api>, level: PiThinkingLevel): PiThinkingLevel {
@@ -12,7 +12,7 @@ export function modelThinkingLevel(model: Model<Api>, level: PiThinkingLevel): P
 
 /** Shared serialization policy for probes, Main and delegated sessions. */
 export function createModelStreams(
-  api: CoworkModelApi,
+  api: FormicandModelApi,
   cache: { supportsPromptCacheKey: boolean; sessionId?: string } = { supportsPromptCacheKey: false }
 ): ProviderStreams {
   // Cache keys and usage counters are OpenAI wire fields; Anthropic requests go to Pi unchanged.

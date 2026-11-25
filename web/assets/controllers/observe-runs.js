@@ -441,7 +441,7 @@ export function createObserveRuns({
   }
 
   function reducedMotion() {
-    const preference = globalThis.window?.atriaPreferences?.motion?.();
+    const preference = globalThis.window?.formicandPreferences?.motion?.();
     if (preference === "on") return true;
     if (preference === "off") return false;
     return Boolean(globalThis.window?.matchMedia?.("(prefers-reduced-motion: reduce)").matches);
@@ -567,7 +567,7 @@ export function createObserveRuns({
   const media = globalThis.window?.matchMedia?.("(prefers-reduced-motion: reduce)");
   const onMedia = () => applyMotion();
   media?.addEventListener?.("change", onMedia);
-  const stopPreferences = globalThis.window?.atriaPreferences?.onChange?.(() => applyMotion());
+  const stopPreferences = globalThis.window?.formicandPreferences?.onChange?.(() => applyMotion());
 
   buildHeader();
   motion = reducedMotion();

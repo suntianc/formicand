@@ -10,7 +10,7 @@ import { LocalWorkspaceStore } from "../dist/src/workspace/workspace-store.js";
 import { withFileLock } from "../dist/src/storage/file-lock.js";
 
 async function fixture(t) {
-  const root = await mkdtemp(join(tmpdir(), "atria-project-crash-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-project-crash-"));
   const storageRoot = join(root, "workspace"),
     first = join(root, "first"),
     second = join(root, "second");

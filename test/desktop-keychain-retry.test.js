@@ -11,7 +11,7 @@ const { createRetryableStorage } = require("../desktop/retryable-storage.cjs");
 // A real pipe/process fixture models OSCrypt's process-local failure cache.
 // It does not claim to exercise macOS authorization.
 async function fixture(t, mode = "recover", timeout = 5000) {
-  const root = await mkdtemp(join(tmpdir(), "atria-keychain-retry-test-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-keychain-retry-test-"));
   const script = join(root, "worker.cjs");
   const counter = join(root, "attempts");
   await writeFile(
@@ -32,10 +32,10 @@ lines.on('line',line=>{
  if(r.operation==='encrypt')value=Buffer.from('encrypted:'+r.value).toString('base64');
  if(r.operation==='decrypt'){
    const raw=Buffer.from(r.value,'base64').toString();
-   if(!raw.startsWith('encrypted:')){process.stdout.write('atria-keychain:'+JSON.stringify({id:r.id,ok:false})+'\\n');return;}
+   if(!raw.startsWith('encrypted:')){process.stdout.write('formicand-keychain:'+JSON.stringify({id:r.id,ok:false})+'\\n');return;}
    value=raw.slice(10);
  }
- process.stdout.write('atria-keychain:'+JSON.stringify({id:r.id,ok:true,value})+'\\n');
+ process.stdout.write('formicand-keychain:'+JSON.stringify({id:r.id,ok:true,value})+'\\n');
 });`
   );
   const storage = createRetryableStorage({ executable: process.execPath, args: [script], timeout });

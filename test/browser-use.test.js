@@ -11,7 +11,7 @@ import { browserFixture, browserTestOptions } from "./browser-fixture.mjs";
 
 const role = (name, role = "button") => ({ kind: "role", role, name });
 async function setup(t, options = {}) {
-  const root = await mkdtemp(join(tmpdir(), "atria-browser-use-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-browser-use-"));
   const fixture = await browserFixture();
   const controller = new BrowserUse({
     taskDirectory: root,
@@ -44,7 +44,7 @@ test(
     const pageId = observed.pageId;
     const filling = controller.execute("browser_act", {
       pageId,
-      action: { type: "fill", target: { kind: "label", text: "Name" }, value: "CoworkOS 中文" }
+      action: { type: "fill", target: { kind: "label", text: "Name" }, value: "Formicand 中文" }
     });
     const saving = controller.execute("browser_act", {
       pageId,
@@ -54,7 +54,7 @@ test(
     const saved = await saving;
     assert.equal(saved.dispatchStatus, "sent");
     assert.equal(saved.effectVerified, false);
-    assert.match(saved.observation.ariaSnapshot, /Saved CoworkOS 中文/);
+    assert.match(saved.observation.ariaSnapshot, /Saved Formicand 中文/);
     const selected = await controller.execute("browser_act", {
       pageId,
       action: { type: "select", target: { kind: "label", text: "Format" }, value: "json" }
@@ -172,7 +172,7 @@ test(
     assert.equal(downloaded.download.scope, "task");
     assert.match(downloaded.download.path, /^visual\/downloads\/dl_/);
     const bytes = await readFile(join(root, downloaded.download.path));
-    assert.equal(bytes.toString(), "Saved report: CoworkOS 中文\n");
+    assert.equal(bytes.toString(), "Saved report: Formicand 中文\n");
     assert.equal(downloaded.download.bytes, bytes.length);
     assert.equal(downloaded.download.sha256, createHash("sha256").update(bytes).digest("hex"));
     await assert.rejects(
@@ -318,7 +318,7 @@ test(
 );
 
 test("model arguments cannot supply profiles/scripts/executables and a missing browser has installation guidance", async (t) => {
-  const { controller } = await setup(t, { executablePath: "/atria-browser-fixture-no-binary" });
+  const { controller } = await setup(t, { executablePath: "/formicand-browser-fixture-no-binary" });
   await assert.rejects(
     controller.execute("browser_open", { url: "https://example.com", executablePath: "/bin/sh" }),
     error("invalid_argument")

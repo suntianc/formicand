@@ -28,8 +28,8 @@
 
 - **Trigger：** 新验证工作树或更换执行 CLI 后运行 `test/input-files.test.js`，未显式选择已准备的 Python 环境。
 - **What happens：** 新进程的 `python3` 解析到另一安装，生成 PDF/Office fixture 时出现 `ModuleNotFoundError: No module named 'fitz'`；此前执行者的通过结果和依赖并未迁移到这个解释器。
-- **Confirm：** 在检查所用进程环境执行 `"${COWORK_PYTHON:-python3}" -c 'import sys; print(sys.executable, sys.version); import fitz, docx, pptx, openpyxl'`。缺库时非零退出；选择已准备依赖的解释器后导入成功。
-- **Avoid：** 按 [Python 环境](../development.md#准备环境) 设置检查子进程的 `COWORK_PYTHON`，记录路径、版本和依赖预检结果，再运行原受影响命令。
+- **Confirm：** 在检查所用进程环境执行 `"${FORMICAND_PYTHON:-python3}" -c 'import sys; print(sys.executable, sys.version); import fitz, docx, pptx, openpyxl'`。缺库时非零退出；选择已准备依赖的解释器后导入成功。
+- **Avoid：** 按 [Python 环境](../development.md#准备环境) 设置检查子进程的 `FORMICAND_PYTHON`，记录路径、版本和依赖预检结果，再运行原受影响命令。
 - **Sources：** 2026-11-07 [科学剪枝复盘摘录](evidence/os-core-pruning/retro.md)、[失败与恢复日志摘录](evidence/os-core-pruning/checks.md)；2026-11-08 [P3 前置失败摘录](evidence/os-p3-project-foundation/checks.md#依赖与解释器前置)。P3 中测试隔离 hook 清除显式覆盖变量的问题已修复；新环境仍需准备对应解释器的依赖。
 
 ## 合入依赖后仍使用旧安装
@@ -107,7 +107,7 @@
 
 ## 替换环境开关后旧用法残留
 
-- **Trigger：** 一张票新增环境开关或接口，另一张票删除旧的那个，例如测试中关闭 Main 守护的开关从 `COWORK_DISABLE_WATCH_SUPERVISOR` 换成 `COWORK_DISABLE_MAIN_GUARDIAN`。
+- **Trigger：** 一张票新增环境开关或接口，另一张票删除旧的那个，例如测试中关闭 Main 守护的开关从 `FORMICAND_DISABLE_WATCH_SUPERVISOR` 换成 `FORMICAND_DISABLE_MAIN_GUARDIAN`。
 - **What happens：** 旧名被删、新名没有补上的地方静默失效。P4.6 第一轮约 80 处测试启动的后端因此运行了守护，时序用例偶发失败，起初被当成负载问题。
 - **Confirm：** `rg -n "<旧名>" src test e2e scripts desktop .pi` 应无结果，`rg -n "<新名>"` 覆盖原来每一处调用方；守护开关由 `test/removed-capabilities.test.js` 的剔除表扫描。
 - **Avoid：** 工单写明「每个旧用法都要有新用法」，用 rg 全量查 `test/`、`e2e/`；改名跨票时由后一张票负责替换，并用扫描测试守住。
@@ -140,8 +140,8 @@
 ## 常驻 Main 让只停后端的测试留下进程
 
 - **Trigger：** 测试发起真实回合（Main 真的跑过一轮），收尾只调用 `stopBackend` / `dashboard.stop()` 而不先关闭会话。
-- **What happens：** 后端停止按设计保留代理进程以便重启后接管，常驻 Main（`start-pi.mjs --mode rpc`，`COWORK_MAIN_RESIDENT=1`）继续存活。`scripts/test.mjs` 的泄漏门因此判失败，即使 TAP 全部通过；常驻进程还可能通过 stdio 拖住测试进程直到空闲超时（约 30 分钟）。
-- **Confirm：** 输出中出现顶层 `Leaked backend <pid> (ATRIA_HOME=…)`；`ps axeww | grep COWORK_MAIN_RESIDENT=1` 可看到残留进程及其 `ATRIA_HOME`。`leaked-backends.test.js` 自身沙箱里带 `#` 前缀的泄漏行是预期输出，不算。
+- **What happens：** 后端停止按设计保留代理进程以便重启后接管，常驻 Main（`start-pi.mjs --mode rpc`，`FORMICAND_MAIN_RESIDENT=1`）继续存活。`scripts/test.mjs` 的泄漏门因此判失败，即使 TAP 全部通过；常驻进程还可能通过 stdio 拖住测试进程直到空闲超时（约 30 分钟）。
+- **Confirm：** 输出中出现顶层 `Leaked backend <pid> (FORMICAND_HOME=…)`；`ps axeww | grep FORMICAND_MAIN_RESIDENT=1` 可看到残留进程及其 `FORMICAND_HOME`。`leaked-backends.test.js` 自身沙箱里带 `#` 前缀的泄漏行是预期输出，不算。
 - **Avoid：** 收尾先经产品取消路径关会话（`POST /api/tasks/<taskId>/action {action:"cancel"}`），再停后端，最后 `endAgentProcesses`；参考 `test/electron-connect.test.js`、`test/cua-script-pi.test.js`。不要放宽泄漏门。`scripts/desktop-smoke.mjs` 仍是同样形状，不在泄漏门内。
 - **Sources：** 2026-11-16 [P4.6 摘录](evidence/os-p46/retro.md#常驻-main-的波及面第三轮)。
 

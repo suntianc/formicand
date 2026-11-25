@@ -100,22 +100,22 @@ test(
     );
     assert.equal((await api(route, "PATCH", { projectDirectory: newFolder })).status, 200);
     const env = Object.fromEntries(
-      Object.entries(process.env).filter(([name]) => !/^(?:COWORK_|PI_|ATRIA_)/.test(name))
+      Object.entries(process.env).filter(([name]) => !/^(?:FORMICAND_|PI_|FORMICAND_)/.test(name))
     );
     Object.assign(env, {
-      ATRIA_HOME: join(dashboard.root, "home"),
-      COWORK_HARNESS_ROOT: resolve("."),
-      COWORK_WORKSPACE: dashboard.workspaceRoot,
-      COWORK_GLOBAL_INDEX: join(dashboard.root, "global.json"),
-      COWORK_CONFIG: join(dashboard.root, "config.json"),
-      COWORK_PROJECT_DIR: oldFolder,
-      COWORK_TASK_ID: "cli-project",
-      COWORK_API_BASE: endpoint,
-      COWORK_API_KEY: "local-fixture",
-      COWORK_MODEL: "fixture",
-      COWORK_REASONING_EFFORT: "off",
-      COWORK_SUPPORTS_REASONING_EFFORT: "0",
-      COWORK_DISABLE_MAIN_GUARDIAN: "1",
+      FORMICAND_HOME: join(dashboard.root, "home"),
+      FORMICAND_HARNESS_ROOT: resolve("."),
+      FORMICAND_WORKSPACE: dashboard.workspaceRoot,
+      FORMICAND_GLOBAL_INDEX: join(dashboard.root, "global.json"),
+      FORMICAND_CONFIG: join(dashboard.root, "config.json"),
+      FORMICAND_PROJECT_DIR: oldFolder,
+      FORMICAND_TASK_ID: "cli-project",
+      FORMICAND_API_BASE: endpoint,
+      FORMICAND_API_KEY: "local-fixture",
+      FORMICAND_MODEL: "fixture",
+      FORMICAND_REASONING_EFFORT: "off",
+      FORMICAND_SUPPORTS_REASONING_EFFORT: "0",
+      FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
       PI_CODING_AGENT_DIR: join(dashboard.root, "cli-pi"),
       PI_OFFLINE: "1"
     });

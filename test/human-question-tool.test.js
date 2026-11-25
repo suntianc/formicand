@@ -10,7 +10,7 @@ import { MainInboxDelivery } from "../dist/src/runtime/main-inbox-delivery.js";
 import { LocalWorkspaceStore } from "../dist/src/workspace/workspace-store.js";
 
 async function fixture(t, timeoutMs, hooks = {}) {
-  const root = await mkdtemp(join(tmpdir(), "atria-question-tool-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-question-tool-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const task = new LocalWorkspaceStore(root);
   await task.createTask("task");
@@ -34,7 +34,7 @@ async function fixture(t, timeoutMs, hooks = {}) {
       taskId: "task",
       mainRunId: "run",
       workspaceRoot: root,
-      runtimeEnv: { COWORK_HUMAN_ANSWER_TIMEOUT_MS: String(timeoutMs) },
+      runtimeEnv: { FORMICAND_HUMAN_ANSWER_TIMEOUT_MS: String(timeoutMs) },
       humanStore: human,
       inboxDelivery: inbox,
       async flushSessionContext(ctx) {

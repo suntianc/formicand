@@ -12,18 +12,18 @@ import { connectModelThroughUi, setupDialog } from "./model-provider-ui.js";
 test("native App after normal model setup performs anonymous search and source fetch without a search key", async () => {
   test.skip(process.platform !== "darwin", "Native App acceptance requires macOS");
   test.setTimeout(120_000);
-  const root = await mkdtemp(join(tmpdir(), "atria-search-desktop-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-search-desktop-"));
   const exa = await exaMcpFixture(),
     provider = await modelProtocolFixture("openai-completions", sourceConversationFixture());
   const env = Object.fromEntries(
-    Object.entries(process.env).filter(([name]) => !/^(?:COWORK_|ATRIA_|PI_|EXA_)/.test(name))
+    Object.entries(process.env).filter(([name]) => !/^(?:FORMICAND_|FORMICAND_|PI_|EXA_)/.test(name))
   );
   Object.assign(env, {
-    COWORK_DESKTOP_DATA: root,
-    ATRIA_HOME: join(root, "home"),
+    FORMICAND_DESKTOP_DATA: root,
+    FORMICAND_HOME: join(root, "home"),
     PI_CODING_AGENT_DIR: join(root, "pi"),
-    COWORK_EXA_MCP_ENDPOINT: exa.endpoint,
-    COWORK_DISABLE_MAIN_GUARDIAN: "1",
+    FORMICAND_EXA_MCP_ENDPOINT: exa.endpoint,
+    FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
     PI_OFFLINE: "1",
     PI_TELEMETRY: "0"
   });
@@ -46,8 +46,8 @@ test("native App after normal model setup performs anonymous search and source f
     const status = await page.evaluate(async () =>
       (
         await fetch("/api/web-search-settings", {
-          headers: window.bookmanDesktop?.transportNonce
-            ? { "x-cowork-desktop-nonce": window.bookmanDesktop.transportNonce }
+          headers: window.formicandDesktop?.transportNonce
+            ? { "x-formicand-desktop-nonce": window.formicandDesktop.transportNonce }
             : {}
         })
       ).json()
@@ -84,8 +84,8 @@ test("native App after normal model setup performs anonymous search and source f
       return page.evaluate(async () =>
         (
           await fetch("/api/web-search-settings", {
-            headers: window.bookmanDesktop?.transportNonce
-              ? { "x-cowork-desktop-nonce": window.bookmanDesktop.transportNonce }
+            headers: window.formicandDesktop?.transportNonce
+              ? { "x-formicand-desktop-nonce": window.formicandDesktop.transportNonce }
               : {}
           })
         ).json()

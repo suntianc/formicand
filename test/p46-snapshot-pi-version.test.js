@@ -16,7 +16,7 @@ import {
   parseModelRequestArchive
 } from "../dist/src/storage/model-request-recorder.js";
 import { recordModelRequests } from "../dist/src/runtime/model-request-recording.js";
-import { createCoworkModel } from "../dist/src/runtime/model-profile.js";
+import { createFormicandModel } from "../dist/src/runtime/model-profile.js";
 import { protocolStream } from "./model-protocol-fixture.mjs";
 import { readFixtureRequestBody } from "./http-request-body-fixture.mjs";
 import { startDashboard } from "./dashboard-fixture.mjs";
@@ -43,10 +43,10 @@ const archivedBody = JSON.stringify({
 });
 
 async function fixture(t, piVersion) {
-  const root = await mkdtemp(join(tmpdir(), "cowork-p46-snapshot-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-p46-snapshot-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const store = new MainRequestStore(mainRequestPath(root, "task"), "task");
-  const model = createCoworkModel({
+  const model = createFormicandModel({
     baseUrl: "http://fixture.test",
     model: "fixture",
     supportsReasoningEffort: false

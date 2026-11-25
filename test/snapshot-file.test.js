@@ -7,7 +7,7 @@ import { test } from "node:test";
 import { writeJsonSnapshot } from "../dist/src/storage/snapshot-file.js";
 
 async function fixture(t) {
-  const dir = await fs.mkdtemp(join(tmpdir(), "cowork-snapshot-"));
+  const dir = await fs.mkdtemp(join(tmpdir(), "formicand-snapshot-"));
   t.after(() => fs.rm(dir, { recursive: true, force: true }));
   return { dir, path: join(dir, "snapshot.json") };
 }

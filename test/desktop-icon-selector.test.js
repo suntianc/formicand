@@ -10,11 +10,11 @@ const { selectApplicationIcon, refreshDockIcon } = createRequire(import.meta.url
 );
 
 test("app icon selection prefers the runtime export, falls back to the build export, and preserves the system default", async (t) => {
-  const root = await mkdtemp(join(tmpdir(), "atria-icon-selection-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-icon-selection-"));
   t.after(() => rm(root, { recursive: true, force: true }));
-  const runtime = join(root, "dist/src/desktop/atria-icon.png");
-  const build = join(root, "build/atria-icon.png");
-  const raw = join(root, "web/assets/atria-symbol.png");
+  const runtime = join(root, "dist/src/desktop/formicand-icon.png");
+  const build = join(root, "build/formicand-icon.png");
+  const raw = join(root, "web/assets/formicand-symbol.png");
   for (const path of [runtime, build, raw]) await mkdir(dirname(path), { recursive: true });
   await writeFile(raw, "raw brand artwork");
   assert.equal(selectApplicationIcon(root), undefined, "raw brand artwork never overrides the bundle icon");
@@ -29,9 +29,9 @@ test("app icon selection prefers the runtime export, falls back to the build exp
 });
 
 test("Dock refresh reads newly generated icons each time and does not replace a default with missing artwork", async (t) => {
-  const root = await mkdtemp(join(tmpdir(), "atria-icon-refresh-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-icon-refresh-"));
   t.after(() => rm(root, { recursive: true, force: true }));
-  const runtime = join(root, "dist/src/desktop/atria-icon.png");
+  const runtime = join(root, "dist/src/desktop/formicand-icon.png");
   await mkdir(dirname(runtime), { recursive: true });
   const loaded = [];
   const dock = { setIcon: (path) => loaded.push(path) };

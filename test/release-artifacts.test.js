@@ -14,7 +14,7 @@ import {
 } from "../scripts/release-artifacts.mjs";
 import { readReleaseDraft, uploadReleaseDraft } from "../scripts/release-draft.mjs";
 
-const repository = "fixture-owner/atria";
+const repository = "fixture-owner/formicand";
 const version = "0.1.2-beta.1";
 const tag = "v" + version;
 const artifactScript = fileURLToPath(new URL("../scripts/release-artifacts.mjs", import.meta.url));
@@ -22,13 +22,15 @@ const draftScript = fileURLToPath(new URL("../scripts/release-draft.mjs", import
 const hash = (bytes) => createHash("sha256").update(bytes).digest("hex");
 
 async function fixture(t, { notes } = {}) {
-  const root = await mkdtemp(join(tmpdir(), "atria-release-artifacts-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-release-artifacts-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   await mkdir(join(root, "scratch", "package"), { recursive: true });
   await mkdir(join(root, "release"));
   const env = {
     ...Object.fromEntries(
-      Object.entries(process.env).filter(([key]) => !/^(GIT_|GH_|GITHUB_|RELEASE_TAG|ATRIA_UPDATE)/.test(key))
+      Object.entries(process.env).filter(
+        ([key]) => !/^(GIT_|GH_|GITHUB_|RELEASE_TAG|FORMICAND_UPDATE)/.test(key)
+      )
     ),
     GIT_CONFIG_GLOBAL: "/dev/null",
     GIT_CONFIG_NOSYSTEM: "1",
@@ -67,8 +69,8 @@ async function fixture(t, { notes } = {}) {
   git(["commit", "-m", "Fixture release"]);
   git(["tag", "--no-sign", tag]);
   const commit = git(["rev-parse", "HEAD"]);
-  const dmg = "CoworkOS-" + version + "-mac-arm64.dmg";
-  const cli = "coworkos-cli-" + version + ".tgz";
+  const dmg = "Formicand-" + version + "-mac-arm64.dmg";
+  const cli = "formicand-cli-" + version + ".tgz";
   async function checksum(name) {
     const bytes = await readFile(join(root, "release", name));
     await writeFile(join(root, "release", name + ".sha256"), hash(bytes) + "  " + name + "\n");
@@ -80,7 +82,7 @@ async function fixture(t, { notes } = {}) {
     );
     await writeFile(
       join(root, "scratch", "package", "package.json"),
-      JSON.stringify({ name: "atria-cowork-cli", version, repository, ...manifest })
+      JSON.stringify({ name: "formicand-cli", version, repository, ...manifest })
     );
     execFileSync("tar", ["-czf", join(root, "release", cli), "-C", join(root, "scratch"), "package"]);
     await checksum(cli);
@@ -108,10 +110,10 @@ async function addSigningReport(f, changes = {}) {
     strictVerified: true,
     minimumSystemVersion: "14.0",
     bundleVersion: "0.1.2",
-    parent: signature("org.atria.cowork"),
+    parent: signature("io.github.suntianc.formicand"),
     ...changes
   };
-  const name = "CoworkOS-" + version + "-mac-arm64.signing.json";
+  const name = "Formicand-" + version + "-mac-arm64.signing.json";
   await writeFile(join(f.root, "release", name), JSON.stringify(report));
   return { report, name };
 }
@@ -198,7 +200,7 @@ test("invalid signing evidence cannot enter a release", async (t) => {
 test("dirty sources, foreign repositories and stale or dirty CLI provenance are rejected", async (t) => {
   const f = await fixture(t);
   await assert.rejects(
-    inspectReleaseArtifacts({ ...f.options, repository: "other/atria" }),
+    inspectReleaseArtifacts({ ...f.options, repository: "other/formicand" }),
     /single-repository/
   );
   for (const build of [{ dirty: true }, { commit: "a".repeat(40) }, { version: "0.1.1" }]) {

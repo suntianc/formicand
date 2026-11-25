@@ -1,6 +1,6 @@
 # P3 失败与恢复证据摘录
 
-来源：归档 `coworkos-p1-docs/os-p3-project-foundation`，2026-11-08 完成。这里只保留错误、版本关系与结论；原日志、候选和失败尝试保留在档案中，具体路径均相对于档案根目录。
+来源：归档 `formicand-p1-docs/os-p3-project-foundation`，2026-11-08 完成。这里只保留错误、版本关系与结论；原日志、候选和失败尝试保留在档案中，具体路径均相对于档案根目录。
 
 ## 依赖与解释器前置
 
@@ -16,7 +16,7 @@ src/storage/project-data/postgres-database.ts(1,16): error TS2307: Cannot find m
 
 | 项目        | 原失败                                                       | 修复或准备后结果                                         |
 | ----------- | ------------------------------------------------------------ | -------------------------------------------------------- |
-| F2 Python   | 缺少 fitz 等依赖；测试隔离 hook 又清除 `COWORK_PYTHON`       | 选择隔离 venv，并保留该覆盖变量；input-files 4/4         |
+| F2 Python   | 缺少 fitz 等依赖；测试隔离 hook 又清除 `FORMICAND_PYTHON`    | 选择隔离 venv，并保留该覆盖变量；input-files 4/4         |
 | F3 Electron | Electron.app 的 `Contents/Info.plist` 不存在，运行时尚未准备 | 使用 `node scripts/ensure-electron.mjs`；desktop-dev 3/3 |
 | F4 PTY      | 基线 `9396f67` 同条件下，词间换行导致提示断言失败            | 保留原词义，允许词间空白；cli-ui-pty 11/11，两次         |
 | F5 settle   | 基线并行 3 次中 2 次因过早采样失败                           | 同时等待持久终态和无活动进程；保留有界复验记录           |

@@ -41,7 +41,7 @@ test("tickets and the phase they set show in the work panel, the detail and the 
         `${dashboard.base}/api/projects/${encodeURIComponent(project.projectId)}/developments`,
         {
           data: { action: "write_tickets", developmentId, ...body },
-          headers: { "content-type": "application/json", "x-cowork-backend-id": REMOTE_BACKEND }
+          headers: { "content-type": "application/json", "x-formicand-backend-id": REMOTE_BACKEND }
         }
       );
       const payload = await result.json();

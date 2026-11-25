@@ -74,7 +74,7 @@ body {
 .permission-chip {
   display: none;
 }
-.atria-avatar {
+.formicand-avatar {
   display: grid;
   place-items: center;
   overflow: hidden;
@@ -82,7 +82,7 @@ body {
   border-radius: 10px;
   background: #242424;
 }
-.atria-avatar img {
+.formicand-avatar img {
   width: 18px;
   height: 18px;
   object-fit: contain;

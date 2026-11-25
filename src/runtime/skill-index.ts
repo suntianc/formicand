@@ -3,7 +3,7 @@ import { join, resolve } from "node:path";
 import { atomicWrite } from "../storage/atomic-file.js";
 
 /**
- * Skills removed from CoworkOS's index.
+ * Skills removed from Formicand's index.
  *
  * Removing hides a skill from the settings list and from every Agent without
  * touching its files, so a skill in the shared `~/.agents/skills` keeps working

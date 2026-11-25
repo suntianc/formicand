@@ -148,7 +148,7 @@ export class SubagentSettlement {
       if (retryScheduled)
         await this.armQueueRetry({ taskId: record.taskId, runId: record.runId }).catch((error) =>
           console.error(
-            `[cowork] scheduling a subagent retry failed: ${error instanceof Error ? error.message : String(error)}`
+            `[formicand] scheduling a subagent retry failed: ${error instanceof Error ? error.message : String(error)}`
           )
         );
     }

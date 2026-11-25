@@ -19,7 +19,7 @@ async function waitFor(check) {
 }
 
 test("an idle SSE ledger does not reread its history and an appended burst is delivered without dropping events", async (t) => {
-  const root = await fs.mkdtemp(join(tmpdir(), "atria-ledger-performance-"));
+  const root = await fs.mkdtemp(join(tmpdir(), "formicand-ledger-performance-"));
   t.after(() => fs.rm(root, { recursive: true, force: true }));
   const directory = join(root, "task", "runs", "run");
   await fs.mkdir(directory, { recursive: true });
@@ -81,7 +81,7 @@ test("an idle SSE ledger does not reread its history and an appended burst is de
 });
 
 test("a detail's recent ledger tail reads a bounded range and retains UTF-8 and an unterminated last record", async (t) => {
-  const root = await fs.mkdtemp(join(tmpdir(), "atria-ledger-tail-"));
+  const root = await fs.mkdtemp(join(tmpdir(), "formicand-ledger-tail-"));
   t.after(() => fs.rm(root, { recursive: true, force: true }));
   const path = join(root, "events.jsonl");
   const records = Array.from({ length: 10000 }, (_, index) => ({ index, text: "中文😀".repeat(30) }));

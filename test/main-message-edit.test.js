@@ -66,7 +66,7 @@ const textMessage = (role, text, timestamp) => ({
     : {})
 });
 async function fixture(t, first = false) {
-  const root = await mkdtemp(join(tmpdir(), "atria-edit-unit-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-edit-unit-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const store = new LocalWorkspaceStore(root);
   await store.createTask("task", { goal: "old input" });

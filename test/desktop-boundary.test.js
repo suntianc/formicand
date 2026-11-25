@@ -28,8 +28,8 @@ test("desktop native capabilities are limited to the trusted main renderer", () 
 test("desktop external navigation accepts only bounded HTTP(S) links without credentials", () => {
   const dashboard = "http://127.0.0.1:3881";
   assert.equal(
-    externalNavigationUrl("https://example.com/reference?q=atria#section", dashboard),
-    "https://example.com/reference?q=atria#section"
+    externalNavigationUrl("https://example.com/reference?q=formicand#section", dashboard),
+    "https://example.com/reference?q=formicand#section"
   );
   assert.equal(externalNavigationUrl("http://example.com", dashboard), "http://example.com/");
   for (const target of [

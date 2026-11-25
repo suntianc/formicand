@@ -151,7 +151,7 @@ test("a block's ownership key follows its source only", () => {
 test("files read as chips with their kind's mark; a long path in prose shows only the file name", () => {
   const document = dom(
     renderMarkdown(
-      "改了 `src/aggregate.ts`、`ci.yml`、`data.json`、`shot.png` 和 `report.md`。\n输出在 /Users/fixture/.atria/workspace/task-1/work/retro-timing.tsv，看看。",
+      "改了 `src/aggregate.ts`、`ci.yml`、`data.json`、`shot.png` 和 `report.md`。\n输出在 /Users/fixture/.formicand/workspace/task-1/work/retro-timing.tsv，看看。",
       { linkify: true }
     )
   );
@@ -163,7 +163,7 @@ test("files read as chips with their kind's mark; a long path in prose shows onl
   );
   const path = document.querySelectorAll(".file-chip")[5];
   assert.equal(path.querySelector(".file-chip-name").textContent, "retro-timing.tsv");
-  assert.equal(path.title, "/Users/fixture/.atria/workspace/task-1/work/retro-timing.tsv");
+  assert.equal(path.title, "/Users/fixture/.formicand/workspace/task-1/work/retro-timing.tsv");
   assert.ok(document.body.textContent.includes("，看看。"));
 });
 

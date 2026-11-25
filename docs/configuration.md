@@ -17,20 +17,20 @@
 
 ## CLI 配置文件与环境变量
 
-首次使用时，在准备工作的项目目录运行 `coworkos init`，依次输入地址、模型 ID 和密钥。完整安装流程见 [CLI 快速开始](cli-quickstart.md)。
+首次使用时，在准备工作的项目目录运行 `formicand init`，依次输入地址、模型 ID 和密钥。完整安装流程见 [CLI 快速开始](cli-quickstart.md)。
 
 ### 修改地址、模型或密钥
 
 先退出 CLI 的交互界面，在准备工作的项目目录运行：
 
 ```sh
-coworkos doctor
+formicand doctor
 ```
 
-查看输出开头的“配置路径”。默认是 `~/.atria/config.json`；如果显示其他路径，编辑显示的那份文件。
+查看输出开头的“配置路径”。默认是 `~/.formicand/config.json`；如果显示其他路径，编辑显示的那份文件。
 
 ```sh
-nano ~/.atria/config.json
+nano ~/.formicand/config.json
 ```
 
 在原文件中修改对应字段，保留其他设置。下面的地址、模型和密钥都要替换为服务商提供的值：
@@ -46,15 +46,15 @@ nano ~/.atria/config.json
 
 `init` 新建的连接默认使用 Responses。服务商只支持 Chat Completions 时，将 `api` 改为 `"openai-completions"`。`init` 不会询问这个选项。
 
-在 nano 中按 Ctrl+O、Enter 保存，再按 Ctrl+X 退出。若之前用 `export COWORK_MODEL_API=...` 临时切换过格式，先运行 `unset COWORK_MODEL_API`，让文件中的 `api` 生效。
+在 nano 中按 Ctrl+O、Enter 保存，再按 Ctrl+X 退出。若之前用 `export FORMICAND_MODEL_API=...` 临时切换过格式，先运行 `unset FORMICAND_MODEL_API`，让文件中的 `api` 生效。
 
 ### 检查修改
 
 ```sh
-coworkos doctor --test-connection
+formicand doctor --test-connection
 ```
 
-所有检查通过、模型连接项显示 `OK  流式模型连接与工具调用` 后，重新运行 `coworkos`，或用 `coworkos --continue` 继续原会话。连接测试会请求模型并消耗服务额度；不加 `--test-connection` 的 `doctor` 只检查本机环境和配置。
+所有检查通过、模型连接项显示 `OK  流式模型连接与工具调用` 后，重新运行 `formicand`，或用 `formicand --continue` 继续原会话。连接测试会请求模型并消耗服务额度；不加 `--test-connection` 的 `doctor` 只检查本机环境和配置。
 
 ## App 与 Web 模型连接
 
@@ -75,16 +75,16 @@ Main 的设置从下一轮对话起生效；Executor、Reviewer 的技能、MCP 
 
 ## 连接失败
 
-| 情况                      | 处理                                                                                                                                    |
-| ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| 401 / 403，认证或权限错误 | 核对 API Key、模型 ID 和账号的模型访问权限。                                                                                            |
-| 404，地址或模型不存在     | 按服务商文档核对 API 根地址与模型 ID；移除地址末尾的 `/responses` 或 `/chat/completions`。                                              |
-| 不支持消息格式或参数      | 改用服务支持的接口格式（Chat Completions、Responses 或 Anthropic Messages）；关闭服务未声明支持的图像、推理或缓存参数。                 |
-| CLI 显示 `FAIL 模型配置`  | 按 `doctor` 打印的路径修正 JSON 和必填字段；尚无配置时运行 `coworkos init`。更多错误见 [CLI 排错](installation-reference.md#常见问题)。 |
-| CLI 修改文件后仍用旧值    | 检查 `COWORK_API_BASE`、`COWORK_MODEL`、`COWORK_API_KEY`、`COWORK_MODEL_API`；环境变量优先于文件，移除不再使用的覆盖项后重试。          |
-| App 保存失败              | 按提示处理保存错误后再次点击保存；未保存的修改会保留。                                                                                  |
+| 情况                      | 处理                                                                                                                                       |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| 401 / 403，认证或权限错误 | 核对 API Key、模型 ID 和账号的模型访问权限。                                                                                               |
+| 404，地址或模型不存在     | 按服务商文档核对 API 根地址与模型 ID；移除地址末尾的 `/responses` 或 `/chat/completions`。                                                 |
+| 不支持消息格式或参数      | 改用服务支持的接口格式（Chat Completions、Responses 或 Anthropic Messages）；关闭服务未声明支持的图像、推理或缓存参数。                    |
+| CLI 显示 `FAIL 模型配置`  | 按 `doctor` 打印的路径修正 JSON 和必填字段；尚无配置时运行 `formicand init`。更多错误见 [CLI 排错](installation-reference.md#常见问题)。   |
+| CLI 修改文件后仍用旧值    | 检查 `FORMICAND_API_BASE`、`FORMICAND_MODEL`、`FORMICAND_API_KEY`、`FORMICAND_MODEL_API`；环境变量优先于文件，移除不再使用的覆盖项后重试。 |
+| App 保存失败              | 按提示处理保存错误后再次点击保存；未保存的修改会保留。                                                                                     |
 
-修正后重新检查。App 在供应商详情点击“检查”；CLI 重新运行 `coworkos doctor --test-connection`。
+修正后重新检查。App 在供应商详情点击“检查”；CLI 重新运行 `formicand doctor --test-connection`。
 
 <details>
 <summary>其他配置参考</summary>

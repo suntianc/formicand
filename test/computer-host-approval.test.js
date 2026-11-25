@@ -8,16 +8,16 @@ import { test } from "node:test";
 import { createDashboardApplication } from "../dist/src/dashboard/application.js";
 
 async function fixture(t, options = {}) {
-  const root = await mkdtemp(join(tmpdir(), "cowork-host-approval-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-host-approval-"));
   const old = { ...process.env };
   for (const key of Object.keys(process.env))
-    if (/^(COWORK_|ATRIA_|PI_|ELECTRON_)/.test(key)) delete process.env[key];
+    if (/^(FORMICAND_|FORMICAND_|PI_|ELECTRON_)/.test(key)) delete process.env[key];
   Object.assign(process.env, {
-    ATRIA_HOME: root,
-    COWORK_WORKSPACE: join(root, "workspace"),
-    COWORK_CONFIG: join(root, "config.json"),
-    COWORK_API_TOKEN: "business-fixture-token",
-    COWORK_DISABLE_MAIN_GUARDIAN: "1",
+    FORMICAND_HOME: root,
+    FORMICAND_WORKSPACE: join(root, "workspace"),
+    FORMICAND_CONFIG: join(root, "config.json"),
+    FORMICAND_API_TOKEN: "business-fixture-token",
+    FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
     PI_OFFLINE: "1"
   });
   await writeFile(join(root, "config.json"), "{}\n");
@@ -44,7 +44,7 @@ async function fixture(t, options = {}) {
   t.after(async () => {
     await app.stop();
     for (const key of Object.keys(process.env))
-      if (/^(COWORK_|ATRIA_|PI_|ELECTRON_)/.test(key)) delete process.env[key];
+      if (/^(FORMICAND_|FORMICAND_|PI_|ELECTRON_)/.test(key)) delete process.env[key];
     Object.assign(process.env, old);
     await rm(root, { recursive: true, force: true, maxRetries: 4, retryDelay: 50 });
   });
@@ -53,7 +53,7 @@ async function fixture(t, options = {}) {
       method: "POST",
       headers: {
         "content-type": "application/json",
-        "x-atria-token": token,
+        "x-formicand-token": token,
         ...(approval ? { "x-computer-approval": approval } : {})
       },
       body: JSON.stringify(body)
@@ -87,7 +87,7 @@ test("a business credential cannot grant window access before or after local app
     assert.equal((await f.host(input, undefined, authorization.body.session.token)).status, 403);
   }
   const state = await fetch(`${f.app.dashboardUrl}/api/computer/access`, {
-    headers: { "x-atria-token": "business-fixture-token" }
+    headers: { "x-formicand-token": "business-fixture-token" }
   });
   assert.equal((await state.json()).policy.enabled, true);
 });
@@ -151,7 +151,7 @@ test("a pending approval is serialized and a cancelled request cannot create a c
   const abort = new AbortController();
   const pending = fetch(`${f.app.dashboardUrl}/api/host/computer/approve`, {
     method: "POST",
-    headers: { "content-type": "application/json", "x-atria-token": "business-fixture-token" },
+    headers: { "content-type": "application/json", "x-formicand-token": "business-fixture-token" },
     body: JSON.stringify(f.identity),
     signal: abort.signal
   });

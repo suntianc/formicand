@@ -6,7 +6,7 @@ import { test } from "node:test";
 import { browseWorkspace } from "../dist/src/tools/workspace-browse.js";
 
 async function fixture(t) {
-  const root = await mkdtemp(join(tmpdir(), "atria-browse-boundary-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-browse-boundary-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const workspace = join(root, "workspace");
   const outside = join(root, "outside");

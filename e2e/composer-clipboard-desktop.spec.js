@@ -9,18 +9,18 @@ import { dismissModelSetup } from "./model-provider-ui.js";
 test("Electron editable context menu uses native clipboard editing and saves the selected draft", async () => {
   test.skip(process.platform !== "darwin", "Native desktop test requires macOS");
   test.setTimeout(90_000);
-  const root = await mkdtemp(join(tmpdir(), "atria-clipboard-desktop-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-clipboard-desktop-"));
   const env = Object.fromEntries(
     Object.entries(process.env).filter(
-      ([name]) => !/^(?:COWORK_|ATRIA_|PI_|ELECTRON_RUN_AS_NODE$|NODE_OPTIONS$)/.test(name)
+      ([name]) => !/^(?:FORMICAND_|FORMICAND_|PI_|ELECTRON_RUN_AS_NODE$|NODE_OPTIONS$)/.test(name)
     )
   );
   Object.assign(env, {
-    COWORK_DESKTOP_DATA: root,
-    ATRIA_HOME: join(root, "home"),
+    FORMICAND_DESKTOP_DATA: root,
+    FORMICAND_HOME: join(root, "home"),
     PI_CODING_AGENT_DIR: join(root, "pi"),
     PI_OFFLINE: "1",
-    COWORK_DISABLE_MAIN_GUARDIAN: "1"
+    FORMICAND_DISABLE_MAIN_GUARDIAN: "1"
   });
   let native;
   const errors = [];
@@ -102,7 +102,7 @@ test("Electron editable context menu uses native clipboard editing and saves the
   } finally {
     await native?.close();
     // The backend outlives the window by design; stop this test's own (#35), found
-    // under the desktop data root (COWORK_DESKTOP_DATA), not ATRIA_HOME.
+    // under the desktop data root (FORMICAND_DESKTOP_DATA), not FORMICAND_HOME.
     await stopNativeBackend(root);
     await rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   }

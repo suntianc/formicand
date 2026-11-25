@@ -8,9 +8,9 @@ import { join, resolve } from "node:path";
 import { LocalWorkspaceStore } from "../dist/src/workspace/workspace-store.js";
 
 const execute = promisify(execFile);
-const entry = resolve(process.env.ATRIA_TEST_CLI_ENTRY || "scripts/atria.mjs");
+const entry = resolve(process.env.FORMICAND_TEST_CLI_ENTRY || "scripts/formicand.mjs");
 async function fixture(t) {
-  const root = await mkdtemp(join(tmpdir(), "atria-cli-command-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-cli-command-"));
   const project = join(root, "project"),
     workspace = join(root, "workspace");
   await mkdir(project);
@@ -20,14 +20,14 @@ async function fixture(t) {
     JSON.stringify({ baseUrl: "http://127.0.0.1:9", model: "fixture", apiKey: "cli-command-fixture-key" })
   );
   const env = Object.fromEntries(
-    Object.entries(process.env).filter(([name]) => !/^(?:COWORK_|PI_|ATRIA_|NODE_OPTIONS$)/.test(name))
+    Object.entries(process.env).filter(([name]) => !/^(?:FORMICAND_|PI_|FORMICAND_|NODE_OPTIONS$)/.test(name))
   );
   Object.assign(env, {
-    ATRIA_HOME: join(root, "user"),
-    COWORK_CONFIG: config,
-    COWORK_WORKSPACE: workspace,
+    FORMICAND_HOME: join(root, "user"),
+    FORMICAND_CONFIG: config,
+    FORMICAND_WORKSPACE: workspace,
     PI_CODING_AGENT_DIR: join(root, "pi"),
-    COWORK_DISABLE_MAIN_GUARDIAN: "1",
+    FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
     PI_OFFLINE: "1"
   });
   t.after(() => rm(root, { recursive: true, force: true }));
@@ -43,7 +43,7 @@ async function fixture(t) {
 
 test("public CLI command help is discoverable and works without configuration or writes", async (t) => {
   const f = await fixture(t);
-  const missing = { COWORK_CONFIG: join(f.root, "missing.json") };
+  const missing = { FORMICAND_CONFIG: join(f.root, "missing.json") };
   for (const args of [
     ["task", "--help"],
     ["task", "create", "-h"],
@@ -57,13 +57,13 @@ test("public CLI command help is discoverable and works without configuration or
     ["help", "task", "create"]
   ]) {
     const result = await f.run(args, missing);
-    assert.match(result.stdout, /Usage: coworkos/);
+    assert.match(result.stdout, /Usage: formicand/);
     assert.equal(result.stderr, "");
   }
   const top = await f.run(["--help"], missing);
   for (const command of ["create", "complete", "worker", "main-supervisor"])
     assert.ok(top.stdout.includes(command), `${command} must be discoverable`);
-  for (const path of [f.workspace, f.env.ATRIA_HOME, f.env.PI_CODING_AGENT_DIR])
+  for (const path of [f.workspace, f.env.FORMICAND_HOME, f.env.PI_CODING_AGENT_DIR])
     await assert.rejects(stat(path), { code: "ENOENT" }, "help must not create user data");
 });
 
@@ -86,7 +86,7 @@ test("invalid CLI flags, missing values, numeric limits and operands are rejecte
   for (const args of invalid) {
     await assert.rejects(f.run(args), (error) => {
       assert.equal(error.code, 1);
-      assert.match(error.stderr, /^CoworkOS: /);
+      assert.match(error.stderr, /^Formicand: /);
       assert.doesNotMatch(error.stderr, /\bat .*\(|file:\/\/|Node\.js v/);
       return true;
     });
@@ -98,7 +98,7 @@ test("invalid CLI flags, missing values, numeric limits and operands are rejecte
   }
 });
 
-test("unknown cancel options preserve the Task, and expected failures have concise CoworkOS errors", async (t) => {
+test("unknown cancel options preserve the Task, and expected failures have concise Formicand errors", async (t) => {
   const f = await fixture(t);
   await f.run(["task", "create", "sample", "--goal", "Retain this task"]);
   const path = join(f.workspace, "sample", "task.json");
@@ -109,8 +109,8 @@ test("unknown cancel options preserve the Task, and expected failures have conci
   );
   assert.equal(await readFile(path, "utf8"), before);
   await assert.rejects(f.run(["task", "status", "missing"]), (error) => {
-    assert.match(error.stderr, /^CoworkOS: unknown task: missing\s*$/);
-    assert.doesNotMatch(error.stderr, /cowork:|file:\/\/|Node\.js|\bat /);
+    assert.match(error.stderr, /^Formicand: unknown task: missing\s*$/);
+    assert.doesNotMatch(error.stderr, /formicand:|file:\/\/|Node\.js|\bat /);
     return true;
   });
   const listed = await f.run(["task", "list", "--workspace=" + f.workspace]);

@@ -79,7 +79,7 @@ export function createTaskLifecycle({
       if (close)
         void serialize(taskId, () => closeIdleMain(taskId)).catch((error) =>
           console.error(
-            `[cowork] closing the Main of archived ${taskId} failed: ${error instanceof Error ? error.message : String(error)}`
+            `[formicand] closing the Main of archived ${taskId} failed: ${error instanceof Error ? error.message : String(error)}`
           )
         );
       return { ...location, task };

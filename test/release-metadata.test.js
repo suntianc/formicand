@@ -14,8 +14,8 @@ test("release metadata names versioned artifacts and requires matching package, 
     version: "1.2.3",
     tag: "v1.2.3",
     prerelease: false,
-    dmg: "release/CoworkOS-1.2.3-mac-arm64.dmg",
-    checksum: "release/CoworkOS-1.2.3-mac-arm64.dmg.sha256"
+    dmg: "release/Formicand-1.2.3-mac-arm64.dmg",
+    checksum: "release/Formicand-1.2.3-mac-arm64.dmg.sha256"
   });
   for (const version of [
     "0.0.0",
@@ -70,7 +70,7 @@ test("release version rejects malformed input, path traversal, shell syntax and 
 });
 
 async function gitFixture(callback) {
-  const root = await mkdtemp(join(tmpdir(), "atria-release-metadata-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-release-metadata-"));
   try {
     const config = join(root, "empty-gitconfig");
     await writeFile(config, "");
@@ -181,7 +181,7 @@ test("release CLI appends action metadata only after validation and also works w
     assert.equal(result.status, 0, result.stderr);
     assert.match(
       result.stdout,
-      new RegExp(`Release v1\\.2\\.3 from ${commit}: release/CoworkOS-1\\.2\\.3-mac-arm64\\.dmg`)
+      new RegExp(`Release v1\\.2\\.3 from ${commit}: release/Formicand-1\\.2\\.3-mac-arm64\\.dmg`)
     );
     const contents = await readFile(output, "utf8");
     assert.ok(contents.endsWith("\n"));
@@ -196,8 +196,8 @@ test("release CLI appends action metadata only after validation and also works w
       tag: "v1.2.3",
       version: "1.2.3",
       prerelease: "false",
-      dmg: "release/CoworkOS-1.2.3-mac-arm64.dmg",
-      checksum: "release/CoworkOS-1.2.3-mac-arm64.dmg.sha256",
+      dmg: "release/Formicand-1.2.3-mac-arm64.dmg",
+      checksum: "release/Formicand-1.2.3-mac-arm64.dmg.sha256",
       commit
     });
     const rejected = run({ RELEASE_TAG: "v1.2.4", GITHUB_OUTPUT: output });

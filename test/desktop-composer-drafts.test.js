@@ -7,8 +7,8 @@ import { test } from "node:test";
 
 const { createComposerDraftStore } = createRequire(import.meta.url)("../desktop/composer-drafts.cjs");
 const draft = (text) => ({
-  "atria.composer.v1:active": JSON.stringify("new"),
-  "atria.composer.v1:new": JSON.stringify({ text, attachments: [] })
+  "formicand.composer.v1:active": JSON.stringify("new"),
+  "formicand.composer.v1:new": JSON.stringify({ text, attachments: [] })
 });
 
 test("valid envelopes containing malformed draft records are backed up instead of silently cleared", async (t) => {
@@ -17,10 +17,10 @@ test("valid envelopes containing malformed draft records are backed up instead o
     JSON.stringify({ text: 7, attachments: [] }),
     JSON.stringify({ text: "draft", attachments: [{ name: "bad-file", text: null }] })
   ]) {
-    const root = await mkdtemp(join(tmpdir(), "atria-draft-inner-damaged-"));
+    const root = await mkdtemp(join(tmpdir(), "formicand-draft-inner-damaged-"));
     t.after(() => rm(root, { recursive: true, force: true }));
     const path = join(root, "composer-drafts.json");
-    const original = JSON.stringify({ version: 4, entries: { "atria.composer.v1:new": value } });
+    const original = JSON.stringify({ version: 4, entries: { "formicand.composer.v1:new": value } });
     await writeFile(path, original);
     const store = createComposerDraftStore(root);
     await store.load();
@@ -33,37 +33,37 @@ test("valid envelopes containing malformed draft records are backed up instead o
 });
 
 test("draft validation retains compatible empty records and attachments while rejecting invalid active sessions", async (t) => {
-  const root = await mkdtemp(join(tmpdir(), "atria-draft-valid-shape-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-draft-valid-shape-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const store = createComposerDraftStore(root);
   await store.load();
   const entries = {
     ...draft("attached draft"),
-    "atria.composer.v1:old-empty": "null",
-    "atria.composer.v1:with-file": JSON.stringify({
+    "formicand.composer.v1:old-empty": "null",
+    "formicand.composer.v1:with-file": JSON.stringify({
       text: "draft",
       attachments: [{ name: "notes.txt", text: "notes", size: 5 }]
     })
   };
   await store.save(entries);
   assert.deepEqual(store.snapshot().entries, entries);
-  await assert.rejects(store.save({ "atria.composer.v1:active": "12" }), /会话/);
+  await assert.rejects(store.save({ "formicand.composer.v1:active": "12" }), /会话/);
   assert.deepEqual(store.snapshot().entries, entries);
 });
 
 test("a backend-namespaced page keeps its session marker beside its own drafts", async (t) => {
-  const root = await mkdtemp(join(tmpdir(), "atria-draft-namespace-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-draft-namespace-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const store = createComposerDraftStore(root);
   await store.load();
   const entries = {
-    "atria.composer.v1:backend_fixture:active": JSON.stringify("new"),
-    "atria.composer.v1:backend_fixture:new": JSON.stringify({ text: "namespaced", attachments: [] }),
-    "atria.composer.v1:active": JSON.stringify("new")
+    "formicand.composer.v1:backend_fixture:active": JSON.stringify("new"),
+    "formicand.composer.v1:backend_fixture:new": JSON.stringify({ text: "namespaced", attachments: [] }),
+    "formicand.composer.v1:active": JSON.stringify("new")
   };
   await store.save(entries);
   assert.deepEqual(store.snapshot().entries, entries);
-  await assert.rejects(store.save({ "atria.composer.v1:backend_fixture:active": "12" }), /会话/);
+  await assert.rejects(store.save({ "formicand.composer.v1:backend_fixture:active": "12" }), /会话/);
   await writeFile(join(root, "composer-drafts.json"), JSON.stringify({ version: 4, entries }));
   const restored = createComposerDraftStore(root);
   await restored.load();
@@ -71,7 +71,7 @@ test("a backend-namespaced page keeps its session marker beside its own drafts",
 });
 
 test("desktop drafts persist privately across origins without accepting other storage keys", async (t) => {
-  const root = await mkdtemp(join(tmpdir(), "atria-draft-profile-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-draft-profile-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const store = createComposerDraftStore(root);
   await store.load();
@@ -88,7 +88,7 @@ test("desktop drafts persist privately across origins without accepting other st
 });
 
 test("oversized drafts leave the last good snapshot intact and queued writes retain the newest one", async (t) => {
-  const root = await mkdtemp(join(tmpdir(), "atria-draft-limit-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-draft-limit-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const store = createComposerDraftStore(root, { limit: 256 });
   await store.load();
@@ -105,7 +105,7 @@ test("oversized drafts leave the last good snapshot intact and queued writes ret
 });
 
 test("damaged and older drafts are preserved for recovery and future versions cannot be overwritten", async (t) => {
-  const root = await mkdtemp(join(tmpdir(), "atria-draft-damaged-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-draft-damaged-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const path = join(root, "composer-drafts.json");
   await writeFile(path, "{damaged draft file", { mode: 0o600 });
@@ -139,11 +139,11 @@ test("damaged and older drafts are preserved for recovery and future versions ca
 });
 
 test("human reply records validate choices without capturing other data", async (t) => {
-  const root = await mkdtemp(join(tmpdir(), "atria-human-profile-version-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-human-profile-version-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const path = join(root, "composer-drafts.json");
   const original = draft("compatible composer");
-  const humanKey = "atria.human.v1:task-id:request-id";
+  const humanKey = "formicand.human.v1:task-id:request-id";
   const entries = {
     ...original,
     [humanKey]: JSON.stringify({
@@ -177,7 +177,7 @@ test("human reply records validate choices without capturing other data", async 
 });
 
 test("upload references survive a desktop restart without storing file contents in drafts", async (t) => {
-  const root = await mkdtemp(join(tmpdir(), "atria-upload-draft-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-upload-draft-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const entries = draft("带附件的草稿");
   const file = {
@@ -187,7 +187,7 @@ test("upload references survive a desktop restart without storing file contents 
     size: 100,
     mimeType: "image/png"
   };
-  entries["atria.composer.v1:new"] = JSON.stringify({ text: "带附件的草稿", attachments: [file] });
+  entries["formicand.composer.v1:new"] = JSON.stringify({ text: "带附件的草稿", attachments: [file] });
   const store = createComposerDraftStore(root);
   await store.load();
   await store.save(entries, "http://127.0.0.1:45000");
@@ -197,13 +197,13 @@ test("upload references survive a desktop restart without storing file contents 
   await restored.load();
   assert.deepEqual(restored.snapshot().entries, entries);
   assert.equal(
-    JSON.parse(restored.snapshot().entries["atria.composer.v1:new"]).attachments[0].text,
+    JSON.parse(restored.snapshot().entries["formicand.composer.v1:new"]).attachments[0].text,
     undefined
   );
 });
 
 test("editing drafts use version 4 and preserve the original draft across a desktop origin change", async (t) => {
-  const root = await mkdtemp(join(tmpdir(), "atria-desktop-edit-draft-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-desktop-edit-draft-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const store = createComposerDraftStore(root);
   await store.load();
@@ -219,8 +219,8 @@ test("editing drafts use version 4 and preserve the original draft across a desk
     }
   };
   const entries = {
-    "atria.composer.v1:active": JSON.stringify("task"),
-    "atria.composer.v1:task": JSON.stringify(value)
+    "formicand.composer.v1:active": JSON.stringify("task"),
+    "formicand.composer.v1:task": JSON.stringify(value)
   };
   await store.save(entries, "http://127.0.0.1:10001");
   assert.equal(JSON.parse(await readFile(join(root, "composer-drafts.json"), "utf8")).version, 4);
@@ -233,7 +233,7 @@ test("editing drafts use version 4 and preserve the original draft across a desk
     editing: { ...value.editing, original: { text: "retained", attachments: [{ name: "broken" }] } }
   };
   await assert.rejects(
-    resumed.save({ ...entries, "atria.composer.v1:task": JSON.stringify(malformed) }),
+    resumed.save({ ...entries, "formicand.composer.v1:task": JSON.stringify(malformed) }),
     /草稿或附件/
   );
   assert.deepEqual(resumed.snapshot().entries, entries);

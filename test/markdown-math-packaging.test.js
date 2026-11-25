@@ -14,7 +14,7 @@ const exec = promisify(execFile);
 
 test("desktop file selection carries the complete math renderer, CSS, fonts and license without node_modules", async (t) => {
   const source = resolve(".");
-  const stage = await mkdtemp(join(tmpdir(), "atria-math-package-"));
+  const stage = await mkdtemp(join(tmpdir(), "formicand-math-package-"));
   t.after(() => rm(stage, { recursive: true, force: true }));
   const filter = new FileMatcher(source, stage, (pattern) => pattern, config.files).createFilter();
   const queue = ["web/assets/markdown.js", "web/assets/math.css", "web/assets/math/generated/LICENSE.txt"];

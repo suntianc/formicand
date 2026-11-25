@@ -58,7 +58,7 @@ test("HTTP status is taken only from an explicit model error prefix", () => {
     ["HTTP 500 服务错误", 500],
     ["HTTP status code: 401 身份验证失败", 401],
     ["HTTP 503: upstream unavailable", 503],
-    ['cowork-glm API error (400): {"code":"cyber_policy"}', 400]
+    ['formicand-glm API error (400): {"code":"cyber_policy"}', 400]
   ]) {
     const result = mainRunFailure(message("error", error), 0, null);
     assert.equal(result.error, error);

@@ -227,11 +227,11 @@ export async function readTaskInput(taskRoot: string, uploadId: string) {
 export function inputPrompt(taskRoot: string, files: InputFile[]) {
   if (!files.length) return "";
   return (
-    "\n\n<atria_uploaded_files>\n" +
+    "\n\n<formicand_uploaded_files>\n" +
     JSON.stringify({
       version: 1,
       files: files.map((f) => ({ ...f, path: join(taskRoot, "inputs", f.uploadId, f.relativePath) }))
     }) +
-    "\n</atria_uploaded_files>"
+    "\n</formicand_uploaded_files>"
   );
 }

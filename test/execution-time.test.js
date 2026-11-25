@@ -258,7 +258,7 @@ test("resident Main turns woken from waiting or after an earlier stop still repo
 });
 
 test("readTaskTimingEvents preserves boundaries across older Runs and past the 30-line tail", async (t) => {
-  const root = await mkdtemp(join(tmpdir(), "cowork-timing-events-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-timing-events-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const taskId = "task-timing";
   const oldRun = join(root, taskId, "runs", "run-1");

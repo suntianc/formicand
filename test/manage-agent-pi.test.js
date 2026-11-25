@@ -95,14 +95,14 @@ async function mainTurn(t, { calls, answer }) {
       maxBuffer: 16 * 1024 * 1024,
       env: isolatedPiEnvironment({
         HOME: root,
-        ATRIA_HOME: home,
-        COWORK_CONFIG: configPath,
-        COWORK_PROJECT_DIR: project,
-        COWORK_WORKSPACE: workspace,
-        COWORK_TASK_ID: TASK,
-        COWORK_RUN_ID: RUN,
+        FORMICAND_HOME: home,
+        FORMICAND_CONFIG: configPath,
+        FORMICAND_PROJECT_DIR: project,
+        FORMICAND_WORKSPACE: workspace,
+        FORMICAND_TASK_ID: TASK,
+        FORMICAND_RUN_ID: RUN,
         PI_CODING_AGENT_DIR: join(root, "pi"),
-        COWORK_DISABLE_MAIN_GUARDIAN: "1",
+        FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
         PI_OFFLINE: "1"
       })
     }

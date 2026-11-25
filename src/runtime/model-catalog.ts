@@ -3,13 +3,13 @@ import { createHttpTransport, proxyEnvironment, type HttpProxyConfig } from "./h
 import { endpointLevels } from "./model-levels.js";
 import { applyEndpointLimits, endpointLimits, type EndpointLimits } from "./model-limits.js";
 import { requestBaseUrl, type ConnectionProfile } from "./model-profile.js";
-import type { CoworkModelApi, PiThinkingLevel } from "./runtime-settings.js";
+import type { FormicandModelApi, PiThinkingLevel } from "./runtime-settings.js";
 
 type CatalogInput = HttpProxyConfig & {
   model: string;
   baseUrl?: string;
   apiKey?: string;
-  api?: CoworkModelApi;
+  api?: FormicandModelApi;
 };
 /** A model the connection offers, with the reasoning levels its `/models` entry names (#27). */
 export interface CatalogModel {
@@ -105,7 +105,7 @@ export function cachedAvailableModels(input: CatalogInput): Promise<CatalogModel
  * written in the host file.
  */
 export async function selectionLimits(
-  selection: { baseUrl?: string; apiKey?: string; model: string; profile?: { api?: CoworkModelApi } },
+  selection: { baseUrl?: string; apiKey?: string; model: string; profile?: { api?: FormicandModelApi } },
   config: HttpProxyConfig = {}
 ): Promise<EndpointLimits | undefined> {
   const models = await cachedAvailableModels({

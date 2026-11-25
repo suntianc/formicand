@@ -32,13 +32,13 @@ export function configuredWebTools(
   env: NodeJS.ProcessEnv = process.env
 ): WebToolOptions | undefined {
   validateWebSearchConfig(config);
-  if (env.COWORK_WEB_TOOLS !== undefined && !["0", "1"].includes(env.COWORK_WEB_TOOLS))
-    throw new Error("COWORK_WEB_TOOLS must be 0 or 1");
-  if (env.COWORK_WEB_TOOLS === "0" || config.webSearch?.provider === "off") return undefined;
+  if (env.FORMICAND_WEB_TOOLS !== undefined && !["0", "1"].includes(env.FORMICAND_WEB_TOOLS))
+    throw new Error("FORMICAND_WEB_TOOLS must be 0 or 1");
+  if (env.FORMICAND_WEB_TOOLS === "0" || config.webSearch?.provider === "off") return undefined;
   return {
     provider: "exa",
-    exaApiKey: env.COWORK_EXA_API_KEY ?? env.EXA_API_KEY ?? config.webSearch?.exaApiKey,
-    ...(env.COWORK_EXA_MCP_ENDPOINT ? { exaEndpoint: env.COWORK_EXA_MCP_ENDPOINT } : {})
+    exaApiKey: env.FORMICAND_EXA_API_KEY ?? env.EXA_API_KEY ?? config.webSearch?.exaApiKey,
+    ...(env.FORMICAND_EXA_MCP_ENDPOINT ? { exaEndpoint: env.FORMICAND_EXA_MCP_ENDPOINT } : {})
   };
 }
 
@@ -48,7 +48,7 @@ export function publicWebSearchStatus(config: WebSearchConfig, env: NodeJS.Proce
     enabled: Boolean(web),
     provider: web?.provider ?? "off",
     authenticated: Boolean(web?.exaApiKey),
-    managedByEnvironment: ["COWORK_WEB_TOOLS", "COWORK_EXA_API_KEY", "EXA_API_KEY"].some(
+    managedByEnvironment: ["FORMICAND_WEB_TOOLS", "FORMICAND_EXA_API_KEY", "EXA_API_KEY"].some(
       (key) => env[key] !== undefined
     )
   };

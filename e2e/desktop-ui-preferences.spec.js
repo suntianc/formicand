@@ -22,11 +22,11 @@ async function installDesktopBridge(page, drafts, preferences) {
     const electron = {
       contextBridge: { exposeInMainWorld: (name, value) => { window[name] = value; } },
       ipcRenderer: {
-        sendSync: (channel) => (channel === "bookman:ui-preferences" ? preferences : drafts),
+        sendSync: (channel) => (channel === "formicand:ui-preferences" ? preferences : drafts),
         on: () => {},
         invoke: async (channel, ...args) => {
-          if (channel === "bookman:save-ui-preferences") return window.__savePreferences(args[0], location.origin);
-          if (channel === "bookman:model-status") return { baseUrl: "https://fixture.example", model: "fixture", configured: true };
+          if (channel === "formicand:save-ui-preferences") return window.__savePreferences(args[0], location.origin);
+          if (channel === "formicand:model-status") return { baseUrl: "https://fixture.example", model: "fixture", configured: true };
         }
       }
     };
@@ -39,16 +39,16 @@ test("the desktop profile hands the page's remembered choices to a new origin af
   page,
   context
 }) => {
-  const root = await mkdtemp(join(tmpdir(), "atria-ui-preferences-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-ui-preferences-"));
   const dashboard = await startDashboard();
   const drafts = createComposerDraftStore(root);
   await drafts.load();
   const preferences = createUiPreferenceStore(root);
   await preferences.load();
   const remembered = {
-    "atria.model.level-by-task": JSON.stringify({ "task-1": "high" }),
-    "atria.model.model-by-task": JSON.stringify({ "task-1": "other-model" }),
-    "atria.time-format": "24h"
+    "formicand.model.level-by-task": JSON.stringify({ "task-1": "high" }),
+    "formicand.model.model-by-task": JSON.stringify({ "task-1": "other-model" }),
+    "formicand.time-format": "24h"
   };
   try {
     await installDesktopBridge(page, drafts, preferences);
@@ -63,7 +63,7 @@ test("the desktop profile hands the page's remembered choices to a new origin af
       .toEqual(expect.objectContaining(remembered));
     expect(preferences.snapshot().entries["not-ours"]).toBeUndefined();
     expect(
-      Object.keys(preferences.snapshot().entries).some((key) => key.startsWith("atria.composer.v1:"))
+      Object.keys(preferences.snapshot().entries).some((key) => key.startsWith("formicand.composer.v1:"))
     ).toBe(false);
     await page.close();
 

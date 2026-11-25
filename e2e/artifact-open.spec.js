@@ -61,9 +61,9 @@ test("artifact open displays authorized bytes for each isolated backend", async 
     if (message.text().includes("violates the following Content Security Policy"))
       cspErrors.push(message.text());
   });
-  const root = await mkdtemp(join(tmpdir(), "cowork-artifact-open-e2e-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-artifact-open-e2e-"));
   const inherited = Object.fromEntries(
-    Object.entries(process.env).filter(([name]) => !/^(?:COWORK_|PI_|ATRIA_|ELECTRON_)/.test(name))
+    Object.entries(process.env).filter(([name]) => !/^(?:FORMICAND_|PI_|FORMICAND_|ELECTRON_)/.test(name))
   );
   const hosts = [];
   try {
@@ -77,15 +77,15 @@ test("artifact open displays authorized bytes for each isolated backend", async 
       const env = {
         ...inherited,
         HOME: base,
-        ATRIA_HOME: home,
-        COWORK_HARNESS_ROOT: repository,
-        COWORK_WORKSPACE: join(base, "workspace"),
-        COWORK_CONFIG: config,
-        COWORK_DISABLE_MAIN_GUARDIAN: "1",
+        FORMICAND_HOME: home,
+        FORMICAND_HARNESS_ROOT: repository,
+        FORMICAND_WORKSPACE: join(base, "workspace"),
+        FORMICAND_CONFIG: config,
+        FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
         PI_CODING_AGENT_DIR: join(base, "pi"),
         PI_OFFLINE: "1",
         PI_TELEMETRY: "0",
-        COWORK_API_TOKEN: `synthetic-host-${name}`
+        FORMICAND_API_TOKEN: `synthetic-host-${name}`
       };
       const result = await startBackend(env, repository);
       const instance = JSON.parse(await readFile(join(home, "runtime/backend-instance.json"), "utf8"));
@@ -94,7 +94,7 @@ test("artifact open displays authorized bytes for each isolated backend", async 
       const host = async (path, data) => {
         const response = await fetch(instance.url + path, {
           method: "POST",
-          headers: { "x-atria-token": instance.token, "content-type": "application/json" },
+          headers: { "x-formicand-token": instance.token, "content-type": "application/json" },
           body: JSON.stringify(data)
         });
         expect(response.ok).toBeTruthy();
@@ -124,7 +124,7 @@ test("artifact open displays authorized bytes for each isolated backend", async 
       const raw = `${instance.url}/api/tasks/artifact-shared/artifact?path=report.md&raw=1`;
       expect((await fetch(raw)).status).toBe(401);
       await context.addCookies([
-        { name: "atria-session", value: instance.token, url: instance.url, httpOnly: true }
+        { name: "formicand-session", value: instance.token, url: instance.url, httpOnly: true }
       ]);
       await page.goto(`${instance.url}/?task=artifact-shared`);
       await expect

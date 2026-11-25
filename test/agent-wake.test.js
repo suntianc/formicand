@@ -32,8 +32,8 @@ const posix = { skip: process.platform === "win32" ? "filesystem sockets are POS
 
 /** Bind the endpoint the product would use and check a writer can reach it. */
 async function bindAndReach(endpoint) {
-  const previous = process.env.COWORK_WAKE_ENDPOINT;
-  process.env.COWORK_WAKE_ENDPOINT = endpoint;
+  const previous = process.env.FORMICAND_WAKE_ENDPOINT;
+  process.env.FORMICAND_WAKE_ENDPOINT = endpoint;
   try {
     const listener = await startAgentWake();
     assert.equal(listener?.endpoint, endpoint);
@@ -56,8 +56,8 @@ async function bindAndReach(endpoint) {
     assert.ok(reached, `a writer cannot reach ${endpoint}`);
   } finally {
     await stopAgentWake();
-    if (previous === undefined) delete process.env.COWORK_WAKE_ENDPOINT;
-    else process.env.COWORK_WAKE_ENDPOINT = previous;
+    if (previous === undefined) delete process.env.FORMICAND_WAKE_ENDPOINT;
+    else process.env.FORMICAND_WAKE_ENDPOINT = previous;
   }
 }
 
@@ -106,7 +106,7 @@ test("a temporary directory that fits keeps the endpoint beside the user's own f
       const uid = process.getuid?.();
       assert.equal(
         dirname(endpoint),
-        join(tmpdir(), uid === undefined ? "cowork-wake" : `cowork-wake-${uid}`)
+        join(tmpdir(), uid === undefined ? "formicand-wake" : `formicand-wake-${uid}`)
       );
       await bindAndReach(endpoint);
     }

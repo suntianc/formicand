@@ -5,7 +5,7 @@ import { ComputerUse, computerAction } from "../dist/src/gui/computer-use.js";
 const target = {
   pid: 100,
   windowId: 200,
-  bundleId: "org.atria.fixture",
+  bundleId: "org.formicand.fixture",
   application: "Fixture",
   title: "Probe"
 };

@@ -10,18 +10,18 @@ import { connectModelThroughUi, setupDialog } from "./model-provider-ui.js";
 test("desktop appearance applies natively and preserves the live backend across normal quit", async () => {
   test.skip(process.platform !== "darwin", "Native desktop acceptance requires macOS");
   test.setTimeout(120_000);
-  const root = await mkdtemp(join(tmpdir(), "atria-appearance-desktop-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-appearance-desktop-"));
   const provider = await modelProtocolFixture("openai-completions", () => ({ text: "外观切换后服务正常" }));
   const env = Object.fromEntries(
     Object.entries(process.env).filter(
-      ([key]) => !/^(?:COWORK_|ATRIA_|PI_|EXA_|ELECTRON_RUN_AS_NODE$|NODE_OPTIONS$)/.test(key)
+      ([key]) => !/^(?:FORMICAND_|FORMICAND_|PI_|EXA_|ELECTRON_RUN_AS_NODE$|NODE_OPTIONS$)/.test(key)
     )
   );
   Object.assign(env, {
-    COWORK_DESKTOP_DATA: root,
-    ATRIA_HOME: join(root, "home"),
+    FORMICAND_DESKTOP_DATA: root,
+    FORMICAND_HOME: join(root, "home"),
     PI_CODING_AGENT_DIR: join(root, "pi"),
-    COWORK_DISABLE_MAIN_GUARDIAN: "1",
+    FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
     PI_OFFLINE: "1"
   });
   const executablePath = await developmentExecutable();

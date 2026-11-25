@@ -7,11 +7,11 @@ import { recordingProducer, sanitizeRecording } from "../../dist/src/storage/mod
 
 const repository = "https://github.com/suntianc/coworkos";
 const ownedCommands = new Set(["export", "share", "bug", "changelog", "help"]);
-export function atriaCommandInput(text: string) {
+export function formicandCommandInput(text: string) {
   const trimmed = text.trim();
   const command = trimmed.match(/^\/([a-z-]+)(\s+|$)/);
   if (!command || !ownedCommands.has(command[1])) return text;
-  return `/coworkos-${command[1]}${command[2] ? " " : ""}${trimmed.slice(command[0].length)}`;
+  return `/formicand-${command[1]}${command[2] ? " " : ""}${trimmed.slice(command[0].length)}`;
 }
 
 export function registerCliCommands(
@@ -43,7 +43,7 @@ export function registerCliCommands(
       outputPath: path || undefined,
       secrets: options.secrets
     });
-    ctx.ui.notify(`CoworkOS 会话已导出：${result.outputPath}`, "info");
+    ctx.ui.notify(`Formicand 会话已导出：${result.outputPath}`, "info");
   };
   const register = (
     name: string,
@@ -51,7 +51,7 @@ export function registerCliCommands(
     handler: (args: string, ctx: ExtensionContext) => Promise<void>
   ) => {
     descriptions.set(name, description);
-    for (const prefix of ["coworkos", "atria"])
+    for (const prefix of ["formicand", "formicand"])
       pi.registerCommand(`${prefix}-${name}`, {
         description,
         handler: async (args, ctx) => {
@@ -59,24 +59,24 @@ export function registerCliCommands(
             await handler(args, ctx);
           } catch (error) {
             ctx.ui.notify(
-              `CoworkOS 命令失败：${sanitizeRecording(error instanceof Error ? error.message : String(error), options.secrets)}`,
+              `Formicand 命令失败：${sanitizeRecording(error instanceof Error ? error.message : String(error), options.secrets)}`,
               "error"
             );
           }
         }
       });
   };
-  register("export", "Export the current CoworkOS session locally: [json|html] [file]", exportCurrent);
-  register("share", "Save a local CoworkOS session export", async (args, ctx) => {
+  register("export", "Export the current Formicand session locally: [json|html] [file]", exportCurrent);
+  register("share", "Save a local Formicand session export", async (args, ctx) => {
     await exportCurrent(args, ctx);
-    ctx.ui.notify("CoworkOS 暂无云端分享服务；已保存本地文件，未上传会话。", "info");
+    ctx.ui.notify("Formicand 暂无云端分享服务；已保存本地文件，未上传会话。", "info");
   });
-  register("bug", "Save a local CoworkOS feedback report: [description]", async (args, ctx) => {
-    const output = resolve(options.projectDirectory, `coworkos-feedback-${randomUUID()}.json`);
+  register("bug", "Save a local Formicand feedback report: [description]", async (args, ctx) => {
+    const output = resolve(options.projectDirectory, `formicand-feedback-${randomUUID()}.json`);
     const report = sanitizeRecording(
       {
         schemaVersion: 1,
-        format: "atria.feedback",
+        format: "formicand.feedback",
         producer: await recordingProducer(),
         createdAt: new Date().toISOString(),
         platform: process.platform,
@@ -91,19 +91,19 @@ export function registerCliCommands(
     );
     await writeFile(output, `${JSON.stringify(report, null, 2)}\n`, { mode: 0o600, flag: "wx" });
     ctx.ui.notify(
-      `CoworkOS 反馈报告已保存：${output}\n提交入口：${repository}/issues\n报告未自动上传。`,
+      `Formicand 反馈报告已保存：${output}\n提交入口：${repository}/issues\n报告未自动上传。`,
       "info"
     );
   });
-  register("changelog", "Show CoworkOS changes and update command", async (_args, ctx) => {
+  register("changelog", "Show Formicand changes and update command", async (_args, ctx) => {
     ctx.ui.notify(
-      `CoworkOS 更新记录：${repository}/commits/main/\n检查更新：coworkos update --check`,
+      `Formicand 更新记录：${repository}/commits/main/\n检查更新：formicand update --check`,
       "info"
     );
   });
-  register("help", "Show CoworkOS commands", async (_args, ctx) => {
+  register("help", "Show Formicand commands", async (_args, ctx) => {
     ctx.ui.notify(
-      "CoworkOS 命令\n/export [json|html] [file]：本地导出\n/share [file]：本地分享副本\n/bug [描述]：本地反馈报告\n/changelog：更新记录\n/model、/thinking、/settings：运行设置\n/coworkos-debug：诊断\n退出后用 coworkos --continue 或 coworkos --session ID 继续。",
+      "Formicand 命令\n/export [json|html] [file]：本地导出\n/share [file]：本地分享副本\n/bug [描述]：本地反馈报告\n/changelog：更新记录\n/model、/thinking、/settings：运行设置\n/formicand-debug：诊断\n退出后用 formicand --continue 或 formicand --session ID 继续。",
       "info"
     );
   });
@@ -135,14 +135,15 @@ export function registerCliCommands(
         const getExpandedText = editor.getExpandedText?.bind(editor);
         // Follow-up and compaction submissions read directly from the editor
         // without onSubmit. Project those public reads before command dispatch.
-        editor.getText = () => atriaCommandInput(getText());
-        if (getExpandedText) editor.getExpandedText = () => atriaCommandInput(getExpandedText());
+        editor.getText = () => formicandCommandInput(getText());
+        if (getExpandedText) editor.getExpandedText = () => formicandCommandInput(getExpandedText());
         let submit = editor.onSubmit;
         // The SDK assigns onSubmit after the factory returns. Intercept the common
         // submission boundary instead of one key sequence.
         Object.defineProperty(editor, "onSubmit", {
           configurable: true,
-          get: () => (submit ? (text: string) => submit?.call(editor, atriaCommandInput(text)) : undefined),
+          get: () =>
+            submit ? (text: string) => submit?.call(editor, formicandCommandInput(text)) : undefined,
           set: (value) => {
             submit = value;
           }

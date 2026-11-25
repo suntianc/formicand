@@ -39,7 +39,7 @@ test("the three observation views read a node read-only and never replay its pen
   const local = await startDashboard({
     port: portA,
     defaultProject: false,
-    env: { COWORK_TRUSTED_CLIENT_ORIGINS: origins }
+    env: { FORMICAND_TRUSTED_CLIENT_ORIGINS: origins }
   });
   let remoteOrigin = "";
   const reads = [];
@@ -49,7 +49,7 @@ test("the three observation views read a node read-only and never replay its pen
     reads.push({
       method: request.method(),
       path: url.pathname,
-      readOnly: request.headers()["x-cowork-read-only"]
+      readOnly: request.headers()["x-formicand-read-only"]
     });
   });
   let remote;
@@ -57,7 +57,7 @@ test("the three observation views read a node read-only and never replay its pen
     remote = await startDashboard({
       port: portB,
       defaultProject: false,
-      env: { COWORK_TRUSTED_CLIENT_ORIGINS: origins }
+      env: { FORMICAND_TRUSTED_CLIENT_ORIGINS: origins }
     });
     remoteOrigin = remote.base;
     const remoteProject = await createProject(page, remote, "远程项目", `${remote.root}/remote-project`);

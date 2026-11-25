@@ -1,5 +1,9 @@
 import type { AgentToolResult } from "@earendil-works/pi-coding-agent";
-import { hostConfigRoot, readHostCoworkConfig, type CoworkConfig } from "../../dist/src/runtime/config.js";
+import {
+  hostConfigRoot,
+  readHostFormicandConfig,
+  type FormicandConfig
+} from "../../dist/src/runtime/config.js";
 export type RuntimeToolResult = AgentToolResult<unknown> & { isError?: boolean };
 
 export function errorMessage(error: unknown): string {
@@ -31,6 +35,6 @@ export function textFromMessage(message: { content?: unknown }): string {
     .join(" ");
 }
 
-export function loadConfig(): CoworkConfig {
-  return readHostCoworkConfig(hostConfigRoot());
+export function loadConfig(): FormicandConfig {
+  return readHostFormicandConfig(hostConfigRoot());
 }

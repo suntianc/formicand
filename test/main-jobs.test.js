@@ -9,7 +9,7 @@ import { LocalWorkspaceStore } from "../dist/src/workspace/workspace-store.js";
 import { InboxStore } from "../dist/src/runtime/scheduler.js";
 import { fakeEventHandlers } from "./fixtures/fake-pi-events.mjs";
 
-const extensionPath = resolve(".pi/extensions/cowork.ts");
+const extensionPath = resolve(".pi/extensions/formicand.ts");
 const requirePi = createRequire(import.meta.resolve("@earendil-works/pi-coding-agent"));
 const TASK = "jobs-task";
 const RUN = "main-jobs";
@@ -46,13 +46,13 @@ async function loadExtension() {
 }
 
 const keys = [
-  "COWORK_CONFIG",
-  "COWORK_WORKSPACE",
-  "COWORK_PROJECT_DIR",
-  "COWORK_TASK_ID",
-  "COWORK_RUN_ID",
-  "COWORK_API_BASE",
-  "COWORK_API_KEY"
+  "FORMICAND_CONFIG",
+  "FORMICAND_WORKSPACE",
+  "FORMICAND_PROJECT_DIR",
+  "FORMICAND_TASK_ID",
+  "FORMICAND_RUN_ID",
+  "FORMICAND_API_BASE",
+  "FORMICAND_API_KEY"
 ];
 
 /** The extension's runtime-state writes are fire-and-forget; let them land. */
@@ -71,18 +71,18 @@ async function removeAfterAsyncWrites(path) {
 
 /** Build a Task whose capabilities are whatever this test needs. */
 async function harness(t, capabilities) {
-  const root = await mkdtemp(join(tmpdir(), "atria-main-jobs-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-main-jobs-"));
   const previous = Object.fromEntries(keys.map((key) => [key, process.env[key]]));
   Object.assign(process.env, {
-    COWORK_CONFIG: join(root, "config.json"),
-    COWORK_WORKSPACE: root,
-    COWORK_PROJECT_DIR: root,
-    COWORK_TASK_ID: TASK,
-    COWORK_RUN_ID: RUN
+    FORMICAND_CONFIG: join(root, "config.json"),
+    FORMICAND_WORKSPACE: root,
+    FORMICAND_PROJECT_DIR: root,
+    FORMICAND_TASK_ID: TASK,
+    FORMICAND_RUN_ID: RUN
   });
-  await writeFile(process.env.COWORK_CONFIG, "{}\n");
-  delete process.env.COWORK_API_BASE;
-  delete process.env.COWORK_API_KEY;
+  await writeFile(process.env.FORMICAND_CONFIG, "{}\n");
+  delete process.env.FORMICAND_API_BASE;
+  delete process.env.FORMICAND_API_KEY;
   const store = new LocalWorkspaceStore(root);
   await store.createTask(TASK, { goal: "run long work" });
   await store.createRun(TASK, RUN);

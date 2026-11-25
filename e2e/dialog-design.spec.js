@@ -11,7 +11,7 @@ async function seed(page, dashboard) {
     expect(created.ok()).toBe(true);
   }
   // Emulated color schemes drive the theme only while the page follows the system.
-  await page.addInitScript(() => localStorage.setItem("atria.appearance", "system"));
+  await page.addInitScript(() => localStorage.setItem("formicand.appearance", "system"));
   await page.goto(`${dashboard.base}/?task=dialog-a`);
   await expect(page.locator("#topbar-task")).toHaveText("需要保留草稿的会话 A");
   await page.locator("#composer-input").fill("打开弹窗前保留的草稿");
@@ -163,7 +163,7 @@ test("rename retains its field and focus while saving fails, and recent conversa
     await page.screenshot({ path: info.outputPath("rename-save-failed.png") });
     await page.keyboard.press("Escape");
     // Emulated color schemes drive the theme only while the page follows the system.
-    await page.addInitScript(() => localStorage.setItem("atria.appearance", "system"));
+    await page.addInitScript(() => localStorage.setItem("formicand.appearance", "system"));
     await page.goto(`${dashboard.base}/?task=dialog-a`);
     await expect(page.locator("#composer-input")).toHaveValue("打开弹窗前保留的草稿");
   } finally {

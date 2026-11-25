@@ -21,7 +21,7 @@ export function installLanguageSettings({ prepareClose, storage, reload = () => 
         status.textContent = ui("请先保存当前修改后再切换语言。");
         return;
       }
-      if (window.bookmanDesktop?.language) await window.bookmanDesktop.language.set(next);
+      if (window.formicandDesktop?.language) await window.formicandDesktop.language.set(next);
       else storage.setItem(LANGUAGE_KEY, next);
       reload();
       // eslint-disable-next-line no-restricted-syntax -- setItem throws when storage is blocked or full; the status line reports it and the select is reset

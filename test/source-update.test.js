@@ -14,8 +14,8 @@ for (const name of Object.keys(environment))
   if (name.startsWith("GIT_") && !["GIT_CONFIG_GLOBAL", "GIT_CONFIG_NOSYSTEM"].includes(name))
     delete environment[name];
 
-async function fixture(t, { name = "coworkos" } = {}) {
-  const directory = await mkdtemp(join(tmpdir(), "atria-source-update-"));
+async function fixture(t, { name = "formicand" } = {}) {
+  const directory = await mkdtemp(join(tmpdir(), "formicand-source-update-"));
   t.after(() => rm(directory, { recursive: true, force: true }));
   const remote = join(directory, "upstream.git");
   const author = join(directory, "author");
@@ -134,7 +134,7 @@ test("source check follows the owning checkout's upstream and detects commits wi
   assert.equal(result.currentVersion, result.version);
   assert.equal(result.remoteCommit, next);
   await assertOldInstallation(f, old);
-  await assert.rejects(readFile(join(f.root, ".tmp/atria-updates")), { code: "ENOENT" });
+  await assert.rejects(readFile(join(f.root, ".tmp/formicand-updates")), { code: "ENOENT" });
 });
 
 test("successful CLI source update builds before fast-forward and preserves ignored user data", async (t) => {
@@ -154,15 +154,11 @@ test("successful CLI source update builds before fast-forward and preserves igno
   assert.equal((await checkSourceUpdate(f.options)).available, false);
 });
 
-test("source updates accept the product rename and reject foreign or reversed identities", async (t) => {
+test("source updates reject a checkout or upstream that is not Formicand", async (t) => {
   for (const [current, remote, allowed] of [
-    ["coworkos", "coworkos", true],
-    ["cowork-harness", "cowork-harness", true],
-    ["cowork-harness", "coworkos", true],
-    ["foreign-project", "coworkos", false],
-    ["coworkos", "foreign-project", false],
-    ["cowork-harness", "foreign-project", false],
-    ["coworkos", "cowork-harness", false]
+    ["formicand", "formicand", true],
+    ["foreign-project", "formicand", false],
+    ["formicand", "foreign-project", false]
   ]) {
     await t.test(`${current} -> ${remote}`, async (t) => {
       const f = await fixture(t, { name: current });
@@ -226,7 +222,7 @@ test("a CLI-only source update makes the App rebuild the same commit before repo
     "new browser bundle\n"
   );
   assert.equal((await checkSourceUpdate({ ...f.options, target: "desktop" })).available, false);
-  await assert.rejects(readFile(join(f.root, ".git/atria-cli-build-commit")), { code: "ENOENT" });
+  await assert.rejects(readFile(join(f.root, ".git/formicand-cli-build-commit")), { code: "ENOENT" });
 });
 
 test("failed same-commit App rebuild preserves its prior outputs and pending build marker", async (t) => {
@@ -245,7 +241,7 @@ test("failed same-commit App rebuild preserves its prior outputs and pending bui
     await readFile(join(f.root, "web/assets/math/generated/bundle.js"), "utf8"),
     "old browser bundle\n"
   );
-  assert.equal((await readFile(join(f.root, ".git/atria-cli-build-commit"), "utf8")).trim(), next);
+  assert.equal((await readFile(join(f.root, ".git/formicand-cli-build-commit"), "utf8")).trim(), next);
   assert.equal((await checkSourceUpdate({ ...f.options, target: "desktop" })).rebuildRequired, true);
 });
 
@@ -346,7 +342,7 @@ test("an existing update lock refuses another install", async (t) => {
   const f = await fixture(t);
   const old = await f.git(f.root, "rev-parse", "HEAD");
   await f.publish();
-  await mkdir(join(f.root, ".git/atria-update.lock"));
+  await mkdir(join(f.root, ".git/formicand-update.lock"));
   await assert.rejects(updateSource(f.options), { code: "UPDATE_BUSY" });
   await assertOldInstallation(f, old);
 });
@@ -443,7 +439,7 @@ test("a failed ref write or concurrent ref change preserves an altered index and
   assert.equal(await readFile(join(f.root, "notes.md"), "utf8"), "new source\n");
   assert.equal(await readFile(join(f.root, "node_modules/dependency.txt"), "utf8"), "old dependencies\n");
   assert.equal(await readFile(join(f.root, "dist/src/runtime/config.js"), "utf8"), "old build\n");
-  assert((await readdir(join(f.root, ".tmp/atria-updates"))).some((name) => name.startsWith(".update-")));
+  assert((await readdir(join(f.root, ".tmp/formicand-updates"))).some((name) => name.startsWith(".update-")));
 });
 
 test("a merge result failure with a concurrent edit preserves that edit and recovery files", async (t) => {
@@ -467,7 +463,7 @@ test("a merge result failure with a concurrent edit preserves that edit and reco
   assert.equal(await readFile(join(f.root, "notes.md"), "utf8"), "concurrent edit\n");
   assert.equal(await readFile(join(f.root, "node_modules/dependency.txt"), "utf8"), "old dependencies\n");
   assert.equal(await readFile(join(f.root, "dist/src/runtime/config.js"), "utf8"), "old build\n");
-  assert((await readdir(join(f.root, ".tmp/atria-updates"))).some((name) => name.startsWith(".update-")));
+  assert((await readdir(join(f.root, ".tmp/formicand-updates"))).some((name) => name.startsWith(".update-")));
 });
 
 test("a concurrent edit after publication begins prevents destructive source rollback", async (t) => {
@@ -502,22 +498,28 @@ test("CLI update options reject typos", () => {
 });
 
 test("an installed CLI has no updater and says to install a newer package by hand", async (t) => {
-  const directory = await mkdtemp(join(tmpdir(), "atria-update-cli-"));
+  const directory = await mkdtemp(join(tmpdir(), "formicand-update-cli-"));
   t.after(() => rm(directory, { recursive: true, force: true }));
   const scripts = join(directory, "scripts");
   await mkdir(scripts);
   await writeFile(join(directory, "package.json"), JSON.stringify({ type: "module", version: "0.1.2" }));
-  for (const file of ["atria.mjs", "cli-information.mjs", "data-home.cjs", "update.mjs", "update-source.mjs"])
+  for (const file of [
+    "formicand.mjs",
+    "cli-information.mjs",
+    "data-home.cjs",
+    "update.mjs",
+    "update-source.mjs"
+  ])
     await writeFile(join(scripts, file), await readFile(new URL(`../scripts/${file}`, import.meta.url)));
-  const failed = await execute(process.execPath, [join(scripts, "atria.mjs"), "update", "--check"], {
+  const failed = await execute(process.execPath, [join(scripts, "formicand.mjs"), "update", "--check"], {
     cwd: directory,
     env: environment
   }).catch((error) => error);
   assert.equal(failed.code, 1);
   assert.match(failed.stderr, /手动安装新版本/);
-  const help = await execute(process.execPath, [join(scripts, "atria.mjs"), "update", "--help"], {
+  const help = await execute(process.execPath, [join(scripts, "formicand.mjs"), "update", "--help"], {
     cwd: directory,
     env: environment
   });
-  assert.match(help.stdout, /Usage: coworkos update/);
+  assert.match(help.stdout, /Usage: formicand update/);
 });

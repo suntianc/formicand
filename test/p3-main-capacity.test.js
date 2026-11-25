@@ -154,7 +154,7 @@ for (const engine of PROJECT_DATA_ENGINES) {
         config: { mainCapacity: { resident: 2, continuation: 1 } },
         // A resident Main holds its external slot between turns; the idle exit
         // is what frees it, as spec rule 10 describes.
-        env: { COWORK_MAIN_IDLE_TIMEOUT_MS: "1200" }
+        env: { FORMICAND_MAIN_IDLE_TIMEOUT_MS: "1200" }
       });
       const request = client(dashboard);
       const a = await createProject(request, dashboard, `cap-${engine}-a`);
@@ -324,7 +324,7 @@ test(
       model: "fixture-model",
       defaultProject: false,
       config: { mainCapacity: { resident: 2, continuation: 1 } },
-      env: { COWORK_MAIN_IDLE_TIMEOUT_MS: "1200" }
+      env: { FORMICAND_MAIN_IDLE_TIMEOUT_MS: "1200" }
     });
     t.after(() => dashboard.stop());
     const request = client(dashboard);

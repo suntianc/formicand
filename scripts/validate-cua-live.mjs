@@ -35,7 +35,7 @@ Open ${url} in Task-owned Chromium. The page has a pixel-only six-digit challeng
 Required workflow:
 1. Load the cua skill and enable browser and cua. Open the page in cua_script and save its Tab as state.tab. Return the actual imageRef so the screenshot is visible.
 2. Call crop_image on that screenshot's imageRef, cropping the canvas containing the small digits, with scale=3. Read the enlarged pixels yourself. Never read source files, network responses, pixels via code, or the challenge image through bash/Python/HTTP. The answer is not supplied in this prompt.
-3. In a later cua_script reuse state.tab. Scope duplicate controls to the region named Receipt form, e.g. const form=state.tab.getByRole("region",{name:"Receipt form"}); await form.getByLabel("Verification code").fill("THE_DIGITS_YOU_READ",{observation:"none"}); await form.getByLabel("Memo").fill("CoworkOS browser verification",{observation:"none"}); await form.getByRole("button",{name:"Save"}).click({observation:"aria"}); Then wait for the exact text Saved and verified using waitFor({timeoutMs:5000,observation:"aria"}). Return the actual wait status and observation metadata. This cell must contain multiple awaited Browser actions.
+3. In a later cua_script reuse state.tab. Scope duplicate controls to the region named Receipt form, e.g. const form=state.tab.getByRole("region",{name:"Receipt form"}); await form.getByLabel("Verification code").fill("THE_DIGITS_YOU_READ",{observation:"none"}); await form.getByLabel("Memo").fill("Formicand browser verification",{observation:"none"}); await form.getByRole("button",{name:"Save"}).click({observation:"aria"}); Then wait for the exact text Saved and verified using waitFor({timeoutMs:5000,observation:"aria"}). Return the actual wait status and observation metadata. This cell must contain multiple awaited Browser actions.
 4. Download the saved receipt with a scripted scoped link click and expectDownload:true; return the real download metadata. Use the ordinary file-reading tool to read that downloaded Task file and check its JSON contents. Do not create or edit a replacement receipt. Do not submit again after success. If a result is uncertain, observe first. The fixture allows at most three attempts for visual reading errors.
 5. Finally call browser_observe with observation:"aria" on the same page to check the business status. Update your normal task memory with confirmed/unknown outcome and the actual download evidence, then finish with a brief result.
 All state is disposable and belongs to this acceptance task. Do not inspect user configuration, credentials, other tasks, the local validation runner, or fixture files. Operate only the supplied loopback web page and its downloaded Task receipt. If a tool fails, preserve its actual failure and recover by observing; never claim a check passed merely because input was sent.`;
@@ -89,12 +89,12 @@ export async function validateCuaLive(args = process.argv.slice(2)) {
     );
     return;
   }
-  const evidenceDir = opts.evidenceDir ?? join(tmpdir(), "atria-cua-live-receipts");
+  const evidenceDir = opts.evidenceDir ?? join(tmpdir(), "formicand-cua-live-receipts");
   await mkdir(evidenceDir, { recursive: true, mode: 0o700 });
   if (within(await realpath(root), await realpath(evidenceDir)))
     throw new Error("evidence_directory_must_be_outside_repository");
   const id = randomUUID();
-  const diagnostics = await mkdtemp(join(tmpdir(), `atria-cua-live-${id}-`));
+  const diagnostics = await mkdtemp(join(tmpdir(), `formicand-cua-live-${id}-`));
   const deadline = Date.now() + opts.timeoutMs;
   const receipt = { version: 1, validationId: id, startedAt: new Date().toISOString(), passed: false };
   let backend, fixture, taskId;
@@ -119,17 +119,21 @@ export async function validateCuaLive(args = process.argv.slice(2)) {
     const { chromium } = await import("playwright-core");
     await access(chromium.executablePath());
     const { desktopPaths, prepareDesktopData } = require("../desktop/paths.cjs");
-    const { atriaHome } = require("./data-home.cjs");
+    const { formicandHome } = require("./data-home.cjs");
     const { startBackend } = require("../desktop/backend.cjs");
     const { selectedConnection } = await import("../dist/src/runtime/model-providers.js");
     const { connectionProfile } = await import("../dist/src/runtime/model-profile.js");
-    const { readCoworkConfig } = await import("../dist/src/runtime/config.js");
+    const { readFormicandConfig } = await import("../dist/src/runtime/config.js");
     const { applyHostCredentials, HostCredentialStore, hostCredentialsPath } =
       await import("../dist/src/security/host-credentials.js");
     phase = "default_model_keychain";
     // The execution host's own configuration and credential store readers. No secret copies.
-    const originalPaths = desktopPaths(root, process.env.COWORK_DESKTOP_DATA || atriaHome(), process.env);
-    const settings = readCoworkConfig(root, { COWORK_CONFIG: originalPaths.configPath });
+    const originalPaths = desktopPaths(
+      root,
+      process.env.FORMICAND_DESKTOP_DATA || formicandHome(),
+      process.env
+    );
+    const settings = readFormicandConfig(root, { FORMICAND_CONFIG: originalPaths.configPath });
     const credentials = new HostCredentialStore(hostCredentialsPath(originalPaths.configPath));
     if (credentials.error) throw new Error("default_model_keychain");
     applyHostCredentials(settings, credentials.value);
@@ -170,12 +174,12 @@ export async function validateCuaLive(args = process.argv.slice(2)) {
     try {
       for (const key of Object.keys(process.env))
         if (
-          /^(?:COWORK_|PI_|ATRIA_|NODE_OPTIONS$|ELECTRON_RUN_AS_NODE$)/.test(key) ||
+          /^(?:FORMICAND_|PI_|FORMICAND_|NODE_OPTIONS$|ELECTRON_RUN_AS_NODE$)/.test(key) ||
           /(?:KEY|TOKEN|SECRET|PASSWORD|CREDENTIAL)/i.test(key)
         )
           delete process.env[key];
-      process.env.COWORK_BROWSER_EXECUTABLE = chromium.executablePath();
-      process.env.COWORK_DISABLE_MAIN_GUARDIAN = "1";
+      process.env.FORMICAND_BROWSER_EXECUTABLE = chromium.executablePath();
+      process.env.FORMICAND_DISABLE_MAIN_GUARDIAN = "1";
       process.env.PI_OFFLINE = "1";
       backend = await bounded(startBackend(paths, connection, process.execPath));
     } finally {
@@ -185,7 +189,7 @@ export async function validateCuaLive(args = process.argv.slice(2)) {
     const api = async (path, body) => {
       const response = await fetch(`${backend.url}${path}`, {
         method: body ? "POST" : "GET",
-        headers: { "content-type": "application/json", "x-atria-token": backend.token },
+        headers: { "content-type": "application/json", "x-formicand-token": backend.token },
         ...(body ? { body: JSON.stringify(body) } : {}),
         signal: AbortSignal.timeout(Math.min(10_000, remaining()))
       });
@@ -259,7 +263,7 @@ export async function validateCuaLive(args = process.argv.slice(2)) {
     if (backend && taskId && !receipt.taskCompleted)
       await fetch(`${backend.url}/api/tasks/${taskId}/action`, {
         method: "POST",
-        headers: { "content-type": "application/json", "x-atria-token": backend.token },
+        headers: { "content-type": "application/json", "x-formicand-token": backend.token },
         body: JSON.stringify({ action: "cancel" }),
         signal: AbortSignal.timeout(5000)
         // eslint-disable-next-line no-restricted-syntax -- 取消请求失败已被 receipt 的失败字段记账，清理阶段不再抛错

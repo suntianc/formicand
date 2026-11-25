@@ -25,7 +25,7 @@ test("Formicand replaces the old name in the title, mark and about row", async (
     await expect(about.locator("[data-update-action]")).toBeHidden();
 
     // Visible product copy no longer carries the vendor name.
-    expect(await page.evaluate(() => document.body.innerText)).not.toMatch(/CoworkOS/);
+    expect(await page.evaluate(() => document.body.innerText)).not.toMatch(/CoworkOS|Atria/);
   } finally {
     await dashboard.stop();
   }

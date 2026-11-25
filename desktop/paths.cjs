@@ -1,10 +1,10 @@
 const path = require("node:path");
 const fs = require("node:fs/promises");
-const { atriaDataPaths } = require("../scripts/data-home.cjs");
+const { formicandDataPaths } = require("../scripts/data-home.cjs");
 
 /** Install resources are immutable; user data has one stable home across releases. */
 function desktopPaths(appRoot, userData, env = process.env) {
-  const data = atriaDataPaths({ ...env, ATRIA_HOME: userData });
+  const data = formicandDataPaths({ ...env, FORMICAND_HOME: userData });
   return {
     appRoot,
     userData,

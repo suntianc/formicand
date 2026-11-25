@@ -16,7 +16,7 @@ const reply = (color = "none", code = "none") =>
           id: "call_connection_check",
           type: "function",
           function: {
-            name: "atria_connection_check",
+            name: "formicand_connection_check",
             arguments: JSON.stringify({ status: "connected", color, code })
           }
         }
@@ -138,7 +138,7 @@ test("malformed successful provider responses cannot pass or leak parser diagnos
     { choices: [{ message: { tool_calls: [null] } }] },
     {
       choices: [
-        { message: { tool_calls: [{ function: { name: "atria_connection_check", arguments: "{}" } }] } }
+        { message: { tool_calls: [{ function: { name: "formicand_connection_check", arguments: "{}" } }] } }
       ]
     },
     {
@@ -150,7 +150,7 @@ test("malformed successful provider responses cannot pass or leak parser diagnos
                 id: "call",
                 type: "function",
                 function: {
-                  name: "atria_connection_check",
+                  name: "formicand_connection_check",
                   arguments: JSON.stringify({ status: "connected", color: ["none"], code: "none" })
                 }
               }

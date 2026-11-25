@@ -28,7 +28,7 @@ function parsed<T>(schema: z.ZodType<T>, value: unknown): T {
   return result.data;
 }
 
-/** MCP settings: the servers in `~/.atria/mcp.json`, their connection checks and OAuth sign-in. */
+/** MCP settings: the servers in `~/.formicand/mcp.json`, their connection checks and OAuth sign-in. */
 export async function handleMcpRequest(
   request: IncomingMessage,
   response: ServerResponse,

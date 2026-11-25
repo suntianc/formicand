@@ -67,7 +67,7 @@ test(
   "a ticket is reviewed in its own checkout and brought in by the program",
   { timeout: 120_000 },
   async (t) => {
-    const root = await mkdtemp(join(tmpdir(), "atria-p48-ticket-flow-"));
+    const root = await mkdtemp(join(tmpdir(), "formicand-p48-ticket-flow-"));
     t.after(() => rm(root, { recursive: true, force: true }));
     const repo = await repository(join(root, "repository"));
     const runtime = new ProjectDataRuntime({
@@ -143,7 +143,7 @@ test(
       await prepareWorkItemSite({
         developmentDirectory: integration,
         directory,
-        branch: `coworkos/work/${callId}`
+        branch: `formicand/work/${callId}`
       });
       await service.ticketStarted("task-flow", developmentId, ticketId, {
         callId,
@@ -587,7 +587,7 @@ test(
   "call_subagent with a ticket writes its brief into the task and starts the ticket",
   { timeout: 120_000 },
   async (t) => {
-    const root = await mkdtemp(join(tmpdir(), "atria-p48-ticket-dispatch-"));
+    const root = await mkdtemp(join(tmpdir(), "formicand-p48-ticket-dispatch-"));
     t.after(() => rm(root, { recursive: true, force: true }));
     const repo = await repository(join(root, "repository"));
     const provider = await modelProtocolFixture("openai-completions", () => ({ text: "完成。" }));
@@ -596,14 +596,14 @@ test(
       defaultProject: false,
       modelEndpoint: provider.baseUrl,
       model: "protocol-fixture",
-      env: { COWORK_DISABLE_MAIN_GUARDIAN: "1" }
+      env: { FORMICAND_DISABLE_MAIN_GUARDIAN: "1" }
     });
     t.after(() => dashboard.stop());
     const token = await servingToken(dashboard.root);
     const post = async (path, body, auth = false) => {
       const response = await fetch(`${dashboard.base}${path}`, {
         method: "POST",
-        headers: { "content-type": "application/json", ...(auth ? { "x-atria-token": token } : {}) },
+        headers: { "content-type": "application/json", ...(auth ? { "x-formicand-token": token } : {}) },
         body: JSON.stringify(body)
       });
       return { status: response.status, body: await response.json() };
@@ -683,7 +683,7 @@ test(
   "a ticket that used its rework rounds changes approach before another round",
   { timeout: 120_000 },
   async (t) => {
-    const root = await mkdtemp(join(tmpdir(), "atria-p48-ticket-rounds-"));
+    const root = await mkdtemp(join(tmpdir(), "formicand-p48-ticket-rounds-"));
     t.after(() => rm(root, { recursive: true, force: true }));
     const repo = await repository(join(root, "repository"));
     const runtime = new ProjectDataRuntime({
@@ -736,7 +736,7 @@ test(
       await prepareWorkItemSite({
         developmentDirectory: integration,
         directory,
-        branch: `coworkos/work/${callId}`
+        branch: `formicand/work/${callId}`
       });
       await service.ticketStarted("task-rounds", developmentId, "01", {
         callId,

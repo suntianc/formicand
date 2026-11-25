@@ -119,10 +119,10 @@ test("question, option, draft and error content remain plain text", () => {
 
 test("a recommended option is offered, and is what an unanswered question falls back to", async (t) => {
   // askhuman blocks for a bounded time, so the recommended option is a
-  // commitment rather than a hint: it is what CoworkOS proceeds on when nobody
+  // commitment rather than a hint: it is what Formicand proceeds on when nobody
   // replies. Showing it also lets a person accept the obvious answer without
   // reading every option.
-  const workspaceRoot = await mkdtemp(join(tmpdir(), "atria-human-rec-"));
+  const workspaceRoot = await mkdtemp(join(tmpdir(), "formicand-human-rec-"));
   t.after(() => rm(workspaceRoot, { recursive: true, force: true }));
   const store = new HumanRequestStore(workspaceRoot);
   const request = await store.create({
@@ -165,7 +165,7 @@ test("askhuman waits for the answer, and a delivered answer is not replayed from
   // the transcript records a tool call and its result instead of a fabricated
   // user turn — which is what dragged the supervisor's "Resume this task…"
   // prompt into the conversation as though the person had typed it.
-  const workspaceRoot = await mkdtemp(join(tmpdir(), "atria-human-wait-"));
+  const workspaceRoot = await mkdtemp(join(tmpdir(), "formicand-human-wait-"));
   t.after(() => rm(workspaceRoot, { recursive: true, force: true }));
   const store = new HumanRequestStore(workspaceRoot);
   const request = await store.create({
@@ -208,7 +208,7 @@ test("askhuman waits for the answer, and a delivered answer is not replayed from
 });
 
 test("saved human questions survive store recreation, with idempotent durable answer delivery", async (t) => {
-  const root = await mkdtemp(join(tmpdir(), "atria-human-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-human-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const first = new HumanRequestStore(root);
   const question = await first.create({
@@ -235,7 +235,7 @@ test("saved human questions survive store recreation, with idempotent durable an
 });
 
 test("an answer consumed while its durable Inbox write is delayed never replays", async (t) => {
-  const root = await mkdtemp(join(tmpdir(), "atria-human-delivery-race-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-human-delivery-race-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const store = new HumanRequestStore(root);
   const request = await store.create({ taskId: "task", runId: "run", question: "继续吗？" });
@@ -281,7 +281,7 @@ test("an answer consumed while its durable Inbox write is delayed never replays"
 });
 
 test("a submission retry cannot replay an answer already read directly from disk", async (t) => {
-  const root = await mkdtemp(join(tmpdir(), "atria-human-retry-consumed-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-human-retry-consumed-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const store = new HumanRequestStore(root);
   const request = await store.create({ taskId: "task", runId: "run", question: "继续吗？" });
@@ -293,7 +293,7 @@ test("a submission retry cannot replay an answer already read directly from disk
 });
 
 test("cancelling a waiting human question closes its durable pending obligation", async (t) => {
-  const root = await mkdtemp(join(tmpdir(), "atria-human-cancel-wait-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-human-cancel-wait-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const store = new HumanRequestStore(root);
   const request = await store.create({ taskId: "task", runId: "run", question: "继续吗？" });
@@ -311,7 +311,7 @@ test("cancelling a waiting human question closes its durable pending obligation"
 });
 
 test("blank choices do not change the question's recommended decision", async (t) => {
-  const root = await mkdtemp(join(tmpdir(), "atria-human-choice-normalization-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-human-choice-normalization-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const store = new HumanRequestStore(root);
   const request = await store.create({

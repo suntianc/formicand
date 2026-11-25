@@ -9,7 +9,7 @@ const policyBytes = readFileSync(new URL("./cli-ui-policy.json", import.meta.url
 const policy = JSON.parse(policyBytes);
 const failure = (cause) =>
   new Error(
-    "CoworkOS Agent 的终端界面兼容性校验失败；请使用 Node >=22.19.0 并重新安装或构建当前 CLI。原会话已保留。",
+    "Formicand Agent 的终端界面兼容性校验失败；请使用 Node >=22.19.0 并重新安装或构建当前 CLI。原会话已保留。",
     { cause }
   );
 

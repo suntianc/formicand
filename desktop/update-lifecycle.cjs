@@ -31,7 +31,7 @@ async function prepareDesktopChange({ backend, documents, action = "更新 Formi
     try {
       const response = await fetchImpl(new URL(relative, base).href, {
         method: "GET",
-        headers: { "x-atria-token": backend.token },
+        headers: { "x-formicand-token": backend.token },
         redirect: "error",
         signal: AbortSignal.timeout(10_000)
       });

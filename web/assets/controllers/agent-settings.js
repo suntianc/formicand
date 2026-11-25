@@ -12,8 +12,8 @@ import { createAgentModelMenu } from "./agent-model-menu.js";
  * Settings → Agent.
  *
  * Two scopes like Skills: the global list (the built-in Main, Executor and
- * Reviewer, then `~/.atria/agents`) and one project's list (the built-ins
- * again, `.atria/agents` once the user trusts that project, then the global
+ * Reviewer, then `~/.formicand/agents`) and one project's list (the built-ins
+ * again, `.formicand/agents` once the user trusts that project, then the global
  * Agents that project can also use). The detail pane is the editor: what Main
  * reads to choose the Agent, its permission, model and effort, tools, skills,
  * MCP servers and extra prompt. A built-in keeps its name, description,
@@ -238,7 +238,7 @@ export function createAgentSettings({
     if (view.scope === "project") {
       if (!projects().length) return ui("先添加一个项目");
       if (view.data.project && view.data.project.trust !== "trusted")
-        return ui("信任这个项目后，才会读取它的 .atria/agents");
+        return ui("信任这个项目后，才会读取它的 .formicand/agents");
     }
     return view.query ? ui("没有匹配的 Agent") : ui("还没有 Agent");
   }

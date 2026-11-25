@@ -62,7 +62,7 @@ test(
   "the delivery preview returns the committed patch of the accepted change",
   { timeout: 180_000 },
   async (t) => {
-    const root = await mkdtemp(join(tmpdir(), "atria-p45-delivery-diff-"));
+    const root = await mkdtemp(join(tmpdir(), "formicand-p45-delivery-diff-"));
     const repository = await makeRepository(join(root, "repository"));
     const dashboard = await startDashboard({ defaultProject: false });
     t.after(async () => {

@@ -4,7 +4,7 @@ import { basename, join } from "node:path";
 
 // Loaded only by the isolated Dashboard in the edit recovery test. Pi runs normally.
 if (process.argv[1]?.endsWith(join("dist", "src", "cli", "dashboard.js"))) {
-  const task = join(process.env.COWORK_WORKSPACE, "edit-task");
+  const task = join(process.env.FORMICAND_WORKSPACE, "edit-task");
   const editRunPrefix = join(task, "runs", "main-edit-");
   const tx = join(task, "sessions", "main", "edit-transaction.json");
   const { readFile, writeFile, rename } = fs;

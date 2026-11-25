@@ -105,7 +105,7 @@ test("typing the next round, adding an attachment and shrinking the draft keep t
         .toBeLessThanOrEqual(1);
       expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
       await expect(input).toBeFocused();
-      if (process.env.COWORK_KEEP_COMPOSER_PROBE === "1")
+      if (process.env.FORMICAND_KEEP_COMPOSER_PROBE === "1")
         await page.screenshot({ path: test.info().outputPath(`${width}.png`) });
     }
   } finally {

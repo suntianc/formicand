@@ -14,7 +14,7 @@ for (const globalPolicy of [false, true, "run-exit"])
     `${globalPolicy ? (globalPolicy === "run-exit" ? "global policy + new conversation + automatic release when the work ends: " : "global policy + selection + renewal + revocation: ") : ""}real Pi CUA loop delivers native images and consumes successive observations through HTTP (fixture driver)`,
     { timeout: 80_000 },
     async () => {
-      const root = await mkdtemp(join(tmpdir(), "atria-computer-agent-"));
+      const root = await mkdtemp(join(tmpdir(), "formicand-computer-agent-"));
       const previous = { ...process.env };
       const requests = [],
         effects = [];
@@ -26,7 +26,7 @@ for (const globalPolicy of [false, true, "run-exit"])
       const target = {
         pid: 11,
         windowId: 12,
-        bundleId: "org.atria.fixture",
+        bundleId: "org.formicand.fixture",
         application: "Isolated fixture",
         title: "Protocol test"
       };
@@ -58,9 +58,9 @@ for (const globalPolicy of [false, true, "run-exit"])
           ];
       const actions = [
         { type: "press", elementId: "button" },
-        { type: "set_value", elementId: "field", value: "CoworkOS AX 中文 😀" },
+        { type: "set_value", elementId: "field", value: "Formicand AX 中文 😀" },
         { type: "click", x: 0, y: 0, button: "left" },
-        { type: "type", text: "CoworkOS 中文 😀" },
+        { type: "type", text: "Formicand 中文 😀" },
         { type: "key", keys: ["Meta", "a"] }
       ];
       const model = createServer(async (request, response) => {
@@ -146,20 +146,20 @@ for (const globalPolicy of [false, true, "run-exit"])
         await mkdir(join(root, "workspace"));
         await writeFile(join(root, "config.json"), "{}");
         Object.assign(process.env, {
-          COWORK_CONFIG: join(root, "config.json"),
-          COWORK_WORKSPACE: join(root, "workspace"),
-          COWORK_GLOBAL_INDEX: join(root, "global.json"),
-          COWORK_API_BASE: `http://127.0.0.1:${model.address().port}/v1`,
-          COWORK_API_KEY: "local-fixture",
-          COWORK_MODEL: "computer-fixture",
-          COWORK_SUPPORTS_IMAGES: "1",
-          COWORK_DISABLE_MAIN_GUARDIAN: "1",
-          COWORK_REASONING_EFFORT: "off",
-          COWORK_SUPPORTS_REASONING_EFFORT: "0",
+          FORMICAND_CONFIG: join(root, "config.json"),
+          FORMICAND_WORKSPACE: join(root, "workspace"),
+          FORMICAND_GLOBAL_INDEX: join(root, "global.json"),
+          FORMICAND_API_BASE: `http://127.0.0.1:${model.address().port}/v1`,
+          FORMICAND_API_KEY: "local-fixture",
+          FORMICAND_MODEL: "computer-fixture",
+          FORMICAND_SUPPORTS_IMAGES: "1",
+          FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
+          FORMICAND_REASONING_EFFORT: "off",
+          FORMICAND_SUPPORTS_REASONING_EFFORT: "0",
           PI_CODING_AGENT_DIR: join(root, "pi"),
           PI_OFFLINE: "1"
         });
-        delete process.env.COWORK_API_TOKEN;
+        delete process.env.FORMICAND_API_TOKEN;
         const probe = createServer();
         probe.listen(0, "127.0.0.1");
         await once(probe, "listening");

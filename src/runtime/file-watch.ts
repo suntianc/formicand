@@ -32,7 +32,7 @@ export async function watchFiles(
   // A test that has to show delivery does not depend on OS file events runs the
   // process with this set: the watch never attaches, so everything that still
   // arrives came from the writer's own wake notification.
-  if (process.env.COWORK_DISABLE_FILE_WATCH === "1") return () => {};
+  if (process.env.FORMICAND_DISABLE_FILE_WATCH === "1") return () => {};
   const directories = new Map<string, Map<string, string>>();
   for (const path of paths) {
     const directory = dirname(path);

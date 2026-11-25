@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { CoworkConfig } from "./config.js";
+import type { FormicandConfig } from "./config.js";
 import {
   connectionProfile,
   NEW_CONNECTION_PROFILE,
@@ -10,8 +10,8 @@ import {
   normalizeContextWindow,
   normalizeModelApi,
   normalizeThinkingFormat,
-  type CoworkModelApi,
-  type CoworkThinkingFormat
+  type FormicandModelApi,
+  type FormicandThinkingFormat
 } from "./runtime-settings.js";
 
 /**
@@ -41,8 +41,8 @@ export interface ModelProvider {
   /** Preset this provider was created from; only chooses the logo and defaults. */
   preset?: string;
   baseUrl: string;
-  api: CoworkModelApi;
-  thinkingFormat?: CoworkThinkingFormat;
+  api: FormicandModelApi;
+  thinkingFormat?: FormicandThinkingFormat;
   supportsPromptCacheKey: boolean;
   enabled: boolean;
   /** Present in memory only; persisted in the host credential store. */
@@ -162,7 +162,7 @@ function readModel(provider: ModelProvider, value: unknown): ProviderModel {
 }
 
 /** The validated provider list; empty when this host has none. */
-export function modelProviders(config: CoworkConfig): ModelProviders {
+export function modelProviders(config: FormicandConfig): ModelProviders {
   const value: unknown = config.modelProviders;
   if (value === undefined) return { version: 1, providers: [] };
   if (!isRecord(value)) throw unreadable();
@@ -197,7 +197,7 @@ export function modelProviders(config: CoworkConfig): ModelProviders {
 }
 
 /** Every model of every enabled provider, as runnable connections. */
-export function providerConnections(config: CoworkConfig): ModelConnection[] {
+export function providerConnections(config: FormicandConfig): ModelConnection[] {
   return modelProviders(config).providers.flatMap((provider) =>
     provider.enabled
       ? provider.models.map((model) => ({
@@ -216,14 +216,14 @@ export function providerConnections(config: CoworkConfig): ModelConnection[] {
 }
 
 /** Main's host binding when it names a runnable model, otherwise the first model offered. */
-export function modelConnections(config: CoworkConfig): ModelConnections {
+export function modelConnections(config: FormicandConfig): ModelConnections {
   const profiles = providerConnections(config);
   const bound = config.roleModels?.host?.main?.profileId;
   const activeId = profiles.find((profile) => profile.id === bound)?.id ?? profiles[0]?.id;
   return { version: 1, ...(activeId ? { activeId } : {}), profiles };
 }
 
-export function selectedConnection(config: CoworkConfig, input: Record<string, unknown>) {
+export function selectedConnection(config: FormicandConfig, input: Record<string, unknown>) {
   const registry = modelConnections(config);
   const id = input.profileId === undefined ? registry.activeId : input.profileId;
   if (id === "" || id === undefined) return undefined;
@@ -238,7 +238,7 @@ export function selectedConnection(config: CoworkConfig, input: Record<string, u
  * default. CLI launches, the composer's model list and the runtime display read
  * these; a host without providers keeps whatever it was started with.
  */
-export function withActiveConnection(config: CoworkConfig): CoworkConfig {
+export function withActiveConnection(config: FormicandConfig): FormicandConfig {
   if (!config.modelProviders) return config;
   const registry = modelConnections(config);
   const active = registry.profiles.find((profile) => profile.id === registry.activeId);
@@ -257,7 +257,7 @@ export function withActiveConnection(config: CoworkConfig): CoworkConfig {
 }
 
 /** Built-in Agents that chose a model, globally or in a project; deleting or disabling it is refused. */
-function usedBy(config: CoworkConfig, match: (profileId: string) => boolean): string[] {
+function usedBy(config: FormicandConfig, match: (profileId: string) => boolean): string[] {
   const uses: string[] = [];
   const roles = config.roleModels;
   for (const [role, settings] of Object.entries(roles?.host ?? {}))
@@ -268,12 +268,12 @@ function usedBy(config: CoworkConfig, match: (profileId: string) => boolean): st
   return uses;
 }
 
-function assertUnused(config: CoworkConfig, match: (profileId: string) => boolean, what: string) {
+function assertUnused(config: FormicandConfig, match: (profileId: string) => boolean, what: string) {
   const uses = usedBy(config, match);
   if (uses.length) throw new Error(`${what}正被 Agent 使用：${uses.join("、")}。请先在 Agent 页改选其他模型`);
 }
 
-function withProviders(config: CoworkConfig, providers: ModelProvider[]): CoworkConfig {
+function withProviders(config: FormicandConfig, providers: ModelProvider[]): FormicandConfig {
   return withActiveConnection({ ...config, modelProviders: { version: 1, providers } });
 }
 
@@ -287,7 +287,7 @@ function findProvider(registry: ModelProviders, id: unknown): ModelProvider {
  * Create or update one provider's account fields. An empty key keeps the saved
  * one; a new provider needs a key. Models are edited separately.
  */
-export function saveProvider(config: CoworkConfig, input: Record<string, unknown>): CoworkConfig {
+export function saveProvider(config: FormicandConfig, input: Record<string, unknown>): FormicandConfig {
   const registry = modelProviders(config);
   const previous = input.id === undefined ? undefined : findProvider(registry, input.id);
   if (input.preset !== undefined && (typeof input.preset !== "string" || !ID.test(input.preset)))
@@ -326,7 +326,7 @@ export function saveProvider(config: CoworkConfig, input: Record<string, unknown
   return withProviders(config, [...registry.providers.filter((entry) => entry.id !== provider.id), provider]);
 }
 
-export function deleteProvider(config: CoworkConfig, input: Record<string, unknown>): CoworkConfig {
+export function deleteProvider(config: FormicandConfig, input: Record<string, unknown>): FormicandConfig {
   const registry = modelProviders(config);
   const provider = findProvider(registry, input.id);
   assertUnused(config, (id) => id.startsWith(`${provider.id}#`), `供应商「${provider.name}」的模型`);
@@ -341,7 +341,7 @@ export function deleteProvider(config: CoworkConfig, input: Record<string, unkno
  * listing's name and limits; an existing model keeps its settings unless the
  * entry changes them.
  */
-export function saveProviderModels(config: CoworkConfig, input: Record<string, unknown>): CoworkConfig {
+export function saveProviderModels(config: FormicandConfig, input: Record<string, unknown>): FormicandConfig {
   const registry = modelProviders(config);
   const provider = findProvider(registry, input.providerId);
   const upsert = input.models === undefined ? [] : input.models;
@@ -383,7 +383,7 @@ export function saveProviderModels(config: CoworkConfig, input: Record<string, u
 }
 
 /** Redacted view for the settings API; never includes a key. */
-export function publicProviders(config: CoworkConfig) {
+export function publicProviders(config: FormicandConfig) {
   const registry = modelProviders(config);
   const active = modelConnections(config).activeId;
   return {
@@ -407,7 +407,7 @@ export function publicProviders(config: CoworkConfig) {
 }
 
 /** The provider's account fields a probe or listing needs, from form input over the saved provider. */
-export function providerDraft(config: CoworkConfig, input: Record<string, unknown>) {
+export function providerDraft(config: FormicandConfig, input: Record<string, unknown>) {
   const registry = modelProviders(config);
   const saved = input.id === undefined ? undefined : findProvider(registry, input.id);
   const supplied = typeof input.apiKey === "string" ? input.apiKey.trim() : "";

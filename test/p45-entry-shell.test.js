@@ -90,7 +90,7 @@ test("the last entry and observation view survive a reload", () => {
 });
 
 test("unknown stored values and blocked storage fall back to the work entry", () => {
-  const stored = memoryStorage({ "atria.entry.v1": '{"mode":"galaxy","observeView":"nowhere"}' });
+  const stored = memoryStorage({ "formicand.entry.v1": '{"mode":"galaxy","observeView":"nowhere"}' });
   const { root, document } = shell();
   const controller = createEntryController({ root, storage: stored });
   assert.equal(controller.state().mode, "work");

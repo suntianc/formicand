@@ -22,12 +22,12 @@ async function skill(directory, name, extra = {}) {
 }
 
 async function setup(t) {
-  const root = await mkdtemp(join(tmpdir(), "cowork-skill-service-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-skill-service-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const paths = {
     root,
     harnessRoot: join(root, "install"),
-    home: join(root, "user", ".atria"),
+    home: join(root, "user", ".formicand"),
     userHome: join(root, "user"),
     projectDirectory: join(root, "project")
   };
@@ -50,7 +50,7 @@ test("the global list shows installed, shared and bundled skills with their sour
   await skill(join(paths.harnessRoot, ".pi", "skills", "cua"), "cua");
   await skill(join(paths.userHome, ".agents", "skills", "pdf"), "pdf", { "scripts/fill.py": "print(1)" });
   await skill(join(paths.home, "skills", "release-notes"), "release-notes");
-  await skill(join(paths.projectDirectory, ".atria", "skills", "deploy"), "deploy");
+  await skill(join(paths.projectDirectory, ".formicand", "skills", "deploy"), "deploy");
 
   const { skills } = await service.list(global);
   assert.deepEqual(
@@ -64,7 +64,7 @@ test("the global list shows installed, shared and bundled skills with their sour
   assert.deepEqual(skills.find((entry) => entry.name === "pdf").scripts, ["fill.py"]);
 });
 
-test("a folder is previewed, then the chosen skills are copied into ~/.atria/skills", async (t) => {
+test("a folder is previewed, then the chosen skills are copied into ~/.formicand/skills", async (t) => {
   const { paths, service } = await setup(t);
   const source = join(paths.root, "download");
   await skill(join(source, "alpha"), "alpha", { "scripts/run.sh": "echo" });
@@ -147,9 +147,9 @@ test("removing hides a skill from the catalog, restoring brings it back, and onl
   await assert.rejects(service.remove(global, join(paths.root, "elsewhere")), /技能不存在/);
 });
 
-test("a project's skills appear only after it is trusted, and installs go to its .atria/skills", async (t) => {
+test("a project's skills appear only after it is trusted, and installs go to its .formicand/skills", async (t) => {
   const { paths, service } = await setup(t);
-  await skill(join(paths.projectDirectory, ".atria", "skills", "deploy"), "deploy");
+  await skill(join(paths.projectDirectory, ".formicand", "skills", "deploy"), "deploy");
   await skill(join(paths.projectDirectory, ".agents", "skills", "lint"), "lint");
 
   const untrusted = await service.list(project);
@@ -172,7 +172,7 @@ test("a project's skills appear only after it is trusted, and installs go to its
   );
   const preview = await service.previewFolder(source, project);
   await service.install(preview.stagingId, ["extra"], project, false);
-  assert.ok(existsSync(join(paths.projectDirectory, ".atria", "skills", "extra", "SKILL.md")));
+  assert.ok(existsSync(join(paths.projectDirectory, ".formicand", "skills", "extra", "SKILL.md")));
 
   await service.trust("p1", "untrusted");
   assert.deepEqual((await service.list(project)).skills, []);

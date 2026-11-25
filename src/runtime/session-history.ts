@@ -22,10 +22,10 @@ export function historyRole(entry: SessionEntry): HistoryRole | undefined {
 export function historyUserText(entry: SessionEntry): string | undefined {
   if (entry.type === "custom_message") {
     const details = entry.details as { message?: unknown; answer?: unknown } | undefined;
-    if (entry.customType === "cowork-human-answer" && typeof details?.answer === "string")
+    if (entry.customType === "formicand-human-answer" && typeof details?.answer === "string")
       return details.answer;
     if (
-      (entry.customType === "cowork-user-message" || entry.customType === "cowork-user-turn") &&
+      (entry.customType === "formicand-user-message" || entry.customType === "formicand-user-turn") &&
       typeof details?.message === "string"
     )
       return details.message;

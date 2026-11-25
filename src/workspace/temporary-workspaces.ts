@@ -11,7 +11,7 @@ export interface TemporaryWorkspace {
   createdAt: string;
   retention: "until-explicit-discard";
 }
-const fileName = ".atria-temporary-workspace.json";
+const fileName = ".formicand-temporary-workspace.json";
 /** Durable product data, never OS temporary storage. Closing a tab does not remove it. */
 export class TemporaryWorkspaceStore {
   readonly directory: string;

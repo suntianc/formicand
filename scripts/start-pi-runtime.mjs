@@ -1,4 +1,4 @@
-import { coworkProviderId } from "../dist/src/runtime/model-profile.js";
+import { formicandProviderId } from "../dist/src/runtime/model-profile.js";
 import { parseMainRequestModel } from "../dist/src/storage/main-request-store.js";
 import { access, readFile } from "node:fs/promises";
 import { spawn } from "node:child_process";
@@ -22,17 +22,17 @@ import { compactAgentOutputLine } from "../dist/src/runtime/agent-output-compact
 import { resolveCliSession } from "./cli-session.mjs";
 import { ensureCliBranding, ensureCliStartupSettings } from "./cli-branding.mjs";
 import { installSearchToolAdapters } from "./search-tool-adapter.mjs";
-import { atriaDataPaths } from "./data-home.cjs";
+import { formicandDataPaths } from "./data-home.cjs";
 import { scanCliArguments, isInteractiveCli } from "./cli-information.mjs";
 import { runCliProcess } from "./cli-runtime-host.mjs";
 
 export async function startPi({ uiCompatibility } = {}) {
   // Component release credentials are never model/Agent/tool credentials.
-  delete process.env.ATRIA_COMPONENTS_GITHUB_TOKEN;
+  delete process.env.FORMICAND_COMPONENTS_GITHUB_TOKEN;
   // A delegated agent uses the same launcher and extension as Main; only the
   // role selects the other lifecycle. It is not a Main and must not take a Main
   // slot, a project execution lease or Main's continuation state.
-  if (process.env.COWORK_AGENT_ROLE) {
+  if (process.env.FORMICAND_AGENT_ROLE) {
     await startDelegatedAgent();
     return;
   }
@@ -40,23 +40,23 @@ export async function startPi({ uiCompatibility } = {}) {
   // does any work. Registering the process itself closes the spawn→bind window:
   // a child whose reservation was already released refuses to run, so recovery
   // can never hand a second slot to a process it cannot count.
-  const capacityGrant = process.env.COWORK_MAIN_CAPACITY_GRANTED;
+  const capacityGrant = process.env.FORMICAND_MAIN_CAPACITY_GRANTED;
   let capacityAlreadyGranted = false;
   if (capacityGrant) {
     try {
       const { openMainCapacityGate } = await import("./main-capacity-gate.mjs");
       const capacity = await openMainCapacityGate({
-        taskId: process.env.COWORK_TASK_ID,
+        taskId: process.env.FORMICAND_TASK_ID,
         cwd: process.cwd()
       });
       if (!capacity) throw new Error("外部 Main 容量配置缺失，未启动");
       if (!(await capacity.bindProcess(capacityGrant, process.pid)))
         throw new Error("外部 Main 名额已释放，未启动");
       // Children of this Main must not inherit the grant and claim the slot.
-      delete process.env.COWORK_MAIN_CAPACITY_GRANTED;
+      delete process.env.FORMICAND_MAIN_CAPACITY_GRANTED;
       // The budget owns this Run for its whole life: an answer that arrives
       // between turns is resumed through the backend, which admits the turn.
-      process.env.COWORK_MAIN_CAPACITY_MANAGED = "1";
+      process.env.FORMICAND_MAIN_CAPACITY_MANAGED = "1";
       capacityAlreadyGranted = true;
     } catch (error) {
       console.error(error instanceof Error ? error.message : String(error));
@@ -69,10 +69,10 @@ export async function startPi({ uiCompatibility } = {}) {
   /** The CLI host's delegated-process backend; absent when a Dashboard serves the Run. */
   let subagentHost;
   try {
-    const harnessRoot = resolve(process.env.COWORK_HARNESS_ROOT ?? process.cwd());
+    const harnessRoot = resolve(process.env.FORMICAND_HARNESS_ROOT ?? process.cwd());
     const executable = await resolvePiEntry(harnessRoot);
     if (!executable) {
-      console.error("CoworkOS Agent 运行时未安装完整，请运行 npm ci 或重新安装 CLI。");
+      console.error("Formicand Agent 运行时未安装完整，请运行 npm ci 或重新安装 CLI。");
       process.exit(1);
     }
 
@@ -94,29 +94,29 @@ export async function startPi({ uiCompatibility } = {}) {
         const [code, signal] = await once(information, "exit");
         process.exit(code ?? (signal ? 1 : 0));
       } catch (error) {
-        console.error(`启动 CoworkOS Agent 失败：${error.message}`);
+        console.error(`启动 Formicand Agent 失败：${error.message}`);
         process.exit(1);
       }
     }
     const publicTui = isInteractiveCli(userArgs, process.stdin.isTTY, process.stdout.isTTY);
-    const cliLaunch = process.env.COWORK_CLI_SESSION === "1" || publicTui;
+    const cliLaunch = process.env.FORMICAND_CLI_SESSION === "1" || publicTui;
     const hasExtension = userFlags.has("--extension") || userFlags.has("-e");
     const hasModel = userFlags.has("--model");
-    const coworkPrompt = resolve(harnessRoot, ".pi", "prompts", "cowork-main.md");
+    const formicandPrompt = resolve(harnessRoot, ".pi", "prompts", "formicand-main.md");
     const launchConfigPath = resolve(
-      process.env.COWORK_CONFIG ??
-        (existsSync(resolve(".cowork", "config.json"))
-          ? ".cowork/config.json"
+      process.env.FORMICAND_CONFIG ??
+        (existsSync(resolve(".formicand", "config.json"))
+          ? ".formicand/config.json"
           : existsSync(resolve("config.json"))
             ? "config.json"
-            : atriaDataPaths().configPath)
+            : formicandDataPaths().configPath)
     );
-    const { readHostCoworkConfig } = await import("../dist/src/runtime/config.js");
+    const { readHostFormicandConfig } = await import("../dist/src/runtime/config.js");
     let launchConfig;
     try {
-      // The host store holds the effective keys; without it `coworkos start`
+      // The host store holds the effective keys; without it `formicand start`
       // would lose the model env.
-      launchConfig = readHostCoworkConfig(process.cwd());
+      launchConfig = readHostFormicandConfig(process.cwd());
     } catch (error) {
       console.error(error.message);
       process.exit(1);
@@ -141,19 +141,19 @@ export async function startPi({ uiCompatibility } = {}) {
       thinkingFormat = configuredThinkingFormat(runtimeEnv);
       supportsPromptCacheKey = configuredSupportsPromptCacheKey(runtimeEnv);
     } catch (error) {
-      console.error(`Invalid CoworkOS reasoning configuration: ${error.message}`);
+      console.error(`Invalid Formicand reasoning configuration: ${error.message}`);
       process.exit(1);
     }
-    const data = atriaDataPaths(process.env, launchConfig);
+    const data = formicandDataPaths(process.env, launchConfig);
     const workspaceRoot = data.workspaceRoot;
-    let configuredModel = process.env.COWORK_MODEL ?? launchConfig.model ?? "glm-5.3";
+    let configuredModel = process.env.FORMICAND_MODEL ?? launchConfig.model ?? "glm-5.3";
     const agentDir = data.piAgentDir;
     mkdirSync(agentDir, { recursive: true });
     // Pi must prepare a cut before it calls the hook, even for /compact.
     // The extension independently selects and budgets the actual retained tail.
     await ensurePiRetryDefaults(agentDir, 1);
     await installSearchToolAdapters(agentDir);
-    const explicitTaskId = process.env.COWORK_TASK_ID;
+    const explicitTaskId = process.env.FORMICAND_TASK_ID;
     const { LocalWorkspaceStore } = await import("../dist/src/workspace/workspace-store.js");
     const savedTask = explicitTaskId
       ? await new LocalWorkspaceStore(workspaceRoot).readTask(explicitTaskId).catch((error) => {
@@ -164,7 +164,7 @@ export async function startPi({ uiCompatibility } = {}) {
     // Supervisor wakeups must honor a later project selection too. Durable task
     // storage and Pi history stay where they were; only the execution CWD changes.
     let projectDirectory = resolve(
-      savedTask?.projectDirectory ?? process.env.COWORK_PROJECT_DIR ?? process.cwd()
+      savedTask?.projectDirectory ?? process.env.FORMICAND_PROJECT_DIR ?? process.cwd()
     );
     let selectedSession;
     try {
@@ -231,7 +231,7 @@ export async function startPi({ uiCompatibility } = {}) {
             sessionId: capacity.external.sessionId,
             taskId,
             kind: capacity.external.kind,
-            runId: process.env.COWORK_RUN_ID ?? `main-${taskId}`,
+            runId: process.env.FORMICAND_RUN_ID ?? `main-${taskId}`,
             resume: true,
             prompt: "External Main started from the CLI.",
             origin: "cli",
@@ -261,7 +261,7 @@ export async function startPi({ uiCompatibility } = {}) {
       launchConfig.roleModels?.host?.main ??
       (taskProjectId ? launchConfig.roleModels?.projects?.[taskProjectId]?.main : undefined);
     let mainRole;
-    if (roleBinding && !process.env.COWORK_API_BASE && !process.env.COWORK_MODEL) {
+    if (roleBinding && !process.env.FORMICAND_API_BASE && !process.env.FORMICAND_MODEL) {
       const modelIndex = userFlags.get("--model")?.index ?? -1;
       const requestedModel = modelIndex >= 0 ? optionArgs[modelIndex + 1] : undefined;
       try {
@@ -300,12 +300,12 @@ export async function startPi({ uiCompatibility } = {}) {
         projectDirectory,
         resolve(workspaceRoot, explicitTaskId, "agents/main/context/messages.json")
       );
-      if (process.env.COWORK_MAIN_CONTINUATION) {
+      if (process.env.FORMICAND_MAIN_CONTINUATION) {
         const { restorePendingTaskInput } = await import("./main-session.mjs");
         await restorePendingTaskInput(
           userArgs[sessionDirectoryArg + 1],
           projectDirectory,
-          process.env.COWORK_MAIN_CONTINUATION
+          process.env.FORMICAND_MAIN_CONTINUATION
         );
       }
     }
@@ -315,7 +315,7 @@ export async function startPi({ uiCompatibility } = {}) {
     if (
       !cliLaunch &&
       explicitTaskId &&
-      process.env.COWORK_MAIN_CONTINUATION &&
+      process.env.FORMICAND_MAIN_CONTINUATION &&
       dashboardSessionIndex >= 0 &&
       sessionDirectoryArg >= 0
     ) {
@@ -323,7 +323,7 @@ export async function startPi({ uiCompatibility } = {}) {
       await restorePendingTaskInput(
         userArgs[sessionDirectoryArg + 1],
         projectDirectory,
-        process.env.COWORK_MAIN_CONTINUATION,
+        process.env.FORMICAND_MAIN_CONTINUATION,
         userArgs[dashboardSessionIndex + 1]
       );
     }
@@ -362,16 +362,16 @@ export async function startPi({ uiCompatibility } = {}) {
     // A Dashboard run already resolved its connection and passes its identity;
     // a CLI launch without one falls back to the active connection as before.
     const connectionId =
-      roleEnv.COWORK_CONNECTION_ID ??
-      process.env.COWORK_CONNECTION_ID ??
+      roleEnv.FORMICAND_CONNECTION_ID ??
+      process.env.FORMICAND_CONNECTION_ID ??
       activeConnection?.contextId ??
       activeConnection?.id ??
       "";
-    const providerId = process.env.COWORK_MAIN_RETRY_MODEL
-      ? parseMainRequestModel(process.env.COWORK_MAIN_RETRY_MODEL).provider
-      : coworkProviderId(
-          roleEnv.COWORK_API_BASE ||
-            process.env.COWORK_API_BASE ||
+    const providerId = process.env.FORMICAND_MAIN_RETRY_MODEL
+      ? parseMainRequestModel(process.env.FORMICAND_MAIN_RETRY_MODEL).provider
+      : formicandProviderId(
+          roleEnv.FORMICAND_API_BASE ||
+            process.env.FORMICAND_API_BASE ||
             launchConfig.baseUrl ||
             launchConfig.apiBase ||
             "",
@@ -379,20 +379,20 @@ export async function startPi({ uiCompatibility } = {}) {
         );
     const args = [
       // Pi's MCP client stays on for Main, but its servers come only from the
-      // extension (`~/.atria/mcp.json`, see .pi/runtime/mcp.ts). Ignoring
+      // extension (`~/.formicand/mcp.json`, see .pi/runtime/mcp.ts). Ignoring
       // project trust keeps a project's `.pi/mcp.json`, settings and extensions
       // from adding anything on their own.
       "--no-approve",
       // Pi would also scan its own state folder and project `.pi/skills`;
-      // CoworkOS resolves one catalog itself and hands it to the prompt.
+      // Formicand resolves one catalog itself and hands it to the prompt.
       "--no-skills",
-      ...(hasExtension ? [] : ["--extension", resolve(harnessRoot, ".pi", "extensions", "cowork.ts")]),
+      ...(hasExtension ? [] : ["--extension", resolve(harnessRoot, ".pi", "extensions", "formicand.ts")]),
       ...(hasModel ? [] : ["--provider", providerId, "--model", configuredModel]),
       // Pass the level explicitly: Pi otherwise restores old session defaults,
-      // including the "off" value written by earlier Cowork launches.
+      // including the "off" value written by earlier Formicand launches.
       ...(thinkingIndex >= 0 ? [] : ["--thinking", thinkingLevel]),
       "--append-system-prompt",
-      coworkPrompt,
+      formicandPrompt,
       // Pi 1.0 runs the interactive TUI in fullscreen by default. The upgrade
       // keeps the previous regular-scrollback default; an explicit
       // `--tui-mode` (or a later launch flag) still chooses fullscreen.
@@ -403,12 +403,12 @@ export async function startPi({ uiCompatibility } = {}) {
     ];
     if (
       publicTui &&
-      ["1", "true"].includes(process.env.ATRIA_DEBUG?.toLowerCase()) &&
+      ["1", "true"].includes(process.env.FORMICAND_DEBUG?.toLowerCase()) &&
       !optionArgs.includes("--verbose")
     )
       args.unshift("--verbose");
 
-    // Keep Pi's mutable state inside the Cowork workspace. This makes the launcher
+    // Keep Pi's mutable state inside the Formicand workspace. This makes the launcher
     // portable on managed machines where ~/.pi may not exist or be writable.
     const piPackageDir = resolve(
       dirname(fileURLToPath(import.meta.resolve("@earendil-works/pi-coding-agent"))),
@@ -427,7 +427,7 @@ export async function startPi({ uiCompatibility } = {}) {
     // it: it owns the workspace's delegated processes and answers Main over a
     // loopback route, so the same owner that launches a Subagent settles it.
     const providesSubagentHost =
-      !process.env.COWORK_DASHBOARD_URL && !process.env.COWORK_SUBAGENT_BACKEND_URL;
+      !process.env.FORMICAND_DASHBOARD_URL && !process.env.FORMICAND_SUBAGENT_BACKEND_URL;
     if (providesSubagentHost) {
       const { openSubagentHost } = await import("../dist/src/cli/subagent-host.js");
       subagentHost = await openSubagentHost({
@@ -442,45 +442,47 @@ export async function startPi({ uiCompatibility } = {}) {
       ...runtimeEnv,
       ...roleEnv,
       ...brandingEnv,
-      ...(process.env.COWORK_CONFIG || existsSync(launchConfigPath)
-        ? { COWORK_CONFIG: launchConfigPath }
+      ...(process.env.FORMICAND_CONFIG || existsSync(launchConfigPath)
+        ? { FORMICAND_CONFIG: launchConfigPath }
         : {}),
-      COWORK_HARNESS_ROOT: harnessRoot,
-      COWORK_CONFIG_ROOT: process.cwd(),
-      COWORK_PROJECT_DIR: projectDirectory,
-      COWORK_API_KEY: roleEnv.COWORK_API_KEY ?? process.env.COWORK_API_KEY ?? launchConfig.apiKey,
-      COWORK_API_BASE:
-        roleEnv.COWORK_API_BASE ??
-        process.env.COWORK_API_BASE ??
+      FORMICAND_HARNESS_ROOT: harnessRoot,
+      FORMICAND_CONFIG_ROOT: process.cwd(),
+      FORMICAND_PROJECT_DIR: projectDirectory,
+      FORMICAND_API_KEY: roleEnv.FORMICAND_API_KEY ?? process.env.FORMICAND_API_KEY ?? launchConfig.apiKey,
+      FORMICAND_API_BASE:
+        roleEnv.FORMICAND_API_BASE ??
+        process.env.FORMICAND_API_BASE ??
         launchConfig.baseUrl ??
         launchConfig.apiBase,
-      COWORK_MODEL: configuredModel,
-      COWORK_CONNECTION_ID: roleEnv.COWORK_CONNECTION_ID ?? connectionId,
-      COWORK_REASONING_EFFORT: thinkingLevel,
-      COWORK_THINKING_FORMAT: roleEnv.COWORK_THINKING_FORMAT ?? thinkingFormat,
-      COWORK_SUPPORTS_REASONING_EFFORT: supportsReasoningEffort ? "1" : "0",
-      COWORK_SUPPORTS_PROMPT_CACHE_KEY: supportsPromptCacheKey ? "1" : "0",
-      COWORK_WORKSPACE: workspaceRoot,
-      COWORK_TASK_ID: taskId,
-      COWORK_CLI_SESSION: cliLaunch ? "1" : "0",
+      FORMICAND_MODEL: configuredModel,
+      FORMICAND_CONNECTION_ID: roleEnv.FORMICAND_CONNECTION_ID ?? connectionId,
+      FORMICAND_REASONING_EFFORT: thinkingLevel,
+      FORMICAND_THINKING_FORMAT: roleEnv.FORMICAND_THINKING_FORMAT ?? thinkingFormat,
+      FORMICAND_SUPPORTS_REASONING_EFFORT: supportsReasoningEffort ? "1" : "0",
+      FORMICAND_SUPPORTS_PROMPT_CACHE_KEY: supportsPromptCacheKey ? "1" : "0",
+      FORMICAND_WORKSPACE: workspaceRoot,
+      FORMICAND_TASK_ID: taskId,
+      FORMICAND_CLI_SESSION: cliLaunch ? "1" : "0",
       // A one-shot prompt is this process's initial turn. Callbacks already in
       // the Inbox must join that turn instead of opening their own before Pi
       // submits the prompt.
-      ...(userFlags.has("--print") || userFlags.has("-p") ? { COWORK_INITIAL_PROMPT: "1" } : {}),
-      COWORK_CLI_TASK_EXPLICIT: explicitTaskId ? "1" : "0",
+      ...(userFlags.has("--print") || userFlags.has("-p") ? { FORMICAND_INITIAL_PROMPT: "1" } : {}),
+      FORMICAND_CLI_TASK_EXPLICIT: explicitTaskId ? "1" : "0",
       PI_CODING_AGENT_DIR: agentDir,
       PI_OFFLINE: "1",
       // Application MCP servers are owned by the Dashboard, so the agent reaches
       // their tools over HTTP. Absent for a run with no Dashboard, which simply
       // means no application-specific tools.
-      ...(process.env.COWORK_DASHBOARD_URL ? { COWORK_DASHBOARD_URL: process.env.COWORK_DASHBOARD_URL } : {}),
+      ...(process.env.FORMICAND_DASHBOARD_URL
+        ? { FORMICAND_DASHBOARD_URL: process.env.FORMICAND_DASHBOARD_URL }
+        : {}),
       ...(subagentHost
         ? {
-            COWORK_SUBAGENT_BACKEND_URL: subagentHost.url,
-            COWORK_SUBAGENT_BACKEND_TOKEN: subagentHost.token
+            FORMICAND_SUBAGENT_BACKEND_URL: subagentHost.url,
+            FORMICAND_SUBAGENT_BACKEND_TOKEN: subagentHost.token
           }
         : providesSubagentHost
-          ? { COWORK_SUBAGENT_UNAVAILABLE: "workspace_owned" }
+          ? { FORMICAND_SUBAGENT_UNAVAILABLE: "workspace_owned" }
           : {})
     };
     try {
@@ -502,7 +504,7 @@ export async function startPi({ uiCompatibility } = {}) {
         .materialize()
         .catch((error) => {
           console.error(
-            `[cowork] materializing request snapshot failed: ${error instanceof Error ? error.message : String(error)}`
+            `[formicand] materializing request snapshot failed: ${error instanceof Error ? error.message : String(error)}`
           );
         });
     }
@@ -512,7 +514,7 @@ export async function startPi({ uiCompatibility } = {}) {
       // The delegated processes are independent of this host; report the
       // cleanup failure instead of hiding it behind the launcher's exit code.
       console.error(
-        `[cowork] subagent host shutdown failed: ${error instanceof Error ? error.message : String(error)}`
+        `[formicand] subagent host shutdown failed: ${error instanceof Error ? error.message : String(error)}`
       );
     });
     clearInterval(projectExecutionTimer);
@@ -551,7 +553,7 @@ async function resolvePiEntry(harnessRoot) {
  * definition, or the built-in role's setting, names at least one server.
  */
 function delegatedUsesMcp() {
-  const raw = process.env.COWORK_AGENT_DEFINITION ?? process.env.COWORK_BUILTIN_AGENT;
+  const raw = process.env.FORMICAND_AGENT_DEFINITION ?? process.env.FORMICAND_BUILTIN_AGENT;
   if (!raw) return false;
   const { mcp } = JSON.parse(raw);
   return mcp === "all" || (Array.isArray(mcp) && mcp.length > 0);
@@ -567,37 +569,39 @@ function delegatedUsesMcp() {
 async function startDelegatedAgent() {
   // The backend owns this process's connection and passes it down. A work site
   // is project code, so a config.json inside it can never supply model settings.
-  const missing = ["COWORK_API_BASE", "COWORK_API_KEY", "COWORK_MODEL"].filter((name) => !process.env[name]);
+  const missing = ["FORMICAND_API_BASE", "FORMICAND_API_KEY", "FORMICAND_MODEL"].filter(
+    (name) => !process.env[name]
+  );
   if (missing.length > 0) {
-    console.error(`CoworkOS 子代理启动缺少模型环境变量：${missing.join("、")}。`);
+    console.error(`Formicand 子代理启动缺少模型环境变量：${missing.join("、")}。`);
     process.exit(1);
   }
-  const harnessRoot = resolve(process.env.COWORK_HARNESS_ROOT ?? process.cwd());
+  const harnessRoot = resolve(process.env.FORMICAND_HARNESS_ROOT ?? process.cwd());
   const executable = await resolvePiEntry(harnessRoot);
   if (!executable) {
-    console.error("CoworkOS Agent 运行时未安装完整，请运行 npm ci 或重新安装 CLI。");
+    console.error("Formicand Agent 运行时未安装完整，请运行 npm ci 或重新安装 CLI。");
     process.exit(1);
   }
-  const baseUrl = process.env.COWORK_API_BASE;
-  const model = process.env.COWORK_MODEL;
+  const baseUrl = process.env.FORMICAND_API_BASE;
+  const model = process.env.FORMICAND_MODEL;
   const thinkingLevel = normalizeReasoningEffort(
-    process.env.COWORK_REASONING_EFFORT ?? configuredReasoningEffort(),
-    "COWORK_REASONING_EFFORT"
+    process.env.FORMICAND_REASONING_EFFORT ?? configuredReasoningEffort(),
+    "FORMICAND_REASONING_EFFORT"
   );
-  const providerId = coworkProviderId(baseUrl, process.env.COWORK_CONNECTION_ID ?? "");
+  const providerId = formicandProviderId(baseUrl, process.env.FORMICAND_CONNECTION_ID ?? "");
   const args = [
     // MCP stays off unless the custom Agent or the built-in role's setting names a server.
     ...(delegatedUsesMcp() ? [] : ["--no-mcp"]),
     "--no-approve",
     "--extension",
-    resolve(harnessRoot, ".pi", "extensions", "cowork.ts"),
+    resolve(harnessRoot, ".pi", "extensions", "formicand.ts"),
     "--provider",
     providerId,
     "--model",
     model,
     "--thinking",
     thinkingLevel,
-    // CoworkOS resolves the skill catalog itself (see skill-registry).
+    // Formicand resolves the skill catalog itself (see skill-registry).
     "--no-skills",
     ...process.argv.slice(2)
   ];

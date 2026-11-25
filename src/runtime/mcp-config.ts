@@ -5,14 +5,14 @@ import { z } from "zod";
 import { atomicWrite } from "../storage/atomic-file.js";
 
 /**
- * The one MCP configuration, `~/.atria/mcp.json`, shared by every project.
+ * The one MCP configuration, `~/.formicand/mcp.json`, shared by every project.
  *
  * The file uses the `mcpServers` shape other MCP clients use, so an entry can
  * be copied between them. Pi's own `mcp.json` stays empty: the extension
  * registers the servers a process may use with `pi.registerMcpServer`. Only
  * three exposures are offered: tools declared to the model (`direct`), found
  * through `tool_search` (`deferred`, the default) or unreachable (`hidden`).
- * Codemode is not enabled in CoworkOS, so its exposure is refused.
+ * Codemode is not enabled in Formicand, so its exposure is refused.
  */
 export const MCP_EXPOSURES = ["direct", "deferred", "hidden"] as const;
 export type McpExposure = (typeof MCP_EXPOSURES)[number];
@@ -168,7 +168,7 @@ export function parseMcpImport(text: string): Array<{ name: string; config: McpS
   });
 }
 
-/** What Pi receives for one server: the stored entry with CoworkOS's default exposure. */
+/** What Pi receives for one server: the stored entry with Formicand's default exposure. */
 export function piMcpServerConfig(config: McpServerConfig): McpServerConfig {
   const { enabled: _enabled, ...rest } = config;
   return { ...rest, exposure: config.exposure ?? DEFAULT_MCP_EXPOSURE };

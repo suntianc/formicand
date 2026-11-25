@@ -3,7 +3,7 @@ import { icon } from "../ui/icons.js";
 
 /** Render host-owned updates without exposing paths, commands or download URLs to the page. */
 export function installDesktopUpdates({ host } = {}) {
-  const desktop = window.bookmanDesktop;
+  const desktop = window.formicandDesktop;
   const section = document.querySelector("#profile-settings-about .desktop-updates");
   if (!desktop?.updateStatus || !desktop?.checkUpdates || !desktop?.applyUpdate || !section) return;
   const panel = document.querySelector("#settings-entry");

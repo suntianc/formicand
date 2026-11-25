@@ -45,7 +45,7 @@ test("a supervisor wake-up never appears as something the person said", () => {
   assert.equal(isMachineTurn({ role: "user", content: "resume 一下这个任务" }), false);
   assert.equal(isMachineTurn({ role: "assistant", content: SUPERVISOR_WAKE_TURN }), false);
 
-  // It opens no exchange, so CoworkOS's reply stays attached to the request it is
+  // It opens no exchange, so Formicand's reply stays attached to the request it is
   // actually answering rather than being split under a machine turn.
   const exchanges = buildConversationExchanges(
     [
@@ -180,7 +180,7 @@ test("stream replay deduplicates by run and event position, without dropping ide
 });
 
 test("all run logs survive an active-run change and recover an overwritten transcript", async () => {
-  const root = await mkdtemp(join(tmpdir(), "atria-conversation-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-conversation-"));
   try {
     const first = [user("first request", 1), assistant("first answer", 2)];
     const second = [user("second request", 3), assistant("second answer", 4)];
@@ -248,10 +248,10 @@ test("delivered steering input recovers its context position and identity instea
   const after = assistant("after steering", 50);
   const delivered = {
     role: "custom",
-    customType: "cowork-user-message",
+    customType: "formicand-user-message",
     content: "Harness delivery envelope",
     timestamp: 40,
-    details: { message: "try again", delivery: "steer", _coworkInbox: { messageId: "steer-context" } }
+    details: { message: "try again", delivery: "steer", _formicandInbox: { messageId: "steer-context" } }
   };
   const events = [
     ...runEvents(user("start", 10), before),
@@ -310,10 +310,10 @@ test("delivered steering input recovers its context position and identity instea
 
 test("real SDK ISO steering entries retain their position while receipts are repaired later", () => {
   const session = SessionManager.inMemory("/fixture");
-  session.appendCustomMessageEntry("cowork-user-message", "Harness delivery envelope", true, {
+  session.appendCustomMessageEntry("formicand-user-message", "Harness delivery envelope", true, {
     message: "try again",
     delivery: "steer",
-    _coworkInbox: { messageId: "steer-sdk" }
+    _formicandInbox: { messageId: "steer-sdk" }
   });
   const sdkEntry = session.getEntries().at(-1);
   assert.equal(sdkEntry.type, "custom_message");
@@ -404,10 +404,10 @@ test("custom user-message timestamps normalize ISO and finite numeric values wit
       const [message] = conversationMessages([
         {
           ...shape,
-          customType: "cowork-user-message",
+          customType: "formicand-user-message",
           id: "pi-entry",
           timestamp,
-          details: { message: "same input", delivery: "followUp", _coworkInbox: { messageId: "same-id" } }
+          details: { message: "same input", delivery: "followUp", _formicandInbox: { messageId: "same-id" } }
         }
       ]);
       assert.equal(message.timestamp, expected);
@@ -424,9 +424,9 @@ test("custom user-message timestamps normalize ISO and finite numeric values wit
 test("receipt fallback preserves replayed IDs across runs, distinct repeated input and queue cancellation", () => {
   const custom = (id, delivery, timestamp) => ({
     role: "custom",
-    customType: "cowork-user-message",
+    customType: "formicand-user-message",
     timestamp,
-    details: { message: "same input", delivery, _coworkInbox: { messageId: id } }
+    details: { message: "same input", delivery, _formicandInbox: { messageId: id } }
   });
   const first = custom("first-input", "steer", 15);
   const second = custom("second-input", "followUp", 61);
@@ -539,12 +539,12 @@ test("repeated steering instructions keep distinct event groups and pending foll
   for (const [index, instruction] of instructions.entries()) {
     const custom = {
       role: "custom",
-      customType: "cowork-user-message",
+      customType: "formicand-user-message",
       timestamp: instruction.timestamp,
       details: {
         message: instruction.content,
         delivery: "steer",
-        _coworkInbox: { messageId: instruction.id }
+        _formicandInbox: { messageId: instruction.id }
       }
     };
     events.push(
@@ -631,12 +631,12 @@ test("queued user identity is removed from both live and replayed runtime events
   const record = runtimeEventRecord("task", "run", 0, payload);
   assert.equal(record.payload.message.id, "queue-1");
   assert.equal(record.payload.message.content, "continue");
-  assert.match(payload.message.content, /atria-queued-user/, "the original durable record is unchanged");
+  assert.match(payload.message.content, /formicand-queued-user/, "the original durable record is unchanged");
   assert.equal(conversationMessages([record.payload.message])[0].id, "queue-1");
 });
 
 test("a stop in a resident Run belongs to the round it stopped, not the Run's last round", async () => {
-  const root = await mkdtemp(join(tmpdir(), "atria-conversation-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-conversation-"));
   try {
     const at = Date.parse("2026-11-18T10:00:00Z");
     const stopped = [user("stopped request", at), assistant("partial", at + 1_000)];
@@ -826,7 +826,12 @@ test("an edited message's relaunch and its stop belong to that message, not the 
   const first = [user("first request", 1_000), assistant("first answer", 2_000)];
   const edited = user("/code-review edited", 5_000);
   const aborted = { role: "assistant", content: [], timestamp: 6_000, stopReason: "aborted" };
-  const continuation = { role: "custom", customType: "atria-main-continuation", content: [], display: false };
+  const continuation = {
+    role: "custom",
+    customType: "formicand-main-continuation",
+    content: [],
+    display: false
+  };
   const events = [
     ...runEvents(...first).map((event) => ({ ...event, runId: "first" })),
     ...[

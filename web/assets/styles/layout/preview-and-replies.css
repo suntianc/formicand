@@ -461,10 +461,10 @@
 /* An application waiting for a document reads as a container, not a file. */
 
 /*
- * The option CoworkOS would pick itself.
+ * The option Formicand would pick itself.
  *
  * It is not decoration: the wait for an answer is bounded, and this is what
- * CoworkOS proceeds on if nobody replies in time. Saying so lets a person accept
+ * Formicand proceeds on if nobody replies in time. Saying so lets a person accept
  * the obvious answer without reading every option, and makes the unattended
  * outcome predictable.
  */

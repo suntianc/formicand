@@ -16,7 +16,7 @@
 
 ## 开关替换后旧用法残留（第一轮）
 
-#03 新增 `COWORK_DISABLE_MAIN_GUARDIAN`，#04 删除旧开关 `COWORK_DISABLE_WATCH_SUPERVISOR` 时没有替换，约 80 处测试启动的后端开始运行 Main 守护，时序测试偶发失败。Main 起初判断为负载偶发，在 main 上对照连跑 5 次后才确认是回归，#07 修复并新增扫描测试 `test/p46-guardian-off-in-tests.test.js`。来源：`os-p46-removal/retro.md` §1、`reports/07-a1.md`。
+#03 新增 `FORMICAND_DISABLE_MAIN_GUARDIAN`，#04 删除旧开关 `FORMICAND_DISABLE_WATCH_SUPERVISOR` 时没有替换，约 80 处测试启动的后端开始运行 Main 守护，时序测试偶发失败。Main 起初判断为负载偶发，在 main 上对照连跑 5 次后才确认是回归，#07 修复并新增扫描测试 `test/p46-guardian-off-in-tests.test.js`。来源：`os-p46-removal/retro.md` §1、`reports/07-a1.md`。
 
 ## 偶发失败的基线对照（第二轮）
 
@@ -28,7 +28,7 @@ finish 的 Playwright 全量中 `e2e/p45-motion.spec.js:44` 失败（断言没�
 
 ## Pi 升级与回滚（第二轮）
 
-- 1.x 默认加载内置 MCP（读取用户 `mcp.json` 增加 `mcp__*` 工具）、1.0 起交互 TUI 默认全屏、1.5.1 起 `cacheWarming` 默认 `"idle"`。启动器加 `--no-mcp` 与 `--tui-mode regular`，Main 扩展对 `cache_warming_decision` 返回 `stop`。#05 曾以「对 CoworkOS 连接惰性」为由未关闭 `cacheWarming`，审查未拦，#07 按派单原则补上。
+- 1.x 默认加载内置 MCP（读取用户 `mcp.json` 增加 `mcp__*` 工具）、1.0 起交互 TUI 默认全屏、1.5.1 起 `cacheWarming` 默认 `"idle"`。启动器加 `--no-mcp` 与 `--tui-mode regular`，Main 扩展对 `cache_warming_decision` 返回 `stop`。#05 曾以「对 Formicand 连接惰性」为由未关闭 `cacheWarming`，审查未拦，#07 按派单原则补上。
 - `pi-ai` 1.5 不再重导出 TypeBox，`pi-agent-core/harness` 被移除；`scripts/cli-ui-policy.json` 与 `scripts/cli-shell-policy.json` 锁定 bundle 哈希，升级时需重新生成。
 - 只把三个 Pi 包降到 0.87.1 无法启动：0.87.1 报 `Error: Unknown option: --no-mcp`，策略哈希不匹配，顶层也没有 `typebox`。回滚改为撤销升级提交，见 [运行参考](../../../runtime-reference.md)。
 - 来源：`os-p46-pi-upgrade/reports/05-a1.md`、`reports/06-a1.md`、`evidence/06-a1/old-pi-rejects-no-mcp.log`、`reviews/07-a088c993.md`。

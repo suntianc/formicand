@@ -14,7 +14,7 @@ test(
   "Dashboard discovers final files and preserves binary downloads, ranges and bounded Unicode previews",
   { timeout: 20000 },
   async () => {
-    const root = await mkdtemp(join(tmpdir(), "atria-artifact-api-"));
+    const root = await mkdtemp(join(tmpdir(), "formicand-artifact-api-"));
     let child;
     try {
       const workspaceRoot = join(root, "workspace");
@@ -61,13 +61,13 @@ test(
         stdio: "ignore",
         env: {
           ...process.env,
-          COWORK_WORKSPACE: workspaceRoot,
-          ATRIA_HOME: join(root, "home"),
-          COWORK_GLOBAL_INDEX: join(root, "global.json"),
-          COWORK_CONFIG: config,
-          COWORK_UI_PORT: String(port),
-          COWORK_API_BASE: "",
-          COWORK_API_KEY: ""
+          FORMICAND_WORKSPACE: workspaceRoot,
+          FORMICAND_HOME: join(root, "home"),
+          FORMICAND_GLOBAL_INDEX: join(root, "global.json"),
+          FORMICAND_CONFIG: config,
+          FORMICAND_UI_PORT: String(port),
+          FORMICAND_API_BASE: "",
+          FORMICAND_API_KEY: ""
         }
       });
       const base = `http://127.0.0.1:${port}`;

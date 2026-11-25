@@ -11,17 +11,17 @@ const taskId = "titlebar-task";
 const taskGoal = "标题栏验收会话";
 
 async function bootDesktop() {
-  const root = await mkdtemp(join(tmpdir(), "atria-p45-titlebar-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-p45-titlebar-"));
   const env = Object.fromEntries(
     Object.entries(process.env).filter(
-      ([key]) => !/^(?:COWORK_|ATRIA_|PI_|EXA_|ELECTRON_RUN_AS_NODE$|NODE_OPTIONS$)/.test(key)
+      ([key]) => !/^(?:FORMICAND_|FORMICAND_|PI_|EXA_|ELECTRON_RUN_AS_NODE$|NODE_OPTIONS$)/.test(key)
     )
   );
   Object.assign(env, {
-    COWORK_DESKTOP_DATA: root,
-    ATRIA_HOME: join(root, "home"),
+    FORMICAND_DESKTOP_DATA: root,
+    FORMICAND_HOME: join(root, "home"),
     PI_CODING_AGENT_DIR: join(root, "pi"),
-    COWORK_DISABLE_MAIN_GUARDIAN: "1",
+    FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
     PI_OFFLINE: "1"
   });
   const executablePath = await developmentExecutable();
@@ -47,8 +47,8 @@ async function createTaskThroughHost(page) {
   const result = await page.evaluate(
     async ({ taskId, goal }) => {
       const headers = { "content-type": "application/json" };
-      const nonce = window.bookmanDesktop?.transportNonce;
-      if (nonce) headers["x-cowork-desktop-nonce"] = nonce;
+      const nonce = window.formicandDesktop?.transportNonce;
+      if (nonce) headers["x-formicand-desktop-nonce"] = nonce;
       let response;
       for (let attempt = 0; attempt < 100; attempt += 1) {
         response = await fetch("/api/tasks", {

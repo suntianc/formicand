@@ -2,7 +2,7 @@ import { existsSync } from "node:fs";
 import { mkdir, rename, writeFile, chmod } from "node:fs/promises";
 import { dirname } from "node:path";
 import { randomUUID } from "node:crypto";
-import { coworkConfigPath, readCoworkConfig, type CoworkConfig } from "../runtime/config.js";
+import { formicandConfigPath, readFormicandConfig, type FormicandConfig } from "../runtime/config.js";
 import { publicWebSearchStatus, saveWebSearchConfig } from "../runtime/web-search-config.js";
 import { withFileLock } from "../storage/file-lock.js";
 import {
@@ -17,11 +17,11 @@ import {
 /** The host stores the optional search key privately and never returns it. */
 export function createWebSearchSettings(
   root: string,
-  config: CoworkConfig,
+  config: FormicandConfig,
   active: () => Promise<boolean>,
   options: { credentialsPath?: string } = {}
 ) {
-  const path = coworkConfigPath(root);
+  const path = formicandConfigPath(root);
   const store = new HostCredentialStore(options.credentialsPath ?? hostCredentialsPath(path));
   if (!store.error) applyHostCredentials(config, store.value);
   const status = () => ({
@@ -38,7 +38,7 @@ export function createWebSearchSettings(
       await withFileLock(path, async () => {
         store.reload();
         if (store.error) throw new Error(store.error);
-        const previous = existsSync(path) ? readCoworkConfig(root, { COWORK_CONFIG: path }) : config;
+        const previous = existsSync(path) ? readFormicandConfig(root, { FORMICAND_CONFIG: path }) : config;
         applyHostCredentials(previous, store.value);
         const next = saveWebSearchConfig(previous, input);
         const persisted = structuredClone(next);

@@ -61,7 +61,7 @@ export async function browserFixture() {
         });
         return;
       }
-      return res.end(url.pathname === "/large" ? "x".repeat(4096) : "Saved report: CoworkOS 中文\n");
+      return res.end(url.pathname === "/large" ? "x".repeat(4096) : "Saved report: Formicand 中文\n");
     }
     res.setHeader("content-type", "text/html; charset=utf-8");
     res.end(`<!doctype html><html><head><title>Browser fixture</title></head><body>

@@ -88,15 +88,15 @@ export function classifyCliInformation(args) {
   const flags = scanCliArguments(args);
   if (flags.has("--help") || flags.has("-h")) return "help";
   if (flags.has("--version") || flags.has("-v")) {
-    if (args.length !== 1) throw new Error("版本查询不接受执行参数；请单独运行 coworkos --version。");
+    if (args.length !== 1) throw new Error("版本查询不接受执行参数；请单独运行 formicand --version。");
     return "version";
   }
   return undefined;
 }
 
-export async function printAtriaVersion() {
+export async function printFormicandVersion() {
   const { version } = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
-  console.log(`CoworkOS ${version}`);
+  console.log(`Formicand ${version}`);
 }
 
 export function isInteractiveCli(args, stdinIsTTY, stdoutIsTTY) {
@@ -115,36 +115,36 @@ export function isInteractiveCli(args, stdinIsTTY, stdoutIsTTY) {
   );
 }
 
-export function printAtriaHelp() {
-  console.log(`CoworkOS — local multi-agent harness
+export function printFormicandHelp() {
+  console.log(`Formicand — local multi-agent harness
 
 Usage:
-  coworkos init                 Configure a model (API Key input is hidden)
-  coworkos doctor               Check Node, dependencies and configuration
-  coworkos doctor --test-connection  Test streaming, tools and optional image input (uses model quota)
-  coworkos update [--check]     Update this source checkout from its Git upstream
-  coworkos [start] [options]    Start Main in the current project; Main can delegate Subagents
-  coworkos --continue          Restore the latest conversation and its Task in this project
-  coworkos --session ID|PATH   Restore a specific conversation
-  coworkos --resume            Choose a saved conversation; enter 0 to cancel
-  coworkos session export ID|PATH [--format json|html] [--output FILE] [--force]
+  formicand init                 Configure a model (API Key input is hidden)
+  formicand doctor               Check Node, dependencies and configuration
+  formicand doctor --test-connection  Test streaming, tools and optional image input (uses model quota)
+  formicand update [--check]     Update this source checkout from its Git upstream
+  formicand [start] [options]    Start Main in the current project; Main can delegate Subagents
+  formicand --continue          Restore the latest conversation and its Task in this project
+  formicand --session ID|PATH   Restore a specific conversation
+  formicand --resume            Choose a saved conversation; enter 0 to cancel
+  formicand session export ID|PATH [--format json|html] [--output FILE] [--force]
                             Export locally, without model calls or uploads
-  coworkos task list|create|status|cancel|resume|complete ...
-  coworkos human list|reply|answer|cancel ...
-  coworkos main-supervisor ...   Inspect recovery; --spawn permits launching Main
-  coworkos worker ...           Process delegated work
-  coworkos main-worker ...      Internal wake worker
-  coworkos COMMAND --help        Show command options without changing user data
-  coworkos backend start|status|stop  Run the standalone backend independently of a client
-  coworkos data paths           Show persistent data paths
-  coworkos --version
+  formicand task list|create|status|cancel|resume|complete ...
+  formicand human list|reply|answer|cancel ...
+  formicand main-supervisor ...   Inspect recovery; --spawn permits launching Main
+  formicand worker ...           Process delegated work
+  formicand main-worker ...      Internal wake worker
+  formicand COMMAND --help        Show command options without changing user data
+  formicand backend start|status|stop  Run the standalone backend independently of a client
+  formicand data paths           Show persistent data paths
+  formicand --version
 
 Non-interactive setup:
-  coworkos init --base-url https://YOUR-HOST/v1 --model YOUR-MODEL --api-key-env COWORK_API_KEY
+  formicand init --base-url https://YOUR-HOST/v1 --model YOUR-MODEL --api-key-env FORMICAND_API_KEY
   Optional: --images --reasoning --thinking high --max-tokens 8192 --force
 
-Config: COWORK_CONFIG, then project .cowork/config.json / config.json, then ~/.atria/config.json.
-Environment overrides config. ATRIA_HOME relocates App, CLI and Web data together.
+Config: FORMICAND_CONFIG, then project .formicand/config.json / config.json, then ~/.formicand/config.json.
+Environment overrides config. FORMICAND_HOME relocates App, CLI and Web data together.
 No configuration values or API keys are printed by doctor.
 Source checkout: run npm run build:cli once before use; rebuild after changing source.`);
 }

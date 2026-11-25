@@ -9,7 +9,7 @@ import { createWorkspaceDirectory } from "../dist/src/dashboard/workspace-direct
 import { LocalWorkspaceStore } from "../dist/src/workspace/workspace-store.js";
 
 test("a catalog read shares project assignments and does not rescan known tasks for application evidence", async (t) => {
-  const root = await fs.mkdtemp(join(tmpdir(), "atria-catalog-performance-"));
+  const root = await fs.mkdtemp(join(tmpdir(), "formicand-catalog-performance-"));
   t.after(() => fs.rm(root, { recursive: true, force: true }));
   const storage = join(root, "workspace");
   const projectRoot = join(root, "project");
@@ -62,7 +62,7 @@ test("a catalog read shares project assignments and does not rescan known tasks 
 });
 
 test("a catalog read reloads a Task recovered by another process while waiting for its edit lock", async (t) => {
-  const root = await fs.mkdtemp(join(tmpdir(), "atria-catalog-edit-recovery-"));
+  const root = await fs.mkdtemp(join(tmpdir(), "formicand-catalog-edit-recovery-"));
   let child;
   let exited;
   t.after(async () => {

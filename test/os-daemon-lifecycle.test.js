@@ -35,7 +35,7 @@ const alive = (pid) => {
 
 function isolatedEnv(overrides) {
   const inherited = Object.fromEntries(
-    Object.entries(process.env).filter(([name]) => !/^(?:COWORK_|PI_|ATRIA_)/.test(name))
+    Object.entries(process.env).filter(([name]) => !/^(?:FORMICAND_|PI_|FORMICAND_)/.test(name))
   );
   return { ...inherited, ...overrides };
 }
@@ -53,16 +53,16 @@ async function createRoot(prefix, extra = {}) {
   await writeFile(configPath, "{}");
   const env = isolatedEnv({
     HOME: userHome,
-    ATRIA_HOME: home,
+    FORMICAND_HOME: home,
     PI_CODING_AGENT_DIR: join(base, "pi"),
     PI_OFFLINE: "1",
     PI_TELEMETRY: "0",
-    COWORK_HARNESS_ROOT: repositoryRoot,
-    COWORK_WORKSPACE: workspace,
-    COWORK_GLOBAL_INDEX: join(home, "runtime", "workspaces.json"),
-    COWORK_CONFIG: configPath,
-    COWORK_DISABLE_MAIN_GUARDIAN: "1",
-    COWORK_SUPERVISOR_INTERVAL_MS: "1000",
+    FORMICAND_HARNESS_ROOT: repositoryRoot,
+    FORMICAND_WORKSPACE: workspace,
+    FORMICAND_GLOBAL_INDEX: join(home, "runtime", "workspaces.json"),
+    FORMICAND_CONFIG: configPath,
+    FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
+    FORMICAND_SUPERVISOR_INTERVAL_MS: "1000",
     ...extra
   });
   return { base, home, workspace, project, userHome, configPath, env };
@@ -117,7 +117,7 @@ const stopBackend = (env) => backendCommand(["stop"], env);
 const instancePath = (root) => join(root.home, "runtime", "backend-instance.json");
 
 test("a client reuses a running backend without loading the dashboard server into its process", async (t) => {
-  const root = await createRoot("atria-daemon-client-import-");
+  const root = await createRoot("formicand-daemon-client-import-");
   t.after(async () => {
     await stopQuietly(root);
     await rm(root.base, { recursive: true, force: true });
@@ -157,7 +157,7 @@ async function readInstance(root) {
 
 async function api(root, method, path, body) {
   const instance = await readInstance(root);
-  const headers = { "x-atria-token": instance.token };
+  const headers = { "x-formicand-token": instance.token };
   if (body !== undefined) headers["content-type"] = "application/json";
   const response = await fetch(`${instance.url}${path}`, {
     method,
@@ -267,7 +267,7 @@ test(
   "a detached backend finishes a task after its client exits and stays the same instance on reconnect",
   { timeout: 150_000 },
   async (t) => {
-    const root = await createRoot("atria-daemon-continue-");
+    const root = await createRoot("formicand-daemon-continue-");
     let model;
     t.after(async () => {
       await stopQuietly(root);
@@ -311,11 +311,11 @@ test(
     });
     root.env = {
       ...root.env,
-      COWORK_API_BASE: model.baseUrl,
-      COWORK_API_KEY: "local-fixture",
-      COWORK_MODEL: "protocol-fixture",
-      COWORK_REASONING_EFFORT: "off",
-      COWORK_SUPPORTS_REASONING_EFFORT: "0"
+      FORMICAND_API_BASE: model.baseUrl,
+      FORMICAND_API_KEY: "local-fixture",
+      FORMICAND_MODEL: "protocol-fixture",
+      FORMICAND_REASONING_EFFORT: "off",
+      FORMICAND_SUPPORTS_REASONING_EFFORT: "0"
     };
     await writeFile(join(root.project, "input.txt"), "守护进程输入");
     const started = await startBackend(root.env);
@@ -331,7 +331,7 @@ test(
       clientPath,
       `
 const [url, token, projectDirectory] = process.argv.slice(2);
-const headers = { "content-type": "application/json", "x-atria-token": token };
+const headers = { "content-type": "application/json", "x-formicand-token": token };
 const call = async (path, body) => {
   const response = await fetch(url + path, { method: "POST", headers, body: JSON.stringify(body) });
   const value = await response.json();
@@ -379,7 +379,7 @@ process.stdout.write("started");
     assert.equal(reconnected.body.task.taskId, "daemon-task");
     assert.equal(reconnected.body.task.goal, "整理输入并交付报告");
     const download = await fetch(`${instance.url}/api/tasks/daemon-task/artifact?path=report.md&download=1`, {
-      headers: { "x-atria-token": instance.token }
+      headers: { "x-formicand-token": instance.token }
     });
     assert.equal(download.status, 200);
     assert.equal(await download.text(), report);
@@ -405,7 +405,7 @@ process.stdout.write("started");
     assert.ok(afterRestart.body.artifacts.some((item) => item.relativePath === "report.md"));
     const downloadAgain = await fetch(
       `${(await readInstance(root)).url}/api/tasks/daemon-task/artifact?path=report.md&download=1`,
-      { headers: { "x-atria-token": (await readInstance(root)).token } }
+      { headers: { "x-formicand-token": (await readInstance(root)).token } }
     );
     assert.equal(downloadAgain.status, 200);
     assert.equal(await downloadAgain.text(), report);
@@ -421,7 +421,7 @@ test(
   "an explicit stop leaves the managed Main for the next backend to adopt, and closing the session ends it",
   { timeout: 120_000 },
   async (t) => {
-    const root = await createRoot("atria-daemon-stop-");
+    const root = await createRoot("formicand-daemon-stop-");
     const model = await modelProtocolFixture("openai-completions", () => new Promise(() => {}));
     t.after(async () => {
       await stopQuietly(root);
@@ -430,11 +430,11 @@ test(
     });
     root.env = {
       ...root.env,
-      COWORK_API_BASE: model.baseUrl,
-      COWORK_API_KEY: "local-fixture",
-      COWORK_MODEL: "protocol-fixture",
-      COWORK_REASONING_EFFORT: "off",
-      COWORK_SUPPORTS_REASONING_EFFORT: "0"
+      FORMICAND_API_BASE: model.baseUrl,
+      FORMICAND_API_KEY: "local-fixture",
+      FORMICAND_MODEL: "protocol-fixture",
+      FORMICAND_REASONING_EFFORT: "off",
+      FORMICAND_SUPPORTS_REASONING_EFFORT: "0"
     };
     const started = await startBackend(root.env);
     const instance = await readInstance(root);
@@ -500,7 +500,7 @@ test(
   "a record naming a live process it cannot verify is a conflict, not a startup race",
   { timeout: 60_000 },
   async (t) => {
-    const root = await createRoot("atria-daemon-conflict-");
+    const root = await createRoot("formicand-daemon-conflict-");
     const placeholder = spawn(process.execPath, ["-e", "setInterval(()=>{},1000)"], {
       stdio: "ignore"
     });
@@ -545,7 +545,7 @@ test(
   "starting or importing the backend installs no system service and a restart reclaims its identity",
   { timeout: 150_000 },
   async (t) => {
-    const root = await createRoot("atria-daemon-service-");
+    const root = await createRoot("formicand-daemon-service-");
     t.after(async () => {
       await stopQuietly(root);
       await rm(root.base, { recursive: true, force: true });
@@ -580,7 +580,7 @@ test(
 );
 
 test("jobs close normally and survive an explicit backend stop", { timeout: 150_000 }, async (t) => {
-  const root = await createRoot("atria-daemon-jobs-");
+  const root = await createRoot("formicand-daemon-jobs-");
   let model;
   t.after(async () => {
     await stopQuietly(root);
@@ -630,11 +630,11 @@ test("jobs close normally and survive an explicit backend stop", { timeout: 150_
   });
   root.env = {
     ...root.env,
-    COWORK_API_BASE: model.baseUrl,
-    COWORK_API_KEY: "local-fixture",
-    COWORK_MODEL: "protocol-fixture",
-    COWORK_REASONING_EFFORT: "off",
-    COWORK_SUPPORTS_REASONING_EFFORT: "0"
+    FORMICAND_API_BASE: model.baseUrl,
+    FORMICAND_API_KEY: "local-fixture",
+    FORMICAND_MODEL: "protocol-fixture",
+    FORMICAND_REASONING_EFFORT: "off",
+    FORMICAND_SUPPORTS_REASONING_EFFORT: "0"
   };
   const started = await startBackend(root.env);
   await createTask(root);
@@ -692,7 +692,7 @@ test(
   "a direct serve on a live data root reuses the instance instead of replacing the record",
   { timeout: 60_000 },
   async (t) => {
-    const root = await createRoot("atria-daemon-serve-");
+    const root = await createRoot("formicand-daemon-serve-");
     const started = await startBackend(root.env);
     const before = await readInstance(root);
     const serve = spawn(process.execPath, [backendEntry, "serve"], {
@@ -741,7 +741,7 @@ test(
   "a start and a serve racing for one data root leave exactly one owning process",
   { timeout: 90_000 },
   async (t) => {
-    const root = await createRoot("atria-daemon-race-");
+    const root = await createRoot("formicand-daemon-race-");
     const started = runBackend(["start"], root.env);
     const serve = spawn(process.execPath, [backendEntry, "serve"], {
       cwd: repositoryRoot,

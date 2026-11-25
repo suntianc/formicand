@@ -1,7 +1,7 @@
 import {
   classifyCliInformation,
-  printAtriaHelp,
-  printAtriaVersion,
+  printFormicandHelp,
+  printFormicandVersion,
   isInteractiveCli,
   scanCliArguments
 } from "./cli-information.mjs";
@@ -10,8 +10,8 @@ import { reportCliStartupError } from "./cli-startup-error.mjs";
 // Version/help must work before loading dist, SDK, configuration or mutable state.
 try {
   const information = classifyCliInformation(process.argv.slice(2));
-  if (information === "version") await printAtriaVersion();
-  else if (information === "help") printAtriaHelp();
+  if (information === "version") await printFormicandVersion();
+  else if (information === "help") printFormicandHelp();
   else {
     let uiCompatibility;
     if (isInteractiveCli(process.argv.slice(2), process.stdin.isTTY, process.stdout.isTTY)) {

@@ -52,7 +52,7 @@ async function hostFixture(page) {
     throw new Error(`Unexpected host operation: ${input.operation}`);
   });
   await page.addInitScript(() => {
-    window.bookmanDesktop = {
+    window.formicandDesktop = {
       computerUse: async (input) => {
         const result = await window.__computerHost(input);
         if (input.operation === "policy") window.__lastPolicyResult = result;
@@ -331,7 +331,7 @@ test("three buttons grant each OS permission independently and require a separat
   }
 });
 
-test("settings show each OS permission while the switch is off and refresh on return to CoworkOS", async ({
+test("settings show each OS permission while the switch is off and refresh on return to Formicand", async ({
   page
 }) => {
   const dashboard = await startDashboard();

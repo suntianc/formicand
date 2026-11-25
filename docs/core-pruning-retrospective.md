@@ -1,6 +1,6 @@
 # 科学工具与旧资产剪枝复盘
 
-日期：2026-11-07。档案标识 `coworkos-p1-docs/os-core-pruning`，交付提交 `fb054a155e696663fb76ae35f57d00ab99c1cc42`。六条验收标准保持原样，独立审查、交付检查和归档完成，无豁免或集成失败。本文从运行复盘整理项目经验，当前落实状态见 [汇总](retrospectives.md)。
+日期：2026-11-07。档案标识 `formicand-p1-docs/os-core-pruning`，交付提交 `fb054a155e696663fb76ae35f57d00ab99c1cc42`。六条验收标准保持原样，独立审查、交付检查和归档完成，无豁免或集成失败。本文从运行复盘整理项目经验，当前落实状态见 [汇总](retrospectives.md)。
 
 ## 交付与验证
 
@@ -18,7 +18,7 @@
 
 ## 3. 执行 CLI 切换会改变 Python 解析结果
 
-Terra 使用的 Python 3.13.11 有文档依赖；DSH 首次检查解析到 3.15.0，`test/input-files.test.js` 的文档 fixture 报 `ModuleNotFoundError: No module named 'fitz'`。选择已有依赖环境后同一组检查 14/14 通过。交接须明确解析路径、版本和依赖；当前夹具与读取器支持 `COWORK_PYTHON`，见 [环境说明](development.md#准备环境) 和 [测试陷阱](pitfalls/testing.md#切换执行-cli-后文档夹具缺库)。
+Terra 使用的 Python 3.13.11 有文档依赖；DSH 首次检查解析到 3.15.0，`test/input-files.test.js` 的文档 fixture 报 `ModuleNotFoundError: No module named 'fitz'`。选择已有依赖环境后同一组检查 14/14 通过。交接须明确解析路径、版本和依赖；当前夹具与读取器支持 `FORMICAND_PYTHON`，见 [环境说明](development.md#准备环境) 和 [测试陷阱](pitfalls/testing.md#切换执行-cli-后文档夹具缺库)。
 
 ## 4. 返修验证需要明确各阶段责任
 

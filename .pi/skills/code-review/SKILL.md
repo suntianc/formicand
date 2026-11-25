@@ -3,7 +3,7 @@ name: code-review
 description: Review a candidate change along two axes, Spec (does it do what the ticket or requirement asked?) and Standards (does it follow the project's documented rules and stay clean?). Use as a Reviewer of a frozen candidate, or to review your own change before handing it over.
 ---
 
-<!-- Adapted from mattpocock/skills (MIT), skills/engineering/code-review at abeeaf9. Changes: the program or your brief supplies the change and the criteria; both axes run in this one session; findings follow CoworkOS's blocking rules, submitted by a Reviewer and fixed by the author in a self-review. -->
+<!-- Adapted from mattpocock/skills (MIT), skills/engineering/code-review at abeeaf9. Changes: the program or your brief supplies the change and the criteria; both axes run in this one session; findings follow Formicand's blocking rules, submitted by a Reviewer and fixed by the author in a self-review. -->
 
 Two-axis review of a candidate change:
 

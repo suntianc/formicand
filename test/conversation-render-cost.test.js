@@ -35,7 +35,7 @@ test("the conversation view drops the system prompt and agent_end bodies, nothin
 test("a callback's start keeps only what identifies it; its end keeps the report", () => {
   const message = {
     role: "custom",
-    customType: "cowork-callback",
+    customType: "formicand-callback",
     content: "report".repeat(1000),
     details: { callId: "call-1", status: "completed", review: "long".repeat(1000) },
     timestamp: 3
@@ -46,7 +46,7 @@ test("a callback's start keeps only what identifies it; its end keeps the report
       type: "message_start",
       message: {
         role: "custom",
-        customType: "cowork-callback",
+        customType: "formicand-callback",
         timestamp: 3,
         details: { callId: "call-1", status: "completed" }
       }

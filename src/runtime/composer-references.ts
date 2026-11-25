@@ -28,8 +28,8 @@ export type ResolvedReference =
   | { kind: "agent"; name: string }
   | { kind: "mcp_resource"; server: string; uri: string };
 
-const OPEN = "<atria_references>\n";
-const CLOSE_TAG = "\n</atria_references>";
+const OPEN = "<formicand_references>\n";
+const CLOSE_TAG = "\n</formicand_references>";
 const CLOSE = `${CLOSE_TAG}\n\n`;
 
 const NOTE =

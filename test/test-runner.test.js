@@ -14,7 +14,7 @@ import {
 } from "../scripts/test.mjs";
 
 async function fixture(callback) {
-  const root = await mkdtemp(join(tmpdir(), "atria-test-runner-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-test-runner-"));
   const put = async (file, text = "") => {
     await mkdir(join(root, file, ".."), { recursive: true });
     await writeFile(join(root, file), text);
@@ -128,9 +128,9 @@ test("child test failures propagate their actual exit code", async () => {
 test("the shared Dashboard fixture keeps the Main guardian off unless a test opts in", async (t) => {
   const off = await startDashboard({ defaultProject: false });
   t.after(() => off.stop());
-  assert.equal(off.env.COWORK_DISABLE_MAIN_GUARDIAN, "1");
+  assert.equal(off.env.FORMICAND_DISABLE_MAIN_GUARDIAN, "1");
 
   const on = await startDashboard({ defaultProject: false, mainGuardian: true });
   t.after(() => on.stop());
-  assert.equal(on.env.COWORK_DISABLE_MAIN_GUARDIAN, "0");
+  assert.equal(on.env.FORMICAND_DISABLE_MAIN_GUARDIAN, "0");
 });

@@ -7,7 +7,7 @@ export function reportCliStartupError(error, env = process.env) {
         text = text.replaceAll(secret, "[REDACTED]");
     return text;
   };
-  console.error(`CoworkOS: ${redact(error instanceof Error ? error.message : String(error))}`);
-  if (["1", "true"].includes(env.ATRIA_DEBUG?.toLowerCase()) && error instanceof Error)
+  console.error(`Formicand: ${redact(error instanceof Error ? error.message : String(error))}`);
+  if (["1", "true"].includes(env.FORMICAND_DEBUG?.toLowerCase()) && error instanceof Error)
     console.error(redact(error.stack ?? error.message));
 }

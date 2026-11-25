@@ -24,7 +24,7 @@ test(
         "Chromium unavailable: npx --yes --package=playwright-core@1.63.0 playwright-core install chromium"
       );
     }
-    const root = await mkdtemp(join(tmpdir(), "atria-script-browser-pi-"));
+    const root = await mkdtemp(join(tmpdir(), "formicand-script-browser-pi-"));
     const fixture = await browserFixture();
     t.after(async () => {
       await fixture.close();
@@ -108,7 +108,7 @@ test(
       })
     );
     const inherited = Object.fromEntries(
-      Object.entries(process.env).filter(([name]) => !/^(COWORK_|PI_|ATRIA_)/.test(name))
+      Object.entries(process.env).filter(([name]) => !/^(FORMICAND_|PI_|FORMICAND_)/.test(name))
     );
     const pending = exec(
       process.execPath,
@@ -125,14 +125,14 @@ test(
         maxBuffer: 16 * 1024 * 1024,
         env: {
           ...inherited,
-          COWORK_CONFIG: configPath,
-          COWORK_PROJECT_DIR: project,
-          COWORK_WORKSPACE: workspace,
-          COWORK_TASK_ID: "script-browser",
-          COWORK_RUN_ID: "script-browser-run",
-          COWORK_BROWSER_EXECUTABLE: executable,
+          FORMICAND_CONFIG: configPath,
+          FORMICAND_PROJECT_DIR: project,
+          FORMICAND_WORKSPACE: workspace,
+          FORMICAND_TASK_ID: "script-browser",
+          FORMICAND_RUN_ID: "script-browser-run",
+          FORMICAND_BROWSER_EXECUTABLE: executable,
           PI_CODING_AGENT_DIR: join(root, "pi"),
-          COWORK_DISABLE_MAIN_GUARDIAN: "1",
+          FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
           PI_OFFLINE: "1"
         }
       }
@@ -170,7 +170,7 @@ test(
     assert.equal(results[7].ariaSnapshot.includes("incorrect duplicate"), false);
     const download = results[3].value.download;
     const bytes = await readFile(join(task, download.path));
-    assert.equal(bytes.toString(), "Saved report: CoworkOS 中文\n");
+    assert.equal(bytes.toString(), "Saved report: Formicand 中文\n");
     assert.equal(download.bytes, bytes.length);
     assert.equal(download.sha256, createHash("sha256").update(bytes).digest("hex"));
     const archive = createImageArchive({ taskDirectory: task });

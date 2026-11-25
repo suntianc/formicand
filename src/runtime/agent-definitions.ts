@@ -2,15 +2,15 @@ import { mkdir, readdir, readFile, rm } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
 import { z } from "zod";
 import { atomicWrite } from "../storage/atomic-file.js";
-import { atriaHome } from "../../scripts/data-home.cjs";
+import { formicandHome } from "../../scripts/data-home.cjs";
 import { projectTrustDecision } from "./project-trust.js";
 import { parseSkillFrontmatter } from "./skill-frontmatter.js";
 
 /**
  * Custom Agents: Markdown files whose header names the Agent, tells Main when
  * to use it and fixes what it may do; the body is extra prompt text placed
- * after the role's own. Global ones live in `~/.atria/agents/`, a project's in
- * its `.atria/agents/`, and a project one wins over a global one of the same
+ * after the role's own. Global ones live in `~/.formicand/agents/`, a project's in
+ * its `.formicand/agents/`, and a project one wins over a global one of the same
  * name. The built-in Executor and Reviewer are shown in the same shape; only
  * their model, effort, skills, MCP servers and extra prompt can be set, and
  * those live with the role settings, not in a file.
@@ -130,7 +130,7 @@ export function globalAgentRoot(home: string): string {
 }
 
 export function projectAgentRoot(projectDirectory: string): string {
-  return join(resolve(projectDirectory), ".atria", "agents");
+  return join(resolve(projectDirectory), ".formicand", "agents");
 }
 
 /** A definition file's header and body as an Agent, or the reason it is not one. */
@@ -267,7 +267,7 @@ export async function processAgentLocations(
   projectDirectory: string | undefined,
   env: NodeJS.ProcessEnv = process.env
 ): Promise<AgentLocations> {
-  return agentLocations(atriaHome(env), projectDirectory);
+  return agentLocations(formicandHome(env), projectDirectory);
 }
 
 export async function writeAgentDefinition(root: string, definition: AgentDefinition): Promise<string> {

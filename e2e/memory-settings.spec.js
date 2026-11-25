@@ -14,7 +14,7 @@ test("memories are added, edited, renamed and deleted, and a project's memory sw
 }) => {
   const dashboard = await startDashboard();
   try {
-    const home = dashboard.env.ATRIA_HOME;
+    const home = dashboard.env.FORMICAND_HOME;
     const seeded = await page.request.post(`${dashboard.base}/api/memory/save`, {
       data: {
         target: { scope: "user" },

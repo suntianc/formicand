@@ -20,7 +20,7 @@ npm run desktop:dist
 npm run test:desktop
 ```
 
-`desktop:pack` 生成 `.tmp/release/mac-arm64/CoworkOS.app`；`desktop:dist` 使用系统 hdiutil 创建、校验 `release/CoworkOS-<version>-mac-arm64.dmg` 并写入 SHA-256。没有 Developer ID 证书时使用 ad-hoc 签名并严格验证 App。以脚本实际输出为准；本地构建不会上传或发布。构建 App 放在隐藏的 `.tmp` 下，避免成为 Spotlight/Launchpad 中重复的安装项。
+`desktop:pack` 生成 `.tmp/release/mac-arm64/Formicand.app`；`desktop:dist` 使用系统 hdiutil 创建、校验 `release/Formicand-<version>-mac-arm64.dmg` 并写入 SHA-256。没有 Developer ID 证书时使用 ad-hoc 签名并严格验证 App。以脚本实际输出为准；本地构建不会上传或发布。构建 App 放在隐藏的 `.tmp` 下，避免成为 Spotlight/Launchpad 中重复的安装项。
 
 `npm run test:desktop` 验证宿主、会话与产出物预览、Pi 与本地模型、草稿、退出/恢复及搬移升级。组件安装与已移除的编辑器不再打包。
 
@@ -68,12 +68,12 @@ git push origin v0.1.2-beta.7
 
 上游留下的 npm 包、公开更新清单、签名 ZIP/feed 与应用内下载安装已于 2026-11-25 删除（P9）；自有的发布与更新渠道之后另定。
 
-| 产物                                                     | 用途                                   |
-| -------------------------------------------------------- | -------------------------------------- |
-| `coworkos-cli-<version>.tgz` 与 `.sha256`                | CLI 安装包，手动安装到用户目录         |
-| `CoworkOS-<version>-mac-arm64.dmg` 与 `.sha256`          | Mac App 安装包，手动拖入 Applications  |
-| `CoworkOS-<version>-mac-arm64.signing.json` 与 `.sha256` | 精确记录候选 App 的签名状态            |
-| `atria-release-<version>.json` 与 `.sha256`              | 源码仓库/tag/commit 与发行产物来源记录 |
+| 产物                                                      | 用途                                   |
+| --------------------------------------------------------- | -------------------------------------- |
+| `formicand-cli-<version>.tgz` 与 `.sha256`                | CLI 安装包，手动安装到用户目录         |
+| `Formicand-<version>-mac-arm64.dmg` 与 `.sha256`          | Mac App 安装包，手动拖入 Applications  |
+| `Formicand-<version>-mac-arm64.signing.json` 与 `.sha256` | 精确记录候选 App 的签名状态            |
+| `formicand-release-<version>.json` 与 `.sha256`           | 源码仓库/tag/commit 与发行产物来源记录 |
 
 发布顺序为：先完成本地回归，再推送与 `package.json` 完全一致的 `vX.Y.Z` tag；在该 tag 的干净检出运行 `npm ci` 和 `npm run release:local -- vX.Y.Z`，它构建 DMG 与 CLI 包、生成来源清单并上传到 GitHub Release 草稿。审查草稿后由维护者手动发布。版本一旦发布不可覆盖；下一个公开版本须递增。
 
@@ -87,13 +87,13 @@ GitHub 工作流可选读取仓库变量 `CSC_NAME`、仓库 secrets `CSC_LINK` 
 
 用户从 DMG 拖入 Applications 并启动，按安装指南配置自己的模型连接。模型与搜索密钥由所选执行主机保存在配置旁的 `credentials.json`（0600），设置接口返回脱敏状态；Electron safeStorage 加密保存客户端会话凭据，renderer 通过受信宿主访问所选后端。存储边界与迁移见 [连接存储](configuration-reference.md#连接存储与兼容)。未配置模型也可编辑和保存支持的本地文档。
 
-用户数据默认位于与 CLI / Web 共用的 `~/.atria/`，包含工作空间、Pi 状态、连接、加密密钥和日志；`ATRIA_HOME` 整体覆盖，外部项目与显式覆盖目录按实际原文件一起备份。默认布局与旧桌面目录复制/导入见 [持久化说明](task-workspace-layout.md)。
+用户数据默认位于与 CLI / Web 共用的 `~/.formicand/`，包含工作空间、Pi 状态、连接、加密密钥和日志；`FORMICAND_HOME` 整体覆盖，外部项目与显式覆盖目录按实际原文件一起备份。默认布局与旧桌面目录复制/导入见 [持久化说明](task-workspace-layout.md)。
 
 安装目录只放程序，替换 App 不删除用户数据。开发版与正式版默认共享单实例锁。格式不兼容时拒绝打开，迁移需备份与回滚验收。
 
-两个桌面入口显示 CoworkOS / CoworkOS Dev；macOS 钥匙串工作进程继续使用 `Atria` 加密身份以兼容已有凭据。Electron 41 的 macOS 加密服务名由应用名派生（[固定版本实现](https://github.com/electron/electron/blob/v41.10.7/shell/browser/electron_browser_main_parts.cc#L476-L517)）。旧 Atria Dev 密文可能不能被新身份解密，迁移保留密文与源目录、允许重新输入密钥；真实钥匙串、签名变更与旧版本升级仍需原生验收。
+两个桌面入口显示 Formicand / Formicand Dev；macOS 钥匙串工作进程继续使用 `Formicand` 加密身份以兼容已有凭据。Electron 41 的 macOS 加密服务名由应用名派生（[固定版本实现](https://github.com/electron/electron/blob/v41.10.7/shell/browser/electron_browser_main_parts.cc#L476-L517)）。旧 Formicand Dev 密文可能不能被新身份解密，迁移保留密文与源目录、允许重新输入密钥；真实钥匙串、签名变更与旧版本升级仍需原生验收。
 
-Mac 钥匙串重试进程沿用主 Electron 可执行文件，保留完整 Chromium 运行环境与 `Atria` 加密身份。保存密钥时可能短暂出现第二个 Dock 图标，属于当前 beta 的已知限制；打包验收仅豁免通过精确 PID 识别的钥匙串进程，其他后台进程仍不得注册为普通 App。
+Mac 钥匙串重试进程沿用主 Electron 可执行文件，保留完整 Chromium 运行环境与 `Formicand` 加密身份。保存密钥时可能短暂出现第二个 Dock 图标，属于当前 beta 的已知限制；打包验收仅豁免通过精确 PID 识别的钥匙串进程，其他后台进程仍不得注册为普通 App。
 
 原生回归检查既有密文互读、同一进程延迟读取和保存后的页面刷新；测试钥匙串结果不替代真实系统授权验收。
 
@@ -127,7 +127,7 @@ App 与开发运行时不包含语音识别 helper、麦克风或语音识别声
 CLI 可使用隔离输出目录：
 
 ```sh
-ATRIA_PACKAGE_DIR="$PWD/.tmp/cli-candidate" npm run cli:pack
+FORMICAND_PACKAGE_DIR="$PWD/.tmp/cli-candidate" npm run cli:pack
 ```
 
 默认输出为 `release/`。CLI 包携带锁定的可移植生产依赖、许可证及生产 `npm-shrinkwrap.json`。esbuild 恢复校验过的精确版本原始 JavaScript 安装器，安装时获取适合用户系统的精确版本二进制并验证 SHA-256；不复制构建机的原生二进制。因此安装需要网络和安装脚本，不支持 `--ignore-scripts`。流程修改需运行 `test/cli-packaging.test.js`，再隔离安装真实候选，核对 CLI、Pi 扩展和依赖版本。

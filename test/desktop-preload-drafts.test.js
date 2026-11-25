@@ -4,7 +4,7 @@ import { test } from "node:test";
 import { runInNewContext } from "node:vm";
 
 const preload = await readFile(new URL("../desktop/preload.cjs", import.meta.url), "utf8");
-const draftKey = "atria.composer.v1:new";
+const draftKey = "formicand.composer.v1:new";
 const draft = (text) => JSON.stringify({ text, attachments: [] });
 
 function nativeDraftBridge({ save, prepareClose = async () => true, pathForFile = () => "" } = {}) {
@@ -35,11 +35,11 @@ function nativeDraftBridge({ save, prepareClose = async () => true, pathForFile 
       sendSync: () => ({ entries: {}, persisted: false }),
       on: (name, handler) => nativeEvents.set(name, handler),
       async invoke(name, ...args) {
-        if (name === "bookman:save-composer-drafts") {
+        if (name === "formicand:save-composer-drafts") {
           writes.push(JSON.parse(JSON.stringify(args[0])));
           await save?.(args[0]);
         }
-        if (name === "bookman:documents-ready") acknowledgements.push(args[1]);
+        if (name === "formicand:documents-ready") acknowledgements.push(args[1]);
       }
     }
   };
@@ -54,16 +54,16 @@ function nativeDraftBridge({ save, prepareClose = async () => true, pathForFile 
     clearTimeout,
     queueMicrotask
   });
-  exposed.bookmanDesktop.onPrepareClose(prepareClose);
+  exposed.formicandDesktop.onPrepareClose(prepareClose);
   return {
     localStorage,
     writes,
     acknowledgements,
-    pathForFile: exposed.bookmanDesktop.pathForFile,
+    pathForFile: exposed.formicandDesktop.pathForFile,
     input: () => documentEvents.get("input")(),
-    saveProgrammatic: () => exposed.bookmanDesktop.saveComposerDrafts(),
+    saveProgrammatic: () => exposed.formicandDesktop.saveComposerDrafts(),
     unload: () => windowEvents.get("beforeunload")(),
-    close: () => nativeEvents.get("bookman:prepare-close")({}, "fixture-close")
+    close: () => nativeEvents.get("formicand:prepare-close")({}, "fixture-close")
   };
 }
 
@@ -107,7 +107,7 @@ test("close waits for edits typed while the first native draft write is pending"
   const closing = bridge.close();
   await drainWrites();
   assert.equal(bridge.writes.length, 1);
-  const humanKey = "atria.human.v1:task-id:request-id";
+  const humanKey = "formicand.human.v1:task-id:request-id";
   bridge.localStorage.setItem(humanKey, JSON.stringify({ text: "落盘期间的新回复" }));
   bridge.input();
   release();
@@ -174,7 +174,7 @@ test("unloading changed drafts persists their newest snapshot once", async () =>
 
 test("native draft mirror includes human replies and excludes unrelated local storage", async () => {
   const bridge = nativeDraftBridge();
-  const key = "atria.human.v1:task-id:request-id";
+  const key = "formicand.human.v1:task-id:request-id";
   bridge.localStorage.setItem(key, JSON.stringify({ text: "明天继续", choice: 0 }));
   bridge.localStorage.setItem("apiKey", "unrelated-secret");
   await bridge.close();

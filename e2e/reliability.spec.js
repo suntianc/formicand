@@ -179,7 +179,7 @@ test("real Pi receives a complete attachment and steering; stop aborts inference
     await expect(page.locator("#composer-input")).toBeFocused();
     expect(JSON.stringify(requests[1].messages)).toContain("END_SENTINEL");
     await expect(page.locator(".chat-message.user").first()).toContainText("full.txt");
-    await expect(page.locator(".chat-message.user").first()).not.toContainText("atria_uploaded_files");
+    await expect(page.locator(".chat-message.user").first()).not.toContainText("formicand_uploaded_files");
     await expect(page.locator(".execution-history")).not.toHaveAttribute("open");
     const taskId = await page.locator(".conversation-item.active").getAttribute("data-task");
     hold = true;

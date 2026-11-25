@@ -25,7 +25,7 @@ import {
 import { removedSkillDirectories } from "../runtime/skill-index.js";
 import { discoverSkills, listSkillEntries, skillRootsFor } from "../runtime/skill-registry.js";
 import { displayPath } from "../runtime/display-path.js";
-import type { CoworkConfig } from "../runtime/config.js";
+import type { FormicandConfig } from "../runtime/config.js";
 import {
   BUILTIN_ROLES,
   builtinAgentDefaults,
@@ -94,7 +94,7 @@ export interface AgentServiceOptions {
   ): Promise<{ projectId: string; projectName?: string; projectDirectory?: string } | null>;
   /** Built-in Agent settings live with the host's model configuration. */
   builtins: {
-    config(): CoworkConfig;
+    config(): FormicandConfig;
     save(input: { role: BuiltinRole; projectDirectory?: string; settings: RoleSettings }): Promise<unknown>;
   };
 }

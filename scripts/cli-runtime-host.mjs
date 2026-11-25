@@ -19,10 +19,10 @@ export async function runCliProcess({
   // is therefore not this process's lifeline: the wrapper keeps Pi's stdin
   // open itself, and relays stdout/stderr while the backend is there, so a
   // backend restart neither ends the Main nor crashes it with a closed pipe.
-  const resident = !token && env.COWORK_MAIN_RESIDENT === "1";
+  const resident = !token && env.FORMICAND_MAIN_RESIDENT === "1";
   const child = spawn(process.execPath, [...(bootstrap ? [bootstrap] : []), executable, ...args], {
     cwd: projectDirectory,
-    env: { ...env, ...(token ? { ATRIA_CLI_UI_READY_TOKEN: token } : {}) },
+    env: { ...env, ...(token ? { FORMICAND_CLI_UI_READY_TOKEN: token } : {}) },
     stdio: resident
       ? ["pipe", "pipe", "pipe"]
       : token
@@ -43,7 +43,7 @@ export async function runCliProcess({
     child.kill("SIGTERM");
   };
   const acknowledge = (message) => {
-    if (!ready && !stopping && message?.type === "atria.cli.uiReady" && message.token === token) {
+    if (!ready && !stopping && message?.type === "formicand.cli.uiReady" && message.token === token) {
       ready = true;
       onSdkReady?.();
     }

@@ -39,7 +39,7 @@ for (const [api, compact] of [
     `Main ${api}: archive actual requests before HTTP receipt and capture dynamically enabled tools${compact ? " through compaction and restart" : ""}`,
     { timeout: 60_000 },
     async (t) => {
-      const root = await mkdtemp(join(tmpdir(), "atria-main-requests-"));
+      const root = await mkdtemp(join(tmpdir(), "formicand-main-requests-"));
       const workspace = join(root, "workspace");
       const project = join(root, "project");
       const taskId = "recording-task";
@@ -104,7 +104,7 @@ for (const [api, compact] of [
             const system = messages.filter((message) => ["system", "developer"].includes(message.role));
             assert.equal(system.length, 1);
             assert.equal(text(system[0].content), saved.payload.systemPrompt);
-            assert.match(saved.payload.systemPrompt, /You are CoworkOS Main/);
+            assert.match(saved.payload.systemPrompt, /You are Formicand Main/);
             assert.doesNotMatch(
               saved.payload.systemPrompt,
               /coding assistant running inside pi|Pi documentation \(read only/
@@ -258,26 +258,28 @@ for (const [api, compact] of [
 
       // Keep machine/user model connections and storage out of this fixture.
       const inherited = Object.fromEntries(
-        Object.entries(process.env).filter(([name]) => !/^(COWORK_|ATRIA_|PI_|OPENAI_|ANTHROPIC_)/.test(name))
+        Object.entries(process.env).filter(
+          ([name]) => !/^(FORMICAND_|FORMICAND_|PI_|OPENAI_|ANTHROPIC_)/.test(name)
+        )
       );
       const environment = {
         ...inherited,
-        ATRIA_HOME: join(root, "atria"),
-        COWORK_CONFIG: join(root, "config.json"),
-        COWORK_WORKSPACE: workspace,
-        COWORK_PROJECT_DIR: project,
-        COWORK_TASK_ID: taskId,
-        COWORK_RUN_ID: runId,
-        COWORK_GLOBAL_INDEX: join(root, "workspaces.json"),
-        COWORK_API_BASE: `http://127.0.0.1:${server.address().port}/v1`,
-        COWORK_API_KEY: credential,
-        COWORK_MODEL: "protocol-fixture",
-        COWORK_MODEL_API: api,
-        COWORK_DASHBOARD_URL: "",
-        COWORK_DISABLE_MAIN_GUARDIAN: "1",
-        COWORK_REASONING_EFFORT: "off",
-        COWORK_SUPPORTS_REASONING_EFFORT: "0",
-        COWORK_WEB_TOOLS: "0",
+        FORMICAND_HOME: join(root, "formicand"),
+        FORMICAND_CONFIG: join(root, "config.json"),
+        FORMICAND_WORKSPACE: workspace,
+        FORMICAND_PROJECT_DIR: project,
+        FORMICAND_TASK_ID: taskId,
+        FORMICAND_RUN_ID: runId,
+        FORMICAND_GLOBAL_INDEX: join(root, "workspaces.json"),
+        FORMICAND_API_BASE: `http://127.0.0.1:${server.address().port}/v1`,
+        FORMICAND_API_KEY: credential,
+        FORMICAND_MODEL: "protocol-fixture",
+        FORMICAND_MODEL_API: api,
+        FORMICAND_DASHBOARD_URL: "",
+        FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
+        FORMICAND_REASONING_EFFORT: "off",
+        FORMICAND_SUPPORTS_REASONING_EFFORT: "0",
+        FORMICAND_WEB_TOOLS: "0",
         PI_CODING_AGENT_DIR: join(root, "pi"),
         PI_OFFLINE: "1"
       };

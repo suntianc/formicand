@@ -2,7 +2,7 @@ import { ui } from "./ui/language.js";
 
 /** Sidebar sizing is presentation state, independent of the selected task. */
 export function createSidebarLayout(layout, sidebar, divider, { outputPane, outputToggle } = {}) {
-  const storageKey = "atria.sidebar-share";
+  const storageKey = "formicand.sidebar-share";
   let share,
     dragging = false,
     grabOffset = 0;

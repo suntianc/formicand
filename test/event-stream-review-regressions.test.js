@@ -10,7 +10,7 @@ import { readJsonLines, streamRunEvents } from "../dist/src/dashboard/event-stre
 import { readTaskRuntimeEvents } from "../dist/src/runtime/conversation-history.js";
 
 async function fixture(t) {
-  const root = await fs.mkdtemp(join(tmpdir(), "atria-stream-review-"));
+  const root = await fs.mkdtemp(join(tmpdir(), "formicand-stream-review-"));
   t.after(() => fs.rm(root, { recursive: true, force: true }));
   const run = join(root, "task", "runs", "run");
   await fs.mkdir(run, { recursive: true });

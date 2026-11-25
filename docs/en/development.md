@@ -18,13 +18,13 @@ Use Node.js >=22.19.0, npm and Git. Install locked dependencies with `npm ci`. I
 
 `build:cli` compiles the shared runtime and prepares CLI assets. `build`, `build:base` and `build:full` prepare Web assets, math rendering, Computer Use helpers and desktop host assets. Non-Mac builds skip native helpers and icons.
 
-Document attachment tests need Python 3.11 and PDF/Office parsing dependencies. Missing libraries must be fixed, not counted as passing skips. Fixtures/readers share `COWORK_PYTHON`:
+Document attachment tests need Python 3.11 and PDF/Office parsing dependencies. Missing libraries must be fixed, not counted as passing skips. Fixtures/readers share `FORMICAND_PYTHON`:
 
 ```sh
 python3.11 -m venv .tmp/document-python
 .tmp/document-python/bin/python -m pip install -r scripts/document-requirements.txt
 .tmp/document-python/bin/python -c 'import sys; print(sys.executable, sys.version); import fitz, docx, pptx, openpyxl'
-COWORK_PYTHON="$PWD/.tmp/document-python/bin/python" npm run verify:full
+FORMICAND_PYTHON="$PWD/.tmp/document-python/bin/python" npm run verify:full
 ```
 
 ## Isolated development data
@@ -32,29 +32,29 @@ COWORK_PYTHON="$PWD/.tmp/document-python/bin/python" npm run verify:full
 Do not use real user tasks, model settings or documents for tests. Web can use explicit directories:
 
 ```sh
-COWORK_WORKSPACE=/tmp/atria-dev \
-COWORK_GLOBAL_INDEX=/tmp/atria-dev-index/workspaces.json \
-COWORK_UI_PORT=3881 npm run ui
+FORMICAND_WORKSPACE=/tmp/formicand-dev \
+FORMICAND_GLOBAL_INDEX=/tmp/formicand-dev-index/workspaces.json \
+FORMICAND_UI_PORT=3881 npm run ui
 ```
 
 First verify conversation creation, attachment reading and artifact preview/download without a model; then configure a connection using the [model configuration](configuration.md). Investigate recovery using the [workspace reference](../task-workspace-layout.md) (Chinese); do not delete data to diagnose it.
 
-Mac development displays CoworkOS Dev (short suffix), identifier `org.atria.cowork.dev.runtime.<runtime hash>`. Each immutable ad-hoc runtime has its own permission identity so different worktrees or runtimes do not share a system permission record with incompatible signatures. Reopening the same runtime reuses its identity.
+Mac development displays Formicand Dev (short suffix), identifier `io.github.suntianc.formicand.dev.runtime.<runtime hash>`. Each immutable ad-hoc runtime has its own permission identity so different worktrees or runtimes do not share a system permission record with incompatible signatures. Reopening the same runtime reuses its identity.
 
-It shares `~/.atria/` with the release App, CLI and Web; both default desktop entrypoints use the same instance lock. Tests may set `COWORK_DESKTOP_DATA`, or `ATRIA_HOME` for full isolation. Legacy data retention and imports are documented in [workspace persistence](../task-workspace-layout.md) (Chinese).
+It shares `~/.formicand/` with the release App, CLI and Web; both default desktop entrypoints use the same instance lock. Tests may set `FORMICAND_DESKTOP_DATA`, or `FORMICAND_HOME` for full isolation. Legacy data retention and imports are documented in [workspace persistence](../task-workspace-layout.md) (Chinese).
 
 ```sh
-npm run desktop:install-dev # installs fixed ~/Applications/CoworkOS Dev.app
+npm run desktop:install-dev # installs fixed ~/Applications/Formicand Dev.app
 npm run desktop             # builds current source and starts the same entry
 ```
 
-The fixed entry reads the current checkout's `desktop/`, `dist/` and `web/`; Finder/Dock launch uses the last build. Reinstall the entry after moving the repository. Runtime cache: `.tmp/desktop-runtime/`; packed App: `.tmp/release/mac-arm64/`; DMG: `release/`. CLI candidates may use `ATRIA_PACKAGE_DIR=.tmp/cli-candidate npm run cli:pack` to inspect packages separately from the default `release/` directory.
+The fixed entry reads the current checkout's `desktop/`, `dist/` and `web/`; Finder/Dock launch uses the last build. Reinstall the entry after moving the repository. Runtime cache: `.tmp/desktop-runtime/`; packed App: `.tmp/release/mac-arm64/`; DMG: `release/`. CLI candidates may use `FORMICAND_PACKAGE_DIR=.tmp/cli-candidate npm run cli:pack` to inspect packages separately from the default `release/` directory.
 
 Mac development startup and restart after updates open the exact App bundle through LaunchServices. The command returns after requesting launch; quit through the App menu. Environment variables such as the test data directory reach that instance.
 
-Do not directly execute the binary in `Contents/MacOS/` for system permission acceptance: direct execution, including detached execution, can attribute the App and native helper to Terminal/IDE. Revoking CoworkOS's permissions may then leave access working or fail to show CoworkOS's permission prompt. Check the CoworkOS Dev entry with the current short suffix in System Settings. Revocation may not reproduce a first-install prompt; when macOS declines to prompt again, confirm access in System Settings.
+Do not directly execute the binary in `Contents/MacOS/` for system permission acceptance: direct execution, including detached execution, can attribute the App and native helper to Terminal/IDE. Revoking Formicand's permissions may then leave access working or fail to show Formicand's permission prompt. Check the Formicand Dev entry with the current short suffix in System Settings. Revocation may not reproduce a first-install prompt; when macOS declines to prompt again, confirm access in System Settings.
 
-The Finder entry copies the signed cached bundle without changing or re-signing it, preserving its permission identity. Changes to the icon, Electron, toolchain or package metadata create a new development runtime that needs a new grant; old grants are not migrated automatically. An old CoworkOS Dev entry without a suffix does not grant access to the new test bundle. Other Apps and system permissions do not need to be removed or reset.
+The Finder entry copies the signed cached bundle without changing or re-signing it, preserving its permission identity. Changes to the icon, Electron, toolchain or package metadata create a new development runtime that needs a new grant; old grants are not migrated automatically. An old Formicand Dev entry without a suffix does not grant access to the new test bundle. Other Apps and system permissions do not need to be removed or reset.
 
 Web and Electron load the same frontend bundles. After editing frontend modules or styles, run `npm run build:web-assets` and refresh. For repeated edits, run `npm run watch:web-assets` in another terminal and refresh after each rebuild. Watch mode includes source maps. Startup bundles live in `web/assets/markdown/generated/shell/` so existing desktop source updaters install and roll them back with the other generated assets. Rebuild and restart the host for TypeScript or Swift changes. Icon/Electron/package-version changes also require rebuilding the development runtime. Edit source, not generated artifacts. Full/CLI builds remove orphaned compiled files for moved/deleted sources while preserving native helpers and Python runners.
 
@@ -62,20 +62,20 @@ For interface iteration, complete `npm run build` once, then start with `node di
 
 ### Standalone backend
 
-The standalone backend runs independently of the client that started it. The development package supports macOS 14+ on Apple Silicon; the App starts or reuses the backend for its data root and quitting the desktop leaves it running. The standalone CLI requires Node.js ≥22.19.0 and should match the App candidate version. After `npm run build:cli`, `node dist/src/cli/backend.js start` (or `coworkos backend start`) starts a detached process for one data root; `status` reports the instance and `stop` finishes managed work before exiting. The port, session token and instance identity live in `ATRIA_HOME/runtime/backend-instance.json` (mode 0600), while the backend identity in `backend-identity.json` survives restarts. A direct `serve` follows the same ownership rule: with a verifiable live instance it only prints that identity and exits, and it refuses clearly while another backend is starting or its identity cannot be confirmed instead of overwriting the record. `stop` returns `stopped` only after the backend finished teardown and removed its instance record; a forced or incomplete teardown returns `incomplete` with a non-zero exit and keeps the record so the next `start` reclaims the same backend identity. These commands never install a launchd/systemd service.
+The standalone backend runs independently of the client that started it. The development package supports macOS 14+ on Apple Silicon; the App starts or reuses the backend for its data root and quitting the desktop leaves it running. The standalone CLI requires Node.js ≥22.19.0 and should match the App candidate version. After `npm run build:cli`, `node dist/src/cli/backend.js start` (or `formicand backend start`) starts a detached process for one data root; `status` reports the instance and `stop` finishes managed work before exiting. The port, session token and instance identity live in `FORMICAND_HOME/runtime/backend-instance.json` (mode 0600), while the backend identity in `backend-identity.json` survives restarts. A direct `serve` follows the same ownership rule: with a verifiable live instance it only prints that identity and exits, and it refuses clearly while another backend is starting or its identity cannot be confirmed instead of overwriting the record. `stop` returns `stopped` only after the backend finished teardown and removed its instance record; a forced or incomplete teardown returns `incomplete` with a non-zero exit and keeps the record so the next `start` reclaims the same backend identity. These commands never install a launchd/systemd service.
 
 The Web entry listens only on the local machine by default. Model requests, task execution and file operations still use the local backend; static frontend hosting alone cannot run the full UI. Deploying the backend to a remote server also moves command execution and file operations to that server.
 
 ## Updating a source checkout
 
-Run the update commands in the CoworkOS source checkout:
+Run the update commands in the Formicand source checkout:
 
 ```sh
 npm run cli -- update --check
 npm run cli -- update
 ```
 
-The target is CoworkOS's real Git checkout, even when `coworkos` is invoked from another project. The current branch must have an upstream; checks fetch that upstream and compare commits, so a newer commit can be available with the same package version. Detached HEAD, merge/rebase in progress, tracked changes, nonignored untracked files, local-only commits and divergence block updates. Source installations follow their upstream branch; installed packages have no updater.
+The target is Formicand's real Git checkout, even when `formicand` is invoked from another project. The current branch must have an upstream; checks fetch that upstream and compare commits, so a newer commit can be available with the same package version. Detached HEAD, merge/rebase in progress, tracked changes, nonignored untracked files, local-only commits and divergence block updates. Source installations follow their upstream branch; installed packages have no updater.
 
 The CLI prepares `build:cli`; the development App prepares full `build` through Settings → Updates. If the CLI has synchronized the latest commit but the App build is still pending, the App can offer and prepare a full rebuild at that same commit. A Web host should be stopped, updated, then restarted with `npm run ui` to prepare its full browser build.
 
@@ -140,7 +140,7 @@ Ordinary Node regression defers explicit native desktop/CUA entrypoints and prin
 
 For a focused browser run, build first, then `npx playwright test e2e/conversation-menu.spec.js --output=.tmp/playwright-conversation`. Concurrent Playwright processes need distinct `--output` directories. Keyless tests must not read personal connections.
 
-Each `test:unit` and Playwright run creates its own root under the system temporary directory (`formicand-run-*`) and points `TMPDIR` at it, so a test's `mkdtemp(tmpdir())` lands inside ([`scripts/test-run-root.mjs`](../../scripts/test-run-root.mjs)). When the run ends, any backend still alive with its data root there is stopped and the run fails; roots left by a run that was killed outright are swept when the next run starts. A test that launches the app stops its backend at teardown with `stopNativeBackend(<desktop data root>)` ([`test/native-backend-fixture.mjs`](../../test/native-backend-fixture.mjs)): the backend outlives the window by design, and its data root is `COWORK_DESKTOP_DATA`, or `ATRIA_HOME` when that is unset.
+Each `test:unit` and Playwright run creates its own root under the system temporary directory (`formicand-run-*`) and points `TMPDIR` at it, so a test's `mkdtemp(tmpdir())` lands inside ([`scripts/test-run-root.mjs`](../../scripts/test-run-root.mjs)). When the run ends, any backend still alive with its data root there is stopped and the run fails; roots left by a run that was killed outright are swept when the next run starts. A test that launches the app stops its backend at teardown with `stopNativeBackend(<desktop data root>)` ([`test/native-backend-fixture.mjs`](../../test/native-backend-fixture.mjs)): the backend outlives the window by design, and its data root is `FORMICAND_DESKTOP_DATA`, or `FORMICAND_HOME` when that is unset.
 
 ## UI conventions
 

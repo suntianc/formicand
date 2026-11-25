@@ -22,7 +22,7 @@ function deferred() {
 }
 
 async function fixture(t) {
-  const root = await mkdtemp(join(tmpdir(), "atria-interject-boundary-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-interject-boundary-"));
   const workspaceRoot = join(root, "workspace");
   const store = new LocalWorkspaceStore(workspaceRoot);
   await store.createTask("task", { goal: "验证补充消息始终属于发送时的运行。" });
@@ -43,7 +43,7 @@ async function fixture(t) {
     import { join } from 'node:path';
     console.log(${JSON.stringify(finalAnswer)});
     for (;;) {
-      try { await access(join(${JSON.stringify(root)}, 'release-' + process.env.COWORK_RUN_ID)); break; }
+      try { await access(join(${JSON.stringify(root)}, 'release-' + process.env.FORMICAND_RUN_ID)); break; }
       catch { await new Promise((done) => setTimeout(done, 10)); }
     }
   `

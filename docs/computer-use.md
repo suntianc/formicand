@@ -1,6 +1,6 @@
 # Computer Use 接入
 
-Computer Use 在同一个 CoworkOS 桌面宿主内提供全局授权策略，以及按 Task 隔离的单窗口观察与有限控制。全局策略默认关闭。
+Computer Use 在同一个 Formicand 桌面宿主内提供全局授权策略，以及按 Task 隔离的单窗口观察与有限控制。全局策略默认关闭。
 
 窗口访问的期望设置按后端保存。切页、刷新、窗口关闭和渲染进程退出只释放操作会话，取消在途选择并使旧截图凭据失效，不自动暂停正在运行的后端策略；人工接管仍可显式暂停。系统权限被撤销或锁屏时原生操作仍被阻止，但不会清除已保存的期望设置。
 
@@ -94,7 +94,7 @@ POST /api/tasks/:taskId/computer/end      {}
 
 业务会话 HTTP 和 Agent 不提供 authorize/resume 接口。系统权限申请、本机确认及开启或恢复控制要求宿主凭据和匹配的后端身份；内部宿主接口拒绝带浏览器 Origin 的请求。业务会话仍可读取状态及执行暂停、释放或关闭等安全操作；详情见 [产品 API](product-api.md)。后端为 Main 和委派命令提供只驻留当前后端内存的业务凭据，不向这些模型命令传递宿主凭据；后端重启后该凭据失效。命令（含测试命令和后台 job）从会话上下文取得环境变量，不持久化凭据。独立 CLI 和 Main 委派先通过后端会话接口核验已有凭据：只有业务会话会传给模型命令，无法核验时普通命令仍可运行，后端调用需重新取得有效会话。
 
-主窗口主 frame 通过 preload `bookmanDesktop.computerUse` 发可信 IPC；宿主在所选后端数据根的私有 computer-policy.json（version=1，0600）中原子保存 enabled/mode，再经实例身份绑定的内部宿主接口请求 policy/status/resume/permissions/authorize/pause/end/release-sessions。切换后端前释放旧会话，新目标只恢复自身策略；操作在途时切换被拒绝。损坏、未知版本或不可读设置默认关闭并展示恢复提示，原文件保留；设置写入失败不会扩大服务权限。authorize 显式传 taskId、pid、windowId、mode，服务再次验证 Task 和当前系统窗口。系统权限请求必须指定 permission=screenRecording 或 accessibility，驱动和宿主均验证该值，不提供申请全部权限的操作。宿主在请求后重新查询实际状态；未获准时只打开该项系统设置。开启或恢复策略只读取最新系统状态，两项权限及必要输入事件未齐全则拒绝，不能通过可信 IPC 绕过界面禁用状态；该操作不会申请系统权限。暂停/退出的意图优先于尚未完成的授权，延迟回包不会重新赋权。
+主窗口主 frame 通过 preload `formicandDesktop.computerUse` 发可信 IPC；宿主在所选后端数据根的私有 computer-policy.json（version=1，0600）中原子保存 enabled/mode，再经实例身份绑定的内部宿主接口请求 policy/status/resume/permissions/authorize/pause/end/release-sessions。切换后端前释放旧会话，新目标只恢复自身策略；操作在途时切换被拒绝。损坏、未知版本或不可读设置默认关闭并展示恢复提示，原文件保留；设置写入失败不会扩大服务权限。authorize 显式传 taskId、pid、windowId、mode，服务再次验证 Task 和当前系统窗口。系统权限请求必须指定 permission=screenRecording 或 accessibility，驱动和宿主均验证该值，不提供申请全部权限的操作。宿主在请求后重新查询实际状态；未获准时只打开该项系统设置。开启或恢复策略只读取最新系统状态，两项权限及必要输入事件未齐全则拒绝，不能通过可信 IPC 绕过界面禁用状态；该操作不会申请系统权限。暂停/退出的意图优先于尚未完成的授权，延迟回包不会重新赋权。
 
 ## 实现与验证
 
@@ -110,7 +110,7 @@ POST /api/tasks/:taskId/computer/end      {}
 - [Mac 驱动](../src/gui/macos-driver.ts)、[原生 helper](../src/gui/macos-helper.swift)：独立受信进程、ScreenCaptureKit 单窗口 PNG、窗口限定 AX 文本、窗口编号明确的 AppKit 鼠标事件转 CGEvent 定向投递、Unicode 小段投递与焦点复核；没有 shell 拼接。
 - [HTTP](../src/dashboard/computer-routes.ts)、[工具](../.pi/runtime/tools/computer-use.ts)、[界面](../web/assets/controllers/computer-use.js)：接口消费者。
 
-`npm run build` 在 Mac 用 Xcode Command Line Tools 编译 helper，Linux 跳过；`npm run build:computer-use` 可单独编译。二进制随 `dist/src/gui/` 进入安装包。`COWORK_COMPUTER_USE_EXECUTABLE` 仅供受信宿主配置替代驱动，不能由模型参数指定。macOS 13 可查询 helper 状态，但截图明确要求 14+。
+`npm run build` 在 Mac 用 Xcode Command Line Tools 编译 helper，Linux 跳过；`npm run build:computer-use` 可单独编译。二进制随 `dist/src/gui/` 进入安装包。`FORMICAND_COMPUTER_USE_EXECUTABLE` 仅供受信宿主配置替代驱动，不能由模型参数指定。macOS 13 可查询 helper 状态，但截图明确要求 14+。
 
 `test/computer-global.test.js` 覆盖全局默认关闭、FIFO 流程互斥、持有者切换窗口、续期校验、暂停/取消与旧 ID 拒绝。
 

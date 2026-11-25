@@ -1,6 +1,6 @@
 ---
 name: cua
-description: Operate a web interface or authorized desktop window using CoworkOS's Browser Use, Computer Use and bounded JavaScript CUA SDK. Use for visual UI tasks with observation, interaction and result verification.
+description: Operate a web interface or authorized desktop window using Formicand's Browser Use, Computer Use and bounded JavaScript CUA SDK. Use for visual UI tasks with observation, interaction and result verification.
 ---
 
 # CUA

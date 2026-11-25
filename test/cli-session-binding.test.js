@@ -10,7 +10,7 @@ import { recordCliSessionBinding, resolveCliSession } from "../scripts/cli-sessi
 import { alignSelectedTaskSession } from "../scripts/main-session.mjs";
 
 async function fixture(t) {
-  const root = await mkdtemp(join(tmpdir(), "atria-session-binding-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-session-binding-"));
   const project = join(root, "project"),
     agentDir = join(root, "pi"),
     workspaceRoot = join(root, "workspace"),

@@ -66,7 +66,7 @@ test(
   "real Chromium SDK composes scoped/nth/frame locators, cheap actions and fresh coordinate input",
   browserTestOptions,
   async (t) => {
-    const root = await mkdtemp(join(tmpdir(), "atria-sdk-browser-"));
+    const root = await mkdtemp(join(tmpdir(), "formicand-sdk-browser-"));
     const fixture = await browserFixture();
     const browser = new BrowserUse({ taskDirectory: root });
     const vm = new CuaScriptController();
@@ -109,7 +109,7 @@ test(
   "VM reset and a fresh Tab cannot bypass the real browser feedback gate",
   browserTestOptions,
   async (t) => {
-    const root = await mkdtemp(join(tmpdir(), "atria-sdk-browser-gate-"));
+    const root = await mkdtemp(join(tmpdir(), "formicand-sdk-browser-gate-"));
     const fixture = await browserFixture();
     const browser = new BrowserUse({ taskDirectory: root });
     const vm = new CuaScriptController();

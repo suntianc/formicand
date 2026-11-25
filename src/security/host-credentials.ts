@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { chmod, mkdir, rename, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
-import type { CoworkConfig } from "../runtime/config.js";
+import type { FormicandConfig } from "../runtime/config.js";
 import { modelConnections } from "../runtime/model-providers.js";
 import { withFileLock } from "../storage/file-lock.js";
 
@@ -28,10 +28,10 @@ export function emptyHostCredentials(): HostCredentials {
   return { version: 1, modelProviders: {} };
 }
 
-/** `COWORK_CREDENTIALS` supports an isolated host; the default sits beside the configuration. */
+/** `FORMICAND_CREDENTIALS` supports an isolated host; the default sits beside the configuration. */
 export function hostCredentialsPath(configPath: string, env: NodeJS.ProcessEnv = process.env): string {
-  return env.COWORK_CREDENTIALS
-    ? resolve(env.COWORK_CREDENTIALS)
+  return env.FORMICAND_CREDENTIALS
+    ? resolve(env.FORMICAND_CREDENTIALS)
     : join(dirname(configPath), "credentials.json");
 }
 
@@ -133,7 +133,7 @@ export class HostCredentialStore {
 }
 
 /** Overlay host-owned secrets on a loaded configuration in memory only. */
-export function applyHostCredentials(config: CoworkConfig, credentials: HostCredentials): void {
+export function applyHostCredentials(config: FormicandConfig, credentials: HostCredentials): void {
   const providers = config.modelProviders?.providers;
   if (providers?.length) {
     for (const provider of providers) {
@@ -155,7 +155,7 @@ export function applyHostCredentials(config: CoworkConfig, credentials: HostCred
  * Remove plaintext secrets from a configuration that is about to be persisted.
  * The returned values belong in the host store; nothing is written here.
  */
-export function takeHostCredentials(config: CoworkConfig): HostCredentials {
+export function takeHostCredentials(config: FormicandConfig): HostCredentials {
   const credentials = emptyHostCredentials();
   const providers = config.modelProviders?.providers;
   if (providers?.length) {
@@ -181,7 +181,7 @@ export function takeHostCredentials(config: CoworkConfig): HostCredentials {
 /** Drop keys of providers the configuration no longer has. */
 export function retainProviderCredentials(
   credentials: HostCredentials,
-  config: CoworkConfig
+  config: FormicandConfig
 ): HostCredentials {
   const providers = config.modelProviders?.providers;
   if (!providers) return credentials;

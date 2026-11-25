@@ -28,7 +28,7 @@ const SOURCE_LABELS = {
   "global-agents": "通用",
   bundled: "自带"
 };
-const PROMPT_SOURCES = { project: ".atria/prompts", global: "~/.atria/prompts" };
+const PROMPT_SOURCES = { project: ".formicand/prompts", global: "~/.formicand/prompts" };
 const SLASH_TTL_MS = 10_000;
 const RESOURCE_TTL_MS = 60_000;
 const GROUP_LIMIT = 8;

@@ -13,7 +13,7 @@ test(
   "real Main publishes an external PPT to the canonical task directory and fails honestly for missing files",
   { timeout: 45_000 },
   async (t) => {
-    const root = await mkdtemp(join(tmpdir(), "atria-publish-"));
+    const root = await mkdtemp(join(tmpdir(), "formicand-publish-"));
     const project = join(root, "project"),
       workspace = join(root, "workspace");
     await mkdir(project);
@@ -130,18 +130,18 @@ test(
         stdio: ["ignore", "pipe", "pipe"],
         env: {
           ...process.env,
-          COWORK_CONFIG: join(root, "config.json"),
-          COWORK_WORKSPACE: workspace,
-          COWORK_PROJECT_DIR: project,
-          COWORK_TASK_ID: "publish-task",
-          COWORK_RUN_ID: "publish-run",
-          COWORK_API_BASE: `http://127.0.0.1:${server.address().port}/v1`,
-          COWORK_API_KEY: "local-fixture",
-          COWORK_MODEL: "office-fixture",
-          COWORK_DASHBOARD_URL: "",
-          COWORK_DISABLE_MAIN_GUARDIAN: "1",
-          COWORK_REASONING_EFFORT: "off",
-          COWORK_SUPPORTS_REASONING_EFFORT: "0",
+          FORMICAND_CONFIG: join(root, "config.json"),
+          FORMICAND_WORKSPACE: workspace,
+          FORMICAND_PROJECT_DIR: project,
+          FORMICAND_TASK_ID: "publish-task",
+          FORMICAND_RUN_ID: "publish-run",
+          FORMICAND_API_BASE: `http://127.0.0.1:${server.address().port}/v1`,
+          FORMICAND_API_KEY: "local-fixture",
+          FORMICAND_MODEL: "office-fixture",
+          FORMICAND_DASHBOARD_URL: "",
+          FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
+          FORMICAND_REASONING_EFFORT: "off",
+          FORMICAND_SUPPORTS_REASONING_EFFORT: "0",
           PI_CODING_AGENT_DIR: join(root, "pi"),
           PI_OFFLINE: "1"
         }

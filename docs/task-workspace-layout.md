@@ -4,12 +4,12 @@
 
 ## 项目与任务路径
 
-| 名称                 | 含义                                                                                                    |
-| -------------------- | ------------------------------------------------------------------------------------------------------- |
-| 安装/仓库目录        | 程序、内置扩展、提示词和技能；不作为用户工作区                                                          |
-| 所选项目目录         | Main 文件/命令工具的 CWD；Dashboard DTO 中也使用 `workspaceRoot` 命名，需要看所属对象                   |
-| Harness 工作区根目录 | `COWORK_WORKSPACE` / Runtime 配置 `workspaceRoot`；保存 Task 状态与持久引用，默认 `~/.atria/workspace/` |
-| Task workspace       | `<task-storage-root>/<taskId>/`；`browse_workspace` 的根与任务持久状态所在位置                          |
+| 名称                 | 含义                                                                                                           |
+| -------------------- | -------------------------------------------------------------------------------------------------------------- |
+| 安装/仓库目录        | 程序、内置扩展、提示词和技能；不作为用户工作区                                                                 |
+| 所选项目目录         | Main 文件/命令工具的 CWD；Dashboard DTO 中也使用 `workspaceRoot` 命名，需要看所属对象                          |
+| Harness 工作区根目录 | `FORMICAND_WORKSPACE` / Runtime 配置 `workspaceRoot`；保存 Task 状态与持久引用，默认 `~/.formicand/workspace/` |
+| Task workspace       | `<task-storage-root>/<taskId>/`；`browse_workspace` 的根与任务持久状态所在位置                                 |
 
 读取 `workspaceRoot` 时，先确认它属于哪一种数据：DTO 中它可能表示所选项目目录，也可能是 Task 存储根。按 Task ID 读取状态或产出物时使用真实 Task 存储，不从项目目录拼出任务目录；HTTP、Run 与 Pi 使用相同归属解析。定位代码时分别核对 [Dashboard 工作区目录](../src/dashboard/workspace-directory.ts)、[Run 服务](../src/dashboard/run-service.ts) 与 [LocalWorkspaceStore](../src/workspace/workspace-store.ts)。
 
@@ -19,7 +19,7 @@ Main 的最近一条模型请求执行快照位于 `<task-storage-root>/<taskId>
 
 ## 临时工作区
 
-无项目会话创建 `<dirname(global-index)>/temporary-workspaces/<uuid>/`，通常位于 `~/.atria/runtime/temporary-workspaces/`。这些目录持久保存，不属于 OS 临时目录，也不登记为共享默认 workspace 或普通空项目。每空间有 `.atria-temporary-workspace.json`（版本 1、workspaceId、holdingTaskId、taskStorageRoot、createdAt、retention=`until-explicit-discard`）；目录和记录身份必须匹配，路径 canonical 化且拒绝符号链接。先在隐藏 staging 目录写入并 sync 记录，再提交目录，发现过程不读取未完成空间。
+无项目会话创建 `<dirname(global-index)>/temporary-workspaces/<uuid>/`，通常位于 `~/.formicand/runtime/temporary-workspaces/`。这些目录持久保存，不属于 OS 临时目录，也不登记为共享默认 workspace 或普通空项目。每空间有 `.formicand-temporary-workspace.json`（版本 1、workspaceId、holdingTaskId、taskStorageRoot、createdAt、retention=`until-explicit-discard`）；目录和记录身份必须匹配，路径 canonical 化且拒绝符号链接。先在隐藏 staging 目录写入并 sync 记录，再提交目录，发现过程不读取未完成空间。
 
 临时会话的 `task.json` 仍在真实 Task 存储根，并带 `temporaryWorkspaceRoot`；`projectDirectory` 表示该空间的有效工具工作目录，`projectId` 不存项目成员身份，HTTP DTO 明确返回 `projectId:null`。全局目录索引把临时会话单独列出，不参与项目推断。临时工作区只用于临时会话；带 `temporaryWorkspaceRoot` 的记录必须同时指定同一 `projectDirectory` 且不带项目归属，否则按损坏记录拒绝。
 
@@ -27,7 +27,7 @@ Main 的最近一条模型请求执行快照位于 `<task-storage-root>/<taskId>
 
 ## Temporary workspaces
 
-Projectless chats allocate separate `<dirname(global-index)>/temporary-workspaces/<uuid>/` directories, normally `~/.atria/runtime/temporary-workspaces/`. These are durable product data, distinct from OS temp storage, shared default roots and projects. Version 1 `.atria-temporary-workspace.json` records identify each root, its original Task storage root and its holding Task with `retention: until-explicit-discard`. Canonical paths, directory/record identities and symlink checks protect restoration; staged records are synced before the root becomes discoverable.
+Projectless chats allocate separate `<dirname(global-index)>/temporary-workspaces/<uuid>/` directories, normally `~/.formicand/runtime/temporary-workspaces/`. These are durable product data, distinct from OS temp storage, shared default roots and projects. Version 1 `.formicand-temporary-workspace.json` records identify each root, its original Task storage root and its holding Task with `retention: until-explicit-discard`. Canonical paths, directory/record identities and symlink checks protect restoration; staged records are synced before the root becomes discoverable.
 
 Task history remains in the real Task storage root. `temporaryWorkspaceRoot` marks temporary ownership, `projectDirectory` carries the effective tool CWD, and HTTP returns `projectId:null`. Temporary conversations stay visible independently of projects. Temporary workspaces are only for temporary conversations; a marked record must name the same `projectDirectory` and must not carry a project assignment, otherwise it is refused as damaged. Nothing is migrated, reassigned or deleted.
 
@@ -35,7 +35,7 @@ Cancellation and shutdown retain all managed materials. No automatic cleanup or 
 
 ## 项目与会话归属
 
-App / Web 项目索引保存在全局工作区索引同级的 `projects.json`，默认 `~/.atria/runtime/projects.json`。它保存项目名称、稳定 `projectId`、工作文件夹 `projectDirectory` 和时间；空项目也持久保留。项目 ID 恒为 `project_<uuid>`，目录本身不是身份。会话 `task.json` 记录 `projectId`、`projectCatalogPath` 和目录快照；读取时以所属项目已提交的目录为准，工作文件夹调整不搬移 Task 目录、历史或产物。没有项目归属的会话不进入列表，也不按目录推断项目。
+App / Web 项目索引保存在全局工作区索引同级的 `projects.json`，默认 `~/.formicand/runtime/projects.json`。它保存项目名称、稳定 `projectId`、工作文件夹 `projectDirectory` 和时间；空项目也持久保留。项目 ID 恒为 `project_<uuid>`，目录本身不是身份。会话 `task.json` 记录 `projectId`、`projectCatalogPath` 和目录快照；读取时以所属项目已提交的目录为准，工作文件夹调整不搬移 Task 目录、历史或产物。没有项目归属的会话不进入列表，也不按目录推断项目。
 
 项目目录更新先保存可恢复意图，更新关联会话快照后再提交项目记录；中途退出可在重新打开时完成，损坏记录会拒绝覆盖并保留原文件。Main、交互 CLI、子智能体、待回复、休眠唤醒或命令任务仍在使用项目时，禁止修改工作文件夹。`<task-storage-root>/<taskId>/agents/main/project-execution.json` 是 Main 启动和进程存活的执行租约，覆盖 CLI 两轮输入之间的空档；退出或停止后释放。重命名不改变目录。
 
@@ -43,7 +43,7 @@ App / Web 项目索引保存在全局工作区索引同级的 `projects.json`，
 
 ## 外部 Main 容量
 
-外部 Main 的运行名额与排队是执行主机的本机事实，保存在数据根的 `main-capacity/state.json`（默认 `~/.atria/runtime/main-capacity/state.json`，权限 0600）：本机 external 会话的 Task 索引、正在占用名额的 Run 与进程、以及等待中的需求（含已接受输入、尝试次数、退避时间、最近失败原因与本机进程号）。它不进入共享项目数据，也不在项目数据库备份快照内；进程结束后由程序释放名额并推进队列，重启时只核对本机自有进程。运行记录与 Main 会话归属仍以共享会话和 Task 为准。
+外部 Main 的运行名额与排队是执行主机的本机事实，保存在数据根的 `main-capacity/state.json`（默认 `~/.formicand/runtime/main-capacity/state.json`，权限 0600）：本机 external 会话的 Task 索引、正在占用名额的 Run 与进程、以及等待中的需求（含已接受输入、尝试次数、退避时间、最近失败原因与本机进程号）。它不进入共享项目数据，也不在项目数据库备份快照内；进程结束后由程序释放名额并推进队列，重启时只核对本机自有进程。运行记录与 Main 会话归属仍以共享会话和 Task 为准。
 
 ## Task 存储与目录
 
@@ -109,18 +109,18 @@ Task 首次写入时创建布局与 `agents/main/work/`，在 Main 首次模型�
 
 ## 全局索引与桌面数据
 
-App、CLI 和源码 Web 默认共用 `~/.atria/`，`ATRIA_HOME` 可整体覆盖。工作区目录索引在 `runtime/workspaces.json`。仅覆盖 `COWORK_WORKSPACE` 不会自动迁移这个全局索引；独立多实例测试需同时使用独立索引：
+App、CLI 和源码 Web 默认共用 `~/.formicand/`，`FORMICAND_HOME` 可整体覆盖。工作区目录索引在 `runtime/workspaces.json`。仅覆盖 `FORMICAND_WORKSPACE` 不会自动迁移这个全局索引；独立多实例测试需同时使用独立索引：
 
 ```sh
-COWORK_WORKSPACE=/tmp/atria-dev \
-COWORK_GLOBAL_INDEX=/tmp/atria-dev-index/workspaces.json \
-COWORK_UI_PORT=3881 npm run ui
+FORMICAND_WORKSPACE=/tmp/formicand-dev \
+FORMICAND_GLOBAL_INDEX=/tmp/formicand-dev-index/workspaces.json \
+FORMICAND_UI_PORT=3881 npm run ui
 ```
 
-默认用户目录布局如下；运行 `coworkos data paths` 查看实际路径：
+默认用户目录布局如下；运行 `formicand data paths` 查看实际路径：
 
 ```text
-~/.atria/
+~/.formicand/
 ├── workspace/              默认工作区
 ├── runtime/
 │   ├── workspaces.json     全局工作区索引
@@ -138,27 +138,27 @@ COWORK_UI_PORT=3881 npm run ui
 └── logs/
 ```
 
-开发 App 与正式 App 共用这个目录及单实例锁，因此不能同时打开两个默认桌面实例。`COWORK_DESKTOP_DATA` 可用于独立桌面测试目录，`COWORK_WORKSPACE`、`PI_CODING_AGENT_DIR` 和索引覆盖仍优先。
+开发 App 与正式 App 共用这个目录及单实例锁，因此不能同时打开两个默认桌面实例。`FORMICAND_DESKTOP_DATA` 可用于独立桌面测试目录，`FORMICAND_WORKSPACE`、`PI_CODING_AGENT_DIR` 和索引覆盖仍优先。
 
 所选项目和外部原文件可能位于用户目录之外；完整备份须同时覆盖真实 Task 存储根和相关项目文件。替换或删除 App 程序不删除该目录；清理工具或手动删除用户数据会影响留存。退出/重启/升级约定见 [Mac 指南](mac-release.md)。
 
-新版开发与正式桌面显示 CoworkOS / CoworkOS Dev；客户端会话使用 `CoworkOS Client` 钥匙串身份，旧模型凭据迁移使用 `Atria`。旧开发版的 macOS 加密密钥可能因原身份不同而无法解密；密文和源目录保留，界面仍可打开并重新输入密钥。真实钥匙串迁移与跨版本签名身份兼容需独立原生验收。
+新版开发与正式桌面显示 Formicand / Formicand Dev；客户端会话使用 `Formicand Client` 钥匙串身份，旧模型凭据迁移使用 `Formicand`。旧开发版的 macOS 加密密钥可能因原身份不同而无法解密；密文和源目录保留，界面仍可打开并重新输入密钥。真实钥匙串迁移与跨版本签名身份兼容需独立原生验收。
 
 `computer-policy.json` 由可信桌面 IPC 原子写入，权限 600，格式为 `{ "version": 1, "policy": { "enabled": false, "mode": "observe" } }`。设置中的窗口访问按钮始终写入 mode=control；旧版已开启的 control 策略保留，旧版仅观察策略恢复时关闭并提示重新开启，原文件不改写。只有 enabled/mode 跨重启恢复；PID、窗口 ID、sessionId、observationId、截图和临时控制权均不持久化。缺失、损坏或未知版本默认关闭，并保留原文件供恢复；旧五分钟手动会话不迁移为全局授权。详见 [Computer Use](computer-use.md)。
 
-`composer-drafts.json` 是私有本机草稿快照，权限为 600，包含版本、来源 origin 与 `atria.composer.v1:*` 条目；不包含其他 localStorage 或模型凭据。编辑草稿使用版本 4，在同一会话条目中保存编辑目标/幂等身份与原未发送草稿（正文及附件）；较旧宿主拒绝覆盖版本 4。取消或接受重发恢复原草稿，后台返回不更改当前选中的其他会话。
+`composer-drafts.json` 是私有本机草稿快照，权限为 600，包含版本、来源 origin 与 `formicand.composer.v1:*` 条目；不包含其他 localStorage 或模型凭据。编辑草稿使用版本 4，在同一会话条目中保存编辑目标/幂等身份与原未发送草稿（正文及附件）；较旧宿主拒绝覆盖版本 4。取消或接受重发恢复原草稿，后台返回不更改当前选中的其他会话。
 
 当前预算 16 MiB，写入采用临时文件原子替换，损坏记录保留 `.invalid-*` 副本，未来版本拒绝覆盖。普通 Web 服务仍使用 origin 内的 localStorage，不写该桌面文件。
 
-## CoworkOS 会话导出格式
+## Formicand 会话导出格式
 
-`coworkos session export`、交互 `/export` 和 RPC `/coworkos-export` 使用同一产品序列化器。JSON 顶层为 `schemaVersion: 1`、`format: "atria.session"`，包含 `producer`（CoworkOS 版本及真实 Pi 依赖版本）、`exportedAt`、`session`（sessionId、项目目录、可核对的 taskId/runId）、`task`、`messages`、`toolCalls`、`events` 和 `artifacts`。
+`formicand session export`、交互 `/export` 和 RPC `/formicand-export` 使用同一产品序列化器。JSON 顶层为 `schemaVersion: 1`、`format: "formicand.session"`，包含 `producer`（Formicand 版本及真实 Pi 依赖版本）、`exportedAt`、`session`（sessionId、项目目录、可核对的 taskId/runId）、`task`、`messages`、`toolCalls`、`events` 和 `artifacts`。
 
 消息保留 messageId、parentEntryId、时间、inCurrentBranch、role、content、instructionSections 和 metadata；metadata 保留工具 details、模型响应 ID、usage、系统工具增删，以及 bash 的 command/output/exitCode 等事实。自定义提示消息也保留类型和 details。工具调用按父节点谱系关联结果，`resultMessageIds` 保留全部有效结果，`resultMessageId` 优先当前分支，未返回的调用标为 unresolved。非消息事件保留事件类型和原数据。旧任务 ID 和会话分支不会因产品品牌更新而改写。
 
 `artifacts` 仅引用现有 `.runtime/artifacts.json` 的注册元数据，不包含文件字节，也不为导出执行扫描或迁移。未能核对会话文件与 workspace 的绑定时，不猜测 Task 关联。凭据字段与所选配置及执行主机凭据存储（`credentials.json`）中的模型和搜索凭据脱敏，包括环境变量覆盖；其他正文和路径仍保留。新建和强制覆盖的导出文件均使用 600 权限，覆盖时先限制权限再写入会话内容。各分支的记录须有唯一 ID、有效父引用，且父引用不能形成循环；异常记录在导出前拒绝，源文件和已有输出保留。HTML 展示当前分支，另附全部分支的审计数据；用户内容始终转义为文本。
 
-该格式用于阅读、分享和审计，不作为 Pi 恢复输入。内部 JSONL 和请求归档保持原格式。导出只接受当前版本的会话文件；更早的会话文件按无效文件头拒绝并保留原文件。导出不能替代完整备份：恢复仍需原生会话、工作区和外部项目文件；旧历史未保存的事实无法补回。原生 RPC `export_html` 仍属于引擎兼容接口，产品导出使用 `/coworkos-export`。
+该格式用于阅读、分享和审计，不作为 Pi 恢复输入。内部 JSONL 和请求归档保持原格式。导出只接受当前版本的会话文件；更早的会话文件按无效文件头拒绝并保留原文件。导出不能替代完整备份：恢复仍需原生会话、工作区和外部项目文件；旧历史未保存的事实无法补回。原生 RPC `export_html` 仍属于引擎兼容接口，产品导出使用 `/formicand-export`。
 
 ## 用户上传的输入文件
 

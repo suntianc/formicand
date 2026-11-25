@@ -49,7 +49,7 @@ async function openLedger(t, root) {
 }
 
 async function ledger(t) {
-  const root = await mkdtemp(join(tmpdir(), "coworkos-tidy-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-tidy-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const { runtime, service } = await openLedger(t, root);
   t.after(() => runtime.close());
@@ -113,7 +113,7 @@ async function recordMerges(root, projectId, developmentId, requirementId, times
 }
 
 test("the tidy counts developments merged since the last one and lists the whole catalog", async (t) => {
-  const root = await mkdtemp(join(tmpdir(), "coworkos-tidy-count-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-tidy-count-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const first = await openLedger(t, root);
   const project = await first.service.ensureProject({
@@ -186,7 +186,7 @@ test("the tidy counts developments merged since the last one and lists the whole
 const tick = () => new Promise((resolve) => setTimeout(resolve, 5));
 
 test("a merge that lands while Main tidies counts toward the next tidy, whoever else reads", async (t) => {
-  const root = await mkdtemp(join(tmpdir(), "coworkos-tidy-race-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-tidy-race-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const first = await openLedger(t, root);
   const project = await first.service.ensureProject({
@@ -222,7 +222,7 @@ test("a merge that lands while Main tidies counts toward the next tidy, whoever 
 });
 
 test("a delivery recorded late counts after the mark, whenever it merged", async (t) => {
-  const root = await mkdtemp(join(tmpdir(), "coworkos-tidy-late-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-tidy-late-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const first = await openLedger(t, root);
   const project = await first.service.ensureProject({
@@ -370,7 +370,7 @@ test("merging moves everything to the feature that stays and deletes the duplica
 });
 
 test("a version 9 ledger gains the tidy mark and each requirement a description", async (t) => {
-  const root = await mkdtemp(join(tmpdir(), "coworkos-tidy-v9-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-tidy-v9-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const first = await openLedger(t, root);
   const project = await first.service.ensureProject({
@@ -410,7 +410,7 @@ test("a version 9 ledger gains the tidy mark and each requirement a description"
 });
 
 test("a version 12 ledger drops the per-project tidy read time", async (t) => {
-  const root = await mkdtemp(join(tmpdir(), "coworkos-tidy-v12-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-tidy-v12-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const first = await openLedger(t, root);
   const project = await first.service.ensureProject({

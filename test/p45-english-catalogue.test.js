@@ -14,7 +14,7 @@ import ts from "typescript";
  * leaves its Chinese text in place and is listed with the file and line that
  * produced it.
  */
-globalThis.localStorage = { getItem: (key) => (key === "atria.language" ? "en" : null) };
+globalThis.localStorage = { getItem: (key) => (key === "formicand.language" ? "en" : null) };
 const { ui, localizeShell } = await import("../web/assets/ui/language.js");
 
 const han = /\p{Script=Han}/u;

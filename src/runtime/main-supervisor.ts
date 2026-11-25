@@ -417,6 +417,6 @@ export async function spawnMainProcess(input: {
     resultPath: join(directory, "process-result.json"),
     mode: "resident",
     sessionArgs: ["--continue"],
-    env: { COWORK_CLI_SESSION: "0" }
+    env: { FORMICAND_CLI_SESSION: "0" }
   });
 }

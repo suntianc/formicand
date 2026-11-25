@@ -46,7 +46,7 @@ export function createResidentMainRegistry({
         // A close that lands before the startup sweep must still reach the
         // process; a lookup failure is reported and leaves nothing to stop.
         console.error(
-          `[cowork] resolving the Main for ${taskId} failed: ${error instanceof Error ? error.message : String(error)}`
+          `[formicand] resolving the Main for ${taskId} failed: ${error instanceof Error ? error.message : String(error)}`
         );
         return undefined;
       }));
@@ -56,7 +56,7 @@ export function createResidentMainRegistry({
       .stop(resident.record)
       .catch((error) =>
         console.error(
-          `[cowork] stopping the resident Main failed: ${error instanceof Error ? error.message : String(error)}`
+          `[formicand] stopping the resident Main failed: ${error instanceof Error ? error.message : String(error)}`
         )
       );
     await taskFinalizations.get(taskId);
@@ -145,7 +145,7 @@ export function createResidentMainRegistry({
     if (isStopping()) return result;
     const report = (taskId: string | undefined, error: unknown) => {
       console.error(
-        `[cowork] main adoption failed${taskId ? ` for ${taskId}` : ""}: ${
+        `[formicand] main adoption failed${taskId ? ` for ${taskId}` : ""}: ${
           error instanceof Error ? error.message : String(error)
         }`
       );

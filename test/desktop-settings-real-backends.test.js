@@ -23,16 +23,16 @@ async function setup() {
   const config = join(data, "model-config.json");
   await writeFile(config, JSON.stringify({ model: "fixture-before", baseUrl: "https://fixture.invalid" }));
   const inherited = Object.fromEntries(
-    Object.entries(process.env).filter(([key]) => !/^(COWORK_|ATRIA_|PI_|ELECTRON_)/.test(key))
+    Object.entries(process.env).filter(([key]) => !/^(FORMICAND_|FORMICAND_|PI_|ELECTRON_)/.test(key))
   );
   const env = {
     ...inherited,
     HOME: home,
-    ATRIA_HOME: data,
-    COWORK_HARNESS_ROOT: repo,
-    COWORK_WORKSPACE: workspace,
-    COWORK_CONFIG: config,
-    COWORK_DISABLE_MAIN_GUARDIAN: "1",
+    FORMICAND_HOME: data,
+    FORMICAND_HARNESS_ROOT: repo,
+    FORMICAND_WORKSPACE: workspace,
+    FORMICAND_CONFIG: config,
+    FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
     PI_OFFLINE: "1",
     PI_TELEMETRY: "0"
   };
@@ -43,7 +43,7 @@ async function setup() {
 
 async function isServing(record) {
   const response = await fetch(`${record.url}/api/backend`, {
-    headers: { "x-atria-token": record.token },
+    headers: { "x-formicand-token": record.token },
     signal: AbortSignal.timeout(5000)
   });
   const identity = await response.json();

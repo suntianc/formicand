@@ -31,7 +31,7 @@ export function isMachineTurn(message) {
 
 /** The control message Pi records when Main continues a saved turn instead of a new message. */
 const isContinuation = (message) =>
-  message?.role === "custom" && message.customType === "atria-main-continuation";
+  message?.role === "custom" && message.customType === "formicand-main-continuation";
 
 export function finalAnswerIndex(messages, detail, isCurrent = true) {
   const task = detail?.task || {};
@@ -77,7 +77,7 @@ export function exchangeExecutionState(events = []) {
 export function buildConversationExchanges(messages, events) {
   const exchanges = [];
   // A supervisor wake-up is not a request, so it must not open an exchange:
-  // doing so split CoworkOS's reply away from the message it was answering and
+  // doing so split Formicand's reply away from the message it was answering and
   // printed the harness's own instruction above it.
   for (const message of (messages || []).filter(
     (entry) => !isMachineTurn(entry) && !(entry.delivery === "followUp" && entry.pending)
@@ -127,10 +127,10 @@ export function buildConversationExchanges(messages, events) {
     const event = record?.type === "runtime_event" ? record.payload : record;
     const incoming = event?.message;
     const userMessage =
-      incoming?.role === "custom" && incoming.customType === "cowork-user-message"
+      incoming?.role === "custom" && incoming.customType === "formicand-user-message"
         ? {
             role: "user",
-            id: incoming.details?._coworkInbox?.messageId,
+            id: incoming.details?._formicandInbox?.messageId,
             content: incoming.details?.message,
             timestamp: incoming.timestamp
           }

@@ -30,7 +30,7 @@ import { HttpError } from "./http.js";
 import { copyMainConversation } from "../runtime/conversation-fork.js";
 import { stripReferencesBlock } from "../runtime/composer-references.js";
 
-import type { CoworkConfig } from "../runtime/config.js";
+import type { FormicandConfig } from "../runtime/config.js";
 import type { RunService } from "./run-service.js";
 
 type WorkspaceDirectory = ReturnType<typeof createWorkspaceDirectory>;
@@ -49,7 +49,7 @@ export function createTaskConversationService({
   >;
   coordinator: Pick<CoordinatorRuntime, "waitForSubagents">;
   runs: Pick<RunService, "taskTurnActive" | "mainProcessRunning" | "pendingHumanAnswers" | "cancellations">;
-  runtimeConfig: Pick<CoworkConfig, "modelProviders">;
+  runtimeConfig: Pick<FormicandConfig, "modelProviders">;
   runtimeValue: () => string | undefined;
   modelSettings: Pick<ReturnType<typeof createModelSettings>, "config">;
 }) {

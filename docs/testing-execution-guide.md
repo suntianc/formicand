@@ -1,4 +1,4 @@
-# CoworkOS 测试执行与发布规则
+# Formicand 测试执行与发布规则
 
 适用于当前本地多智能体 harness，以及后续 CLI、Mac App 和桌面能力的持续更新。本文定义测试与发布机制；用例规划见 [能力与场景用例目录](testing-case-catalog.md)，新增用例格式见 [用例模板](testing-case-template.json)。已有本地 runner 的范围见 [本地验证](testing-local-run.md)；目录中的扩展门禁和指标仍需逐项落地，不表示已经执行。
 
@@ -136,9 +136,9 @@ P0 为数据损坏、越权、凭据泄露和主链路失效；P1 为重要能�
 
 ## 8 测试环境隔离与调度
 
-每次运行分配唯一 root，包含 project、user-data、workspace、global-index、pi、outputs。用 allowlist 构造环境，移除宿主 `COWORK_*`、`PI_*`、`ATRIA_HOME` 及代理/模型覆盖；有意继承的字段单独记录。
+每次运行分配唯一 root，包含 project、user-data、workspace、global-index、pi、outputs。用 allowlist 构造环境，移除宿主 `FORMICAND_*`、`PI_*`、`FORMICAND_HOME` 及代理/模型覆盖；有意继承的字段单独记录。
 
-CLI fixture 设置独立 `ATRIA_HOME`、`COWORK_CONFIG`、`COWORK_WORKSPACE`、`PI_CODING_AGENT_DIR`；Dashboard 同时隔离 `COWORK_GLOBAL_INDEX`；桌面使用 `COWORK_DESKTOP_DATA`。用户 HOME 仅由专用干净用户环境管理，测试脚本不覆盖真实用户数据。路径配置、默认路径测试和显式覆盖测试分别安排，避免一直指定显式配置而漏掉用户默认行为。
+CLI fixture 设置独立 `FORMICAND_HOME`、`FORMICAND_CONFIG`、`FORMICAND_WORKSPACE`、`PI_CODING_AGENT_DIR`；Dashboard 同时隔离 `FORMICAND_GLOBAL_INDEX`；桌面使用 `FORMICAND_DESKTOP_DATA`。用户 HOME 仅由专用干净用户环境管理，测试脚本不覆盖真实用户数据。路径配置、默认路径测试和显式覆盖测试分别安排，避免一直指定显式配置而漏掉用户默认行为。
 
 端口由后端绑定 0 并报告实际地址；现有“先探测空闲端口再启动”的方式存在抢占窗口，应逐步改进。所有子进程注册到测试监督器，after/finally 回收进程组、关闭服务和验证零遗留。
 
@@ -206,7 +206,7 @@ CLI fixture 设置独立 `ATRIA_HOME`、`COWORK_CONFIG`、`COWORK_WORKSPACE`、`
 
 CLI 和 App 分别冻结最终文件及 SHA-256、源码 commit、dirty 状态、依赖锁摘要、构建环境和能力版本。正式发布使用已审核干净源码；开发工作区验证可记录 dirty 并保留源文件清单，但不能冒充可复现正式构建。
 
-CLI 从 tgz 安装到临时 npm prefix，移开源码入口并使用独立生产依赖。在无 Electron、Swift 和开发 Python 环境中验证基础链路；可选原生场景另配依赖。测试必须调用 prefix 下的 atria，不能 fallback 到仓库 dist。
+CLI 从 tgz 安装到临时 npm prefix，移开源码入口并使用独立生产依赖。在无 Electron、Swift 和开发 Python 环境中验证基础链路；可选原生场景另配依赖。测试必须调用 prefix 下的 formicand，不能 fallback 到仓库 dist。
 
 App 应测试最终 DMG 中解包的 App，再以同一 hash 分发；不能先测 `--dir` 的开发包、之后重建 DMG 就沿用旧结果。签名或公证后的字节变化需要记录最终身份。安装路径含空格/Unicode、只读安装目录、从 Applications 启动、Finder 双击和非终端 PATH 分别覆盖。
 
@@ -273,11 +273,11 @@ App 应测试最终 DMG 中解包的 App，再以同一 hash 分发；不能先�
 
 ### CLI 恢复原 Task
 
-准备独立用户目录和项目，使用 fixture 驱动 Main 写入 memory、投递未消费 Inbox 并启动可暂停的委派。用普通 atria 启动，不预设 `COWORK_TASK_ID`。记录 Pi session ID、Task ID、Run、memory hash、Inbox ID 和委派 ID；正常退出后运行 `coworkos --continue`。要求 session/Task 身份不变，原 Inbox/委派可继续，memory 完整，未产生额外 Task。再创建第二会话并切回第一会话，确认选择身份正确。当前已知问题应先得到可重复的红色结果；修复后同一断言必须转绿。
+准备独立用户目录和项目，使用 fixture 驱动 Main 写入 memory、投递未消费 Inbox 并启动可暂停的委派。用普通 formicand 启动，不预设 `FORMICAND_TASK_ID`。记录 Pi session ID、Task ID、Run、memory hash、Inbox ID 和委派 ID；正常退出后运行 `formicand --continue`。要求 session/Task 身份不变，原 Inbox/委派可继续，memory 完整，未产生额外 Task。再创建第二会话并切回第一会话，确认选择身份正确。当前已知问题应先得到可重复的红色结果；修复后同一断言必须转绿。
 
 ### 普通业务配置保护
 
-先在隔离用户目录 init，再创建 `project/config.json`，内容为 `{"projectName":"ordinary-project"}`。保存原 hash，分别运行 doctor、普通启动、init 和 init --force；所有操作不得修改业务文件。另创建 `.cowork/config.json`、指定 `COWORK_CONFIG` 和环境变量，按确定的产品契约核对实际请求，不从配置解析返回值推断。源码根目录兼容单独测试，不能因此让所有外部项目接受根配置碰撞。
+先在隔离用户目录 init，再创建 `project/config.json`，内容为 `{"projectName":"ordinary-project"}`。保存原 hash，分别运行 doctor、普通启动、init 和 init --force；所有操作不得修改业务文件。另创建 `.formicand/config.json`、指定 `FORMICAND_CONFIG` 和环境变量，按确定的产品契约核对实际请求，不从配置解析返回值推断。源码根目录兼容单独测试，不能因此让所有外部项目接受根配置碰撞。
 
 ### 工具成功后流中断
 

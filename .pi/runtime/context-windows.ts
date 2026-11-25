@@ -80,10 +80,10 @@ export function registerContextWindows(pi: ExtensionAPI, scope: HandoffScope) {
       });
     } catch (error) {
       console.warn(
-        "[CoworkOS] Using a minimal context handoff:",
+        "[Formicand] Using a minimal context handoff:",
         error instanceof Error ? error.message : String(error)
       );
-      const details: WindowDetails = { kind: "cowork-context-window", reason, requestId };
+      const details: WindowDetails = { kind: "formicand-context-window", reason, requestId };
       return {
         type: "compaction" as const,
         summary: `# Context window handoff\n\n${summary ?? "The records for this handoff could not be read."}`,

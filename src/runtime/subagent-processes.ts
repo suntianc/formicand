@@ -358,7 +358,7 @@ export class SubagentProcessService {
         this.retryTimers.delete(key);
         void this.startQueued(input).catch((error) =>
           console.error(
-            `[cowork] starting a due subagent retry failed: ${error instanceof Error ? error.message : String(error)}`
+            `[formicand] starting a due subagent retry failed: ${error instanceof Error ? error.message : String(error)}`
           )
         );
       },
@@ -496,20 +496,22 @@ export class SubagentProcessService {
     return {
       ...this.options.env,
       ...(this.options.envFor ? await this.options.envFor(item) : {}),
-      COWORK_AGENT_ROLE: role,
+      FORMICAND_AGENT_ROLE: role,
       // A delegated process has no Dashboard tools; the host credential belongs
       // to the requesting Run and must not let a Subagent act as Main.
-      COWORK_API_TOKEN: undefined,
-      COWORK_DASHBOARD_URL: undefined,
+      FORMICAND_API_TOKEN: undefined,
+      FORMICAND_DASHBOARD_URL: undefined,
       ...(payload.capabilityGrants && payload.capabilityGrants.length > 0
-        ? { COWORK_AGENT_GRANTS: JSON.stringify(payload.capabilityGrants) }
+        ? { FORMICAND_AGENT_GRANTS: JSON.stringify(payload.capabilityGrants) }
         : {}),
       // The process applies the definition itself: its tools, skills, MCP servers and prompt.
-      COWORK_AGENT_DEFINITION: payload.agentDefinition ? JSON.stringify(payload.agentDefinition) : undefined,
-      COWORK_BUILTIN_AGENT: payload.builtinAgent ? JSON.stringify(payload.builtinAgent) : undefined,
-      COWORK_REVIEW_SCOPE:
+      FORMICAND_AGENT_DEFINITION: payload.agentDefinition
+        ? JSON.stringify(payload.agentDefinition)
+        : undefined,
+      FORMICAND_BUILTIN_AGENT: payload.builtinAgent ? JSON.stringify(payload.builtinAgent) : undefined,
+      FORMICAND_REVIEW_SCOPE:
         role === "reviewer" && payload.reviewScope ? JSON.stringify(payload.reviewScope) : undefined,
-      COWORK_TICKET_CRITERIA:
+      FORMICAND_TICKET_CRITERIA:
         role === "executor" && payload.ticketCriteria?.length
           ? JSON.stringify(payload.ticketCriteria)
           : undefined
@@ -545,7 +547,7 @@ export class SubagentProcessService {
       await rm(reviewSiteMarker(processDirectory), { force: true });
     } catch (error) {
       console.error(
-        `[cowork] review site cleanup failed: ${error instanceof Error ? error.message : String(error)}`
+        `[formicand] review site cleanup failed: ${error instanceof Error ? error.message : String(error)}`
       );
     }
   }

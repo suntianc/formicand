@@ -17,7 +17,7 @@ import { HumanRequestStore } from "../src/runtime/human.js";
 import { SubagentQuestionStore } from "../src/runtime/subagent-questions.js";
 
 async function main(): Promise<void> {
-  const root = await mkdtemp(join(tmpdir(), "cowork-p2-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-p2-"));
   try {
     const scheduler = new DurableScheduler(join(root, "queue.json"));
     await scheduler.enqueue({

@@ -301,7 +301,7 @@ for (const engine of PROJECT_DATA_ENGINES) {
         requestId: "claim-session"
       },
       "POST",
-      { "x-atria-token": sessionToken }
+      { "x-formicand-token": sessionToken }
     );
     assert.equal(sessionClaim.status, 200, JSON.stringify(sessionClaim.body));
     const foreignRelease = await backend.request(board(backend, project.projectId), {
@@ -321,7 +321,7 @@ for (const engine of PROJECT_DATA_ENGINES) {
         requestId: "release-session"
       },
       "POST",
-      { "x-atria-token": sessionToken }
+      { "x-formicand-token": sessionToken }
     );
     assert.equal(ownerRelease.status, 200, JSON.stringify(ownerRelease.body));
     assert.equal(ownerRelease.body.entry.state, "pending");
@@ -376,7 +376,7 @@ for (const engine of PROJECT_DATA_ENGINES) {
     // Revoked authentication is reported, never retried with the host credential
     // and never transferred to another owner.
     const sessions = await authority.request("/api/session", undefined, "GET", {
-      "x-atria-token": backend.authorityToken
+      "x-formicand-token": backend.authorityToken
     });
     const clientSession = sessions.body.sessions.find(
       (session) => session.clientName === "project-data-client"
@@ -386,7 +386,7 @@ for (const engine of PROJECT_DATA_ENGINES) {
       `/api/session/${encodeURIComponent(clientSession.sessionId)}`,
       undefined,
       "DELETE",
-      { "x-atria-token": backend.authorityToken }
+      { "x-formicand-token": backend.authorityToken }
     );
     assert.equal(revoked.status, 200, JSON.stringify(revoked.body));
     const revokedRead = await backend.request(board(backend, project.projectId), undefined, "GET");
@@ -442,7 +442,7 @@ async function previousVersionDatabase(t, engine) {
     );
   };
   if (engine === "sqlite") {
-    const directory = await mkdtemp(join(tmpdir(), "coworkos-board-version-"));
+    const directory = await mkdtemp(join(tmpdir(), "formicand-board-version-"));
     t.after(() => rm(directory, { recursive: true, force: true }));
     const path = join(directory, "project-data.sqlite");
     const database = await SqliteDatabase.open(path);
@@ -466,7 +466,7 @@ async function previousVersionDatabase(t, engine) {
     };
   }
   const suffix = randomBytes(4).toString("hex");
-  const name = `coworkos_version_${suffix}`;
+  const name = `formicand_version_${suffix}`;
   const admin = new pg.Client({ connectionString: postgres.connectionString });
   await admin.connect();
   await admin.query(`CREATE DATABASE ${name}`);
@@ -477,7 +477,7 @@ async function previousVersionDatabase(t, engine) {
   const database = new PostgresDatabase({ connectionString: url.toString() });
   await seed(database);
   await database.close();
-  const directory = await mkdtemp(join(tmpdir(), "coworkos-board-version-"));
+  const directory = await mkdtemp(join(tmpdir(), "formicand-board-version-"));
   t.after(() => rm(directory, { recursive: true, force: true }));
   return {
     config: { engine, postgres: { connectionString: url.toString() } },

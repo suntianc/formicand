@@ -14,7 +14,7 @@ test(
   "real Pi loads CUA skill and runs persistent JavaScript cells through native HTTP with cancellation",
   { timeout: 120_000 },
   async () => {
-    const root = await mkdtemp(join(tmpdir(), "atria-cua-script-pi-")),
+    const root = await mkdtemp(join(tmpdir(), "formicand-cua-script-pi-")),
       previous = { ...process.env };
     const requests = [],
       effects = [],
@@ -22,7 +22,7 @@ test(
     const target = {
       pid: 11,
       windowId: 12,
-      bundleId: "org.atria.fixture",
+      bundleId: "org.formicand.fixture",
       application: "Isolated fixture",
       title: "Script protocol"
     };
@@ -99,20 +99,20 @@ test(
       await mkdir(join(root, "workspace"));
       await writeFile(join(root, "config.json"), "{}");
       Object.assign(process.env, {
-        COWORK_CONFIG: join(root, "config.json"),
-        COWORK_WORKSPACE: join(root, "workspace"),
-        COWORK_GLOBAL_INDEX: join(root, "global.json"),
-        COWORK_API_BASE: `http://127.0.0.1:${model.address().port}/v1`,
-        COWORK_API_KEY: "local-fixture",
-        COWORK_MODEL: "cua-script-fixture",
-        COWORK_SUPPORTS_IMAGES: "1",
-        COWORK_DISABLE_MAIN_GUARDIAN: "1",
-        COWORK_REASONING_EFFORT: "off",
-        COWORK_SUPPORTS_REASONING_EFFORT: "0",
+        FORMICAND_CONFIG: join(root, "config.json"),
+        FORMICAND_WORKSPACE: join(root, "workspace"),
+        FORMICAND_GLOBAL_INDEX: join(root, "global.json"),
+        FORMICAND_API_BASE: `http://127.0.0.1:${model.address().port}/v1`,
+        FORMICAND_API_KEY: "local-fixture",
+        FORMICAND_MODEL: "cua-script-fixture",
+        FORMICAND_SUPPORTS_IMAGES: "1",
+        FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
+        FORMICAND_REASONING_EFFORT: "off",
+        FORMICAND_SUPPORTS_REASONING_EFFORT: "0",
         PI_CODING_AGENT_DIR: join(root, "pi"),
         PI_OFFLINE: "1"
       });
-      delete process.env.COWORK_API_TOKEN;
+      delete process.env.FORMICAND_API_TOKEN;
       const probe = createServer();
       probe.listen(0, "127.0.0.1");
       await once(probe, "listening");

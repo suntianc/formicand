@@ -271,7 +271,7 @@ test("late creation preserves the newer saved task draft and a deliberate clear 
       const persisted = await page.evaluate((taskId) => {
         // Drafts are namespaced by backend identity; find this Task's slot.
         const key = Object.keys(localStorage).find(
-          (entry) => entry.startsWith("atria.composer.v1:") && entry.endsWith(`:${taskId}`)
+          (entry) => entry.startsWith("formicand.composer.v1:") && entry.endsWith(`:${taskId}`)
         );
         const draft = key ? localStorage.getItem(key) : null;
         return draft === null ? "" : JSON.parse(draft).text;
@@ -330,15 +330,15 @@ test("a message on its way leaves the composer looking empty and a failure shows
 });
 
 test("a Main spawn failure reaches the composer without a running state", async ({ page }) => {
-  const root = await mkdtemp(join(tmpdir(), "atria-spawn-failure-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-spawn-failure-"));
   const releaseDetails = deferred();
   let dashboard;
   try {
     dashboard = await startDashboard({
       modelEndpoint: "http://127.0.0.1:1/v1",
       env: {
-        COWORK_HARNESS_ROOT: join(root, "missing-cwd"),
-        COWORK_UI_DIR: fileURLToPath(new URL("../web", import.meta.url))
+        FORMICAND_HARNESS_ROOT: join(root, "missing-cwd"),
+        FORMICAND_UI_DIR: fileURLToPath(new URL("../web", import.meta.url))
       }
     });
     await seed(page, dashboard);

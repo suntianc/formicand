@@ -55,7 +55,7 @@ export function registerSubagentInbox(pi: ExtensionAPI, options: SubagentInboxOp
 
   const reportDeliveryError = (error: unknown) => {
     process.stderr.write(
-      `[cowork] subagent inbox delivery failed: ${error instanceof Error ? error.message : String(error)}\n`
+      `[formicand] subagent inbox delivery failed: ${error instanceof Error ? error.message : String(error)}\n`
     );
   };
 
@@ -69,12 +69,12 @@ export function registerSubagentInbox(pi: ExtensionAPI, options: SubagentInboxOp
           : {};
       await pi.sendMessage(
         {
-          customType: "cowork-agent-message",
+          customType: "formicand-agent-message",
           content: text,
           display: true,
           details: {
             ...payload,
-            _coworkInbox: {
+            _formicandInbox: {
               taskId: options.taskId,
               runId: options.runId,
               messageId: message.messageId

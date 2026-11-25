@@ -22,7 +22,7 @@ const childEnvironment = Object.fromEntries(
 const snapshotChanged = { code: "main_retry_snapshot_invalid", status: 400 };
 
 async function storage(t) {
-  const root = await mkdtemp(join(tmpdir(), "atria-request-slot-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-request-slot-"));
   const children = new Set();
   t.after(async () => {
     for (const child of children) {

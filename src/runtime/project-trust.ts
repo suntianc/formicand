@@ -6,7 +6,7 @@ import { atomicWrite } from "../storage/atomic-file.js";
 /**
  * Whether the user trusts a project's own Agent definitions and skills.
  *
- * A project folder can carry `.atria/agents`, `.atria/skills` and
+ * A project folder can carry `.formicand/agents`, `.formicand/skills` and
  * `.agents/skills`; their instructions reach the model, so they are read only
  * after the user said yes for that folder. The answer is remembered per folder.
  */
@@ -63,8 +63,8 @@ export async function decideProjectTrust(
 export function projectDefinitionFolders(projectDirectory: string): string[] {
   const root = resolve(projectDirectory);
   return [
-    join(root, ".atria", "agents"),
-    join(root, ".atria", "skills"),
+    join(root, ".formicand", "agents"),
+    join(root, ".formicand", "skills"),
     ...projectAgentsSkillRoots(root)
   ].filter((folder) => existsSync(folder));
 }

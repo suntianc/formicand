@@ -52,7 +52,7 @@ export async function handleModelSettingsRequest(
     // role resolution the launch uses; absent when that connection is unusable.
     const mainRole = status.modelRoles.roles.find((entry) => entry.role === "main")?.effective;
     let mainEffort = mainRole?.thinkingLevel;
-    let current = runtimeValue("COWORK_MODEL");
+    let current = runtimeValue("FORMICAND_MODEL");
     let connectionProfileId = status.activeProfileId;
     // Whose models these are, so the composer can show the provider's mark.
     let mainProviderId = (mainRole?.connectionId || status.activeProfileId).split("#")[0];
@@ -100,7 +100,7 @@ export async function handleModelSettingsRequest(
       models: models.map((model) => model.id),
       // Each model's reasoning levels and where they came from (#27).
       levels: Object.fromEntries(models.map(({ id, levels, source }) => [id, { levels, source }])),
-      configured: Boolean(runtimeValue("COWORK_API_BASE") && runtimeValue("COWORK_API_KEY"))
+      configured: Boolean(runtimeValue("FORMICAND_API_BASE") && runtimeValue("FORMICAND_API_KEY"))
     });
     return true;
   }

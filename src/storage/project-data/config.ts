@@ -78,14 +78,14 @@ export function resolveProjectDataConfig(options: {
     (typeof config.postgres !== "object" || Array.isArray(config.postgres))
   )
     throw configurationError(configPath, "projectData.postgres 必须是对象");
-  const authorityUrl = env.COWORK_PROJECT_DATA_AUTHORITY?.trim() || config.authority?.url;
-  const engineValue = env.COWORK_PROJECT_DATA_ENGINE?.trim() || config.engine;
-  const source = env.COWORK_PROJECT_DATA_ENGINE?.trim()
-    ? "COWORK_PROJECT_DATA_ENGINE"
+  const authorityUrl = env.FORMICAND_PROJECT_DATA_AUTHORITY?.trim() || config.authority?.url;
+  const engineValue = env.FORMICAND_PROJECT_DATA_ENGINE?.trim() || config.engine;
+  const source = env.FORMICAND_PROJECT_DATA_ENGINE?.trim()
+    ? "FORMICAND_PROJECT_DATA_ENGINE"
     : `${configPath} 的 projectData`;
   if (authorityUrl !== undefined) {
-    const authoritySource = env.COWORK_PROJECT_DATA_AUTHORITY?.trim()
-      ? "COWORK_PROJECT_DATA_AUTHORITY"
+    const authoritySource = env.FORMICAND_PROJECT_DATA_AUTHORITY?.trim()
+      ? "FORMICAND_PROJECT_DATA_AUTHORITY"
       : `${configPath} 的 projectData.authority`;
     if (engineValue !== undefined || config.sqlite !== undefined || config.postgres !== undefined)
       throw configurationError(authoritySource, "authority 不能与 engine、sqlite 或 postgres 同时配置");
@@ -104,11 +104,11 @@ export function resolveProjectDataConfig(options: {
       parsed.password
     )
       throw configurationError(authoritySource, "authority.url 只填写协议、主机和端口，不要包含路径或凭据");
-    const token = env.COWORK_PROJECT_DATA_TOKEN?.trim() || config.authority?.token;
+    const token = env.FORMICAND_PROJECT_DATA_TOKEN?.trim() || config.authority?.token;
     if (typeof token !== "string" || !token.trim())
       throw configurationError(
         authoritySource,
-        "authority 需要访问凭据（token 或 COWORK_PROJECT_DATA_TOKEN）"
+        "authority 需要访问凭据（token 或 FORMICAND_PROJECT_DATA_TOKEN）"
       );
     return {
       mode: "authority",
@@ -125,7 +125,7 @@ export function resolveProjectDataConfig(options: {
   if (engineValue === "sqlite") {
     return { mode: "local", engine: "sqlite", source, sqlitePath: resolveSqlitePath(config, env, dataRoot) };
   }
-  const connectionString = env.COWORK_PROJECT_DATA_URL?.trim() || config.postgres?.connectionString;
+  const connectionString = env.FORMICAND_PROJECT_DATA_URL?.trim() || config.postgres?.connectionString;
   const postgres = connectionString ? { ...config.postgres, connectionString } : config.postgres;
   if (postgres?.connectionString !== undefined) {
     if (typeof postgres.connectionString !== "string" || !postgres.connectionString.trim())
@@ -144,7 +144,7 @@ export function resolveProjectDataConfig(options: {
   if (!postgres || (!postgres.connectionString && (!postgres.host || !postgres.database)))
     throw configurationError(
       source,
-      "postgres 需要 connectionString，或 host 与 database（连接地址见 COWORK_PROJECT_DATA_URL）"
+      "postgres 需要 connectionString，或 host 与 database（连接地址见 FORMICAND_PROJECT_DATA_URL）"
     );
   if (
     postgres.port !== undefined &&
@@ -165,10 +165,10 @@ export function resolveProjectDataConfig(options: {
 }
 
 function resolveSqlitePath(config: ProjectDataConfig, env: NodeJS.ProcessEnv, dataRoot: string): string {
-  const value = env.COWORK_PROJECT_DATA_SQLITE?.trim() || config.sqlite?.path;
+  const value = env.FORMICAND_PROJECT_DATA_SQLITE?.trim() || config.sqlite?.path;
   if (value === undefined) return join(dataRoot, "project-data.sqlite");
   if (typeof value !== "string" || !value.trim())
-    throw configurationError("COWORK_PROJECT_DATA_SQLITE", "sqlite.path 须为非空字符串");
+    throw configurationError("FORMICAND_PROJECT_DATA_SQLITE", "sqlite.path 须为非空字符串");
   return isAbsolute(value) ? resolve(value) : resolve(dataRoot, value);
 }
 

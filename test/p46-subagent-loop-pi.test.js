@@ -79,7 +79,7 @@ function identityOf(body) {
     .filter((message) => ["system", "developer"].includes(message.role))
     .map(messageText)
     .join("\n");
-  if (!system.includes("You are a CoworkOS Subagent")) return "main";
+  if (!system.includes("You are a Formicand Subagent")) return "main";
   const brief = body.messages.filter((message) => message.role === "user").at(-1);
   const match = (brief ? messageText(brief) : "").match(/工作项 ([A-Z])/);
   return match ? match[1] : "unknown";
@@ -126,7 +126,7 @@ async function fixture(t, { handle, taskId = "loop-task", goal = "完成需求�
   );
   const dashboard = await startDashboard({
     defaultProject: false,
-    env: { COWORK_PROJECT_WRITE: "1", COWORK_DISABLE_MAIN_GUARDIAN: "1" }
+    env: { FORMICAND_PROJECT_WRITE: "1", FORMICAND_DISABLE_MAIN_GUARDIAN: "1" }
   });
   t.after(async () => {
     await dashboard.stop();
@@ -533,7 +533,7 @@ test(
     // The rework reused the original branch rather than a fresh checkout.
     assert.equal(
       await runGit(calls.a2.workspace, ["rev-parse", "--abbrev-ref", "HEAD"]),
-      `coworkos/work/${calls.a.callId}`
+      `formicand/work/${calls.a.callId}`
     );
     await assertEverythingSettled(f, started.body.runId);
   }
@@ -1077,12 +1077,12 @@ test(
       "the backend to claim the workspace"
     );
     const env = Object.fromEntries(
-      Object.entries(f.dashboard.env).filter(([name]) => !/^(?:COWORK_DISABLE_MAIN_GUARDIAN)$/.test(name))
+      Object.entries(f.dashboard.env).filter(([name]) => !/^(?:FORMICAND_DISABLE_MAIN_GUARDIAN)$/.test(name))
     );
     const child = spawn(
       process.execPath,
       [
-        join(harness, "dist", "src", "cli", "cowork.js"),
+        join(harness, "dist", "src", "cli", "formicand.js"),
         "worker",
         "--task",
         "owner-task",
@@ -1093,11 +1093,11 @@ test(
         cwd: f.root,
         env: {
           ...env,
-          COWORK_DISABLE_MAIN_GUARDIAN: "1",
-          COWORK_API_BASE: f.provider.baseUrl,
-          COWORK_API_KEY: "owner-test-key",
-          COWORK_MODEL: "protocol-fixture",
-          COWORK_MODEL_API: "openai-completions"
+          FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
+          FORMICAND_API_BASE: f.provider.baseUrl,
+          FORMICAND_API_KEY: "owner-test-key",
+          FORMICAND_MODEL: "protocol-fixture",
+          FORMICAND_MODEL_API: "openai-completions"
         },
         stdio: ["ignore", "pipe", "pipe"]
       }

@@ -2,13 +2,13 @@
 const engineIdentity =
   "You are a coding assistant running inside pi, a coding agent harness. Help users inspect files, run commands, and modify code.";
 /** Product roles describe responsibility, never a model's training provenance. */
-export function atriaRoleIdentity(role: "Agent" | "Main" | "Subagent"): string {
+export function formicandRoleIdentity(role: "Agent" | "Main" | "Subagent"): string {
   if (role === "Main")
-    return "You are CoworkOS Main, the agent responsible for completing the user's tasks in CoworkOS.";
-  if (role === "Subagent") return "You are a CoworkOS Subagent, completing the task delegated by Main.";
-  return "You are CoworkOS Agent, helping the user complete tasks in CoworkOS.";
+    return "You are Formicand Main, the agent responsible for completing the user's tasks in Formicand.";
+  if (role === "Subagent") return "You are a Formicand Subagent, completing the task delegated by Main.";
+  return "You are Formicand Agent, helping the user complete tasks in Formicand.";
 }
-const atriaIdentity = atriaRoleIdentity("Main");
+const formicandIdentity = formicandRoleIdentity("Main");
 const escapePattern = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const docsPath = "[^\\r\\n]+";
 /** One bullet, with its fixed text escaped and the filesystem path left open. */
@@ -38,7 +38,7 @@ const engineDocsPattern = docsPattern(
 );
 
 /** Project SDK defaults at the request/export boundary; preserve custom prompts and tool patches. */
-export function projectAtriaSystemMessage<T>(value: T): T {
+export function projectFormicandSystemMessage<T>(value: T): T {
   if (!value || typeof value !== "object") return value;
   const message = value as Record<string, unknown>;
   // Forced prompts are content-only; mixed snapshots may include user-added
@@ -53,10 +53,10 @@ export function projectAtriaSystemMessage<T>(value: T): T {
     return value;
   const sections = { ...(message.sections as Record<string, unknown>) };
   const enginePreamble = sections.preamble === engineIdentity;
-  if (!enginePreamble && sections.preamble !== atriaIdentity) return value;
+  if (!enginePreamble && sections.preamble !== formicandIdentity) return value;
   let changed = false;
   if (enginePreamble) {
-    sections.preamble = atriaIdentity;
+    sections.preamble = formicandIdentity;
     changed = true;
   }
   const docs =

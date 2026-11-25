@@ -252,7 +252,7 @@ test("the Main tool records and reads developments only for its own project", as
     }
   );
   const denied = await fetch(`${f.base}/api/projects/${encodeURIComponent(f.b.projectId)}/developments`, {
-    headers: { "x-atria-token": f.token, "x-cowork-task-id": f.taskA }
+    headers: { "x-formicand-token": f.token, "x-formicand-task-id": f.taskA }
   });
   const deniedBody = await denied.json();
   assert.equal(denied.status, 403, JSON.stringify(deniedBody));
@@ -275,7 +275,7 @@ test("the Main tool records and reads developments only for its own project", as
 });
 
 test("a failed record with an intact checkout returns to ready without a second checkout", async (t) => {
-  const directory = await mkdtemp(join(tmpdir(), "coworkos-p4-recovery-"));
+  const directory = await mkdtemp(join(tmpdir(), "formicand-p4-recovery-"));
   t.after(() => rm(directory, { recursive: true, force: true }));
   const repository = await makeRepository(join(directory, "repository"));
   const runtime = new ProjectDataRuntime({
@@ -369,7 +369,7 @@ test("a failed record with an intact checkout returns to ready without a second 
     workspaceId: original.workspaceId,
     backendId: "backend_recovery",
     directory: unrelated,
-    branch: "coworkos/development/wrong-branch",
+    branch: "formicand/development/wrong-branch",
     baseCommit: userHead,
     state: "failed",
     error: "fixture: identity mismatch"

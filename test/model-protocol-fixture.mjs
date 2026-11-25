@@ -23,8 +23,11 @@ export async function modelProtocolFixture(api, handle, { models = [{ id: "proto
       return res.end('{"error":{"message":"incorrect protocol"}}');
     }
     const tools = body.tools?.map((tool) => (responses ? tool.name : tool.function.name)) ?? [];
-    const reply = tools.includes("atria_connection_check")
-      ? { name: "atria_connection_check", arguments: { status: "connected", color: "none", code: "none" } }
+    const reply = tools.includes("formicand_connection_check")
+      ? {
+          name: "formicand_connection_check",
+          arguments: { status: "connected", color: "none", code: "none" }
+        }
       : ((await handle?.(body, requests)) ?? { text: "协议会话验证成功" });
     res.writeHead(200, { "content-type": "text/event-stream" });
     res.end(protocolStream(api, reply));

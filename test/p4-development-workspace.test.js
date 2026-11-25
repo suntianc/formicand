@@ -150,8 +150,8 @@ async function declaredRequest(base, token, path, body, backendId) {
     method: body === undefined ? "GET" : "POST",
     headers: {
       "content-type": "application/json",
-      "x-atria-token": token,
-      "x-cowork-backend-id": backendId
+      "x-formicand-token": token,
+      "x-formicand-backend-id": backendId
     },
     ...(body === undefined ? {} : { body: JSON.stringify(body) })
   });
@@ -206,7 +206,7 @@ for (const engine of PROJECT_DATA_ENGINES) {
     assert.equal(missing.status, 409, JSON.stringify(missing.body));
     assert.equal(missing.body.code, "project_git_missing");
     assert.match(missing.body.error, /告诉用户/);
-    assert.match(missing.body.error, /不要查找、读取或修改 CoworkOS/);
+    assert.match(missing.body.error, /不要查找、读取或修改 Formicand/);
     const unset = await request(`/api/projects/${encodeURIComponent(other.projectId)}/merge-config`);
     assert.equal(unset.body.mergeConfig, null);
 
@@ -532,7 +532,7 @@ for (const engine of PROJECT_DATA_ENGINES) {
       workspaceId: "workspace_authority_probe",
       backendId: authorityInstance.value.backendId,
       directory: join(authority.root, "authority-workspace"),
-      branch: "coworkos/development/authority-probe",
+      branch: "formicand/development/authority-probe",
       baseCommit: head,
       state: "ready"
     };

@@ -33,7 +33,7 @@ import { isolatedPiEnvironment, startLocalProvider } from "./fixtures/pi-process
 
 const harness = resolve(".");
 const execFileAsync = promisify(execFile);
-const extensionPath = resolve(".pi/extensions/cowork.ts");
+const extensionPath = resolve(".pi/extensions/formicand.ts");
 const requirePi = createRequire(import.meta.resolve("@earendil-works/pi-coding-agent"));
 const MODEL = "p46-subagent-model";
 const TASK_ID = "p46-subagent-task";
@@ -242,18 +242,18 @@ async function delegatedCall(
     env: isolatedPiEnvironment({
       HOME: root,
       TMPDIR: root,
-      ATRIA_HOME: join(root, "home"),
-      COWORK_CONFIG: join(root, "config.json"),
-      COWORK_CONFIG_ROOT: root,
-      COWORK_HARNESS_ROOT: harness,
-      COWORK_WORKSPACE: workspace,
-      COWORK_DISABLE_MAIN_GUARDIAN: "1",
-      COWORK_API_BASE: provider.baseUrl,
-      COWORK_API_KEY: API_KEY,
-      COWORK_MODEL: MODEL,
-      COWORK_MODEL_API: "openai-completions",
-      COWORK_REASONING_EFFORT: "off",
-      COWORK_PROTECTED_PATHS: "eval/",
+      FORMICAND_HOME: join(root, "home"),
+      FORMICAND_CONFIG: join(root, "config.json"),
+      FORMICAND_CONFIG_ROOT: root,
+      FORMICAND_HARNESS_ROOT: harness,
+      FORMICAND_WORKSPACE: workspace,
+      FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
+      FORMICAND_API_BASE: provider.baseUrl,
+      FORMICAND_API_KEY: API_KEY,
+      FORMICAND_MODEL: MODEL,
+      FORMICAND_MODEL_API: "openai-completions",
+      FORMICAND_REASONING_EFFORT: "off",
+      FORMICAND_PROTECTED_PATHS: "eval/",
       PI_CODING_AGENT_DIR: join(root, "pi"),
       PI_OFFLINE: "1",
       ...env
@@ -324,7 +324,7 @@ test(
       assert.equal(declared.has(name), true, `the Executor needs ${name}`);
 
     const system = request.messages.find((message) => message.role === "system").content;
-    assert.match(system, /You are a CoworkOS Subagent/, "the process identifies itself as a Subagent");
+    assert.match(system, /You are a Formicand Subagent/, "the process identifies itself as a Subagent");
     assert.ok(!system.includes(PITFALL_ROW), "the index itself stays in the project, not the prompt");
     assert.match(
       firstUserText(request),
@@ -358,7 +358,7 @@ test(
       role: "executor",
       agentId: "subagent_web_off",
       callId: "call-role-web-off",
-      env: { COWORK_WEB_TOOLS: "0" },
+      env: { FORMICAND_WEB_TOOLS: "0" },
       handle: (body) => {
         const declared = toolNames(body);
         assert.equal(declared.includes("search"), false, "search off means no search tool is declared");
@@ -463,7 +463,7 @@ test("the prompt and skill text name only tools a Subagent actually holds", asyn
       else if (entry.name.endsWith(".md")) files.push(join(directory, entry.name));
     }
   }
-  for (const file of [join(".pi", "prompts", "cowork-main.md"), join(".pi", "skills", "cua", "SKILL.md")])
+  for (const file of [join(".pi", "prompts", "formicand-main.md"), join(".pi", "skills", "cua", "SKILL.md")])
     assert.ok(files.includes(file), `the scan covers ${file}`);
   for (const path of files) {
     const text = await readFile(path, "utf8").catch(() => undefined);
@@ -1004,7 +1004,7 @@ test(
     t.after(() => rm(root, { recursive: true, force: true }));
     const site = join(root, "site");
     await mkdir(join(site, "eval"), { recursive: true });
-    const guard = configuredProtectedPaths(site, { COWORK_PROTECTED_PATHS: "eval/" }, []);
+    const guard = configuredProtectedPaths(site, { FORMICAND_PROTECTED_PATHS: "eval/" }, []);
     const refusal = (path) => ({
       path,
       pattern: "eval/",
@@ -1093,7 +1093,7 @@ test(
       }
     });
 
-    const guard = configuredProtectedPaths(site, { COWORK_PROTECTED_PATHS: "eval/" }, []);
+    const guard = configuredProtectedPaths(site, { FORMICAND_PROTECTED_PATHS: "eval/" }, []);
     assert.deepEqual(protectedCallRefusal("bash", { command: "printf x > eval/score.py" }, guard, site), {
       path: "eval/score.py",
       pattern: "eval/",
@@ -1250,7 +1250,7 @@ test(
     const granted = await delegatedCall(t, {
       agentId: "subagent_image_granted",
       callId: "call-image-granted",
-      env: { COWORK_SUPPORTS_IMAGES: "1" },
+      env: { FORMICAND_SUPPORTS_IMAGES: "1" },
       prepare: async ({ workspace }) => {
         const file = await receiveInput(workspace, "pixel.png", pixel);
         uploadId = file.uploadId;
@@ -1282,7 +1282,7 @@ test(
     const ungranted = await delegatedCall(t, {
       agentId: "subagent_image_ungranted",
       callId: "call-image-ungranted",
-      env: { COWORK_SUPPORTS_IMAGES: "1" },
+      env: { FORMICAND_SUPPORTS_IMAGES: "1" },
       handle: (body, requests) => {
         assert.equal(
           toolNames(body).includes("read_attachment"),
@@ -1449,20 +1449,20 @@ test(
       await rm(root, { recursive: true, force: true });
     });
     Object.assign(process.env, {
-      COWORK_AGENT_ROLE: "reviewer",
-      COWORK_API_BASE: "https://example.test",
-      COWORK_API_KEY: "{{SECRET_p46_guard_key}}",
-      COWORK_CONFIG: join(root, "config.json"),
-      COWORK_WORKSPACE: root,
-      COWORK_PROJECT_DIR: root,
-      COWORK_TASK_ID: "guard-warming-task",
-      COWORK_RUN_ID: "guard-warming-run",
-      COWORK_SUBAGENT_CALL_ID: "guard-warming-call",
-      COWORK_AGENT_ID: "subagent_warming",
-      COWORK_SUBAGENT_TOKEN: "guard-warming-token",
-      COWORK_SUBAGENT_RESULT: join(root, "result.json")
+      FORMICAND_AGENT_ROLE: "reviewer",
+      FORMICAND_API_BASE: "https://example.test",
+      FORMICAND_API_KEY: "{{SECRET_p46_guard_key}}",
+      FORMICAND_CONFIG: join(root, "config.json"),
+      FORMICAND_WORKSPACE: root,
+      FORMICAND_PROJECT_DIR: root,
+      FORMICAND_TASK_ID: "guard-warming-task",
+      FORMICAND_RUN_ID: "guard-warming-run",
+      FORMICAND_SUBAGENT_CALL_ID: "guard-warming-call",
+      FORMICAND_AGENT_ID: "subagent_warming",
+      FORMICAND_SUBAGENT_TOKEN: "guard-warming-token",
+      FORMICAND_SUBAGENT_RESULT: join(root, "result.json")
     });
-    await writeFile(process.env.COWORK_CONFIG, "{}\n");
+    await writeFile(process.env.FORMICAND_CONFIG, "{}\n");
     const { createJiti } = await import(requirePi.resolve("jiti"));
     const jiti = createJiti(pathToFileURL(extensionPath).href, { interopDefault: true });
     const module = await jiti.import(extensionPath, { default: true });

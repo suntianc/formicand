@@ -255,7 +255,7 @@ export function runFileSearch(
     return Promise.reject(new Error("Invalid file search timeout."));
   return new Promise((done, reject) => {
     const worker = new Worker(new URL(import.meta.url), {
-      workerData: { atriaFileSearch: true, operation, parameters, cwd }
+      workerData: { formicandFileSearch: true, operation, parameters, cwd }
     });
     let settled = false;
     const finish = (error, result) => {
@@ -280,7 +280,7 @@ export function runFileSearch(
   });
 }
 
-if (!isMainThread && workerData?.atriaFileSearch) {
+if (!isMainThread && workerData?.formicandFileSearch) {
   try {
     const search =
       workerData.operation === "find"

@@ -1,11 +1,13 @@
 /** Only a valid trailing upload manifest is interpreted as attachment metadata. */
 export function splitUploadedFiles(source) {
   const text = String(source || "");
-  const marker = "\n\n<atria_uploaded_files>\n";
+  const marker = "\n\n<formicand_uploaded_files>\n";
   const boundary = text.lastIndexOf(marker);
-  if (boundary < 0 || !text.endsWith("\n</atria_uploaded_files>")) return { text, files: [] };
+  if (boundary < 0 || !text.endsWith("\n</formicand_uploaded_files>")) return { text, files: [] };
   try {
-    const manifest = JSON.parse(text.slice(boundary + marker.length, -"\n</atria_uploaded_files>".length));
+    const manifest = JSON.parse(
+      text.slice(boundary + marker.length, -"\n</formicand_uploaded_files>".length)
+    );
     if (
       manifest.version !== 1 ||
       !Array.isArray(manifest.files) ||

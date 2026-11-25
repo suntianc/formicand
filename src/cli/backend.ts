@@ -6,8 +6,8 @@ import { once } from "node:events";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { randomBytes } from "node:crypto";
-import { atriaHome } from "../../scripts/data-home.cjs";
-import { readCoworkConfig } from "../runtime/config.js";
+import { formicandHome } from "../../scripts/data-home.cjs";
+import { readFormicandConfig } from "../runtime/config.js";
 import { processIsAlive } from "../runtime/process-identity.js";
 import { applyProxyEnvironment } from "../runtime/http-transport.js";
 import { withFileLock } from "../storage/file-lock.js";
@@ -151,7 +151,7 @@ export async function startBackend(
   cwd = process.cwd(),
   executable = process.execPath
 ): Promise<BackendStatus> {
-  const paths = backendPaths(atriaHome(env));
+  const paths = backendPaths(formicandHome(env));
   const prepared = await withFileLock(
     join(paths.runtimeDir, "backend-lifecycle"),
     async (): Promise<
@@ -169,7 +169,7 @@ export async function startBackend(
       await ensureBackendIdentity(paths);
       if (inspection.state === "stale") await removeBackendInstance(paths, inspection.instance);
       const claimToken = randomBytes(32).toString("hex");
-      const instanceToken = env.COWORK_API_TOKEN?.trim() || randomBytes(32).toString("hex");
+      const instanceToken = env.FORMICAND_API_TOKEN?.trim() || randomBytes(32).toString("hex");
       const claim: BackendStarting = {
         version: 1,
         token: claimToken,
@@ -234,7 +234,7 @@ async function spawnBackend(
   try {
     child = spawn(executable, [fileURLToPath(import.meta.url), "serve", "--claim", claimToken], {
       cwd,
-      env: { ...env, COWORK_API_TOKEN: instanceToken },
+      env: { ...env, FORMICAND_API_TOKEN: instanceToken },
       detached: process.platform !== "win32",
       stdio: ["ignore", log, log]
     });
@@ -296,7 +296,7 @@ export async function stopBackend(
   env: NodeJS.ProcessEnv = process.env,
   expected?: BackendStopIdentity
 ): Promise<BackendStatus> {
-  const paths = backendPaths(atriaHome(env));
+  const paths = backendPaths(formicandHome(env));
   return withFileLock(
     join(paths.runtimeDir, "backend-lifecycle"),
     async () => {
@@ -368,7 +368,7 @@ export async function stopBackend(
 
 /** Read the data root's view without changing it. */
 export async function backendStatus(env: NodeJS.ProcessEnv = process.env): Promise<BackendStatus> {
-  const paths = backendPaths(atriaHome(env));
+  const paths = backendPaths(formicandHome(env));
   const inspection = await inspectBackend(paths);
   if (inspection.state === "running") return publicStatus(inspection.instance);
   const starting = await readBackendStarting(paths);
@@ -472,8 +472,8 @@ export async function serveBackend(claimToken?: string, executable = process.exe
   // inside the process that actually serves requests, before claiming a root.
   const { createDashboardApplication } = await import("../dashboard/application.js");
   const env = process.env;
-  const paths = backendPaths(atriaHome(env));
-  applyProxyEnvironment(readCoworkConfig());
+  const paths = backendPaths(formicandHome(env));
+  applyProxyEnvironment(readFormicandConfig());
   if (claimToken) {
     // A `start` child: the claim token is its authority, and publication
     // re-checks it under the lock. The parent may already be gone — the backend
@@ -490,12 +490,12 @@ export async function serveBackend(claimToken?: string, executable = process.exe
     claimToken = started.claim.token;
   }
   const identity = await ensureBackendIdentity(paths);
-  const requested = env.COWORK_UI_PORT ? Number(env.COWORK_UI_PORT) : undefined;
+  const requested = env.FORMICAND_UI_PORT ? Number(env.FORMICAND_UI_PORT) : undefined;
   if (requested !== undefined && (!Number.isInteger(requested) || requested < 1 || requested > 65535))
-    throw new Error("COWORK_UI_PORT 必须是 1–65535 的整数");
+    throw new Error("FORMICAND_UI_PORT 必须是 1–65535 的整数");
   const port = requested ?? (await availablePort());
-  const token = env.COWORK_API_TOKEN?.trim() || randomBytes(32).toString("hex");
-  env.COWORK_API_TOKEN = token;
+  const token = env.FORMICAND_API_TOKEN?.trim() || randomBytes(32).toString("hex");
+  env.FORMICAND_API_TOKEN = token;
   const startedAt = new Date().toISOString();
   const application = createDashboardApplication({
     port,
@@ -570,10 +570,10 @@ export async function serveBackend(claimToken?: string, executable = process.exe
     teardown(1);
     throw error;
   }
-  process.stdout.write(`cowork backend listening on ${instance.url}\n`);
+  process.stdout.write(`formicand backend listening on ${instance.url}\n`);
 }
 
-const HELP = `Usage: coworkos backend <start|status|stop> [--help]
+const HELP = `Usage: formicand backend <start|status|stop> [--help]
   start    Start a detached backend for the current data root, or report the running one
   status   Report the backend instance for the current data root
   stop     Ask the backend to finish managed work and exit

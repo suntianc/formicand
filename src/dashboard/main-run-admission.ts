@@ -207,7 +207,7 @@ export function createMainRunAdmission({
             .bindProcess(requestId, resident.record.pid)
             .catch((error) =>
               console.error(
-                `[cowork] external capacity process record failed: ${
+                `[formicand] external capacity process record failed: ${
                   error instanceof Error ? error.message : String(error)
                 }`
               )

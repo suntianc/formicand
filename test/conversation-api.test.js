@@ -15,7 +15,7 @@ test(
   "Dashboard retains follow-ups, reasoning, tools, final answers and title across a reopened Main",
   { timeout: 45000 },
   async () => {
-    const root = await mkdtemp(join(tmpdir(), "atria-conversation-api-"));
+    const root = await mkdtemp(join(tmpdir(), "formicand-conversation-api-"));
     const workspaceRoot = join(root, "workspace");
     const requests = [];
     let child;
@@ -75,22 +75,22 @@ test(
         stdio: ["ignore", "pipe", "pipe"],
         env: {
           ...process.env,
-          COWORK_WORKSPACE: workspaceRoot,
-          ATRIA_HOME: join(root, "home"),
-          COWORK_GLOBAL_INDEX: join(root, "global.json"),
-          COWORK_CONFIG: join(root, "config.json"),
-          COWORK_UI_PORT: String(port),
-          COWORK_API_BASE: `http://127.0.0.1:${model.address().port}`,
-          COWORK_API_KEY: "test-key",
-          COWORK_MODEL: "glm-5.3",
-          COWORK_REASONING_EFFORT: "high",
-          COWORK_SUPPORTS_REASONING_EFFORT: "true",
+          FORMICAND_WORKSPACE: workspaceRoot,
+          FORMICAND_HOME: join(root, "home"),
+          FORMICAND_GLOBAL_INDEX: join(root, "global.json"),
+          FORMICAND_CONFIG: join(root, "config.json"),
+          FORMICAND_UI_PORT: String(port),
+          FORMICAND_API_BASE: `http://127.0.0.1:${model.address().port}`,
+          FORMICAND_API_KEY: "test-key",
+          FORMICAND_MODEL: "glm-5.3",
+          FORMICAND_REASONING_EFFORT: "high",
+          FORMICAND_SUPPORTS_REASONING_EFFORT: "true",
           PI_CODING_AGENT_DIR: join(root, "pi-agent"),
-          COWORK_DISABLE_MAIN_GUARDIAN: "1",
+          FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
           // The second request must start a new Main so the test covers
           // reopening the saved Pi session; a resident Main keeps it in memory.
-          COWORK_MAIN_IDLE_TIMEOUT_MS: "800",
-          COWORK_WEB_TOOLS: "0"
+          FORMICAND_MAIN_IDLE_TIMEOUT_MS: "800",
+          FORMICAND_WEB_TOOLS: "0"
         }
       });
       child.stdout.on("data", (chunk) => {

@@ -59,7 +59,7 @@ test("the sidebar plus adds a project from a local folder and from a Git clone",
     await expect(dialog.locator("#add-project-panel-git")).toBeHidden();
     await dialog.getByRole("textbox", { name: "项目名称" }).fill("本地项目");
     await page.evaluate((directory) => {
-      window.bookmanDesktop = { chooseProject: async () => directory };
+      window.formicandDesktop = { chooseProject: async () => directory };
     }, localDirectory);
     await dialog.getByRole("button", { name: "选择文件夹" }).click();
     await expect(dialog.locator("#add-project-directory")).toHaveValue(localDirectory);
@@ -106,7 +106,7 @@ test("the sidebar plus adds a project from a local folder and from a Git clone",
     await page.screenshot({ path: info.outputPath("added-projects.png") });
 
     if (evidenceRoot) {
-      await page.evaluate(() => localStorage.setItem("atria.appearance", "light"));
+      await page.evaluate(() => localStorage.setItem("formicand.appearance", "light"));
       await page.reload();
       await page.locator("#new-project").click();
       const light = page.getByRole("dialog", { name: "添加项目", exact: true });

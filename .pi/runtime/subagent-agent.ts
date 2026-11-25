@@ -7,8 +7,8 @@ import { join, relative, resolve } from "node:path";
 import { atomicWrite } from "../../dist/src/storage/atomic-file.js";
 import { JsonlEventStore } from "../../dist/src/storage/event-store.js";
 import { listAgentOutputFiles } from "../../dist/src/runtime/progress.js";
-import { createCoworkModel } from "../../dist/src/runtime/model-profile.js";
-import { atriaRoleIdentity } from "../../dist/src/domain/agent-identity.js";
+import { createFormicandModel } from "../../dist/src/runtime/model-profile.js";
+import { formicandRoleIdentity } from "../../dist/src/domain/agent-identity.js";
 import { agentDisplayName } from "../../dist/src/runtime/agent-identity.js";
 import { delegationRoleGuidance } from "../../dist/src/runtime/delegation-model.js";
 import { ASK_MAIN_GUIDANCE, SEND_PEER_MESSAGE_GUIDANCE } from "../../dist/src/runtime/subagent-guidance.js";
@@ -38,7 +38,7 @@ import {
   runtimeSettingsEnv
 } from "../../dist/src/runtime/runtime-settings.js";
 import { loadConfig } from "./helpers.ts";
-import { registerCoworkProvider } from "./provider.ts";
+import { registerFormicandProvider } from "./provider.ts";
 import { registerContextWindows } from "./context-windows.ts";
 import { registerSessionContext } from "./session-context.ts";
 import { SESSION_HISTORY_TOOLS } from "./tools/session-history.ts";
@@ -93,14 +93,14 @@ function textFrom(content: unknown): string {
 
 /** The custom Agent this process runs as, fixed by the backend when the item was dispatched. */
 function customAgent(): AgentDefinition | undefined {
-  const raw = process.env.COWORK_AGENT_DEFINITION;
+  const raw = process.env.FORMICAND_AGENT_DEFINITION;
   if (!raw) return undefined;
   return agentDefinitionSchema.parse(JSON.parse(raw));
 }
 
 /** A built-in Executor's or Reviewer's settings, fixed by the backend when the item was dispatched. */
 function builtinAgent(): BuiltinAgentSettings | undefined {
-  const raw = process.env.COWORK_BUILTIN_AGENT;
+  const raw = process.env.FORMICAND_BUILTIN_AGENT;
   if (!raw) return undefined;
   return parseBuiltinAgentSettings(JSON.parse(raw));
 }
@@ -109,13 +109,13 @@ function builtinAgent(): BuiltinAgentSettings | undefined {
 const MCP_TOOL = /^(mcp__|tool_search$|list_mcp_resources$|list_mcp_resource_templates$|read_mcp_resource$)/;
 
 export async function registerSubagentAgent(pi: ExtensionAPI, role: AgentRole): Promise<void> {
-  const workspaceRoot = required("COWORK_WORKSPACE");
-  const taskId = required("COWORK_TASK_ID");
-  const runId = required("COWORK_RUN_ID");
-  const callId = required("COWORK_SUBAGENT_CALL_ID");
-  const agentId = required("COWORK_AGENT_ID");
-  const token = required("COWORK_SUBAGENT_TOKEN");
-  const resultPath = required("COWORK_SUBAGENT_RESULT");
+  const workspaceRoot = required("FORMICAND_WORKSPACE");
+  const taskId = required("FORMICAND_TASK_ID");
+  const runId = required("FORMICAND_RUN_ID");
+  const callId = required("FORMICAND_SUBAGENT_CALL_ID");
+  const agentId = required("FORMICAND_AGENT_ID");
+  const token = required("FORMICAND_SUBAGENT_TOKEN");
+  const resultPath = required("FORMICAND_SUBAGENT_RESULT");
   const taskWorkspace = join(workspaceRoot, taskId);
   const workingDirectory = resolve(process.cwd());
   const name = agentDisplayName(agentId);
@@ -124,7 +124,7 @@ export async function registerSubagentAgent(pi: ExtensionAPI, role: AgentRole): 
   let submittedReport: ExecutorReport | undefined;
   // A ticket Executor answers each of the ticket's criteria through submit_report.
   const ticketCriteria =
-    role === "executor" ? parseTicketCriteria(process.env.COWORK_TICKET_CRITERIA) : undefined;
+    role === "executor" ? parseTicketCriteria(process.env.FORMICAND_TICKET_CRITERIA) : undefined;
   const reportTool = ticketCriteria ? ["submit_report"] : [];
   const agent = customAgent();
   const builtin = agent ? undefined : builtinAgent();
@@ -148,24 +148,24 @@ export async function registerSubagentAgent(pi: ExtensionAPI, role: AgentRole): 
   // that must cite a source reads it itself. Search turned off registers nothing,
   // and the role table's names for it then resolve to no tool, as on Main.
   const web = configuredWebTools(config);
-  const baseUrl = process.env.COWORK_API_BASE ?? config.baseUrl ?? config.apiBase ?? "";
-  const apiKey = process.env.COWORK_API_KEY ?? config.apiKey;
+  const baseUrl = process.env.FORMICAND_API_BASE ?? config.baseUrl ?? config.apiBase ?? "";
+  const apiKey = process.env.FORMICAND_API_KEY ?? config.apiKey;
   if (!baseUrl || !apiKey)
-    throw new Error("CoworkOS model configuration is missing for the delegated agent process");
-  const model = createCoworkModel({
+    throw new Error("Formicand model configuration is missing for the delegated agent process");
+  const model = createFormicandModel({
     baseUrl,
     api: configuredModelApi(runtimeEnv),
     thinkingFormat: configuredThinkingFormat(runtimeEnv),
-    model: process.env.COWORK_MODEL ?? config.model ?? "glm-5.3",
+    model: process.env.FORMICAND_MODEL ?? config.model ?? "glm-5.3",
     maxTokens: configuredSubagentMaxTokens(runtimeEnv),
     contextWindow: configuredContextWindow(runtimeEnv),
     supportsImages: configuredSupportsImages(runtimeEnv),
     supportsReasoningEffort: configuredSupportsReasoningEffort(runtimeEnv)
   });
-  registerCoworkProvider(pi, {
+  registerFormicandProvider(pi, {
     model,
     apiKey,
-    sessionId: `atria:${taskId}:${agentId}`,
+    sessionId: `formicand:${taskId}:${agentId}`,
     supportsPromptCacheKey: configuredSupportsPromptCacheKey(runtimeEnv)
   });
 
@@ -194,17 +194,17 @@ export async function registerSubagentAgent(pi: ExtensionAPI, role: AgentRole): 
   // The backend passes what this work item was granted. No grant means no
   // capability tool at all: an ungranted reader is not registered rather than
   // registered and made to refuse every id.
-  const harnessRoot = resolve(process.env.COWORK_HARNESS_ROOT ?? process.cwd());
+  const harnessRoot = resolve(process.env.FORMICAND_HARNESS_ROOT ?? process.cwd());
   // Project skills are read from the user's project, whose trust decision is
   // recorded there, not from this process's isolated checkout.
   // A definition that lists skills sees only those; one that lists none sees all.
   const skillCatalogNow = async () =>
     (
       await resolveSkillCatalog(
-        await processSkillLocations(harnessRoot, process.env.COWORK_PROJECT_DIR ?? workingDirectory)
+        await processSkillLocations(harnessRoot, process.env.FORMICAND_PROJECT_DIR ?? workingDirectory)
       )
     ).filter((skill) => !skillFilter || skillFilter.includes(skill.name));
-  const grants = parseCapabilityGrants(process.env.COWORK_AGENT_GRANTS);
+  const grants = parseCapabilityGrants(process.env.FORMICAND_AGENT_GRANTS);
   if (grants.some((grant) => grant.provider !== "attachments"))
     throw new Error(
       `Delegated agent received an unsupported capability grant: ${grants.map((grant) => grant.provider).join(", ")}`
@@ -313,7 +313,7 @@ export async function registerSubagentAgent(pi: ExtensionAPI, role: AgentRole): 
             ...message,
             sections: {
               ...message.sections,
-              preamble: atriaRoleIdentity("Subagent"),
+              preamble: formicandRoleIdentity("Subagent"),
               // The harness's own documentation pointer is Main's business; a
               // delegated work item reads the project, not the runtime.
               docs: null
@@ -335,8 +335,8 @@ export async function registerSubagentAgent(pi: ExtensionAPI, role: AgentRole): 
     callId,
     agentId,
     taskWorkspace,
-    ...(role === "reviewer" && process.env.COWORK_REVIEW_SCOPE
-      ? { reviewScope: parseReviewScope(process.env.COWORK_REVIEW_SCOPE) }
+    ...(role === "reviewer" && process.env.FORMICAND_REVIEW_SCOPE
+      ? { reviewScope: parseReviewScope(process.env.FORMICAND_REVIEW_SCOPE) }
       : {}),
     ...(ticketCriteria ? { ticketCriteria } : {}),
     submitReview: (review) => {
