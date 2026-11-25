@@ -31,6 +31,24 @@ export function projectFileVersion(stat: Stats): string {
   return `${stat.ino}-${stat.size}-${Math.floor(stat.mtimeMs)}`;
 }
 
+function normalizeReference(reference: string): string | undefined {
+  const trimmed = reference.trim();
+  if (!/^file:\/\//i.test(trimmed)) return trimmed;
+  const match = /^file:\/\/(?:localhost)?(\/(?![/\\]).*)$/i.exec(trimmed);
+  if (!match) return undefined;
+  const [rawPath] = match[1].split("#");
+  let decoded = rawPath;
+  if (rawPath.includes("%")) {
+    try {
+      decoded = decodeURIComponent(rawPath);
+      // eslint-disable-next-line no-restricted-syntax -- file:// 引用可能含非法百分比转义，保留原路径供后续边界校验
+    } catch {
+      /* keep rawPath */
+    }
+  }
+  return /[\x00-\x1f\x7f]/.test(decoded) ? undefined : decoded;
+}
+
 /**
  * The project-relative form of a path a reply wrote: `./a`, `a`, or an
  * absolute path inside the folder. Anything else names no project file.
@@ -39,7 +57,8 @@ export async function projectReference(
   projectDirectory: string,
   reference: string
 ): Promise<string | undefined> {
-  const text = reference.trim().replace(/^file:\/\//, "");
+  const text = normalizeReference(reference);
+  if (!text) return undefined;
   if (!isAbsolute(text)) {
     const clean = text.replace(/^(\.\/)+/, "");
     return clean || undefined;

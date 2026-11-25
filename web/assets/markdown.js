@@ -3,11 +3,13 @@ import { protectMath } from "./math.js";
 import { ui } from "./ui/language.js";
 import {
   callout,
+  decodeFilePath,
   fencedBlock,
   fileChip,
   fileReference,
   linkChip,
   linkedFileReference,
+  localFilePath,
   streamingCodeBlock,
   tableBlock
 } from "./rich-blocks.js";
@@ -17,20 +19,27 @@ import {
  * `[耗时明细]` on one line and `(/path/file.tsv)` on the next. Those two lines
  * are one link.
  */
+function isSplitLinkPair(previous, line) {
+  return (
+    previous !== undefined &&
+    /\[[^\]]+\][ \t]*$/.test(previous) &&
+    /^[ \t]*\([ \t]*(?:<[^<>\r\n]+>|[^)\s]+)[ \t]*\)/.test(line)
+  );
+}
+
 function joinSplitLinks(lines) {
   const joined = [];
   for (const line of lines) {
     const previous = joined.at(-1);
-    if (previous !== undefined && /\[[^\]]+\][ \t]*$/.test(previous) && /^[ \t]*\([^)\s]+\)/.test(line))
-      joined[joined.length - 1] = previous.trimEnd() + line.trimStart();
+    if (isSplitLinkPair(previous, line)) joined[joined.length - 1] = previous.trimEnd() + line.trimStart();
     else joined.push(line);
   }
   return joined;
 }
 
-/** An absolute path written straight into prose, ending in a file name with an extension. */
+/** An absolute path or `file://` URL written straight into prose, with an optional line locator. */
 const BARE_PATH =
-  /(^|[\s(（"'“‘：:，,])(\/(?:[\p{L}\p{N}_.@+~-]+\/)+[\p{L}\p{N}_@+~-][\p{L}\p{N}_.@+~-]*\.[A-Za-z0-9]{1,10})(?=$|[\s)）"'”’，。；;:：!?！？,])/gu;
+  /(^|[\s(（"'“‘：:，,])(file:\/\/(?:localhost)?)?(\/(?:(?:[\p{L}\p{N}_.@+~-]|%[0-9A-Fa-f]{2})+\/)+\.?(?:[\p{L}\p{N}_@+~-]|%[0-9A-Fa-f]{2})(?:[\p{L}\p{N}_.@+~-]|%[0-9A-Fa-f]{2})*\.[A-Za-z0-9]{1,10})(?:#L(\d+)(?:-L?\d+)?|:(\d+)(?:[-:]\d+)?)?(?=$|[\s)）"'”’，。；;:：!?！？,])/giu;
 
 /**
  * Options: `resolveLocalLink(path)` maps an absolute link to a registered
@@ -172,6 +181,10 @@ function renderBlocks(source, options) {
       listItems.push((unordered || ordered)[1]);
       continue;
     }
+    if (listType && isSplitLinkPair(listItems.at(-1), line)) {
+      listItems[listItems.length - 1] = listItems[listItems.length - 1].trimEnd() + line.trimStart();
+      continue;
+    }
     if (listType) flushList();
     if (/^\s*>/.test(line)) {
       flushParagraph();
@@ -206,6 +219,16 @@ function splitTableRow(line) {
     .map((cell) => cell.trim());
 }
 
+function resolveArtifactTarget(path, options) {
+  if (!options.resolveLocalLink) return undefined;
+  const exact = options.resolveLocalLink(path);
+  if (exact) return { local: exact, line: undefined };
+  const fragment = /#L(\d+)(?:-L?\d+)?$/.exec(path);
+  if (!fragment) return undefined;
+  const stripped = options.resolveLocalLink(path.slice(0, fragment.index));
+  return stripped ? { local: stripped, line: Number(fragment[1]) || undefined } : undefined;
+}
+
 function inlineMarkdown(value, options) {
   const fragments = [];
   const protect = (html) => {
@@ -235,19 +258,25 @@ function inlineMarkdown(value, options) {
         return protect(
           `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer">${inlineMarkdown(label, { ...options, linkify: false })}</a>`
         );
-      const local = /^\/(?![/\\])/.test(url) ? options.resolveLocalLink?.(url) : undefined;
-      if (local)
+      const localPath = localFilePath(url);
+      const localMatch =
+        localPath && /^\/(?![/\\])/.test(localPath) ? resolveArtifactTarget(localPath, options) : undefined;
+      if (localMatch)
         return protect(
           fileChip(
-            { path: local.artifactPath },
+            { path: localMatch.local.artifactPath, line: localMatch.line },
             {
               label: label.replace(/`/g, ""),
-              link: { href: local.href, artifactPath: local.artifactPath, taskId: local.taskId }
+              link: {
+                href: localMatch.local.href,
+                artifactPath: localMatch.local.artifactPath,
+                taskId: localMatch.local.taskId
+              }
             }
           )
         );
       // A file the reader cannot open still reads as a file, not as raw Markdown.
-      const reference = !/^[a-z][\w+.-]*:/i.test(url) ? linkedFileReference(url) : undefined;
+      const reference = localPath ? linkedFileReference(localPath) : undefined;
       if (reference && !match.startsWith("!"))
         return protect(
           fileChip(reference, {
@@ -283,20 +312,25 @@ function inlineMarkdown(value, options) {
       return protect(linkChip(url)) + match.slice(url.length);
     });
     // A long path in prose reads as its file name; hovering shows the whole path.
-    text = text.replace(BARE_PATH, (_match, lead, path) => {
-      const local = options.resolveLocalLink?.(path);
+    text = text.replace(BARE_PATH, (match, lead, fileScheme, rawPath, hashLine, colonLine) => {
+      const path = fileScheme ? decodeFilePath(rawPath) : rawPath;
+      if (!path) return match;
+      const line = Number(hashLine || colonLine) || undefined;
+      const local =
+        options.resolveLocalLink?.(rawPath) ??
+        (path !== rawPath ? options.resolveLocalLink?.(path) : undefined);
       return (
         lead +
         protect(
           local
             ? fileChip(
-                { path: local.artifactPath },
+                { path: local.artifactPath, line },
                 {
                   link: { href: local.href, artifactPath: local.artifactPath, taskId: local.taskId },
-                  title: path
+                  title: line ? `${path}:${line}` : path
                 }
               )
-            : fileChip({ path })
+            : fileChip({ path, line }, { openable: Boolean(options.resolveFile?.(path)) })
         )
       );
     });

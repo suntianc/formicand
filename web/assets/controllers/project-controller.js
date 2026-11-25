@@ -96,7 +96,7 @@ export function createProjectController({
     return `<div class="subagent-row" data-agent="${esc(agent.agentId)}" data-state="${esc(paused ? "paused" : agent.state)}"><span class="subagent-guide" aria-hidden="true"></span>${agentAvatar(agent.agentId)}<span class="subagent-name">${esc(agent.name || agent.agentId)}</span>${time}</div>`;
   };
   const taskLabel = (task) =>
-    `<span class="conversation-item-title">${task.pendingQuestion ? `<span class="conversation-question" role="img" aria-label="${esc(ui("有待回答的问题"))}"></span>` : ""}${task.status === "running" ? `<span class="conversation-activity" data-state="running" role="img" aria-label="${esc(ui("运行中"))}"></span>` : ""}<span class="conversation-title-text">${esc(conversationTitle(task))}</span>${isUnread(task.taskId) ? ui('<span class="conversation-unread" role="img" aria-label="未读"></span>') : ""}</span>`;
+    `${task.status === "running" ? `<span class="conversation-activity" data-state="running" role="img" aria-label="${esc(ui("运行中"))}"></span>` : ""}<span class="conversation-item-title">${task.pendingQuestion ? `<span class="conversation-question" role="img" aria-label="${esc(ui("有待回答的问题"))}"></span>` : ""}<span class="conversation-title-text">${esc(conversationTitle(task))}</span>${isUnread(task.taskId) ? ui('<span class="conversation-unread" role="img" aria-label="未读"></span>') : ""}</span>`;
   const taskRow = (task) => {
     const id = esc(task.taskId),
       agents = subagentsOf(task),

@@ -51,7 +51,7 @@ html[data-theme="light"] {
   background: var(--hover-fill);
 }
 .composer-menu-item.is-active {
-  background: var(--selected-fill);
+  background: var(--color-surface-3);
 }
 .composer-menu-icon {
   display: inline-flex;

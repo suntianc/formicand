@@ -182,7 +182,10 @@ test("a project with its own Agents is asked about once; trusted, its Agents are
     // The work view asks before anything in the project reaches Main.
     const ask = page.getByRole("dialog", { name: /信任项目/ });
     await expect(ask).toBeVisible();
-    await expect(ask).toContainText("2 个 Agent：db-migrator、formicand-tester（覆盖同名全局 Agent）");
+    await expect(ask).toContainText("2 个 Agent");
+    await expect(ask.locator(".trust-names li")).toHaveText(["db-migrator", "formicand-tester"]);
+    await expect(ask.locator(".trust-names li.is-override")).toHaveText(["db-migrator"]);
+    await expect(ask).toContainText("标黄的会覆盖同名全局 Agent");
     await ask.getByRole("button", { name: "信任", exact: true }).click();
     await expect(ask).toBeHidden();
     await page.reload();

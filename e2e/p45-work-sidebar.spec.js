@@ -79,3 +79,69 @@ test("projects hold their Main sessions and Subagents, a running session is mark
     await dashboard.stop();
   }
 });
+
+test("running indicator sits in the left indent without shifting session titles", async ({ page }) => {
+  const dashboard = await startDashboard();
+  try {
+    const projectId = dashboard.projectId;
+    await createTask(page, dashboard, { taskId: "solo-running", goal: "独立运行中的会话", projectId });
+    await createTask(page, dashboard, { taskId: "solo-idle", goal: "空闲会话标题对齐", projectId });
+    await createTask(page, dashboard, { taskId: "with-sub", goal: "带子代理运行会话", projectId });
+    await createTask(page, dashboard, { taskId: "pinned-running", goal: "置顶运行会话", projectId });
+    await markTaskRunning(dashboard, { taskId: "solo-running", runId: "run-solo" });
+    await markTaskRunning(dashboard, {
+      taskId: "with-sub",
+      runId: "run-sub",
+      subagents: [{ agentId: "subagent_1", role: "executor", state: "leased" }]
+    });
+    await markTaskRunning(dashboard, { taskId: "pinned-running", runId: "run-pinned" });
+    await page.request.patch(`${dashboard.base}/api/tasks/pinned-running`, {
+      data: { pinned: true }
+    });
+    await page.goto(dashboard.base);
+
+    const group = page.locator(`.project-group[data-project="${projectId}"]`);
+    await expect(group.locator('[data-task="solo-running"] .conversation-activity')).toBeVisible();
+    await expect(
+      page.locator('#pinned-section [data-task="pinned-running"] .conversation-activity')
+    ).toBeVisible();
+
+    const boxes = await page.evaluate((pid) => {
+      const box = (el) => {
+        const r = el.getBoundingClientRect();
+        return { x: r.x, y: r.y, right: r.right, bottom: r.bottom, width: r.width, height: r.height };
+      };
+      const project = document.querySelector(`.project-group[data-project="${pid}"]`);
+      const pinned = document.querySelector("#pinned-section");
+      return {
+        folder: box(project.querySelector(".project-folder")),
+        projectName: box(project.querySelector(".project-name")),
+        idleTitle: box(project.querySelector('[data-task="solo-idle"] .conversation-title-text')),
+        soloTitle: box(project.querySelector('[data-task="solo-running"] .conversation-title-text')),
+        soloSpinner: box(project.querySelector('[data-task="solo-running"] .conversation-activity')),
+        soloRow: box(project.querySelector('[data-task="solo-running"]').closest(".conversation-row")),
+        subToggle: box(project.querySelector('[data-session-toggle="with-sub"]')),
+        subSpinner: box(project.querySelector('[data-task="with-sub"] .conversation-activity')),
+        pinnedRow: box(pinned.querySelector('[data-task="pinned-running"]').closest(".conversation-row")),
+        pinnedSpinner: box(pinned.querySelector('[data-task="pinned-running"] .conversation-activity')),
+        pinnedTitle: box(pinned.querySelector('[data-task="pinned-running"] .conversation-title-text'))
+      };
+    }, projectId);
+
+    // Running session without subagents aligns with idle sessions and the project title.
+    expect(Math.abs(boxes.soloTitle.x - boxes.idleTitle.x)).toBeLessThanOrEqual(1);
+    expect(Math.abs(boxes.soloTitle.x - boxes.projectName.x)).toBeLessThanOrEqual(1);
+    // Its spinner sits centered in the left indent beneath the project folder icon.
+    expect(boxes.soloSpinner.x).toBeGreaterThanOrEqual(boxes.folder.x);
+    expect(boxes.soloSpinner.right).toBeLessThanOrEqual(boxes.folder.right);
+    expect(boxes.soloSpinner.y).toBeGreaterThanOrEqual(boxes.soloRow.y);
+    expect(boxes.soloSpinner.bottom).toBeLessThanOrEqual(boxes.soloRow.bottom);
+    // Sessions with a subagent disclosure keep the spinner clear of the chevron button.
+    expect(boxes.subSpinner.x).toBeGreaterThanOrEqual(boxes.subToggle.right);
+    // Pinned rows have no left indent; their spinner stays inside the row before the title.
+    expect(boxes.pinnedSpinner.x).toBeGreaterThanOrEqual(boxes.pinnedRow.x);
+    expect(boxes.pinnedSpinner.right).toBeLessThanOrEqual(boxes.pinnedTitle.x);
+  } finally {
+    await dashboard.stop();
+  }
+});

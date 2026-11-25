@@ -42,10 +42,12 @@ test(
       await writeFile(join(artifacts, "preview.png"), Buffer.from([137, 80, 78, 71, 0, 255]));
       await writeFile(join(root, "secret.txt"), "outside");
       await mkdir(join(projectDirectory, "src", "hazard"), { recursive: true });
+      await mkdir(join(projectDirectory, "docs"), { recursive: true });
       await mkdir(join(projectDirectory, ".git"));
       await writeFile(join(projectDirectory, ".git", "config"), "[core]\n");
       await writeFile(join(projectDirectory, "src", "hazard", "HazardQuery.kt"), "fun query() = 1\n");
       await writeFile(join(projectDirectory, "src", "Other.kt"), "class Other\n");
+      await writeFile(join(projectDirectory, "docs", "说明 1.md"), "# 说明\n");
       await writeFile(join(projectDirectory, "blob.bin"), Buffer.from([1, 0, 2]));
       await symlink(join(root, "secret.txt"), join(projectDirectory, "linked.txt"));
       await symlink(join(root, "secret.txt"), join(artifacts, "escape.txt"));
@@ -149,6 +151,15 @@ test(
       const resolved = async (reference) => (await (await fetch(resolveUrl(reference))).json()).matches;
       assert.deepEqual(await resolved("./src/hazard/HazardQuery.kt"), ["src/hazard/HazardQuery.kt"]);
       assert.deepEqual(await resolved(join(projectDirectory, "src/Other.kt")), ["src/Other.kt"]);
+      assert.deepEqual(await resolved(`file://localhost${join(projectDirectory, "src/Other.kt")}`), [
+        "src/Other.kt"
+      ]);
+      assert.deepEqual(
+        await resolved(`file://${encodeURI(join(projectDirectory, "docs/说明 1.md"))}#L12-L20`),
+        ["docs/说明 1.md"]
+      );
+      assert.deepEqual(await resolved(`file://other-host${join(projectDirectory, "src/Other.kt")}`), []);
+      assert.deepEqual(await resolved("file:///etc/passwd"), []);
       assert.deepEqual(await resolved("hazard/HazardQuery.kt"), ["src/hazard/HazardQuery.kt"]);
       assert.deepEqual(await resolved("HazardQuery.kt"), ["src/hazard/HazardQuery.kt"]);
       assert.deepEqual(await resolved("/etc/passwd"), []);
