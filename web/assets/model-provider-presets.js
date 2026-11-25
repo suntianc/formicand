@@ -6,7 +6,7 @@
  * Logos come from lobehub/lobe-icons (MIT), see THIRD_PARTY_NOTICES.md. A mono
  * logo is drawn in the text color so it reads in both themes. An international
  * endpoint of a Chinese vendor names the vendor's logo with `logo`. Magpie's
- * logo is its own app icon.
+ * logo is the bird from its app icon.
  */
 export const PROVIDER_PRESETS = [
   {
@@ -259,6 +259,7 @@ export const PROVIDER_PRESETS = [
     region: "local",
     baseUrl: "http://127.0.0.1:3425/v1",
     api: "openai-completions",
+    mono: true,
     apiKey: "magpie"
   }
 ];
