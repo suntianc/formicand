@@ -11,4 +11,4 @@
 - 窗口访问（Computer Use）的期望策略按所选后端数据根保存；读取期望策略不会自行授权。可信主窗口首次开启或审批会话失效后，经执行主机自己的本机身份确认取得仅驻留内存的短期审批；业务凭据不能开启、扩权或恢复。在途操作存在时拒绝切换，切换时释放旧会话并撤销桌面审批。
 - 用户数据与安装资源分开，升级不覆盖用户配置。开发与已安装应用路径都要验证。
 
-运行 `test/desktop-*.test.js` 与 `test/electron-connect.test.js` 对应回归；窗口、退出和打包变更还需 [Mac 发布](../docs/mac-release.md) 的原生 smoke。记录锁屏、权限、平台跳过，不能等同通过。
+运行 `test/desktop-*.test.js` 与 `test/electron-connect.test.js` 对应回归；窗口、退出和打包变更还需 [打包和发布](../docs/development.md#打包和发布) 的原生 smoke。记录锁屏、权限、平台跳过，不能等同通过。

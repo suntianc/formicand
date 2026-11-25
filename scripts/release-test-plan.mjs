@@ -98,11 +98,9 @@ export async function loadPlan(root, options, platform = process.platform) {
         reason: options.native ? "requires_macos" : "requires_native_flag"
       }));
   const requirements = [];
-  for (const [document, child] of [
-    ["docs/testing-case-catalog.md", false],
-    ["docs/testing-application-release.md", true]
-  ]) {
-    const content = await readFile(join(root, document), "utf8");
+  const document = "docs/testing.md";
+  const content = await readFile(join(root, document), "utf8");
+  for (const child of [false, true]) {
     const pattern = child ? /^\|\s*([A-Z][A-Z-]*-\d+\/[a-z-]+)\s*\|/gm : /^\|\s*([A-Z][A-Z-]*-\d+)\s*\|/gm;
     for (const match of content.matchAll(pattern)) {
       if (requirements.some((requirement) => requirement.id === match[1]))

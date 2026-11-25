@@ -21,7 +21,7 @@
 - **Trigger：** Pi 升级后出现问题，准备把三个包降回旧版本。
 - **What happens：** 升级提交同时改了启动参数、策略哈希和直接依赖。只降级包时旧版 Pi 以 `Error: Unknown option: --no-mcp` 退出，策略哈希也不匹配。
 - **Confirm：** 用旧版 bundle `cli.js` 加 `--no-mcp --mode rpc` 启动，观察退出信息；`git diff <升级提交>^ <升级提交> | git apply -R --check -` 确认整体撤销可以干净应用。
-- **Avoid：** 按 [运行参考](../runtime-reference.md) 的回滚步骤撤销整个升级提交后 `npm ci`、构建、`npm run verify`。会话文件两个方向都能续用（`test/p46-session-compat-pi.test.js`）；之后再次升级不能只改 `package.json`。
+- **Avoid：** 按 [运行参考](../architecture.md) 的回滚步骤撤销整个升级提交后 `npm ci`、构建、`npm run verify`。会话文件两个方向都能续用（`test/p46-session-compat-pi.test.js`）；之后再次升级不能只改 `package.json`。
 - **Sources：** 2026-11-13 [P4.6 摘录](evidence/os-p46/retro.md#pi-升级与回滚第二轮)。
 
 ## 依赖文件事件送达消息或唤醒

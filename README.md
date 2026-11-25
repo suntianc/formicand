@@ -35,18 +35,19 @@ npm run ui        # Web UI
 npm run cli       # Terminal
 ```
 
-On first launch, add a model service under Settings → Models; see the [Mac App quickstart](docs/en/getting-started.md).
+On first launch, add a model service under Settings → Models; see the [Getting started](docs/en/getting-started.md#mac-app).
 
 ## Documentation
 
-| Guide                                                            | Description                                         |
-| ---------------------------------------------------------------- | --------------------------------------------------- |
-| [User guide](docs/en/README.md)                                  | Install, connect a model, finish a first task       |
-| [CLI quickstart](docs/en/cli-quickstart.md)                      | Install and use the `formicand` command             |
-| [Model settings](docs/en/configuration.md)                       | Service URL, model ID and API format                |
-| [Updates and troubleshooting](docs/en/installation-reference.md) | Data directory, backups, upgrades and common issues |
-| [Development guide](docs/en/development.md)                      | Build Web/Desktop/CLI and run local checks          |
-| [Contributing](CONTRIBUTING.en.md)                               | Workflow and verification requirements              |
+| Guide                                                | Description                                                       |
+| ---------------------------------------------------- | ----------------------------------------------------------------- |
+| [Getting started](docs/en/getting-started.md)        | Install, connect a model, first task, updates and troubleshooting |
+| [Configuration](docs/en/configuration.md)            | Models, agents, keys, search, proxy and project data              |
+| [Built-in capabilities](docs/en/capabilities.md)     | Images, browser, native windows and CUA scripts                   |
+| [Architecture and code map](docs/en/architecture.md) | Processes, data layout, interfaces and where to change what       |
+| [Development](docs/en/development.md)                | Environment, checks, merging and releases                         |
+| [Testing](docs/en/testing.md)                        | Running tests and release acceptance                              |
+| [Contributing](CONTRIBUTING.en.md)                   | Workflow and verification requirements                            |
 
 Report bugs and ideas in [Issues](https://github.com/suntianc/formicand/issues).
 

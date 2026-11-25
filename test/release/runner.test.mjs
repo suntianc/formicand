@@ -37,7 +37,7 @@ test("every existing test is assigned once, including deferred native tests", as
   assert.equal(new Set(assigned).size, assigned.length);
   assert.ok(plan.requirements.some((item) => item.id === "CASE-04"));
   assert.ok(!plan.groups.some((group) => group.id === "applications"));
-  assert.ok(plan.requirements.some((item) => item.id === "GUI-04/resume-friendly"));
+  assert.ok(plan.requirements.some((item) => item.id === "GUI-04/takeover"));
   assert.ok(plan.requirements.every((item) => ["partial_mapping", "planned"].includes(item.coverage)));
   assert.equal(plan.steps.filter((step) => step.id === "check-docs").length, 1);
 });
@@ -61,8 +61,7 @@ test("release discovery includes ESM, nested and compiled tests exactly once in 
         manual: []
       })
     );
-    await put("docs/testing-case-catalog.md");
-    await put("docs/testing-application-release.md");
+    await put("docs/testing.md");
     await put("e2e/browser.spec.js");
     await put("test/root.test.js", "import { test } from 'node:test'; test('JS fixture', () => {});");
     await put(

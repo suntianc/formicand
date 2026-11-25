@@ -1,92 +1,199 @@
-# 当前架构与开发边界
+# 架构与代码地图
 
-[English](en/architecture.md) | 中文
+简体中文 | [English](en/architecture.md)
 
-Formicand 是本机单用户 harness，CLI、Web 和 Electron App 共用运行时。修改入口与测试见 [代码地图](code-map.md)，环境与命令见 [开发指南](development.md)，数据归属见 [工作区与持久化](task-workspace-layout.md)。
+Formicand 是单用户、跑在本机的多 Agent 工作台。一个后端管理全部任务和 Agent 进程；Mac App、浏览器页面和 CLI 都是它的客户端，用同一套运行时。
 
-## 装配与依赖方向
+## 整体结构
 
 ```text
-scripts/formicand.mjs ─→ src/cli/ ─→ runtime / tools / workspace
-desktop/ ─→ src/cli/dashboard.ts ─→ src/dashboard/
-web/ ───── HTTP/SSE ─────────────→ src/dashboard/
-                                  ├→ runtime / ProcessHost
-                                  ├→ gui ─→ security / 原生驱动
-                                  └→ workspace / storage / domain
-Pi 启动器 ─→ .pi/extensions/ ─→ .pi/runtime/ ─→ runtime / tools
+Mac App (desktop/) ──┐
+浏览器页面 (web/) ───┼── HTTP / SSE ──→ 后端 src/dashboard/ ──→ 运行时 src/runtime/
+CLI (src/cli/) ──────┘                         │                    │
+                                               │                    ├→ Main 进程（Pi，常驻）
+                                               │                    └→ 子代理进程（Pi，每个工作项一个）
+                                               ├→ 窗口操作 src/gui/、权限 src/security/
+                                               └→ 任务数据 src/workspace/、存储 src/storage/、类型 src/domain/
 ```
 
-运行时的子智能体也可以使用工具和工作区。共享服务不导入可执行 CLI；`runtime/` 不导入 Dashboard。GUI 不导入 HTTP 或 CLI。ESLint 和 [架构回归](../test/architecture-boundaries.test.js) 约束这些方向。
+Main 和子代理都是独立的 Pi coding agent（`@earendil-works/pi-coding-agent`）进程。Formicand 通过 Pi 扩展 `.pi/extensions/formicand.ts` 给它们装上自己的工具、上下文和提示词，不修改 Pi 本身。
 
-| 层                           | 负责的状态与行为                                                | 入口                                                                                                                                                                                                    | 边界                                                      |
-| ---------------------------- | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
-| CLI                          | 参数、诊断、启动与信号                                          | [启动器](../scripts/formicand.mjs)、[CLI](../src/cli/formicand.ts)、[Dashboard 入口](../src/cli/dashboard.ts)                                                                                           | 可执行入口，不承载 HTTP 共享实现                          |
-| 页面装配/控制器              | 当前导航、展示、草稿、SSE 与用户交互                            | [app](../web/app.js)、[controllers](../web/assets/controllers/)、[UI](../web/assets/ui/)                                                                                                                | 服务决定 Task/Run 结果；UI 保留异步请求归属               |
-| Dashboard                    | 本机服务装配、HTTP/SSE、会话运行的进程所有权                    | [application](../src/dashboard/application.ts)、[routes](../src/dashboard/routes.ts)、[Run](../src/dashboard/run-service.ts)                                                                            | 路由校验和映射；Run 不写 HTTP 响应；路由不创建进程        |
-| Runtime                      | Pi 进程、委派、Inbox、恢复、完成判定                            | [Coordinator](../src/runtime/coordinator-runtime.ts)、[子代理后端](../src/dashboard/subagent-backend.ts)、[进程模型](../src/runtime/agent-process.ts)、[进程结算](../src/runtime/subagent-processes.ts) | 不知道 HTTP/DOM；完成判定覆盖未结束委派、jobs、问答与消息 |
-| ProcessHost                  | 子进程组、重复启动保护、任务停止、限时关闭                      | [ProcessHost](../src/runtime/process-host.ts)                                                                                                                                                           | 不裁决对话业务状态                                        |
-| Pi 接入                      | Pi hook、工具注册与上下文装配                                   | [薄入口](../.pi/extensions/formicand.ts)、[runtime](../.pi/runtime/extension.ts)、[tools](../.pi/runtime/tools/)                                                                                        | 新领域工具进入对应模块；Pi 上游源码不在此修改             |
-| GUI / Security               | 窗口授权、观察/动作、串行队列、取消、审计、执行权限             | [ComputerUse](../src/gui/computer-use.ts)、[权限](../src/security/execution-permissions.ts)                                                                                                             | 授权由可信宿主授予；模型决策不在此层                      |
-| Workspace / Storage / Domain | Task/Run 数据、输入/产出物、索引、持久事件、trace、文件锁与类型 | [工作区](../src/workspace/)、[存储](../src/storage/)、[领域](../src/domain/)                                                                                                                            | 格式兼容、路径归属与迁移显式维护                          |
-| Desktop                      | 原生窗口、可信 IPC、加密客户端凭据、用户数据目录、退出保存      | [main](../desktop/main.cjs)、[preload](../desktop/preload.cjs)、[backend](../desktop/backend.cjs)                                                                                                       | renderer 无 Node 权限；产出物查看窗口无可信桥             |
+依赖方向：可复用的服务不导入 CLI 入口；`src/runtime/` 不导入后端 HTTP 层；`src/gui/` 不导入 HTTP 或 CLI。ESLint 和 [架构回归](../test/architecture-boundaries.test.js) 检查这些方向。
 
-`createDashboardApplication()` 的导入不会监听端口或注册信号。启动与关闭信号在 `src/cli/dashboard.ts`。可复用服务必须能由测试显式装配和停止。
+## 各层职责
 
-项目台账与共享项目身份由 [项目数据服务](../src/workspace/project-data-service.ts) 持有：Dashboard 启动时按配置打开 SQLite 或 PostgreSQL 并执行版本化迁移，配置或连接失败会停止启动而不切换引擎。HTTP 路由、Main 工具与 `formicand data backup/restore` 使用同一服务接口；SQL 方言、连接和事务在 [存储适配器](../src/storage/project-data/) 内封装，业务代码不按数据库分叉。Main 工具只经当前 Task 访问其项目，不能指定其他项目。需求看板是台账需求的独立投影：受控外部入口在同一事务里发布需求与看板条目，内部新需求只进台账；认领用条件更新产生唯一赢家，暂停保留归属，显式释放才回到待认领。同一服务还持有项目持久 Main 会话与运行归属；每个会话以本机一个 Task 作为历史容器，Pi 历史与执行目录留在实际执行后端，不进入共享记录。其他后端可通过 [认证远程客户端](../src/workspace/project-data-remote.ts) 访问同一权威服务，只登记自己的本机目录绑定，远端路径不进入执行目录。
+| 层         | 负责                                           | 主要入口                                                                                                                                          |
+| ---------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| CLI        | 命令参数、诊断、启动和信号                     | [启动器](../scripts/formicand.mjs)、[CLI](../src/cli/formicand.ts)、[后端入口](../src/cli/dashboard.ts)                                           |
+| 页面       | 导航、展示、草稿、SSE 订阅和用户交互           | [app](../web/app.js)、[controllers](../web/assets/controllers/)、[UI](../web/assets/ui/)                                                          |
+| 后端       | 服务装配、HTTP/SSE 路由、Main 进程的启动和停止 | [application](../src/dashboard/application.ts)、[routes](../src/dashboard/routes.ts)、[Run 服务](../src/dashboard/run-service.ts)                 |
+| 运行时     | Pi 进程、派单、收件箱、恢复、完成判定          | [Coordinator](../src/runtime/coordinator-runtime.ts)、[子代理后端](../src/dashboard/subagent-backend.ts)、[进程](../src/runtime/agent-process.ts) |
+| 进程宿主   | 子进程组、防重复启动、限时关闭                 | [ProcessHost](../src/runtime/process-host.ts)                                                                                                     |
+| Pi 接入    | Pi hook、工具注册、上下文装配                  | [扩展入口](../.pi/extensions/formicand.ts)、[runtime](../.pi/runtime/extension.ts)、[tools](../.pi/runtime/tools/)                                |
+| 窗口与权限 | 窗口授权、观察和动作、串行队列、执行权限       | [ComputerUse](../src/gui/computer-use.ts)、[权限](../src/security/execution-permissions.ts)                                                       |
+| 数据       | 任务数据、附件、产出物、事件、文件锁、项目数据 | [工作区](../src/workspace/)、[存储](../src/storage/)、[领域类型](../src/domain/)                                                                  |
+| 桌面       | 原生窗口、可信 IPC、加密凭据、退出前保存       | [main](../desktop/main.cjs)、[preload](../desktop/preload.cjs)、[backend](../desktop/backend.cjs)                                                 |
+
+## 进程与生命周期
+
+**后端独立于客户端。** 后端可以单独运行（`formicand backend start|status|stop`）。关掉 App 只关窗口，后端和正在跑的任务继续，下次打开连回同一个后端。
+
+**Main 常驻。** 一次 Run 由同一个 Pi 进程服务，一轮结束后进程不退出，后续消息和回调由它接着处理。Main 在这几种情况下才结束：关闭会话、空闲超时、模型请求无法继续。空闲退出会保留会话，下一条消息重新拉起。后端重启后，会重新接管仍在运行的 Main。
+
+**派单经过后端。** Main 调 `call_subagent` 只是向后端登记一个工作项。后端把它写进这次 Run 的持久队列，按依赖启动一个独立的子代理 Pi 进程，结束后把结论写回队列并回调 Main。派单只有异步一种；本轮必须等结果时用 `wait_for_subagents`。每个数据目录只有一个后端负责启动和结算子代理，后端重启后从持久记录接管。
+
+**收件箱送达消息。** 发给 Main 或子代理的回调、追加消息、提问的回答和同伴消息，都先写进目标进程自己的持久收件箱。进程在每个回合边界重读收件箱；空闲时由写入方发一次通知唤醒。消息进入会话上下文后才记为已读，所以后端重启前后都能送达，而且每条只读一次。
+
+**完成判定由程序做。** 状态和输出落盘后才算完成，不能拿最后一条回复代替。完成判定会检查有没有没结束的派单、后台任务、待回答的提问和未读消息。
+
+**会话与上下文。** Pi 自己保存追加式会话记录。上下文快满时由 Formicand 换窗：模型写总结，程序带上必要的记录，接着在同一会话里继续。会话笔记和历史查询按会话隔离。
+
+## 开发流程
+
+Main 可以把一个需求按 Workloop 式的流程交给子代理完成，状态和规则由程序保存和执行：
+
+1. **需求台账**（`project_ledger`）：每个项目的长期需求、现状和历史。
+2. **需求开发记录**（`project_development`）：为需求建一个独立的 `git worktree` 现场，放在 `~/.formicand/runtime/development-workspaces/` 下，不碰用户自己的工作目录。
+3. **票**：范围、带检查方式的验收标准、保留不变的部分、本次不做的事和依赖。用户确认后冻结。
+4. **派单**：Executor 在需求现场分出的自己的 worktree 里工作，交回时用 `submit_report` 逐条报告验收标准。
+5. **审查**：Reviewer 审一个冻结的候选提交，用 `submit_review` 交回 `pass` 或 `changes_requested`。拦截的发现必须引用验收标准，或属于回归、数据丢失、安全、项目规则四类底线之一。
+6. **返修**：在原 Executor 的会话和现场里追加一轮（`continueCallId`），不新开 Agent。
+7. **合入**：在临时组合现场合并到配置的目标分支，并跑项目检查。
+
+路线分三种：`quick` 由 Main 自己收取结果；`direct` 和 `full` 按票冻结、审查后再并入。
+
+## 数据布局
+
+```text
+~/.formicand/                      可用 FORMICAND_HOME 改位置
+├── config.json                    配置（0600）
+├── credentials.json               模型和搜索密钥（0600）
+├── workspace/<taskId>/            每个任务的数据，见下
+├── runtime/
+│   ├── projects.json              项目名称、ID 和文件夹
+│   ├── workspaces.json            全局任务索引
+│   ├── project-data.sqlite        项目数据库（默认引擎）
+│   ├── development-workspaces/    需求开发现场
+│   └── main-capacity/state.json   外部 Main 名额
+├── pi/                            Pi 的状态目录
+├── memory/                        Main 的记忆：user/ 和 projects/<projectId>/
+├── client-sessions.json           App 连接后端的加密凭据
+├── composer-drafts.json           输入框草稿
+├── ui-preferences.json            界面上记住的选择
+├── computer-policy.json           窗口访问的开关
+└── logs/
+```
+
+每个任务的目录：
+
+```text
+<taskId>/
+├── task.json、task_events.jsonl   任务状态和事件
+├── inputs/<uploadId>/             用户上传的原始附件
+├── artifacts/                     最终交付的文件
+├── visual/images/、downloads/     截图和读过的图片、浏览器下载
+├── agents/main/work/              Main 的草稿和中间材料
+├── agents/subagents/<id>/         子代理的工作目录和待验收文件
+├── sessions/main/pi/              Main 的 Pi 会话
+├── sessions/<agentId>/pi/<callId> 每个子代理的 Pi 会话
+└── runs/<runId>/                  Run 的事件、派单队列、收件箱和结果
+```
+
+- 中间材料放 `work/`，子代理的候选文件放 `deliverables/`，Main 验收后用 `publish_artifact` 发布到 `artifacts/`。界面的产出物面板只显示 `artifacts/`。
+- `sessions/main/request-retry.json` 保存最近一次 Main 模型请求的原文，用于请求失败后原样重发。它含未脱敏的用户内容，权限 0600。
+- App 和 CLI 共用这个目录；开发版和正式版也共用，所以不能同时打开两个默认的桌面实例。测试时用 `FORMICAND_HOME` 或 `FORMICAND_DESKTOP_DATA` 换一个目录。
+
+## 项目数据
+
+项目、需求台账、看板、Main 会话、开发记录、审查和合入记录由 [项目数据服务](../src/workspace/project-data-service.ts) 统一持有。后端启动时按配置打开 SQLite 或 PostgreSQL 并执行版本化迁移，SQL 差异封装在 [存储适配器](../src/storage/project-data/) 里，业务代码不按数据库分叉。其他后端可以经 [远程客户端](../src/workspace/project-data-remote.ts) 共用同一份数据，只登记自己的本机目录。任务、Pi 会话和现场目录始终留在执行它们的后端上。配置方式见 [配置](configuration.md#项目数据)。
+
+## 后端接口
+
+所有接口都在 `127.0.0.1` 上，检查 Host 和 Origin，需要客户端会话凭据。路由定义在 [routes.ts](../src/dashboard/routes.ts) 和各个 `*-routes.ts` 里：
+
+| 前缀                                             | 内容                                       |
+| ------------------------------------------------ | ------------------------------------------ |
+| `/api/tasks`                                     | 任务、消息、Run、派单、产出物、窗口操作    |
+| `/api/events`                                    | SSE 事件流，断线后按序号补齐               |
+| `/api/projects`、`/api/project-data`             | 项目、台账、看板、开发与合入记录、备份信息 |
+| `/api/composer`、`/api/uploads`                  | 草稿和附件上传                             |
+| `/api/model-settings`、`/api/models`             | 模型供应商和模型                           |
+| `/api/agents`、`/api/skills`、`/api/mcp`         | 自定义 Agent、技能、MCP 服务               |
+| `/api/memory`                                    | Main 的记忆                                |
+| `/api/computer`                                  | 窗口访问状态                               |
+| `/api/web-search-settings`、`/api/main-capacity` | 联网搜索、外部 Main 名额                   |
+| `/api/backend`、`/api/host`                      | 后端实例身份、桌面宿主专用接口             |
+
+改接口时，同时改生产者、消费者和行为测试。
 
 ## Pi 依赖边界
 
-Pi 包的运行时导入（`@earendil-works/pi-*`，非 `import type`）只允许出现在持有 Pi 进程的区域：`.pi/`（扩展与工具）、`scripts/`（启动器）、模型配置与 Main 会话文件读写；其余模块只能用类型导入。允许区域是 [ESLint 规则](../eslint.config.mjs) 中的明确文件清单（`formicand/pi-import-boundary`），[依赖边界回归](../test/architecture-boundaries.test.js) 校验清单与本节的路径一致。
+Pi 包（`@earendil-works/pi-*`）的运行时导入只允许出现在持有 Pi 进程的地方，其余模块只能用 `import type`。允许的范围是 [ESLint 规则](../eslint.config.mjs) `formicand/pi-import-boundary` 里的明确清单，[依赖边界回归](../test/architecture-boundaries.test.js) 检查清单和本节一致：
 
-- 模型配置（连接探测、思考档位、模型参数与请求记录）：[main-request-retry](../src/runtime/main-request-retry.ts)、[model-cache](../src/runtime/model-cache.ts)、[model-connection](../src/runtime/model-connection.ts)、[model-levels](../src/runtime/model-levels.ts)、[model-profile](../src/runtime/model-profile.ts)、[model-provider](../src/runtime/model-provider.ts)、[model-request-recording](../src/runtime/model-request-recording.ts)。
-- Main 会话文件读写（后端在 Main 未运行时改写 Pi 会话文件，包括编辑、分叉和离线换窗）：[conversation-fork](../src/runtime/conversation-fork.ts)、[main-message-edit](../src/runtime/main-message-edit.ts)。
+- 目录：`.pi/`（扩展和工具）、`scripts/`（启动器）。
+- 模型配置：`src/runtime/main-request-retry.ts`、`src/runtime/model-cache.ts`、`src/runtime/model-connection.ts`、`src/runtime/model-levels.ts`、`src/runtime/model-profile.ts`、`src/runtime/model-provider.ts`、`src/runtime/model-request-recording.ts`。
+- Main 会话文件读写（Main 不在运行时由后端改写会话，用于编辑重发、分叉和离线换窗）：`src/runtime/conversation-fork.ts`、`src/runtime/main-message-edit.ts`。
 
-包内深路径的运行时导入（如 `@earendil-works/pi-ai/api/...`）只允许出现在模型配置内：升级 Pi 时这些内部路径最容易失效。边界把一次 Pi 升级的排查范围收敛到清单内的模块，而不是全仓。
+Pi 包内部深路径（例如 `@earendil-works/pi-ai/api/...`）只允许模型配置模块导入。这样升级 Pi 时，只需排查清单里的模块。
 
-## Task、Run 和进程生命周期
+## 终端界面适配
 
-浏览器请求 → HTTP 路由 → Dashboard Run → AgentProcessHost → Pi 启动器 → Pi 扩展 → Coordinator。CLI 可以直接使用运行时服务；两种入口不各写一套业务状态机。
+CLI 的交互界面直接使用原版 Pi 1.5.2，不改依赖文件。启动时只在交互子进程里对一个经过审核的代码块做六处界面文字替换（重启提示、tmux 提示、反馈和崩溃提示等改成 Formicand 的说法），另有三处让命令行工具的身份变成 `AI_AGENT=formicand`、长输出文件名变成 `formicand-bash-*.log`。
 
-Main 与子代理的共用 Pi 扩展负责工具结果归档、上下文投影和换窗（模型总结加程序带过去的记录）。Pi 保存追加式会话记录与交接页切点，任务详情提供 Main 用量和换窗记录。
+替换内容固定在 [cli-ui-policy.json](../scripts/cli-ui-policy.json) 和 [cli-shell-policy.json](../scripts/cli-shell-policy.json)。构建和启动时都会核对 Pi 版本、文件 hash 和替换位置，对不上就报错，不会带着没适配的界面运行。升级 Pi 时要重新生成和核对这两份策略。
 
-会话笔记按 Pi 会话 ID 隔离会话，历史查询使用该会话的原始条目和工具结果归档。
+## 信任边界
 
-Dashboard Run 管理 Main 进程和同 Task 的启动/停止串行化；运行时服务管理 Main 进程的 Task/Run、事件与恢复状态，会话与压缩由 Pi 自己保存。状态和输出落盘后才宣布完成；不能以最后一条文本代替完成判定。
+- 后端只监听本机。桌面用随机端口，主窗口经可信 preload 通信，渲染进程没有 Node 权限。
+- 密钥不进页面状态、源码、日志和安装包。
+- 窗口访问需要用户在 App 里开启并在本机确认身份，Agent 不能自己开启或恢复，见 [内置能力](capabilities.md#操作本机窗口)。
+- 这个授权只管窗口操作，不是整个产品的系统沙箱：Agent 执行的命令不受操作系统隔离。
+- App 只支持 Apple Silicon Mac。Windows/Linux 桌面、远程 Worker 和多用户隔离都还没有做。
 
-Main 是常驻进程：一个 Run 由同一个 Pi 进程服务，一轮结束后进程不退出，后续用户消息与回调经它自己的持久 Inbox 送达并开始下一轮；进程按启动时记录的本机与启动时间标识，后端重启或更新后重新接管仍在运行的 Main，关闭会话（连同该会话在跑的子代理）、空闲超时与无法继续的模型请求才结束它。Run 是常驻进程的一段工作而不是一个回合：同一进程服务的每一轮沿用同一个 `runId`，`runs/<runId>/` 持续记录这段工作；按回合计量的状态（例如当前是否有回合在跑）单独记录。暂停在步骤边界停住且保留进程，取消只中断当前回合；空闲退出保留会话文件与任务状态，下一条消息或回调重新拉起同一会话。Main 进程是否在运行与是否有回合在进行是两件事，分别由后端记录与进程心跳报告。
+## 代码地图
 
-派单也收敛到后端：Main 的 `call_subagent` 只向后端登记一个工作项，后端把登记写进该 Run 的持久队列、按依赖与租约启动独立的 Pi 进程，并把进程的结束写回队列、运行事件与 Main 的回调。每个工作区根只有一个属主启动与结算委派进程：Dashboard 运行时 CLI worker 不接管，属主重启后从持久记录接管仍在运行的子代理并补发停机期间结束的回调。子代理的会话、现场与结论都按工作项记录，返修在原 Executor 的 Pi 会话文件与现场里追加一轮；会话与工作区状态不随派单请求或进程内存丢失。
+```text
+scripts/formicand.mjs   CLI 启动器：init、doctor、start 等
+scripts/                构建、打包、开发启动、测试和文档检查
+src/cli/                可执行入口
+src/dashboard/          后端：HTTP/SSE、服务装配、Main 进程生命周期、派单
+src/runtime/            Pi 进程、上下文、恢复、收件箱、模型连接、配置
+src/tools/              文件、命令、后台任务、联网等工具的实现
+src/workspace/          任务数据、附件、产出物、项目和项目数据服务
+src/storage/            事件文件、文件锁、项目数据库适配
+src/domain/             领域类型
+src/gui/、src/security/ 浏览器、窗口操作和执行权限
+src/platform/           平台相关的小工具
+.pi/extensions/         Pi 扩展入口
+.pi/runtime/            Pi 生命周期装配和按领域分的工具
+.pi/skills/             随产品附带的技能
+web/                    页面：原生 ES modules
+desktop/                Electron 主进程、preload、凭据加密、退出保存
+test/                   Node 行为、协议和生命周期测试
+e2e/                    浏览器和 Electron 用户流程测试
+vendor/                 随仓库附带的第三方技能
+```
 
-桌面退出先经可信 IPC 等待渲染进程完成草稿/文档保存检查，有未保存的文档或任务草稿时提示用户返回处理或确认退出。桌面是独立后端的客户端：保存完成后它只结束自己的窗口与宿主能力，后端和已接受的 Run 继续执行，下次打开连接同一实例并读取同一任务。安装更新时遵守更新停机门槛。保存失败要保留窗口/草稿。
+构建产物在 `dist/`、`build/` 和 `.tmp/`，改源码后重新构建，不要直接改产物。
 
-桌面和 Web 的模型、联网搜索设置都通过所选执行主机的接口读写；有回合正在产出回答时后端拒绝变更，空闲的常驻 Main 在下一回合边界采用保存后的配置。设置表单绑定后端实例，切换后须重新读取。客户端会话令牌由桌面宿主加密保存并注入受信主窗口请求；任务通知复用目录事件流并按后端与完成身份去重。
+要改某个行为时从这里找起：
 
-Pi 的 `before_agent_start` 在首轮请求前装配工具，`context` 在后续请求间刷新上下文。回归必须覆盖真实 Pi hook 顺序和子进程结束，不能只用测试双证明生命周期。
+| 要改的                     | 先看                                                                                                                                                                                   |
+| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Main 的提示词和上下文      | [extension](../.pi/runtime/extension.ts)、`.pi/runtime/` 下的上下文模块                                                                                                                |
+| 新增一个 Main 工具         | 按领域放进 [.pi/runtime/tools/](../.pi/runtime/tools/)，再登记到 [capabilities](../.pi/runtime/tools/capabilities.ts) 的核心工具或某个工具组                                           |
+| 派单、子代理角色和工具     | [coordination](../.pi/runtime/tools/coordination.ts)、[子代理后端](../src/dashboard/subagent-backend.ts)、[进程结算](../src/runtime/subagent-processes.ts)                             |
+| 需求台账、开发、审查、合入 | [project_ledger](../.pi/runtime/tools/project-ledger.ts)、[project_development](../.pi/runtime/tools/project-development.ts)、[项目数据服务](../src/workspace/project-data-service.ts) |
+| 模型连接和请求重试         | [model-connection](../src/runtime/model-connection.ts)、[model-profile](../src/runtime/model-profile.ts)、[main-request-retry](../src/runtime/main-request-retry.ts)                   |
+| 配置项                     | [config](../src/runtime/config.ts)、[runtime-settings](../src/runtime/runtime-settings.ts)                                                                                             |
+| HTTP 接口                  | [routes](../src/dashboard/routes.ts) 和对应的 `*-routes.ts`、`*-service.ts`                                                                                                            |
+| 页面                       | [app](../web/app.js)、[controllers](../web/assets/controllers/)、[ui](../web/assets/ui/)                                                                                               |
+| 桌面窗口、IPC、退出        | [main](../desktop/main.cjs)、[preload](../desktop/preload.cjs)                                                                                                                         |
+| CLI 命令                   | [formicand.mjs](../scripts/formicand.mjs)、[src/cli/](../src/cli/)                                                                                                                     |
+| 浏览器和窗口操作           | [browser-use](../src/gui/browser-use.ts)、[computer-use](../src/gui/computer-use.ts)                                                                                                   |
 
-视觉观察共用 Task 图片归档。原生 ComputerUse 由 Dashboard/桌面宿主管理全局授权、独占会话和当前观察凭据；Browser Use 由 Main/Pi 持有自己的临时 Chromium context。
+改的时候：
 
-QuickJS 保存当前 Pi 会话的脚本 state，经受限 dispatcher 逐次调用已启用的原生/浏览器工具，原工具继续负责权限、参数及 Task 归属。切会话/shutdown 清空 VM 并关闭浏览器，图片和已接受下载留在 Task；持久工具选择只恢复可用组。接口和边界见 [视觉观察](visual-observation.md)、[Browser Use](browser-use.md) 与 [CUA 脚本](cua-scripting.md)。
-
-持久 Inbox 是 Main 与子代理共用的送达方式：后端把回调、外部事件、追加消息、提问与同伴消息写入目标进程自己的 Inbox；进程内的扩展在每个安全回合边界重读整个 Inbox，空闲时由写入方直接通知唤醒：端点登记在持久进程记录里，写入后由写入方发一次「有新消息」，收到通知的进程重读完整收件箱、不信任通知内容，端点不可达时写入方静默跳过；文件监听留作补充。既不经标准输入、也不轮询；监听事件可能迟到或被系统合并，通知也可能没有送达，因此送达不依赖它们按时到达。`main.interrupt` 与 `main.resume` 也走这条通道，作为进程级命令被消费而不进入模型上下文。消息在进入进程的 Pi 会话上下文后才记为已消费，后端重启前后都能送达且每条只读一次。定时停泊和 Main 恢复沿用现有规则：有回调或定时唤醒时，Dashboard 运行服务按期检查并重新拉起没有存活 Main 的 Task；是否继续由 Main 决定。
-
-## 会话与界面的一致性
-
-Composer Session 按会话保存草稿与已验证附件，发送捕获原 Task、草稿 token、模型及完整附件。刷新、切换、补充回退和附件读取都保持原会话归属。流式更新复用变化的 DOM，保留焦点、选区、阅读位置和展开状态。
-
-桌面后端端口随机；草稿不能只依赖 origin 的 localStorage。可信 preload 在页面启动前恢复私有 `composer-drafts.json`，只镜像允许的草稿键。保存经过格式/大小验证、原子写入和损坏备份；Web 仍按 origin 保存。页面其余记住的选择（各会话的模型、提供方与推理强度、未读标记、折叠的项目、布局等 `formicand.*` 键）同样由 preload 镜像到 `ui-preferences.json`，页面换到新 origin 时写回；草稿键不进入这份文件。
-
-## 信任边界与支持范围
-
-- 本机开发模式可无 token，Host/Origin 检查仍启用。桌面使用随机端口，从随包资源加载主页面；宿主核验所选本机后端的实例身份并交换短期会话，业务请求使用共用 HTTP 协议。
-- 原生 IPC 只接受主窗口主 frame。密钥不进入 renderer 状态、源码和安装包；桌面加密设置与普通 Web/CLI 配置的存储方式分别记录在运行指南。
-- Computer Use 在设置中提供屏幕录制、辅助功能和窗口访问三个按钮；系统权限分别申请，窗口访问仅在两项权限齐全且本机身份确认后可开启，允许所有对话观察和操作全部可见应用窗口。审批凭据由后端生成，只在后端和桌面内存保存 30 分钟；业务会话和 Agent 只能消费策略或撤销会话。
-
-  策略与 Task/单窗口临时会话分离；旧仅观察策略恢复时关闭并保留原文件，不自动扩权。
-
-  任务持有观察与连续动作的独占控制权，其他任务按先后等待；全局会话自动续期，旧手动会话仍限五分钟。暂停必须显式恢复；取消、导航/崩溃、服务停止和工作区切换撤销临时会话。后端重启后保存的期望策略须经本机确认才能重新开启。
-
-- macOS 14+ 截图、解锁桌面输入、真实支持图片输入的模型、商业 App、干净机器权限分别验收。权限不足/锁屏导致的跳过不是原生输入通过。
-- `GrantedPermissions` 覆盖 GUI 宿主授权，不证明 Pi bash/jobs 全部受 OS 沙箱隔离。统一执行隔离需要单独实现和验证。
-- App 的目标平台为 Apple Silicon Mac；Windows/Linux GUI 驱动、远程 Worker、多用户隔离和无人值守更新尚未交付。
-
-修改接口时同步生产者和消费者、兼容/恢复文档与行为测试。主责角色见 [所有权表](module-ownership.md)，PR 规则见 [CONTRIBUTING](../CONTRIBUTING.md)，公开发布门槛见 [贡献约定](../CONTRIBUTING.md#pr审阅与发布) 和 [Mac 发布指南](mac-release.md)。
+- **修一个用户流程**：先找到出问题的那一层和它的消费者，补一个能复现的测试，再改实现，不要在入口文件里加分支绕过去。
+- **加一个工具**：按领域放进对应模块，参数用 typebox 定义；改了工具就同步更新 [内置能力](capabilities.md) 和相关测试。
+- **拆一个大模块**：先按职责拆出新文件，保持对外接口不变，测试全过后再调整调用方。

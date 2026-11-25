@@ -409,7 +409,7 @@ const DOCUMENTED = [
     ]
   },
   {
-    files: ["docs/task-workspace-layout.md"],
+    files: ["docs/architecture.md"],
     phrases: ["goalDelegationRequestId"]
   },
   {
@@ -417,20 +417,12 @@ const DOCUMENTED = [
     patterns: [/Task、Run、Agent、Watch、Job/]
   },
   {
-    files: [
-      "docs/code-map.md",
-      "docs/en/code-map.md",
-      "docs/runtime-reference.md",
-      "docs/en/runtime-reference.md",
-      "docs/task-workspace-layout.md",
-      "docs/testing-case-catalog.md",
-      "docs/computer-use.md"
-    ],
+    files: ["docs/architecture.md", "docs/en/architecture.md", "docs/testing.md", "docs/capabilities.md"],
     phrases: ["RETIRED_SYSTEM_SECTIONS", "退役段落", "旧快照没有 `piVersion`"],
     patterns: [/pi_version_missing|model-request-retry|retry-request\.json|legacyPending/]
   },
   {
-    files: ["docs/visual-observation.md"],
+    files: ["docs/capabilities.md", "docs/en/capabilities.md"],
     phrases: ["结果缓存"],
     patterns: [/analysis[- ]result cache/i]
   }
