@@ -244,7 +244,8 @@ test("content scrolled behind the title row or the settings margin never takes t
     await expect(page.locator(".settings-entry")).toBeVisible();
     await page.evaluate(() => {
       const content = document.querySelector(".settings-content");
-      content.scrollTop = content.scrollHeight;
+      for (const node of [content, ...content.querySelectorAll("*")])
+        if (node.scrollHeight > node.clientHeight) node.scrollTop = node.scrollHeight;
     });
     // The margin, the band beside the traffic lights and the page header all drag.
     expect(await dragLine(page, 5)).toEqual([]);

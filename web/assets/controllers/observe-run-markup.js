@@ -1,4 +1,4 @@
-import { agentDisplayName } from "../agent-names.js";
+import { agentAvatar, agentDisplayName } from "../agent-names.js";
 import { escapeHtml as esc } from "../ui/html.js";
 import { icon } from "../ui/icons.js";
 import { ui } from "../ui/language.js";
@@ -115,16 +115,18 @@ export function createObserveRunMarkup(subsShown) {
     const windowEnd = at;
     const degraded = lane.degraded;
     const samples = combinedSamples(lane.activity);
-    const segments = degraded
-      ? degradedLaneSegments(lane, windowStart, windowEnd)
-      : laneSegments({
-          activity: lane.activity,
-          samples,
-          stage: lane.endedAt === undefined ? lane.stage : { key: "dev", startMs: lane.endedAt },
-          windowStart,
-          windowEnd: lane.endedAt === undefined ? windowEnd : Math.min(windowEnd, lane.endedAt),
-          degraded: false
-        });
+    const segments = lane.quiet
+      ? [{ kind: "idle", from: windowStart, to: windowEnd }]
+      : degraded
+        ? degradedLaneSegments(lane, windowStart, windowEnd)
+        : laneSegments({
+            activity: lane.activity,
+            samples,
+            stage: lane.endedAt === undefined ? lane.stage : { key: "dev", startMs: lane.endedAt },
+            windowStart,
+            windowEnd: lane.endedAt === undefined ? windowEnd : Math.min(windowEnd, lane.endedAt),
+            degraded: false
+          });
     const stallLeft = lane.stalled
       ? Math.min(percentOf(lane.lastProgress, windowStart, windowEnd), 82)
       : undefined;
@@ -136,7 +138,7 @@ export function createObserveRunMarkup(subsShown) {
       windowEnd,
       height: 40,
       degraded,
-      stage: lane.stage,
+      stage: lane.quiet ? { key: "idle" } : lane.stage,
       extra: lane.stalled
         ? `<span class="runs-stall" data-runs-stall style="left:calc(${stallLeft.toFixed(2)}% + 20px)">${esc(
             formatStall(at - lane.lastProgress)
@@ -203,7 +205,7 @@ export function createObserveRunMarkup(subsShown) {
       ? `<div class="runs-wave is-sub is-degraded" data-degraded="true" data-state="${esc(agent.state)}">
           <span class="runs-flat is-baseline"></span>
           ${
-            end === undefined || start === undefined
+            end === undefined || start === undefined || end <= windowStart
               ? ""
               : `<span class="runs-block is-${color}" style="left:${percentOf(
                   start,
@@ -242,6 +244,7 @@ export function createObserveRunMarkup(subsShown) {
       <div class="runs-sublane-label">
         <span class="runs-branch" aria-hidden="true"></span>
         <span class="runs-role">${esc(role)}</span>
+        ${agentAvatar(agent.agentId)}
         <span class="runs-agent">${esc(name)}</span>
       </div>
       ${wave}

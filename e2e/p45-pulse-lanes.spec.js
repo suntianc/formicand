@@ -279,6 +279,8 @@ test("two nodes draw pulse lanes, Subagent branches, capacity groups and a stall
     await expect(reviewer).toContainText("Reviewer");
     await expect(reviewer).toContainText("Messor");
     await expect(reviewer.locator(".runs-head")).toHaveCount(1);
+    await expect(reviewer.locator(".agent-avatar")).toBeVisible();
+    await localCard.screenshot({ path: test.info().outputPath("lanes.png") });
 
     // A Main's Subagent rows fold into its lane and come back; while one is
     // still at work they start open, and the person's choice survives repaints.
