@@ -34,7 +34,8 @@ function chips(list, kind, disabled) {
 
 /** The 添加 button: a native select under a chip-shaped label, so keyboard and screen readers keep the list. */
 function addButton(kind, label, choices) {
-  return `<label class="agent-add">${icon("plus")}<span>${esc(ui("添加"))}</span><select data-agent-add-${kind} aria-label="${esc(label)}"><option value="">${esc(ui("添加"))}</option>${choices}</select></label>`;
+  const empty = !choices;
+  return `<label class="agent-add"${empty ? ` title="${esc(ui("没有可添加的了"))}"` : ""}>${icon("plus")}<span>${esc(ui("添加"))}</span><select data-agent-add-${kind} aria-label="${esc(label)}"${empty ? " disabled" : ""}><option value="">${esc(ui("添加"))}</option>${choices}</select></label>`;
 }
 
 export function agentEditorMarkup({
@@ -74,12 +75,12 @@ export function agentEditorMarkup({
           </div>
           ${
             draft.skills
-              ? `<div class="agent-chips">${chips(draft.skills, "skill", locked)}${locked || !skillChoices.length ? "" : addButton("skill", ui("添加技能"), skillChoices.map((name) => `<option value="${esc(name)}">${esc(name)}</option>`).join(""))}</div>`
+              ? `<div class="agent-chips">${chips(draft.skills, "skill", locked)}${locked ? "" : addButton("skill", ui("添加技能"), skillChoices.map((name) => `<option value="${esc(name)}">${esc(name)}</option>`).join(""))}</div>`
               : ""
           }
           </div>
         </div>`;
-  const mcpChips = `<div class="agent-chips">${chips(mcpList, "mcp", locked)}${locked || !mcpChoices.length ? "" : addButton("mcp", ui("添加 MCP 服务"), mcpChoices.map((server) => `<option value="${esc(server.name)}">${esc(server.name)}${server.enabled ? "" : esc(ui("（已停用）"))}</option>`).join(""))}</div>`;
+  const mcpChips = `<div class="agent-chips">${chips(mcpList, "mcp", locked)}${locked ? "" : addButton("mcp", ui("添加 MCP 服务"), mcpChoices.map((server) => `<option value="${esc(server.name)}">${esc(server.name)}${server.enabled ? "" : esc(ui("（已停用）"))}</option>`).join(""))}</div>`;
   const mcpField = main
     ? ui`<div class="mcp-field">
           <span class="mcp-field-label">MCP</span>${hint("mcp")}
