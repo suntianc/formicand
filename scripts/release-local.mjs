@@ -9,7 +9,7 @@ const execute = (command, args, options = {}) =>
 
 export async function runLocalRelease({
   tag = process.env.RELEASE_TAG,
-  repository = process.env.GITHUB_REPOSITORY || "RUC-NLPIR/CoworkOS",
+  repository = process.env.GITHUB_REPOSITORY || "suntianc/coworkos",
   root = process.cwd(),
   platform = process.platform,
   arch = process.arch,

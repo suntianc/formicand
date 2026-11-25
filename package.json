@@ -94,12 +94,12 @@
   "description": "CoworkOS local cowork harness and task runtime",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/RUC-NLPIR/CoworkOS.git"
+    "url": "git+https://github.com/suntianc/coworkos.git"
   },
   "bugs": {
-    "url": "https://github.com/RUC-NLPIR/CoworkOS/issues"
+    "url": "https://github.com/suntianc/coworkos/issues"
   },
-  "homepage": "https://github.com/RUC-NLPIR/CoworkOS#readme",
+  "homepage": "https://github.com/suntianc/coworkos#readme",
   "author": "CoworkOS contributors",
   "bin": {
     "coworkos": "scripts/atria.mjs",

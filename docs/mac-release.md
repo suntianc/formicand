@@ -81,7 +81,7 @@ CLI 的首次安装命令可读取 npm 平台包，并校验 registry SRI、包�
 
 下一版 npm 安装器和 App 更新包由 [Publish npm packages 工作流](../.github/workflows/publish-npm.yml)发布。它在 Ubuntu runner 校验 tag 和草稿，从草稿下载本地构建的两个 npm 包并核对 SHA-256、包名和版本，然后依次发布桌面包与 CLI 包，再用匿名 `npm view` 验证。不会在 Actions 上安装项目依赖或重建 Mac App。平台 tgz 只包含对应 DMG、许可和版本/校验清单；CLI tgz 包含安装器代码。两个包使用 npm 官方 registry，用户仍可直接运行 `npx coworkos-app@latest` 或 `npm install -g coworkos-app`。
 
-首次启用前，在 npm 的两个包设置中分别配置 Trusted Publisher：仓库填写 `RUC-NLPIR/CoworkOS`，工作流填写 `publish-npm.yml`，Environment 填写 `npm-publish`。GitHub Actions 使用 OIDC，不把 npm token 放进仓库。可在 GitHub 的 `npm-publish` Environment 设置 Required reviewers，发布前由维护者批准；npm 版本一旦发布不可覆盖。
+首次启用前，在 npm 的两个包设置中分别配置 Trusted Publisher：仓库填写 `suntianc/coworkos`，工作流填写 `publish-npm.yml`，Environment 填写 `npm-publish`。GitHub Actions 使用 OIDC，不把 npm token 放进仓库。可在 GitHub 的 `npm-publish` Environment 设置 Required reviewers，发布前由维护者批准；npm 版本一旦发布不可覆盖。
 
 发布顺序为：先完成本地回归，再推送与 `package.json` 完全一致的 `vX.Y.Z` tag；在该 tag 的干净检出运行 `npm ci` 和 `npm run release:local -- vX.Y.Z`。审查草稿中的 Mac、CLI 及 npm 候选资产，然后手动运行 Publish npm packages。保留 npm Trusted Publishing Environment 的 Required reviewers；核对 npm 发布成功后，再手动发布 GitHub Release。公开分发 Release 与更新指针若本版本需要，也按下文步骤单独验收和发布。版本一旦发布不可覆盖；下一个公开版本须递增。
 

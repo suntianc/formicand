@@ -136,15 +136,7 @@ test("the actual CLI packer excludes retained Mac helpers and tolerates optional
   try {
     // Copy only public source directories used by the actual packer. No build,
     // installed production dependencies, model configuration or user data.
-    for (const directory of [
-      "scripts",
-      ".pi/extensions",
-      ".pi/runtime",
-      ".pi/prompts",
-      ".pi/skills",
-      "docs",
-      "vendor/sciagentgym"
-    ])
+    for (const directory of ["scripts", ".pi/extensions", ".pi/runtime", ".pi/prompts", ".pi/skills", "docs"])
       await cp(new URL(`../${directory}/`, import.meta.url), join(root, directory), { recursive: true });
     for (const file of [
       "README.md",
@@ -156,8 +148,7 @@ test("the actual CLI packer excludes retained Mac helpers and tolerates optional
       "THIRD_PARTY_NOTICES.md",
       "CONTRIBUTING.md",
       "CONTRIBUTING.en.md",
-      "config.example.json",
-      "vendor/sciagentgym/LICENSE"
+      "config.example.json"
     ]) {
       await mkdir(dirname(join(root, file)), { recursive: true });
       await cp(new URL(`../${file}`, import.meta.url), join(root, file));
@@ -315,8 +306,6 @@ test("the actual CLI packer excludes retained Mac helpers and tolerates optional
       "CLI archive excludes editor implementations and contract fixtures"
     );
     assert.ok(files.includes("package/dist/src/gui/driver.js"));
-    assert.ok(!files.some((file) => file.startsWith("package/vendor/sciagentgym/")));
-    assert.ok(!files.some((file) => file.startsWith("package/dist/src/tools/science/")));
     assert.ok(files.includes("package/.pi/skills/cua/SKILL.md"), "CLI archive excludes cua");
 
     assert.equal(

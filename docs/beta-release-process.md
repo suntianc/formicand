@@ -1,6 +1,6 @@
 # CoworkOS 测试版与版本管理
 
-CoworkOS 源码在公开的 [RUC-NLPIR/CoworkOS](https://github.com/RUC-NLPIR/CoworkOS) 仓库维护；版本以固定 tag 和已发布 Release 为准。用户实际安装的版本以已发布包为准，main 上的最新提交不一定已发版。
+CoworkOS 源码在公开的 [suntianc/coworkos](https://github.com/suntianc/coworkos) 仓库维护；版本以固定 tag 和已发布 Release 为准。用户实际安装的版本以已发布包为准，main 上的最新提交不一定已发版。
 
 ## 开发与反馈
 
@@ -36,8 +36,8 @@ GitHub 日常静态检查在 PR 和推送到 main 时自动运行 check:ci，完
 
 ```sh
 RELEASE_TAG=v0.1.2-beta.7 node scripts/release-artifacts.mjs
-RELEASE_TAG=v0.1.2-beta.7 GITHUB_REPOSITORY=RUC-NLPIR/CoworkOS node scripts/release-draft.mjs check
-RELEASE_TAG=v0.1.2-beta.7 GITHUB_REPOSITORY=RUC-NLPIR/CoworkOS node scripts/release-draft.mjs upload
+RELEASE_TAG=v0.1.2-beta.7 GITHUB_REPOSITORY=suntianc/coworkos node scripts/release-draft.mjs check
+RELEASE_TAG=v0.1.2-beta.7 GITHUB_REPOSITORY=suntianc/coworkos node scripts/release-draft.mjs upload
 ```
 
 清单为 release/atria-release-<version>.json，记录 schemaVersion、version、prerelease、source.repository/commit/tag、generatedAt、实际 Mac 签名状态及每个产物的 name/size/sha256，附同名校验文件。签名报告 CoworkOS-<version>-mac-arm64.signing.json 及其 SHA-256 一起分发。说明为 release/atria-release-<version>.md，优先采用 docs/releases/<version>.md，再附自动生成的源码与清单链接。
