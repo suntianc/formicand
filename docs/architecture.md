@@ -122,7 +122,7 @@ Main 可以把一个需求按 Workloop 式的流程交给子代理完成，状�
 | `/api/composer`、`/api/uploads`                  | 草稿和附件上传                                                                                                                                                |
 | `/api/model-settings`、`/api/models`             | 模型供应商和模型                                                                                                                                              |
 | `/api/agents`、`/api/skills`、`/api/mcp`         | 自定义 Agent、技能、MCP 服务                                                                                                                                  |
-| `/api/memory`                                    | Main 的记忆                                                                                                                                                   |
+| `/api/memory`                                    | 记忆；Main 经 `/api/tasks/:id/memory` 读写，经 `/api/tasks/:id/history` 搜、读本项目的其他会话                                                                |
 | `/api/computer`                                  | 窗口访问状态                                                                                                                                                  |
 | `/api/web-search-settings`、`/api/main-capacity` | 联网搜索、外部 Main 名额                                                                                                                                      |
 | `/api/backend`、`/api/host`                      | 后端实例身份、桌面宿主专用接口                                                                                                                                |

@@ -184,9 +184,14 @@ export async function writeMemory(
     throw new MemoryError(`已有名为 ${memory.name} 的记忆`, "memory_name_taken");
   if (!existing.includes(memory.name) && !previous && existing.length >= MEMORY_LIMITS.entries)
     throw new MemoryError(
-      `这一级已有 ${MEMORY_LIMITS.entries} 条记忆，先合并或删除旧的再写新的`,
+      `这一级已满（${existing.length}/${MEMORY_LIMITS.entries} 条），先合并或删除旧的再写新的`,
       "memory_full"
     );
+  for (const other of existing) {
+    if (other === memory.name || other === previous) continue;
+    if ((await readRecord(join(directory, `${other}.md`), other))?.body === memory.body)
+      throw new MemoryError(`记忆 ${other} 的正文与此相同，更新那一条`, "memory_duplicate");
+  }
   const record: MemoryRecord = { ...memory, updatedAt: (options.now ?? new Date()).toISOString() };
   await mkdir(directory, { recursive: true, mode: 0o700 });
   await atomicWrite(file, serialize(record));
@@ -236,7 +241,7 @@ export function memoryIndex(scopes: { label: string; entries: MemoryEntry[] }[])
   let used = lines[0].length;
   let omitted = 0;
   for (const scope of filled) {
-    const header = `${scope.label}:`;
+    const header = `${scope.label} [${scope.entries.length}/${MEMORY_LIMITS.entries}]:`;
     let headed = false;
     for (const entry of scope.entries) {
       const line = `- ${entry.name} [${entry.type}, ${entry.updatedAt.slice(0, 10)}] ${entry.description}`;

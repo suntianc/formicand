@@ -8,14 +8,14 @@ This page describes the tools Main can use, focusing on images, browser control,
 
 Tools Main always has:
 
-| Area            | Tools                                                                                                                |
-| --------------- | -------------------------------------------------------------------------------------------------------------------- |
-| Files, commands | Pi's built-in read, write, edit and bash                                                                             |
-| Delegation      | `call_subagent`, `send_subagent_message`, `cancel_subagent`, `get_subagent_status`, `wait_for_subagents`             |
-| Task            | `get_task_status`, `finish_task`, `sleep_until`, `askhuman` (ask the user)                                           |
-| Session history | `session_notes`, `search_history`, `read_history`, `clear_context`                                                   |
-| Project         | `project_ledger` (requirement ledger), `project_development` (development and merging), `browse_workspace`           |
-| Other           | `load_skill`, `manage_agent` (custom agents), `grant_capabilities`, `enable_tools`, plus web search and page reading |
+| Area            | Tools                                                                                                                            |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| Files, commands | Pi's built-in read, write, edit and bash                                                                                         |
+| Delegation      | `call_subagent`, `send_subagent_message`, `cancel_subagent`, `get_subagent_status`, `wait_for_subagents`                         |
+| Task            | `get_task_status`, `finish_task`, `sleep_until`, `askhuman` (ask the user)                                                       |
+| Session history | `session_notes`, `search_history`, `read_history` (Main can also search and read this project's other sessions), `clear_context` |
+| Project         | `project_ledger` (requirement ledger), `project_development` (development and merging), `browse_workspace`                       |
+| Other           | `load_skill`, `manage_agent` (custom agents), `grant_capabilities`, `enable_tools`, plus web search and page reading             |
 
 Subagents have their own tools: `submit_report` and `submit_review` hand back results, `ask_main` asks Main a question, and `send_peer_message` messages a peer.
 

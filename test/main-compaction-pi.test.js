@@ -33,6 +33,8 @@ test(
         }
         if (step === 3) {
           assert.equal(visible.split(notice).length - 1, 1);
+          // Main has the memory tool here, so the notice also points at memory.
+          assert.ok(visible.includes("Save to memory what a later session would still need."));
           const remaining = Number(/about (\d+) tokens remain/.exec(visible)?.[1]);
           assert.ok(remaining >= 14_000 && remaining <= 15_000);
           return tool("read", { path: "recent.txt" }, 51_000);
@@ -79,7 +81,9 @@ test(
     );
     await writeFile(join(fixture.project, "older.txt"), olderOutput);
     await writeFile(join(fixture.project, "recent.txt"), "Recent file evidence.");
-    await fixture.launch(originalUser);
+    // A Dashboard address registers the memory tool; nothing listens there, so
+    // the memory index section only reports that it could not be read.
+    await fixture.launch(originalUser, { launchEnv: { FORMICAND_DASHBOARD_URL: "http://127.0.0.1:9" } });
     const entries = await fixture.history();
     const windows = entries.filter((entry) => entry.type === "compaction");
     assert.equal(windows.length, 1);

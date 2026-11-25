@@ -1,19 +1,17 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import {
-  historyContentForEntry,
+  historyEntryById,
   historyPage,
-  historyRole
+  readHistoryEntry,
+  searchHistoryEntries
 } from "../../../dist/src/runtime/session-history.js";
 import {
   readSessionNotes,
   sessionNotesPath,
   writeSessionNotes
 } from "../../../dist/src/runtime/session-notes.js";
-import {
-  archivedToolResultPath,
-  sessionDataDirectory
-} from "../../../dist/src/runtime/session-tool-results.js";
+import { sessionDataDirectory } from "../../../dist/src/runtime/session-tool-results.js";
 
 export const SESSION_HISTORY_TOOLS = ["session_notes", "search_history", "read_history"] as const;
 
@@ -26,7 +24,10 @@ function pageContent(value: string, from?: number, to?: number) {
   return [text(`Characters ${page.start}–${page.end} of ${page.length}.`), text(page.text)];
 }
 
-export function registerSessionHistoryTools(pi: ExtensionAPI): void {
+/** Main's way to the other sessions of its project; a Subagent has none. */
+export type ProjectHistory = (input: Record<string, unknown>) => Promise<Record<string, unknown>>;
+
+export function registerSessionHistoryTools(pi: ExtensionAPI, projectHistory?: ProjectHistory): void {
   pi.registerTool({
     name: "session_notes",
     label: "Session notes",
@@ -53,10 +54,14 @@ export function registerSessionHistoryTools(pi: ExtensionAPI): void {
   pi.registerTool({
     name: "search_history",
     label: "Search session history",
-    description:
-      "Find a literal phrase in this session's original messages and tool results, including earlier windows. Returns entry IDs and snippets, newest first.",
+    description: projectHistory
+      ? "Find a literal phrase in original messages and tool results, newest first. Scope session (default) searches this session, including earlier windows; scope project searches the other sessions of this project, newest session first, and each match names its session for read_history."
+      : "Find a literal phrase in this session's original messages and tool results, including earlier windows. Returns entry IDs and snippets, newest first.",
     parameters: Type.Object({
       query: Type.String({ minLength: 1, maxLength: 300 }),
+      ...(projectHistory && {
+        scope: Type.Optional(Type.Union([Type.Literal("session"), Type.Literal("project")]))
+      }),
       role: Type.Optional(
         Type.Union([
           Type.Literal("user"),
@@ -68,46 +73,36 @@ export function registerSessionHistoryTools(pi: ExtensionAPI): void {
       tool: Type.Optional(
         Type.String({ description: "Exact tool name; restricts the search to its results." })
       ),
-      before: Type.Optional(Type.String({ description: "Only search entries before this entry ID." })),
+      before: Type.Optional(
+        Type.String({ description: "Only search entries before this entry ID of this session." })
+      ),
       limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 20 }))
     }),
     async execute(_id, params, signal, _update, ctx) {
+      const search = {
+        query: params.query,
+        ...(params.role && { role: params.role }),
+        ...(params.tool && { tool: params.tool }),
+        limit: params.limit ?? 10
+      };
+      if (projectHistory && "scope" in params && params.scope === "project") {
+        if (params.before !== undefined) throw new Error("before applies only to scope session.");
+        const result = await projectHistory({ action: "search", ...search });
+        const matches = result.matches as unknown[];
+        return { content: [text(JSON.stringify(matches))], details: { count: matches.length } };
+      }
       const entries = ctx.sessionManager.getEntries();
       const before =
         params.before === undefined
           ? entries.length
           : entries.findIndex((entry) => entry.id === params.before);
       if (before < 0) throw new Error("The history cursor is not an entry in this session.");
-      const directory = sessionDataDirectory(ctx.sessionManager);
-      const matches = [];
-      const query = new RegExp(params.query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "iu");
-      for (const entry of entries.slice(0, before).reverse()) {
-        signal?.throwIfAborted();
-        const role = historyRole(entry);
-        if (!role || (params.role && params.role !== role)) continue;
-        const tool =
-          entry.type === "message" && entry.message.role === "toolResult"
-            ? entry.message.toolName
-            : undefined;
-        if (params.tool && params.tool !== tool) continue;
-        const original = await historyContentForEntry(directory, entry);
-        const structured = original.structured === undefined ? "" : JSON.stringify(original.structured);
-        const textMatch = query.exec(original.text);
-        const value = textMatch ? original.text : structured;
-        const match = textMatch ?? query.exec(structured);
-        if (!match) continue;
-        const offset = match.index;
-        matches.push({
-          id: entry.id,
-          timestamp: entry.timestamp,
-          role,
-          tool,
-          ...(!textMatch && { field: "structured" }),
-          offset,
-          snippet: value.slice(Math.max(0, offset - 80), offset + match[0].length + 160)
-        });
-        if (matches.length >= (params.limit ?? 10)) break;
-      }
+      const matches = await searchHistoryEntries(
+        sessionDataDirectory(ctx.sessionManager),
+        entries.slice(0, before),
+        search,
+        signal
+      );
       return { content: [text(JSON.stringify(matches))], details: { count: matches.length } };
     }
   });
@@ -115,30 +110,43 @@ export function registerSessionHistoryTools(pi: ExtensionAPI): void {
     name: "read_history",
     label: "Read session history",
     description:
-      "Read original history by entry ID or a tool result's displayed archive path. Ranges use zero-based character offsets. Select an image by its one-based number.",
+      "Read original history by entry ID or a tool result's displayed archive path. Ranges use zero-based character offsets. Select an image by its one-based number." +
+      (projectHistory ? " Name the session a project search returned to read from another session." : ""),
     parameters: Type.Object({
       id: Type.String({ minLength: 1 }),
+      ...(projectHistory && {
+        session: Type.Optional(Type.String({ minLength: 1, description: "Another session's ID." }))
+      }),
       start,
       end,
       field: Type.Optional(Type.Literal("structured")),
       image: Type.Optional(Type.Integer({ minimum: 1 }))
     }),
     async execute(_id, params, _signal, _update, ctx) {
-      const entry =
-        ctx.sessionManager.getEntry(params.id) ??
-        ctx.sessionManager.getEntries().find((candidate) => archivedToolResultPath(candidate) === params.id);
-      if (!entry || !historyRole(entry))
-        throw new Error("No conversation entry with that ID in this session.");
-      const original = await historyContentForEntry(sessionDataDirectory(ctx.sessionManager), entry);
-      if (params.image !== undefined) {
-        const image = original.images.at(params.image - 1);
-        if (!image) throw new Error("No image with that number in this entry.");
-        return { content: [image], details: { id: entry.id } };
+      const read = {
+        ...(params.start !== undefined && { start: params.start }),
+        ...(params.end !== undefined && { end: params.end }),
+        ...(params.field && { field: params.field }),
+        ...(params.image !== undefined && { image: params.image })
+      };
+      if (projectHistory && "session" in params && params.session !== undefined) {
+        const result = await projectHistory({
+          action: "read",
+          session: params.session,
+          id: params.id,
+          ...read
+        });
+        return {
+          content: result.content as Awaited<ReturnType<typeof readHistoryEntry>>,
+          details: { session: params.session, id: params.id }
+        };
       }
-      if (params.field === "structured" && original.structured === undefined)
-        throw new Error("This entry has no structured result.");
-      const value = params.field === "structured" ? JSON.stringify(original.structured) : original.text;
-      return { content: pageContent(value, params.start, params.end), details: { id: entry.id } };
+      const entry = historyEntryById(ctx.sessionManager.getEntries(), params.id);
+      if (!entry) throw new Error("No conversation entry with that ID in this session.");
+      return {
+        content: await readHistoryEntry(sessionDataDirectory(ctx.sessionManager), entry, read),
+        details: { id: entry.id }
+      };
     }
   });
 }

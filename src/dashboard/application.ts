@@ -5,6 +5,7 @@ import { createComposerService } from "./composer-service.js";
 import { createProjectFileIndex } from "../workspace/project-file-index.js";
 import { createAgentService } from "./agent-service.js";
 import { createMemoryService } from "./memory-service.js";
+import { createHistoryService } from "./history-service.js";
 import { createLinkPreviewService } from "./link-preview-service.js";
 import { createNodeResources } from "./node-resources.js";
 import { agentLocations, resolveAgent } from "../runtime/agent-definitions.js";
@@ -635,6 +636,10 @@ export function createDashboardApplication(
       home: data.home,
       projectForId: workspaces.projectForId,
       taskProjectId: async (taskId) => (await workspaces.locateTask(taskId)).projectId
+    }),
+    history: createHistoryService({
+      taskProjectId: async (taskId) => (await workspaces.locateTask(taskId)).projectId,
+      projectTasks: workspaces.projectTasks
     }),
     composer: createComposerService({
       harnessRoot: projectRoot,

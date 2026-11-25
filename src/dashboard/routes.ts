@@ -49,6 +49,8 @@ import { handleComposerRequest } from "./composer-routes.js";
 import type { ProjectFileIndex } from "../workspace/project-file-index.js";
 import { handleAgentRequest } from "./agent-routes.js";
 import { handleMemoryRequest } from "./memory-routes.js";
+import { handleHistoryRequest } from "./history-routes.js";
+import type { HistoryService } from "./history-service.js";
 import { handleLinkPreviewRequest } from "./link-preview-routes.js";
 import type { LinkPreviewService } from "./link-preview-service.js";
 import type { NodeResources } from "./node-resources.js";
@@ -96,6 +98,7 @@ export interface DashboardRoutePorts {
   agents?: AgentService;
   /** Main's memory and Settings → Memory; absent in partial handlers. */
   memories?: MemoryService;
+  history?: HistoryService;
   /** Icons and titles behind web links in messages; absent in partial handlers. */
   linkPreviews?: LinkPreviewService;
   /** This machine's CPU, memory and disk use for its node card; absent in partial handlers. */
@@ -438,6 +441,7 @@ export function createDashboardHandler(
       if (await handleComposerRequest(request, response, url, ports.composer)) return;
       if (await handleAgentRequest(request, response, url, ports.agents)) return;
       if (await handleMemoryRequest(request, response, url, ports.memories)) return;
+      if (await handleHistoryRequest(request, response, url, ports.history)) return;
       if (await handleLinkPreviewRequest(request, response, url, ports.linkPreviews)) return;
       if (request.method === "GET" && url.pathname === "/api/node-resources" && ports.nodeResources) {
         sendJson(response, 200, await ports.nodeResources.read());
