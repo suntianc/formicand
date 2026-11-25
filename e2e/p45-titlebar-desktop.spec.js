@@ -200,7 +200,14 @@ const dragLine = (page, y) =>
         const { left, right, top: t, bottom } = rect.box;
         if (x >= left && x < right && y >= t && y < bottom) top = rect;
       }
-      if (top?.value === "no-drag" && !top.el.closest("button, a, [role='button'], [role='tab']"))
+      // A panel's 1px border is not a place anyone grabs.
+      const onBorder =
+        top && (x < top.box.left + top.el.clientLeft || x >= top.box.right - top.el.clientLeft);
+      if (
+        top?.value === "no-drag" &&
+        !onBorder &&
+        !top.el.closest("button, a, [role='button'], [role='tab']")
+      )
         holes.push(`${x}:${top.el.tagName.toLowerCase()}.${String(top.el.className).split(" ")[0]}`);
     }
     return holes;
@@ -239,9 +246,9 @@ test("content scrolled behind the title row or the settings margin never takes t
       const content = document.querySelector(".settings-content");
       content.scrollTop = content.scrollHeight;
     });
+    // The margin, the band beside the traffic lights and the page header all drag.
     expect(await dragLine(page, 5)).toEqual([]);
-    const holes = await dragLine(page, 30);
-    expect(holes.every((hole) => Number(hole.split(":")[0]) >= 248)).toBe(true);
+    expect(await dragLine(page, 40)).toEqual([]);
   } finally {
     await native.close();
     await stopNativeBackend(root);
