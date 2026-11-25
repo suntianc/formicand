@@ -386,3 +386,62 @@ test("a streamed artifact link completed mid-reply opens the artifact preview be
     await new Promise((done) => provider.close(done));
   }
 });
+
+test("file:// project links render as file chips and open the project preview at the referenced line", async ({
+  page
+}) => {
+  const dashboard = await startDashboard({ defaultProject: false });
+  const taskId = "file_scheme_link_task";
+  const errors = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  try {
+    const projectDirectory = join(dashboard.root, "file-link-project");
+    await mkdir(join(projectDirectory, "desktop"), { recursive: true });
+    const targetFile = join(projectDirectory, "desktop", "main.cjs");
+    await writeFile(targetFile, "// line 1\nconst beforeApply = true;\n// line 3\n");
+    const { project } = await (
+      await page.request.post(`${dashboard.base}/api/projects`, {
+        data: { projectName: "file 协议链接项目", projectDirectory }
+      })
+    ).json();
+    await page.request.post(`${dashboard.base}/api/tasks`, {
+      data: { taskId, goal: "验证 file:// 链接预览", projectId: project.projectId }
+    });
+    const detail = await (await page.request.get(`${dashboard.base}/api/tasks/${taskId}`)).json();
+    const reply = `- 入口：[desktop/main.cjs](file://${targetFile}#L2-L3)，远端：[remote](file://other-host${targetFile})`;
+    await page.route(`**/api/tasks/${taskId}`, (route) =>
+      route.fulfill({
+        json: {
+          ...detail,
+          task: {
+            ...detail.task,
+            status: "completed",
+            completion: { policy: "natural", signal: "natural_stop" }
+          },
+          runtime: { active: false },
+          messages: [
+            { role: "user", content: "看看入口在哪", timestamp: 1 },
+            { role: "assistant", content: reply, timestamp: 2, stopReason: "stop" }
+          ]
+        }
+      })
+    );
+    await page.goto(dashboard.base);
+    await expect(page.locator(".conversation-item.active")).toHaveAttribute("data-task", taskId);
+    const final = page.locator('[data-answer-kind="final"]');
+    const chip = final.locator("button.file-chip", { hasText: "desktop/main.cjs" });
+    await expect(chip).toBeVisible();
+    await expect(chip.locator(".file-chip-line")).toHaveText(":2");
+    await expect(final.locator("a")).toHaveCount(0);
+    await expect(final).toContainText(`[remote](file://other-host${targetFile})`);
+
+    await chip.click();
+    const drawer = page.locator("#artifact-drawer");
+    await expect(drawer).toBeVisible();
+    await expect(drawer.locator(".drawer-tab.active")).toHaveText("main.cjs");
+    await expect(drawer.locator(".code-line.is-target")).toContainText("const beforeApply = true;");
+    expect(errors).toEqual([]);
+  } finally {
+    await dashboard.stop();
+  }
+});
