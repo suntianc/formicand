@@ -70,13 +70,27 @@ test("memories are one file each, listed newest first, renamed without loss and 
     ["plain-chinese", "ask-before-merge"]
   );
 
+  // The same fact under a second name is refused; rewriting the memory that holds it is not.
+  await assert.rejects(
+    writeMemory(
+      home,
+      user,
+      sample("plain-chinese-again", { body: (await readMemory(home, user, "plain-chinese")).body })
+    ),
+    (error) => error.code === "memory_duplicate" && /记忆 plain-chinese 的正文与此相同/.test(error.message)
+  );
+  await writeMemory(home, user, sample("plain-chinese", { description: "改过说明" }));
+
   assert.equal(await deleteMemory(home, user, "ask-before-merge"), true);
   assert.equal(await deleteMemory(home, user, "ask-before-merge"), false);
 
   const full = { scope: "project", projectId: "full" };
   for (let index = 0; index < MEMORY_LIMITS.entries; index++)
     await writeMemory(home, full, sample(`m-${index}`));
-  await assert.rejects(writeMemory(home, full, sample("one-more")), /先合并或删除旧的/);
+  await assert.rejects(
+    writeMemory(home, full, sample("one-more")),
+    /这一级已满（80\/80 条），先合并或删除旧的/
+  );
   // Replacing an existing one still works at the limit.
   await writeMemory(home, full, sample("m-0", { description: "改过" }));
 });
@@ -93,7 +107,7 @@ test("the index lists both scopes within its budget and says how many it left ou
   ]);
   assert.ok(index.length <= MEMORY_LIMITS.index, `${index.length} characters`);
   assert.match(index, /^Memories you saved in earlier sessions/);
-  assert.match(index, /\nUser \(all projects\):\n- m-0 \[user, 2026-11-20\] /);
+  assert.match(index, /\nUser \(all projects\) \[100\/80\]:\n- m-0 \[user, 2026-11-20\] /);
   assert.match(index, /\d+ older memories are not shown; list a scope to see them\.$/);
 });
 
@@ -164,9 +178,9 @@ test("settings and Main read one store; Main reaches only its own project and on
     listed.projectMemories.map((entry) => entry.name),
     ["ticket-split"]
   );
-  assert.match(await toolA.index(), /Project 项目 A:\n- ticket-split \[project, /);
+  assert.match(await toolA.index(), /Project 项目 A \[1\/80\]:\n- ticket-split \[project, /);
   assert.doesNotMatch(await toolB.index(), /ticket-split/);
-  await toolB.execute({
+  const written = await toolB.execute({
     action: "write",
     scope: "project",
     name: "b-only",
@@ -174,6 +188,7 @@ test("settings and Main read one store; Main reaches only its own project and on
     description: "B 的看板地址",
     body: "看板在 http://board.example/b"
   });
+  assert.equal(written.usage, "1/80");
   assert.equal(
     (await toolA.execute({ action: "read", scope: "project", name: "ticket-split" })).memory.type,
     "project"
@@ -293,9 +308,9 @@ test(
     assert.ok(section, "the memory section is in the system prompt");
     assert.match(
       section,
-      /User \(all projects\):\n- reply-in-chinese \[user, \d{4}-\d{2}-\d{2}\] 回复用中文大白话/
+      /User \(all projects\) \[1\/80\]:\n- reply-in-chinese \[user, \d{4}-\d{2}-\d{2}\] 回复用中文大白话/
     );
-    assert.match(section, /Project 项目 A:\n- ticket-split \[project, /);
+    assert.match(section, /Project 项目 A \[1\/80\]:\n- ticket-split \[project, /);
     assert.doesNotMatch(section, /用户英文不好/, "only the index, not the body");
     assert.deepEqual(failures, []);
   }
