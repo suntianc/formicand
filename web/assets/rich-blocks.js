@@ -279,11 +279,18 @@ export function tableBlock(table, rows, columns) {
 /* File references -------------------------------------------------------- */
 
 const CODE_EXTENSIONS =
-  "ts|tsx|js|jsx|mjs|cjs|py|go|rs|java|kt|kts|swift|c|h|cc|cpp|hpp|cs|rb|php|sh|bash|zsh|fish|bats|sql|vue|svelte|css|scss|less|html|htm|xml|dart|lua";
+  "ts|tsx|mts|cts|js|jsx|mjs|cjs|py|go|rs|java|kt|kts|swift|c|h|cc|cpp|cxx|hpp|cs|rb|php|sh|bash|zsh|fish|ps1|bats|sql|vue|svelte|css|scss|less|html|htm|xml|dart|lua|scala|zig|nim|graphql|proto|ex|exs|erl|hs|clj|pl";
 const OTHER_EXTENSIONS =
-  "json|jsonc|md|mdx|yml|yaml|toml|ini|txt|lock|svg|png|jpg|jpeg|gif|webp|bmp|ico|avif|pdf|csv|tsv|xlsx|xls|docx|doc|pptx|zip|tar|gz|tgz|ipynb|pen";
+  "json|jsonc|json5|md|mdx|markdown|rst|rtf|yml|yaml|toml|ini|txt|lock|svg|png|jpg|jpeg|gif|webp|bmp|ico|avif|heic|pdf|csv|tsv|xlsx|xls|docx|doc|pptx|zip|tar|gz|tgz|bz2|xz|7z|rar|ipynb|pen";
+const SPECIAL_FILENAMES =
+  "makefile|dockerfile(?:\\.[\\p{L}\\p{N}_-]+)?|rakefile|gemfile|procfile|\\.(?:gitignore|gitattributes|gitmodules|dockerignore|npmignore|prettierignore|eslintignore|editorconfig|npmrc|nvmrc|prettierrc|eslintrc|env(?:\\.[\\p{L}\\p{N}_-]+)?)";
+const LINE_SUFFIX = "(?::(\\d+)(?:[-:]\\d+)?|\\s*\\((?:line|行|第)\\s*(\\d+)\\s*行?\\))";
 const FILE_REFERENCE = new RegExp(
-  `^((?:\\.{0,2}/)?(?:[\\p{L}\\p{N}_@.+-]+/)*[\\p{L}\\p{N}_@+-][\\p{L}\\p{N}_@.+-]*\\.(?:${CODE_EXTENSIONS}|${OTHER_EXTENSIONS}))(?::(\\d+)(?:[-:]\\d+)?|\\s*\\((?:line|行|第)\\s*(\\d+)\\s*行?\\))?$`,
+  `^((?:\\.{0,2}/)?(?:[\\p{L}\\p{N}_@.+-]+/)*(?:\\.?[\\p{L}\\p{N}_@+-][\\p{L}\\p{N}_@.+-]*\\.(?:${CODE_EXTENSIONS}|${OTHER_EXTENSIONS})|${SPECIAL_FILENAMES}))${LINE_SUFFIX}?$`,
+  "iu"
+);
+const LINKED_BASENAME = new RegExp(
+  `^((?:\\.?[\\p{L}\\p{N}_@+-][\\p{L}\\p{N}_@.+~ -]*\\.(?:${CODE_EXTENSIONS}|${OTHER_EXTENSIONS}|log)|${SPECIAL_FILENAMES}))(?::(\\d+)(?:[-:]\\d+)?)?$`,
   "iu"
 );
 
@@ -294,13 +301,53 @@ export function fileReference(text) {
   return { path: match[1], line: Number(match[2] || match[3]) || undefined };
 }
 
+/**
+ * Turns a local link destination into a path: strips `file://` and
+ * `file://localhost` when followed by an absolute path, and rejects remote
+ * `file://` hosts, protocol-relative paths and other URI schemes.
+ */
+export function localFilePath(url) {
+  const text = String(url);
+  if (/^file:\/\//i.test(text)) {
+    const match = /^file:\/\/(?:localhost)?(\/(?![/\\]).*)$/i.exec(text);
+    return match ? match[1] : undefined;
+  }
+  if (/^\/[/\\]/.test(text)) return undefined;
+  // Reject URI schemes such as javascript: or data:, while keeping bare
+  // filenames followed by a line number (`app.js:12`).
+  if (/^[a-z][\w+.-]*:(?!\d+(?:[-:]\d+)?(?:$|#))/i.test(text)) return undefined;
+  return text;
+}
+
+/** Decodes `%`-escapes in a file URL path; returns undefined when control characters remain. */
+export function decodeFilePath(path) {
+  let decoded = String(path);
+  if (decoded.includes("%")) {
+    try {
+      decoded = decodeURIComponent(decoded);
+      // eslint-disable-next-line no-restricted-syntax -- 链接路径可能含非法百分比转义，保留原路径继续匹配
+    } catch {
+      /* keep raw path */
+    }
+  }
+  // eslint-disable-next-line no-control-regex -- 解码后的路径含控制字符时不识别为文件链接。
+  return /[\x00-\x1f\x7f]/.test(decoded) ? undefined : decoded;
+}
+
 /** A local link's path, with a `#L12` or `:12` line, when it names a file. */
 export function linkedFileReference(url) {
-  const [path, fragment = ""] = String(url).split("#");
+  const local = localFilePath(url);
+  if (!local) return undefined;
+  const [rawPath, fragment = ""] = local.split("#");
   const line = /^L(\d+)/.exec(fragment)?.[1];
-  const reference = fileReference(path.split("/").pop() || "");
-  if (!reference) return undefined;
-  return { path, line: Number(line) || reference.line };
+  const decoded = decodeFilePath(rawPath);
+  if (!decoded) return undefined;
+  const slash = decoded.lastIndexOf("/");
+  const dir = slash >= 0 ? decoded.slice(0, slash + 1) : "";
+  const base = slash >= 0 ? decoded.slice(slash + 1) : decoded;
+  const match = LINKED_BASENAME.exec(base);
+  if (!match) return undefined;
+  return { path: dir + match[1], line: Number(line || match[2]) || undefined };
 }
 
 /**
