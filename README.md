@@ -44,7 +44,7 @@ npm run ui
 | [Updates and troubleshooting](docs/en/installation-reference.md) | Updates, backup, recovery, and installation troubleshooting  |
 | [Development](docs/en/development.md)                            | Build Web/Desktop/CLI and run local checks                   |
 | [Contributing](CONTRIBUTING.en.md)                               | Contribution workflow and validation                         |
-| [Report an issue](https://github.com/suntianc/coworkos/issues)   | Report bugs or request changes                               |
+| [Report an issue](https://github.com/suntianc/formicand/issues)   | Report bugs or request changes                               |
 
 ## Acknowledgments and license
 

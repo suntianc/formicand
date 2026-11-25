@@ -91,12 +91,12 @@
   "description": "Formicand local multi-agent harness and task runtime",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/suntianc/coworkos.git"
+    "url": "git+https://github.com/suntianc/formicand.git"
   },
   "bugs": {
-    "url": "https://github.com/suntianc/coworkos/issues"
+    "url": "https://github.com/suntianc/formicand/issues"
   },
-  "homepage": "https://github.com/suntianc/coworkos#readme",
+  "homepage": "https://github.com/suntianc/formicand#readme",
   "author": "Formicand contributors",
   "bin": {
     "formicand": "scripts/formicand.mjs"

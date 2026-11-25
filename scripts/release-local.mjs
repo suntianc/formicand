@@ -7,7 +7,7 @@ const execute = (command, args, options = {}) =>
 
 export async function runLocalRelease({
   tag = process.env.RELEASE_TAG,
-  repository = process.env.GITHUB_REPOSITORY || "suntianc/coworkos",
+  repository = process.env.GITHUB_REPOSITORY || "suntianc/formicand",
   root = process.cwd(),
   platform = process.platform,
   arch = process.arch,

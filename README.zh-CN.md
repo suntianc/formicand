@@ -44,7 +44,7 @@ npm run ui
 | [更新与排错](docs/installation-reference.md)            | 更新、备份、恢复和安装问题排查      |
 | [开发指南](docs/development.md)                         | 构建 Web/Desktop/CLI 并运行本地检查 |
 | [贡献指南](CONTRIBUTING.md)                             | 贡献流程和验证要求                  |
-| [反馈问题](https://github.com/suntianc/coworkos/issues) | 报告问题或提出改进建议              |
+| [反馈问题](https://github.com/suntianc/formicand/issues) | 报告问题或提出改进建议              |
 
 ## 致谢与许可
 
