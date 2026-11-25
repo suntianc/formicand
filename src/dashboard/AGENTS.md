@@ -7,4 +7,4 @@
 - `http.ts` 负责 Host/Origin、会话认证和请求大小。新 API 不绕过入口检查；日志和错误不暴露配置原文。
 - 修改 SSE 同时检查 `event-stream.ts`、前端 connection controller 与持久事件消费者；确保重连不重复交付。
 
-定位与测试见 [代码地图](../../docs/architecture.md#代码地图)，HTTP 说明见 [后端接口](../../docs/architecture.md#后端接口)。优先回归 `http-boundary`、`dashboard-run-service`、`main-run-env`、`artifact-api`，再按改动覆盖浏览器行为。
+定位与测试见 [代码地图](../../docs/development.md#代码地图)，HTTP 说明见 [后端接口](../../docs/development.md#后端接口)。优先回归 `http-boundary`、`dashboard-run-service`、`main-run-env`、`artifact-api`，再按改动覆盖浏览器行为。

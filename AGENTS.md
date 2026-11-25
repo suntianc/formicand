@@ -6,30 +6,30 @@
 
 ## 开始一项修改
 
-1. 阅读 [代码地图](docs/architecture.md#代码地图)，找到功能的实现层、消费者与测试；不要先向入口文件追加分支。
+1. 阅读 [代码地图](docs/development.md#代码地图)，找到功能的实现层、消费者与测试；不要先向入口文件追加分支。
 2. 阅读目标目录内的 `AGENTS.md`，跨目录修改时阅读两端指引；从 [坑点索引](docs/pitfalls/README.md) 选择与本次工具、路径或接口匹配的条目。
-3. 当前行为以代码、测试和 [架构](docs/architecture.md) 为准；按当前问题和验收范围选择工作。
+3. 当前行为以代码、测试和 [架构](docs/development.md#架构) 为准；按当前问题和验收范围选择工作。
 4. 先复现问题，再修改负责该行为的模块。完成后运行相关行为测试和本地验证，报告实际执行命令、失败和跳过项。
 
 ## 仓库地图
 
-| 目录                                            | 职责                                      | 约束入口                                  |
-| ----------------------------------------------- | ----------------------------------------- | ----------------------------------------- |
-| `src/cli/`、`scripts/formicand.mjs`             | 用户命令、启动器与 smoke 入口             | [代码地图](docs/architecture.md#代码地图) |
-| `src/dashboard/`                                | 本地 HTTP/SSE、服务装配和 Run 编排        | [服务指引](src/dashboard/AGENTS.md)       |
-| `src/runtime/`                                  | Task/Run、调度、恢复、模型与 Pi 会话      | [运行时指引](src/runtime/AGENTS.md)       |
-| `src/gui/`、`src/security/`                     | 原生交互、窗口授权与执行权限              | [Computer Use](docs/capabilities.md)      |
-| `src/domain/`、`src/storage/`、`src/workspace/` | 领域类型、事件、工作区与产出物            | [数据布局](docs/architecture.md#数据布局) |
-| `.pi/`                                          | 产品运行时的 Pi 装配、领域工具和技能      | [Pi 指引](.pi/AGENTS.md)                  |
-| `web/`                                          | Web 与桌面共用的界面与控制器              | [前端指引](web/AGENTS.md)                 |
-| `desktop/`                                      | Electron 窗口、可信 IPC、本地后端生命周期 | [桌面指引](desktop/AGENTS.md)             |
-| `test/`、`e2e/`                                 | Node 回归与浏览器/原生验收                | [测试指引](test/AGENTS.md)                |
-| `docs/`                                         | 用户指南、开发约定和接口参考              | [文档指引](docs/AGENTS.md)                |
-| `scripts/`、`.github/`                          | 构建、验证、打包、CI                      | [开发指南](docs/development.md)           |
+| 目录                                            | 职责                                      | 约束入口                                 |
+| ----------------------------------------------- | ----------------------------------------- | ---------------------------------------- |
+| `src/cli/`、`scripts/formicand.mjs`             | 用户命令、启动器与 smoke 入口             | [代码地图](docs/development.md#代码地图) |
+| `src/dashboard/`                                | 本地 HTTP/SSE、服务装配和 Run 编排        | [服务指引](src/dashboard/AGENTS.md)      |
+| `src/runtime/`                                  | Task/Run、调度、恢复、模型与 Pi 会话      | [运行时指引](src/runtime/AGENTS.md)      |
+| `src/gui/`、`src/security/`                     | 原生交互、窗口授权与执行权限              | [窗口访问](README.zh-CN.md#操作本机窗口) |
+| `src/domain/`、`src/storage/`、`src/workspace/` | 领域类型、事件、工作区与产出物            | [数据布局](docs/development.md#数据布局) |
+| `.pi/`                                          | 产品运行时的 Pi 装配、领域工具和技能      | [Pi 指引](.pi/AGENTS.md)                 |
+| `web/`                                          | Web 与桌面共用的界面与控制器              | [前端指引](web/AGENTS.md)                |
+| `desktop/`                                      | Electron 窗口、可信 IPC、本地后端生命周期 | [桌面指引](desktop/AGENTS.md)            |
+| `test/`、`e2e/`                                 | Node 回归与浏览器/原生验收                | [测试指引](test/AGENTS.md)               |
+| `docs/`                                         | 用户指南、开发约定和接口参考              | [文档指引](docs/AGENTS.md)               |
+| `scripts/`、`.github/`                          | 构建、验证、打包、CI                      | [开发指南](docs/development.md)          |
 
 ## 文档
 
-登记表说明每份文档是什么、归哪个领域。一个文件属于第一行覆盖它的路径，所以这里逐项写出路径，不设兜底行：新文档没登记时程序会拒绝冻结终审。根 `AGENTS.md`、`CLAUDE.md` 和 `docs/pitfalls/` 不写也算已登记；`docs/en` 是中文使用与开发文档的英文版本，作为一个领域登记。
+登记表说明每份文档是什么、归哪个领域。一个文件属于第一行覆盖它的路径，所以这里逐项写出路径，不设兜底行：新文档没登记时程序会拒绝冻结终审。根 `AGENTS.md`、`CLAUDE.md` 和 `docs/pitfalls/` 不写也算已登记；产品说明只剩根目录的 `README.md` 与 `README.zh-CN.md` 一对，`docs/en/README.md` 是英文文档入口。
 
 | 路径                                 | 类型         | 领域         |
 | ------------------------------------ | ------------ | ------------ |
@@ -60,16 +60,13 @@
 | `README.zh-CN.md`                    | product      | 产品说明     |
 | `README.md`                          | product      | 英文产品说明 |
 | `THIRD_PARTY_NOTICES.md`             | product      | global       |
-| `docs/en`                            | product      | 英文文档     |
+| `docs/en/README.md`                  | product      | 英文文档     |
 | `docs/README.md`                     | product      | 文档         |
-| `docs/getting-started.md`            | product      | 上手         |
-| `docs/configuration.md`              | product      | 配置         |
-| `docs/capabilities.md`               | product      | 能力         |
-| `docs/architecture.md`               | product      | 架构         |
 | `docs/hero/README.md`                | product      | 界面         |
 | `scripts/eval/README.md`             | product      | 测评         |
 | `scripts/eval/repo/README.md`        | product      | 测评示例     |
-| `.github`                            | product      | 发布         |
+| `.github/pull_request_template.md`   | product      | 审查模板     |
+| `.github/RELEASE_TEMPLATE.md`        | product      | 发布模板     |
 
 ## 代码规则
 
@@ -95,6 +92,16 @@
 - 去掉说明文字后，第一次使用的人仍应能看懂下一步点哪里、点了会发生什么。
 - 重写已有界面时，先去掉冗余标签和说明；如果清晰度下降，再优化布局和按钮文案。
 - 性能优先：动效、图标和列表在保持最佳性能的前提下做到同等精致，具体要求见[前端指引](web/AGENTS.md#性能与动效)。
+
+## Pi 依赖边界
+
+Pi 包（`@earendil-works/pi-*`）的运行时导入只允许出现在持有 Pi 进程的地方，其余模块只能用 `import type`。允许的范围是 [ESLint 规则](eslint.config.mjs) `formicand/pi-import-boundary` 里的明确清单，[依赖边界回归](test/architecture-boundaries.test.js) 检查清单和本节一致：
+
+- 目录：`.pi/`（扩展和工具）、`scripts/`（启动器）。
+- 模型配置：`src/runtime/main-request-retry.ts`、`src/runtime/model-cache.ts`、`src/runtime/model-connection.ts`、`src/runtime/model-levels.ts`、`src/runtime/model-profile.ts`、`src/runtime/model-provider.ts`、`src/runtime/model-request-recording.ts`。
+- Main 会话文件读写（Main 不在运行时由后端改写会话，用于编辑重发、分叉和离线换窗）：`src/runtime/conversation-fork.ts`、`src/runtime/main-message-edit.ts`。
+
+Pi 包内部深路径（例如 `@earendil-works/pi-ai/api/...`）只允许模型配置模块导入。这样升级 Pi 时，只需排查清单里的模块。
 
 ## 本地验证与交付
 

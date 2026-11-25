@@ -6,7 +6,7 @@ P1 交付分支为 `workloop/os-p1-backend`，验收提交为 `d1bd2915540c8943b
 
 ## 验证范围
 
-P1 覆盖独立后端生命周期、执行主机凭据、授权与幂等管理命令、快照及事件恢复、浏览器共用管理客户端。现行接口见 [Product API](architecture.md)，环境和检查入口见 [开发指南](development.md) 与 [本地测试](testing.md)。
+P1 覆盖独立后端生命周期、执行主机凭据、授权与幂等管理命令、快照及事件恢复、浏览器共用管理客户端。现行接口见 [Product API](development.md#后端接口)，环境和检查入口见 [开发指南](development.md) 与 [本地测试](testing.md)。
 
 - `npm run verify` 及累计 16 条验收命令通过，五个专项文件分别是 `os-daemon-lifecycle`、`os-backend-settings`、`os-management-commands`、`os-event-recovery`、`os-web-client-protocol`。
 - Chromium 153 的 20 步浏览器验收使用两个真实后端、真实 Pi 和本地模型 fixture，覆盖后端切换、授权失效、草稿恢复、关闭页面后任务继续执行、重开读取和产物下载。两份下载内容的 SHA-256 与源文件一致。
@@ -35,7 +35,7 @@ P1 已确认的验收保持原样；本条用于后续票据设计，不回溯�
 
 **修复与证据：** 凭据相关消费者已改用有效主机配置，相关回归覆盖在 [设置测试](../test/os-backend-settings.test.js)。下载拦截器只接管根相对 `/api/` 路径，保留 `blob:`、`data:` 的浏览器行为；[页面启动测试](../test/app-boot.test.js)、[会话菜单浏览器测试](../e2e/conversation-menu.spec.js) 与 [产物链接测试](../e2e/markdown-links.spec.js) 验证了修复。
 
-**采用的做法：** 修改配置来源、鉴权、公共网络层或下载路径前，沿 [代码地图](architecture.md) 列出生产者和消费者，检查 CLI、后台进程、Web 与桌面入口。网络产物和页面本地生成文件分别验证，避免只覆盖新增的正常路径。
+**采用的做法：** 修改配置来源、鉴权、公共网络层或下载路径前，沿 [代码地图](development.md#代码地图) 列出生产者和消费者，检查 CLI、后台进程、Web 与桌面入口。网络产物和页面本地生成文件分别验证，避免只覆盖新增的正常路径。
 
 ## 4. 对测试失败的归因过于笼统
 

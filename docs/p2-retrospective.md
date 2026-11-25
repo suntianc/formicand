@@ -6,7 +6,7 @@ P2 交付分支为 `workloop/os-p2-electron`，验收提交为 `6c1b6552764d9f3a
 
 ## 验证范围与结果
 
-P2 覆盖 Electron 45.2.3 接入独立后端、草稿与附件恢复、宿主管理凭据和设置、移除语音输入、执行主机权限边界，以及本地包和资源占用验收。现行接口与流程见 [Product API](architecture.md)、[代码地图](architecture.md)、[本地测试](testing.md) 和 [Mac 发布](development.md)。
+P2 覆盖 Electron 45.2.3 接入独立后端、草稿与附件恢复、宿主管理凭据和设置、移除语音输入、执行主机权限边界，以及本地包和资源占用验收。现行接口与流程见 [Product API](development.md#后端接口)、[代码地图](development.md#代码地图)、[本地测试](testing.md) 和 [Mac 发布](development.md)。
 
 - 最终同一源码树的 `npm run verify:full` 记录为 2,896 tests、2,839 pass、0 fail、57 skip。第二轮终审的 `npm run verify` 和六条专项命令通过，专项合计 124/124，无跳过。
 - 保留实际后台任务、附件、设置、真实原生权限与钥匙串回执；未受本次改动影响的既有证据按验收映射复用。当前账户内使用隔离数据与安装目录完成安装验收；干净 macOS 账户安装和系统权限验收由 P6 承接。

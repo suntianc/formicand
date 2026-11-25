@@ -4,9 +4,7 @@ export const navigation = [
     en: "Use",
     pages: [
       ["docs/README.md", "概览", "Overview"],
-      ["docs/getting-started.md", "上手", "Getting started"],
-      ["docs/configuration.md", "配置", "Configuration"],
-      ["docs/capabilities.md", "内置能力", "Built-in capabilities"]
+      ["README.zh-CN.md", "产品说明与上手", "Product guide"]
     ]
   },
   {
@@ -14,8 +12,7 @@ export const navigation = [
     en: "Develop",
     collapsed: true,
     pages: [
-      ["docs/architecture.md", "架构与代码地图", "Architecture and code map"],
-      ["docs/development.md", "开发", "Development"],
+      ["docs/development.md", "开发与架构", "Development and architecture"],
       ["docs/testing.md", "测试", "Testing"],
       ["GLOSSARY.md", "产品术语", "Product glossary (Chinese)"],
       ["CONTRIBUTING.md", "参与贡献", "Contributing"]
@@ -34,9 +31,9 @@ export const navigation = [
   }
 ];
 
-const userNames = ["README", "getting-started", "configuration", "capabilities"];
 export const userGuideFiles = new Set([
   "README.md",
   "README.zh-CN.md",
-  ...userNames.flatMap((name) => [`docs/${name}.md`, `docs/en/${name}.md`])
+  "docs/README.md",
+  "docs/en/README.md"
 ]);
