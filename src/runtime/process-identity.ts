@@ -58,8 +58,11 @@ async function readStartedAt(pid: number): Promise<string | undefined> {
         : await run("ps", ["-p", String(pid), "-o", "lstart="], {
             timeout: 5_000,
             // The identity is compared across a backend restart; a changed
-            // locale must not make the same process look like a different one.
-            env: { ...process.env, LC_ALL: "C", LANG: "C" }
+            // locale or time zone must not make the same process look like a
+            // different one. A backend started from a terminal inherits its
+            // TZ, one started from the Dock the system's, and `lstart` prints
+            // local time, so it is always read in UTC.
+            env: { ...process.env, LC_ALL: "C", LANG: "C", TZ: "UTC" }
           });
     const startedAt = stdout.trim();
     return startedAt || undefined;

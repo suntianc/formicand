@@ -260,9 +260,13 @@ test("a typed Main-process exit offers manual continuation without blaming the m
     await draft(page, "执行失败后的草稿继续保留");
     await page.setViewportSize({ width: 320, height: 900 });
     await alert.screenshot({ path: testInfo.outputPath("main-process-recovery-320.png") });
+    const shownModel = (await page.locator("#model-select .model-name").textContent()).trim();
+    expect(shownModel).not.toBe("");
     await page.getByRole("button", { name: "重试", exact: true }).click();
     await expect.poll(() => fixture.runs.length).toBe(1);
-    expect(fixture.runs[0]).toMatchObject({ resume: true });
+    // No saved request to resend: the retry runs on the model the composer
+    // shows, not on whatever the connection's default is.
+    expect(fixture.runs[0]).toMatchObject({ resume: true, model: shownModel });
     expect(fixture.runs[0]).not.toHaveProperty("prompt");
     await expect(page.locator("#composer-input")).toHaveValue("执行失败后的草稿继续保留");
   } finally {

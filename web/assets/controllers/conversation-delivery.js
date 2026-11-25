@@ -574,6 +574,21 @@ export function createConversationDelivery({
     }
   }
 
+  /**
+   * The model the composer shows, for a continue or retry with no saved request
+   * to resend. Without it the server falls back to the connection's default,
+   * not the model this conversation was using. A saved request is resent
+   * exactly, with the model it already used.
+   */
+  function chosenModel(detail) {
+    if (detail?.retryRequest) return {};
+    return {
+      model: composerModel.model || composerModel.defaultModel || undefined,
+      profileId: composerModel.profileId || undefined,
+      thinkingLevel: composerModel.sentThinkingLevel()
+    };
+  }
+
   async function continuePausedRun(taskId = state.selected) {
     const detail = state.detail?.task?.taskId === taskId ? state.detail : null;
     if (
@@ -587,7 +602,7 @@ export function createConversationDelivery({
       return;
     continuingTasks.add(taskId);
     try {
-      await launchPrompt(taskId, undefined, { resume: true });
+      await launchPrompt(taskId, undefined, { resume: true, ...chosenModel(detail) });
       await refresh();
     } catch (error) {
       showToast(ui`继续失败：${requestErrorMessage(error)}`);
@@ -621,6 +636,7 @@ export function createConversationDelivery({
     const runOptions = {
       resume: true,
       retryRequestId: detail.retryRequest?.requestId,
+      ...chosenModel(detail),
       savedUsers: (detail.messages || []).filter((message) => message.role === "user").length
     };
     const recoveryFocus = document.activeElement?.hasAttribute?.("data-retry-request");
