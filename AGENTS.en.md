@@ -27,7 +27,7 @@ This guide is for contributors and coding agents. Users start with [README](READ
 | `docs/`                                         | User guides, development conventions and API references     | [Documentation](docs/AGENTS.md)              |
 | `scripts/`, `.github/`                          | Builds, verification, packaging and CI                      | [Development](docs/en/development.md)        |
 
-Directory guides and process records are in Chinese and are authoritative for their modules; the English architecture guide summarizes the boundaries.
+Directory guides and process records are in Chinese and are authoritative for their modules; the English architecture guide summarizes the boundaries. The document registry lives in the Chinese [AGENTS.md](AGENTS.md#文档): one area is documented once, and translated guides are registered as the English edition.
 
 ## Implementation rules
 
@@ -60,7 +60,7 @@ Use Node >=22.19.0 and `npm ci`. Match validation to the change: documentation-o
 
 Routine GitHub checks run automatically on PRs and pushes to main, and can also be triggered manually. They execute the lightweight static checks in `npm run check:ci`. Run complete regressions and release acceptance locally and record evidence. The manually triggered Mac workflow builds and uploads to a draft Release; see the [Mac release guide](docs/development.md). CI passing does not mean the complete test suite passed; do not add browser, native or cross-platform test matrices by default.
 
-Change descriptions include the problem and resulting behavior, affected modules/interfaces, checks run and unverified scope. For delegation, rework, independent review and archival, use the [handoff guide (Chinese)](docs/development-handoffs.md) to identify the current delta, validation owners and evidence. Update the relevant guide and code map when changing commands, features, paths or interfaces. The roadmap records status, next work and acceptance criteria.
+Change descriptions include the problem and resulting behavior, affected modules/interfaces, checks run and unverified scope. For delegation, rework, independent review and archival, use the [handoff guide (Chinese)](docs/development-handoffs.md) to identify the current delta, validation owners and evidence. Update the relevant guide and code map when changing commands, features, paths or interfaces. Planned scope and next steps live in the requirement ledger's development records, not in repository documents.
 
 `config.json`, `.formicand/`, `.tmp/`, `applications/`, `workspace/`, `task-*/`, supervisor locks and user data are not source. Do not read real secrets, delete running data, clean user tasks or include them in packages. Tests use their own temporary directories and local fake model servers.
 

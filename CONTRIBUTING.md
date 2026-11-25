@@ -42,7 +42,7 @@ npm run test:desktop
 
 只保留 main 一条长期分支；feat/fix 临时分支从 main 分出，经 PR 回 main，合并后删除。main 代表通过评审的集成代码，用户版本由固定 tag 和 Release 标识。打包与发布流程见 [打包和发布](docs/development.md#打包和发布)。
 
-一个 PR 完成一项职责明确的修改。使用 [PR 模板](.github/pull_request_template.md)，描述最终问题/结果、接口消费者、数据影响、实际验证及未覆盖范围；说明最终实现，省去讨论过程。模块审阅角色见 [所有权表](docs/architecture.md)；跨接口两端协同，真实人员未分配时维护者负责审核。角色表与工作流不代表 CODEOWNERS/分支保护已经启用。
+一个 PR 完成一项职责明确的修改。使用 [PR 模板](.github/pull_request_template.md)，描述最终问题/结果、接口消费者、数据影响、实际验证及未覆盖范围；说明最终实现，省去讨论过程。按 [各层职责](docs/architecture.md#各层职责) 和 [代码地图](docs/architecture.md#代码地图) 找到负责的模块与消费者；跨接口两端协同，真实人员未分配时维护者负责审核。工作流不代表 CODEOWNERS/分支保护已经启用。
 
 完成本地 verify 后，根据变化增加浏览器、跨平台、原生或安装验收，并在 PR 中提供相应证据。GitHub 常规检查在 PR 和推送到 main 时自动运行轻量 `check:ci` 构建/静态检查，也可手动触发；Mac 工作流只上传 Release 草稿，维护者验收后再发布。本地行为回归要求保持不变，触发范围见 [开发指南](docs/development.md#分支和合并)。
 

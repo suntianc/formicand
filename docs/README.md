@@ -13,11 +13,11 @@
 - [架构与代码地图](architecture.md)：进程、数据布局、接口和“要改什么去哪找”
 - [开发](development.md)：环境、修改流程、检查命令、合并和发布
 - [测试](testing.md)：怎么写、怎么跑、发版验收和用例清单
+- [README 头图](hero/README.md)：头图的构建、预览和导出
+- 架构决定：[需求是长期功能](adr/0001-requirement-is-a-long-lived-feature.md) · [换窗交接](adr/0002-window-handoff-keeps-summary-and-records.md) · [跨会话记忆](adr/0003-memory-is-user-and-project-scoped.md)
 - [产品术语](../GLOSSARY.md) · [参与贡献](../CONTRIBUTING.md)
 
 ## 过程记录
 
-- [阶段规划](development-phases.md) · [开发交接](development-handoffs.md) · [项目坑点](pitfalls/README.md)
-- 设计方案：[提示词与开发流程](prompt-and-delivery-design.md) · [记忆与上下文压缩](memory-and-compaction-design.md) · [上下文检索增强](context-retrieval-design.md)
-- 复盘：[索引](retrospectives.md) · [P1](p1-retrospective.md) · [P2](p2-retrospective.md) · [P3](p3-retrospective.md) · [P4](p4-retrospective.md) · [P4.5](p4.5-retrospective.md) · [剪枝](core-pruning-retrospective.md) · [P4.5 打磨清单](p4.5-polish-backlog.md)
-- Workloop：[对比](workloop-comparison.md) · [问题与建议](workloop-followups.md)
+- [开发交接](development-handoffs.md) · [项目坑点](pitfalls/README.md) · [架构决定历史](adr-history.md)
+- 复盘：[索引](retrospectives.md) · [P1](p1-retrospective.md) · [P2](p2-retrospective.md) · [P3](p3-retrospective.md) · [P4](p4-retrospective.md) · [P4.5](p4.5-retrospective.md) · [剪枝](core-pruning-retrospective.md)

@@ -57,8 +57,10 @@ Main 可以把一个需求按 Workloop 式的流程交给子代理完成，状�
 3. **票**：范围、带检查方式的验收标准、保留不变的部分、本次不做的事和依赖。用户确认后冻结。
 4. **派单**：Executor 在需求现场分出的自己的 worktree 里工作，交回时用 `submit_report` 逐条报告验收标准。
 5. **审查**：Reviewer 审一个冻结的候选提交，用 `submit_review` 交回 `pass` 或 `changes_requested`。拦截的发现必须引用验收标准，或属于回归、数据丢失、安全、项目规则四类底线之一。
-6. **返修**：在原 Executor 的会话和现场里追加一轮（`continueCallId`），不新开 Agent。
-7. **合入**：在临时组合现场合并到配置的目标分支，并跑项目检查。
+6. **返修**：票回到返修状态后，派发前先检查剩余轮数。还有轮数时，用 `continueCallId` 在原 Executor 的会话和工作区继续。用尽轮数时，Main 在最近一次失败的审查上记录下一步做法；若选择更换 Executor，票留在返修状态，供新的 Executor 接手。
+7. **并入需求现场**：每张票审查通过后由程序并进需求现场（`integrate_ticket`），先跑项目检查，再跑本票的验收命令；`full` 的整体终审只在全部票并入之后冻结。
+8. **终审**：`full` 路线冻结整体终审时必须先写对照表（`mapping`，每行一条要求和证明它的测试、命令或文件），程序编行号，拦截发现可以直接引用行号。冻结前程序还检查项目 `AGENTS.md` 的文档登记表：还没有表就要求建表并登记现有文档，新加或改名的 Markdown 没登记、登记行指向已删文档、同类同领域出现两份时拒绝冻结，用修复票改好。
+9. **合入目标分支**：满足这条路线的验收后，才在临时组合现场合并到配置的目标分支并跑项目检查；`full` 路线还要求同一版本通过整体终审。
 
 路线分三种：`quick` 由 Main 自己收取结果；`direct` 和 `full` 按票冻结、审查后再并入。
 
@@ -111,18 +113,21 @@ Main 可以把一个需求按 Workloop 式的流程交给子代理完成，状�
 
 所有接口都在 `127.0.0.1` 上，检查 Host 和 Origin，需要客户端会话凭据。路由定义在 [routes.ts](../src/dashboard/routes.ts) 和各个 `*-routes.ts` 里：
 
-| 前缀                                             | 内容                                       |
-| ------------------------------------------------ | ------------------------------------------ |
-| `/api/tasks`                                     | 任务、消息、Run、派单、产出物、窗口操作    |
-| `/api/events`                                    | SSE 事件流，断线后按序号补齐               |
-| `/api/projects`、`/api/project-data`             | 项目、台账、看板、开发与合入记录、备份信息 |
-| `/api/composer`、`/api/uploads`                  | 草稿和附件上传                             |
-| `/api/model-settings`、`/api/models`             | 模型供应商和模型                           |
-| `/api/agents`、`/api/skills`、`/api/mcp`         | 自定义 Agent、技能、MCP 服务               |
-| `/api/memory`                                    | Main 的记忆                                |
-| `/api/computer`                                  | 窗口访问状态                               |
-| `/api/web-search-settings`、`/api/main-capacity` | 联网搜索、外部 Main 名额                   |
-| `/api/backend`、`/api/host`                      | 后端实例身份、桌面宿主专用接口             |
+| 前缀                                             | 内容                                                                                                                                                          |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/api/tasks`                                     | 任务、消息、Run、派单、产出物、窗口操作                                                                                                                       |
+| `/api/events`                                    | SSE 事件流，断线后按序号补齐                                                                                                                                  |
+| `/api/projects`、`/api/tasks`                    | 项目、台账、看板、Main 会话、开发与合入记录；台账动作（`lookup`、`context`、`tidy` 等）是发到 `/api/projects/:id/ledger`（或 `/api/tasks/:id/ledger`）的 POST |
+| `/api/project-data`                              | 项目数据服务的描述、项目列表和目录绑定                                                                                                                        |
+| `/api/composer`、`/api/uploads`                  | 草稿和附件上传                                                                                                                                                |
+| `/api/model-settings`、`/api/models`             | 模型供应商和模型                                                                                                                                              |
+| `/api/agents`、`/api/skills`、`/api/mcp`         | 自定义 Agent、技能、MCP 服务                                                                                                                                  |
+| `/api/memory`                                    | Main 的记忆                                                                                                                                                   |
+| `/api/computer`                                  | 窗口访问状态                                                                                                                                                  |
+| `/api/web-search-settings`、`/api/main-capacity` | 联网搜索、外部 Main 名额                                                                                                                                      |
+| `/api/backend`、`/api/host`                      | 后端实例身份、桌面宿主专用接口                                                                                                                                |
+
+项目数据的备份与恢复用 CLI 的 `formicand data backup`、`formicand data restore`，不经 HTTP。
 
 改接口时，同时改生产者、消费者和行为测试。
 

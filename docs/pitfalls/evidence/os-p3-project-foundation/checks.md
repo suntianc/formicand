@@ -39,4 +39,4 @@ src/storage/project-data/postgres-database.ts(1,16): error TS2307: Cannot find m
 
 F6/F7 登记 UI attempt 1–12 失败、13/14 通过，原因涵盖脚手架与五类产品接线缺口。固定候选 `a0d3d78b` 的 UI、双引擎场景、同包安装和 full 回执在 `evidence/06-a1/acceptance/candidate-a0d3d78b/`。终审 `reviews/final-1-d34f224c.md` 独立专项 67/67，通过源码同树关系复用 full/package 证据。
 
-完整结果及最终包身份归 [P3 复盘](../../../p3-retrospective.md#交付与验证)，工具建议归 [Workloop 记录](../../../workloop-followups.md)。
+完整结果及最终包身份归 [P3 复盘](../../../p3-retrospective.md#交付与验证)。工具建议归 WL-03 与 WL-04（见本节）和 WL-06（见 [恢复竞态与 probe 退出状态](#恢复竞态与-probe-退出状态)）；WL 原文见 [已删除文档](../../../adr-history.md)。
