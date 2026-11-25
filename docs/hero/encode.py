@@ -1,4 +1,4 @@
-"""Encode the 120 deterministic TechText frames into a six-second README GIF."""
+"""Encode the 120 deterministic hero frames into a six-second README GIF."""
 import argparse
 import shutil
 from pathlib import Path
@@ -14,13 +14,13 @@ if len(paths) != 120:
 frames = [Image.open(path).convert('RGB') for path in paths]
 if any(frame.size != (1440, 480) for frame in frames):
     parser.error('Every frame must be 1440 × 480')
-# A shared palette keeps the OS color transition and background stable.
+# A shared palette keeps the signal rings and background stable across frames.
 samples = Image.new('RGB', (1440, 960))
 for i, index in enumerate([0, 12, 24, 36, 48, 60, 72, 100]):
     samples.paste(frames[index].resize((720, 240)), ((i % 2) * 720, (i // 2) * 240))
 palette = samples.quantize(colors=253, method=Image.Quantize.MEDIANCUT)
 # Reserve exact classic window-control colors; these tiny areas must not be
-# swallowed by the much larger blue/lilac gradient during palette generation.
+# swallowed by the much larger grey ramp during palette generation.
 colors = palette.getpalette()[:253 * 3] + [255, 95, 87, 254, 188, 46, 40, 200, 64]
 palette.putpalette(colors)
 quantized = [frame.quantize(palette=palette, dither=Image.Dither.NONE) for frame in frames]

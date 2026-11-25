@@ -37,7 +37,7 @@ for (const width of [1440, 900, 640])
       expect(original.toString()).toBe(text);
       await page.keyboard.press("Escape");
       await expect(page.locator(".attachment-preview")).toBeHidden();
-      const image = await readFile("web/assets/formicand-symbol.png");
+      const image = await readFile("web/assets/brand/formicand-icon.png");
       await page
         .locator("#file-input")
         .setInputFiles({ name: "截图.png", mimeType: "image/png", buffer: image });
@@ -155,7 +155,7 @@ test("a sent image is hydrated from the bound session without exposing upload me
     await page.locator("#file-input").setInputFiles({
       name: "截图.png",
       mimeType: "image/png",
-      buffer: await readFile("web/assets/formicand-symbol.png")
+      buffer: await readFile("web/assets/brand/formicand-icon.png")
     });
     await expect(page.locator("#attachment-strip")).toContainText("截图.png");
     await page.locator("#send-button").click();
@@ -203,7 +203,7 @@ test("drop, paste, retry, cancel and navigation keep files with their own draft"
         .dispatchEvent(new DragEvent("drop", { dataTransfer: data, bubbles: true, cancelable: true }));
     });
     await expect(page.locator("#attachment-strip")).toContainText("drop.txt");
-    const bytes = await readFile("web/assets/formicand-symbol.png");
+    const bytes = await readFile("web/assets/brand/formicand-icon.png");
     await page.evaluate(
       (bytes) => {
         const data = new DataTransfer();

@@ -15692,7 +15692,7 @@
                 {
                   "type": "frame",
                   "id": "ZRJl0",
-                  "name": "Project CoworkOS",
+                  "name": "Project Formicand",
                   "width": "fill_container",
                   "cornerRadius": 8,
                   "gap": 8,
@@ -19098,7 +19098,7 @@
                 {
                   "type": "frame",
                   "id": "Ekj1p",
-                  "name": "Project CoworkOS",
+                  "name": "Project Formicand",
                   "width": "fill_container",
                   "cornerRadius": 8,
                   "gap": 8,
@@ -32644,7 +32644,7 @@
                 {
                   "type": "frame",
                   "id": "vQYac",
-                  "name": "Project CoworkOS",
+                  "name": "Project Formicand",
                   "width": "fill_container",
                   "cornerRadius": 8,
                   "gap": 8,
@@ -36019,7 +36019,7 @@
                 {
                   "type": "frame",
                   "id": "frePi",
-                  "name": "Project CoworkOS",
+                  "name": "Project Formicand",
                   "width": "fill_container",
                   "cornerRadius": 8,
                   "gap": 8,
@@ -44992,7 +44992,7 @@
                 {
                   "type": "frame",
                   "id": "tQdHt",
-                  "name": "Project CoworkOS",
+                  "name": "Project Formicand",
                   "width": "fill_container",
                   "cornerRadius": 8,
                   "gap": 8,
@@ -61807,7 +61807,7 @@
                                   "id": "FfGWV",
                                   "name": "T",
                                   "fill": "$v2-text",
-                                  "content": "~/.atria/skills/pg-migration/SKILL.md",
+                                  "content": "~/.formicand/skills/pg-migration/SKILL.md",
                                   "fontFamily": "JetBrains Mono",
                                   "fontSize": 13,
                                   "fontWeight": "normal"
@@ -62270,7 +62270,7 @@
               "fill": "$v2-text-2",
               "textGrowth": "fixed-width",
               "width": "fill_container",
-              "content": "安装到 ~/.atria/skills/，只给本产品用；不会写入通用目录 ~/.agents/skills/。",
+              "content": "安装到 ~/.formicand/skills/，只给本产品用；不会写入通用目录 ~/.agents/skills/。",
               "fontFamily": "Noto Sans SC",
               "fontSize": 13,
               "fontWeight": "normal"
@@ -66668,7 +66668,7 @@
                 {
                   "type": "frame",
                   "id": "Qk3B7",
-                  "name": "Project CoworkOS",
+                  "name": "Project Formicand",
                   "width": "fill_container",
                   "cornerRadius": 8,
                   "gap": 8,
@@ -69245,7 +69245,7 @@
                       "id": "OWgIu",
                       "name": "T",
                       "fill": "$v2-text-3",
-                      "content": ".atria/prompts",
+                      "content": ".formicand/prompts",
                       "fontFamily": "Noto Sans SC",
                       "fontSize": 11,
                       "fontWeight": "normal"
@@ -70520,7 +70520,7 @@
                 {
                   "type": "frame",
                   "id": "XUK41",
-                  "name": "Project CoworkOS",
+                  "name": "Project Formicand",
                   "width": "fill_container",
                   "cornerRadius": 8,
                   "gap": 8,
@@ -72863,7 +72863,7 @@
                   "id": "YOseh",
                   "name": "T",
                   "fill": "$v2-text-3",
-                  "content": "在项目 CoworkOS 中",
+                  "content": "在项目 Formicand 中",
                   "fontFamily": "Noto Sans SC",
                   "fontSize": 11,
                   "fontWeight": "normal"
@@ -74290,7 +74290,7 @@
                 {
                   "type": "frame",
                   "id": "lLZ0t",
-                  "name": "Project CoworkOS",
+                  "name": "Project Formicand",
                   "width": "fill_container",
                   "cornerRadius": 8,
                   "gap": 8,
@@ -76544,7 +76544,7 @@
                       "id": "uT2MS",
                       "name": "T",
                       "fill": "$v2-text",
-                      "content": "信任项目 CoworkOS？",
+                      "content": "信任项目 Formicand？",
                       "fontFamily": "Noto Sans SC",
                       "fontSize": 17,
                       "fontWeight": "600"
@@ -76554,7 +76554,7 @@
                       "id": "MuoRZ",
                       "name": "T",
                       "fill": "$v2-text-3",
-                      "content": "~/project/CoworkOS",
+                      "content": "~/project/Formicand",
                       "fontFamily": "JetBrains Mono",
                       "fontSize": 12,
                       "fontWeight": "normal"
@@ -76590,7 +76590,7 @@
                 {
                   "type": "frame",
                   "id": "f8gVkF",
-                  "name": "Found .atria/agents/",
+                  "name": "Found .formicand/agents/",
                   "width": "fill_container",
                   "stroke": "$v2-line",
                   "strokeWidth": {
@@ -76625,7 +76625,7 @@
                           "id": "DzTWY",
                           "name": "T",
                           "fill": "$v2-text",
-                          "content": ".atria/agents/",
+                          "content": ".formicand/agents/",
                           "fontFamily": "JetBrains Mono",
                           "fontSize": 13,
                           "fontWeight": "500"
@@ -76637,7 +76637,7 @@
                           "fill": "$v2-text-3",
                           "textGrowth": "fixed-width",
                           "width": "fill_container",
-                          "content": "2 个 Agent：coworkos-tester、db-migrator（覆盖同名全局 Agent）",
+                          "content": "2 个 Agent：formicand-tester、db-migrator（覆盖同名全局 Agent）",
                           "fontFamily": "Noto Sans SC",
                           "fontSize": 12,
                           "fontWeight": "normal"
@@ -76659,7 +76659,7 @@
                 {
                   "type": "frame",
                   "id": "PGL0T",
-                  "name": "Found .atria/skills/  ·  .agents/skills/",
+                  "name": "Found .formicand/skills/  ·  .agents/skills/",
                   "width": "fill_container",
                   "stroke": "$v2-line",
                   "gap": 12,
@@ -76691,7 +76691,7 @@
                           "id": "DqDFJ",
                           "name": "T",
                           "fill": "$v2-text",
-                          "content": ".atria/skills/  ·  .agents/skills/",
+                          "content": ".formicand/skills/  ·  .agents/skills/",
                           "fontFamily": "JetBrains Mono",
                           "fontSize": 13,
                           "fontWeight": "500"
@@ -76703,7 +76703,7 @@
                           "fill": "$v2-text-3",
                           "textGrowth": "fixed-width",
                           "width": "fill_container",
-                          "content": "2 个技能：coworkos-release、pdf（覆盖同名全局技能）",
+                          "content": "2 个技能：formicand-release、pdf（覆盖同名全局技能）",
                           "fontFamily": "Noto Sans SC",
                           "fontSize": 12,
                           "fontWeight": "normal"
@@ -77477,7 +77477,7 @@
                       "id": "huQxJ",
                       "name": "HintText",
                       "fill": "$v2-text-3",
-                      "content": "项目技能存在 .atria/skills/ 和 .agents/skills/，跟着项目走；同名时覆盖全局",
+                      "content": "项目技能存在 .formicand/skills/ 和 .agents/skills/，跟着项目走；同名时覆盖全局",
                       "fontFamily": "Noto Sans SC",
                       "fontSize": 12,
                       "fontWeight": "normal"
@@ -77583,7 +77583,7 @@
                               "id": "xmyG9",
                               "name": "T",
                               "fill": "$v2-text",
-                              "content": "CoworkOS",
+                              "content": "Formicand",
                               "fontFamily": "Noto Sans SC",
                               "fontSize": 13,
                               "fontWeight": "500"
@@ -77593,7 +77593,7 @@
                               "id": "gJYjc",
                               "name": "T",
                               "fill": "$v2-text-3",
-                              "content": "~/project/CoworkOS",
+                              "content": "~/project/Formicand",
                               "fontFamily": "JetBrains Mono",
                               "fontSize": 11,
                               "fontWeight": "normal"
@@ -77747,7 +77747,7 @@
                         {
                           "type": "frame",
                           "id": "YO9Rc",
-                          "name": "Chip .atria/skills",
+                          "name": "Chip .formicand/skills",
                           "fill": "$v2-chip",
                           "cornerRadius": 6,
                           "padding": [
@@ -77760,7 +77760,7 @@
                               "id": "dVNag",
                               "name": "T",
                               "fill": "$v2-text-2",
-                              "content": ".atria",
+                              "content": ".formicand",
                               "fontFamily": "JetBrains Mono",
                               "fontSize": 12,
                               "fontWeight": "normal"
@@ -77795,7 +77795,7 @@
                     {
                       "type": "frame",
                       "id": "h9mkQ",
-                      "name": "Skill coworkos-release",
+                      "name": "Skill formicand-release",
                       "width": "fill_container",
                       "fill": "$v2-selected",
                       "cornerRadius": 8,
@@ -77844,7 +77844,7 @@
                               "id": "yBuCz",
                               "name": "Name",
                               "fill": "$v2-text",
-                              "content": "coworkos-release",
+                              "content": "formicand-release",
                               "fontFamily": "JetBrains Mono",
                               "fontSize": 13,
                               "fontWeight": "500"
@@ -77877,7 +77877,7 @@
                               "id": "dbkMZ",
                               "name": "T",
                               "fill": "$v2-text-3",
-                              "content": ".atria",
+                              "content": ".formicand",
                               "fontFamily": "Noto Sans SC",
                               "fontSize": 11,
                               "fontWeight": "normal"
@@ -77889,7 +77889,7 @@
                     {
                       "type": "frame",
                       "id": "L4Kth3",
-                      "name": "Skill coworkos-testing",
+                      "name": "Skill formicand-testing",
                       "width": "fill_container",
                       "fill": "#00000000",
                       "cornerRadius": 8,
@@ -77938,7 +77938,7 @@
                               "id": "C4wgZ",
                               "name": "Name",
                               "fill": "$v2-text",
-                              "content": "coworkos-testing",
+                              "content": "formicand-testing",
                               "fontFamily": "JetBrains Mono",
                               "fontSize": 13,
                               "fontWeight": "500"
@@ -77971,7 +77971,7 @@
                               "id": "aZqgN",
                               "name": "T",
                               "fill": "$v2-text-3",
-                              "content": ".atria",
+                              "content": ".formicand",
                               "fontFamily": "Noto Sans SC",
                               "fontSize": 11,
                               "fontWeight": "normal"
@@ -78394,7 +78394,7 @@
                               "id": "BK2a5",
                               "name": "T",
                               "fill": "$v2-text",
-                              "content": "coworkos-release",
+                              "content": "formicand-release",
                               "fontFamily": "JetBrains Mono",
                               "fontSize": 17,
                               "fontWeight": "600"
@@ -78434,7 +78434,7 @@
                                       "id": "jMZxl",
                                       "name": "T",
                                       "fill": "$v2-text-2",
-                                      "content": "项目 · CoworkOS",
+                                      "content": "项目 · Formicand",
                                       "fontFamily": "Noto Sans SC",
                                       "fontSize": 12,
                                       "fontWeight": "normal"
@@ -78541,7 +78541,7 @@
                       "fill": "$v2-text-2",
                       "textGrowth": "fixed-width",
                       "width": "fill_container",
-                      "content": "按本项目的发布流程打包：核对版本号、生成更新清单、校验安装包哈希。发布或打包 CoworkOS 时使用。",
+                      "content": "按本项目的发布流程打包：核对版本号、生成更新清单、校验安装包哈希。发布或打包 Formicand 时使用。",
                       "lineHeight": 1.6,
                       "fontFamily": "Noto Sans SC",
                       "fontSize": 13,
@@ -78599,7 +78599,7 @@
                                   "id": "bj8fD",
                                   "name": "T",
                                   "fill": "$v2-text",
-                                  "content": ".atria/skills/coworkos-release/SKILL.md",
+                                  "content": ".formicand/skills/formicand-release/SKILL.md",
                                   "fontFamily": "JetBrains Mono",
                                   "fontSize": 13,
                                   "fontWeight": "normal"
@@ -83005,7 +83005,7 @@
                 {
                   "type": "frame",
                   "id": "Fuf6o",
-                  "name": "Project CoworkOS",
+                  "name": "Project Formicand",
                   "width": "fill_container",
                   "cornerRadius": 8,
                   "gap": 8,
@@ -86292,7 +86292,7 @@
                 {
                   "type": "frame",
                   "id": "H12ghy",
-                  "name": "Project CoworkOS",
+                  "name": "Project Formicand",
                   "width": "fill_container",
                   "cornerRadius": 8,
                   "gap": 8,
@@ -89743,7 +89743,7 @@
                 {
                   "type": "frame",
                   "id": "V5vXI",
-                  "name": "Project CoworkOS",
+                  "name": "Project Formicand",
                   "width": "fill_container",
                   "cornerRadius": 8,
                   "gap": 8,
@@ -93560,7 +93560,7 @@
                 {
                   "type": "frame",
                   "id": "v4pDy",
-                  "name": "Project CoworkOS",
+                  "name": "Project Formicand",
                   "width": "fill_container",
                   "cornerRadius": 8,
                   "gap": 8,
@@ -94246,7 +94246,7 @@
                           "id": "bBLyr",
                           "name": "T",
                           "fill": "$v2-text-3",
-                          "content": "~/.atria/agents/db-migrator.md",
+                          "content": "~/.formicand/agents/db-migrator.md",
                           "fontFamily": "JetBrains Mono",
                           "fontSize": 12,
                           "fontWeight": "normal"
@@ -97079,7 +97079,7 @@
                 {
                   "type": "frame",
                   "id": "lbbtT",
-                  "name": "Project CoworkOS",
+                  "name": "Project Formicand",
                   "width": "fill_container",
                   "cornerRadius": 8,
                   "gap": 8,
@@ -102831,7 +102831,7 @@
                                   "id": "laZ7C",
                                   "name": "T",
                                   "fill": "$v2-text",
-                                  "content": "~/.atria/skills/pg-migration/SKILL.md",
+                                  "content": "~/.formicand/skills/pg-migration/SKILL.md",
                                   "fontFamily": "JetBrains Mono",
                                   "fontSize": 13,
                                   "fontWeight": "normal"
@@ -105875,7 +105875,7 @@
                                       "id": "Zs9K4",
                                       "name": "Sub",
                                       "fill": "$v2-text-3",
-                                      "content": "cowork.example.com",
+                                      "content": "formicand.example.com",
                                       "fontFamily": "JetBrains Mono",
                                       "fontSize": 12,
                                       "fontWeight": "normal"
@@ -109513,7 +109513,7 @@
                 {
                   "type": "frame",
                   "id": "UXyhg",
-                  "name": "Project CoworkOS",
+                  "name": "Project Formicand",
                   "width": "fill_container",
                   "cornerRadius": 8,
                   "gap": 8,
@@ -119737,7 +119737,7 @@
               "fill": "$v2-text",
               "textGrowth": "fixed-width",
               "width": "fill_container",
-              "content": "包含子代理在各自阶段做的验证。[耗时明细]\n(/Users/suntc/.atria/workspace/task-47c32222-32ed-4860-80bd-8d98cb68d505/agents/main/work/my-tasks/retro-timing.tsv)",
+              "content": "包含子代理在各自阶段做的验证。[耗时明细]\n(/Users/suntc/.formicand/workspace/task-47c32222-32ed-4860-80bd-8d98cb68d505/agents/main/work/my-tasks/retro-timing.tsv)",
               "lineHeight": 1.7,
               "fontFamily": "Noto Sans SC",
               "fontSize": 15,
@@ -121085,7 +121085,7 @@
                           "id": "I55ai",
                           "name": "Title",
                           "fill": "$v2-text",
-                          "content": "Pull request #128 · formicand/cowork",
+                          "content": "Pull request #128 · suntianc/formicand",
                           "fontFamily": "Noto Sans SC",
                           "fontSize": 13,
                           "fontWeight": "500"
@@ -122163,7 +122163,7 @@
                 {
                   "type": "frame",
                   "id": "n8QDKB",
-                  "name": "Project CoworkOS",
+                  "name": "Project Formicand",
                   "width": "fill_container",
                   "cornerRadius": 8,
                   "gap": 8,
@@ -125966,7 +125966,7 @@
                                   "id": "o80lE5",
                                   "name": "Path",
                                   "fill": "$v2-text-3",
-                                  "content": "~/.atria/agents/db-migrator.md",
+                                  "content": "~/.formicand/agents/db-migrator.md",
                                   "fontFamily": "JetBrains Mono",
                                   "fontSize": 11,
                                   "fontWeight": "normal"
@@ -132684,7 +132684,7 @@
                           "id": "o7re3",
                           "name": "T",
                           "fill": "$v2-text",
-                          "content": "${COWORK_PG_URL}",
+                          "content": "${FORMICAND_PG_URL}",
                           "fontFamily": "JetBrains Mono",
                           "fontSize": 13,
                           "fontWeight": "normal"

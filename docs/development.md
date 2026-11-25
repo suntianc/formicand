@@ -54,7 +54,7 @@ Mac 开发启动与更新后重启统一通过 LaunchServices 打开指定的 Ap
 
 不要直接执行 `Contents/MacOS/` 中的二进制做系统权限验收：直接执行（包括 detached）可能把 App 和原生 helper 的权限归到 Terminal/IDE，导致关闭 Formicand 的系统权限后仍可操作，或没有出现 Formicand 的授权提示。测试时核对系统设置中带当前短后缀的 Formicand Dev 条目；人工撤销不一定重现首次安装弹窗，系统拒绝再次提示时仍需在系统设置确认。
 
-Finder 安装入口复制已签名的缓存包，不改内容或再次签名，保持相同权限身份。图标、Electron、工具链或包元数据变化产生新开发运行时后需要为新条目授权，旧授权不会自动迁移；旧版无后缀的 Formicand Dev 条目也不代表新测试包已授权。无需删除其他 App 或重置全部系统权限。
+Finder 安装入口复制已签名的缓存包，不改内容或再次签名，保持相同权限身份。图标、Electron、工具链或包元数据变化产生新开发运行时后需要为新条目授权，旧授权不会自动迁移。无需删除其他 App 或重置全部系统权限。
 
 Web 与桌面从同一份构建产物加载首屏。修改前端模块或样式后运行 `npm run build:web-assets`，刷新即可。持续开发时在另一终端运行 `npm run watch:web-assets`，待重建完成后刷新。监听模式提供源码映射。首屏产物放在 `web/assets/markdown/generated/shell/`，随已有桌面源码更新器管理的目录一起升级和回滚。TypeScript 或 Swift 修改后重新构建并重启宿主。图标源、Electron 或包版本变化要重建开发运行时。生成文件不是修改入口。完整/CLI 构建会清理已删除或搬移源码对应的旧编译文件，保留原生 helper 与 Python runner。
 
@@ -182,7 +182,7 @@ npm run verify
 
 ## GitHub Actions
 
-仓库只保留 main 一条长期主分支，功能/修复临时分支经 PR 合入后删除。main 是已评审集成代码；发布版本由固定 tag/Release 标识，完整流程见 [版本管理](beta-release-process.md)。
+仓库只保留 main 一条长期主分支，功能/修复临时分支经 PR 合入后删除。main 是已评审集成代码；发布版本由固定 tag/Release 标识，完整流程见 [Mac 发布](mac-release.md)。
 
 [常规工作流](../.github/workflows/test.yml) 在 PR 和推送到 main 时自动运行，也可在 Actions 手动触发，使用单组 Ubuntu + Node 24；增量格式检查以 PR 基准或推送前的提交为对比基准。安装时跳过 Electron 二进制下载，然后执行 `npm run check:ci`：`build:cli`、源码卫生、lint、扩展类型、增量格式和现行文档链接检查。
 
@@ -194,6 +194,6 @@ npm run verify
 
 版本 tag 必须与根 package/lock 版本一致，工作流从 tag 提交构建；发布提交包含工作流、脚本和完整源码/文档变更。本地验收完成后再创建下一版，例如 `npm version 0.1.2 --no-git-tag-version`，暂存并提交全部预期修改，创建 `v0.1.2`，推送提交和 tag。自动构建不会发布草稿；当前配置仍未签名，签名 ZIP 更新需证书与独立安装验收。
 
-在 Release Mac DMG 等待 DMG/CLI 与校验文件上传，签名构建还需 ZIP/feed，到对应 Release 草稿核对内容和安装验收，再由维护者选择发布分类并点击 Publish。可用手动输入已有 tag 重试/修复草稿；已发布同版本禁止替换，需新版本。完整命令与恢复规则见 [Mac 发布](mac-release.md#版本-tag-与-release-草稿)。
+在 Release Mac DMG 等待 DMG/CLI 与校验文件上传，到对应 Release 草稿核对内容和安装验收，再由维护者选择发布分类并点击 Publish。可用手动输入已有 tag 重试/修复草稿；已发布同版本禁止替换，需新版本。完整命令与恢复规则见 [Mac 发布](mac-release.md#版本-tag-与-release-草稿)。
 
-`desktop:pack` / `desktop:dist` 打包会话界面和完整编排运行时，不安装或分发 CAD、Blender、PPT 组件。见[能力范围](builtin-capabilities.md)。
+`desktop:pack` / `desktop:dist` 打包会话界面和完整编排运行时，不安装或分发 CAD、Blender、PPT 组件。

@@ -54,7 +54,7 @@ Mac development startup and restart after updates open the exact App bundle thro
 
 Do not directly execute the binary in `Contents/MacOS/` for system permission acceptance: direct execution, including detached execution, can attribute the App and native helper to Terminal/IDE. Revoking Formicand's permissions may then leave access working or fail to show Formicand's permission prompt. Check the Formicand Dev entry with the current short suffix in System Settings. Revocation may not reproduce a first-install prompt; when macOS declines to prompt again, confirm access in System Settings.
 
-The Finder entry copies the signed cached bundle without changing or re-signing it, preserving its permission identity. Changes to the icon, Electron, toolchain or package metadata create a new development runtime that needs a new grant; old grants are not migrated automatically. An old Formicand Dev entry without a suffix does not grant access to the new test bundle. Other Apps and system permissions do not need to be removed or reset.
+The Finder entry copies the signed cached bundle without changing or re-signing it, preserving its permission identity. Changes to the icon, Electron, toolchain or package metadata create a new development runtime that needs a new grant; old grants are not migrated automatically. Other Apps and system permissions do not need to be removed or reset.
 
 Web and Electron load the same frontend bundles. After editing frontend modules or styles, run `npm run build:web-assets` and refresh. For repeated edits, run `npm run watch:web-assets` in another terminal and refresh after each rebuild. Watch mode includes source maps. Startup bundles live in `web/assets/markdown/generated/shell/` so existing desktop source updaters install and roll them back with the other generated assets. Rebuild and restart the host for TypeScript or Swift changes. Icon/Electron/package-version changes also require rebuilding the development runtime. Edit source, not generated artifacts. Full/CLI builds remove orphaned compiled files for moved/deleted sources while preserving native helpers and Python runners.
 
@@ -183,7 +183,7 @@ Reports include version/commit, OS, entrypoint, reproduction, redacted logs and 
 
 ## GitHub Actions
 
-Keep one long-lived main branch; temporary feature/fix branches merge through PRs and are deleted afterwards. Main is reviewed integration code, while fixed tags/Releases identify distributions. See [version management](../beta-release-process.md) (Chinese).
+Keep one long-lived main branch; temporary feature/fix branches merge through PRs and are deleted afterwards. Main is reviewed integration code, while fixed tags/Releases identify distributions. See [Mac release](mac-release.md) (Chinese).
 
 [Default workflow](../../.github/workflows/test.yml) runs automatically on PRs and pushes to main and can also be triggered manually, using one Ubuntu + Node 24 job. Incremental formatting compares against the PR base or the pre-push commit. Dependency installation skips the Electron binary, then runs `npm run check:ci`: `build:cli`, source hygiene, lint, extension types, incremental formatting and maintained documentation links.
 
@@ -193,8 +193,8 @@ Complete Node regression, browser, native engines, actual models and package exp
 
 ## Mac Release drafts from version tags
 
-Release tags must equal `v<package version>`, with matching package/lock versions. The workflow builds the tagged commit and uploads DMG/CLI candidates and checksums to a draft Release for review; signed builds add the ZIP and update feed. Maintainers validate the candidate and choose its release classification before publishing. The default package configuration is unsigned and does not notarize builds; the signed ZIP updater requires signing and separate installation acceptance.
+Release tags must equal `v<package version>`, with matching package/lock versions. The workflow builds the tagged commit and uploads DMG/CLI candidates and checksums to a draft Release for review. Maintainers validate the candidate and choose its release classification before publishing. The default package configuration is unsigned and does not notarize builds.
 
 Manual retry accepts an existing version tag and replaces assets only while the Release remains a draft. Published versions require a new version/tag. Version commands, draft review and retry steps are in the [Mac release guide](../mac-release.md#版本-tag-与-release-草稿).
 
-`desktop:pack` / `desktop:dist` package the conversation UI and complete orchestration runtime. CAD, Blender and PPT components are excluded. See [capabilities](builtin-capabilities.md).
+`desktop:pack` / `desktop:dist` package the conversation UI and complete orchestration runtime. CAD, Blender and PPT components are excluded.

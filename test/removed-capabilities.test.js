@@ -451,12 +451,7 @@ const DOCUMENTED_ANYWHERE = [
   "流星"
 ];
 /** Documents that record the removal itself are history, not advertising. */
-const HISTORY_DOCUMENTS = new Set([
-  "docs/development-phases.md",
-  "docs/builtin-capabilities.md",
-  "docs/en/builtin-capabilities.md",
-  "docs/p4.5-retrospective.md"
-]);
+const HISTORY_DOCUMENTS = new Set(["docs/development-phases.md", "docs/p4.5-retrospective.md"]);
 
 async function* walkFiles(directory) {
   for (const entry of await readdir(directory, { withFileTypes: true })) {

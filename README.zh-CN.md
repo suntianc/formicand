@@ -1,7 +1,7 @@
 <p align="center">
   <picture>
     <source media="(prefers-reduced-motion: reduce)" srcset="docs/assets/readme-hero.png">
-    <img src="docs/assets/readme-hero.gif" alt="Formicand：几何字标、固定 OS 选框与代码绘制的桌面工作区" width="100%">
+    <img src="docs/assets/readme-hero.gif" alt="Formicand：五节点标志、字标与桌面工作区" width="100%">
   </picture>
 </p>
 
@@ -14,40 +14,44 @@
   <b>简体中文</b> | <a href="README.md">English</a>
 </p>
 
-**Formicand 是一个在本机运行的个人 Agent 客户端。**它保留 Main Agent、Coordinator Runtime、Subagent、持久任务与恢复，项目工作区、执行记录和可配置的模型服务都留在本机。
+**Formicand 是在你自己电脑上运行的多智能体工作台。**你和 Main Agent 对话，它负责计划、分派和验收，具体工作交给在独立进程里运行的子代理。项目、会话记录和配置都留在本机，模型服务用你自己的。
 
-- **委派工作。** Main Agent 负责计划、委派和评估；Coordinator Runtime 分发子任务并跟踪生命周期；Subagent 以独立进程执行限定范围的任务。
-- **开发交付。** 第一类内置工作是软件开发：需求台账与看板、拆票、独立审查、返修与合入。
-- **记忆与上下文。** Main 用 `memory` 工具写用户级和项目级记忆，长会话压缩后可以接着做；设置页「记忆」可查看、修改和删除。
-- **工具。** CLI、文件、搜索、MCP、自定义 Agent 与技能，以及 macOS 上的 Computer Use。
-
-保留与移除的能力见[能力范围与迁移](docs/builtin-capabilities.md)。
+- **分派与协作**：Main 拆分任务、分派给子代理并检查结果；子代理可以向 Main 提问，也可以互相发消息。退出或重启后，任务从原来的地方接着做。
+- **软件开发交付**：内置需求台账和看板。需求拆成票，在独立的 Git 工作区里开发，经过独立审查和返修后合入。
+- **记忆与上下文**：Main 记录用户级和项目级的约定，长会话自动压缩后接着做；记忆可在“设置 → 记忆”查看和修改。
+- **工具**：命令行、文件、联网搜索、MCP、自定义 Agent 与技能；macOS 上还能操作桌面应用和浏览器。
+- **三个入口**：Mac App、网页界面和终端命令 `formicand`，共用 `~/.formicand/` 中的同一份数据。
 
 ## 从源码运行
 
-需要 Node.js ≥22.19.0。
+需要 Node.js ≥22.19.0；Mac App 需要 macOS 14+、Apple Silicon。
 
 ```sh
+git clone https://github.com/suntianc/formicand.git
+cd formicand
 npm ci
-npm run build
-npm run ui
-# Desktop: npm run desktop
-# CLI: npm run cli
+npm run desktop   # Mac App（开发模式）
+npm run ui        # 网页界面
+npm run cli       # 终端
 ```
 
-## 文档与贡献
+首次打开后在“设置 → 模型”添加模型服务，步骤见 [Mac App 快速开始](docs/getting-started.md)。
 
-| 文档                                                    | 说明                                |
-| ------------------------------------------------------- | ----------------------------------- |
-| [使用指南](docs/README.md)                              | 安装、配置模型并了解工作流          |
-| [模型设置](docs/configuration.md)                       | 配置服务地址、模型 ID 和连接格式    |
-| [更新与排错](docs/installation-reference.md)            | 更新、备份、恢复和安装问题排查      |
-| [开发指南](docs/development.md)                         | 构建 Web/Desktop/CLI 并运行本地检查 |
-| [贡献指南](CONTRIBUTING.md)                             | 贡献流程和验证要求                  |
-| [反馈问题](https://github.com/suntianc/formicand/issues) | 报告问题或提出改进建议              |
+## 文档
+
+| 文档                                         | 说明                                |
+| -------------------------------------------- | ----------------------------------- |
+| [使用指南](docs/README.md)                   | 安装、连接模型、完成第一个任务      |
+| [CLI 快速开始](docs/cli-quickstart.md)       | 安装并使用 `formicand` 命令         |
+| [模型设置](docs/configuration.md)            | 服务地址、模型 ID 和接口格式        |
+| [更新与排错](docs/installation-reference.md) | 数据目录、备份、升级和常见问题      |
+| [开发指南](docs/development.md)              | 构建 Web/Desktop/CLI 并运行本地检查 |
+| [贡献指南](CONTRIBUTING.md)                  | 提交流程和验证要求                  |
+
+问题和建议请提交到 [Issues](https://github.com/suntianc/formicand/issues)。
 
 ## 致谢与许可
 
 本项目最初 fork 自 [RUC-NLPIR/CoworkOS](https://github.com/RUC-NLPIR/CoworkOS)，之后做了大幅改造。感谢原 CoworkOS 的贡献者。
 
-本项目自有代码采用 [MIT](LICENSE) 许可，第三方例外见[第三方软件说明](THIRD_PARTY_NOTICES.md)。
+自有代码采用 [MIT](LICENSE) 许可，第三方例外见 [第三方软件说明](THIRD_PARTY_NOTICES.md)。

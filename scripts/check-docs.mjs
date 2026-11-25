@@ -5,8 +5,6 @@ import { repositoryRoot } from "./test.mjs";
 
 // Current user and developer contracts; register maintained guides here.
 export const maintainedDocumentation = [
-  "docs/builtin-capabilities.md",
-  "docs/en/builtin-capabilities.md",
   "README.md",
   "README.zh-CN.md",
   "AGENTS.md",
@@ -55,7 +53,6 @@ export const maintainedDocumentation = [
   "docs/task-workspace-layout.md",
   "docs/product-api.md",
   "docs/mac-release.md",
-  "docs/beta-release-process.md",
   "docs/testing-local-run.md",
   "docs/AGENTS.md",
   "THIRD_PARTY_NOTICES.md",

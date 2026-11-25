@@ -7,7 +7,7 @@ import "./build.mjs";
 
 const source = dirname(fileURLToPath(import.meta.url));
 const built = resolve(source, "../../.tmp/readme-hero");
-const frames = resolve(process.argv[2] || resolve(source, "../../.tmp/readme-tech-frames"));
+const frames = resolve(process.argv[2] || resolve(source, "../../.tmp/readme-hero-frames"));
 await mkdir(frames, { recursive: true });
 const types = {
   ".html": "text/html",

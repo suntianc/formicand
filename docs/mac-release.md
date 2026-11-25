@@ -60,7 +60,7 @@ git push origin v0.1.2-beta.7
 
 仅需内部候选时使用 [Internal Mac package](../.github/workflows/internal-mac.yml)，它上传 Actions 产物而不创建 Release。
 
-主分支保存最新通过评审的集成代码，用户版本以 tag/Release 为准；反馈与发行清单命令见 [版本管理](beta-release-process.md)。版本守卫见 [release-metadata](../scripts/release-metadata.mjs)，本地回归为 `test/release-metadata.test.js`。
+主分支保存最新通过评审的集成代码，用户版本以 tag/Release 为准。版本守卫见 [release-metadata](../scripts/release-metadata.mjs)，本地回归为 `test/release-metadata.test.js`。
 
 ## 应用内更新与发布产物
 
@@ -91,7 +91,7 @@ GitHub 工作流可选读取仓库变量 `CSC_NAME`、仓库 secrets `CSC_LINK` 
 
 安装目录只放程序，替换 App 不删除用户数据。开发版与正式版默认共享单实例锁。格式不兼容时拒绝打开，迁移需备份与回滚验收。
 
-两个桌面入口显示 Formicand / Formicand Dev；macOS 钥匙串工作进程继续使用 `Formicand` 加密身份以兼容已有凭据。Electron 41 的 macOS 加密服务名由应用名派生（[固定版本实现](https://github.com/electron/electron/blob/v41.10.7/shell/browser/electron_browser_main_parts.cc#L476-L517)）。旧 Formicand Dev 密文可能不能被新身份解密，迁移保留密文与源目录、允许重新输入密钥；真实钥匙串、签名变更与旧版本升级仍需原生验收。
+两个桌面入口显示 Formicand / Formicand Dev，钥匙串工作进程使用 `Formicand` 加密身份。Electron 41 的 macOS 加密服务名由应用名派生（[固定版本实现](https://github.com/electron/electron/blob/v41.10.7/shell/browser/electron_browser_main_parts.cc#L476-L517)）。加密身份变化后旧密文无法解密，需要重新登录或重新输入；真实钥匙串与签名变更仍需原生验收。
 
 Mac 钥匙串重试进程沿用主 Electron 可执行文件，保留完整 Chromium 运行环境与 `Formicand` 加密身份。保存密钥时可能短暂出现第二个 Dock 图标，属于当前 beta 的已知限制；打包验收仅豁免通过精确 PID 识别的钥匙串进程，其他后台进程仍不得注册为普通 App。
 
@@ -116,7 +116,7 @@ App 与开发运行时不包含语音识别 helper、麦克风或语音识别声
 | 原生能力   | Computer Use 按系统权限单独验收，分别记录实际运行或 skip                                      |
 | 最终 DMG   | 校验 SHA-256，在无开发环境的另一台 Mac 安装；验证首次启动、模型连接、失败恢复、数据备份和升级 |
 | 实际模型   | 显式配置自己的 endpoint 与预算，验证请求和代表性任务；本地协议夹具不证明模型质量              |
-| 分发       | 核对版本/tag/产物、公开静态更新源与单一当前版本、支持平台、签名/公证、已知限制及许可证        |
+| 分发       | 核对版本/tag/产物、支持平台、签名/公证、已知限制及许可证                                      |
 
 `scripts/desktop-smoke.mjs` 使用临时用户目录和本地模型协议服务，不使用真实凭据。源码或打包测试通过不能替代最终 DMG、干净机器、真实模型与人工体验验收。记录系统、芯片、版本、包校验值和当前结果，不复用历史通过计数。
 

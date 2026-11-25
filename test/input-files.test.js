@@ -131,7 +131,7 @@ test("PDF, DOCX, PPTX and XLSX use document extraction; PDF pages and images ret
       );
     }
   }
-  const bytes = await readFile("web/assets/formicand-symbol.png");
+  const bytes = await readFile("web/assets/brand/formicand-icon.png");
   const image = await store.receive("x.png", Readable.from([bytes]));
   await store.attach(workspace, "task-a", [image.uploadId]);
   await assert.rejects(
