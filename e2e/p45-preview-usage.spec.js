@@ -65,10 +65,10 @@ test("usage stays folded until asked, and diff and attachments preview inside th
     await expect(roles.nth(0).locator(".rp-role-agent")).toHaveText("deepseek-v4.1-flash");
     await expect(roles.nth(0).locator(".rp-role-value")).toHaveText("1.21M");
     await expect(roles.nth(1)).toContainText("Executor");
-    await expect(roles.nth(1)).toContainText("Ara");
+    await expect(roles.nth(1)).toContainText("Atta");
     await expect(roles.nth(1).locator(".rp-role-value")).toHaveText("1.34M");
     await expect(roles.nth(2)).toContainText("Reviewer");
-    await expect(roles.nth(2)).toContainText("Norma");
+    await expect(roles.nth(2)).toContainText("Lasius");
     await expect(roles.nth(2).locator(".rp-role-value")).toHaveText("0.43M");
     // The tokens split by kind; cache writes would count as input.
     const split = panel.locator(".rp-split-item");

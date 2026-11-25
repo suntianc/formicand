@@ -115,13 +115,13 @@ test("a node without metrics falls back to stage blocks and reduced motion refre
     // Subagent branches survive without the activity payload.
     const executor = localCard.locator('[data-runs-agent="subagent_1"]');
     await expect(executor).toContainText("Executor");
-    await expect(executor).toContainText("Ara");
+    await expect(executor).toContainText("Atta");
     await expect(executor).toContainText("已完成");
     await expect(executor.locator(".runs-block.is-dev")).toHaveCount(1);
     await expect(executor.locator(".runs-done, .runs-head")).toHaveCount(0);
     const reviewer = localCard.locator('[data-runs-agent="subagent_3"]');
     await expect(reviewer).toContainText("Reviewer");
-    await expect(reviewer).toContainText("Circinus");
+    await expect(reviewer).toContainText("Messor");
     await expect(reviewer.locator(".runs-block.is-review")).toHaveCount(1);
     await expect(reviewer.locator(".runs-head.is-review")).toHaveCount(1);
 

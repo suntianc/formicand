@@ -216,7 +216,7 @@ test("call_subagent keeps task/mode required and dispatches one work item per ca
     const asyncOutput = await tool.execute("tool-async", { task: keywordTask }, undefined, undefined, ctx);
     assert.equal(asyncOutput.details.accepted, true);
     const accepted = JSON.parse(asyncOutput.content[0].text);
-    assert.equal(accepted.name, "Ara");
+    assert.equal(accepted.name, "Atta");
     assert.equal(accepted.role, "executor");
     assert.equal(backend.requests.length, 1, "the call returns after registering one work item");
     assert.equal(backend.requests[0].task, keywordTask);

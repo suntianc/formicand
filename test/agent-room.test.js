@@ -14,7 +14,7 @@ test("agent names remain unique through concurrent delegation, follow-ups and re
     const next = await Promise.all(Array.from({ length: 3 }, () => reserveSubagentIdentity(root)));
     const continued = await reserveSubagentIdentity(root);
     const agents = [first, ...next, continued];
-    assert.equal(first.name, "Ara");
+    assert.equal(first.name, "Atta");
     assert.equal(new Set(agents.map((agent) => agent.agentId)).size, 5);
     assert.equal(new Set(agents.map((agent) => agent.name)).size, 5);
     const names = Array.from({ length: 200 }, (_, i) => agentDisplayName(`subagent_${i + 1}`));

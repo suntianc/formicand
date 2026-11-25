@@ -115,7 +115,7 @@ test("development names the Executor, review names the Reviewer and merge names 
   assert.equal(requirementStage(developing).stage, "development");
   assert.equal(developingSteps[0].state, "done");
   assert.equal(developingSteps[1].state, "current");
-  assert.equal(developingSteps[1].meta, "Executor Ara");
+  assert.equal(developingSteps[1].meta, "Executor Atta");
   assert.equal(developingSteps[2].state, "pending");
 
   const reviewing = { ...developing, reviews: [review("in_review")] };
@@ -123,7 +123,7 @@ test("development names the Executor, review names the Reviewer and merge names 
   const reviewingSteps = requirementSteps(reviewing);
   assert.equal(reviewingSteps[1].state, "done");
   assert.equal(reviewingSteps[2].state, "current");
-  assert.equal(reviewingSteps[2].meta, "Reviewer Norma");
+  assert.equal(reviewingSteps[2].meta, "Reviewer Lasius");
 
   const merged = {
     ...developing,
@@ -416,14 +416,14 @@ test("development names its own live Executors and assigned tickets before revie
     tickets: [{ state: "in_progress", work: { agentId: "subagent_1" } }]
   };
   const label = () => requirementSteps(input)[1].meta;
-  assert.equal(label(), "Executor Ara");
+  assert.equal(label(), "Executor Atta");
   input.agents = [
     { role: "executor", developmentId: "another", status: "running", agentId: "subagent_3" },
     { role: "reviewer", developmentId: "development-1", status: "running", agentId: "subagent_4" },
     { role: "executor", developmentId: "development-1", status: "running", agentId: "subagent_2" }
   ];
-  assert.match(label(), /Norma/);
-  assert.doesNotMatch(label(), /Circinus|Apus/);
+  assert.match(label(), /Lasius/);
+  assert.doesNotMatch(label(), /Messor|Myrmica/);
   input.tickets = [];
-  assert.equal(label(), "Executor Norma");
+  assert.equal(label(), "Executor Lasius");
 });
