@@ -7,7 +7,8 @@ import globals from "globals";
  * Pi dependency boundary (spec rule 8): only `import type` may reach a Pi
  * package from anywhere. Runtime imports belong to the modules that own the Pi
  * process, and package-internal subpaths belong to model configuration only.
- * Keep this list explicit and in sync with docs/architecture.md.
+ * Keep this list explicit and in sync with the Pi dependency boundary section
+ * of AGENTS.md and AGENTS.en.md.
  */
 export const piDependencyBoundary = {
   runtimeDirectories: [".pi/", "scripts/"],

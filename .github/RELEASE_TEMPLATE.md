@@ -21,7 +21,7 @@ formicand init
 formicand doctor
 ```
 
-详细步骤见 [安装指南]({{REPOSITORY_URL}}/blob/{{TAG}}/docs/getting-started.md)。需要自备模型服务与 API Key；连接测试和任务会消耗模型额度。
+详细步骤见 [安装与配置]({{REPOSITORY_URL}}/blob/{{TAG}}/README.zh-CN.md)。需要自备模型服务与 API Key；连接测试和任务会消耗模型额度。
 
 ## 验收与已知限制 / Validation and limits
 

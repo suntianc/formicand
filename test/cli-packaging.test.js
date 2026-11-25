@@ -146,6 +146,7 @@ test("the actual CLI packer excludes retained Mac helpers and tolerates optional
       "CLAUDE.md",
       "LICENSE",
       "THIRD_PARTY_NOTICES.md",
+      "GLOSSARY.md",
       "CONTRIBUTING.md",
       "CONTRIBUTING.en.md",
       "config.example.json"
@@ -249,6 +250,10 @@ test("the actual CLI packer excludes retained Mac helpers and tolerates optional
     );
     assert.ok(files.includes("package/dist/src/gui/driver.js"));
     assert.ok(files.includes("package/.pi/skills/cua/SKILL.md"), "CLI archive excludes cua");
+    // The cua skill and the product notices cite guides by relative path; an
+    // installed CLI resolves them against the same tree, so the targets ship too.
+    assert.ok(files.includes("package/docs/en/README.md"), "CLI archive carries the CUA guide");
+    assert.ok(files.includes("package/GLOSSARY.md"), "CLI archive carries the product glossary");
 
     assert.equal(
       files.some((path) => /formicand-(?:speech-input|computer-use)(?:\.sha256)?$/.test(path)),

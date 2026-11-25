@@ -6,28 +6,28 @@ This guide is for contributors and coding agents. Users start with [README](READ
 
 ## Start a change
 
-1. Use the [code map](docs/en/architecture.md#code-map) to find the implementation owner, consumers and tests before adding branches to entrypoints.
+1. Use the [code map](docs/development.md#代码地图) to find the implementation owner, consumers and tests before adding branches to entrypoints.
 2. Read the target directory's `AGENTS.md`; read both sides when crossing directories. Consult entries matching the current tools, paths or interfaces in the [pitfall index (Chinese)](docs/pitfalls/README.md).
-3. Code, tests and [architecture](docs/en/architecture.md) define current behavior. Choose work from current issues and acceptance criteria.
+3. Code, tests and [architecture](docs/development.md#架构) define current behavior. Choose work from current issues and acceptance criteria.
 4. Reproduce the problem, edit the owning module, run relevant behavior tests and local verification, then report commands, failures and skips actually observed.
 
 ## Repository map
 
-| Location                                        | Responsibility                                              | Local instructions                           |
-| ----------------------------------------------- | ----------------------------------------------------------- | -------------------------------------------- |
-| `src/cli/`, `scripts/formicand.mjs`             | User commands, launchers and smokes                         | [Code map](docs/en/architecture.md#code-map) |
-| `src/dashboard/`                                | Local HTTP/SSE, composition and Run orchestration           | [Service](src/dashboard/AGENTS.md)           |
-| `src/runtime/`                                  | Task/Run, scheduling, recovery, models and Pi sessions      | [Runtime](src/runtime/AGENTS.md)             |
-| `src/gui/`, `src/security/`                     | Native interaction, window grants and execution permissions | [Computer Use](docs/capabilities.md)         |
-| `src/domain/`, `src/storage/`, `src/workspace/` | Domain types, persistence, workspaces and artifacts         | [Data layout](docs/architecture.md)          |
-| `.pi/`                                          | Product Pi composition, domain tools and skills             | [Pi](.pi/AGENTS.md)                          |
-| `web/`                                          | Shared Web/Desktop UI and controllers                       | [Frontend](web/AGENTS.md)                    |
-| `desktop/`                                      | Electron windows, trusted IPC and backend lifecycle         | [Desktop](desktop/AGENTS.md)                 |
-| `test/`, `e2e/`                                 | Node regressions and browser/native acceptance              | [Testing](test/AGENTS.md)                    |
-| `docs/`                                         | User guides, development conventions and API references     | [Documentation](docs/AGENTS.md)              |
-| `scripts/`, `.github/`                          | Builds, verification, packaging and CI                      | [Development](docs/en/development.md)        |
+| Location                                        | Responsibility                                              | Local instructions                                |
+| ----------------------------------------------- | ----------------------------------------------------------- | ------------------------------------------------- |
+| `src/cli/`, `scripts/formicand.mjs`             | User commands, launchers and smokes                         | [Code map](docs/development.md#代码地图)          |
+| `src/dashboard/`                                | Local HTTP/SSE, composition and Run orchestration           | [Service](src/dashboard/AGENTS.md)                |
+| `src/runtime/`                                  | Task/Run, scheduling, recovery, models and Pi sessions      | [Runtime](src/runtime/AGENTS.md)                  |
+| `src/gui/`, `src/security/`                     | Native interaction, window grants and execution permissions | [Window access](docs/en/README.md#native-windows) |
+| `src/domain/`, `src/storage/`, `src/workspace/` | Domain types, persistence, workspaces and artifacts         | [Data layout](docs/development.md#数据布局)       |
+| `.pi/`                                          | Product Pi composition, domain tools and skills             | [Pi](.pi/AGENTS.md)                               |
+| `web/`                                          | Shared Web/Desktop UI and controllers                       | [Frontend](web/AGENTS.md)                         |
+| `desktop/`                                      | Electron windows, trusted IPC and backend lifecycle         | [Desktop](desktop/AGENTS.md)                      |
+| `test/`, `e2e/`                                 | Node regressions and browser/native acceptance              | [Testing](test/AGENTS.md)                         |
+| `docs/`                                         | User guides, development conventions and API references     | [Documentation](docs/AGENTS.md)                   |
+| `scripts/`, `.github/`                          | Builds, verification, packaging and CI                      | [Development](docs/development.md)                |
 
-Directory guides and process records are in Chinese and are authoritative for their modules; the English architecture guide summarizes the boundaries. The document registry lives in the Chinese [AGENTS.md](AGENTS.md#文档): one area is documented once, and translated guides are registered as the English edition.
+Directory guides and process records are in Chinese and are authoritative for their modules; the development guide holds the architecture and code map. The document registry lives in the Chinese [AGENTS.md](AGENTS.md#文档): one area is documented once, and the English product guide is the English edition of the Chinese one.
 
 ## Implementation rules
 
@@ -35,7 +35,7 @@ Directory guides and process records are in Chinese and are authoritative for th
 - Routes validate, call services and map responses. Run/ProcessHost own processes. Importing a service must not bind ports, install signals or issue model requests.
 - Extend the owning service, controller or `.pi/runtime/tools/`. Keep entrypoints focused on composition; do not centralize new capabilities in `web/app.js`, Coordinator or the Pi extension.
 - Use strict TypeScript and ESM with `.js` suffixes in local TS imports; Desktop keeps `.cjs`. Validate external JSON, files, tool arguments, HTTP and IPC at their entrypoints. Errors must be actionable and must not reveal secrets.
-- Handle or propagate errors, and use type-guaranteed values directly. ESLint checks discarded errors and unnecessary conditions/assertions; existing findings live in `eslint-suppressions.json`, and new code adds none. Document justified exceptions at their site with `// eslint-disable-next-line <rule> -- <reason>`. See the [lint baseline](docs/en/development.md#lint-rules) for build prerequisites, rule coverage and pruning.
+- Handle or propagate errors, and use type-guaranteed values directly. ESLint checks discarded errors and unnecessary conditions/assertions; existing findings live in `eslint-suppressions.json`, and new code adds none. Document justified exceptions at their site with `// eslint-disable-next-line <rule> -- <reason>`. See the [lint baseline](docs/development.md#lint-规则) for build prerequisites, rule coverage and pruning.
 - When changing persisted formats, events, HTTP or IPC interfaces, update producers and consumers together. Document migration and recovery for breaking changes; do not reinterpret existing fields in place.
 - Do not repair products by editing Pi in `node_modules` or generated files. Record origins, versions and local changes for vendored code.
 - Keep public entrypoints, licenses, example configuration and tool configuration at the root. Put maintained technical documentation in `docs/`, and build/launch scripts in `scripts/`. Do not commit generated outputs or machine-specific bindings as source.
@@ -54,9 +54,19 @@ Avoid unnecessary secondary labels, explanations, helper copy, descriptions and 
 - When revising an interface, remove redundant labels and explanations first. If clarity decreases, improve layout and button wording.
 - Performance comes first: motion, icons and lists must look equally refined while keeping the best performance. See the [frontend guide (Chinese)](web/AGENTS.md#性能与动效).
 
+## Pi dependency boundary
+
+A runtime import of a Pi package (`@earendil-works/pi-*`) is allowed only where the Pi process is owned; every other module uses `import type`. The allowlist is the explicit one in the [ESLint rule](eslint.config.mjs) `formicand/pi-import-boundary`, and the [boundary regression](test/architecture-boundaries.test.js) keeps this section in sync with it:
+
+- Directories: `.pi/` (extension and tools) and `scripts/` (launchers).
+- Model configuration: `src/runtime/main-request-retry.ts`, `src/runtime/model-cache.ts`, `src/runtime/model-connection.ts`, `src/runtime/model-levels.ts`, `src/runtime/model-profile.ts`, `src/runtime/model-provider.ts`, `src/runtime/model-request-recording.ts`.
+- Main session file writes (the backend rewrites a session while Main is not running, for edit-and-resend, forks and offline handoff): `src/runtime/conversation-fork.ts`, `src/runtime/main-message-edit.ts`.
+
+Package-internal subpaths (for example `@earendil-works/pi-ai/api/...`) belong to model configuration modules only, so a Pi upgrade only has to review the modules on this list.
+
 ## Verification and delivery
 
-Use Node >=22.19.0 and `npm ci`. Match validation to the change: documentation-only edits run `check:docs` and `format:check`; behavior changes run related tests and lightweight `npm run verify` (CLI and web asset builds, source hygiene, static checks and the release-runner self-test). Explicitly run `npm run verify:full` for release acceptance or changes with broad impact; it performs a complete build, release-runner self-tests and the full deterministic Node suite. Do not repeat the full suite for every small edit. `npm run test:unit -- --match model` selects test files; `npm run check:docs` checks documentation links; `npm run check:source` checks current source for private configuration, credentials, personal paths and generated/retired documents. See [local testing](docs/en/testing.md) for the full command inventory. Test doubles do not replace lifecycle tests; browser, native, real-model and clean-install evidence are separate.
+Use Node >=22.19.0 and `npm ci`. Match validation to the change: documentation-only edits run `check:docs` and `format:check`; behavior changes run related tests and lightweight `npm run verify` (CLI and web asset builds, source hygiene, static checks and the release-runner self-test). Explicitly run `npm run verify:full` for release acceptance or changes with broad impact; it performs a complete build, release-runner self-tests and the full deterministic Node suite. Do not repeat the full suite for every small edit. `npm run test:unit -- --match model` selects test files; `npm run check:docs` checks documentation links; `npm run check:source` checks current source for private configuration, credentials, personal paths and generated/retired documents. See [local testing](docs/testing.md) for the full command inventory. Test doubles do not replace lifecycle tests; browser, native, real-model and clean-install evidence are separate.
 
 Routine GitHub checks run automatically on PRs and pushes to main, and can also be triggered manually. They execute the lightweight static checks in `npm run check:ci`. Run complete regressions and release acceptance locally and record evidence. The manually triggered Mac workflow builds and uploads to a draft Release; see the [Mac release guide](docs/development.md). CI passing does not mean the complete test suite passed; do not add browser, native or cross-platform test matrices by default.
 

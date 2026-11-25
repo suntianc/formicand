@@ -9,7 +9,7 @@ import { piDependencyBoundary } from "../eslint.config.mjs";
  * The repository's import boundaries, asserted through the ESLint rules that
  * enforce them in the build: the layer restrictions (`no-restricted-imports`)
  * and the Pi runtime boundary (`formicand/pi-import-boundary`) whose allowlist
- * must stay identical to the architecture section it documents.
+ * must stay identical to the bilingual entry section that documents it.
  */
 
 const PI_BOUNDARY_RULE = "formicand/pi-import-boundary";
@@ -166,8 +166,8 @@ test("session handoffs need no runtime import exception", async () => {
   assert.deepEqual(allowed, []);
 });
 
-test("the allowlist matches the architecture documentation", async () => {
-  const documents = ["docs/architecture.md", "docs/en/architecture.md"];
+test("the allowlist matches the bilingual entry documentation", async () => {
+  const documents = ["AGENTS.md", "AGENTS.en.md"];
   for (const document of documents) {
     const text = await readFile(document, "utf8");
     for (const directory of piDependencyBoundary.runtimeDirectories) {
