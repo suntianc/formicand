@@ -26,7 +26,7 @@ function home(html, en) {
     const items = contents.replace(
       /<li>\s*<a ([^>]+)>([\s\S]*?)<\/a>\s*<\/li>/g,
       (_item, attributes, title) => {
-        const kind = /README\.(?:zh-CN|md)/.test(attributes)
+        const kind = /README(?:\.zh-CN)?\.(?:md|html)/.test(attributes)
           ? "mac"
           : /development/.test(attributes)
             ? "terminal"

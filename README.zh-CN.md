@@ -28,7 +28,7 @@
 
 ### 安装
 
-需要 Node.js ≥22.19.0；Mac App 需要 macOS 14+、Apple Silicon。
+需要 Node.js ≥22.19.0、npm 和 Git；Mac App 需要 macOS 14+、Apple Silicon，CLI 可在 macOS 或 Linux 上运行。
 
 ```sh
 git clone https://github.com/suntianc/formicand.git
