@@ -280,7 +280,11 @@ export function createObserveRuns({
           .map((agent) => nowMsOf(agent.lastProgressAt))
           .filter((value) => value !== undefined);
         const lastProgress = progressTimes.length ? Math.max(...progressTimes) : undefined;
-        const degraded = !activity;
+        // A Main that is not running and has been quiet past the activity window
+        // publishes no samples because nothing happened: a flat quiet line, not
+        // stage blocks that would claim the whole window as work.
+        const quiet = !activity && task.status !== "running";
+        const degraded = !activity && !quiet;
         const capacityEntry = runningByTask.get(task.taskId);
         const kind = session?.kind ?? "regular";
         return {
@@ -290,6 +294,7 @@ export function createObserveRuns({
           requirementId,
           activity,
           degraded,
+          quiet,
           main,
           subs,
           stage,

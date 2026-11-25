@@ -616,18 +616,14 @@ html[data-theme="light"] .observe-view[data-observe-panel="runs"] {
   background: var(--runs-flat);
 }
 
-/* Degraded lanes use stage blocks instead of a waveform. */
+/* Degraded lanes use stage blocks instead of a waveform, as heavy as a
+   waveform's line so a lane without samples does not shout. */
 .runs-block {
   position: absolute;
   top: 50%;
-  height: 14px;
-  border-radius: 7px;
+  height: 2px;
+  border-radius: 1px;
   transform: translateY(-50%);
-}
-
-.runs-wave.is-sub .runs-block {
-  height: 8px;
-  border-radius: 4px;
 }
 
 .runs-block.is-dev {
@@ -647,7 +643,6 @@ html[data-theme="light"] .observe-view[data-observe-panel="runs"] {
 }
 
 .runs-block.is-idle {
-  height: 2px;
   border-radius: 0;
   background: var(--color-text-3);
 }

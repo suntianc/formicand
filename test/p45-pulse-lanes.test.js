@@ -435,6 +435,44 @@ test("a node without metrics draws stage blocks and marks metrics not ready", as
   assert.equal(view.root.dataset.refreshMs, "5000");
 });
 
+test("a waiting Main quiet past the activity window draws a flat quiet line, not stage blocks", async (t) => {
+  const node = online("http://local.test", "本机", "internal", true);
+  const lane = task({ taskId: "task-1", status: "waiting", updatedAt: at(-3000), activity: undefined });
+  const view = fixture({
+    nodes: [node],
+    reducedMotion: true,
+    scoped: ({ nodeOrigin }) =>
+      nodeOrigin === node.origin
+        ? {
+            projects: [{ projectId: "project-1", projectName: "P4 验收示例项目" }],
+            tasks: [lane],
+            requirements: []
+          }
+        : { projects: [], tasks: [], requirements: [] },
+    reads: async (origin, path) => {
+      if (path.endsWith("/main-sessions")) return { sessions: [session({})] };
+      if (path.endsWith("/deliveries")) {
+        const error = new Error("no development");
+        error.status = 404;
+        throw error;
+      }
+      return {};
+    }
+  });
+  t.after(() => view.restore());
+
+  await delay(60);
+  assert.equal(view.header.querySelector("[data-runs-degraded]").hidden, true);
+  const row = view.root.querySelector('[data-runs-lane="task-1"]');
+  assert.equal(row.dataset.degraded, "false");
+  assert.equal(row.querySelectorAll(".runs-block").length, 0);
+  assert.deepEqual(
+    [...row.querySelectorAll(".runs-pulse")].map((path) => path.getAttribute("class")),
+    ["runs-pulse is-idle"]
+  );
+  assert.equal(row.querySelector(".runs-head"), null);
+});
+
 test("a hidden runs panel performs no observation reads until it becomes visible", async (t) => {
   const node = online("http://local.test", "本机", "internal", true);
   let reads = 0;
