@@ -376,7 +376,8 @@ html[data-theme] .conversation-sidebar .conversation-row .conversation-item {
 }
 /* Place the running spinner inside the empty 15px indent slot beneath the
    project folder icon so the session title never shifts right when running.
-   Rows with a subagent toggle or inside Pinned (no indent) keep it inline. */
+   Rows inside Pinned (no indent) keep it inline; rows with a subagent toggle
+   show it in the toggle's place, below. */
 html[data-theme] .conversation-row:has(> .conversation-indent) > .conversation-item > .conversation-activity {
   position: absolute;
   left: -11.5px;
@@ -394,6 +395,28 @@ html[data-theme]
   top: auto;
   bottom: auto;
   margin-block: 0;
+}
+/* A running session with Subagents shows the spinner where its chevron sits;
+   pointing at the toggle brings the chevron back, so the title never moves. */
+html[data-theme] .conversation-row:has(> .conversation-toggle) > .conversation-item > .conversation-activity {
+  position: absolute;
+  left: -14px;
+  top: 0;
+  bottom: 0;
+  margin-block: auto;
+  pointer-events: none;
+}
+html[data-theme]
+  .conversation-row:has(> .conversation-item > .conversation-activity)
+  > .conversation-toggle:not(:hover, :focus-visible)
+  .ui-icon {
+  visibility: hidden;
+}
+html[data-theme]
+  .conversation-row:has(> .conversation-toggle:is(:hover, :focus-visible))
+  > .conversation-item
+  > .conversation-activity {
+  visibility: hidden;
 }
 html[data-theme] .conversation-row:is(:hover, :has(:focus-visible)) .conversation-item,
 html[data-theme] .conversation-sidebar .conversation-row .conversation-item.active {
