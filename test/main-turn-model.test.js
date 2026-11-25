@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { MAIN_MODEL_FROM_CONFIG, resolveMainTurnModel } from "../dist/src/runtime/main-turn-model.js";
+import {
+  MAIN_MODEL_FROM_CONFIG,
+  MAIN_TURN_MODEL,
+  resolveMainTurnModel
+} from "../dist/src/runtime/main-turn-model.js";
 import { profileId, providerConfig } from "./model-provider-fixture.mjs";
 
 /**
@@ -78,4 +82,17 @@ test("a saved configuration with no usable connection leaves the running connect
     resolveMainTurnModel({ modelProviders: { version: 1, providers: [] } }, {}, launch),
     undefined
   );
+});
+
+test("the model a message picked outlasts the turn boundary on the same connection", () => {
+  // Every turn start re-reads the saved connection; its default model must not
+  // replace the one the person picked (after a 429 on the default, a Run
+  // resumed on another model went straight back to it).
+  const picked = { ...launch, FORMICAND_CONNECTION_ID: "ctx-b", [MAIN_TURN_MODEL]: "codex/picked" };
+  const turn = resolveMainTurnModel(config, {}, picked);
+  assert.equal(turn.connectionId, "ctx-b");
+  assert.equal(turn.model, "codex/picked");
+  // Another connection saved since the launch starts from its own default.
+  const moved = resolveMainTurnModel(config, {}, { ...picked, FORMICAND_CONNECTION_ID: "ctx-a" });
+  assert.equal(moved.model, "model-b");
 });

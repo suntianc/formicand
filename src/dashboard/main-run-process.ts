@@ -366,6 +366,7 @@ export function createMainRunProcess({
         piAgentDir: process.env.PI_CODING_AGENT_DIR,
         projectRoot,
         selection,
+        ...(roleRequest.model ? { chosenModel: roleRequest.model } : {}),
         ...(input.thinkingLevel
           ? { thinkingLevel: normalizeReasoningEffort(input.thinkingLevel, "thinkingLevel") }
           : {})

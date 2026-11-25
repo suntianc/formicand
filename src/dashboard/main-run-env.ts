@@ -1,7 +1,7 @@
 import { formicandDataPaths } from "../../scripts/data-home.cjs";
 import type { PiThinkingLevel } from "../runtime/runtime-settings.js";
 import { roleConnectionEnv, type ResolvedModelRole } from "../runtime/role-models.js";
-import { MAIN_MODEL_FROM_CONFIG } from "../runtime/main-turn-model.js";
+import { MAIN_MODEL_FROM_CONFIG, MAIN_TURN_MODEL } from "../runtime/main-turn-model.js";
 
 /**
  * The environment a Main run is spawned with.
@@ -35,6 +35,8 @@ export interface MainRunEnvInput {
   selection?: ResolvedModelRole;
   /** Per-request override; omitted so the child inherits the connection default. */
   thinkingLevel?: PiThinkingLevel;
+  /** The model the message asked for, which later turns keep on this connection. */
+  chosenModel?: string;
 }
 
 export function mainRunEnv(input: MainRunEnvInput): Record<string, string> {
@@ -52,7 +54,10 @@ export function mainRunEnv(input: MainRunEnvInput): Record<string, string> {
     // one-off (explicit/retry) connection is fixed by definition and stays for
     // the process's life.
     ...(input.selection && ["active", "host", "project"].includes(input.selection.source)
-      ? { [MAIN_MODEL_FROM_CONFIG]: "1" }
+      ? {
+          [MAIN_MODEL_FROM_CONFIG]: "1",
+          ...(input.chosenModel ? { [MAIN_TURN_MODEL]: input.chosenModel } : {})
+        }
       : {}),
     FORMICAND_WORKSPACE: input.taskWorkspace,
     FORMICAND_PROJECT_DIR: input.projectDirectory ?? input.taskWorkspace,

@@ -82,6 +82,25 @@ test("only a connection resolved from the host file is re-readable at the next t
     );
 });
 
+test("the model a message picked travels with a re-readable connection only", () => {
+  const selection = (source) => ({
+    role: "main",
+    source,
+    baseUrl: base.baseUrl,
+    apiKey: base.apiKey,
+    model: "codex/picked",
+    profile: {},
+    thinkingLevel: "off",
+    supportsImages: false
+  });
+  const chosen = (source) =>
+    mainRunEnv({ ...base, selection: selection(source), chosenModel: "codex/picked" })
+      .FORMICAND_MAIN_TURN_MODEL;
+  assert.equal(chosen("host"), "codex/picked");
+  assert.equal(chosen("explicit"), undefined, "a pinned connection already keeps its model");
+  assert.equal(mainRunEnv({ ...base, selection: selection("host") }).FORMICAND_MAIN_TURN_MODEL, undefined);
+});
+
 test("an explicit Pi agent directory wins over the derived one", () => {
   assert.equal(mainRunEnv({ ...base, piAgentDir: "/tmp/explicit" }).PI_CODING_AGENT_DIR, "/tmp/explicit");
   assert.equal(mainRunEnv(base).PI_CODING_AGENT_DIR, formicandDataPaths().piAgentDir);
