@@ -70,7 +70,7 @@ CLI/App 同时保留 `data-uri-to-buffer` `4.0.1` 的 [MIT 许可及 Nathan Rajl
 
 The CLI/App also preserves the complete [MIT license and Nathan Rajlich copyright notice for data-uri-to-buffer 4.0.1](https://registry.npmjs.org/data-uri-to-buffer/-/data-uri-to-buffer-4.0.1.tgz), and the [MIT license and Julian Gruber copyright notice for isarray 1.0.0](https://registry.npmjs.org/isarray/-/isarray-1.0.0.tgz). Both texts are copied verbatim from the locked npm distributions' README license sections so that App packaging retains them when README files are excluded.
 
-Node 依赖版本由根 `package-lock.json` 和 `vendor/pptist/package-lock.json` 锁定。CLI 包保留生产依赖的声明和许可证，并携带可发布的 `npm-shrinkwrap.json`；esbuild 的原生运行组件以测试过的精确版本在安装时获取。当前文档不是完整的传递依赖版权清单。公开发布前，发布负责人须对最终 CLI/App 分发物生成并核对完整第三方清单，保留所需许可证文件。
+Node 依赖版本由根 `package-lock.json` 锁定。CLI 包保留生产依赖的声明和许可证，并携带可发布的 `npm-shrinkwrap.json`；esbuild 的原生运行组件以测试过的精确版本在安装时获取。当前文档不是完整的传递依赖版权清单。公开发布前，发布负责人须对最终 CLI/App 分发物生成并核对完整第三方清单，保留所需许可证文件。
 
 Node dependencies are pinned by the root and PPTist lockfiles. The CLI bundles production dependency manifests and licenses and carries a publishable `npm-shrinkwrap.json`. The native esbuild runtime is fetched at installation using the exact tested version. This document is not a complete inventory of transitive copyright notices. Before public distribution, the release owner must generate and review notices for the actual CLI/App artifacts and retain required license files.
 

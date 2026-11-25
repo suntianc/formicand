@@ -2,7 +2,7 @@
 
 状态：2026-11-22 第三稿，用户已确认方向，暂未开始实施。第二稿照 workloop 的需求台账定了方向；第三稿按现有代码细化，并记下用户的三条决定：归属由 Main 自行判断，不找用户确认；与长期功能无关的改动归到每个项目自带的“杂项”需求；测评用 DeepSeek 跑真实模型。阶段位置见 [开发阶段规划](development-phases.md#p8上下文检索增强)。
 
-第一稿是凭调研文章推出来的，用户指出应该照已经在真实项目里用起来的做法来。本稿以 workloop 的需求台账技能为参考：它在 change-bot 项目上用了一个月，台账里 17 条需求，覆盖了全部开发。参考的原样拷贝在 [vendor/workloop-skills](../vendor/workloop-skills/SOURCE.md)，主要读的是 `requirement-ledger`、`paseo-workloop` 和 `domain-modeling` 三个技能。
+第一稿是凭调研文章推出来的，用户指出应该照已经在真实项目里用起来的做法来。本稿以 workloop 的需求台账技能为参考：它在 change-bot 项目上用了一个月，台账里 17 条需求，覆盖了全部开发。参考的是 `paseo-matt-workloop` 仓库 `rex-local` 分支 `222b4ff` 的技能，主要读的是 `requirement-ledger`、`paseo-workloop` 和 `domain-modeling` 三个技能。
 
 ## 一、要解决什么
 

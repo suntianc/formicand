@@ -135,7 +135,6 @@ export default [
       "release/**",
       ".tmp/**",
       "agents/**",
-      "vendor/workloop-skills/**",
       "test-results/**"
     ]
   },

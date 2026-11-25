@@ -26,7 +26,6 @@
 | `test/`、`e2e/`                                 | Node 回归与浏览器/原生验收                | [测试指引](test/AGENTS.md)                |
 | `docs/`                                         | 用户指南、开发约定和接口参考              | [文档指引](docs/AGENTS.md)                |
 | `scripts/`、`.github/`                          | 构建、验证、打包、CI                      | [开发指南](docs/development.md)           |
-| `vendor/`                                       | 第三方源码                                | 不作为产品业务代码存放位置                |
 
 ## 代码规则
 

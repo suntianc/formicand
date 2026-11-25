@@ -2,7 +2,7 @@
 
 状态：2026-11-21，供 P8 及后续阶段取舍。P4.8 说要“把 Workloop 的开发流程做成产品自身的能力”，本文逐项核对做到了哪些。
 
-参考的是 `paseo-matt-workloop` 仓库 `rex-local` 分支 `222b4ff` 的全部技能，原样拷贝在 [vendor/workloop-skills](../vendor/workloop-skills/SOURCE.md)。对照的是本仓库的 Main 基础层 `.pi/prompts/formicand-main.md`、`requirement-delivery` 技能、`project_development` 与 `project_ledger` 工具、Executor 与 Reviewer 的提示词（`.pi/runtime/subagent-agent.ts`、`src/domain/development-ticket.ts`）和数据表。
+参考的是 `paseo-matt-workloop` 仓库 `rex-local` 分支 `222b4ff` 的全部技能。对照的是本仓库的 Main 基础层 `.pi/prompts/formicand-main.md`、`requirement-delivery` 技能、`project_development` 与 `project_ledger` 工具、Executor 与 Reviewer 的提示词（`.pi/runtime/subagent-agent.ts`、`src/domain/development-ticket.ts`）和数据表。
 
 结论：**合入以前的骨架基本照搬了**（三条路线、票、冻结、改动范围、合入时先跑检查再跑验收命令、终审、修复票）；**骨架两头和审查的规矩大多没有**：开工前怎么弄清需求和已有约定，审查能拦什么、返修几轮为止，交付后怎么复盘、怎么留经验。
 

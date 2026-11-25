@@ -26,7 +26,6 @@ This guide is for contributors and coding agents. Users start with [README](READ
 | `test/`, `e2e/`                                 | Node regressions and browser/native acceptance              | [Testing](test/AGENTS.md)                    |
 | `docs/`                                         | User guides, development conventions and API references     | [Documentation](docs/AGENTS.md)              |
 | `scripts/`, `.github/`                          | Builds, verification, packaging and CI                      | [Development](docs/en/development.md)        |
-| `vendor/`                                       | Third-party source                                          | Keep product business logic elsewhere        |
 
 Directory guides and process records are in Chinese and are authoritative for their modules; the English architecture guide summarizes the boundaries.
 
