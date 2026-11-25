@@ -141,7 +141,8 @@ test("running indicator sits in the left indent without shifting session titles"
     // so its title starts where the button's own padding puts it.
     expect(boxes.subSpinner.x).toBeGreaterThanOrEqual(boxes.subToggle.x);
     expect(boxes.subSpinner.right).toBeLessThanOrEqual(boxes.subToggle.right);
-    expect(boxes.subTitle.x - boxes.subToggle.right).toBeLessThanOrEqual(9);
+    expect(Math.abs(boxes.subTitle.x - boxes.idleTitle.x)).toBeLessThanOrEqual(1);
+    expect(Math.abs(boxes.subSpinner.x - boxes.soloSpinner.x)).toBeLessThanOrEqual(1);
     // Pinned rows have no left indent; their spinner stays inside the row before the title.
     expect(boxes.pinnedSpinner.x).toBeGreaterThanOrEqual(boxes.pinnedRow.x);
     expect(boxes.pinnedSpinner.right).toBeLessThanOrEqual(boxes.pinnedTitle.x);
