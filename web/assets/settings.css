@@ -184,6 +184,18 @@ html[data-desktop-platform] .settings-entry :is(.settings-nav, .settings-content
 html[data-desktop-platform] .settings-entry :is(.settings-nav, .settings-content) * {
   -webkit-app-region: initial;
 }
+/* Each page's header row drags the window like the work page's title row. */
+html[data-desktop-platform]
+  .settings-content
+  :is(.settings-page-title, .settings-title-row, .skill-head, .model-settings-head) {
+  -webkit-app-region: drag;
+}
+html[data-desktop-platform]
+  .settings-content
+  :is(.settings-page-title, .settings-title-row, .skill-head, .model-settings-head)
+  :is(button, a, input, select, textarea, [role="button"], [role="tab"], summary) {
+  -webkit-app-region: no-drag;
+}
 html[data-desktop-platform] .settings-content {
   user-select: text;
 }
