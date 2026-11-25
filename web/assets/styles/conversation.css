@@ -205,6 +205,8 @@ html[data-theme] .composer .model-logo {
   flex: 0 0 18px;
   width: 18px;
   height: 18px;
+  /* The name's lowercase letters sit below its line box's middle; meet them there. */
+  transform: translateY(1px);
 }
 html[data-theme] .composer .reasoning-label {
   flex: none;
