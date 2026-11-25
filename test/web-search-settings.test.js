@@ -8,16 +8,16 @@ import { createWebSearchSettings } from "../dist/src/dashboard/web-search-settin
 const require = createRequire(import.meta.url);
 
 async function fixture(t) {
-  const root = await mkdtemp(join(tmpdir(), "atria-search-settings-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-search-settings-"));
   t.after(() => rm(root, { recursive: true, force: true }));
-  const saved = process.env.COWORK_CONFIG;
-  process.env.COWORK_CONFIG = join(root, "config.json");
-  const keys = ["COWORK_WEB_TOOLS", "COWORK_EXA_API_KEY", "EXA_API_KEY", "COWORK_EXA_MCP_ENDPOINT"];
+  const saved = process.env.FORMICAND_CONFIG;
+  process.env.FORMICAND_CONFIG = join(root, "config.json");
+  const keys = ["FORMICAND_WEB_TOOLS", "FORMICAND_EXA_API_KEY", "EXA_API_KEY", "FORMICAND_EXA_MCP_ENDPOINT"];
   const env = keys.map((key) => [key, process.env[key]]);
   for (const key of keys) delete process.env[key];
   t.after(() => {
-    if (saved === undefined) delete process.env.COWORK_CONFIG;
-    else process.env.COWORK_CONFIG = saved;
+    if (saved === undefined) delete process.env.FORMICAND_CONFIG;
+    else process.env.FORMICAND_CONFIG = saved;
     for (const [key, value] of env) {
       if (value === undefined) delete process.env[key];
       else process.env[key] = value;
@@ -47,7 +47,7 @@ test("Web search settings persist choices privately without changing the model c
   assert.equal(settings.status().enabled, false);
   await settings.save({ provider: "exa", clearExaApiKey: true });
   assert.equal(settings.status().authenticated, false);
-  process.env.COWORK_WEB_TOOLS = "0";
+  process.env.FORMICAND_WEB_TOOLS = "0";
   await assert.rejects(settings.save({ provider: "exa" }), /启动环境/);
 });
 test("Web search settings create a missing config and reject invalid input", async (t) => {

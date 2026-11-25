@@ -1,6 +1,6 @@
 # Design It Twice
 
-When the user wants to explore alternative interfaces for a chosen deepening candidate, use this parallel sub-agent pattern. In CoworkOS, Main spawns the sub-agents with `call_subagent`, all in one turn; a collaborator, which cannot delegate, designs the variants itself one after another, each from the same brief and a different constraint. Based on "Design It Twice" (Ousterhout): your first idea is unlikely to be the best.
+When the user wants to explore alternative interfaces for a chosen deepening candidate, use this parallel sub-agent pattern. In Formicand, Main spawns the sub-agents with `call_subagent`, all in one turn; a collaborator, which cannot delegate, designs the variants itself one after another, each from the same brief and a different constraint. Based on "Design It Twice" (Ousterhout): your first idea is unlikely to be the best.
 
 Uses the vocabulary in [SKILL.md](SKILL.md): **module**, **interface**, **seam**, **adapter**, **leverage**.
 

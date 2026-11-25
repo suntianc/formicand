@@ -314,7 +314,7 @@ export function messagesWithRuntimeHistory(
     if (event?.type !== "message_end") return [];
     const projected = conversationMessages([event.message]);
     const incoming = event.message as { role?: string; customType?: string } | undefined;
-    if (incoming?.role !== "custom" || incoming.customType !== "cowork-user-message") return projected;
+    if (incoming?.role !== "custom" || incoming.customType !== "formicand-user-message") return projected;
     // SDK runtime custom timestamps describe queue acceptance, not delivery.
     // A saved Pi entry replaces this below with its exact context timestamp.
     return projected.map((message) => {
@@ -678,7 +678,7 @@ export function viewRuntimeEvent(record: Record<string, unknown>): Record<string
     };
   }
   // A callback is read from its message_end, the start repeats the report.
-  if (payload.type === "message_start" && message?.customType === "cowork-callback") {
+  if (payload.type === "message_start" && message?.customType === "formicand-callback") {
     const details = message.details as Record<string, unknown> | undefined;
     const { role, customType, timestamp } = message;
     return {

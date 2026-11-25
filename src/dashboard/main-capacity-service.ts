@@ -146,7 +146,7 @@ export function createMainCapacityService(ports: MainCapacityServicePorts) {
 
   function log(error: unknown) {
     console.error(
-      `[cowork] 外部 Main 容量处理失败：${error instanceof Error ? error.message : String(error)}`
+      `[formicand] 外部 Main 容量处理失败：${error instanceof Error ? error.message : String(error)}`
     );
   }
 
@@ -206,7 +206,7 @@ export function createMainCapacityService(ports: MainCapacityServicePorts) {
     }
     await ledger.mergeExternalTasks(read.tasks);
     console.error(
-      `[cowork] 外部会话索引刷新不完整，已保留已知身份：${read.failures
+      `[formicand] 外部会话索引刷新不完整，已保留已知身份：${read.failures
         .map((failure) => `${failure.projectId}（${failure.message}）`)
         .join("；")}`
     );
@@ -628,7 +628,7 @@ export function createMainCapacityService(ports: MainCapacityServicePorts) {
             await dispatch();
           })().catch(log);
         },
-        ports.tickMs ?? Number(process.env.COWORK_MAIN_CAPACITY_TICK_MS ?? 2_000)
+        ports.tickMs ?? Number(process.env.FORMICAND_MAIN_CAPACITY_TICK_MS ?? 2_000)
       );
       ticker.unref();
     },

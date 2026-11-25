@@ -13,8 +13,8 @@ import {
 
 export class MacComputerDriver implements ComputerDriver {
   constructor(
-    private readonly executable = process.env.COWORK_COMPUTER_USE_EXECUTABLE ||
-      resolve(process.env.COWORK_HARNESS_ROOT || process.cwd(), "dist/src/gui/atria-computer-use")
+    private readonly executable = process.env.FORMICAND_COMPUTER_USE_EXECUTABLE ||
+      resolve(process.env.FORMICAND_HARNESS_ROOT || process.cwd(), "dist/src/gui/formicand-computer-use")
   ) {}
   private async request<T>(body: unknown, signal?: AbortSignal, timeoutMs = 15_000): Promise<T> {
     const acting = (body as { operation?: string }).operation === "act";

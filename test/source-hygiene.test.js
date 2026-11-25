@@ -40,7 +40,7 @@ test("source gate allows documented examples and network/redaction fixtures", ()
 });
 
 test("source gate scans Git candidates while keeping ignored local profiles and backups unread", async () => {
-  const root = await mkdtemp(join(tmpdir(), "atria-source-hygiene-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-source-hygiene-"));
   try {
     await mkdir(join(root, "empty-template"));
     execFileSync("git", ["init", `--template=${join(root, "empty-template")}`], {
@@ -79,7 +79,7 @@ test("source gate scans Git candidates while keeping ignored local profiles and 
 });
 
 test("source gate reports private files and symlinks without following them", async () => {
-  const root = await mkdtemp(join(tmpdir(), "atria-source-metadata-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-source-metadata-"));
   try {
     const token = ["ghp", "A".repeat(40)].join("_");
     await writeFile(join(root, "config.json"), token);

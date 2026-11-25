@@ -2,12 +2,12 @@
 
 [English](en/architecture.md) | 中文
 
-CoworkOS 是本机单用户 harness，CLI、Web 和 Electron App 共用运行时。修改入口与测试见 [代码地图](code-map.md)，环境与命令见 [开发指南](development.md)，数据归属见 [工作区与持久化](task-workspace-layout.md)。
+Formicand 是本机单用户 harness，CLI、Web 和 Electron App 共用运行时。修改入口与测试见 [代码地图](code-map.md)，环境与命令见 [开发指南](development.md)，数据归属见 [工作区与持久化](task-workspace-layout.md)。
 
 ## 装配与依赖方向
 
 ```text
-scripts/atria.mjs ─→ src/cli/ ─→ runtime / tools / workspace
+scripts/formicand.mjs ─→ src/cli/ ─→ runtime / tools / workspace
 desktop/ ─→ src/cli/dashboard.ts ─→ src/dashboard/
 web/ ───── HTTP/SSE ─────────────→ src/dashboard/
                                   ├→ runtime / ProcessHost
@@ -20,23 +20,23 @@ Pi 启动器 ─→ .pi/extensions/ ─→ .pi/runtime/ ─→ runtime / tools
 
 | 层                           | 负责的状态与行为                                                | 入口                                                                                                                                                                                                    | 边界                                                      |
 | ---------------------------- | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
-| CLI                          | 参数、诊断、启动与信号                                          | [启动器](../scripts/atria.mjs)、[CLI](../src/cli/cowork.ts)、[Dashboard 入口](../src/cli/dashboard.ts)                                                                                                  | 可执行入口，不承载 HTTP 共享实现                          |
+| CLI                          | 参数、诊断、启动与信号                                          | [启动器](../scripts/formicand.mjs)、[CLI](../src/cli/formicand.ts)、[Dashboard 入口](../src/cli/dashboard.ts)                                                                                           | 可执行入口，不承载 HTTP 共享实现                          |
 | 页面装配/控制器              | 当前导航、展示、草稿、SSE 与用户交互                            | [app](../web/app.js)、[controllers](../web/assets/controllers/)、[UI](../web/assets/ui/)                                                                                                                | 服务决定 Task/Run 结果；UI 保留异步请求归属               |
 | Dashboard                    | 本机服务装配、HTTP/SSE、会话运行的进程所有权                    | [application](../src/dashboard/application.ts)、[routes](../src/dashboard/routes.ts)、[Run](../src/dashboard/run-service.ts)                                                                            | 路由校验和映射；Run 不写 HTTP 响应；路由不创建进程        |
 | Runtime                      | Pi 进程、委派、Inbox、恢复、完成判定                            | [Coordinator](../src/runtime/coordinator-runtime.ts)、[子代理后端](../src/dashboard/subagent-backend.ts)、[进程模型](../src/runtime/agent-process.ts)、[进程结算](../src/runtime/subagent-processes.ts) | 不知道 HTTP/DOM；完成判定覆盖未结束委派、jobs、问答与消息 |
 | ProcessHost                  | 子进程组、重复启动保护、任务停止、限时关闭                      | [ProcessHost](../src/runtime/process-host.ts)                                                                                                                                                           | 不裁决对话业务状态                                        |
-| Pi 接入                      | Pi hook、工具注册与上下文装配                                   | [薄入口](../.pi/extensions/cowork.ts)、[runtime](../.pi/runtime/extension.ts)、[tools](../.pi/runtime/tools/)                                                                                           | 新领域工具进入对应模块；Pi 上游源码不在此修改             |
+| Pi 接入                      | Pi hook、工具注册与上下文装配                                   | [薄入口](../.pi/extensions/formicand.ts)、[runtime](../.pi/runtime/extension.ts)、[tools](../.pi/runtime/tools/)                                                                                        | 新领域工具进入对应模块；Pi 上游源码不在此修改             |
 | GUI / Security               | 窗口授权、观察/动作、串行队列、取消、审计、执行权限             | [ComputerUse](../src/gui/computer-use.ts)、[权限](../src/security/execution-permissions.ts)                                                                                                             | 授权由可信宿主授予；模型决策不在此层                      |
 | Workspace / Storage / Domain | Task/Run 数据、输入/产出物、索引、持久事件、trace、文件锁与类型 | [工作区](../src/workspace/)、[存储](../src/storage/)、[领域](../src/domain/)                                                                                                                            | 格式兼容、路径归属与迁移显式维护                          |
 | Desktop                      | 原生窗口、可信 IPC、加密客户端凭据、用户数据目录、退出保存      | [main](../desktop/main.cjs)、[preload](../desktop/preload.cjs)、[backend](../desktop/backend.cjs)                                                                                                       | renderer 无 Node 权限；产出物查看窗口无可信桥             |
 
 `createDashboardApplication()` 的导入不会监听端口或注册信号。启动与关闭信号在 `src/cli/dashboard.ts`。可复用服务必须能由测试显式装配和停止。
 
-项目台账与共享项目身份由 [项目数据服务](../src/workspace/project-data-service.ts) 持有：Dashboard 启动时按配置打开 SQLite 或 PostgreSQL 并执行版本化迁移，配置或连接失败会停止启动而不切换引擎。HTTP 路由、Main 工具与 `coworkos data backup/restore` 使用同一服务接口；SQL 方言、连接和事务在 [存储适配器](../src/storage/project-data/) 内封装，业务代码不按数据库分叉。Main 工具只经当前 Task 访问其项目，不能指定其他项目。需求看板是台账需求的独立投影：受控外部入口在同一事务里发布需求与看板条目，内部新需求只进台账；认领用条件更新产生唯一赢家，暂停保留归属，显式释放才回到待认领。同一服务还持有项目持久 Main 会话与运行归属；每个会话以本机一个 Task 作为历史容器，Pi 历史与执行目录留在实际执行后端，不进入共享记录。其他后端可通过 [认证远程客户端](../src/workspace/project-data-remote.ts) 访问同一权威服务，只登记自己的本机目录绑定，远端路径不进入执行目录。
+项目台账与共享项目身份由 [项目数据服务](../src/workspace/project-data-service.ts) 持有：Dashboard 启动时按配置打开 SQLite 或 PostgreSQL 并执行版本化迁移，配置或连接失败会停止启动而不切换引擎。HTTP 路由、Main 工具与 `formicand data backup/restore` 使用同一服务接口；SQL 方言、连接和事务在 [存储适配器](../src/storage/project-data/) 内封装，业务代码不按数据库分叉。Main 工具只经当前 Task 访问其项目，不能指定其他项目。需求看板是台账需求的独立投影：受控外部入口在同一事务里发布需求与看板条目，内部新需求只进台账；认领用条件更新产生唯一赢家，暂停保留归属，显式释放才回到待认领。同一服务还持有项目持久 Main 会话与运行归属；每个会话以本机一个 Task 作为历史容器，Pi 历史与执行目录留在实际执行后端，不进入共享记录。其他后端可通过 [认证远程客户端](../src/workspace/project-data-remote.ts) 访问同一权威服务，只登记自己的本机目录绑定，远端路径不进入执行目录。
 
 ## Pi 依赖边界
 
-Pi 包的运行时导入（`@earendil-works/pi-*`，非 `import type`）只允许出现在持有 Pi 进程的区域：`.pi/`（扩展与工具）、`scripts/`（启动器）、模型配置与 Main 会话文件读写；其余模块只能用类型导入。允许区域是 [ESLint 规则](../eslint.config.mjs) 中的明确文件清单（`cowork/pi-import-boundary`），[依赖边界回归](../test/architecture-boundaries.test.js) 校验清单与本节的路径一致。
+Pi 包的运行时导入（`@earendil-works/pi-*`，非 `import type`）只允许出现在持有 Pi 进程的区域：`.pi/`（扩展与工具）、`scripts/`（启动器）、模型配置与 Main 会话文件读写；其余模块只能用类型导入。允许区域是 [ESLint 规则](../eslint.config.mjs) 中的明确文件清单（`formicand/pi-import-boundary`），[依赖边界回归](../test/architecture-boundaries.test.js) 校验清单与本节的路径一致。
 
 - 模型配置（连接探测、思考档位、模型参数与请求记录）：[main-request-retry](../src/runtime/main-request-retry.ts)、[model-cache](../src/runtime/model-cache.ts)、[model-connection](../src/runtime/model-connection.ts)、[model-levels](../src/runtime/model-levels.ts)、[model-profile](../src/runtime/model-profile.ts)、[model-provider](../src/runtime/model-provider.ts)、[model-request-recording](../src/runtime/model-request-recording.ts)。
 - Main 会话文件读写（后端在 Main 未运行时改写 Pi 会话文件，包括编辑、分叉和离线换窗）：[conversation-fork](../src/runtime/conversation-fork.ts)、[main-message-edit](../src/runtime/main-message-edit.ts)。
@@ -73,7 +73,7 @@ QuickJS 保存当前 Pi 会话的脚本 state，经受限 dispatcher 逐次调�
 
 Composer Session 按会话保存草稿与已验证附件，发送捕获原 Task、草稿 token、模型及完整附件。刷新、切换、补充回退和附件读取都保持原会话归属。流式更新复用变化的 DOM，保留焦点、选区、阅读位置和展开状态。
 
-桌面后端端口随机；草稿不能只依赖 origin 的 localStorage。可信 preload 在页面启动前恢复私有 `composer-drafts.json`，只镜像允许的草稿键。保存经过格式/大小验证、原子写入和损坏备份；Web 仍按 origin 保存。页面其余记住的选择（各会话的模型、提供方与推理强度、未读标记、折叠的项目、布局等 `atria.*` 键）同样由 preload 镜像到 `ui-preferences.json`，页面换到新 origin 时写回；草稿键不进入这份文件。
+桌面后端端口随机；草稿不能只依赖 origin 的 localStorage。可信 preload 在页面启动前恢复私有 `composer-drafts.json`，只镜像允许的草稿键。保存经过格式/大小验证、原子写入和损坏备份；Web 仍按 origin 保存。页面其余记住的选择（各会话的模型、提供方与推理强度、未读标记、折叠的项目、布局等 `formicand.*` 键）同样由 preload 镜像到 `ui-preferences.json`，页面换到新 origin 时写回；草稿键不进入这份文件。
 
 ## 信任边界与支持范围
 

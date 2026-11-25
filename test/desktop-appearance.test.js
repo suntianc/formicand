@@ -34,7 +34,7 @@ function nativeAppearance(systemDark = false) {
 }
 
 test("appearance persists independently of dashboard origin, validates IPC and applies before window creation", async () => {
-  const root = await mkdtemp(path.join(tmpdir(), "atria-appearance-"));
+  const root = await mkdtemp(path.join(tmpdir(), "formicand-appearance-"));
   try {
     function fixture(port, systemDark = false) {
       const events = new Map();
@@ -54,9 +54,9 @@ test("appearance persists independently of dashboard origin, validates IPC and a
     await first.host.load();
     first.host.register();
     assert.deepEqual(first.calls, ["system"]);
-    first.events.get("bookman:appearance")(first.event);
+    first.events.get("formicand:appearance")(first.event);
     assert.deepEqual(first.event.returnValue, { preference: "system", effective: "light" });
-    const save = first.events.get("bookman:set-appearance");
+    const save = first.events.get("formicand:set-appearance");
     for (const value of [null, {}, "auto", "DARK", 1])
       assert.throws(() => save(first.event, value), /Invalid appearance/);
     assert.throws(() => save({ ...first.event, senderFrame: {} }, "dark"), /Untrusted/);
@@ -67,20 +67,20 @@ test("appearance persists independently of dashboard origin, validates IPC and a
     await next.host.load();
     next.host.register();
     assert.deepEqual(next.calls, ["dark"]);
-    next.events.get("bookman:appearance")(next.event);
+    next.events.get("formicand:appearance")(next.event);
     assert.deepEqual(next.event.returnValue, { preference: "dark", effective: "dark" });
     const untrusted = { ...next.event, senderFrame: {} };
-    next.events.get("bookman:appearance")(untrusted);
+    next.events.get("formicand:appearance")(untrusted);
     assert.equal(untrusted.returnValue, null);
-    await next.events.get("bookman:set-appearance")(next.event, "light");
+    await next.events.get("formicand:set-appearance")(next.event, "light");
     assert.equal(next.calls.at(-1), "light");
-    await next.events.get("bookman:set-appearance")(next.event, "system");
+    await next.events.get("formicand:set-appearance")(next.event, "system");
     assert.equal(JSON.parse(await readFile(path.join(root, "appearance.json"), "utf8")).preference, "system");
     const restarted = fixture(6789, true);
     await restarted.host.load();
     restarted.host.register();
     assert.deepEqual(restarted.calls, ["system"]);
-    restarted.events.get("bookman:appearance")(restarted.event);
+    restarted.events.get("formicand:appearance")(restarted.event);
     assert.deepEqual(restarted.event.returnValue, { preference: "system", effective: "dark" });
   } finally {
     await rm(root, { recursive: true, force: true });
@@ -88,7 +88,7 @@ test("appearance persists independently of dashboard origin, validates IPC and a
 });
 
 test("native system changes publish effective appearance and manual choices stay pinned", async () => {
-  const root = await mkdtemp(path.join(tmpdir(), "atria-appearance-native-"));
+  const root = await mkdtemp(path.join(tmpdir(), "formicand-appearance-native-"));
   try {
     const events = new Map(),
       changes = [];
@@ -109,13 +109,13 @@ test("native system changes publish effective appearance and manual choices stay
     host.register();
     setSystemDark(true);
     assert.deepEqual(changes.at(-1), {
-      channel: "bookman:appearance-changed",
+      channel: "formicand:appearance-changed",
       value: { preference: "system", effective: "dark" }
     });
     setSystemDark(false);
     assert.equal(changes.at(-1).value.effective, "light");
     const event = { sender: webContents, senderFrame: webContents.mainFrame };
-    const save = events.get("bookman:set-appearance");
+    const save = events.get("formicand:set-appearance");
     await save(event, "dark");
     setSystemDark(true);
     setSystemDark(false);
@@ -135,7 +135,7 @@ test("native system changes publish effective appearance and manual choices stay
 
 test("invalid or unreadable appearance preferences follow system without blocking startup", async () => {
   const { writeFile, mkdir } = await import("node:fs/promises");
-  const root = await mkdtemp(path.join(tmpdir(), "atria-appearance-invalid-"));
+  const root = await mkdtemp(path.join(tmpdir(), "formicand-appearance-invalid-"));
   try {
     for (const content of ["null", "[]", "42", '"dark"', "{", '{"preference":"invalid"}']) {
       await writeFile(path.join(root, "appearance.json"), content);
@@ -153,7 +153,7 @@ test("invalid or unreadable appearance preferences follow system without blockin
       host.register();
       assert.equal(nativeTheme.themeSource, "system");
       const event = { sender: webContents, senderFrame: webContents.mainFrame };
-      events.get("bookman:appearance")(event);
+      events.get("formicand:appearance")(event);
       assert.equal(event.returnValue.preference, "system");
       assert.equal(event.returnValue.effective, "light");
       assert.match(event.returnValue.warning, /跟随系统/);
@@ -171,7 +171,7 @@ test("invalid or unreadable appearance preferences follow system without blockin
 
 test("failed saves keep the previous file and native preference, and later saves recover", async () => {
   const { writeFile, mkdir } = await import("node:fs/promises");
-  const root = await mkdtemp(path.join(tmpdir(), "atria-appearance-failure-"));
+  const root = await mkdtemp(path.join(tmpdir(), "formicand-appearance-failure-"));
   try {
     await writeFile(path.join(root, "appearance.json"), '{"preference":"dark"}');
     const handlers = new Map();
@@ -188,13 +188,13 @@ test("failed saves keep the previous file and native preference, and later saves
     host.register();
     await mkdir(path.join(root, "appearance.json.tmp"));
     const event = { sender: webContents, senderFrame: webContents.mainFrame };
-    await assert.rejects(handlers.get("bookman:set-appearance")(event, "light"));
+    await assert.rejects(handlers.get("formicand:set-appearance")(event, "light"));
     assert.equal(nativeTheme.themeSource, "dark");
     assert.equal(JSON.parse(await readFile(path.join(root, "appearance.json"), "utf8")).preference, "dark");
     await rm(path.join(root, "appearance.json.tmp"), { recursive: true });
     await Promise.all([
-      handlers.get("bookman:set-appearance")(event, "light"),
-      handlers.get("bookman:set-appearance")(event, "dark")
+      handlers.get("formicand:set-appearance")(event, "light"),
+      handlers.get("formicand:set-appearance")(event, "dark")
     ]);
     assert.equal(nativeTheme.themeSource, "dark");
     assert.equal(JSON.parse(await readFile(path.join(root, "appearance.json"), "utf8")).preference, "dark");

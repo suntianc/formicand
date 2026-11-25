@@ -828,7 +828,7 @@ export function createSettingsPages({
   });
 
   // A timestamp already on screen follows the format preference immediately.
-  window.atriaPreferences?.onChange?.(() => {
+  window.formicandPreferences?.onChange?.(() => {
     if (section === "nodes") renderNodes();
     if (section === "members") renderMembers();
   });

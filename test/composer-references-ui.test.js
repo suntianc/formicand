@@ -94,11 +94,11 @@ test("serializeRichNode restores canonical reference tokens, normalizes NBSP and
 });
 
 test("conversationTitle and taskGoalText hide a leading references manifest", () => {
-  const manifest = `<atria_references>\n${JSON.stringify({
+  const manifest = `<formicand_references>\n${JSON.stringify({
     version: 1,
     note: "manifest",
     references: [{ kind: "skill", name: "tidy-docs" }]
-  })}\n</atria_references>`;
+  })}\n</formicand_references>`;
   assert.equal(
     conversationTitle({ taskId: "task-1", goal: `${manifest}\n\n/tidy-docs 整理文档\n第二行` }),
     "/tidy-docs 整理文档"

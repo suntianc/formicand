@@ -19,7 +19,7 @@ import { fakeEventHandlers } from "./fixtures/fake-pi-events.mjs";
  * purpose — and that the Main supervisor is what turns it into one wake.
  */
 
-const extensionPath = resolve(".pi/extensions/cowork.ts");
+const extensionPath = resolve(".pi/extensions/formicand.ts");
 const requirePi = createRequire(import.meta.resolve("@earendil-works/pi-coding-agent"));
 const TASK = "sleep-task";
 const RUN = `main-${TASK}`;
@@ -59,20 +59,20 @@ const ctx = {
 };
 
 async function harness(t) {
-  const root = await mkdtemp(join(tmpdir(), "atria-sleep-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-sleep-"));
   const previous = { ...process.env };
   // The tool's runtime-state write is fire-and-forget by design; let it land.
   t.after(async () => {
     process.env = previous;
     await rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 });
   });
-  process.env.COWORK_API_BASE = "https://example.test";
-  process.env.COWORK_API_KEY = "test-key";
-  process.env.COWORK_CONFIG = join(root, "config.json");
-  await writeFile(process.env.COWORK_CONFIG, "{}\n");
-  process.env.COWORK_WORKSPACE = root;
-  process.env.COWORK_TASK_ID = TASK;
-  process.env.COWORK_RUN_ID = RUN;
+  process.env.FORMICAND_API_BASE = "https://example.test";
+  process.env.FORMICAND_API_KEY = "test-key";
+  process.env.FORMICAND_CONFIG = join(root, "config.json");
+  await writeFile(process.env.FORMICAND_CONFIG, "{}\n");
+  process.env.FORMICAND_WORKSPACE = root;
+  process.env.FORMICAND_TASK_ID = TASK;
+  process.env.FORMICAND_RUN_ID = RUN;
   const store = new LocalWorkspaceStore(root);
   await store.createTask(TASK, { goal: "keep watch" });
   await store.createRun(TASK, RUN);
@@ -137,7 +137,7 @@ test("sleep_until with an interval records a wake time and ends the turn", async
 });
 
 test("a park record without a wake time is damaged data, not an old park", async (t) => {
-  const root = await mkdtemp(join(tmpdir(), "atria-sleep-damaged-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-sleep-damaged-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   await mkdir(join(root, TASK, "agents", "main"), { recursive: true });
   await writeFile(

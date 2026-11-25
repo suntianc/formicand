@@ -1,7 +1,7 @@
 import { readdir } from "node:fs/promises";
 import type { AgentDefinition, AgentEntry } from "../runtime/agent-definitions.js";
 import { dirname, join } from "node:path";
-import type { CoworkConfig } from "../runtime/config.js";
+import type { FormicandConfig } from "../runtime/config.js";
 import type { CapabilityGrant } from "../runtime/capability-provider.js";
 import type {
   DelegatedModelRequest,
@@ -60,7 +60,7 @@ export interface SubagentBackendPorts {
   locateTask(taskId: string): Promise<TaskLocation>;
   workspaceRoots(): Promise<string[]>;
   /** This host's saved configuration; read again at every start boundary. */
-  config(): CoworkConfig;
+  config(): FormicandConfig;
   resolveMainModel(request: ModelRoleRequest): ResolvedModelRole;
   /** The requirement checkout a bound work item forks from. */
   development(input: { taskId: string; developmentId: string }): Promise<{ directory: string } | undefined>;
@@ -146,7 +146,7 @@ export function createSubagentBackend(ports: SubagentBackendPorts): SubagentBack
       onSettled: (result) => {
         void followSettled(workspaceRoot, result.taskId, result.runId).catch((error) =>
           console.error(
-            `[cowork] starting dependent subagent work failed: ${
+            `[formicand] starting dependent subagent work failed: ${
               error instanceof Error ? error.message : String(error)
             }`
           )
@@ -239,7 +239,7 @@ export function createSubagentBackend(ports: SubagentBackendPorts): SubagentBack
           if (!(await hasUnfinishedWork(run)) && !(await service.running(run))) tracked.delete(key(run));
         } catch (error) {
           console.error(
-            `[cowork] subagent maintenance failed for ${run.taskId}/${run.runId}: ${
+            `[formicand] subagent maintenance failed for ${run.taskId}/${run.runId}: ${
               error instanceof Error ? error.message : String(error)
             }`
           );
@@ -269,7 +269,7 @@ export function createSubagentBackend(ports: SubagentBackendPorts): SubagentBack
           ).map((root) =>
             discover(root).catch((error) =>
               console.error(
-                `[cowork] subagent discovery failed for ${root}: ${
+                `[formicand] subagent discovery failed for ${root}: ${
                   error instanceof Error ? error.message : String(error)
                 }`
               )
@@ -295,7 +295,7 @@ export function createSubagentBackend(ports: SubagentBackendPorts): SubagentBack
             }
           })().catch((error) =>
             console.error(
-              `[cowork] subagent discovery failed: ${error instanceof Error ? error.message : String(error)}`
+              `[formicand] subagent discovery failed: ${error instanceof Error ? error.message : String(error)}`
             )
           );
       }, interval);
@@ -374,7 +374,7 @@ export function delegatedEnv(input: {
   grants: CapabilityGrant[];
   thinkingLevel?: PiThinkingLevel;
   projectDirectory?: string;
-  config: CoworkConfig;
+  config: FormicandConfig;
   resolveMainModel(request: ModelRoleRequest): ResolvedModelRole;
   projectRoot: string;
   configPath?: string;
@@ -397,15 +397,15 @@ export function delegatedEnv(input: {
   return {
     env: {
       ...roleConnectionEnv(selection),
-      COWORK_WORKSPACE: join(input.projectRoot, input.taskId),
-      COWORK_TASK_ID: input.taskId,
-      COWORK_RUN_ID: input.runId,
-      ...(input.projectDirectory ? { COWORK_PROJECT_DIR: input.projectDirectory } : {}),
+      FORMICAND_WORKSPACE: join(input.projectRoot, input.taskId),
+      FORMICAND_TASK_ID: input.taskId,
+      FORMICAND_RUN_ID: input.runId,
+      ...(input.projectDirectory ? { FORMICAND_PROJECT_DIR: input.projectDirectory } : {}),
       ...(input.configPath
-        ? { COWORK_CONFIG: input.configPath, COWORK_CONFIG_ROOT: dirname(input.configPath) }
+        ? { FORMICAND_CONFIG: input.configPath, FORMICAND_CONFIG_ROOT: dirname(input.configPath) }
         : {}),
       ...(input.piAgentDir ? { PI_CODING_AGENT_DIR: input.piAgentDir } : {}),
-      ...(input.grants.length > 0 ? { COWORK_AGENT_GRANTS: JSON.stringify(input.grants) } : {})
+      ...(input.grants.length > 0 ? { FORMICAND_AGENT_GRANTS: JSON.stringify(input.grants) } : {})
     },
     // The label is recorded for every launch, not only a role-bound one: the
     // status view names the model a work item actually ran on.

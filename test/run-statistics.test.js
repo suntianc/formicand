@@ -42,7 +42,7 @@ const task = {
 };
 
 async function fixture(t, queue = [{ stepId: "call-1", agentId: "subagent_1", status: "cancelled" }]) {
-  const root = await mkdtemp(join(tmpdir(), "atria-statistics-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-statistics-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const run = join(root, "task", "runs", "new");
   const trace = join(run, "agents", "subagents", "subagent_1", "agent-output.log");

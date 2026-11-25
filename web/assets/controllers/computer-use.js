@@ -24,7 +24,7 @@ export function installComputerUse({ api, getSelectedTaskId, getTaskLabel, showT
   document.querySelector("#conversation").before(bar);
   const $ = (selector) => section.querySelector(selector);
   const toggle = $("#computer-access-enabled");
-  const native = window.bookmanDesktop?.computerUse;
+  const native = window.formicandDesktop?.computerUse;
   section.querySelector(".computer-permission-actions").hidden = !native;
   let access = { policy: { enabled: false }, paused: false },
     taskBlocked = false,

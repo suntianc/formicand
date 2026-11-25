@@ -9,8 +9,8 @@ import { workItemUnsettled } from "./subagent-work.js";
 import { HumanRequestStore } from "./human.js";
 import { SubagentQuestionStore } from "./subagent-questions.js";
 
-export const CONTEXT_CAPACITY_NOTICE = "cowork-context-capacity";
-export const CONTEXT_WINDOW_REQUEST = "cowork-context-window-request";
+export const CONTEXT_CAPACITY_NOTICE = "formicand-context-capacity";
+export const CONTEXT_WINDOW_REQUEST = "formicand-context-window-request";
 export const MAX_HANDOFF_CHARS = 60_000;
 const MAX_EMERGENCY_CHARS = 6_000;
 /**
@@ -71,7 +71,7 @@ export interface HandoffScope {
 }
 
 export interface WindowDetails {
-  kind: "cowork-context-window";
+  kind: "formicand-context-window";
   reason: "manual" | "threshold" | "overflow";
   requestId?: string;
 }
@@ -80,7 +80,7 @@ export function windowDetails(details: unknown): WindowDetails | undefined {
   if (!details || typeof details !== "object") return;
   const { kind, reason, requestId } = details as Partial<WindowDetails>;
   if (
-    kind === "cowork-context-window" &&
+    kind === "formicand-context-window" &&
     (reason === "manual" || reason === "threshold" || reason === "overflow")
   )
     return { kind, reason, ...(typeof requestId === "string" ? { requestId } : {}) };
@@ -181,7 +181,7 @@ export async function sessionHandoff(input: {
     : Math.max(512, Math.min(MAX_HANDOFF_CHARS, capacity));
   const unavailable = (label: string, error: unknown) => {
     console.warn(
-      `[CoworkOS] Context handoff could not read ${label}:`,
+      `[Formicand] Context handoff could not read ${label}:`,
       error instanceof Error ? error.message : String(error)
     );
   };
@@ -223,6 +223,10 @@ export async function sessionHandoff(input: {
     section("Session notes", notes, Math.min(MAX_NOTES_CHARS, share("notes")))
   ].join("");
   const users = section("User messages", userMessages(entries, available - sections.length), Infinity);
-  const details: WindowDetails = { kind: "cowork-context-window", reason, ...(requestId && { requestId }) };
+  const details: WindowDetails = {
+    kind: "formicand-context-window",
+    reason,
+    ...(requestId && { requestId })
+  };
   return { type: "compaction", summary: title + sections + users, firstKeptEntryId, details };
 }

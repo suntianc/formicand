@@ -65,22 +65,22 @@ async function backendEnvironment(paths, settings) {
   let legacySettings = {};
   if (settings) {
     legacySettings = {
-      COWORK_API_BASE: settings.baseUrl || "",
-      COWORK_API_KEY: settings.apiKey || "",
-      ...(settings.webSearch?.exaApiKey ? { COWORK_EXA_API_KEY: settings.webSearch.exaApiKey } : {}),
-      COWORK_MODEL: settings.model || "glm-5.3"
+      FORMICAND_API_BASE: settings.baseUrl || "",
+      FORMICAND_API_KEY: settings.apiKey || "",
+      ...(settings.webSearch?.exaApiKey ? { FORMICAND_EXA_API_KEY: settings.webSearch.exaApiKey } : {}),
+      FORMICAND_MODEL: settings.model || "glm-5.3"
     };
   }
   return {
     ...desktopBackendEnvironment(),
     ELECTRON_RUN_AS_NODE: "1",
-    ATRIA_HOME: paths.userData,
-    COWORK_HARNESS_ROOT: paths.appRoot,
-    COWORK_WORKSPACE: paths.workspaceRoot,
-    COWORK_GLOBAL_INDEX: paths.globalIndex,
+    FORMICAND_HOME: paths.userData,
+    FORMICAND_HARNESS_ROOT: paths.appRoot,
+    FORMICAND_WORKSPACE: paths.workspaceRoot,
+    FORMICAND_GLOBAL_INDEX: paths.globalIndex,
     PI_CODING_AGENT_DIR: paths.piAgentDir,
-    COWORK_CONFIG: paths.configPath,
-    COWORK_UI_DIR: path.join(paths.appRoot, "web"),
+    FORMICAND_CONFIG: paths.configPath,
+    FORMICAND_UI_DIR: path.join(paths.appRoot, "web"),
     ...legacySettings
   };
 }

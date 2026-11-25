@@ -1,6 +1,6 @@
 # 科学剪枝原复盘相关摘录
 
-来源：归档 `coworkos-p1-docs/os-core-pruning/retro.md` 第 3、4 项，2026-11-07。与 [仓库复盘](../../../core-pruning-retrospective.md) 对应；省略机器绝对路径。
+来源：归档 `formicand-p1-docs/os-core-pruning/retro.md` 第 3、4 项，2026-11-07。与 [仓库复盘](../../../core-pruning-retrospective.md) 对应；省略机器绝对路径。
 
 Terra 所用 Python 为 3.13.11；DSH a2 首次 AC6 选择了 Homebrew Python 3.15.0，fixture 的 `fitz` 导入失败。使用已有、含所需库的 3.13.11 后 14/14 通过，源码仅一行 README 差异。失败日志与恢复日志均保留；Main 在复审交接明确解释器，后续审查、集成和 finish 沿用。
 

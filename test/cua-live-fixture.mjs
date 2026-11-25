@@ -69,7 +69,7 @@ export async function cuaLiveFixture() {
           if (body.length > 8192) throw new Error();
         }
         const value = JSON.parse(body);
-        if (value.code !== token || value.memo !== "CoworkOS browser verification") throw new Error();
+        if (value.code !== token || value.memo !== "Formicand browser verification") throw new Error();
         accepted++;
         receipt = Buffer.from(
           JSON.stringify({
@@ -104,7 +104,7 @@ export async function cuaLiveFixture() {
       return response.end();
     }
     response.setHeader("content-type", "text/html; charset=utf-8");
-    response.end(`<!doctype html><html><head><meta charset="utf-8"><title>CoworkOS visual challenge</title>
+    response.end(`<!doctype html><html><head><meta charset="utf-8"><title>Formicand visual challenge</title>
       <style>body{font:18px system-ui;margin:32px;color:#172847}canvas{display:block;border:1px solid #aaa;margin:12px 0}section{display:inline-block;vertical-align:top;margin:12px 40px 12px 0;padding:20px;border:1px solid #bbb}label{display:block;margin:10px 0}input{font:inherit;width:240px}button,a{font:inherit;margin:8px 0}</style></head><body>
       <h1>Visual receipt challenge</h1><p>Read the six small digits in the canvas. They are available only as pixels. Enlarge the screenshot crop before filling the Receipt form.</p>
       <canvas width="300" height="80" aria-label="Six-digit visual challenge"></canvas>

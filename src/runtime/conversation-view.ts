@@ -18,7 +18,7 @@ export function conversationMessages(entries: unknown): ConversationMessage[] {
     if (!entry || typeof entry !== "object") return [];
     const message = entry.type === "message" ? entry.message : entry;
     if (
-      message?.customType === "cowork-user-message" &&
+      message?.customType === "formicand-user-message" &&
       (message.role === "custom" || message.type === "custom_message") &&
       typeof message.details?.message === "string"
     ) {
@@ -29,7 +29,7 @@ export function conversationMessages(entries: unknown): ConversationMessage[] {
         typeof message.timestamp === "string" ? Date.parse(message.timestamp) : message.timestamp;
       return [
         {
-          id: message.details._coworkInbox?.messageId || entry.id,
+          id: message.details._formicandInbox?.messageId || entry.id,
           role: "user" as const,
           content: message.details.message,
           timestamp: Number.isFinite(timestamp) ? timestamp : undefined,

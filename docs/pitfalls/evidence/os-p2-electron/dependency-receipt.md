@@ -1,6 +1,6 @@
 # 依赖恢复回执摘录
 
-来源：归档 `coworkos-p1-docs/os-p2-electron/evidence/final-a1-environment-reconciliation/receipt.json`，2026-11-07。省略私人工作树与 scratch 绝对路径；以下字段值保留原样。
+来源：归档 `formicand-p1-docs/os-p2-electron/evidence/final-a1-environment-reconciliation/receipt.json`，2026-11-07。省略私人工作树与 scratch 绝对路径；以下字段值保留原样。
 
 ```json
 {

@@ -58,11 +58,11 @@ test(
   "host-managed session protects drafts and delayed responses across A-B-A",
   { timeout: 120000 },
   async (t) => {
-    const root = await mkdtemp(join(tmpdir(), "cowork-merge-host-"));
+    const root = await mkdtemp(join(tmpdir(), "formicand-merge-host-"));
     const { startBackend, stopBackend } = await import("../dist/src/cli/backend.js");
     const inherited = Object.fromEntries(
       Object.entries(process.env).filter(
-        ([key]) => !/^(?:COWORK_|ATRIA_|PI_|ELECTRON_|NODE_OPTIONS$)/.test(key)
+        ([key]) => !/^(?:FORMICAND_|FORMICAND_|PI_|ELECTRON_|NODE_OPTIONS$)/.test(key)
       )
     );
     const instances = [];
@@ -85,14 +85,14 @@ test(
       const env = {
         ...inherited,
         HOME: join(root, "user-home"),
-        ATRIA_HOME: home,
+        FORMICAND_HOME: home,
         PI_CODING_AGENT_DIR: join(root, `pi-${name}`),
         PI_OFFLINE: "1",
         PI_TELEMETRY: "0",
-        COWORK_HARNESS_ROOT: resolve("."),
-        COWORK_WORKSPACE: workspace,
-        COWORK_CONFIG: config,
-        COWORK_DISABLE_MAIN_GUARDIAN: "1"
+        FORMICAND_HARNESS_ROOT: resolve("."),
+        FORMICAND_WORKSPACE: workspace,
+        FORMICAND_CONFIG: config,
+        FORMICAND_DISABLE_MAIN_GUARDIAN: "1"
       };
       await mkdir(env.HOME, { recursive: true });
       const started = await startBackend(env, resolve("."), process.execPath);
@@ -115,7 +115,7 @@ test(
       getSelected: () => selected,
       requestToken: (identity) => host.requestToken(identity)
     });
-    const headers = { "x-cowork-desktop-nonce": transport.rotate() };
+    const headers = { "x-formicand-desktop-nonce": transport.rotate() };
     const rendererStorage = storageFixture();
     const draftStorage = storageFixture();
     const view = draftFixture(draftStorage);
@@ -139,14 +139,14 @@ test(
       },
       fetch: async (url, options) => {
         const sourceHeaders = new Headers(options?.headers);
-        assert.equal(sourceHeaders.has("x-atria-token"), false);
+        assert.equal(sourceHeaders.has("x-formicand-token"), false);
         const absolute = new URL(url, selected.url).href;
         const request = transport.authorize(new Request(absolute, options));
         if (new URL(absolute).pathname === "/api/model-settings" && control) {
           const delayed = control;
           control = undefined;
-          assert.equal(request.headers.has("x-atria-token"), true);
-          assert.equal(request.headers.has("x-cowork-desktop-nonce"), false);
+          assert.equal(request.headers.has("x-formicand-token"), true);
+          assert.equal(request.headers.has("x-formicand-desktop-nonce"), false);
           const response = await fetch(request);
           assert.equal(response.status, 200);
           return {
@@ -180,17 +180,17 @@ test(
     assert.equal((await connecting).backendId, instances[0].instance.backendId);
     assert.equal(view.input.value, "typed while host authorization waits");
     assert.deepEqual(view.files(), [{ name: "held.txt", text: "attachment A" }]);
-    assert.equal(rendererStorage.getItem("cowork.management.sessions.v1"), null);
+    assert.equal(rendererStorage.getItem("formicand.management.sessions.v1"), null);
     const switchTo = async (index) => {
-      const oldNonce = headers["x-cowork-desktop-nonce"];
+      const oldNonce = headers["x-formicand-desktop-nonce"];
       selected = await host.select(instances[index].home);
-      headers["x-cowork-desktop-nonce"] = transport.rotate();
+      headers["x-formicand-desktop-nonce"] = transport.rotate();
       const rejected = transport.authorize(
-        new Request(`${selected.url}/api/backend`, { headers: { "x-cowork-desktop-nonce": oldNonce } })
+        new Request(`${selected.url}/api/backend`, { headers: { "x-formicand-desktop-nonce": oldNonce } })
       );
-      assert.equal(rejected.headers.has("x-atria-token"), false);
+      assert.equal(rejected.headers.has("x-formicand-token"), false);
       const foreign = transport.authorize(new Request("http://example.invalid/api/backend", { headers }));
-      assert.equal(foreign.headers.has("x-atria-token"), false);
+      assert.equal(foreign.headers.has("x-formicand-token"), false);
       assert.equal(
         (await client.switchBackend({ baseUrl: "" })).backendId,
         instances[index].instance.backendId

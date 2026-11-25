@@ -3,11 +3,11 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { resolve } from "node:path";
 import { jobStatus, killJob, listJobs, startJob } from "../../../dist/src/tools/jobs.js";
 import { LocalWorkspaceStore } from "../../../dist/src/workspace/workspace-store.js";
-import type { CoworkToolContext } from "../extension.ts";
+import type { FormicandToolContext } from "../extension.ts";
 import type { RuntimeToolResult } from "../helpers.ts";
 
 /** jobs tools depend only on explicit runtime ports. */
-export function registerJobsTools(pi: ExtensionAPI, context: CoworkToolContext) {
+export function registerJobsTools(pi: ExtensionAPI, context: FormicandToolContext) {
   pi.registerTool({
     name: "grant_capabilities",
     label: "Record Granted Capabilities",

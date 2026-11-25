@@ -65,7 +65,7 @@ export default function HarnessCorner({ x, y }) {
       <path d="M198 49V590" stroke="#292c35" />
       <Logo x={15} y={72} width={29} height={27} id="app-logo" />
       <text x="52" y="92" fontSize="18" fontWeight="650" fill="#f1f2f6" letterSpacing="-.6">
-        CoworkOS
+        Formicand
       </text>
       <g color="#a3a6b2">
         <Icon kind="search" x={151} y={78} size={16} />

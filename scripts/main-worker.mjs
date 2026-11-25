@@ -1,15 +1,15 @@
 import { access, mkdir, open, readFile, unlink, writeFile } from "node:fs/promises";
 import { spawn } from "node:child_process";
 import { join, resolve } from "node:path";
-import { atriaDataPaths } from "./data-home.cjs";
+import { formicandDataPaths } from "./data-home.cjs";
 import { capacityReceipt, openMainCapacityGate } from "./main-capacity-gate.mjs";
 
 // A small independent wake worker for long-running Tasks. It does not make
 // semantic decisions: it only starts a resumable Main session when durable
 // Inbox messages or an interrupted Main checkpoint require attention.
 const args = parseArgs(process.argv.slice(2));
-const workspaceRoot = resolve(args.workspace ?? atriaDataPaths().workspaceRoot);
-const taskId = args.task ?? process.env.COWORK_TASK_ID;
+const workspaceRoot = resolve(args.workspace ?? formicandDataPaths().workspaceRoot);
+const taskId = args.task ?? process.env.FORMICAND_TASK_ID;
 if (!taskId) fail("main-worker 需要 --task <id>");
 const pollMs = Math.max(1_000, number(args["poll-ms"], 5_000));
 const once = args.once === "true";
@@ -41,7 +41,7 @@ try {
   while (!stopped) {
     const wake = await readWakeState(taskRoot);
     if (wake.shouldWake) {
-      const runId = wake.runId ?? process.env.COWORK_RUN_ID ?? `main-${taskId}`;
+      const runId = wake.runId ?? process.env.FORMICAND_RUN_ID ?? `main-${taskId}`;
       const external = capacity?.external;
       let admission;
       try {
@@ -89,12 +89,14 @@ try {
           stdio: "inherit",
           env: {
             ...process.env,
-            COWORK_CLI_SESSION: "0",
-            COWORK_WORKSPACE: workspaceRoot,
-            COWORK_TASK_ID: taskId,
-            COWORK_RUN_ID: runId,
+            FORMICAND_CLI_SESSION: "0",
+            FORMICAND_WORKSPACE: workspaceRoot,
+            FORMICAND_TASK_ID: taskId,
+            FORMICAND_RUN_ID: runId,
             // This process already holds the slot; the launcher must not ask twice.
-            ...(admission?.state === "running" ? { COWORK_MAIN_CAPACITY_GRANTED: admission.requestId } : {})
+            ...(admission?.state === "running"
+              ? { FORMICAND_MAIN_CAPACITY_GRANTED: admission.requestId }
+              : {})
           }
         }
       );

@@ -31,7 +31,7 @@ async function waitFor(check, label, timeout = 10_000) {
 }
 
 test("a process that exits during launch settles exactly once", async (t) => {
-  const root = await mkdtemp(join(tmpdir(), "atria-agent-settlement-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-agent-settlement-"));
   await mkdir(join(root, "scripts"), { recursive: true });
   // Exits before the backend finishes reading the pid and writing the record.
   await writeFile(join(root, "scripts", "start-pi.mjs"), "process.exit(0);\n");
@@ -85,7 +85,7 @@ test(
   "a clean exit while its launch record is being written keeps the exit code",
   { timeout: 10_000 },
   async (t) => {
-    const root = await mkdtemp(join(tmpdir(), "atria-agent-early-exit-"));
+    const root = await mkdtemp(join(tmpdir(), "formicand-agent-early-exit-"));
     const workspaceRoot = join(root, "workspace");
     const release = join(root, "release");
     let child;
@@ -165,7 +165,7 @@ test(
 );
 
 test("an exit whose record now describes a newer process is not projected onto it", async (t) => {
-  const root = await mkdtemp(join(tmpdir(), "atria-agent-replaced-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-agent-replaced-"));
   const workspaceRoot = join(root, "workspace");
   const exits = [];
   const host = new AgentProcessHost({
@@ -224,7 +224,7 @@ test("an exit whose record now describes a newer process is not projected onto i
 });
 
 test("stopping a process returns as soon as it exits, not after the liveness poll", async (t) => {
-  const root = await mkdtemp(join(tmpdir(), "atria-agent-stop-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-agent-stop-"));
   await mkdir(join(root, "scripts"), { recursive: true });
   // Ends promptly on SIGTERM, the way an idle Main does.
   await writeFile(

@@ -62,7 +62,7 @@ export function createArtifactController({
   /** A file reference that matched several project files, waiting for a choice. */
   let choosing = null;
   const openWith = createOpenWith({
-    bridge: globalThis.window?.bookmanDesktop?.files,
+    bridge: globalThis.window?.formicandDesktop?.files,
     showToast,
     onChange: () => renderArtifactDrawer()
   });

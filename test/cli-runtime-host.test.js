@@ -18,7 +18,7 @@ test("the headless shell bootstrap does not add flags to worker inheritance", as
 });
 
 async function fixture(t, source) {
-  const root = await mkdtemp(join(tmpdir(), "atria-cli-host-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-cli-host-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const executable = join(root, "child.mjs");
   await writeFile(executable, source);
@@ -29,10 +29,10 @@ test("SDK readiness requires the current token, is consumed once and does not le
   const f = await fixture(
     t,
     `
-process.send({type:"atria.cli.uiReady",token:"wrong"});
-process.send({type:"other",token:process.env.ATRIA_CLI_UI_READY_TOKEN});
-process.send({type:"atria.cli.uiReady",token:process.env.ATRIA_CLI_UI_READY_TOKEN});
-process.send({type:"atria.cli.uiReady",token:process.env.ATRIA_CLI_UI_READY_TOKEN},()=>process.exit(7));
+process.send({type:"formicand.cli.uiReady",token:"wrong"});
+process.send({type:"other",token:process.env.FORMICAND_CLI_UI_READY_TOKEN});
+process.send({type:"formicand.cli.uiReady",token:process.env.FORMICAND_CLI_UI_READY_TOKEN});
+process.send({type:"formicand.cli.uiReady",token:process.env.FORMICAND_CLI_UI_READY_TOKEN},()=>process.exit(7));
 `
   );
   const before = [process.listenerCount("SIGINT"), process.listenerCount("SIGTERM")];
@@ -44,7 +44,7 @@ process.send({type:"atria.cli.uiReady",token:process.env.ATRIA_CLI_UI_READY_TOKE
 });
 
 test("a failed or ordinary child cannot acknowledge UI readiness and retains its exit status", async (t) => {
-  const f = await fixture(t, "process.exit(process.env.ATRIA_CLI_UI_READY_TOKEN ? 2 : 3);");
+  const f = await fixture(t, "process.exit(process.env.FORMICAND_CLI_UI_READY_TOKEN ? 2 : 3);");
   let acknowledgements = 0;
   for (const [uiCompatibility, expected] of [
     [true, 2],

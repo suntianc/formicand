@@ -21,38 +21,38 @@ const model = {
 
 const commands: Record<string, Command> = {
   task: {
-    usage: "coworkos task list|create|status|cancel|resume|complete [options]",
+    usage: "formicand task list|create|status|cancel|resume|complete [options]",
     options: {},
     actions: {
-      list: { usage: "coworkos task list [--workspace PATH]", options: workspace },
+      list: { usage: "formicand task list [--workspace PATH]", options: workspace },
       create: {
-        usage: "coworkos task create ID [GOAL] [--goal TEXT] [--workspace PATH]",
+        usage: "formicand task create ID [GOAL] [--goal TEXT] [--workspace PATH]",
         options: { ...workspace, task: identifier, goal: text }
       },
       status: {
-        usage: "coworkos task status ID [--workspace PATH]",
+        usage: "formicand task status ID [--workspace PATH]",
         options: { ...workspace, task: identifier }
       },
       cancel: {
-        usage: "coworkos task cancel ID [--workspace PATH]",
+        usage: "formicand task cancel ID [--workspace PATH]",
         options: { ...workspace, task: identifier }
       },
       resume: {
-        usage: "coworkos task resume ID [--workspace PATH]",
+        usage: "formicand task resume ID [--workspace PATH]",
         options: { ...workspace, task: identifier }
       },
       complete: {
-        usage: "coworkos task complete ID [--workspace PATH]",
+        usage: "formicand task complete ID [--workspace PATH]",
         options: { ...workspace, task: identifier }
       }
     }
   },
   human: {
-    usage: "coworkos human list|reply|answer|cancel --task ID [options]",
+    usage: "formicand human list|reply|answer|cancel --task ID [options]",
     options: {},
     actions: {
       list: {
-        usage: "coworkos human list --task ID [--status pending|answered|cancelled|unanswered]",
+        usage: "formicand human list --task ID [--status pending|answered|cancelled|unanswered]",
         options: {
           ...workspace,
           task: identifier,
@@ -60,21 +60,21 @@ const commands: Record<string, Command> = {
         }
       },
       reply: {
-        usage: "coworkos human reply REQUEST ANSWER --task ID [--request ID] [--answer TEXT]",
+        usage: "formicand human reply REQUEST ANSWER --task ID [--request ID] [--answer TEXT]",
         options: { ...workspace, task: identifier, request: identifier, answer: text }
       },
       answer: {
-        usage: "coworkos human answer REQUEST ANSWER --task ID [--request ID] [--answer TEXT]",
+        usage: "formicand human answer REQUEST ANSWER --task ID [--request ID] [--answer TEXT]",
         options: { ...workspace, task: identifier, request: identifier, answer: text }
       },
       cancel: {
-        usage: "coworkos human cancel REQUEST --task ID [--request ID]",
+        usage: "formicand human cancel REQUEST --task ID [--request ID]",
         options: { ...workspace, task: identifier, request: identifier }
       }
     }
   },
   worker: {
-    usage: "coworkos worker --task ID --run ID [--once] [--lease-ms N] [--poll-ms N]",
+    usage: "formicand worker --task ID --run ID [--once] [--lease-ms N] [--poll-ms N]",
     options: {
       ...workspace,
       task: identifier,
@@ -85,11 +85,11 @@ const commands: Record<string, Command> = {
     }
   },
   "main-supervisor": {
-    usage: "coworkos main-supervisor [--task ID] [--interval MS] [--once] [--spawn]",
+    usage: "formicand main-supervisor [--task ID] [--interval MS] [--once] [--spawn]",
     options: { ...workspace, task: identifier, interval: milliseconds, once: boolean, spawn: boolean }
   },
   "main-worker": {
-    usage: "coworkos main-worker --task ID [--workspace PATH] [--poll-ms N] [--once] (internal wake worker)",
+    usage: "formicand main-worker --task ID [--workspace PATH] [--poll-ms N] [--once] (internal wake worker)",
     options: { workspace: text, task: identifier, "poll-ms": milliseconds, once: boolean }
   }
 };
@@ -98,9 +98,9 @@ export function cliHelp(command?: string, action?: string): string {
   const definition = command ? commands[command] : undefined;
   const selected = action ? definition?.actions?.[action] : definition;
   if (!selected)
-    return `CoworkOS CLI\n\n${Object.values(commands)
+    return `Formicand CLI\n\n${Object.values(commands)
       .map((item) => `  ${item.usage}`)
-      .join("\n")}\n\nUse coworkos COMMAND --help for options.`;
+      .join("\n")}\n\nUse formicand COMMAND --help for options.`;
   const options = selected.actions
     ? Object.values(selected.actions)
         .map((item) => `  ${item.usage}`)
@@ -111,13 +111,13 @@ export function cliHelp(command?: string, action?: string): string {
             `  --${name}${option.kind === "boolean" ? " [true|false]" : ` ${option.choices?.join("|") || (option.kind === "integer" ? "N" : "VALUE")}`}`
         )
         .join("\n");
-  return `CoworkOS CLI\n\nUsage: ${selected.usage}\n\n${options}\n  -h, --help  Show help without changing configuration or tasks.\n\nModel commands use the configured connection. --timeout is in milliseconds; 0 means unlimited.\nUse -- before prompt or answer text that starts with a dash.`;
+  return `Formicand CLI\n\nUsage: ${selected.usage}\n\n${options}\n  -h, --help  Show help without changing configuration or tasks.\n\nModel commands use the configured connection. --timeout is in milliseconds; 0 means unlimited.\nUse -- before prompt or answer text that starts with a dash.`;
 }
 
 export function parseCliCommand(command: string, input: string[]) {
   const definition = commands[command];
   // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- command 来自 argv，命令表里没有该键时查表结果为 undefined
-  if (!definition) throw new Error(`Unknown command: ${command}. Run coworkos --help.`);
+  if (!definition) throw new Error(`Unknown command: ${command}. Run formicand --help.`);
   const allowed = {
     ...definition.options,
     ...Object.assign({}, ...Object.values(definition.actions || {}).map((action) => action.options))
@@ -143,7 +143,7 @@ export function parseCliCommand(command: string, input: string[]) {
     const match = /^--([^=]+)(?:=(.*))?$/.exec(argument);
     const name = match?.[1];
     const option = name ? allowed[name] : undefined;
-    if (!name || !option) throw new Error(`Unknown option: ${argument}. Run coworkos ${command} --help.`);
+    if (!name || !option) throw new Error(`Unknown option: ${argument}. Run formicand ${command} --help.`);
     // The `=value` group is optional in the pattern, so it can be absent at runtime.
     let value = match[2];
     if (option.kind === "boolean") {
@@ -180,7 +180,7 @@ export function parseCliCommand(command: string, input: string[]) {
   }
   const action = definition.actions ? positionals[0] : undefined;
   if (action && !definition.actions?.[action])
-    throw new Error(`Unknown ${command} action: ${action}. Run coworkos ${command} --help.`);
+    throw new Error(`Unknown ${command} action: ${action}. Run formicand ${command} --help.`);
   const selected = action ? definition.actions![action] : definition;
   for (const name of Object.keys(options)) {
     if (!(name in selected.options) && (!help || action))
@@ -209,11 +209,11 @@ function validateOperands(
   const noExtra = (count = 0) => {
     if (operands.length > count)
       throw new Error(
-        `Unexpected argument for ${command}${action ? ` ${action}` : ""}. Run coworkos ${command} --help.`
+        `Unexpected argument for ${command}${action ? ` ${action}` : ""}. Run formicand ${command} --help.`
       );
   };
   if (["task", "human"].includes(command) && !action)
-    throw new Error(`Choose a ${command} action. Run coworkos ${command} --help.`);
+    throw new Error(`Choose a ${command} action. Run formicand ${command} --help.`);
   if (command === "task") {
     if (action === "list") return noExtra();
     const taskId = operands[0] ?? options.task;

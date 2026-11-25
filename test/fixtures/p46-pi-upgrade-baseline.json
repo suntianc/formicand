@@ -514,7 +514,7 @@
                 "const": "project"
               }
             ],
-            "description": "global (~/.atria/agents, every project) or project (this project's .atria/agents). Default global."
+            "description": "global (~/.formicand/agents, every project) or project (this project's .formicand/agents). Default global."
           },
           "name": {
             "type": "string",
@@ -1705,7 +1705,7 @@
       "<rules>",
       "</rules>",
       "<addendum>",
-      "# CoworkOS Main Agent",
+      "# Formicand Main Agent",
       "## Doing the work",
       "## Starting a task",
       "## Files",
@@ -1720,8 +1720,8 @@
       "</cwd>",
       "<current_workspace>",
       "</current_workspace>",
-      "<atria_main_context>",
-      "</atria_main_context>"
+      "<formicand_main_context>",
+      "</formicand_main_context>"
     ]
   }
 }

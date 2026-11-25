@@ -17,20 +17,20 @@ The service must support streaming and tool calls in the selected format. Do not
 
 ## CLI files and environment variables
 
-For first-time setup, run `coworkos init` in your project folder and enter the URL, model ID and key when prompted. See the [CLI quickstart](cli-quickstart.md) for the full installation flow.
+For first-time setup, run `formicand init` in your project folder and enter the URL, model ID and key when prompted. See the [CLI quickstart](cli-quickstart.md) for the full installation flow.
 
 ### Change the URL, model or key
 
 Exit the CLI's interactive interface, then run this in the project folder where you plan to work:
 
 ```sh
-coworkos doctor
+formicand doctor
 ```
 
-Read “配置路径” (configuration path) near the top of the output. The default is `~/.atria/config.json`. If another path is shown, edit that file instead.
+Read “配置路径” (configuration path) near the top of the output. The default is `~/.formicand/config.json`. If another path is shown, edit that file instead.
 
 ```sh
-nano ~/.atria/config.json
+nano ~/.formicand/config.json
 ```
 
 Update the matching fields in the existing file and keep its other settings. Replace the example URL, model and key with your provider's values:
@@ -46,15 +46,15 @@ Update the matching fields in the existing file and keep its other settings. Rep
 
 New connections created by `init` use Responses. For a service that only supports Chat Completions, change `api` to `"openai-completions"`. `init` does not prompt for this choice.
 
-In nano, press Ctrl+O, then Enter to save, and Ctrl+X to exit. If you previously used `export COWORK_MODEL_API=...` to change the format temporarily, run `unset COWORK_MODEL_API` so the file's `api` value takes effect.
+In nano, press Ctrl+O, then Enter to save, and Ctrl+X to exit. If you previously used `export FORMICAND_MODEL_API=...` to change the format temporarily, run `unset FORMICAND_MODEL_API` so the file's `api` value takes effect.
 
 ### Check the change
 
 ```sh
-coworkos doctor --test-connection
+formicand doctor --test-connection
 ```
 
-After all checks pass and the model connection line reads `OK  流式模型连接与工具调用` (streaming connection and tool calls), run `coworkos` again, or `coworkos --continue` to return to the previous conversation. The connection test requests the model and uses service quota. Without `--test-connection`, `doctor` only checks local requirements and configuration.
+After all checks pass and the model connection line reads `OK  流式模型连接与工具调用` (streaming connection and tool calls), run `formicand` again, or `formicand --continue` to return to the previous conversation. The connection test requests the model and uses service quota. Without `--test-connection`, `doctor` only checks local requirements and configuration.
 
 ## App and Web model connections
 
@@ -75,16 +75,16 @@ The execution host stores keys and the UI only shows whether a provider is confi
 
 ## Connection errors
 
-| Symptom                                          | Action                                                                                                                                                                                                   |
-| ------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 401 / 403, authentication or access error        | Check the API key, model ID and your account's model access.                                                                                                                                             |
-| 404, URL or model not found                      | Check the API root and model ID against the provider's documentation; remove a trailing `/responses` or `/chat/completions` from the URL.                                                                |
-| Unsupported message format or parameter          | Switch to the format the service supports (Chat Completions, Responses or Anthropic Messages); disable image, reasoning or cache parameters that the provider does not support.                          |
-| CLI reports `FAIL 模型配置`                      | Fix the JSON and required fields at the path printed by `doctor`. Run `coworkos init` if no configuration exists. See [CLI troubleshooting](installation-reference.md#troubleshooting) for other errors. |
-| CLI still uses old values after editing the file | Check `COWORK_API_BASE`, `COWORK_MODEL`, `COWORK_API_KEY` and `COWORK_MODEL_API`. Environment variables override the file; remove obsolete overrides and retry.                                          |
-| App save fails                                   | Follow the save error and select Save again; unsaved edits are kept.                                                                                                                                     |
+| Symptom                                          | Action                                                                                                                                                                                                    |
+| ------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 401 / 403, authentication or access error        | Check the API key, model ID and your account's model access.                                                                                                                                              |
+| 404, URL or model not found                      | Check the API root and model ID against the provider's documentation; remove a trailing `/responses` or `/chat/completions` from the URL.                                                                 |
+| Unsupported message format or parameter          | Switch to the format the service supports (Chat Completions, Responses or Anthropic Messages); disable image, reasoning or cache parameters that the provider does not support.                           |
+| CLI reports `FAIL 模型配置`                      | Fix the JSON and required fields at the path printed by `doctor`. Run `formicand init` if no configuration exists. See [CLI troubleshooting](installation-reference.md#troubleshooting) for other errors. |
+| CLI still uses old values after editing the file | Check `FORMICAND_API_BASE`, `FORMICAND_MODEL`, `FORMICAND_API_KEY` and `FORMICAND_MODEL_API`. Environment variables override the file; remove obsolete overrides and retry.                               |
+| App save fails                                   | Follow the save error and select Save again; unsaved edits are kept.                                                                                                                                      |
 
-Check again after fixing the error. In the App, select Check in the provider's detail. In the CLI, rerun `coworkos doctor --test-connection`.
+Check again after fixing the error. In the App, select Check in the provider's detail. In the CLI, rerun `formicand doctor --test-connection`.
 
 <details>
 <summary>Other configuration references</summary>

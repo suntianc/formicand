@@ -1,6 +1,6 @@
 import { open, readFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
-import { projectAtriaSystemMessage } from "../domain/agent-identity.js";
+import { projectFormicandSystemMessage } from "../domain/agent-identity.js";
 import { recordingProducer, sanitizeRecording } from "./model-request-recorder.js";
 
 type Row = Record<string, unknown>;
@@ -130,7 +130,7 @@ export async function createSessionExport(input: SessionExportInput) {
     if (entry.type === "message" || entry.type === "custom_message") {
       const message: Row =
         entry.type === "message"
-          ? object(projectAtriaSystemMessage(entry.message))
+          ? object(projectFormicandSystemMessage(entry.message))
           : {
               role: "notice",
               content: entry.content,
@@ -149,7 +149,7 @@ export async function createSessionExport(input: SessionExportInput) {
     } else {
       const { id, parentId, timestamp, type, ...data } = entry;
       if (type === "compaction" && data.systemMessage !== undefined)
-        data.systemMessage = projectAtriaSystemMessage(data.systemMessage);
+        data.systemMessage = projectFormicandSystemMessage(data.systemMessage);
       events.push({
         eventId: id,
         parentEntryId: parentId ?? null,
@@ -201,7 +201,7 @@ export async function createSessionExport(input: SessionExportInput) {
   return sanitizeRecording(
     {
       schemaVersion: 1,
-      format: "atria.session",
+      format: "formicand.session",
       producer: await recordingProducer(),
       exportedAt: new Date().toISOString(),
       session: {
@@ -257,7 +257,7 @@ export function sessionExportHtml(data: Awaited<ReturnType<typeof createSessionE
       return `${message.metadata.command}\n${message.metadata.output}\nexitCode=${message.metadata.exitCode}`;
     return "";
   };
-  const title = `${data.session.name || data.session.sessionId} · CoworkOS`;
+  const title = `${data.session.name || data.session.sessionId} · Formicand`;
   const messages = data.messages
     .filter((message) => message.inCurrentBranch && message.role !== "system")
     .map(
@@ -265,7 +265,7 @@ export function sessionExportHtml(data: Awaited<ReturnType<typeof createSessionE
         `<article><h2>${escapeHtml(message.role)}</h2><pre>${escapeHtml(text(message))}</pre></article>`
     )
     .join("\n");
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(String(title))}</title><style>body{max-width:960px;margin:40px auto;padding:0 24px;font:16px system-ui;color:#202020}article{border-top:1px solid #ddd;padding:12px 0}pre{white-space:pre-wrap;overflow-wrap:anywhere}h2{font-size:16px}</style></head><body><h1>${escapeHtml(String(title))}</h1><p>CoworkOS ${escapeHtml(String(data.producer.version))} · ${escapeHtml(data.exportedAt)}</p>${messages}<details><summary>Complete audit data (all branches)</summary><pre>${escapeHtml(JSON.stringify(data, null, 2))}</pre></details></body></html>\n`;
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(String(title))}</title><style>body{max-width:960px;margin:40px auto;padding:0 24px;font:16px system-ui;color:#202020}article{border-top:1px solid #ddd;padding:12px 0}pre{white-space:pre-wrap;overflow-wrap:anywhere}h2{font-size:16px}</style></head><body><h1>${escapeHtml(String(title))}</h1><p>Formicand ${escapeHtml(String(data.producer.version))} · ${escapeHtml(data.exportedAt)}</p>${messages}<details><summary>Complete audit data (all branches)</summary><pre>${escapeHtml(JSON.stringify(data, null, 2))}</pre></details></body></html>\n`;
 }
 
 export async function writeSessionExport(
@@ -281,7 +281,7 @@ export async function writeSessionExport(
   const id = input.sessionId.replace(/[^a-zA-Z0-9._-]/g, "_");
   const outputPath = resolve(
     input.directory ?? input.projectDirectory,
-    input.outputPath ?? `coworkos-session-${id}.${format}`
+    input.outputPath ?? `formicand-session-${id}.${format}`
   );
   const data = await createSessionExport(input);
   const serialized = format === "json" ? `${JSON.stringify(data, null, 2)}\n` : sessionExportHtml(data);

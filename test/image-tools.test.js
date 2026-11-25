@@ -11,7 +11,7 @@ export const pixel = Buffer.from(
 );
 
 test("image paths reject outside symlinks in both work and task scopes", async (t) => {
-  const root = await mkdtemp(join(tmpdir(), "atria-image-boundary-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-image-boundary-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const work = join(root, "work"),
     task = join(root, "task"),
@@ -38,7 +38,7 @@ test("image paths reject outside symlinks in both work and task scopes", async (
 });
 
 test("cancelled image reads stop before loading pixels", async (t) => {
-  const root = await mkdtemp(join(tmpdir(), "atria-image-cancel-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-image-cancel-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   await writeFile(join(root, "pixel.png"), pixel);
   const tool = createImageTools({
@@ -52,7 +52,7 @@ test("cancelled image reads stop before loading pixels", async (t) => {
 });
 
 test("native comparison keeps per-image evidence and validates every image before sending", async (t) => {
-  const root = await mkdtemp(join(tmpdir(), "atria-image-comparison-boundary-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-image-comparison-boundary-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   await writeFile(join(root, "pixel.png"), pixel);
   const tool = createImageTools({
@@ -84,7 +84,7 @@ test("native comparison keeps per-image evidence and validates every image befor
 });
 
 test("image selection accepts matching aliases and empty alternatives without duplicating pixels", async (t) => {
-  const root = await mkdtemp(join(tmpdir(), "atria-image-selection-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-image-selection-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   await writeFile(join(root, "pixel.png"), pixel);
   const tool = createImageTools({
@@ -112,7 +112,7 @@ test("image selection accepts matching aliases and empty alternatives without du
 });
 
 test("image selection rejects conflicting aliases, incomplete comparisons and malformed alternatives", async (t) => {
-  const root = await mkdtemp(join(tmpdir(), "atria-image-selection-invalid-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-image-selection-invalid-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   await writeFile(join(root, "pixel.png"), pixel);
   const tool = createImageTools({
@@ -135,7 +135,7 @@ test("image selection rejects conflicting aliases, incomplete comparisons and ma
 });
 
 test("image tools accept the retired goal and review arguments without a visual-analysis pass", async (t) => {
-  const root = await mkdtemp(join(tmpdir(), "atria-image-legacy-arguments-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-image-legacy-arguments-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   await writeFile(join(root, "pixel.png"), pixel);
   const tools = createImageTools({ rootDirectory: root, taskDirectory: root, supportsImages: true });
@@ -172,7 +172,7 @@ test("image tools accept the retired goal and review arguments without a visual-
 });
 
 test("a text-only connection refuses image pixels without contacting another model", async (t) => {
-  const root = await mkdtemp(join(tmpdir(), "atria-image-text-only-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-image-text-only-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   await writeFile(join(root, "pixel.png"), pixel);
   // No supportsImages: the tool must refuse instead of handing pixels to a

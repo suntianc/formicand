@@ -43,7 +43,7 @@ test("every existing test is assigned once, including deferred native tests", as
 });
 
 test("release discovery includes ESM, nested and compiled tests exactly once in executable steps", async () => {
-  const directory = await mkdtemp(join(tmpdir(), "atria-release-discovery-"));
+  const directory = await mkdtemp(join(tmpdir(), "formicand-release-discovery-"));
   const put = async (file, content = "") => {
     await mkdir(join(directory, file, ".."), { recursive: true });
     await writeFile(join(directory, file), content);
@@ -157,10 +157,10 @@ test("mixed files retain Web coverage and gate only native variants", async () =
   assert.ok(browser.args.includes("e2e/model-providers.spec.js"));
   assert.ok(browser.args.includes("--grep-invert"));
   assert.ok(browser.args.some((arg) => arg.includes("desktop: Main moves between providers")));
-  assert.equal(normal.steps.find((step) => step.id === "app-node").env.ATRIA_NATIVE_DESKTOP_TEST, "0");
+  assert.equal(normal.steps.find((step) => step.id === "app-node").env.FORMICAND_NATIVE_DESKTOP_TEST, "0");
   assert.equal(normal.deferredVariants.length, 2);
   const native = await loadPlan(root, parseOptions(["--native"]), "darwin");
-  assert.equal(native.steps.find((step) => step.id === "app-node").env.ATRIA_NATIVE_DESKTOP_TEST, "1");
+  assert.equal(native.steps.find((step) => step.id === "app-node").env.FORMICAND_NATIVE_DESKTOP_TEST, "1");
   assert.ok(!native.steps.find((step) => step.id === "app-browser").args.includes("--grep-invert"));
   assert.equal(native.deferredVariants.length, 0);
 });

@@ -1,5 +1,5 @@
 import { applyProxyEnvironment } from "../runtime/http-transport.js";
-import { atriaHome } from "../../scripts/data-home.cjs";
+import { formicandHome } from "../../scripts/data-home.cjs";
 import { backendPaths, inspectBackend } from "../dashboard/backend-instance.js";
 import { join } from "node:path";
 import { mkdir } from "node:fs/promises";
@@ -9,10 +9,10 @@ import { LocalWorkspaceStore } from "../workspace/workspace-store.js";
 import { businessCommandEnvironment } from "../runtime/command-environment.js";
 import { InboxStore } from "../runtime/scheduler.js";
 import { MainSupervisor, MainSupervisorLoop, spawnMainProcess } from "../runtime/main-supervisor.js";
-import { atriaInstallRoot } from "../tools/protected-paths.js";
+import { formicandInstallRoot } from "../tools/protected-paths.js";
 import { HumanRequestStore } from "../runtime/human.js";
 import { configuredWorkspaceRoot } from "../runtime/runtime-settings.js";
-import { readHostCoworkConfig } from "../runtime/config.js";
+import { readHostFormicandConfig } from "../runtime/config.js";
 import { cliHelp, parseCliCommand } from "./commands.js";
 
 let errorApiKey: string | undefined;
@@ -28,16 +28,16 @@ async function main() {
     console.log(cliHelp(command, parsed.action));
     return;
   }
-  const config = readHostCoworkConfig();
+  const config = readHostFormicandConfig();
   applyProxyEnvironment(config);
-  const apiKey = process.env.COWORK_API_KEY ?? config.apiKey;
+  const apiKey = process.env.FORMICAND_API_KEY ?? config.apiKey;
   errorApiKey = apiKey;
-  const baseUrl = process.env.COWORK_API_BASE ?? config.baseUrl;
-  const model = process.env.COWORK_MODEL ?? config.model ?? "glm-5.3";
+  const baseUrl = process.env.FORMICAND_API_BASE ?? config.baseUrl;
+  const model = process.env.FORMICAND_MODEL ?? config.model ?? "glm-5.3";
   const workspaceRoot = configuredWorkspaceRoot(config, {
     ...process.env,
     ...(parsed.options.workspace || parsed.options["workspace-root"]
-      ? { COWORK_WORKSPACE: parsed.options.workspace ?? parsed.options["workspace-root"] }
+      ? { FORMICAND_WORKSPACE: parsed.options.workspace ?? parsed.options["workspace-root"] }
       : {})
   });
   await mkdir(workspaceRoot, { recursive: true });
@@ -105,8 +105,8 @@ async function main() {
       const answer = parsed.options.answer ?? parsed.positionals.join(" ");
       if (!answer) fail("human reply 需要 --answer 或答案文本");
       if ((await human.read(taskId, requestId)).proposal?.kind === "tickets") {
-        const backend = await inspectBackend(backendPaths(atriaHome()));
-        if (backend.state !== "running") throw new Error("请启动此工作区的 Cowork 后端后再答复开发票。");
+        const backend = await inspectBackend(backendPaths(formicandHome()));
+        if (backend.state !== "running") throw new Error("请启动此工作区的 Formicand 后端后再答复开发票。");
         const response = await fetch(
           new URL(
             `/api/tasks/${encodeURIComponent(taskId)}/human/${encodeURIComponent(requestId)}/answer`,
@@ -115,7 +115,7 @@ async function main() {
           {
             method: "POST",
             redirect: "error",
-            headers: { "content-type": "application/json", "x-atria-token": backend.instance.token },
+            headers: { "content-type": "application/json", "x-formicand-token": backend.instance.token },
             body: JSON.stringify({ answer })
           }
         );
@@ -161,7 +161,7 @@ async function main() {
 
   if (command === "main-supervisor") {
     const controller = new AbortController();
-    const harnessRoot = process.env.COWORK_HARNESS_ROOT ?? atriaInstallRoot();
+    const harnessRoot = process.env.FORMICAND_HARNESS_ROOT ?? formicandInstallRoot();
     // Starting a model process is expensive and hard to undo, so a supervisor
     // that can do it unattended has to be asked for. Without --spawn it only
     // reports what it would resume, which is also how to check its judgment
@@ -199,7 +199,7 @@ async function main() {
     process.exit(0);
   }
 
-  if (!apiKey || !baseUrl) fail("请先设置 COWORK_API_BASE 和 COWORK_API_KEY");
+  if (!apiKey || !baseUrl) fail("请先设置 FORMICAND_API_BASE 和 FORMICAND_API_KEY");
 
   const taskId = parsed.options.task ?? `cli-task-${Date.now()}`;
   const runId = parsed.options.run ?? id("run");
@@ -220,27 +220,27 @@ async function main() {
       taskId: workerTask,
       runId: workerRun,
       workspaceRoot,
-      harnessRoot: process.env.COWORK_HARNESS_ROOT,
+      harnessRoot: process.env.FORMICAND_HARNESS_ROOT,
       env: {
-        COWORK_API_BASE: baseUrl,
-        COWORK_API_KEY: apiKey,
-        COWORK_WORKSPACE: workspaceRoot,
-        ...(model ? { COWORK_MODEL: model } : {}),
-        ...(process.env.COWORK_MODEL_API ? { COWORK_MODEL_API: process.env.COWORK_MODEL_API } : {}),
-        ...(process.env.COWORK_CONNECTION_ID
-          ? { COWORK_CONNECTION_ID: process.env.COWORK_CONNECTION_ID }
+        FORMICAND_API_BASE: baseUrl,
+        FORMICAND_API_KEY: apiKey,
+        FORMICAND_WORKSPACE: workspaceRoot,
+        ...(model ? { FORMICAND_MODEL: model } : {}),
+        ...(process.env.FORMICAND_MODEL_API ? { FORMICAND_MODEL_API: process.env.FORMICAND_MODEL_API } : {}),
+        ...(process.env.FORMICAND_CONNECTION_ID
+          ? { FORMICAND_CONNECTION_ID: process.env.FORMICAND_CONNECTION_ID }
           : {}),
-        ...(process.env.COWORK_REASONING_EFFORT
-          ? { COWORK_REASONING_EFFORT: process.env.COWORK_REASONING_EFFORT }
+        ...(process.env.FORMICAND_REASONING_EFFORT
+          ? { FORMICAND_REASONING_EFFORT: process.env.FORMICAND_REASONING_EFFORT }
           : {}),
-        ...(process.env.COWORK_THINKING_FORMAT
-          ? { COWORK_THINKING_FORMAT: process.env.COWORK_THINKING_FORMAT }
+        ...(process.env.FORMICAND_THINKING_FORMAT
+          ? { FORMICAND_THINKING_FORMAT: process.env.FORMICAND_THINKING_FORMAT }
           : {}),
-        ...(process.env.COWORK_SUPPORTS_REASONING_EFFORT
-          ? { COWORK_SUPPORTS_REASONING_EFFORT: process.env.COWORK_SUPPORTS_REASONING_EFFORT }
+        ...(process.env.FORMICAND_SUPPORTS_REASONING_EFFORT
+          ? { FORMICAND_SUPPORTS_REASONING_EFFORT: process.env.FORMICAND_SUPPORTS_REASONING_EFFORT }
           : {}),
-        ...(process.env.COWORK_SUPPORTS_PROMPT_CACHE_KEY
-          ? { COWORK_SUPPORTS_PROMPT_CACHE_KEY: process.env.COWORK_SUPPORTS_PROMPT_CACHE_KEY }
+        ...(process.env.FORMICAND_SUPPORTS_PROMPT_CACHE_KEY
+          ? { FORMICAND_SUPPORTS_PROMPT_CACHE_KEY: process.env.FORMICAND_SUPPORTS_PROMPT_CACHE_KEY }
           : {})
       },
       ...(parsed.options["lease-ms"] ? { leaseMs: numberOption(parsed.options["lease-ms"], 60_000) } : {}),
@@ -266,17 +266,17 @@ async function main() {
     process.exit(0);
   }
 
-  fail(`Unknown command: ${command}. Run coworkos --help.`);
+  fail(`Unknown command: ${command}. Run formicand --help.`);
 }
 
 try {
   await main();
 } catch (error) {
   let message = error instanceof Error ? error.message : String(error);
-  for (const key of [process.env.COWORK_API_KEY, errorApiKey]) {
+  for (const key of [process.env.FORMICAND_API_KEY, errorApiKey]) {
     if (key) message = message.replaceAll(key, "[REDACTED]");
   }
-  console.error(`CoworkOS: ${message}`);
+  console.error(`Formicand: ${message}`);
   process.exitCode = 1;
 }
 

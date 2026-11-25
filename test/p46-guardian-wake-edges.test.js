@@ -34,7 +34,7 @@ async function queuedWakes(root, taskId, runId) {
 
 /** A Task parked earlier, a Task that has since moved on, and one Inbox each. */
 async function parkedFixture(t, { parkedRun, activeRun }) {
-  const root = await mkdtemp(join(tmpdir(), "atria-wake-edges-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-wake-edges-"));
   t.after(() => rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }));
   const store = new LocalWorkspaceStore(root);
   await store.createTask("task", { goal: "watch the queue" });
@@ -109,7 +109,7 @@ test("a due park on the active Run still wakes once and leaves no duplicate", as
 });
 
 async function serviceFixture(t, { tasks = [] } = {}) {
-  const root = await mkdtemp(join(tmpdir(), "atria-wake-service-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-wake-service-"));
   const workspaceRoot = join(root, "workspace");
   // The fake Main stays alive until shutdown; only the guardian's decision and
   // the launch gate are under test here.
@@ -117,11 +117,11 @@ async function serviceFixture(t, { tasks = [] } = {}) {
   await writeFile(join(root, "scripts", "start-pi.mjs"), "setInterval(() => {}, 1000);\n");
   const store = new LocalWorkspaceStore(workspaceRoot);
   const human = new HumanRequestStore(workspaceRoot);
-  const previous = process.env.COWORK_DISABLE_MAIN_GUARDIAN;
-  delete process.env.COWORK_DISABLE_MAIN_GUARDIAN;
+  const previous = process.env.FORMICAND_DISABLE_MAIN_GUARDIAN;
+  delete process.env.FORMICAND_DISABLE_MAIN_GUARDIAN;
   t.after(() => {
-    if (previous === undefined) delete process.env.COWORK_DISABLE_MAIN_GUARDIAN;
-    else process.env.COWORK_DISABLE_MAIN_GUARDIAN = previous;
+    if (previous === undefined) delete process.env.FORMICAND_DISABLE_MAIN_GUARDIAN;
+    else process.env.FORMICAND_DISABLE_MAIN_GUARDIAN = previous;
   });
 
   for (const task of tasks) {

@@ -37,7 +37,7 @@ export function createComposerPrebind({
   if (claims && !localClaims.has(storage)) localClaims.set(storage, claims);
   let releaseLease;
   let disposed = false;
-  const lockName = (prefix) => `cowork-composer:${prefix}`;
+  const lockName = (prefix) => `formicand-composer:${prefix}`;
   const acquireLease = (prefix) => {
     if (!lockManager) {
       if (claims?.has(prefix) && claims.get(prefix) !== prebindId) return Promise.resolve(null);
@@ -120,7 +120,7 @@ export function createComposerPrebind({
     for (let index = 0; index < storage.length; index += 1) {
       const key = storage.key(index);
       const match =
-        typeof key === "string" && key.match(/^atria\.composer\.v1:__prebind__:([a-f0-9]{32}):(.*)$/);
+        typeof key === "string" && key.match(/^formicand\.composer\.v1:__prebind__:([a-f0-9]{32}):(.*)$/);
       if (!match) continue;
       const prefix = `${prebindRoot}${match[1]}:`;
       if (!groups.has(prefix)) groups.set(prefix, { marker: null, content: false });

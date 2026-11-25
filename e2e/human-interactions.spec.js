@@ -132,8 +132,8 @@ async function nativeDrafts(page, store) {
           sendSync: () => snapshot,
           on: (channel, handler) => { listeners[channel] = handler; },
           invoke: async (channel, ...args) => {
-            if (channel === "bookman:save-composer-drafts") return window.__persistHumanDrafts(args[0], location.origin);
-            if (channel === "bookman:documents-ready") window.__humanCloseAck = args[1];
+            if (channel === "formicand:save-composer-drafts") return window.__persistHumanDrafts(args[0], location.origin);
+            if (channel === "formicand:documents-ready") window.__humanCloseAck = args[1];
           }
         }
       };
@@ -174,7 +174,7 @@ async function questionFixture(page, base) {
         document.querySelector(".composer").hidden = visible;
       }
     });
-    window.bookmanDesktop?.onPrepareClose(async () => controller.flushDrafts?.() ?? true);
+    window.formicandDesktop?.onPrepareClose(async () => controller.flushDrafts?.() ?? true);
     window.humanFixture = {
       submissions,
       unanswered() {
@@ -309,7 +309,7 @@ test("long human questions scroll inside the card and keep the submission contro
 test("the shipped app close handler refuses a memory-only human reply and saves it after storage recovers", async ({
   page
 }) => {
-  const root = await mkdtemp(join(tmpdir(), "atria-human-app-close-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-human-app-close-"));
   const dashboard = await startDashboard();
   const store = createComposerDraftStore(root);
   await store.load();
@@ -333,17 +333,18 @@ test("the shipped app close handler refuses a memory-only human reply and saves 
     await page.evaluate(() => {
       window.__realHumanSetItem = Storage.prototype.setItem;
       Storage.prototype.setItem = function (key, value) {
-        if (key.startsWith("atria.human.v1:")) throw new DOMException("quota fixture", "QuotaExceededError");
+        if (key.startsWith("formicand.human.v1:"))
+          throw new DOMException("quota fixture", "QuotaExceededError");
         return window.__realHumanSetItem.call(this, key, value);
       };
     });
     await answer.fill("最终应保留完整的中文回复 😀");
-    await page.evaluate(() => window.__sendHumanNative("bookman:prepare-close", "app-close-refuse"));
+    await page.evaluate(() => window.__sendHumanNative("formicand:prepare-close", "app-close-refuse"));
     await expect.poll(() => page.evaluate(() => window.__humanCloseAck)).toBe(false);
     await expect(answer).toHaveValue("最终应保留完整的中文回复 😀");
     await page.evaluate(() => {
       Storage.prototype.setItem = window.__realHumanSetItem;
-      window.__sendHumanNative("bookman:prepare-close", "app-close-saved");
+      window.__sendHumanNative("formicand:prepare-close", "app-close-saved");
     });
     await expect.poll(() => page.evaluate(() => window.__humanCloseAck)).toBe(true);
     expect(
@@ -359,7 +360,7 @@ test("desktop human draft and explicit choice survive a new origin and are remov
   page,
   context
 }) => {
-  const root = await mkdtemp(join(tmpdir(), "atria-human-draft-profile-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-human-draft-profile-"));
   const first = await startDashboard();
   const second = await startDashboard();
   const store = createComposerDraftStore(root);
@@ -369,7 +370,7 @@ test("desktop human draft and explicit choice survive a new origin and are remov
     await questionFixture(page, first.base);
     await page.getByRole("radio", { name: "PDF", exact: true }).check();
     await page.getByRole("textbox", { name: "其他回答或补充说明" }).fill("重启后继续完整的人工回复 😀");
-    await page.evaluate(() => window.__sendHumanNative("bookman:prepare-close", "human-first-close"));
+    await page.evaluate(() => window.__sendHumanNative("formicand:prepare-close", "human-first-close"));
     await expect.poll(() => page.evaluate(() => window.__humanCloseAck)).toBe(true);
     const restartedStore = createComposerDraftStore(root);
     await restartedStore.load();
@@ -383,10 +384,12 @@ test("desktop human draft and explicit choice survive a new origin and are remov
     await restored.getByRole("button", { name: "发送" }).click();
     await restored.evaluate(() => window.humanFixture.answered());
     await expect(restored.locator("#human-questions")).toBeHidden();
-    await restored.evaluate(() => window.__sendHumanNative("bookman:prepare-close", "human-accepted-close"));
+    await restored.evaluate(() =>
+      window.__sendHumanNative("formicand:prepare-close", "human-accepted-close")
+    );
     await expect.poll(() => restored.evaluate(() => window.__humanCloseAck)).toBe(true);
     expect(
-      Object.keys(restartedStore.snapshot().entries).filter((key) => key.startsWith("atria.human.v1:"))
+      Object.keys(restartedStore.snapshot().entries).filter((key) => key.startsWith("formicand.human.v1:"))
     ).toEqual([]);
   } finally {
     await first.stop();
@@ -396,7 +399,7 @@ test("desktop human draft and explicit choice survive a new origin and are remov
 });
 
 test("human drafts belong to their task and memory-only changes refuse a desktop close", async ({ page }) => {
-  const root = await mkdtemp(join(tmpdir(), "atria-human-draft-quota-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-human-draft-quota-"));
   const dashboard = await startDashboard();
   const store = createComposerDraftStore(root);
   await store.load();
@@ -413,17 +416,18 @@ test("human drafts belong to their task and memory-only changes refuse a desktop
     await page.evaluate(() => {
       window.__realHumanSetItem = Storage.prototype.setItem;
       Storage.prototype.setItem = function (key, value) {
-        if (key.startsWith("atria.human.v1:")) throw new DOMException("quota fixture", "QuotaExceededError");
+        if (key.startsWith("formicand.human.v1:"))
+          throw new DOMException("quota fixture", "QuotaExceededError");
         return window.__realHumanSetItem.call(this, key, value);
       };
     });
     await answer.fill("配额失败时保留的最新回复");
-    await page.evaluate(() => window.__sendHumanNative("bookman:prepare-close", "human-quota-close"));
+    await page.evaluate(() => window.__sendHumanNative("formicand:prepare-close", "human-quota-close"));
     await expect.poll(() => page.evaluate(() => window.__humanCloseAck)).toBe(false);
     await expect(answer).toHaveValue("配额失败时保留的最新回复");
     await page.evaluate(() => {
       Storage.prototype.setItem = window.__realHumanSetItem;
-      window.__sendHumanNative("bookman:prepare-close", "human-quota-recovered");
+      window.__sendHumanNative("formicand:prepare-close", "human-quota-recovered");
     });
     await expect.poll(() => page.evaluate(() => window.__humanCloseAck)).toBe(true);
     expect(

@@ -13,8 +13,8 @@ const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
 function developmentToolchain(input = {}) {
   const nodeExecutable =
-    input.nodeExecutable || process.env.COWORK_DESKTOP_NODE_EXECUTABLE || process.execPath;
-  const npmCli = input.npmCli || process.env.COWORK_DESKTOP_NPM_CLI || process.env.npm_execpath;
+    input.nodeExecutable || process.env.FORMICAND_DESKTOP_NODE_EXECUTABLE || process.execPath;
+  const npmCli = input.npmCli || process.env.FORMICAND_DESKTOP_NPM_CLI || process.env.npm_execpath;
   return { nodeExecutable: resolve(nodeExecutable), ...(npmCli ? { npmCli: resolve(npmCli) } : {}) };
 }
 
@@ -25,7 +25,7 @@ export async function developmentExecutable({ root = projectRoot, toolchain } = 
   const electron = require("electron");
   if (process.platform !== "darwin") return electron;
   const source = resolve(dirname(electron), "../..");
-  const icon = join(root, "build/atria.icns");
+  const icon = join(root, "build/formicand.icns");
   const entitlements = join(root, "desktop/entitlements.mac.plist");
   const hash = createHash("sha256")
     .update(root)
@@ -44,9 +44,9 @@ export async function developmentExecutable({ root = projectRoot, toolchain } = 
   const destination = join(cache, hash);
   // Ad-hoc signatures bind grants to a code hash. Never reuse one TCC identity
   // for different immutable runtimes/worktrees, even when their names match.
-  const identifier = `org.atria.cowork.dev.runtime.${hash}`;
-  const displayName = `CoworkOS Dev (${hash.slice(0, 8)})`;
-  const executable = join(destination, "CoworkOS Dev.app/Contents/MacOS/CoworkOS Dev");
+  const identifier = `io.github.suntianc.formicand.dev.runtime.${hash}`;
+  const displayName = `Formicand Dev (${hash.slice(0, 8)})`;
+  const executable = join(destination, "Formicand Dev.app/Contents/MacOS/Formicand Dev");
   const complete = join(destination, "ready");
   if (
     await access(complete).then(
@@ -59,7 +59,7 @@ export async function developmentExecutable({ root = projectRoot, toolchain } = 
   }
   await mkdir(cache, { recursive: true });
   const staging = await mkdtemp(join(cache, ".prepare-"));
-  const bundle = join(staging, "CoworkOS Dev.app");
+  const bundle = join(staging, "Formicand Dev.app");
   try {
     // APFS clones share unchanged runtime blocks; no hard links or vendor mutation.
     try {
@@ -94,7 +94,7 @@ export async function developmentExecutable({ root = projectRoot, toolchain } = 
     for (const entry of await readdir(framework)) {
       if (!entry.startsWith("Electron Helper") || !entry.endsWith(".app")) continue;
       const oldName = entry.slice(0, -4);
-      const name = oldName.replace("Electron", "CoworkOS Dev");
+      const name = oldName.replace("Electron", "Formicand Dev");
       const helper = join(framework, entry);
       const { stdout } = await run("/usr/libexec/PlistBuddy", [
         "-c",
@@ -109,7 +109,7 @@ export async function developmentExecutable({ root = projectRoot, toolchain } = 
       );
       await rename(helper, join(framework, `${name}.app`));
     }
-    await brand(contents, "Electron", "CoworkOS Dev", identifier, {}, displayName);
+    await brand(contents, "Electron", "Formicand Dev", identifier, {}, displayName);
     // Strip Electron's default microphone description before sealing this runtime.
     for (const key of ["NSMicrophoneUsageDescription", "NSSpeechRecognitionUsageDescription"]) {
       try {
@@ -118,10 +118,10 @@ export async function developmentExecutable({ root = projectRoot, toolchain } = 
         if (!error.stderr?.includes("Does Not Exist")) throw error;
       }
     }
-    await copyFile(icon, join(contents, "Resources/atria.icns"));
+    await copyFile(icon, join(contents, "Resources/formicand.icns"));
     await run("/usr/libexec/PlistBuddy", [
       "-c",
-      "Set :CFBundleIconFile atria.icns",
+      "Set :CFBundleIconFile formicand.icns",
       join(contents, "Info.plist")
     ]);
     const app = join(contents, "Resources/app");
@@ -129,17 +129,17 @@ export async function developmentExecutable({ root = projectRoot, toolchain } = 
     const { version } = JSON.parse(await readFile(join(root, "package.json"), "utf8"));
     await writeFile(
       join(app, "package.json"),
-      JSON.stringify({ name: "atria-dev", version, main: "bootstrap.cjs" })
+      JSON.stringify({ name: "formicand-dev", version, main: "bootstrap.cjs" })
     );
     await writeFile(
       join(app, "bootstrap.cjs"),
       [
-        'process.env.COWORK_DESKTOP_DEV = "1";',
-        `process.env.COWORK_DESKTOP_SOURCE_ROOT = ${JSON.stringify(root)};`,
-        `process.env.COWORK_DESKTOP_NODE_EXECUTABLE = ${JSON.stringify(tools.nodeExecutable)};`,
+        'process.env.FORMICAND_DESKTOP_DEV = "1";',
+        `process.env.FORMICAND_DESKTOP_SOURCE_ROOT = ${JSON.stringify(root)};`,
+        `process.env.FORMICAND_DESKTOP_NODE_EXECUTABLE = ${JSON.stringify(tools.nodeExecutable)};`,
         tools.npmCli
-          ? `process.env.COWORK_DESKTOP_NPM_CLI = ${JSON.stringify(tools.npmCli)};`
-          : "delete process.env.COWORK_DESKTOP_NPM_CLI;",
+          ? `process.env.FORMICAND_DESKTOP_NPM_CLI = ${JSON.stringify(tools.npmCli)};`
+          : "delete process.env.FORMICAND_DESKTOP_NPM_CLI;",
         `process.chdir(${JSON.stringify(root)});`,
         `require(${JSON.stringify(join(root, "desktop/main.cjs"))});`,
         ""
@@ -149,7 +149,7 @@ export async function developmentExecutable({ root = projectRoot, toolchain } = 
     // re-sign it and turn it into a second code identity under the same ID.
     await writeFile(
       join(contents, "Resources/development-runtime.json"),
-      JSON.stringify({ root, runtime: join(destination, "CoworkOS Dev.app"), ...tools })
+      JSON.stringify({ root, runtime: join(destination, "Formicand Dev.app"), ...tools })
     );
     await run("/usr/bin/codesign", [
       "--force",
@@ -187,8 +187,8 @@ export async function installDevelopmentApp({
   const tools = developmentToolchain(toolchain);
   const cached = await developmentExecutable({ root, toolchain: tools });
   const source = resolve(cached, "../../..");
-  const destination = join(directory, "CoworkOS Dev.app");
-  const executable = join(destination, "Contents/MacOS/CoworkOS Dev");
+  const destination = join(directory, "Formicand Dev.app");
+  const executable = join(destination, "Contents/MacOS/Formicand Dev");
   const marker = join(destination, "Contents/Resources/development-runtime.json");
   const metadata = JSON.stringify({ root, runtime: source, ...tools });
   // eslint-disable-next-line no-restricted-syntax -- 首次安装还没有运行时元数据文件，读不到时按需要重新安装开发运行时
@@ -204,19 +204,19 @@ export async function installDevelopmentApp({
       "Print :CFBundleIdentifier",
       join(destination, "Contents/Info.plist")
     ]);
-    if (!/^org\.atria\.cowork\.dev(?:\.runtime\.[a-f0-9]{24})?$/.test(stdout.trim()))
-      throw new Error("CoworkOS Dev.app 已被其他应用占用");
+    if (!/^io\.github\.suntianc\.formicand\.dev(?:\.runtime\.[a-f0-9]{24})?$/.test(stdout.trim()))
+      throw new Error("Formicand Dev.app 已被其他应用占用");
     const pattern = "^" + executable.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "( |$)";
     try {
       await run("/usr/bin/pgrep", ["-f", pattern]);
-      throw new Error("请先退出 CoworkOS Dev，再更新开发运行时");
+      throw new Error("请先退出 Formicand Dev，再更新开发运行时");
     } catch (error) {
       if (error.code !== 1) throw error;
     }
   }
   await mkdir(directory, { recursive: true });
-  const staging = await mkdtemp(join(directory, ".atria-dev-"));
-  const bundle = join(staging, "CoworkOS Dev.app");
+  const staging = await mkdtemp(join(directory, ".formicand-dev-"));
+  const bundle = join(staging, "Formicand Dev.app");
   const previous = join(staging, "previous.app");
   let moved = false,
     published = false;
@@ -265,11 +265,11 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
   // An app opened from Finder or the Dock shows the system's time zone; a TZ
   // left in the launching terminal would shift every time the app prints.
   delete env.TZ;
-  env.COWORK_DESKTOP_DEV = "1";
-  env.COWORK_DESKTOP_SOURCE_ROOT = projectRoot;
+  env.FORMICAND_DESKTOP_DEV = "1";
+  env.FORMICAND_DESKTOP_SOURCE_ROOT = projectRoot;
   const tools = developmentToolchain();
-  env.COWORK_DESKTOP_NODE_EXECUTABLE = tools.nodeExecutable;
-  if (tools.npmCli) env.COWORK_DESKTOP_NPM_CLI = tools.npmCli;
+  env.FORMICAND_DESKTOP_NODE_EXECUTABLE = tools.nodeExecutable;
+  if (tools.npmCli) env.FORMICAND_DESKTOP_NPM_CLI = tools.npmCli;
   const args = [projectRoot, ...process.argv.slice(2)];
   if (process.platform === "darwin") {
     await launchMacApplication(executable, { args, env, cwd: projectRoot });

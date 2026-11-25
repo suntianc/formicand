@@ -18,7 +18,7 @@ export async function stopNativeBackend(root) {
     throw error;
   }
   const { stopBackend } = await import("../dist/src/cli/backend.js");
-  const result = await stopBackend({ ATRIA_HOME: root }, instance);
+  const result = await stopBackend({ FORMICAND_HOME: root }, instance);
   if (result.state !== "stopped") throw new Error(`Isolated backend cleanup: ${result.state}`);
   await endAgentProcesses(join(root, "workspace"));
 }

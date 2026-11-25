@@ -16,14 +16,14 @@ const exec = promisify(execFile);
 const worker = resolve("scripts/main-worker.mjs");
 
 async function fixture(t) {
-  const root = await mkdtemp(join(tmpdir(), "atria-main-launch-boundary-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-main-launch-boundary-"));
   const harnessRoot = join(root, "harness"),
     workspaceRoot = join(root, "workspace"),
     evidence = join(root, "child.json");
   await mkdir(join(harnessRoot, "scripts"), { recursive: true });
   await writeFile(
     join(harnessRoot, "scripts/start-pi.mjs"),
-    `import {writeFile} from 'node:fs/promises'; await writeFile(${JSON.stringify(evidence)},JSON.stringify({marker:process.env.COWORK_CLI_SESSION,taskId:process.env.COWORK_TASK_ID,runId:process.env.COWORK_RUN_ID}));`
+    `import {writeFile} from 'node:fs/promises'; await writeFile(${JSON.stringify(evidence)},JSON.stringify({marker:process.env.FORMICAND_CLI_SESSION,taskId:process.env.FORMICAND_TASK_ID,runId:process.env.FORMICAND_RUN_ID}));`
   );
   t.after(() => rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }));
   const readChild = async () => {
@@ -47,7 +47,7 @@ test("Main Supervisor wakes a fixed Task without inheriting the CLI recovery mar
     runId: "fixed-run",
     harnessRoot: f.harnessRoot,
     workspaceRoot: f.workspaceRoot,
-    env: { COWORK_CLI_SESSION: "1" }
+    env: { FORMICAND_CLI_SESSION: "1" }
   });
   assert.deepEqual(await f.readChild(), { marker: "0", taskId: "fixed-task", runId: "fixed-run" });
 });
@@ -72,18 +72,18 @@ test("the independent Main worker clears a parent CLI marker before resuming its
     createdAt: new Date().toISOString()
   });
   const env = Object.fromEntries(
-    Object.entries(process.env).filter(([name]) => !/^(?:COWORK_|PI_|ATRIA_)/.test(name))
+    Object.entries(process.env).filter(([name]) => !/^(?:FORMICAND_|PI_|FORMICAND_)/.test(name))
   );
   await exec(
     process.execPath,
     [worker, "--workspace", f.workspaceRoot, "--task", "fixed-task", "--once", "true"],
-    { cwd: f.harnessRoot, env: { ...env, COWORK_CLI_SESSION: "1" }, timeout: 10000 }
+    { cwd: f.harnessRoot, env: { ...env, FORMICAND_CLI_SESSION: "1" }, timeout: 10000 }
   );
   assert.deepEqual(await f.readChild(), { marker: "0", taskId: "fixed-task", runId: "fixed-run" });
 });
 
 test("a recovery launch that finds a live Main leaves no polling observer behind", async (t) => {
-  const root = await mkdtemp(join(tmpdir(), "atria-main-launch-reuse-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-main-launch-reuse-"));
   const harnessRoot = join(root, "harness");
   const workspaceRoot = join(root, "workspace");
   const taskId = "reuse-task";

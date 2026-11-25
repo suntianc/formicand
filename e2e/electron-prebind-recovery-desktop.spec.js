@@ -12,16 +12,16 @@ test("desktop restores drafts saved before the first backend binding", async () 
   const profile = join(root, "profile");
   const inherited = Object.fromEntries(
     Object.entries(process.env).filter(
-      ([name]) => !/^(?:COWORK_|ATRIA_|PI_|ELECTRON_|NODE_OPTIONS$)/.test(name)
+      ([name]) => !/^(?:FORMICAND_|FORMICAND_|PI_|ELECTRON_|NODE_OPTIONS$)/.test(name)
     )
   );
   const env = {
     ...inherited,
     HOME: join(root, "user-home"),
-    COWORK_DESKTOP_DATA: profile,
+    FORMICAND_DESKTOP_DATA: profile,
     PI_OFFLINE: "1",
     PI_TELEMETRY: "0",
-    COWORK_DISABLE_MAIN_GUARDIAN: "1"
+    FORMICAND_DISABLE_MAIN_GUARDIAN: "1"
   };
   await mkdir(env.HOME, { recursive: true });
   const { stopBackend } = await import("../dist/src/cli/backend.js");
@@ -67,7 +67,7 @@ test("desktop restores drafts saved before the first backend binding", async () 
           setAttachments: (next) => {
             attachments = next;
           },
-          onPersist: () => window.bookmanDesktop.saveComposerDrafts()
+          onPersist: () => window.formicandDesktop.saveComposerDrafts()
         });
         return {
           input,
@@ -94,7 +94,7 @@ test("desktop restores drafts saved before the first backend binding", async () 
         staged: Object.fromEntries(
           Object.entries(localStorage).filter(([key]) => key.includes(":__prebind__:"))
         ),
-        global: JSON.parse(localStorage.getItem("atria.composer.v1:new") || "null")
+        global: JSON.parse(localStorage.getItem("formicand.composer.v1:new") || "null")
       };
     });
     expect(saved.closed).toBe(true);
@@ -111,9 +111,11 @@ test("desktop restores drafts saved before the first backend binding", async () 
     await expect(page.getByRole("button", { name: "移除 global.txt" })).toBeVisible();
     const recovered = await page.evaluate(
       (backendId) => ({
-        global: JSON.parse(localStorage.getItem(`atria.composer.v1:${backendId}:new`) || "null"),
-        project: JSON.parse(localStorage.getItem(`atria.composer.v1:${backendId}:new:native-p1`) || "null"),
-        bare: localStorage.getItem("atria.composer.v1:new"),
+        global: JSON.parse(localStorage.getItem(`formicand.composer.v1:${backendId}:new`) || "null"),
+        project: JSON.parse(
+          localStorage.getItem(`formicand.composer.v1:${backendId}:new:native-p1`) || "null"
+        ),
+        bare: localStorage.getItem("formicand.composer.v1:new"),
         staged: Object.keys(localStorage).filter((key) => key.includes(":__prebind__:"))
       }),
       primary.backendId
@@ -138,7 +140,7 @@ test("desktop restores drafts saved before the first backend binding", async () 
     await expect(page.getByRole("button", { name: "移除 global.txt" })).toHaveCount(0);
     const project = await page.evaluate(
       (backendId) =>
-        JSON.parse(localStorage.getItem(`atria.composer.v1:${backendId}:new:native-p1`) || "null"),
+        JSON.parse(localStorage.getItem(`formicand.composer.v1:${backendId}:new:native-p1`) || "null"),
       primary.backendId
     );
     expect(project.text).toBe("native prebind project");
@@ -150,7 +152,7 @@ test("desktop restores drafts saved before the first backend binding", async () 
       console.log(
         JSON.stringify({
           event: "backend-stop",
-          ...(await stopBackend({ ...env, ATRIA_HOME: profile }, primary)),
+          ...(await stopBackend({ ...env, FORMICAND_HOME: profile }, primary)),
           pid: primary.pid
         })
       );

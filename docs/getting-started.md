@@ -11,7 +11,7 @@ macOS 14+ · Apple Silicon
 
 ## 安装
 
-在源码检出中运行 `npm ci` 和 `npm run desktop:dist`，在 `release/` 得到 `CoworkOS-<version>-mac-arm64.dmg`；打开后把 App 拖到“应用程序”。也可以用 `npm run desktop` 直接以开发模式运行，见 [开发指南](development.md#准备环境)。首次打开若被 macOS 阻止，按 [Apple 安装说明](https://support.apple.com/zh-cn/102445)，在“系统设置 → 隐私与安全性”中允许打开。
+在源码检出中运行 `npm ci` 和 `npm run desktop:dist`，在 `release/` 得到 `Formicand-<version>-mac-arm64.dmg`；打开后把 App 拖到“应用程序”。也可以用 `npm run desktop` 直接以开发模式运行，见 [开发指南](development.md#准备环境)。首次打开若被 macOS 阻止，按 [Apple 安装说明](https://support.apple.com/zh-cn/102445)，在“系统设置 → 隐私与安全性”中允许打开。
 
 App 没有应用内更新，新版本用本地 DMG 手动升级。先备份数据和外部项目，结束任务并停止独立后端，再退出 App；保留旧 App，将新包拖入安装目录，启动后核对数据。步骤见 [安装与升级](installation-reference.md#更新)。当前安装包尚未通过 Apple 公证。
 
@@ -23,17 +23,17 @@ App 没有应用内更新，新版本用本地 DMG 手动升级。先备份数�
 
 ## 创建项目
 
-先在 Finder 的“文稿”中新建一个空文件夹，命名为 `coworkos-quickstart`。
+先在 Finder 的“文稿”中新建一个空文件夹，命名为 `formicand-quickstart`。
 
-在 CoworkOS 侧栏“项目”旁点击 `+`，填写项目名称并选择这个文件夹。然后点击项目标题旁的 `+`，打开新对话。
+在 Formicand 侧栏“项目”旁点击 `+`，填写项目名称并选择这个文件夹。然后点击项目标题旁的 `+`，打开新对话。
 
 ## 完成第一个任务
 
 发送：
 
-> 在当前项目中创建 hello.txt，写入“你好，CoworkOS。”，然后读取文件并确认内容。
+> 在当前项目中创建 hello.txt，写入“你好，Formicand。”，然后读取文件并确认内容。
 
-任务结束后，在 Finder 打开刚才选择的 `coworkos-quickstart` 文件夹。里面应有 `hello.txt`，打开后应看到 `你好，CoworkOS。`。
+任务结束后，在 Finder 打开刚才选择的 `formicand-quickstart` 文件夹。里面应有 `hello.txt`，打开后应看到 `你好，Formicand。`。
 
 <a id="cli-安装包"></a>
 

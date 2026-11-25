@@ -5,7 +5,7 @@ export interface QueuedUserTurn {
   messageId: string;
   text: string;
 }
-const prefix = "<!-- atria-queued-user ";
+const prefix = "<!-- formicand-queued-user ";
 export function queuedUserTurn(turn: QueuedUserTurn): string {
   const { text, ...identity } = turn;
   return `${prefix}${JSON.stringify(identity)} -->\n${text}`;

@@ -222,9 +222,9 @@ test("stopped queued messages can be cancelled or sent once without losing the c
     expect(sent).toContain("START_BEFORE_STOP");
     expect(sent).not.toContain("CANCEL_AFTER_STOP");
     expect(sent).not.toContain("CANCEL_WHILE_RUNNING");
-    expect(sent).not.toContain("atria-queued-user");
+    expect(sent).not.toContain("formicand-queued-user");
     await expect(page.locator("#composer-input")).toHaveValue("未发送的另一条草稿");
-    await expect(page.locator("#conversation")).not.toContainText("atria-queued-user");
+    await expect(page.locator("#conversation")).not.toContainText("formicand-queued-user");
     await expect(page.locator(".chat-message.user").filter({ hasText: "SEND_AFTER_STOP" })).toHaveCount(1);
     releaseSecond();
     await expect(page.locator("#conversation")).toContainText("停止后的队列续发成功");

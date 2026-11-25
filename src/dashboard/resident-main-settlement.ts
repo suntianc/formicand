@@ -72,7 +72,7 @@ export function createResidentMainSettlement({
       await onRunFinalized(location, runId, status);
     } catch (error) {
       console.error(
-        `[cowork] session run settlement failed: ${error instanceof Error ? error.message : String(error)}`
+        `[formicand] session run settlement failed: ${error instanceof Error ? error.message : String(error)}`
       );
     }
   }
@@ -127,7 +127,7 @@ export function createResidentMainSettlement({
       } catch (error) {
         // Another reader may have consumed it between the list and the lease.
         console.error(
-          `[cowork] discarding a stale interrupt failed: ${error instanceof Error ? error.message : String(error)}`
+          `[formicand] discarding a stale interrupt failed: ${error instanceof Error ? error.message : String(error)}`
         );
       }
     }
@@ -159,7 +159,7 @@ export function createResidentMainSettlement({
         .materialize()
         .catch((error) => {
           console.error(
-            `[cowork] materializing request snapshot failed: ${error instanceof Error ? error.message : String(error)}`
+            `[formicand] materializing request snapshot failed: ${error instanceof Error ? error.message : String(error)}`
           );
         });
       const settledTask = await location.store.readTask(taskId);
@@ -330,7 +330,7 @@ export function createResidentMainSettlement({
     })()
       .catch((error) =>
         console.error(
-          `[cowork] run finalization failed: ${error instanceof Error ? error.message : String(error)}`
+          `[formicand] run finalization failed: ${error instanceof Error ? error.message : String(error)}`
         )
       )
       .finally(async () => {
@@ -352,7 +352,7 @@ export function createResidentMainSettlement({
             .release(resident.requestId)
             .catch((error) =>
               console.error(
-                `[cowork] external capacity release failed: ${error instanceof Error ? error.message : String(error)}`
+                `[formicand] external capacity release failed: ${error instanceof Error ? error.message : String(error)}`
               )
             );
         // A quick reply can arrive while askhuman's process is still exiting.
@@ -422,7 +422,7 @@ export function createResidentMainSettlement({
       .releaseIfCurrent(resident.taskId, resident.runId, boundaryRequestId)
       .catch((error) => {
         console.error(
-          `[cowork] external capacity release failed: ${error instanceof Error ? error.message : String(error)}`
+          `[formicand] external capacity release failed: ${error instanceof Error ? error.message : String(error)}`
         );
         return false;
       });

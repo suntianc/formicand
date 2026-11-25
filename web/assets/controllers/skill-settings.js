@@ -6,18 +6,18 @@ import { createModal } from "../ui/modal.js";
 /**
  * Settings → Skills.
  *
- * Two scopes like the Agent pages: the global list (skills CoworkOS installed,
+ * Two scopes like the Agent pages: the global list (skills Formicand installed,
  * the shared `~/.agents/skills` and the bundled ones) and one project's list,
  * picked from the project selector and read only after the user trusts that
- * project. Every source can be removed from CoworkOS's index; only skills
- * CoworkOS installed can be deleted.
+ * project. Every source can be removed from Formicand's index; only skills
+ * Formicand installed can be deleted.
  */
 const PAGE_SIZE = 10;
 const SOURCE_LABEL = {
   global: "本产品",
   "global-agents": "通用",
   bundled: "自带",
-  project: ".atria",
+  project: ".formicand",
   "project-agents": ".agents"
 };
 const SCOPE_LABEL = { global: "全局", project: "项目" };
@@ -30,7 +30,7 @@ const FILTERS = {
   ],
   project: [
     ["all", "全部"],
-    ["project", ".atria"],
+    ["project", ".formicand"],
     ["project-agents", ".agents"]
   ]
 };
@@ -195,7 +195,7 @@ export function createSkillSettings({ panel, api, projects = () => [], onSection
     if (view.scope === "project") {
       if (!projects().length) return ui("先添加一个项目");
       if (view.data.project && view.data.project.trust !== "trusted")
-        return ui("信任这个项目后，才会读取它的 .atria/skills 和 .agents/skills");
+        return ui("信任这个项目后，才会读取它的 .formicand/skills 和 .agents/skills");
     }
     if (view.showRemoved) return ui("没有从索引移除的技能");
     return view.query || view.filter !== "all" ? ui("没有匹配的技能") : ui("还没有技能");
@@ -455,8 +455,8 @@ export function createSkillSettings({ panel, api, projects = () => [], onSection
       view.scope === "project" ? ui("添加技能到此项目") : ui("添加技能");
     addEl("[data-skill-add-note]").textContent =
       view.scope === "project"
-        ? ui("安装到此项目的 .atria/skills/，跟着项目走。")
-        : ui("安装到 ~/.atria/skills/，只给本产品用；不会写入通用目录 ~/.agents/skills/。");
+        ? ui("安装到此项目的 .formicand/skills/，跟着项目走。")
+        : ui("安装到 ~/.formicand/skills/，只给本产品用；不会写入通用目录 ~/.agents/skills/。");
     for (const input of addPanel.querySelectorAll("input")) input.value = "";
     addError("");
     renderAdd();

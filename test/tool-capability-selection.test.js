@@ -32,15 +32,15 @@ const optional = [
   "computer_act"
 ];
 async function fixture(t) {
-  const root = await mkdtemp(join(tmpdir(), "atria-tool-selection-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-tool-selection-"));
   const store = new LocalWorkspaceStore(root);
   await store.createTask("task");
   await store.createRun("task", "run");
   const previous = { ...process.env };
-  for (const name of ["COWORK_DASHBOARD_URL", "COWORK_API_TOKEN", "COWORK_PROJECT_WRITE"])
+  for (const name of ["FORMICAND_DASHBOARD_URL", "FORMICAND_API_TOKEN", "FORMICAND_PROJECT_WRITE"])
     delete process.env[name];
   t.after(async () => {
-    for (const name of ["COWORK_DASHBOARD_URL", "COWORK_API_TOKEN", "COWORK_PROJECT_WRITE"]) {
+    for (const name of ["FORMICAND_DASHBOARD_URL", "FORMICAND_API_TOKEN", "FORMICAND_PROJECT_WRITE"]) {
       if (previous[name] === undefined) delete process.env[name];
       else process.env[name] = previous[name];
     }
@@ -72,7 +72,7 @@ test("an unbound ordinary task exposes only core tools in CLI and App without a 
     cli = f.start();
   await cli.controller.refresh();
   assert.deepEqual(cli.pi.getActiveTools().sort(), ["read", "write", "edit", "bash", ...CORE_TOOLS].sort());
-  process.env.COWORK_DASHBOARD_URL = "http://127.0.0.1:1";
+  process.env.FORMICAND_DASHBOARD_URL = "http://127.0.0.1:1";
   const app = f.start();
   await app.controller.refresh();
   assert.deepEqual(app.pi.getActiveTools().sort(), cli.pi.getActiveTools().sort());
@@ -186,7 +186,7 @@ test("desktop tool schemas follow active human observation/control grants and ex
     server.closeAllConnections();
     await new Promise((done) => server.close(done));
   });
-  process.env.COWORK_DASHBOARD_URL = `http://127.0.0.1:${server.address().port}`;
+  process.env.FORMICAND_DASHBOARD_URL = `http://127.0.0.1:${server.address().port}`;
   const main = f.start();
   await main.controller.refresh();
   assert.equal(main.pi.getActiveTools().includes("computer_observe"), false);

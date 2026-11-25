@@ -227,6 +227,6 @@ export function runCommand<T>(
 
 /** The saved status and body, marked when it is an earlier attempt's result. */
 export function sendCommandOutcome<T>(response: ServerResponse, outcome: CommandOutcome<T>): void {
-  if (outcome.replayed) response.setHeader("x-cowork-replayed", "1");
+  if (outcome.replayed) response.setHeader("x-formicand-replayed", "1");
   sendJson(response, outcome.status, outcome.body);
 }

@@ -33,7 +33,7 @@ const systemText = (body) =>
     .filter((message) => ["system", "developer"].includes(message.role))
     .map(messageText)
     .join("\n");
-const isSubagent = (body) => systemText(body).includes("You are a CoworkOS Subagent");
+const isSubagent = (body) => systemText(body).includes("You are a Formicand Subagent");
 const git = (cwd, args) =>
   run("git", ["-C", cwd, ...args], { maxBuffer: 8 * 1024 * 1024 }).then((result) => result.stdout.trim());
 
@@ -41,7 +41,7 @@ const git = (cwd, args) =>
 function spawnMain({ root, project, workspace, taskId, runId, prompt, env = {} }) {
   const inherited = Object.fromEntries(
     Object.entries(process.env).filter(
-      ([name]) => !/^(COWORK_|ATRIA_|PI_|OPENAI_|ANTHROPIC_)/.test(name) && name !== "NODE_OPTIONS"
+      ([name]) => !/^(FORMICAND_|FORMICAND_|PI_|OPENAI_|ANTHROPIC_)/.test(name) && name !== "NODE_OPTIONS"
     )
   );
   const child = spawn(
@@ -62,22 +62,22 @@ function spawnMain({ root, project, workspace, taskId, runId, prompt, env = {} }
       stdio: ["ignore", "pipe", "pipe"],
       env: {
         ...inherited,
-        ATRIA_HOME: join(root, "atria"),
-        COWORK_CONFIG: join(root, "config.json"),
-        COWORK_WORKSPACE: workspace,
-        COWORK_PROJECT_DIR: project,
-        COWORK_TASK_ID: taskId,
-        COWORK_RUN_ID: runId,
-        COWORK_PROJECT_WRITE: "1",
-        COWORK_GLOBAL_INDEX: join(root, "index.json"),
-        COWORK_DASHBOARD_URL: "",
-        COWORK_DISABLE_MAIN_GUARDIAN: "1",
-        COWORK_MODEL_API: "openai-completions",
-        COWORK_REASONING_EFFORT: "off",
-        COWORK_SUPPORTS_REASONING_EFFORT: "0",
-        COWORK_WEB_TOOLS: "0",
-        COWORK_MAX_ATTEMPTS: "1",
-        COWORK_SUBAGENT_TIMEOUT_MS: "60000",
+        FORMICAND_HOME: join(root, "formicand"),
+        FORMICAND_CONFIG: join(root, "config.json"),
+        FORMICAND_WORKSPACE: workspace,
+        FORMICAND_PROJECT_DIR: project,
+        FORMICAND_TASK_ID: taskId,
+        FORMICAND_RUN_ID: runId,
+        FORMICAND_PROJECT_WRITE: "1",
+        FORMICAND_GLOBAL_INDEX: join(root, "index.json"),
+        FORMICAND_DASHBOARD_URL: "",
+        FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
+        FORMICAND_MODEL_API: "openai-completions",
+        FORMICAND_REASONING_EFFORT: "off",
+        FORMICAND_SUPPORTS_REASONING_EFFORT: "0",
+        FORMICAND_WEB_TOOLS: "0",
+        FORMICAND_MAX_ATTEMPTS: "1",
+        FORMICAND_SUBAGENT_TIMEOUT_MS: "60000",
         PI_CODING_AGENT_DIR: join(root, "pi"),
         PI_OFFLINE: "1",
         ...env
@@ -267,7 +267,7 @@ test(
   "executor and reviewer role bindings reach the model requests of a real Main process",
   { timeout: 240_000 },
   async (t) => {
-    const root = await mkdtemp(join(tmpdir(), "atria-p4-role-models-"));
+    const root = await mkdtemp(join(tmpdir(), "formicand-p4-role-models-"));
     const project = join(root, "project");
     const workspace = join(root, "workspace");
     await mkdir(project, { recursive: true });
@@ -366,9 +366,9 @@ test(
       runId,
       prompt: "依次验证执行者与审查者的模型角色。",
       env: {
-        COWORK_API_BASE: mainProvider.baseUrl,
-        COWORK_API_KEY: keys.main,
-        COWORK_MODEL: "main-model"
+        FORMICAND_API_BASE: mainProvider.baseUrl,
+        FORMICAND_API_KEY: keys.main,
+        FORMICAND_MODEL: "main-model"
       }
     });
     t.after(async () => {
@@ -459,7 +459,7 @@ test(
   "a queued work item reads its role binding when it actually starts, and a cancelled waiter is not blocked",
   { timeout: 180_000 },
   async (t) => {
-    const root = await mkdtemp(join(tmpdir(), "atria-p4-start-"));
+    const root = await mkdtemp(join(tmpdir(), "formicand-p4-start-"));
     const project = join(root, "project");
     const workspace = join(root, "workspace");
     await mkdir(project, { recursive: true });
@@ -599,9 +599,9 @@ test(
       runId,
       prompt: "按依赖顺序推进工作项。",
       env: {
-        COWORK_API_BASE: mainProvider.baseUrl,
-        COWORK_API_KEY: keys.main,
-        COWORK_MODEL: "main-model"
+        FORMICAND_API_BASE: mainProvider.baseUrl,
+        FORMICAND_API_KEY: keys.main,
+        FORMICAND_MODEL: "main-model"
       }
     });
     t.after(async () => {
@@ -674,7 +674,7 @@ test(
   "a recovered queued item whose binding is gone is settled with its reason instead of being re-driven",
   { timeout: 240_000 },
   async (t) => {
-    const root = await mkdtemp(join(tmpdir(), "atria-p4-recovery-"));
+    const root = await mkdtemp(join(tmpdir(), "formicand-p4-recovery-"));
     const project = join(root, "project");
     const workspace = join(root, "workspace");
     await mkdir(project, { recursive: true });
@@ -805,9 +805,9 @@ test(
       runId,
       prompt: "先推进三项工作。",
       env: {
-        COWORK_API_BASE: firstProvider.baseUrl,
-        COWORK_API_KEY: keys.main1,
-        COWORK_MODEL: "main-model"
+        FORMICAND_API_BASE: firstProvider.baseUrl,
+        FORMICAND_API_KEY: keys.main1,
+        FORMICAND_MODEL: "main-model"
       }
     });
     t.after(async () => {
@@ -852,9 +852,9 @@ test(
       runId,
       prompt: "恢复并核对被中断的工作项。",
       env: {
-        COWORK_API_BASE: secondProvider.baseUrl,
-        COWORK_API_KEY: keys.main2,
-        COWORK_MODEL: "main-model"
+        FORMICAND_API_BASE: secondProvider.baseUrl,
+        FORMICAND_API_KEY: keys.main2,
+        FORMICAND_MODEL: "main-model"
       }
     });
     t.after(() => second.kill());
@@ -922,9 +922,9 @@ test(
       runId,
       prompt: "再次启动确认没有重复恢复。",
       env: {
-        COWORK_API_BASE: thirdProvider.baseUrl,
-        COWORK_API_KEY: "recovery-main-three",
-        COWORK_MODEL: "main-model"
+        FORMICAND_API_BASE: thirdProvider.baseUrl,
+        FORMICAND_API_KEY: "recovery-main-three",
+        FORMICAND_MODEL: "main-model"
       }
     });
     t.after(() => third.kill());
@@ -964,7 +964,7 @@ test(
   "a refused delegation leaves no name or misleading delivery warning",
   { timeout: 120_000 },
   async (t) => {
-    const root = await mkdtemp(join(tmpdir(), "atria-p4-refusal-"));
+    const root = await mkdtemp(join(tmpdir(), "formicand-p4-refusal-"));
     const project = join(root, "project");
     const workspace = join(root, "workspace");
     await mkdir(project, { recursive: true });
@@ -1023,9 +1023,9 @@ test(
       runId,
       prompt: "先发一个引用错误前置的委派，再发普通委派。",
       env: {
-        COWORK_API_BASE: mainProvider.baseUrl,
-        COWORK_API_KEY: "refusal-main",
-        COWORK_MODEL: "main-model"
+        FORMICAND_API_BASE: mainProvider.baseUrl,
+        FORMICAND_API_KEY: "refusal-main",
+        FORMICAND_MODEL: "main-model"
       }
     });
     t.after(async () => {

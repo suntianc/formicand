@@ -101,7 +101,7 @@ export async function buildCliUiManifest(
         'this.handleDementedDelves(),this.editor.setText("")'
       )
         throw new Error("SDK hidden command dispatch adjacency changed");
-      replacement = 'this.showStatus("CoworkOS 不支持此命令，请使用 /help。")';
+      replacement = 'this.showStatus("Formicand 不支持此命令，请使用 /help。")';
     } else {
       const marker = {
         renderProjectTrustWarningIfNeeded: "then restart pi.",
@@ -117,18 +117,18 @@ export async function buildCliUiManifest(
       const original = node.getText(ast);
       replacement = {
         renderProjectTrustWarningIfNeeded: () =>
-          original.replace("then restart pi.", "then restart coworkos."),
-        checkTmuxKeyboardSetup: () => original.replace("Pi works best", "CoworkOS works best"),
+          original.replace("then restart pi.", "then restart formicand."),
+        checkTmuxKeyboardSetup: () => original.replace("Pi works best", "Formicand works best"),
         suggestBugReport: () =>
           original.replace(
             "/bug sends a report to the developers.",
-            "submit feedback manually. When CoworkOS commands are enabled, /coworkos-bug saves a local feedback file for review."
+            "submit feedback manually. When Formicand commands are enabled, /formicand-bug saves a local feedback file for review."
           ),
         crashReportInstructions: () =>
           original
             .replace("To report this crash:", "To prepare local feedback:")
-            .replace("start pi and", "start coworkos and")
-            .replace("run /bug.", "run /coworkos-bug when CoworkOS commands are enabled.")
+            .replace("start pi and", "start formicand and")
+            .replace("run /bug.", "run /formicand-bug when Formicand commands are enabled.")
             .replace(
               "The crash details are attached automatically.",
               "Review the saved file before submitting it manually."
@@ -136,7 +136,7 @@ export async function buildCliUiManifest(
         run: () =>
           original.replace(
             "Run /bug to report it; the crash details are attached automatically.",
-            "Run /coworkos-bug when CoworkOS commands are enabled to save local feedback; review the file before submitting it manually."
+            "Run /formicand-bug when Formicand commands are enabled to save local feedback; review the file before submitting it manually."
           )
       }[name]();
       if (replacement === original) throw new Error(`Empty SDK UI difference: ${name}`);

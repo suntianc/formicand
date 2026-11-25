@@ -297,7 +297,7 @@ for (const desktop of [false, true]) {
   }, info) => {
     const dashboard = await startConfiguredDashboard();
     try {
-      await page.addInitScript(() => localStorage.setItem("atria.appearance", "system"));
+      await page.addInitScript(() => localStorage.setItem("formicand.appearance", "system"));
       if (desktop) {
         await page.addInitScript(() => {
           const update = {
@@ -306,7 +306,7 @@ for (const desktop of [false, true]) {
             currentVersion: "fixture",
             error: "更新暂不可用，请稍后重试"
           };
-          window.bookmanDesktop = {
+          window.formicandDesktop = {
             onPrepareClose() {},
             updateStatus: async () => update,
             checkUpdates: async () => update,

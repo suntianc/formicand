@@ -61,16 +61,16 @@ jobs:
           node scripts/release-draft.mjs upload "${options[@]}"
       - uses: actions/upload-artifact@v4
         with:
-          name: CoworkOS-mac-arm64-${{ steps.release.outputs.version }}
+          name: Formicand-mac-arm64-${{ steps.release.outputs.version }}
           path: |
             ${{ steps.release.outputs.dmg }}
             ${{ steps.release.outputs.checksum }}
-            release/CoworkOS-${{ steps.release.outputs.version }}-mac-arm64.signing.json
-            release/CoworkOS-${{ steps.release.outputs.version }}-mac-arm64.signing.json.sha256
-            release/coworkos-cli-${{ steps.release.outputs.version }}.tgz
-            release/coworkos-cli-${{ steps.release.outputs.version }}.tgz.sha256
-            release/atria-component-*
-            release/atria-release-${{ steps.release.outputs.version }}.json
-            release/atria-release-${{ steps.release.outputs.version }}.json.sha256
-            release/atria-release-${{ steps.release.outputs.version }}.md
+            release/Formicand-${{ steps.release.outputs.version }}-mac-arm64.signing.json
+            release/Formicand-${{ steps.release.outputs.version }}-mac-arm64.signing.json.sha256
+            release/formicand-cli-${{ steps.release.outputs.version }}.tgz
+            release/formicand-cli-${{ steps.release.outputs.version }}.tgz.sha256
+            release/formicand-component-*
+            release/formicand-release-${{ steps.release.outputs.version }}.json
+            release/formicand-release-${{ steps.release.outputs.version }}.json.sha256
+            release/formicand-release-${{ steps.release.outputs.version }}.md
           if-no-files-found: error

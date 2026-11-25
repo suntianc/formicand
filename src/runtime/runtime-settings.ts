@@ -1,5 +1,5 @@
 import { proxyEnvironment, type HttpProxyConfig } from "./http-transport.js";
-import { atriaDataPaths } from "../../scripts/data-home.cjs";
+import { formicandDataPaths } from "../../scripts/data-home.cjs";
 
 /**
  * Centralized runtime knobs.  Main and Subagent deadlines are intentionally
@@ -62,35 +62,35 @@ const REASONING_LEVELS: readonly PiThinkingLevel[] = [
   "max"
 ];
 
-export type CoworkModelApi = "openai-completions" | "openai-responses" | "anthropic-messages";
-export type CoworkThinkingFormat = "auto" | "openai" | "zai";
+export type FormicandModelApi = "openai-completions" | "openai-responses" | "anthropic-messages";
+export type FormicandThinkingFormat = "auto" | "openai" | "zai";
 
 /** Preserve SDK detection unless a connection explicitly selects a wire format. */
-export function normalizeThinkingFormat(value: unknown): CoworkThinkingFormat {
+export function normalizeThinkingFormat(value: unknown): FormicandThinkingFormat {
   if (value === undefined) return "auto";
   if (value === "auto" || value === "openai" || value === "zai") return value;
   throw new Error("thinkingFormat must be auto, openai, or zai");
 }
 
-export function configuredThinkingFormat(env: NodeJS.ProcessEnv = process.env): CoworkThinkingFormat {
-  return normalizeThinkingFormat(env.COWORK_THINKING_FORMAT);
+export function configuredThinkingFormat(env: NodeJS.ProcessEnv = process.env): FormicandThinkingFormat {
+  return normalizeThinkingFormat(env.FORMICAND_THINKING_FORMAT);
 }
 
 /** Missing legacy runtime settings keep their original protocol; new connections use NEW_CONNECTION_PROFILE. */
-export function normalizeModelApi(value: unknown): CoworkModelApi {
+export function normalizeModelApi(value: unknown): FormicandModelApi {
   if (value === undefined) return "openai-completions";
   if (value === "openai-completions" || value === "openai-responses" || value === "anthropic-messages")
     return value;
   throw new Error("接口格式须为 Chat Completions、Responses 或 Anthropic Messages");
 }
 
-export function configuredModelApi(env: NodeJS.ProcessEnv = process.env): CoworkModelApi {
-  return normalizeModelApi(env.COWORK_MODEL_API);
+export function configuredModelApi(env: NodeJS.ProcessEnv = process.env): FormicandModelApi {
+  return normalizeModelApi(env.FORMICAND_MODEL_API);
 }
 
 export interface RuntimeSettingsConfig extends HttpProxyConfig {
-  api?: CoworkModelApi;
-  thinkingFormat?: CoworkThinkingFormat;
+  api?: FormicandModelApi;
+  thinkingFormat?: FormicandThinkingFormat;
   reasoningEffort?: PiThinkingLevel;
   /** Levels chosen for a connection whose models the provider and Pi do not describe (#27). */
   reasoningLevels?: PiThinkingLevel[];
@@ -121,32 +121,32 @@ export function configuredWorkspaceRoot(
   env: NodeJS.ProcessEnv = process.env,
   cwd = process.cwd()
 ): string {
-  return atriaDataPaths(env, config, cwd).workspaceRoot;
+  return formicandDataPaths(env, config, cwd).workspaceRoot;
 }
 
 /** Process environment with optional local config values as lower precedence. */
 export function runtimeSettingsEnv(config: RuntimeSettingsConfig = {}): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = { ...process.env };
   const values: Array<[keyof RuntimeSettingsConfig, string]> = [
-    ["api", "COWORK_MODEL_API"],
-    ["thinkingFormat", "COWORK_THINKING_FORMAT"],
-    ["reasoningEffort", "COWORK_REASONING_EFFORT"],
-    ["supportsReasoningEffort", "COWORK_SUPPORTS_REASONING_EFFORT"],
-    ["supportsImages", "COWORK_SUPPORTS_IMAGES"],
-    ["supportsPromptCacheKey", "COWORK_SUPPORTS_PROMPT_CACHE_KEY"],
-    ["mainTimeoutMs", "COWORK_MAIN_TIMEOUT_MS"],
-    ["mainIdleTimeoutMs", "COWORK_MAIN_IDLE_TIMEOUT_MS"],
-    ["subagentTimeoutMs", "COWORK_SUBAGENT_TIMEOUT_MS"],
-    ["mainMaxTurns", "COWORK_MAIN_MAX_TURNS"],
-    ["subagentMaxTurns", "COWORK_MAX_TURNS"],
-    ["mainMaxTokens", "COWORK_MAIN_MAX_TOKENS"],
-    ["subagentMaxTokens", "COWORK_MAX_TOKENS"],
-    ["contextWindow", "COWORK_CONTEXT_WINDOW"],
-    ["commandTimeoutMs", "COWORK_COMMAND_TIMEOUT_MS"],
-    ["maxAttempts", "COWORK_MAX_ATTEMPTS"],
-    ["subagentQuestionTimeoutMs", "COWORK_SUBAGENT_QUESTION_TIMEOUT_MS"],
-    ["humanAnswerTimeoutMs", "COWORK_HUMAN_ANSWER_TIMEOUT_MS"],
-    ["subagentMaxQuestions", "COWORK_SUBAGENT_MAX_QUESTIONS"]
+    ["api", "FORMICAND_MODEL_API"],
+    ["thinkingFormat", "FORMICAND_THINKING_FORMAT"],
+    ["reasoningEffort", "FORMICAND_REASONING_EFFORT"],
+    ["supportsReasoningEffort", "FORMICAND_SUPPORTS_REASONING_EFFORT"],
+    ["supportsImages", "FORMICAND_SUPPORTS_IMAGES"],
+    ["supportsPromptCacheKey", "FORMICAND_SUPPORTS_PROMPT_CACHE_KEY"],
+    ["mainTimeoutMs", "FORMICAND_MAIN_TIMEOUT_MS"],
+    ["mainIdleTimeoutMs", "FORMICAND_MAIN_IDLE_TIMEOUT_MS"],
+    ["subagentTimeoutMs", "FORMICAND_SUBAGENT_TIMEOUT_MS"],
+    ["mainMaxTurns", "FORMICAND_MAIN_MAX_TURNS"],
+    ["subagentMaxTurns", "FORMICAND_MAX_TURNS"],
+    ["mainMaxTokens", "FORMICAND_MAIN_MAX_TOKENS"],
+    ["subagentMaxTokens", "FORMICAND_MAX_TOKENS"],
+    ["contextWindow", "FORMICAND_CONTEXT_WINDOW"],
+    ["commandTimeoutMs", "FORMICAND_COMMAND_TIMEOUT_MS"],
+    ["maxAttempts", "FORMICAND_MAX_ATTEMPTS"],
+    ["subagentQuestionTimeoutMs", "FORMICAND_SUBAGENT_QUESTION_TIMEOUT_MS"],
+    ["humanAnswerTimeoutMs", "FORMICAND_HUMAN_ANSWER_TIMEOUT_MS"],
+    ["subagentMaxQuestions", "FORMICAND_SUBAGENT_MAX_QUESTIONS"]
   ];
   for (const [configKey, envKey] of values) {
     if (env[envKey] === undefined && config[configKey] !== undefined) env[envKey] = String(config[configKey]);
@@ -164,31 +164,36 @@ export function normalizeReasoningEffort(value: unknown, source = "reasoningEffo
 }
 
 export function configuredReasoningEffort(env: NodeJS.ProcessEnv = process.env): PiThinkingLevel {
-  return normalizeReasoningEffort(env.COWORK_REASONING_EFFORT, "COWORK_REASONING_EFFORT / reasoningEffort");
+  return normalizeReasoningEffort(
+    env.FORMICAND_REASONING_EFFORT,
+    "FORMICAND_REASONING_EFFORT / reasoningEffort"
+  );
 }
 
 /** Opt out only for gateways that reject the reasoning_effort request field. */
 export function configuredSupportsReasoningEffort(env: NodeJS.ProcessEnv = process.env): boolean {
-  const value = env.COWORK_SUPPORTS_REASONING_EFFORT?.trim();
+  const value = env.FORMICAND_SUPPORTS_REASONING_EFFORT?.trim();
   if (value === undefined || value === "1" || value === "true") return true;
   if (value === "0" || value === "false") return false;
-  throw new Error("COWORK_SUPPORTS_REASONING_EFFORT / supportsReasoningEffort must be true, false, 1 or 0");
+  throw new Error(
+    "FORMICAND_SUPPORTS_REASONING_EFFORT / supportsReasoningEffort must be true, false, 1 or 0"
+  );
 }
 
 /** Image input is explicit: a custom endpoint must not receive images it cannot accept. */
 export function configuredSupportsImages(env: NodeJS.ProcessEnv = process.env): boolean {
-  const value = env.COWORK_SUPPORTS_IMAGES?.trim();
+  const value = env.FORMICAND_SUPPORTS_IMAGES?.trim();
   if (value === undefined || value === "0" || value === "false") return false;
   if (value === "1" || value === "true") return true;
-  throw new Error("COWORK_SUPPORTS_IMAGES / supportsImages must be true, false, 1 or 0");
+  throw new Error("FORMICAND_SUPPORTS_IMAGES / supportsImages must be true, false, 1 or 0");
 }
 
 /** Unknown fields stay opt-in on third-party OpenAI-compatible services. */
 export function configuredSupportsPromptCacheKey(env: NodeJS.ProcessEnv = process.env): boolean {
-  const value = env.COWORK_SUPPORTS_PROMPT_CACHE_KEY?.trim();
+  const value = env.FORMICAND_SUPPORTS_PROMPT_CACHE_KEY?.trim();
   if (value === undefined || value === "0" || value === "false") return false;
   if (value === "1" || value === "true") return true;
-  throw new Error("COWORK_SUPPORTS_PROMPT_CACHE_KEY / supportsPromptCacheKey must be true, false, 1 or 0");
+  throw new Error("FORMICAND_SUPPORTS_PROMPT_CACHE_KEY / supportsPromptCacheKey must be true, false, 1 or 0");
 }
 
 function nonNegativeEnv(env: NodeJS.ProcessEnv, name: string, fallback: number): number {
@@ -207,7 +212,7 @@ function positiveCappedEnv(env: NodeJS.ProcessEnv, name: string, fallback: numbe
 
 /** Main Agent wall-clock deadline.  Zero means unlimited. */
 export function configuredMainTimeout(env: NodeJS.ProcessEnv = process.env): number {
-  return nonNegativeEnv(env, "COWORK_MAIN_TIMEOUT_MS", 0);
+  return nonNegativeEnv(env, "FORMICAND_MAIN_TIMEOUT_MS", 0);
 }
 
 /**
@@ -221,19 +226,19 @@ export function configuredMainTimeout(env: NodeJS.ProcessEnv = process.env): num
 export const DEFAULT_MAIN_IDLE_TIMEOUT_MS = 5 * 60_000;
 
 export function configuredMainIdleTimeout(env: NodeJS.ProcessEnv = process.env): number {
-  return nonNegativeEnv(env, "COWORK_MAIN_IDLE_TIMEOUT_MS", DEFAULT_MAIN_IDLE_TIMEOUT_MS);
+  return nonNegativeEnv(env, "FORMICAND_MAIN_IDLE_TIMEOUT_MS", DEFAULT_MAIN_IDLE_TIMEOUT_MS);
 }
 
 /**
- * Subagent wall-clock deadline.  `COWORK_TIMEOUT_MS` remains a compatibility
+ * Subagent wall-clock deadline.  `FORMICAND_TIMEOUT_MS` remains a compatibility
  * alias and deliberately applies only to Subagents, matching its historical
  * extension behavior.
  */
 export function configuredSubagentTimeout(env: NodeJS.ProcessEnv = process.env): number {
-  const explicit = env.COWORK_SUBAGENT_TIMEOUT_MS;
+  const explicit = env.FORMICAND_SUBAGENT_TIMEOUT_MS;
   if (explicit !== undefined && explicit.trim() !== "")
-    return nonNegativeEnv(env, "COWORK_SUBAGENT_TIMEOUT_MS", 0);
-  return nonNegativeEnv(env, "COWORK_TIMEOUT_MS", 0);
+    return nonNegativeEnv(env, "FORMICAND_SUBAGENT_TIMEOUT_MS", 0);
+  return nonNegativeEnv(env, "FORMICAND_TIMEOUT_MS", 0);
 }
 
 /**
@@ -243,7 +248,7 @@ export function configuredSubagentTimeout(env: NodeJS.ProcessEnv = process.env):
  * above: a command may outlive the Agent turn that started it.
  */
 export function configuredCommandTimeout(env: NodeJS.ProcessEnv = process.env): number {
-  return nonNegativeEnv(env, "COWORK_COMMAND_TIMEOUT_MS", DEFAULT_COMMAND_TIMEOUT_MS);
+  return nonNegativeEnv(env, "FORMICAND_COMMAND_TIMEOUT_MS", DEFAULT_COMMAND_TIMEOUT_MS);
 }
 
 /**
@@ -252,23 +257,23 @@ export function configuredCommandTimeout(env: NodeJS.ProcessEnv = process.env): 
  * failure for judgment rather than silently repeat it.
  */
 export function configuredMaxAttempts(env: NodeJS.ProcessEnv = process.env): number {
-  return positiveCappedEnv(env, "COWORK_MAX_ATTEMPTS", DEFAULT_MAX_ATTEMPTS, 20);
+  return positiveCappedEnv(env, "FORMICAND_MAX_ATTEMPTS", DEFAULT_MAX_ATTEMPTS, 20);
 }
 
 export function configuredMainMaxTurns(env: NodeJS.ProcessEnv = process.env): number {
-  return positiveCappedEnv(env, "COWORK_MAIN_MAX_TURNS", DEFAULT_MAIN_MAX_TURNS, 10_000);
+  return positiveCappedEnv(env, "FORMICAND_MAIN_MAX_TURNS", DEFAULT_MAIN_MAX_TURNS, 10_000);
 }
 
 export function configuredSubagentMaxTurns(env: NodeJS.ProcessEnv = process.env): number {
-  return positiveCappedEnv(env, "COWORK_MAX_TURNS", DEFAULT_MAX_TURNS, 10_000);
+  return positiveCappedEnv(env, "FORMICAND_MAX_TURNS", DEFAULT_MAX_TURNS, 10_000);
 }
 
 export function configuredMainMaxTokens(env: NodeJS.ProcessEnv = process.env): number {
-  return positiveCappedEnv(env, "COWORK_MAIN_MAX_TOKENS", DEFAULT_MAX_TOKENS, DEFAULT_MAX_TOKENS);
+  return positiveCappedEnv(env, "FORMICAND_MAIN_MAX_TOKENS", DEFAULT_MAX_TOKENS, DEFAULT_MAX_TOKENS);
 }
 
 export function configuredSubagentMaxTokens(env: NodeJS.ProcessEnv = process.env): number {
-  return positiveCappedEnv(env, "COWORK_MAX_TOKENS", DEFAULT_MAX_TOKENS, DEFAULT_MAX_TOKENS);
+  return positiveCappedEnv(env, "FORMICAND_MAX_TOKENS", DEFAULT_MAX_TOKENS, DEFAULT_MAX_TOKENS);
 }
 
 /** Local capacity for context budgeting; never an inference request parameter. */
@@ -281,7 +286,7 @@ export function normalizeContextWindow(value: unknown): number {
 
 export function configuredContextWindow(env: NodeJS.ProcessEnv = process.env): number {
   return normalizeContextWindow(
-    env.COWORK_CONTEXT_WINDOW === undefined ? undefined : Number(env.COWORK_CONTEXT_WINDOW)
+    env.FORMICAND_CONTEXT_WINDOW === undefined ? undefined : Number(env.FORMICAND_CONTEXT_WINDOW)
   );
 }
 
@@ -295,7 +300,7 @@ export function configuredContextWindow(env: NodeJS.ProcessEnv = process.env): n
 export function configuredSubagentQuestionTimeout(env: NodeJS.ProcessEnv = process.env): number {
   const value = nonNegativeEnv(
     env,
-    "COWORK_SUBAGENT_QUESTION_TIMEOUT_MS",
+    "FORMICAND_SUBAGENT_QUESTION_TIMEOUT_MS",
     DEFAULT_SUBAGENT_QUESTION_TIMEOUT_MS
   );
   return Math.min(value, 60 * 60_000);
@@ -308,10 +313,10 @@ export function configuredSubagentQuestionTimeout(env: NodeJS.ProcessEnv = proce
 export function configuredHumanAnswerTimeout(env: NodeJS.ProcessEnv = process.env): number {
   // Capped at ten minutes: past that the durable path is the right answer, not
   // a process sitting on an open question.
-  const value = nonNegativeEnv(env, "COWORK_HUMAN_ANSWER_TIMEOUT_MS", DEFAULT_HUMAN_ANSWER_TIMEOUT_MS);
+  const value = nonNegativeEnv(env, "FORMICAND_HUMAN_ANSWER_TIMEOUT_MS", DEFAULT_HUMAN_ANSWER_TIMEOUT_MS);
   return Math.min(value, 10 * 60_000);
 }
 
 export function configuredSubagentMaxQuestions(env: NodeJS.ProcessEnv = process.env): number {
-  return positiveCappedEnv(env, "COWORK_SUBAGENT_MAX_QUESTIONS", DEFAULT_SUBAGENT_MAX_QUESTIONS, 20);
+  return positiveCappedEnv(env, "FORMICAND_SUBAGENT_MAX_QUESTIONS", DEFAULT_SUBAGENT_MAX_QUESTIONS, 20);
 }

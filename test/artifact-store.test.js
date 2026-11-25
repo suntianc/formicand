@@ -24,7 +24,7 @@ import {
 } from "../dist/src/workspace/artifact-store.js";
 
 async function fixture(t) {
-  const workspaceRoot = await mkdtemp(join(tmpdir(), "atria-artifact-store-"));
+  const workspaceRoot = await mkdtemp(join(tmpdir(), "formicand-artifact-store-"));
   t.after(() => rm(workspaceRoot, { recursive: true, force: true }));
   const taskId = "task_1";
   const task = join(workspaceRoot, taskId);

@@ -3,9 +3,9 @@ import { readFile, mkdir, symlink, writeFile, rename, rm, access, realpath } fro
 import { join, resolve } from "node:path";
 
 const brandingPolicyRevision = 3;
-const changelog = `# CoworkOS updates
+const changelog = `# Formicand updates
 
-Use /changelog for CoworkOS's update information and coworkos update --check to check for an update.
+Use /changelog for Formicand's update information and formicand update --check to check for an update.
 The Pi engine's original changelog remains in its installed package.
 `;
 
@@ -14,7 +14,7 @@ export async function ensureCliStartupSettings({ agentDir, projectDirectory }) {
   const { SettingsManager } = await import("@earendil-works/pi-coding-agent");
   const settings = SettingsManager.create(projectDirectory, agentDir);
   const errors = settings.drainErrors();
-  if (errors.length) throw new Error("CoworkOS CLI 的界面设置无法读取，已保留原文件。");
+  if (errors.length) throw new Error("Formicand CLI 的界面设置无法读取，已保留原文件。");
   if (
     settings.getGlobalSettings().quietStartup !== undefined ||
     settings.getProjectSettings().quietStartup !== undefined
@@ -22,7 +22,7 @@ export async function ensureCliStartupSettings({ agentDir, projectDirectory }) {
     return false;
   settings.setQuietStartup(true);
   await settings.flush();
-  if (settings.drainErrors().length) throw new Error("CoworkOS CLI 的界面设置保存失败，请检查目录权限。");
+  if (settings.drainErrors().length) throw new Error("Formicand CLI 的界面设置保存失败，请检查目录权限。");
   return true;
 }
 
@@ -32,7 +32,7 @@ export async function ensureCliBranding({ agentDir, piPackageDir, version }) {
   const source = resolve(piPackageDir);
   const original = JSON.parse(await readFile(join(source, "package.json"), "utf8"));
   if (original.name !== "@earendil-works/pi-coding-agent")
-    throw new Error("CoworkOS CLI 的 Pi 运行时目录无效，请运行 coworkos doctor。");
+    throw new Error("Formicand CLI 的 Pi 运行时目录无效，请运行 formicand doctor。");
   const appVersion = version || original.version;
   const resources = {
     "README.md": await readFile(join(source, "README.md"), "utf8"),
@@ -41,8 +41,8 @@ export async function ensureCliBranding({ agentDir, piPackageDir, version }) {
   const metadata = {
     ...original,
     version: appVersion,
-    piConfig: { ...original.piConfig, name: "coworkos", configDir: ".pi" },
-    atriaRuntimeAdapter: {
+    piConfig: { ...original.piConfig, name: "formicand", configDir: ".pi" },
+    formicandRuntimeAdapter: {
       upstreamVersion: original.version,
       policyRevision: brandingPolicyRevision,
       resourceSha256: Object.fromEntries(
@@ -54,12 +54,11 @@ export async function ensureCliBranding({ agentDir, piPackageDir, version }) {
     }
   };
   const key = createHash("sha256").update(JSON.stringify({ source, metadata })).digest("hex").slice(0, 20);
-  const parent = join(profile, ".atria-runtime");
+  const parent = join(profile, ".formicand-runtime");
   const directory = join(parent, `pi-${key}`);
   const env = {
     PI_PACKAGE_DIR: directory,
-    COWORKOS_CODING_AGENT_DIR: profile,
-    ATRIA_CODING_AGENT_DIR: profile
+    FORMICAND_CODING_AGENT_DIR: profile
   };
   const validate = async () => {
     try {
@@ -72,7 +71,7 @@ export async function ensureCliBranding({ agentDir, piPackageDir, version }) {
         if ((await realpath(join(directory, name))) !== (await realpath(join(source, name))))
           throw new Error("resource target mismatch");
     } catch (cause) {
-      throw new Error("CoworkOS CLI 的界面资源校验失败，原缓存已保留；请重新安装 CLI。", { cause });
+      throw new Error("Formicand CLI 的界面资源校验失败，原缓存已保留；请重新安装 CLI。", { cause });
     }
   };
   try {

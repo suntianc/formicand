@@ -48,7 +48,7 @@ export class SubagentWorker {
     const ownership = await claimSubagentOwnership(options.workspaceRoot, "worker");
     if (!ownership.owned) {
       console.error(
-        `[cowork] delegated work for ${options.workspaceRoot} is owned by the running backend (pid ${ownership.owner?.pid}); this worker takes no work`
+        `[formicand] delegated work for ${options.workspaceRoot} is owned by the running backend (pid ${ownership.owner?.pid}); this worker takes no work`
       );
       return;
     }
@@ -59,7 +59,7 @@ export class SubagentWorker {
       // and every exit from here must release it.
       service = new SubagentDispatchService({
         workspaceRoot: options.workspaceRoot,
-        harnessRoot: resolve(options.harnessRoot ?? process.env.COWORK_HARNESS_ROOT ?? "."),
+        harnessRoot: resolve(options.harnessRoot ?? process.env.FORMICAND_HARNESS_ROOT ?? "."),
         env: () => ({ env: options.env }),
         onSettled: (result) => {
           settled.push(result);

@@ -25,7 +25,7 @@ function fixture(handler = () => reply({ tasks: [] })) {
     fetchImpl: async (url, options) => {
       calls.push({ url, options });
       assert.equal(options.method, "GET");
-      assert.equal(options.headers["x-atria-token"], backend.token);
+      assert.equal(options.headers["x-formicand-token"], backend.token);
       assert.equal(options.redirect, "error");
       assert.ok(options.signal instanceof AbortSignal);
       return handler(url, calls.length);
@@ -37,7 +37,7 @@ test("idle preparation authenticates actual loopback HTTP and saves before the s
   const order = [];
   const token = "loopback-fixture-token";
   const server = createServer((request, response) => {
-    assert.equal(request.headers["x-atria-token"], token);
+    assert.equal(request.headers["x-formicand-token"], token);
     assert.equal(request.method, "GET");
     order.push(request.url);
     response.writeHead(200, { "content-type": "application/json" });

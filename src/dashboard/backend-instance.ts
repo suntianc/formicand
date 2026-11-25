@@ -226,7 +226,7 @@ export interface BackendProbe {
 export async function probeBackend(value: BackendInstance, timeoutMs = 3_000): Promise<BackendProbe> {
   try {
     const response = await fetch(`${value.url}/api/backend`, {
-      headers: { "x-atria-token": value.token },
+      headers: { "x-formicand-token": value.token },
       signal: AbortSignal.timeout(timeoutMs)
     });
     if (!response.ok) return { ok: false, reason: `后端身份查询返回 ${response.status}` };

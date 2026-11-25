@@ -70,7 +70,7 @@ export function autoLimitFields(profile: ConnectionProfile, supportsImages: bool
   );
 }
 
-/** The largest output Atria asks for: what the model allows, within the form's range and half the window. */
+/** The largest output Formicand asks for: what the model allows, within the form's range and half the window. */
 export function outputLimit(maxOutputTokens: number, contextWindow: number): number {
   return Math.max(1, Math.min(maxOutputTokens, 65536, Math.floor(contextWindow / 2)));
 }

@@ -13,7 +13,7 @@ import {
 } from "../scripts/restart-development.mjs";
 
 async function fixture(t) {
-  const root = await mkdtemp(join(tmpdir(), "atria-restart-development-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-restart-development-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   return { root, nodeExecutable: process.execPath, npmCli: join(root, "npm-cli.js") };
 }
@@ -33,7 +33,7 @@ test("development restart waits for the actual old PID to exit before replacing 
   const options = await fixture(t);
   const { child, exited } = await runningChild(t);
   const directory = join(options.root, "Applications");
-  const entry = join(directory, "CoworkOS Dev.app/Contents/MacOS/CoworkOS Dev");
+  const entry = join(directory, "Formicand Dev.app/Contents/MacOS/Formicand Dev");
   const actions = [];
   const restarting = restartDevelopment({
     ...options,
@@ -94,11 +94,11 @@ test("cached development launch refreshes its own runtime without publishing a F
   const options = await fixture(t);
   const entry = join(
     options.root,
-    ".tmp/desktop-runtime/previous/CoworkOS Dev.app/Contents/MacOS/CoworkOS Dev"
+    ".tmp/desktop-runtime/previous/Formicand Dev.app/Contents/MacOS/Formicand Dev"
   );
   const executable = join(
     options.root,
-    ".tmp/desktop-runtime/next/CoworkOS Dev.app/Contents/MacOS/CoworkOS Dev"
+    ".tmp/desktop-runtime/next/Formicand Dev.app/Contents/MacOS/Formicand Dev"
   );
   const actions = [];
   const result = await restartDevelopment({
@@ -190,7 +190,7 @@ test("restart preserves the selected data and workspace paths without forwarding
   const workspace = join(options.root, "selected-workspace");
   await mkdir(data);
   await writeFile(join(data, "draft.txt"), "existing draft\n");
-  const runtimeEnvironment = { COWORK_DESKTOP_DATA: data, COWORK_WORKSPACE: workspace };
+  const runtimeEnvironment = { FORMICAND_DESKTOP_DATA: data, FORMICAND_WORKSPACE: workspace };
   let launchedEnvironment;
   await restartDevelopment({
     ...options,
@@ -203,24 +203,24 @@ test("restart preserves the selected data and workspace paths without forwarding
     launchImpl: async (_executable, received) => {
       launchedEnvironment = developmentLaunchEnvironment(received, {
         PATH: "/usr/bin",
-        COWORK_API_KEY: "fixture-model-key",
-        COWORK_MODEL: "fixture-model",
-        COWORK_CONFIG: join(options.root, "config.json"),
-        COWORK_DESKTOP_DATA: join(options.root, "other-profile"),
+        FORMICAND_API_KEY: "fixture-model-key",
+        FORMICAND_MODEL: "fixture-model",
+        FORMICAND_CONFIG: join(options.root, "config.json"),
+        FORMICAND_DESKTOP_DATA: join(options.root, "other-profile"),
         PI_CODING_AGENT_DIR: join(options.root, "other-pi"),
         ELECTRON_RUN_AS_NODE: "1"
       });
     }
   });
-  assert.equal(launchedEnvironment.COWORK_DESKTOP_DATA, data);
-  assert.equal(launchedEnvironment.COWORK_WORKSPACE, workspace);
-  assert.equal(launchedEnvironment.COWORK_DESKTOP_NODE_EXECUTABLE, options.nodeExecutable);
-  assert.equal(launchedEnvironment.COWORK_DESKTOP_NPM_CLI, options.npmCli);
+  assert.equal(launchedEnvironment.FORMICAND_DESKTOP_DATA, data);
+  assert.equal(launchedEnvironment.FORMICAND_WORKSPACE, workspace);
+  assert.equal(launchedEnvironment.FORMICAND_DESKTOP_NODE_EXECUTABLE, options.nodeExecutable);
+  assert.equal(launchedEnvironment.FORMICAND_DESKTOP_NPM_CLI, options.npmCli);
   assert.equal(launchedEnvironment.PATH, "/usr/bin");
   for (const name of [
-    "COWORK_API_KEY",
-    "COWORK_MODEL",
-    "COWORK_CONFIG",
+    "FORMICAND_API_KEY",
+    "FORMICAND_MODEL",
+    "FORMICAND_CONFIG",
     "PI_CODING_AGENT_DIR",
     "ELECTRON_RUN_AS_NODE"
   ])
@@ -231,9 +231,9 @@ test("restart preserves the selected data and workspace paths without forwarding
 test("restart rejects secret fields and relative paths in its profile metadata", async (t) => {
   const options = await fixture(t);
   for (const runtimeEnvironment of [
-    { COWORK_API_KEY: "fixture-model-key" },
-    { COWORK_WORKSPACE: "relative" },
-    { COWORK_DESKTOP_DATA: 42 },
+    { FORMICAND_API_KEY: "fixture-model-key" },
+    { FORMICAND_WORKSPACE: "relative" },
+    { FORMICAND_DESKTOP_DATA: 42 },
     ["not-a-map"]
   ]) {
     await assert.rejects(

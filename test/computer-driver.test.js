@@ -11,12 +11,12 @@ test("native subprocess error envelopes preserve dispatch certainty; aborted sen
     t.skip("Mac driver subprocess protocol");
     return;
   }
-  const root = await mkdtemp(join(tmpdir(), "atria-computer-driver-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-computer-driver-"));
   const executable = join(root, "fixture.mjs");
   const target = {
     pid: 1,
     windowId: 2,
-    bundleId: "org.atria.fixture",
+    bundleId: "org.formicand.fixture",
     application: "Fixture",
     title: "Protocol"
   };

@@ -6,15 +6,15 @@ import { preflightCliShell } from "./cli-shell-compatibility.mjs";
 // Registration precedes the first SDK import. Hooks live only in this process;
 // NODE_OPTIONS/execArgv and worker/tool environments receive no preloading flag.
 try {
-  const readyToken = process.env.ATRIA_CLI_UI_READY_TOKEN;
-  delete process.env.ATRIA_CLI_UI_READY_TOKEN;
+  const readyToken = process.env.FORMICAND_CLI_UI_READY_TOKEN;
+  delete process.env.FORMICAND_CLI_UI_READY_TOKEN;
   const compatibility = preflightCliUi();
   const shell = preflightCliShell();
   installCliUiHook(
     compatibility,
     () => {
       if (process.connected && readyToken)
-        process.send({ type: "atria.cli.uiReady", token: readyToken }, () => {});
+        process.send({ type: "formicand.cli.uiReady", token: readyToken }, () => {});
     },
     shell.targets
   );

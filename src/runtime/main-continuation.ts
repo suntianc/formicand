@@ -4,8 +4,8 @@ import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import type { PiThinkingLevel } from "./runtime-settings.js";
 
-export const MAIN_CONTINUATION_COMMAND = "/atria-internal-continue";
-export const MAIN_CONTINUATION_TYPE = "atria-main-continuation";
+export const MAIN_CONTINUATION_COMMAND = "/formicand-internal-continue";
+export const MAIN_CONTINUATION_TYPE = "formicand-main-continuation";
 
 export function isMainContinuationMessage(message: unknown): boolean {
   return Boolean(

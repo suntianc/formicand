@@ -13,32 +13,32 @@ test("host authorization recovery preserves drafts through backend switches and 
   const otherHome = join(root, "other-backend");
   const inherited = Object.fromEntries(
     Object.entries(process.env).filter(
-      ([name]) => !/^(?:COWORK_|ATRIA_|PI_|ELECTRON_|NODE_OPTIONS$)/.test(name)
+      ([name]) => !/^(?:FORMICAND_|FORMICAND_|PI_|ELECTRON_|NODE_OPTIONS$)/.test(name)
     )
   );
   const env = {
     ...inherited,
     HOME: join(root, "user-home"),
-    COWORK_DESKTOP_DATA: profile,
+    FORMICAND_DESKTOP_DATA: profile,
     PI_OFFLINE: "1",
     PI_TELEMETRY: "0",
-    COWORK_DISABLE_MAIN_GUARDIAN: "1"
+    FORMICAND_DISABLE_MAIN_GUARDIAN: "1"
   };
   const otherEnv = {
     ...inherited,
     HOME: env.HOME,
-    ATRIA_HOME: otherHome,
+    FORMICAND_HOME: otherHome,
     PI_CODING_AGENT_DIR: join(root, "other-pi"),
     PI_OFFLINE: "1",
     PI_TELEMETRY: "0",
-    COWORK_HARNESS_ROOT: resolve("."),
-    COWORK_WORKSPACE: join(root, "other-workspace"),
-    COWORK_CONFIG: join(root, "other-config.json"),
-    COWORK_DISABLE_MAIN_GUARDIAN: "1"
+    FORMICAND_HARNESS_ROOT: resolve("."),
+    FORMICAND_WORKSPACE: join(root, "other-workspace"),
+    FORMICAND_CONFIG: join(root, "other-config.json"),
+    FORMICAND_DISABLE_MAIN_GUARDIAN: "1"
   };
   await mkdir(env.HOME, { recursive: true });
-  await mkdir(otherEnv.COWORK_WORKSPACE, { recursive: true });
-  await writeFile(otherEnv.COWORK_CONFIG, "{}");
+  await mkdir(otherEnv.FORMICAND_WORKSPACE, { recursive: true });
+  await writeFile(otherEnv.FORMICAND_CONFIG, "{}");
   const { startBackend, stopBackend } = await import("../dist/src/cli/backend.js");
   const started = await startBackend(otherEnv, resolve("."), process.execPath);
   const other = JSON.parse(await readFile(join(otherHome, "runtime/backend-instance.json"), "utf8"));
@@ -100,7 +100,7 @@ test("host authorization recovery preserves drafts through backend switches and 
     const post = async (path, body) => {
       const response = await fetch(primary.url + path, {
         method: "POST",
-        headers: { "content-type": "application/json", "x-atria-token": primary.token },
+        headers: { "content-type": "application/json", "x-formicand-token": primary.token },
         body: JSON.stringify(body)
       });
       expect(response.status).toBe(201);
@@ -118,14 +118,14 @@ test("host authorization recovery preserves drafts through backend switches and 
     await page.locator('.conversation-item[data-task="recovery-task"]').click();
     await page.evaluate(() => {
       localStorage.setItem(
-        "atria.composer.v1:recovery-task",
+        "formicand.composer.v1:recovery-task",
         JSON.stringify({ text: "", attachments: [{ name: "held.txt", text: "held attachment" }] })
       );
-      localStorage.setItem("atria.composer.v1:active", JSON.stringify("recovery-task"));
-      window.bookmanDesktop.saveComposerDrafts();
+      localStorage.setItem("formicand.composer.v1:active", JSON.stringify("recovery-task"));
+      window.formicandDesktop.saveComposerDrafts();
     });
     await native.evaluate(({ ipcMain }) => {
-      const channel = "bookman:authorize-backend";
+      const channel = "formicand:authorize-backend";
       const original = ipcMain._invokeHandlers.get(channel);
       if (!original) throw new Error("authorization handler unavailable");
       ipcMain.removeHandler(channel);
@@ -160,19 +160,19 @@ test("host authorization recovery preserves drafts through backend switches and 
     await closeModel();
     await expect(page.locator("#composer-input")).toHaveValue("typed before host session");
     await expect(page.getByRole("button", { name: "移除 held.txt" })).toBeVisible();
-    const oldNonce = await page.evaluate(() => window.bookmanDesktop.transportNonce);
+    const oldNonce = await page.evaluate(() => window.formicandDesktop.transportNonce);
     await selectBackend(otherHome, other);
     await expect(page.locator("#composer-input")).toHaveValue("");
     await expect(page.getByRole("button", { name: "移除 held.txt" })).toHaveCount(0);
     const nonceCheck = await page.evaluate(async (old) => {
-      const current = window.bookmanDesktop.transportNonce;
+      const current = window.formicandDesktop.transportNonce;
       const request = (nonce) =>
-        fetch("/api/backend", { headers: { "x-cowork-desktop-nonce": nonce } }).then((r) => r.status);
+        fetch("/api/backend", { headers: { "x-formicand-desktop-nonce": nonce } }).then((r) => r.status);
       return {
         rotated: old !== current,
         old: await request(old),
         current: await request(current),
-        rendererSessions: sessionStorage.getItem("cowork.management.sessions.v1")
+        rendererSessions: sessionStorage.getItem("formicand.management.sessions.v1")
       };
     }, oldNonce);
     expect(nonceCheck).toEqual({ rotated: true, old: 401, current: 200, rendererSessions: null });
@@ -209,7 +209,7 @@ test("host authorization recovery preserves drafts through backend switches and 
       console.log(
         JSON.stringify({
           event: "primary-stop",
-          ...(await stopBackend({ ...env, ATRIA_HOME: profile }, primary)),
+          ...(await stopBackend({ ...env, FORMICAND_HOME: profile }, primary)),
           pid: primary.pid
         })
       );

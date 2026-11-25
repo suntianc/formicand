@@ -7,7 +7,7 @@ const { assertMainRequestExecutionScope, mainRequestExecutionScope, validMainReq
   await import("../dist/src/runtime/main-request-execution-scope.js");
 
 test("execution ownership compares canonical roots", async (t) => {
-  const root = await mkdtemp(join(tmpdir(), "atria-retry-scope-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-retry-scope-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const storage = join(root, "storage"),
     project = join(root, "project");

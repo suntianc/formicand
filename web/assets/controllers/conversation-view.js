@@ -65,7 +65,7 @@ function sameSingleExchange(left, right) {
 }
 
 const reducedMotion = () => {
-  const preference = globalThis.window?.atriaPreferences?.motion?.();
+  const preference = globalThis.window?.formicandPreferences?.motion?.();
   if (preference === "on") return true;
   if (preference === "off") return false;
   return Boolean(globalThis.window?.matchMedia?.("(prefers-reduced-motion: reduce)").matches);
@@ -429,7 +429,8 @@ export function createConversationView({
   let scrollListenerBound = false;
 
   const isCallbackEvent = (record) =>
-    (record?.type === "runtime_event" ? record.payload : record)?.message?.customType === "cowork-callback";
+    (record?.type === "runtime_event" ? record.payload : record)?.message?.customType ===
+    "formicand-callback";
 
   function computeHistoryContext(taskId, detail, windows) {
     const events = detail?.runtimeEvents;
@@ -869,7 +870,7 @@ export function createConversationView({
         let cutAt = runtimeEvents.findIndex((record) => {
           const event = record?.type === "runtime_event" ? record.payload : record;
           const incoming = event?.message;
-          const identity = incoming?.id ?? incoming?.details?._coworkInbox?.messageId;
+          const identity = incoming?.id ?? incoming?.details?._formicandInbox?.messageId;
           return event?.type === "message_start" && identity === resend.messageId;
         });
         if (cutAt < 0 && resend.runId) {
@@ -878,7 +879,7 @@ export function createConversationView({
             return (
               record?.runId === resend.runId &&
               event?.type === "message_start" &&
-              event?.message?.customType === "atria-main-continuation"
+              event?.message?.customType === "formicand-main-continuation"
             );
           });
           if (hasEditContinuation)

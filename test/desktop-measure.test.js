@@ -12,7 +12,7 @@ import {
 
 test("measurement includes the app root and detached backend descendants without unrelated processes", () => {
   const table = [
-    { pid: 10, ppid: 1, rssKb: 100, time: "0:01.00", command: "CoworkOS" },
+    { pid: 10, ppid: 1, rssKb: 100, time: "0:01.00", command: "Formicand" },
     { pid: 11, ppid: 10, rssKb: 50, time: "0:02.00", command: "renderer" },
     { pid: 20, ppid: 1, rssKb: 200, time: "0:03.00", command: "backend" },
     { pid: 21, ppid: 20, rssKb: 25, time: "0:04.00", command: "backend worker" },

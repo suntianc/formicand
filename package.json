@@ -1,5 +1,5 @@
 {
-  "name": "coworkos",
+  "name": "formicand",
   "version": "0.1.3",
   "private": true,
   "type": "module",
@@ -12,9 +12,9 @@
     "test": "npm run build:full && node scripts/test.mjs",
     "ui": "npm run build && if [ -x .tools/node-v22.19.0-linux-x64/bin/node ]; then .tools/node-v22.19.0-linux-x64/bin/node dist/src/cli/dashboard.js; else node dist/src/cli/dashboard.js; fi",
     "desktop": "npm run build && node scripts/desktop-dev.mjs",
-    "main-worker": "node scripts/atria.mjs main-worker",
-    "cli": "node scripts/atria.mjs",
-    "start": "node scripts/atria.mjs start",
+    "main-worker": "node scripts/formicand.mjs main-worker",
+    "cli": "node scripts/formicand.mjs",
+    "start": "node scripts/formicand.mjs start",
     "test:browser": "npm run build:full && playwright test",
     "test:perf": "playwright test --config playwright.perf.config.js",
     "check:extensions": "tsc -p tsconfig.extensions.json",
@@ -31,8 +31,8 @@
     "build:web-assets": "node scripts/build-web-assets.mjs",
     "watch:web-assets": "node scripts/build-web-assets.mjs --watch",
     "cli:pack": "npm run build:cli && node scripts/package-cli.mjs",
-    "doctor": "node scripts/atria.mjs doctor",
-    "init": "node scripts/atria.mjs init",
+    "doctor": "node scripts/formicand.mjs doctor",
+    "init": "node scripts/formicand.mjs init",
     "test:release": "node scripts/test-release.mjs",
     "test:release:runner": "node --test test/release/runner.test.mjs",
     "desktop:install-dev": "npm run build && node scripts/desktop-dev.mjs --install",
@@ -88,7 +88,7 @@
     "zod": "^4.6.5"
   },
   "main": "desktop/main.cjs",
-  "description": "CoworkOS local cowork harness and task runtime",
+  "description": "Formicand local multi-agent harness and task runtime",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/suntianc/coworkos.git"
@@ -97,10 +97,9 @@
     "url": "https://github.com/suntianc/coworkos/issues"
   },
   "homepage": "https://github.com/suntianc/coworkos#readme",
-  "author": "CoworkOS contributors",
+  "author": "Formicand contributors",
   "bin": {
-    "coworkos": "scripts/atria.mjs",
-    "atria": "scripts/atria.mjs"
+    "formicand": "scripts/formicand.mjs"
   },
   "overrides": {
     "image-size": "2.0.4"

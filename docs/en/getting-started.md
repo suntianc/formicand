@@ -11,7 +11,7 @@ macOS 14+ · Apple Silicon
 
 ## Install
 
-In a source checkout, run `npm ci` and `npm run desktop:dist` to get `CoworkOS-<version>-mac-arm64.dmg` in `release/`; open it and drag the App into Applications. You can also run it in development mode with `npm run desktop`, see the [development guide](development.md#environment). If macOS blocks the first launch, follow [Apple's guidance](https://support.apple.com/en-us/102445) in System Settings → Privacy & Security.
+In a source checkout, run `npm ci` and `npm run desktop:dist` to get `Formicand-<version>-mac-arm64.dmg` in `release/`; open it and drag the App into Applications. You can also run it in development mode with `npm run desktop`, see the [development guide](development.md#environment). If macOS blocks the first launch, follow [Apple's guidance](https://support.apple.com/en-us/102445) in System Settings → Privacy & Security.
 
 The App has no in-app updater; upgrade manually with a local DMG. Back up user data and external projects, finish tasks and stop the standalone backend, then quit the App. Retain the old App, copy the new one into the installation directory and verify your data after launch. See [installation and upgrades](installation-reference.md#updates). This build has not been notarized by Apple.
 
@@ -23,17 +23,17 @@ Select Check in the provider's detail to confirm the connection; a check uses a 
 
 ## Create a project
 
-In Finder, create an empty folder named `coworkos-quickstart` in Documents.
+In Finder, create an empty folder named `formicand-quickstart` in Documents.
 
-In CoworkOS's sidebar, select `+` beside Projects. Enter a project name and choose that folder. Then select `+` beside the project title to open a new conversation.
+In Formicand's sidebar, select `+` beside Projects. Enter a project name and choose that folder. Then select `+` beside the project title to open a new conversation.
 
 ## Complete your first task
 
 Send:
 
-> Create hello.txt in the current project, write “Hello, CoworkOS.”, then read the file and confirm its contents.
+> Create hello.txt in the current project, write “Hello, Formicand.”, then read the file and confirm its contents.
 
-When the task finishes, open the selected `coworkos-quickstart` folder in Finder. It should contain `hello.txt` with the text `Hello, CoworkOS.`.
+When the task finishes, open the selected `formicand-quickstart` folder in Finder. It should contain `hello.txt` with the text `Hello, Formicand.`.
 
 <a id="cli-archive"></a>
 

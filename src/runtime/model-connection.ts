@@ -6,7 +6,7 @@ import { Type } from "typebox";
 import { normalizeContext } from "@earendil-works/pi-ai/utils/transcript";
 import {
   connectionProfile,
-  createCoworkModel,
+  createFormicandModel,
   parseConnectionProfile,
   type ConnectionProfile
 } from "./model-profile.js";
@@ -114,7 +114,7 @@ export async function testModelConnection(input: ModelConnectionInput, options: 
   const content: Array<TextContent | ImageContent> = [
     {
       type: "text",
-      text: "Call atria_connection_check with status connected. If an image is attached, identify its background color (blue, red or green) and read the single large digit shown in the image. Without an image, use color none and code none."
+      text: "Call formicand_connection_check with status connected. If an image is attached, identify its background color (blue, red or green) and read the single large digit shown in the image. Without an image, use color none and code none."
     }
   ];
   if (fixture) {
@@ -127,7 +127,7 @@ export async function testModelConnection(input: ModelConnectionInput, options: 
   let providerCode: "model_not_found" | undefined;
   let result;
   try {
-    const model = createCoworkModel({
+    const model = createFormicandModel({
       ...input,
       api: profile.api,
       thinkingFormat: profile.thinkingFormat,
@@ -140,15 +140,15 @@ export async function testModelConnection(input: ModelConnectionInput, options: 
     models.setProvider(
       createProvider({
         id: model.provider,
-        name: "CoworkOS model service",
+        name: "Formicand model service",
         baseUrl: model.baseUrl,
         auth: {
-          apiKey: { name: "CoworkOS API key", resolve: async () => ({ auth: { apiKey: input.apiKey } }) }
+          apiKey: { name: "Formicand API key", resolve: async () => ({ auth: { apiKey: input.apiKey } }) }
         },
         models: [model],
         api: createModelStreams(model.api, {
           supportsPromptCacheKey: profile.supportsPromptCacheKey,
-          sessionId: "atria-connection-check"
+          sessionId: "formicand-connection-check"
         })
       })
     );
@@ -160,7 +160,7 @@ export async function testModelConnection(input: ModelConnectionInput, options: 
         messages: [{ role: "user", content, timestamp: Date.now() }],
         tools: [
           {
-            name: "atria_connection_check",
+            name: "formicand_connection_check",
             description: "Verify model tool calling and optional image input.",
             parameters: Type.Object(
               {
@@ -222,7 +222,7 @@ export async function testModelConnection(input: ModelConnectionInput, options: 
         : `服务未返回有效的流式 ${format} JSON 或工具调用，请检查消息格式、参数和流式支持`
     );
   const calls = result.content.filter((block) => block.type === "toolCall");
-  const call = calls.find((block) => block.name === "atria_connection_check");
+  const call = calls.find((block) => block.name === "formicand_connection_check");
   // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- 工具调用由服务商响应体解析而来，SDK 类型声明 id 必填但实际可能缺失
   if (result.stopReason !== "toolUse" || calls.length !== 1 || !call?.id?.trim())
     throw new Error("模型未返回有效的工具调用，当前连接无法用于 Agent 任务");
@@ -257,7 +257,7 @@ export async function testModelConnection(input: ModelConnectionInput, options: 
  */
 export function roleCompletion(selection: ResolvedModelRole): SummaryCompletion {
   return async (context, signal) => {
-    const model = createCoworkModel({
+    const model = createFormicandModel({
       baseUrl: selection.baseUrl,
       connectionId: selection.connectionId,
       api: selection.profile.api,
@@ -272,10 +272,10 @@ export function roleCompletion(selection: ResolvedModelRole): SummaryCompletion 
     models.setProvider(
       createProvider({
         id: model.provider,
-        name: "CoworkOS model service",
+        name: "Formicand model service",
         baseUrl: model.baseUrl,
         auth: {
-          apiKey: { name: "CoworkOS API key", resolve: async () => ({ auth: { apiKey: selection.apiKey } }) }
+          apiKey: { name: "Formicand API key", resolve: async () => ({ auth: { apiKey: selection.apiKey } }) }
         },
         models: [model],
         api: createModelStreams(model.api, { supportsPromptCacheKey: false })

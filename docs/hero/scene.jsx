@@ -29,9 +29,9 @@ function Hero() {
   }, [still]);
   return (
     <>
-      <main className="hero" aria-label="CoworkOS">
+      <main className="hero" aria-label="Formicand">
         <svg viewBox="0 0 1440 480" role="img" aria-labelledby="hero-title">
-          <title id="hero-title">CoworkOS — geometric wordmark and desktop workspace</title>
+          <title id="hero-title">Formicand — geometric wordmark and desktop workspace</title>
           <defs>
             <radialGradient id="ambient">
               <stop stopColor="#233d8a" stopOpacity=".22" />
@@ -53,7 +53,14 @@ function Hero() {
           <ellipse cx="350" cy="255" rx="560" ry="340" fill="url(#ambient)" />
           <HarnessCorner x={1140} y={150} />
           <Logo x={14} y={102} width={280} height={256} id="hero-logo" />
-          <TechText text="CoworkOS" x={198} y={187} time={still ? 0 : time} staticFrame={still} specks={15} />
+          <TechText
+            text="Formicand"
+            x={198}
+            y={187}
+            time={still ? 0 : time}
+            staticFrame={still}
+            specks={15}
+          />
           <path d="M1140 430H1440V480H1140z" fill="url(#bottom-fade)" pointerEvents="none" />
         </svg>
       </main>

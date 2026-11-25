@@ -12,7 +12,7 @@ test("native edit restores an attachment-only message and survives relaunch with
   test.skip(process.platform !== "darwin", "Native desktop acceptance requires macOS");
   test.setTimeout(120000);
   await mkdir(testInfo.outputDir, { recursive: true });
-  const root = await mkdtemp(join(tmpdir(), "atria-message-edit-desktop-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-message-edit-desktop-"));
   let calls = 0;
   const provider = await modelProtocolFixture("openai-completions", (body) => {
     const context = JSON.stringify(body.messages);
@@ -22,12 +22,12 @@ test("native edit restores an attachment-only message and survives relaunch with
     return { text: ++calls === 1 ? "NATIVE_OLD_ANSWER" : "NATIVE_NEW_ANSWER" };
   });
   const env = { ...process.env };
-  for (const name of Object.keys(env)) if (/^(?:COWORK_|ATRIA_|PI_)/.test(name)) delete env[name];
+  for (const name of Object.keys(env)) if (/^(?:FORMICAND_|FORMICAND_|PI_)/.test(name)) delete env[name];
   Object.assign(env, {
-    COWORK_DESKTOP_DATA: root,
-    ATRIA_HOME: join(root, "home"),
+    FORMICAND_DESKTOP_DATA: root,
+    FORMICAND_HOME: join(root, "home"),
     PI_CODING_AGENT_DIR: join(root, "pi"),
-    COWORK_DISABLE_MAIN_GUARDIAN: "1",
+    FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
     PI_OFFLINE: "1"
   });
   delete env.ELECTRON_RUN_AS_NODE;
@@ -94,8 +94,8 @@ test("native edit restores an attachment-only message and survives relaunch with
     await expect(page.locator("#conversation")).toContainText("NATIVE_NEW_ANSWER", { timeout: 30000 });
     const value = await page.evaluate(async (id) => {
       // The window's transport adds the host session; a bare fetch has no credential.
-      const headers = window.bookmanDesktop?.transportNonce
-        ? { "x-cowork-desktop-nonce": window.bookmanDesktop.transportNonce }
+      const headers = window.formicandDesktop?.transportNonce
+        ? { "x-formicand-desktop-nonce": window.formicandDesktop.transportNonce }
         : {};
       return (await fetch(`/api/tasks/${encodeURIComponent(id)}`, { headers })).json();
     }, taskId);
@@ -124,8 +124,8 @@ test("native edit restores an attachment-only message and survives relaunch with
     await expect
       .poll(() =>
         page.evaluate(async (id) => {
-          const headers = window.bookmanDesktop?.transportNonce
-            ? { "x-cowork-desktop-nonce": window.bookmanDesktop.transportNonce }
+          const headers = window.formicandDesktop?.transportNonce
+            ? { "x-formicand-desktop-nonce": window.formicandDesktop.transportNonce }
             : {};
           return (await (await fetch(`/api/tasks/${encodeURIComponent(id)}`, { headers })).json()).runtime
             ?.active;
@@ -144,7 +144,7 @@ test("native edit restores an attachment-only message and survives relaunch with
   } finally {
     await native?.close();
     // The backend outlives the window by design; stop this test's own (#35), found
-    // under the desktop data root (COWORK_DESKTOP_DATA), not ATRIA_HOME.
+    // under the desktop data root (FORMICAND_DESKTOP_DATA), not FORMICAND_HOME.
     await stopNativeBackend(root);
     // A resident Main outlives its backend the same way, so this test ends the
     // process groups it started, by the identity each recorded at launch.

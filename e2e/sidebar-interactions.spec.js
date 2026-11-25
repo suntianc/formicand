@@ -193,7 +193,7 @@ test("an open conversation menu keeps its row highlighted and mouse dismissal cl
 }, info) => {
   const dashboard = await startDashboard({ defaultProject: false });
   try {
-    await page.addInitScript(() => localStorage.setItem("atria.appearance", "system"));
+    await page.addInitScript(() => localStorage.setItem("formicand.appearance", "system"));
     const sidebar = await seed(page, dashboard);
     const panel = page.locator("#session-menu");
     await sidebar.row.hover();
@@ -240,7 +240,7 @@ test("touch devices keep project and conversation actions visible without hover"
   });
   try {
     const page = await context.newPage();
-    await page.addInitScript(() => localStorage.setItem("atria.appearance", "system"));
+    await page.addInitScript(() => localStorage.setItem("formicand.appearance", "system"));
     const sidebar = await seed(page, dashboard);
     // The rail has no hover to reveal actions with: focusing the project icon
     // opens its floating tree, which carries the project and session commands.

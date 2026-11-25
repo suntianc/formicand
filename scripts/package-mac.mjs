@@ -25,8 +25,8 @@ if (lock.packages?.[""]?.version !== version)
   throw new Error("package-lock.json root version differs from package.json");
 const packaging = macPackagingEnvironment();
 const signingConfigured = packaging.mode === "developer-id";
-const appPath = resolve(".tmp/release/mac-arm64/CoworkOS.app");
-const signingReport = resolve(`release/CoworkOS-${version}-mac-arm64.signing.json`);
+const appPath = resolve(".tmp/release/mac-arm64/Formicand.app");
+const signingReport = resolve(`release/Formicand-${version}-mac-arm64.signing.json`);
 await rm(signingReport, { force: true });
 console.log(signingConfigured ? "Building the Developer ID app" : "Building the ad-hoc beta app");
 const { stdout } = await exec(process.execPath, macPackagingArguments(process.cwd(), packaging.mode), {
@@ -43,12 +43,12 @@ console.log(
     .filter((line) => !line.includes("duplicate dependency references"))
     .join("\n")
 );
-const staging = await mkdtemp(join(tmpdir(), "atria-dmg-staging-"));
-const output = resolve(`release/CoworkOS-${version}-mac-arm64.dmg`);
+const staging = await mkdtemp(join(tmpdir(), "formicand-dmg-staging-"));
+const output = resolve(`release/Formicand-${version}-mac-arm64.dmg`);
 await mkdir(resolve("release"), { recursive: true });
 try {
   // Preserve framework symlinks when relocating a native app bundle.
-  await cp(appPath, join(staging, "CoworkOS.app"), {
+  await cp(appPath, join(staging, "Formicand.app"), {
     recursive: true,
     verbatimSymlinks: true
   });
@@ -59,7 +59,7 @@ try {
     [
       "create",
       "-volname",
-      signingConfigured ? "CoworkOS" : "CoworkOS Beta",
+      signingConfigured ? "Formicand" : "Formicand Beta",
       "-srcfolder",
       staging,
       "-format",

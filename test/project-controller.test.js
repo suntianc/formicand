@@ -116,7 +116,7 @@ test("cancelling project creation preserves the conversation and never submits a
 test("a directory picker only fills its own open dialog and ignores a late cancelled selection", async (t) => {
   const f = fixture(t);
   let release;
-  f.window.bookmanDesktop = {
+  f.window.formicandDesktop = {
     chooseProject: () =>
       new Promise((resolve) => {
         release = resolve;
@@ -243,9 +243,9 @@ test("project drafts and attachments restore separately from Task drafts across 
 
 test("an existing global draft moves into its first project without losing attachments", () => {
   const records = new Map([
-    ["atria.composer.v1:active", JSON.stringify("new")],
+    ["formicand.composer.v1:active", JSON.stringify("new")],
     [
-      "atria.composer.v1:new",
+      "formicand.composer.v1:new",
       JSON.stringify({ text: "升级前的草稿", attachments: [{ name: "旧.txt", text: "旧" }] })
     ]
   ]);
@@ -267,7 +267,7 @@ test("an existing global draft moves into its first project without losing attac
   session.activate(null, { projectId: "a" });
   assert.equal(input.value, "升级前的草稿");
   assert.equal(attachments[0].name, "旧.txt");
-  assert.equal(records.has("atria.composer.v1:new"), false);
+  assert.equal(records.has("formicand.composer.v1:new"), false);
   session.activate(null, { projectId: "b" });
   assert.equal(input.value, "");
 });
@@ -275,9 +275,9 @@ test("an existing global draft moves into its first project without losing attac
 test("first project activation after reload recovers the pre-connection draft without overwriting project drafts", () => {
   for (const active of ["new", "new:a"]) {
     const records = new Map([
-      ["atria.composer.v1:active", JSON.stringify(active)],
+      ["formicand.composer.v1:active", JSON.stringify(active)],
       [
-        "atria.composer.v1:new",
+        "formicand.composer.v1:new",
         JSON.stringify({ text: "恢复草稿", attachments: [{ name: "恢复.txt", text: "附件" }] })
       ]
     ]);
@@ -306,20 +306,23 @@ test("first project activation after reload recovers the pre-connection draft wi
     session.activate(null, { projectId: "a" });
     assert.equal(input.value, "恢复草稿");
     assert.equal(attachments[0].name, "恢复.txt");
-    assert.equal(records.has("atria.composer.v1:new"), false);
-    assert.equal(records.has("atria.composer.v1:backend-a:new"), false);
+    assert.equal(records.has("formicand.composer.v1:new"), false);
+    assert.equal(records.has("formicand.composer.v1:backend-a:new"), false);
     session.activate(null, { projectId: "b" });
     assert.equal(input.value, "");
     session.activate(null, { projectId: "a" });
     assert.equal(input.value, "恢复草稿");
     assert.equal(session.prepareClose(), true);
-    records.set("atria.composer.v1:backend-a:new", JSON.stringify({ text: "另一个旧草稿", attachments: [] }));
+    records.set(
+      "formicand.composer.v1:backend-a:new",
+      JSON.stringify({ text: "另一个旧草稿", attachments: [] })
+    );
     const restored = createComposerSession(options);
     restored.activate(null);
     restored.setBackend("backend-a");
     restored.activate(null, { projectId: "a" });
     assert.equal(input.value, "恢复草稿");
-    assert.equal(JSON.parse(records.get("atria.composer.v1:backend-a:new")).text, "另一个旧草稿");
+    assert.equal(JSON.parse(records.get("formicand.composer.v1:backend-a:new")).text, "另一个旧草稿");
   }
 });
 
@@ -329,8 +332,8 @@ test("pre-connection draft migration retains its durable source through quota fa
     attachments: [{ name: "恢复.txt", text: "完整附件" }]
   });
   const records = new Map([
-    ["atria.composer.v1:active", JSON.stringify("new")],
-    ["atria.composer.v1:new", source]
+    ["formicand.composer.v1:active", JSON.stringify("new")],
+    ["formicand.composer.v1:new", source]
   ]);
   let quota = true;
   const storage = {
@@ -340,7 +343,8 @@ test("pre-connection draft migration retains its durable source through quota fa
     key: (index) => [...records.keys()][index] ?? null,
     getItem: (key) => records.get(key),
     setItem: (key, value) => {
-      if (quota && key === "atria.composer.v1:backend-a:new:a") throw new Error("destination quota exceeded");
+      if (quota && key === "formicand.composer.v1:backend-a:new:a")
+        throw new Error("destination quota exceeded");
       records.set(key, value);
     },
     removeItem: (key) => records.delete(key)
@@ -367,22 +371,22 @@ test("pre-connection draft migration retains its durable source through quota fa
   assert.equal(first.input.value, "必须恢复的旧草稿");
   assert.equal(first.attachments()[0].text, "完整附件");
   assert.ok(first.warnings.length);
-  assert.equal(records.get("atria.composer.v1:backend-a:new"), source);
-  assert.equal(records.has("atria.composer.v1:backend-a:new:a"), false);
+  assert.equal(records.get("formicand.composer.v1:backend-a:new"), source);
+  assert.equal(records.has("formicand.composer.v1:backend-a:new:a"), false);
   assert.equal(first.session.prepareClose(), false);
-  assert.equal(records.get("atria.composer.v1:backend-a:new"), source);
+  assert.equal(records.get("formicand.composer.v1:backend-a:new"), source);
 
   const reloaded = create();
   reloaded.session.activate(null, { projectId: "a" });
   assert.equal(reloaded.input.value, "必须恢复的旧草稿");
   assert.equal(reloaded.attachments()[0].name, "恢复.txt");
   assert.equal(reloaded.session.prepareClose(), false);
-  assert.equal(records.get("atria.composer.v1:backend-a:new"), source);
+  assert.equal(records.get("formicand.composer.v1:backend-a:new"), source);
   reloaded.input.value = "恢复后继续编辑的草稿";
   quota = false;
   assert.equal(reloaded.session.prepareClose(), true);
-  assert.equal(records.has("atria.composer.v1:backend-a:new"), false);
-  const saved = JSON.parse(records.get("atria.composer.v1:backend-a:new:a"));
+  assert.equal(records.has("formicand.composer.v1:backend-a:new"), false);
+  const saved = JSON.parse(records.get("formicand.composer.v1:backend-a:new:a"));
   assert.equal(saved.text, "恢复后继续编辑的草稿");
   assert.equal(saved.attachments[0].text, "完整附件");
 });
@@ -390,7 +394,7 @@ test("pre-connection draft migration retains its durable source through quota fa
 test("a recovered migration preserves a newer global draft written while its destination was unavailable", () => {
   for (const previouslySelected of [false, true]) {
     const records = new Map([
-      ["atria.composer.v1:new", JSON.stringify({ text: "原始迁移草稿", attachments: [] })]
+      ["formicand.composer.v1:new", JSON.stringify({ text: "原始迁移草稿", attachments: [] })]
     ]);
     let quota = true;
     const input = { value: "", addEventListener() {} };
@@ -403,7 +407,7 @@ test("a recovered migration preserves a newer global draft written while its des
         key: (index) => [...records.keys()][index] ?? null,
         getItem: (key) => records.get(key),
         setItem: (key, value) => {
-          if (quota && key === "atria.composer.v1:backend-a:new:a")
+          if (quota && key === "formicand.composer.v1:backend-a:new:a")
             throw new Error("destination quota exceeded");
           records.set(key, value);
         },
@@ -418,13 +422,13 @@ test("a recovered migration preserves a newer global draft written while its des
     session.activate(null, { projectId: "a" });
     assert.equal(input.value, "原始迁移草稿");
     const newerGlobal = JSON.stringify({ text: "另一个窗口的新全局草稿", attachments: [] });
-    records.set("atria.composer.v1:backend-a:new", newerGlobal);
+    records.set("formicand.composer.v1:backend-a:new", newerGlobal);
     input.value = "迁移草稿的后续编辑";
     quota = false;
     assert.equal(session.prepareClose(), true);
-    assert.equal(JSON.parse(records.get("atria.composer.v1:backend-a:new:a")).text, "迁移草稿的后续编辑");
+    assert.equal(JSON.parse(records.get("formicand.composer.v1:backend-a:new:a")).text, "迁移草稿的后续编辑");
     assert.equal(
-      records.get("atria.composer.v1:backend-a:new"),
+      records.get("formicand.composer.v1:backend-a:new"),
       newerGlobal,
       `preserve source with cached=${previouslySelected}`
     );
@@ -434,8 +438,8 @@ test("a recovered migration preserves a newer global draft written while its des
 test("an existing project draft prevents pre-connection source cleanup even after a failed storage write recovers", () => {
   const source = JSON.stringify({ text: "独立旧草稿", attachments: [] });
   const records = new Map([
-    ["atria.composer.v1:new", source],
-    ["atria.composer.v1:backend-a:new:a", JSON.stringify({ text: "A 已有草稿", attachments: [] })]
+    ["formicand.composer.v1:new", source],
+    ["formicand.composer.v1:backend-a:new:a", JSON.stringify({ text: "A 已有草稿", attachments: [] })]
   ]);
   let quota = true;
   const input = { value: "", addEventListener() {} };
@@ -448,7 +452,7 @@ test("an existing project draft prevents pre-connection source cleanup even afte
       key: (index) => [...records.keys()][index] ?? null,
       getItem: (key) => records.get(key),
       setItem: (key, value) => {
-        if (quota && key === "atria.composer.v1:backend-a:new:a")
+        if (quota && key === "formicand.composer.v1:backend-a:new:a")
           throw new Error("destination quota exceeded");
         records.set(key, value);
       },
@@ -464,6 +468,6 @@ test("an existing project draft prevents pre-connection source cleanup even afte
   assert.equal(session.prepareClose(), false);
   quota = false;
   assert.equal(session.prepareClose(), true);
-  assert.equal(JSON.parse(records.get("atria.composer.v1:backend-a:new:a")).text, "A 已有草稿");
-  assert.equal(records.get("atria.composer.v1:backend-a:new"), source);
+  assert.equal(JSON.parse(records.get("formicand.composer.v1:backend-a:new:a")).text, "A 已有草稿");
+  assert.equal(records.get("formicand.composer.v1:backend-a:new"), source);
 });

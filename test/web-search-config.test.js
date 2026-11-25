@@ -8,10 +8,13 @@ import {
 
 test("fresh configuration discovers anonymous Exa and an explicit choice disables it", () => {
   assert.deepEqual(configuredWebTools({}, {}), { provider: "exa", exaApiKey: undefined });
-  assert.equal(configuredWebTools({}, { COWORK_WEB_TOOLS: "0" }), undefined);
-  assert.equal(configuredWebTools({ webSearch: { provider: "off" } }, { COWORK_WEB_TOOLS: "1" }), undefined);
+  assert.equal(configuredWebTools({}, { FORMICAND_WEB_TOOLS: "0" }), undefined);
+  assert.equal(
+    configuredWebTools({ webSearch: { provider: "off" } }, { FORMICAND_WEB_TOOLS: "1" }),
+    undefined
+  );
   assert.equal(configuredWebTools({ webSearch: { provider: "exa" } }, {}).provider, "exa");
-  assert.throws(() => configuredWebTools({}, { COWORK_WEB_TOOLS: "off" }), /0 or 1/);
+  assert.throws(() => configuredWebTools({}, { FORMICAND_WEB_TOOLS: "off" }), /0 or 1/);
   assert.throws(() => configuredWebTools({ webSearch: { provider: "invalid" } }, {}), /provider/);
 });
 test("optional Exa credentials stay private, are retained or explicitly cleared", () => {

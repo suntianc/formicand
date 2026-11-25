@@ -21,7 +21,7 @@ function frame(width = 8, height = 6) {
   return PNG.sync.write(image);
 }
 async function fixture(t) {
-  const root = await mkdtemp(join(tmpdir(), "atria-visual-observation-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-visual-observation-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const work = join(root, "work"),
     task = join(root, "task"),

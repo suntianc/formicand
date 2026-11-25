@@ -292,14 +292,14 @@ export function createHumanQuestions(root, { submit, resume, onVisibility, onErr
   let displayedKey;
   let displayedTaskId;
   const keyFor = (taskId, requestId) =>
-    `atria.human.v1:${encodeURIComponent(taskId)}:${encodeURIComponent(requestId)}`;
+    `formicand.human.v1:${encodeURIComponent(taskId)}:${encodeURIComponent(requestId)}`;
   const storageMessage = ui("人工回复草稿暂时无法保存，请保留当前窗口");
   function persist(key, draft) {
     pendingStorage.set(key, draft);
     try {
       if (draft === null) localStorage.removeItem(key);
       else localStorage.setItem(key, JSON.stringify(draft));
-      window.bookmanDesktop?.saveComposerDrafts?.();
+      window.formicandDesktop?.saveComposerDrafts?.();
       pendingStorage.delete(key);
       storageErrors.delete(key);
       // eslint-disable-next-line no-restricted-syntax -- localStorage 被禁用或配额耗尽时写入抛出，草稿留在内存并由 onError 提示一次

@@ -145,7 +145,7 @@ test("old dispatches recover completion from durable callbacks without borrowing
         type: "runtime_event",
         payload: {
           type: "message_end",
-          message: { customType: "cowork-callback", details: { callId: "one", status: "succeeded" } }
+          message: { customType: "formicand-callback", details: { callId: "one", status: "succeeded" } }
         }
       }
     ]

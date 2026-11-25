@@ -126,7 +126,7 @@ test("the composer keeps one size from a new session into a conversation, and �
 
     // The selected 新会话 uses the selected-row fill, edge and shadow in both themes.
     for (const theme of ["light", "dark"]) {
-      await page.evaluate((value) => window.atriaAppearance.set(value), theme);
+      await page.evaluate((value) => window.formicandAppearance.set(value), theme);
       await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
       const [button, row] = await page.evaluate(() => {
         const style = getComputedStyle(document.documentElement);

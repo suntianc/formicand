@@ -28,7 +28,7 @@ const development = (overrides = {}) => ({
     workspaceId: "workspace-1",
     backendId: "backend-1",
     directory: "/tmp/requirement-1",
-    branch: "coworkos/requirement-1",
+    branch: "formicand/requirement-1",
     baseCommit: commit("a"),
     state: "ready"
   },
@@ -52,7 +52,7 @@ const review = (state, extra = {}) => ({
   candidate: {
     commit: commit("b"),
     tree: commit("c"),
-    branch: "coworkos/requirement-1",
+    branch: "formicand/requirement-1",
     workspace: "/tmp/requirement-1"
   },
   changedPaths: [],

@@ -50,7 +50,7 @@ export function createProjectLedgerClient(options: {
   const label = options.label ?? "项目台账工具";
   const origin = loopback(options.dashboardUrl, label);
   if (!TASK_ID.test(options.taskId)) throw new Error(`${label}不可用：当前会话 ID 不合法`);
-  const token = options.token ?? process.env.COWORK_API_TOKEN;
+  const token = options.token ?? process.env.FORMICAND_API_TOKEN;
   if (!token) throw new Error(`${label}不可用：本次运行没有本地服务凭据`);
   const taskPath = `/api/tasks/${encodeURIComponent(options.taskId)}`;
   const send = async (
@@ -63,7 +63,7 @@ export function createProjectLedgerClient(options: {
       redirect: "error",
       headers: {
         ...(input === undefined ? {} : { "content-type": "application/json" }),
-        "x-atria-token": token
+        "x-formicand-token": token
       },
       ...(input === undefined ? {} : { body: JSON.stringify(input) }),
       signal: AbortSignal.timeout(TIMEOUT_MS)

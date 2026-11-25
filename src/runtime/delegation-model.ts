@@ -1,4 +1,4 @@
-import { hostConfigRoot, readHostCoworkConfig, type CoworkConfig } from "./config.js";
+import { hostConfigRoot, readHostFormicandConfig, type FormicandConfig } from "./config.js";
 import {
   DEFAULT_MODEL,
   modelRoleSnapshot,
@@ -7,7 +7,7 @@ import {
   type ModelRoleSnapshot,
   type ResolvedModelRole
 } from "./role-models.js";
-import type { CoworkModelApi, CoworkThinkingFormat, PiThinkingLevel } from "./runtime-settings.js";
+import type { FormicandModelApi, FormicandThinkingFormat, PiThinkingLevel } from "./runtime-settings.js";
 
 /**
  * The role model one delegated work item actually runs with.
@@ -29,8 +29,8 @@ export interface WorkItemModel {
   apiKey: string;
   model?: string;
   thinkingLevel: PiThinkingLevel;
-  api: CoworkModelApi;
-  thinkingFormat: CoworkThinkingFormat;
+  api: FormicandModelApi;
+  thinkingFormat: FormicandThinkingFormat;
   supportsReasoningEffort: boolean;
   supportsPromptCacheKey: boolean;
   supportsImages: boolean;
@@ -40,8 +40,8 @@ export interface WorkItemModel {
   snapshot?: ModelRoleSnapshot;
 }
 
-export function delegationHostConfig(env: NodeJS.ProcessEnv = process.env): CoworkConfig {
-  return readHostCoworkConfig(hostConfigRoot(env), env);
+export function delegationHostConfig(env: NodeJS.ProcessEnv = process.env): FormicandConfig {
+  return readHostFormicandConfig(hostConfigRoot(env), env);
 }
 
 /** `undefined` keeps the caller's own connection: no binding and no one-off choice. */

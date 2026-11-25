@@ -27,10 +27,10 @@ export function createMainRunGuardian({
    * again through the ordinary Main entry, so a full external budget queues the
    * wake instead of dropping it.
    */
-  const mainGuardianDisabled = () => process.env.COWORK_DISABLE_MAIN_GUARDIAN === "1";
+  const mainGuardianDisabled = () => process.env.FORMICAND_DISABLE_MAIN_GUARDIAN === "1";
 
   const mainGuardianIntervalMs = () =>
-    Math.max(1000, Number(process.env.COWORK_MAIN_GUARDIAN_INTERVAL_MS) || 60_000);
+    Math.max(1000, Number(process.env.FORMICAND_MAIN_GUARDIAN_INTERVAL_MS) || 60_000);
 
   let mainGuardianTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -74,7 +74,7 @@ export function createMainRunGuardian({
       .then(() => undefined)
       .catch((error) => {
         console.error(
-          `[cowork] main guardian cycle failed: ${error instanceof Error ? error.message : String(error)}`
+          `[formicand] main guardian cycle failed: ${error instanceof Error ? error.message : String(error)}`
         );
       })
       .finally(() => {

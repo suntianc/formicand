@@ -9,7 +9,7 @@ export class ProcessHost {
     if (this.stopping) throw new Error("Runtime is shutting down");
     if (this.processes.has(key)) throw new Error(`Process already active: ${key}`);
     const env = { ...(options.env ?? process.env) };
-    delete env.ATRIA_COMPONENTS_GITHUB_TOKEN;
+    delete env.FORMICAND_COMPONENTS_GITHUB_TOKEN;
     const child = spawn(command, args, { ...options, env, detached: process.platform !== "win32" });
     this.processes.set(key, child);
     return child;

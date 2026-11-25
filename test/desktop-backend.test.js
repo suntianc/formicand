@@ -16,21 +16,21 @@ async function prepare(paths) {
 }
 
 test("the execution host keeps an explicit CAD runtime instead of replacing it with the bundle", async (t) => {
-  const root = await mkdtemp(join(tmpdir(), "atria-backend-component-override-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-backend-component-override-"));
   t.after(async () => {
     await rm(root, { recursive: true, force: true });
   });
   const external = join(root, "external-python3");
   await writeFile(external, "explicit fixture");
   const paths = desktopPaths(resolve("."), join(root, "data"), {});
-  const previous = process.env.COWORK_CADQUERY_PYTHON;
+  const previous = process.env.FORMICAND_CADQUERY_PYTHON;
   try {
-    process.env.COWORK_CADQUERY_PYTHON = external;
+    process.env.FORMICAND_CADQUERY_PYTHON = external;
     const env = await backendEnvironment(paths, {});
-    assert.equal(env.COWORK_CADQUERY_PYTHON, external);
+    assert.equal(env.FORMICAND_CADQUERY_PYTHON, external);
   } finally {
-    if (previous === undefined) delete process.env.COWORK_CADQUERY_PYTHON;
-    else process.env.COWORK_CADQUERY_PYTHON = previous;
+    if (previous === undefined) delete process.env.FORMICAND_CADQUERY_PYTHON;
+    else process.env.FORMICAND_CADQUERY_PYTHON = previous;
   }
 });
 
@@ -38,7 +38,7 @@ test(
   "a Finder-launched execution host resolves installed user tools without loading shell profiles",
   { skip: process.platform !== "darwin" && "Finder environment is specific to macOS" },
   async (t) => {
-    const root = await mkdtemp(join(tmpdir(), "atria-backend-path-"));
+    const root = await mkdtemp(join(tmpdir(), "formicand-backend-path-"));
     t.after(async () => {
       await rm(root, { recursive: true, force: true });
     });
@@ -56,7 +56,7 @@ test(
       assert.ok(env.PATH.endsWith(":/usr/bin:/bin:/usr/sbin:/sbin"), env.PATH);
       assert.equal(env.PATH, desktopBackendEnvironment().PATH);
       assert.equal(env.ELECTRON_RUN_AS_NODE, "1");
-      assert.equal(env.ATRIA_HOME, paths.userData);
+      assert.equal(env.FORMICAND_HOME, paths.userData);
     } finally {
       if (previousPath === undefined) delete process.env.PATH;
       else process.env.PATH = previousPath;
@@ -67,7 +67,7 @@ test(
 );
 
 test("native backend owns readiness, authenticates its API and shuts down", async () => {
-  const root = await mkdtemp(join(tmpdir(), "atria-backend-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-backend-"));
   const paths = desktopPaths(resolve("."), root, {});
   let backend;
   try {
@@ -75,7 +75,7 @@ test("native backend owns readiness, authenticates its API and shuts down", asyn
     backend = await connectBackend(paths, {}, process.execPath);
     const request = async (path, body) => {
       const response = await fetch(`${backend.url}${path}`, {
-        headers: { "x-atria-token": backend.token, "content-type": "application/json" },
+        headers: { "x-formicand-token": backend.token, "content-type": "application/json" },
         ...(body ? { method: "POST", body: JSON.stringify(body) } : {})
       });
       assert.ok(response.ok, `HTTP ${response.status}: ${path}`);
@@ -97,7 +97,7 @@ test("native backend owns readiness, authenticates its API and shuts down", asyn
 });
 
 test("an unavailable native runtime reports startup failure without hanging shutdown", async () => {
-  const root = await mkdtemp(join(tmpdir(), "atria-runtime-missing-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-runtime-missing-"));
   try {
     const paths = desktopPaths(resolve("."), root, {});
     await prepare(paths);

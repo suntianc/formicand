@@ -6,7 +6,7 @@ import { test } from "node:test";
 import { LocalWorkspaceStore } from "../dist/src/workspace/workspace-store.js";
 
 async function fixture(t) {
-  const root = await mkdtemp(join(tmpdir(), "atria-workspace-layout-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-workspace-layout-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   return { root, store: new LocalWorkspaceStore(root) };
 }

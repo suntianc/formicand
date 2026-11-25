@@ -21,18 +21,18 @@ import { dismissModelSetup } from "./model-provider-ui.js";
 async function isolatedBackend(data, helper) {
   const saved = { ...process.env };
   for (const name of Object.keys(process.env))
-    if (/^(COWORK_|ATRIA_|PI_|ELECTRON_)/.test(name)) delete process.env[name];
+    if (/^(FORMICAND_|FORMICAND_|PI_|ELECTRON_)/.test(name)) delete process.env[name];
   Object.assign(process.env, {
-    ATRIA_HOME: data,
-    COWORK_HARNESS_ROOT: resolve("."),
-    COWORK_CONFIG: join(data, "config.json"),
-    COWORK_WORKSPACE: join(data, "workspace"),
-    COWORK_API_TOKEN: "isolated-settings-fixture",
-    COWORK_COMPUTER_USE_EXECUTABLE: helper,
-    COWORK_DISABLE_MAIN_GUARDIAN: "1",
+    FORMICAND_HOME: data,
+    FORMICAND_HARNESS_ROOT: resolve("."),
+    FORMICAND_CONFIG: join(data, "config.json"),
+    FORMICAND_WORKSPACE: join(data, "workspace"),
+    FORMICAND_API_TOKEN: "isolated-settings-fixture",
+    FORMICAND_COMPUTER_USE_EXECUTABLE: helper,
+    FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
     PI_OFFLINE: "1"
   });
-  await writeFile(process.env.COWORK_CONFIG, "{}\n");
+  await writeFile(process.env.FORMICAND_CONFIG, "{}\n");
   const probe = createServer();
   probe.listen(0, "127.0.0.1");
   await once(probe, "listening");
@@ -55,7 +55,7 @@ async function isolatedBackend(data, helper) {
     pid: process.pid,
     port,
     url: application.dashboardUrl,
-    token: process.env.COWORK_API_TOKEN,
+    token: process.env.FORMICAND_API_TOKEN,
     startedAt
   });
   return {
@@ -64,7 +64,7 @@ async function isolatedBackend(data, helper) {
       await application.stop();
       await removeBackendInstance(paths, { pid: process.pid });
       for (const name of Object.keys(process.env))
-        if (/^(COWORK_|ATRIA_|PI_|ELECTRON_)/.test(name)) delete process.env[name];
+        if (/^(FORMICAND_|FORMICAND_|PI_|ELECTRON_)/.test(name)) delete process.env[name];
       Object.assign(process.env, saved);
     }
   };
@@ -131,18 +131,18 @@ process.stdin.on("end", async () => {
 test("native three-button settings grant both windows to new tasks, persists across restart and revokes queued work", async () => {
   test.skip(process.platform !== "darwin", "Native settings acceptance requires macOS");
   test.setTimeout(120_000);
-  const data = await mkdtemp(join(tmpdir(), "atria-computer-settings-"));
+  const data = await mkdtemp(join(tmpdir(), "formicand-computer-settings-"));
   const target = {
     pid: 11,
     windowId: 12,
-    bundleId: "org.atria.fixture.one",
+    bundleId: "org.formicand.fixture.one",
     application: "Fixture One",
     title: "First window"
   };
   const second = {
     pid: 21,
     windowId: 22,
-    bundleId: "org.atria.fixture.two",
+    bundleId: "org.formicand.fixture.two",
     application: "Fixture Two",
     title: "Second window"
   };
@@ -155,10 +155,10 @@ test("native three-button settings grant both windows to new tasks, persists acr
     21_000
   );
   const backend = await isolatedBackend(data, helper);
-  const env = { ...desktopSmokeEnvironment({ data }), COWORK_COMPUTER_USE_EXECUTABLE: helper };
-  const packagedApp = process.env.ATRIA_DESKTOP_APP;
+  const env = { ...desktopSmokeEnvironment({ data }), FORMICAND_COMPUTER_USE_EXECUTABLE: helper };
+  const packagedApp = process.env.FORMICAND_DESKTOP_APP;
   const executablePath = packagedApp
-    ? join(resolve(packagedApp), "Contents/MacOS/CoworkOS")
+    ? join(resolve(packagedApp), "Contents/MacOS/Formicand")
     : await developmentExecutable();
   let native;
   const launch = async () => {
@@ -187,7 +187,7 @@ test("native three-button settings grant both windows to new tasks, persists acr
   const call = async (page, path, body) => {
     const response = await fetch(new URL(path, page.url()), {
       method: body === undefined ? "GET" : "POST",
-      headers: { "content-type": "application/json", "x-atria-token": process.env.COWORK_API_TOKEN },
+      headers: { "content-type": "application/json", "x-formicand-token": process.env.FORMICAND_API_TOKEN },
       ...(body === undefined ? {} : { body: JSON.stringify(body) })
     });
     return { status: response.status, value: await response.json() };
@@ -205,7 +205,7 @@ test("native three-button settings grant both windows to new tasks, persists acr
     expect(
       await page.evaluate(async () => {
         try {
-          await window.bookmanDesktop.computerUse({ operation: "policy", enabled: true, mode: "control" });
+          await window.formicandDesktop.computerUse({ operation: "policy", enabled: true, mode: "control" });
           return "unexpected success";
         } catch (error) {
           return error.message;
@@ -389,18 +389,18 @@ test("native three-button settings grant both windows to new tasks, persists acr
 test("denying either system permission keeps access disabled and opens only its settings pane", async () => {
   test.skip(process.platform !== "darwin", "Native settings acceptance requires macOS");
   test.setTimeout(90_000);
-  const data = await mkdtemp(join(tmpdir(), "atria-computer-permission-denied-"));
+  const data = await mkdtemp(join(tmpdir(), "formicand-computer-permission-denied-"));
   let native, backend;
   try {
     const { helper, requests } = await isolatedDriver(data, [], false);
     backend = await isolatedBackend(data, helper);
-    const packagedApp = process.env.ATRIA_DESKTOP_APP;
+    const packagedApp = process.env.FORMICAND_DESKTOP_APP;
     native = await electron.launch({
       executablePath: packagedApp
-        ? join(resolve(packagedApp), "Contents/MacOS/CoworkOS")
+        ? join(resolve(packagedApp), "Contents/MacOS/Formicand")
         : await developmentExecutable(),
       args: ["--use-mock-keychain", ...(packagedApp ? [] : [resolve(".")])],
-      env: { ...desktopSmokeEnvironment({ data }), COWORK_COMPUTER_USE_EXECUTABLE: helper },
+      env: { ...desktopSmokeEnvironment({ data }), FORMICAND_COMPUTER_USE_EXECUTABLE: helper },
       timeout: 60_000
     });
     await native.evaluate(({ app, BrowserWindow, shell }) => {
@@ -437,7 +437,7 @@ test("denying either system permission keeps access disabled and opens only its 
     const post = (path, body) =>
       fetch(new URL(path, page.url()), {
         method: "POST",
-        headers: { "content-type": "application/json", "x-atria-token": process.env.COWORK_API_TOKEN },
+        headers: { "content-type": "application/json", "x-formicand-token": process.env.FORMICAND_API_TOKEN },
         body: JSON.stringify(body)
       });
     expect(

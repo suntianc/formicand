@@ -6,7 +6,7 @@ import { ComputerUse, ComputerUseError, computerAction } from "../dist/src/gui/c
 const target = {
   pid: 100,
   windowId: 200,
-  bundleId: "org.atria.fixture",
+  bundleId: "org.formicand.fixture",
   application: "Fixture",
   title: "Probe"
 };

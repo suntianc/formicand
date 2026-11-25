@@ -12,7 +12,7 @@ import {
   normalizeContextWindow,
   type RuntimeSettingsConfig
 } from "./runtime-settings.js";
-import { atriaDataPaths } from "../../scripts/data-home.cjs";
+import { formicandDataPaths } from "../../scripts/data-home.cjs";
 import {
   applyHostCredentials,
   hostCredentialsPath,
@@ -21,7 +21,7 @@ import {
 import type { ProjectDataConfig } from "../storage/project-data/config.js";
 import { mainCapacitySettings, type MainCapacitySettings } from "../domain/main-capacity.js";
 
-export interface CoworkConfig extends RuntimeSettingsConfig, WebSearchConfig {
+export interface FormicandConfig extends RuntimeSettingsConfig, WebSearchConfig {
   modelProviders?: ModelProviders;
   /** Execution-host role bindings; project overrides stay in this local file. */
   roleModels?: RoleModelConfig;
@@ -44,22 +44,25 @@ export interface CoworkConfig extends RuntimeSettingsConfig, WebSearchConfig {
  * so a role binding written by one is the binding the next launch reads.
  */
 export function hostConfigRoot(env: NodeJS.ProcessEnv = process.env): string {
-  return env.COWORK_CONFIG_ROOT ?? env.COWORK_HARNESS_ROOT ?? process.cwd();
+  return env.FORMICAND_CONFIG_ROOT ?? env.FORMICAND_HARNESS_ROOT ?? process.cwd();
 }
 
 /** Explicit and project paths win; all installed hosts share the user fallback. */
-export function coworkConfigPath(root = process.cwd(), env: NodeJS.ProcessEnv = process.env): string {
-  return env.COWORK_CONFIG
-    ? resolve(root, env.COWORK_CONFIG)
-    : ([join(root, ".cowork", "config.json"), join(root, "config.json")].find(existsSync) ??
-        atriaDataPaths(env).configPath);
+export function formicandConfigPath(root = process.cwd(), env: NodeJS.ProcessEnv = process.env): string {
+  return env.FORMICAND_CONFIG
+    ? resolve(root, env.FORMICAND_CONFIG)
+    : ([join(root, ".formicand", "config.json"), join(root, "config.json")].find(existsSync) ??
+        formicandDataPaths(env).configPath);
 }
 
-export function readCoworkConfig(root = process.cwd(), env: NodeJS.ProcessEnv = process.env): CoworkConfig {
-  const explicit = env.COWORK_CONFIG;
-  const path = coworkConfigPath(root, env);
+export function readFormicandConfig(
+  root = process.cwd(),
+  env: NodeJS.ProcessEnv = process.env
+): FormicandConfig {
+  const explicit = env.FORMICAND_CONFIG;
+  const path = formicandConfigPath(root, env);
   if (!existsSync(path)) {
-    if (explicit) throw new Error("COWORK_CONFIG 指定的配置文件不存在");
+    if (explicit) throw new Error("FORMICAND_CONFIG 指定的配置文件不存在");
     return {};
   }
   let value: unknown;
@@ -71,7 +74,7 @@ export function readCoworkConfig(root = process.cwd(), env: NodeJS.ProcessEnv = 
   }
   if (!value || typeof value !== "object" || Array.isArray(value))
     throw new Error("模型配置必须是 JSON 对象");
-  const config = value as CoworkConfig;
+  const config = value as FormicandConfig;
   validateWebSearchConfig(config);
   normalizeModelApi(config.api);
   normalizeThinkingFormat(config.thinkingFormat);
@@ -102,14 +105,14 @@ export function readCoworkConfig(root = process.cwd(), env: NodeJS.ProcessEnv = 
  * ordinary runs and unrelated settings keep working; the settings services
  * report the concrete error instead of starting a process with a bad key.
  */
-export function readHostCoworkConfig(
+export function readHostFormicandConfig(
   root = process.cwd(),
   env: NodeJS.ProcessEnv = process.env
-): CoworkConfig {
-  const config = readCoworkConfig(root, env);
+): FormicandConfig {
+  const config = readFormicandConfig(root, env);
   let credentials;
   try {
-    credentials = readHostCredentials(hostCredentialsPath(coworkConfigPath(root, env), env));
+    credentials = readHostCredentials(hostCredentialsPath(formicandConfigPath(root, env), env));
     // eslint-disable-next-line no-restricted-syntax -- 凭据库损坏不能让使用环境变量密钥的普通运行失败，具体错误由设置服务读取同一存储时单独上报
   } catch {
     // A damaged store is reported by the settings services; it must not stop runs

@@ -69,7 +69,7 @@ export async function uploadReleaseDraft({
       "--prerelease=" + manifest.prerelease,
       "--latest=false",
       "--title",
-      "CoworkOS " + tag,
+      "Formicand " + tag,
       "--notes-file",
       notes
     ]);

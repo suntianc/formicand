@@ -1,5 +1,5 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { atriaHome } from "../../scripts/data-home.cjs";
+import { formicandHome } from "../../scripts/data-home.cjs";
 import {
   enabledMcpServers,
   piMcpServerConfig,
@@ -8,17 +8,17 @@ import {
 } from "../../dist/src/runtime/mcp-config.js";
 
 /**
- * Keep this process's MCP servers in step with `~/.atria/mcp.json`.
+ * Keep this process's MCP servers in step with `~/.formicand/mcp.json`.
  *
  * Pi's own `mcp.json` stays empty; servers reach Pi only through
- * `registerMcpServer`, so the configuration CoworkOS manages is the only
+ * `registerMcpServer`, so the configuration Formicand manages is the only
  * source. A resident Main outlives the settings page, so `sync` runs again
  * at every turn: servers added or changed since are registered (registering a
  * name again replaces it), and servers removed or switched off are dropped.
  */
 export function createMcpRegistration(
   pi: ExtensionAPI,
-  home = atriaHome(),
+  home = formicandHome(),
   /**
    * The servers to register: a fixed list (a custom Agent's), or a function
    * read at every sync (Main's setting, which can change between turns).

@@ -171,12 +171,12 @@ export class LocalAccess {
     } catch {
       // A client can re-authorize; refusing to serve would take the whole
       // backend down for a damaged side record. Say where and start without it.
-      console.error(`[cowork] 本地会话记录无法解析，已按无会话启动：${this.sessionsPath}`);
+      console.error(`[formicand] 本地会话记录无法解析，已按无会话启动：${this.sessionsPath}`);
       return;
     }
     const document = parsed as Partial<SessionDocument> | null;
     if (document?.version !== 1 || !Array.isArray(document.sessions)) {
-      console.error(`[cowork] 本地会话记录格式不完整，已按无会话启动：${this.sessionsPath}`);
+      console.error(`[formicand] 本地会话记录格式不完整，已按无会话启动：${this.sessionsPath}`);
       return;
     }
     for (const record of document.sessions) {

@@ -21,7 +21,7 @@ async function skill(root, name, description) {
 }
 
 async function setup(t) {
-  const root = await mkdtemp(join(tmpdir(), "cowork-composer-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-composer-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const home = join(root, "home");
   const userHome = join(root, "user");
@@ -40,13 +40,13 @@ async function setup(t) {
 test("the / menu lists Main's skills and prompt templates, project ones over global ones", async (t) => {
   const { home, project, service } = await setup(t);
   await skill(join(home, "skills"), "pg-migration", "PostgreSQL 迁移");
-  await skill(join(project, ".atria", "skills"), "local-only", "项目技能");
+  await skill(join(project, ".formicand", "skills"), "local-only", "项目技能");
   await mkdir(join(home, "prompts"), { recursive: true });
-  await mkdir(join(project, ".atria", "prompts"), { recursive: true });
+  await mkdir(join(project, ".formicand", "prompts"), { recursive: true });
   await writeFile(join(home, "prompts", "review.md"), "---\ndescription: 全局审查\n---\n按规范审查。\n");
   await writeFile(join(home, "prompts", "plan.md"), "# 先列计划\n再动手。\n");
   await writeFile(join(home, "prompts", "bad name.md"), "忽略");
-  await writeFile(join(project, ".atria", "prompts", "review.md"), "按团队规范审查迁移 PR。\n");
+  await writeFile(join(project, ".formicand", "prompts", "review.md"), "按团队规范审查迁移 PR。\n");
 
   const global = await service.slash();
   assert.deepEqual(
@@ -145,7 +145,10 @@ test("references keep what resolves and the manifest goes in front of the words"
   assert.deepEqual(await service.resolve(undefined, [{ kind: "file", path: "a.sql" }]), []);
 
   const message = referencesBlock(project, resolved.slice(0, 2)) + "用 /pg-migration 处理 @a.sql";
-  assert.match(message, /^<atria_references>\n\{"version":1,"note":"[^"]*load it with load_skill by name/);
+  assert.match(
+    message,
+    /^<formicand_references>\n\{"version":1,"note":"[^"]*load it with load_skill by name/
+  );
   assert.ok(!message.includes("SKILL.md"), "Main loads the skill by name, not by its file");
   assert.equal(stripReferencesBlock(message), "用 /pg-migration 处理 @a.sql");
   assert.equal(stripReferencesBlock(referencesBlock(project, resolved.slice(0, 1)).trim()), "");

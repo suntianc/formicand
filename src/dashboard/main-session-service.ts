@@ -274,7 +274,7 @@ export function createMainSessionService(ports: MainSessionServicePorts) {
           ?.noteSession(record)
           .catch((error) =>
             console.error(
-              `[cowork] external session index failed: ${
+              `[formicand] external session index failed: ${
                 error instanceof Error ? error.message : String(error)
               }`
             )

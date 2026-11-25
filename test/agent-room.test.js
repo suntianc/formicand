@@ -8,7 +8,7 @@ import { readAgentTrajectory } from "../dist/src/runtime/agent-trajectory.js";
 import { agentDisplayName, reserveSubagentIdentity } from "../dist/src/runtime/agent-identity.js";
 
 test("agent names remain unique through concurrent delegation, follow-ups and reordered cards", async () => {
-  const root = await mkdtemp(join(tmpdir(), "atria-agent-names-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-agent-names-"));
   try {
     const first = await reserveSubagentIdentity(root);
     const next = await Promise.all(Array.from({ length: 3 }, () => reserveSubagentIdentity(root)));
@@ -33,7 +33,7 @@ test("agent names remain unique through concurrent delegation, follow-ups and re
 });
 
 test("agent trajectories fold real tool results, isolate agents, and resume partial appended lines", async () => {
-  const root = await mkdtemp(join(tmpdir(), "atria-trajectory-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-trajectory-"));
   const path = join(root, "agent-a.jsonl");
   const wrap = (payload) =>
     JSON.stringify({ type: "trace.runtime", occurredAt: "2026-09-06T10:00:00Z", payload });

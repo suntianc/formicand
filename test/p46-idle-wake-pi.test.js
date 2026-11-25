@@ -24,7 +24,7 @@ import { isolatedPiEnvironment, startLocalProvider } from "./fixtures/pi-process
  * a Subagent blocked in `ask_main`. Both used to be woken only by a directory
  * watch, and a host whose FSEvents daemon is saturated can deliver that event
  * late, coalesced or never. Every case here runs the real processes against a
- * local provider with `COWORK_DISABLE_FILE_WATCH=1`, so the watch never
+ * local provider with `FORMICAND_DISABLE_FILE_WATCH=1`, so the watch never
  * attaches: whatever reaches the process came from the writer's own wake
  * notification, re-read from the durable record.
  */
@@ -138,19 +138,19 @@ async function fixture(t, { handle, env = {} }) {
   const childEnvironment = isolatedPiEnvironment({
     HOME: root,
     TMPDIR: root,
-    ATRIA_HOME: join(root, "home"),
-    COWORK_CONFIG: join(root, "config.json"),
-    COWORK_CONFIG_ROOT: root,
-    COWORK_HARNESS_ROOT: harness,
-    COWORK_WORKSPACE: workspace,
-    COWORK_DISABLE_MAIN_GUARDIAN: "1",
+    FORMICAND_HOME: join(root, "home"),
+    FORMICAND_CONFIG: join(root, "config.json"),
+    FORMICAND_CONFIG_ROOT: root,
+    FORMICAND_HARNESS_ROOT: harness,
+    FORMICAND_WORKSPACE: workspace,
+    FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
     // The seam this file exists for: no OS directory event can wake anything.
-    COWORK_DISABLE_FILE_WATCH: "1",
-    COWORK_API_BASE: provider.baseUrl,
-    COWORK_API_KEY: "{{SECRET_p46_idle_wake_key}}",
-    COWORK_MODEL: MODEL,
-    COWORK_MODEL_API: "openai-completions",
-    COWORK_REASONING_EFFORT: "off",
+    FORMICAND_DISABLE_FILE_WATCH: "1",
+    FORMICAND_API_BASE: provider.baseUrl,
+    FORMICAND_API_KEY: "{{SECRET_p46_idle_wake_key}}",
+    FORMICAND_MODEL: MODEL,
+    FORMICAND_MODEL_API: "openai-completions",
+    FORMICAND_REASONING_EFFORT: "off",
     PI_CODING_AGENT_DIR: join(root, "pi"),
     PI_OFFLINE: "1",
     ...env

@@ -17,7 +17,7 @@ const { MainRequestRetry } = await import("../dist/src/runtime/main-request-retr
 const { ModelRequestRecorder, parseModelRequestArchive } =
   await import("../dist/src/storage/model-request-recorder.js");
 const { recordModelRequests } = await import("../dist/src/runtime/model-request-recording.js");
-const { createCoworkModel } = await import("../dist/src/runtime/model-profile.js");
+const { createFormicandModel } = await import("../dist/src/runtime/model-profile.js");
 import { startDashboard } from "./dashboard-fixture.mjs";
 import { protocolStream } from "./model-protocol-fixture.mjs";
 import { installedPiVersion } from "./pi-version-fixture.mjs";
@@ -28,10 +28,10 @@ const tool = {
   parameters: { type: "object", properties: {} }
 };
 async function storage(t) {
-  const root = await mkdtemp(join(tmpdir(), "atria-request-retry-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-request-retry-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const store = new MainRequestStore(mainRequestPath(root, "task"), "task");
-  const model = createCoworkModel({
+  const model = createFormicandModel({
     baseUrl: "http://fixture.test",
     model: "fixture",
     supportsReasoningEffort: false
@@ -165,7 +165,11 @@ test("a snapshot persistence failure prevents HTTP transmission", async (t) => {
 test("a completed provider response keeps its terminal state when its first settlement reports a disk failure", async (t) => {
   const f = await storage(t);
   const local = await provider(t, () => ({ text: "provider completed" }));
-  const model = createCoworkModel({ baseUrl: local.base, model: "fixture", supportsReasoningEffort: false });
+  const model = createFormicandModel({
+    baseUrl: local.base,
+    model: "fixture",
+    supportsReasoningEffort: false
+  });
   const archive = new ModelRequestRecorder(join(f.root, "requests.jsonl"), {
     taskId: "task",
     runId: "run",
@@ -371,7 +375,11 @@ test("auxiliary summaries do not consume or replace a pending Main request", asy
     }
     return { text: count === 2 ? "Auxiliary summary" : "Replayed Main reply" };
   });
-  const model = createCoworkModel({ baseUrl: local.base, model: "fixture", supportsReasoningEffort: false });
+  const model = createFormicandModel({
+    baseUrl: local.base,
+    model: "fixture",
+    supportsReasoningEffort: false
+  });
   const archive = new ModelRequestRecorder(join(f.root, "requests.jsonl"), {
     taskId: "task",
     runId: "run",
@@ -553,7 +561,7 @@ test(
     const [latest] = await SessionManager.listAll(sessions);
     assert.ok(latest, "real Main saved its failed session");
     const session = SessionManager.open(latest.path, sessions);
-    session.appendCustomMessageEntry("cowork-watch", "PRESAVED_NEWS", false);
+    session.appendCustomMessageEntry("formicand-watch", "PRESAVED_NEWS", false);
     await writeFile(
       session.getSessionFile(),
       [session.getHeader(), ...session.getEntries()].map(JSON.stringify).join("\n") + "\n"

@@ -9,7 +9,7 @@ interface MainPromptState {
 }
 
 const MAX_MAIN_CONTEXT_CHARS = 12_000;
-const CURRENT_STATE_BLOCK = /<atria_main_context>[\s\S]*?<\/atria_main_context>/g;
+const CURRENT_STATE_BLOCK = /<formicand_main_context>[\s\S]*?<\/formicand_main_context>/g;
 
 /** Current machine state is refreshed separately from the historical checkpoint. */
 export function mainRuntimeContext(state: MainPromptState): string {
@@ -27,8 +27,8 @@ export function mainRuntimeContext(state: MainPromptState): string {
       : []),
     "Use search_history and read_history for original conversation evidence."
   ];
-  const open = "<atria_main_context>\n";
-  const close = "\n</atria_main_context>";
+  const open = "<formicand_main_context>\n";
+  const close = "\n</formicand_main_context>";
   return open + excerpt(parts.join("\n"), MAX_MAIN_CONTEXT_CHARS - open.length - close.length) + close;
 }
 
@@ -61,7 +61,7 @@ export function withMainRuntimeContext<T extends AgentMessage>(
   return messages.map((message, index) => {
     if (message.role !== "system") return message;
     const current = message.sections?.current_workspace;
-    if (index !== lastSystem && !current?.includes("<atria_main_context>")) return message;
+    if (index !== lastSystem && !current?.includes("<formicand_main_context>")) return message;
     return {
       ...message,
       sections: {
@@ -77,7 +77,7 @@ export function withMainRuntimeContext<T extends AgentMessage>(
 
 function excerpt(text: string, budget: number): string {
   // Keep delimiters inside user-owned goal text from becoming snapshot boundaries.
-  const safe = text.replace(/<\/?atria_main_context>/g, (tag) =>
+  const safe = text.replace(/<\/?formicand_main_context>/g, (tag) =>
     tag.replace("<", "&lt;").replace(">", "&gt;")
   );
   const [block] = limitToolContent([{ type: "text", text: safe }], budget);

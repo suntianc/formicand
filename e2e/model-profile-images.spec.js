@@ -41,7 +41,7 @@ for (const imageApi of ["openai-completions", "openai-responses"]) {
       return { text: "纯文本继续完成" };
     });
     const dashboard = await startDashboard();
-    const image = await readFile("web/assets/atria-symbol.png");
+    const image = await readFile("web/assets/formicand-symbol.png");
     const pixels = image.toString("base64");
     const request = pageRequest(page, dashboard.base);
     const save = async (body) => {

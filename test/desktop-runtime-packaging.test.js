@@ -70,16 +70,16 @@ function localImports(file, code) {
 }
 
 test("desktop file selection includes the complete Pi runtime import closure and loads it outside the checkout", async (t) => {
-  const root = await mkdtemp(join(tmpdir(), "atria-desktop-runtime-package-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-desktop-runtime-package-"));
   const stage = join(root, "app");
   await mkdir(stage);
   t.after(() => rm(root, { recursive: true, force: true }));
   const included = await stageRuntimeFiles(
-    ["scripts/start-pi.mjs", "scripts/main-worker.mjs", ".pi/extensions/cowork.ts"],
+    ["scripts/start-pi.mjs", "scripts/main-worker.mjs", ".pi/extensions/formicand.ts"],
     stage
   );
   assert.ok(included.size > 20, "the test must traverse real extension and compiled runtime consumers");
-  // Installed production dependencies are shared; all CoworkOS modules are copied
+  // Installed production dependencies are shared; all Formicand modules are copied
   // exclusively from electron-builder's file selection into an external stage.
   await symlink(
     join(source, "node_modules"),
@@ -87,7 +87,7 @@ test("desktop file selection includes the complete Pi runtime import closure and
     process.platform === "win32" ? "junction" : "dir"
   );
   const env = Object.fromEntries(
-    Object.entries(process.env).filter(([name]) => !/^(?:COWORK_|PI_|ATRIA_)/.test(name))
+    Object.entries(process.env).filter(([name]) => !/^(?:FORMICAND_|PI_|FORMICAND_)/.test(name))
   );
   const probe = `
     import {createRequire} from 'node:module';
@@ -98,7 +98,7 @@ test("desktop file selection includes the complete Pi runtime import closure and
     await import('./scripts/search-tool-adapter.mjs');
     const require = createRequire(import.meta.resolve('@earendil-works/pi-coding-agent'));
     const {createJiti} = require('jiti');
-    const entry = ${JSON.stringify(join(stage, ".pi/extensions/cowork.ts"))};
+    const entry = ${JSON.stringify(join(stage, ".pi/extensions/formicand.ts"))};
     const jiti = createJiti(pathToFileURL(entry).href, {interopDefault:true});
     await jiti.import(entry, {default:true});
     console.log('desktop-runtime-closure-loaded');
@@ -118,8 +118,8 @@ test("the desktop build ships no removed voice input resources or privacy declar
   assert.doesNotMatch(pkg.scripts["build:base"], /speech/);
   assert.ok(pkg.scripts["build:base"].includes("build-computer-use"));
   assert.equal(config.asar, false);
-  assert.ok(config.files.includes("!dist/src/gui/atria-speech-input"));
-  assert.ok(config.files.includes("!dist/src/gui/atria-speech-input.sha256"));
+  assert.ok(config.files.includes("!dist/src/gui/formicand-speech-input"));
+  assert.ok(config.files.includes("!dist/src/gui/formicand-speech-input.sha256"));
   for (const path of [
     "desktop/speech-input.cjs",
     "web/assets/controllers/voice-input.js",

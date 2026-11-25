@@ -19,7 +19,7 @@ import { writeMcpServers } from "../dist/src/runtime/mcp-config.js";
 import { saveRoleSettings } from "../dist/src/runtime/role-models.js";
 
 async function setup(t) {
-  const root = await mkdtemp(join(tmpdir(), "cowork-agents-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-agents-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const home = join(root, "home");
   const project = join(root, "project");
@@ -109,7 +109,7 @@ test("a definition is read from its header and body, and written back the same",
 test("project Agents need trust, win over global ones, and broken or switched-off ones are never delegated", async (t) => {
   const { home, project } = await setup(t);
   const globalRoot = join(home, "agents");
-  const projectRoot = join(project, ".atria", "agents");
+  const projectRoot = join(project, ".formicand", "agents");
   await agentFile(globalRoot, "db-migrator", "description: 全局版本\npermission: write");
   await agentFile(globalRoot, "pr-writer", "description: 写 PR\npermission: read");
   await agentFile(globalRoot, "doc-writer", "description: 写文档\npermission: write\nenabled: false");
@@ -275,15 +275,15 @@ test("the settings service saves, renames, switches off and deletes, and names b
   // A project's Agents are edited only after it is trusted; the question lists what it would bring in.
   const projectScope = { scope: "project", projectId: "p1" };
   await assert.rejects(service.save(projectScope, definition), /请先信任这个项目/);
-  await agentFile(join(project, ".atria", "agents"), "tester", "description: 测试\npermission: read");
+  await agentFile(join(project, ".formicand", "agents"), "tester", "description: 测试\npermission: read");
   await mkdir(join(project, ".agents", "skills", "pdf"), { recursive: true });
   await writeFile(
     join(project, ".agents", "skills", "pdf", "SKILL.md"),
     "---\nname: pdf\ndescription: d\n---\n"
   );
-  await mkdir(join(project, ".atria", "skills", "pg-migration"), { recursive: true });
+  await mkdir(join(project, ".formicand", "skills", "pg-migration"), { recursive: true });
   await writeFile(
-    join(project, ".atria", "skills", "pg-migration", "SKILL.md"),
+    join(project, ".formicand", "skills", "pg-migration", "SKILL.md"),
     "---\nname: pg-migration\ndescription: d\n---\n"
   );
   const preview = await service.trustPreview("p1");

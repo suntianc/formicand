@@ -72,11 +72,11 @@ export class PostgresDatabase implements SqlDatabase {
       max: 4,
       connectionTimeoutMillis: CONNECT_TIMEOUT_MS,
       idleTimeoutMillis: 30_000,
-      application_name: "coworkos-project-data"
+      application_name: "formicand-project-data"
     });
     // An idle client dropped by the server must not take the Dashboard down.
     this.pool.on("error", (error) => {
-      console.error(`[cowork] 项目数据连接池错误：${error.message}`);
+      console.error(`[formicand] 项目数据连接池错误：${error.message}`);
     });
   }
 

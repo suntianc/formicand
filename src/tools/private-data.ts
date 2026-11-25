@@ -1,9 +1,9 @@
 import { homedir } from "node:os";
 import { isAbsolute, join, relative, resolve, sep } from "node:path";
-import { atriaHome } from "../../scripts/data-home.cjs";
+import { formicandHome } from "../../scripts/data-home.cjs";
 
 /**
- * CoworkOS's own data, kept away from an Agent's tool calls.
+ * Formicand's own data, kept away from an Agent's tool calls.
  *
  * The data home holds the backend's host credential, the model keys, client
  * sessions and the shared database. A Main once read the host credential from
@@ -30,7 +30,7 @@ const WORKING_DIRECTORIES = [
 /**
  * File names refused anywhere in a call, so a path relative to an allowed
  * directory (`../../backend-instance.json`) is caught too. Only names that
- * are CoworkOS's own: a generic name such as `credentials.json` can be the
+ * are Formicand's own: a generic name such as `credentials.json` can be the
  * user's file.
  */
 const PRIVATE_NAMES = [
@@ -54,8 +54,8 @@ export interface PrivateDataRefusal {
 
 export function privateDataReason(path: string): string {
   return (
-    `${path} is CoworkOS's own data (credentials, settings, sessions and databases); agents may not read, list or use it. ` +
-    `Nothing a task needs is there. If a CoworkOS tool refused because something is not configured, stop and ask the user to set it up.`
+    `${path} is Formicand's own data (credentials, settings, sessions and databases); agents may not read, list or use it. ` +
+    `Nothing a task needs is there. If a Formicand tool refused because something is not configured, stop and ask the user to set it up.`
   );
 }
 
@@ -89,10 +89,10 @@ function reachable(home: string, target: string): boolean {
   });
 }
 
-/** The refusal for one tool call that names CoworkOS's own data, or undefined. */
+/** The refusal for one tool call that names Formicand's own data, or undefined. */
 export function privateDataRefusal(
   input: unknown,
-  home: string = atriaHome(process.env),
+  home: string = formicandHome(process.env),
   userHome: string = homedir()
 ): PrivateDataRefusal | undefined {
   const root = resolve(home);
@@ -119,7 +119,7 @@ function* namedPaths(
 }
 
 function refusal(path: string): PrivateDataRefusal {
-  return { path, pattern: "CoworkOS data home", reason: privateDataReason(path) };
+  return { path, pattern: "Formicand data home", reason: privateDataReason(path) };
 }
 
 /**
@@ -130,20 +130,20 @@ const INSTALL_READABLE = [join(".pi", "skills"), "docs"];
 
 export function installReason(path: string): string {
   return (
-    `${path} is CoworkOS's own program (its source and installed files); agents may not read, list or run it. ` +
-    `When a CoworkOS rule or tool refuses something, its message is the whole answer: ` +
+    `${path} is Formicand's own program (its source and installed files); agents may not read, list or run it. ` +
+    `When a Formicand rule or tool refuses something, its message is the whole answer: ` +
     `follow it, or ask the user, instead of reading how the rule is implemented.`
   );
 }
 
 /**
- * The refusal for one tool call that names CoworkOS's own program, or undefined.
+ * The refusal for one tool call that names Formicand's own program, or undefined.
  *
  * A Main once spent the three minutes a Subagent was waiting on it reading
  * the protected-path code to work out why a write was refused, after an
  * earlier one had read the backend's credential the same way. Nothing a task
  * needs is in the install beyond its skills and their guides. When the user's
- * project is CoworkOS itself (or contains it), the install is the work, and
+ * project is Formicand itself (or contains it), the install is the work, and
  * nothing is refused.
  */
 export function installRefusal(
@@ -158,6 +158,6 @@ export function installRefusal(
   if (within(project, root) || within(root, project)) return undefined;
   for (const { spelled, target } of namedPaths(input, root, userHome))
     if (!INSTALL_READABLE.some((entry) => within(target, join(root, entry))))
-      return { path: spelled, pattern: "CoworkOS install", reason: installReason(spelled) };
+      return { path: spelled, pattern: "Formicand install", reason: installReason(spelled) };
   return undefined;
 }

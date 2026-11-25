@@ -7,7 +7,7 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { runFileSearch } from "./file-search.mjs";
 
-const MARKER = "# CoworkOS Pi search adapter v1";
+const MARKER = "# Formicand Pi search adapter v1";
 const shellQuote = (value) => `'${value.replaceAll("'", "'\\''")}'`;
 
 /** These adapters implement Pi's search/autocomplete arguments, not the fd/rg CLI. */
@@ -44,7 +44,7 @@ export function parseSearchToolArguments(tool, args, cwd = process.cwd()) {
       else if (flag === "--exclude") (parameters.exclude ??= []).push(value());
       else
         throw new Error(
-          `CoworkOS Pi fd adapter does not support ${flag}; use the find tool for file searches.`
+          `Formicand Pi fd adapter does not support ${flag}; use the find tool for file searches.`
         );
     } else {
       if (["--no-config", "--line-number", "--json"].includes(flag)) continue;
@@ -54,7 +54,7 @@ export function parseSearchToolArguments(tool, args, cwd = process.cwd()) {
       else if (flag === "--context") parameters.context = Number(value());
       else
         throw new Error(
-          `CoworkOS Pi rg adapter does not support ${flag}; use the grep tool for content searches.`
+          `Formicand Pi rg adapter does not support ${flag}; use the grep tool for content searches.`
         );
     }
   }
@@ -71,7 +71,7 @@ export async function runSearchToolAdapter(
   { cwd = process.cwd(), write = (text) => process.stdout.write(text) } = {}
 ) {
   if (args.length === 1 && args[0] === "--version") {
-    write(`CoworkOS Pi ${tool} adapter 1 (Node.js portable search)\n`);
+    write(`Formicand Pi ${tool} adapter 1 (Node.js portable search)\n`);
     return 0;
   }
   const parameters = parseSearchToolArguments(tool, args, cwd);
@@ -90,7 +90,7 @@ export async function runSearchToolAdapter(
   return result.matchCount ? 0 : 1;
 }
 
-/** Install only CoworkOS-owned adapters, preserving any user-installed native tools. */
+/** Install only Formicand-owned adapters, preserving any user-installed native tools. */
 export async function installSearchToolAdapters(
   agentDir,
   { platform = process.platform, node = process.execPath } = {}
@@ -119,7 +119,7 @@ export async function installSearchToolAdapters(
       await chmod(target, 0o755);
       continue;
     }
-    const temporary = join(dirname(target), `.atria-${tool}-${randomUUID()}`);
+    const temporary = join(dirname(target), `.formicand-${tool}-${randomUUID()}`);
     try {
       await writeFile(temporary, content, { mode: 0o755, flag: "wx" });
       if (existing === undefined) {
@@ -141,16 +141,16 @@ export async function installSearchToolAdapters(
 /** Verify the same portable tools and adapters that a CLI launch will use. */
 export async function verifySearchToolInstallation(agentDir) {
   // Keep the synthetic search corpus outside project-level ignore rules.
-  const probe = await mkdtemp(join(tmpdir(), "atria-search-doctor-"));
+  const probe = await mkdtemp(join(tmpdir(), "formicand-search-doctor-"));
   try {
     await mkdir(join(probe, ".git"));
-    await writeFile(join(probe, "visible.txt"), "atria-search-probe\n", { mode: 0o600 });
-    await writeFile(join(probe, "ignored.txt"), "atria-search-probe\n", { mode: 0o600 });
+    await writeFile(join(probe, "visible.txt"), "formicand-search-probe\n", { mode: 0o600 });
+    await writeFile(join(probe, "ignored.txt"), "formicand-search-probe\n", { mode: 0o600 });
     await writeFile(join(probe, ".gitignore"), "ignored.txt\n", { mode: 0o600 });
     const found = await runFileSearch("find", { pattern: "*.txt" }, { cwd: probe });
     const searched = await runFileSearch(
       "grep",
-      { pattern: "atria-search-probe", literal: true },
+      { pattern: "formicand-search-probe", literal: true },
       { cwd: probe }
     );
     if (
@@ -192,7 +192,7 @@ export async function verifySearchToolInstallation(agentDir) {
           "--color=never",
           "--fixed-strings",
           "--",
-          "atria-search-probe",
+          "formicand-search-probe",
           probe
         ],
         options

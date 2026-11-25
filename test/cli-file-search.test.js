@@ -9,11 +9,11 @@ import { findFiles, grepFiles, runFileSearch } from "../scripts/file-search.mjs"
 import { installSearchToolAdapters, parseSearchToolArguments } from "../scripts/search-tool-adapter.mjs";
 
 const exec = promisify(execFile);
-const cli = resolve("scripts/atria.mjs");
+const cli = resolve("scripts/formicand.mjs");
 const portable = ["darwin", "linux"].includes(process.platform);
 
 async function fixture(t) {
-  const root = await mkdtemp(join(tmpdir(), "atria-file-search-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-file-search-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const put = async (path, text) => {
     const target = join(root, path);
@@ -21,12 +21,12 @@ async function fixture(t) {
     await writeFile(target, text);
   };
   const env = Object.fromEntries(
-    Object.entries(process.env).filter(([name]) => !/^(?:COWORK_|PI_|ATRIA_)/.test(name))
+    Object.entries(process.env).filter(([name]) => !/^(?:FORMICAND_|PI_|FORMICAND_)/.test(name))
   );
   Object.assign(env, {
-    ATRIA_HOME: join(root, "user"),
+    FORMICAND_HOME: join(root, "user"),
     PI_OFFLINE: "1",
-    COWORK_DISABLE_MAIN_GUARDIAN: "1"
+    FORMICAND_DISABLE_MAIN_GUARDIAN: "1"
   });
   return { root, put, env };
 }
@@ -157,18 +157,18 @@ test("Pi search adapters expose only supported arguments and preserve user-insta
   );
   const linkedAgent = join(f.root, "linked-agent");
   await mkdir(join(linkedAgent, "bin"), { recursive: true });
-  await writeFile(join(f.root, "owned-fd"), "#!/bin/sh\n# CoworkOS Pi search adapter v1\nold target\n");
+  await writeFile(join(f.root, "owned-fd"), "#!/bin/sh\n# Formicand Pi search adapter v1\nold target\n");
   await symlink(join(f.root, "owned-fd"), join(linkedAgent, "bin/fd"));
   await installSearchToolAdapters(linkedAgent);
   assert.equal(
     await readFile(join(f.root, "owned-fd"), "utf8"),
-    "#!/bin/sh\n# CoworkOS Pi search adapter v1\nold target\n"
+    "#!/bin/sh\n# Formicand Pi search adapter v1\nold target\n"
   );
   const migratedAgent = join(f.root, "migrated-agent");
   await mkdir(join(migratedAgent, "bin"), { recursive: true });
-  await writeFile(join(migratedAgent, "bin/fd"), "#!/bin/sh\n# CoworkOS Pi search adapter v1\nold target\n");
+  await writeFile(join(migratedAgent, "bin/fd"), "#!/bin/sh\n# Formicand Pi search adapter v1\nold target\n");
   assert.deepEqual((await installSearchToolAdapters(migratedAgent)).installed, ["fd", "rg"]);
-  assert.match((await exec(join(migratedAgent, "bin/fd"), ["--version"])).stdout, /CoworkOS Pi fd adapter/);
+  assert.match((await exec(join(migratedAgent, "bin/fd"), ["--version"])).stdout, /Formicand Pi fd adapter/);
 });
 
 test(
@@ -251,7 +251,7 @@ test(
         "-e",
         `
       import { createFindTool, createGrepTool } from "@earendil-works/pi-coding-agent";
-      const root = process.env.ATRIA_SEARCH_FIXTURE_PROJECT;
+      const root = process.env.FORMICAND_SEARCH_FIXTURE_PROJECT;
       const found = await createFindTool(root).execute("find-fixture", {pattern:"*.txt"});
       const searched = await createGrepTool(root).execute("grep-fixture", {pattern:"fixture",glob:"hello.txt",literal:true});
       const contextual = await createGrepTool(root).execute("grep-context", {pattern:"fixture",glob:"hello.txt",literal:true,context:1});
@@ -260,7 +260,7 @@ test(
       ],
       {
         cwd: resolve("."),
-        env: { ...f.env, PI_CODING_AGENT_DIR: agent, ATRIA_SEARCH_FIXTURE_PROJECT: project },
+        env: { ...f.env, PI_CODING_AGENT_DIR: agent, FORMICAND_SEARCH_FIXTURE_PROJECT: project },
         timeout: 10_000
       }
     );
@@ -300,7 +300,7 @@ test("doctor exercises offline search and reports missing or failing search modu
   assert.match(healthy.stdout, /未发送模型请求/);
   const packageRoot = join(f.root, "broken-package");
   await mkdir(join(packageRoot, "scripts"), { recursive: true });
-  await writeFile(join(packageRoot, "scripts/atria.mjs"), await readFile(cli));
+  await writeFile(join(packageRoot, "scripts/formicand.mjs"), await readFile(cli));
   await writeFile(
     join(packageRoot, "scripts/cli-information.mjs"),
     await readFile(resolve("scripts/cli-information.mjs"))
@@ -319,7 +319,7 @@ test("doctor exercises offline search and reports missing or failing search modu
     join(packageRoot, "node_modules"),
     process.platform === "win32" ? "junction" : "dir"
   );
-  const brokenCli = join(packageRoot, "scripts/atria.mjs");
+  const brokenCli = join(packageRoot, "scripts/formicand.mjs");
   await assert.rejects(
     exec(process.execPath, [brokenCli, "doctor"], { cwd: f.root, env: f.env }),
     (error) => {

@@ -30,7 +30,7 @@ export function toolLifecycle(name, args, data, { completed, active, detail = {}
       .map((record) => (record.type === "runtime_event" ? record.payload : record))
       .findLast(
         (event) =>
-          event?.message?.customType === "cowork-callback" &&
+          event?.message?.customType === "formicand-callback" &&
           callId &&
           event.message.details?.callId === callId
       )?.message?.details;

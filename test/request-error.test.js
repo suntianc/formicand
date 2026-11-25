@@ -17,7 +17,7 @@ test("model errors expose known categories, status and policy code without leaki
     assert.equal(modelErrorDiagnostic("private body", status), `${category} · HTTP ${status}`);
   }
   assert.equal(
-    modelErrorDiagnostic('cowork-glm API error (400): {"code":"cyber_policy","message":"private body"}'),
+    modelErrorDiagnostic('formicand-glm API error (400): {"code":"cyber_policy","message":"private body"}'),
     "内容安全策略拒绝 · HTTP 400 · cyber_policy"
   );
   assert.equal(

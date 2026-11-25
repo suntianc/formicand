@@ -1,4 +1,4 @@
-# CoworkOS contributor entry point
+# Formicand contributor entry point
 
 [中文](AGENTS.md) | English
 
@@ -15,7 +15,7 @@ This guide is for contributors and coding agents. Users start with [README](READ
 
 | Location                                        | Responsibility                                              | Local instructions                           |
 | ----------------------------------------------- | ----------------------------------------------------------- | -------------------------------------------- |
-| `src/cli/`, `scripts/atria.mjs`                 | User commands, launchers and smokes                         | [Code map](docs/en/code-map.md)              |
+| `src/cli/`, `scripts/formicand.mjs`             | User commands, launchers and smokes                         | [Code map](docs/en/code-map.md)              |
 | `src/dashboard/`                                | Local HTTP/SSE, composition and Run orchestration           | [Service](src/dashboard/AGENTS.md)           |
 | `src/runtime/`                                  | Task/Run, scheduling, recovery, models and Pi sessions      | [Runtime](src/runtime/AGENTS.md)             |
 | `src/gui/`, `src/security/`                     | Native interaction, window grants and execution permissions | [Computer Use](docs/computer-use.md)         |
@@ -63,6 +63,6 @@ Routine GitHub checks run automatically on PRs and pushes to main, and can also 
 
 Change descriptions include the problem and resulting behavior, affected modules/interfaces, checks run and unverified scope. For delegation, rework, independent review and archival, use the [handoff guide (Chinese)](docs/development-handoffs.md) to identify the current delta, validation owners and evidence. Update the relevant guide and code map when changing commands, features, paths or interfaces. The roadmap records status, next work and acceptance criteria.
 
-`config.json`, `.cowork/`, `.tmp/`, `applications/`, `workspace/`, `task-*/`, supervisor locks and user data are not source. Do not read real secrets, delete running data, clean user tasks or include them in packages. Tests use their own temporary directories and local fake model servers.
+`config.json`, `.formicand/`, `.tmp/`, `applications/`, `workspace/`, `task-*/`, supervisor locks and user data are not source. Do not read real secrets, delete running data, clean user tasks or include them in packages. Tests use their own temporary directories and local fake model servers.
 
-Record independent evidence for third-party notices, distribution channels, signing/notarization, clean-machine installation and real model connections. Formal/stable releases satisfy the corresponding P0 gates. A limited public beta follows the contributing policy and declares its support, ad-hoc/non-notarized installation and pending acceptance; incomplete checks must not be reported as passing. Original CoworkOS code uses MIT; see [third-party notices](THIRD_PARTY_NOTICES.md) for exceptions. Follow [contributing](CONTRIBUTING.en.md) and the [Mac release guide](docs/mac-release.md).
+Record independent evidence for third-party notices, distribution channels, signing/notarization, clean-machine installation and real model connections. Formal/stable releases satisfy the corresponding P0 gates. A limited public beta follows the contributing policy and declares its support, ad-hoc/non-notarized installation and pending acceptance; incomplete checks must not be reported as passing. Original Formicand code uses MIT; see [third-party notices](THIRD_PARTY_NOTICES.md) for exceptions. Follow [contributing](CONTRIBUTING.en.md) and the [Mac release guide](docs/mac-release.md).

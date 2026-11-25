@@ -85,7 +85,7 @@ async function expectEnglish(page, where, dataSelectors) {
 async function openEnglish(page, base, path = "") {
   // Only the first load needs the preference; a later choice must survive its reload.
   await page.addInitScript(() => {
-    if (!localStorage.getItem("atria.language")) localStorage.setItem("atria.language", "en");
+    if (!localStorage.getItem("formicand.language")) localStorage.setItem("formicand.language", "en");
   });
   await page.goto(`${base}${path}`);
   await expect(page.locator("html")).toHaveAttribute("lang", "en");

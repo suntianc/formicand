@@ -2,7 +2,7 @@
 
 本目录随产品提供运行时提示词、扩展、工具和技能，不存放仓库开发计划。开发规范见 [根 AGENTS](../AGENTS.md)。
 
-- `extensions/cowork.ts` 只转接 `runtime/extension.ts`，不复制工具或运行逻辑。
+- `extensions/formicand.ts` 只转接 `runtime/extension.ts`，不复制工具或运行逻辑。
 - 新领域工具进入 `runtime/tools/`；上下文与工具发现进入对应工具模块，执行进入对应执行模块。
 - Pi hook 顺序以真实 SDK 为准：首轮工具发现不能晚于首轮模型请求，后续 context 更新要覆盖新增工具与授权。
 - 不直接导入未构建 `src/`。沿用现有扩展运行协议和已构建模块，不改上游 Pi 源码。

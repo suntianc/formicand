@@ -24,14 +24,14 @@ test("attention names replies, failed reviews, stale claims and offline nodes wi
   const local = await startDashboard({
     port: portA,
     defaultProject: false,
-    env: { COWORK_TRUSTED_CLIENT_ORIGINS: origins }
+    env: { FORMICAND_TRUSTED_CLIENT_ORIGINS: origins }
   });
   let remote;
   try {
     remote = await startDashboard({
       port: portB,
       defaultProject: false,
-      env: { COWORK_TRUSTED_CLIENT_ORIGINS: origins }
+      env: { FORMICAND_TRUSTED_CLIENT_ORIGINS: origins }
     });
     const project = await createProject(page, local, "本机项目", `${local.root}/local-project`);
 

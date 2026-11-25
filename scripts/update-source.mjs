@@ -18,7 +18,7 @@ function safeEnvironment(input = process.env) {
   for (const name of Object.keys(environment)) {
     if (
       (name.startsWith("GIT_") && name !== "GIT_TERMINAL_PROMPT") ||
-      /^(?:COWORK_|PI_|ATRIA_|ELECTRON_RUN_AS_NODE$|NODE_OPTIONS$)/.test(name)
+      /^(?:FORMICAND_|PI_|FORMICAND_|ELECTRON_RUN_AS_NODE$|NODE_OPTIONS$)/.test(name)
     )
       delete environment[name];
   }
@@ -92,7 +92,7 @@ async function inspect(options) {
   const root = await realpath(resolve(options.root));
   const { git, run } = commands({ ...options, root });
   if (!(await isSourceCheckout(root)))
-    throw updateError("NOT_SOURCE_CHECKOUT", "当前安装不是可更新的 CoworkOS 源码仓库。");
+    throw updateError("NOT_SOURCE_CHECKOUT", "当前安装不是可更新的 Formicand 源码仓库。");
   await cleanCheckout(root, git);
   let branch;
   try {
@@ -126,13 +126,9 @@ async function inspect(options) {
     );
   const currentPackage = JSON.parse(await readFile(join(root, "package.json"), "utf8"));
   const remotePackage = JSON.parse(await git("show", `${remoteCommit}:package.json`));
-  const sameProduct = ["coworkos", "cowork-harness"].includes(currentPackage.name);
-  const compatibleName =
-    remotePackage.name === currentPackage.name ||
-    (currentPackage.name === "cowork-harness" && remotePackage.name === "coworkos");
-  if (!sameProduct || !compatibleName)
+  if (currentPackage.name !== "formicand" || remotePackage.name !== "formicand")
     throw updateError("SOURCE_IDENTITY_CHANGED", "上游提交的项目标识不匹配，未执行更新。");
-  const cliMarker = resolve(root, await git("rev-parse", "--git-path", "atria-cli-build-commit"));
+  const cliMarker = resolve(root, await git("rev-parse", "--git-path", "formicand-cli-build-commit"));
   const cliBuiltCommit = await readFile(cliMarker, "utf8").catch((error) => {
     if (error.code === "ENOENT") return "";
     throw error;
@@ -189,14 +185,14 @@ export async function updateSource(options) {
   const { root, git, run, result, cliMarker } = await inspect({ ...options, target });
   if (!result.available) return result;
   const gitDirectory = resolve(root, await git("rev-parse", "--git-dir"));
-  const lock = join(gitDirectory, "atria-update.lock");
+  const lock = join(gitDirectory, "formicand-update.lock");
   try {
     await mkdir(lock);
   } catch (error) {
     if (error.code === "EEXIST")
       throw updateError(
         "UPDATE_BUSY",
-        "另一次源码更新正在运行；若进程已退出，请检查并移除 Git 目录中的 atria-update.lock 后重试。"
+        "另一次源码更新正在运行；若进程已退出，请检查并移除 Git 目录中的 formicand-update.lock 后重试。"
       );
     throw error;
   }
@@ -211,7 +207,7 @@ export async function updateSource(options) {
       (await git("symbolic-ref", "--quiet", "--short", "HEAD")) !== result.branch
     )
       throw updateError("SOURCE_CHANGED", "检查后源码提交已改变，未执行更新，请重新检查。");
-    const temporaryRoot = join(root, ".tmp", "atria-updates");
+    const temporaryRoot = join(root, ".tmp", "formicand-updates");
     await mkdir(temporaryRoot, { recursive: true });
     if ((await git("check-ignore", temporaryRoot)) !== temporaryRoot)
       throw updateError("SOURCE_TEMP_NOT_IGNORED", "源码更新的临时目录必须被 Git 忽略，未执行更新。");
@@ -356,7 +352,7 @@ export async function updateSource(options) {
     if (preserve)
       throw updateError(
         "UPDATE_RECOVERY_REQUIRED",
-        "发布新版本失败，无法安全恢复。已保留当前修改和 .tmp/atria-updates 中的恢复副本。请检查仓库状态后手动恢复，不要删除该目录。"
+        "发布新版本失败，无法安全恢复。已保留当前修改和 .tmp/formicand-updates 中的恢复副本。请检查仓库状态后手动恢复，不要删除该目录。"
       );
     throw error;
   } finally {
@@ -374,8 +370,8 @@ if (process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.m
       root,
       target,
       check: flag === "--check",
-      toolchain: process.env.ATRIA_UPDATE_NPM_CLI
-        ? { nodeExecutable: process.execPath, npmCli: process.env.ATRIA_UPDATE_NPM_CLI }
+      toolchain: process.env.FORMICAND_UPDATE_NPM_CLI
+        ? { nodeExecutable: process.execPath, npmCli: process.env.FORMICAND_UPDATE_NPM_CLI }
         : undefined,
       onProgress: (message) => console.log(JSON.stringify({ progress: message }))
     });

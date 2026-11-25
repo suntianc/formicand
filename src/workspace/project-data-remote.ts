@@ -117,7 +117,7 @@ export class RemoteProjectDataService implements ProjectDataGateway {
     const fetchImpl = options.fetchImpl ?? ((...args) => globalThis.fetch(...args));
     const session = await callAsAuthority(fetchImpl, origin, "/api/session", {
       method: "POST",
-      headers: { "content-type": "application/json", "x-atria-token": options.token },
+      headers: { "content-type": "application/json", "x-formicand-token": options.token },
       body: JSON.stringify({ clientName: "project-data-client", protocolVersion: "1.0" })
     });
     const sessionToken = (session.session as { token?: unknown } | undefined)?.token;
@@ -125,7 +125,7 @@ export class RemoteProjectDataService implements ProjectDataGateway {
       throw new ProjectDataAuthError("共享项目数据服务没有返回本地会话凭据");
     const info = await callAsAuthority(fetchImpl, origin, "/api/project-data", {
       method: "GET",
-      headers: { "x-atria-token": sessionToken }
+      headers: { "x-formicand-token": sessionToken }
     });
     if (info.engine !== "sqlite" && info.engine !== "postgres")
       throw new ProjectDataUnavailableError("共享项目数据服务没有报告可用引擎");
@@ -154,9 +154,9 @@ export class RemoteProjectDataService implements ProjectDataGateway {
       backend?: boolean;
     } = {}
   ): Promise<Record<string, unknown>> {
-    const headers: Record<string, string> = { "x-atria-token": this.token };
-    if (options.backend !== false) headers["x-cowork-backend-id"] = this.backendId;
-    if (options.actor) headers["x-cowork-actor"] = this.actorHeader(options.actor);
+    const headers: Record<string, string> = { "x-formicand-token": this.token };
+    if (options.backend !== false) headers["x-formicand-backend-id"] = this.backendId;
+    if (options.actor) headers["x-formicand-actor"] = this.actorHeader(options.actor);
     if (options.body) headers["content-type"] = "application/json";
     try {
       return await call(this.fetchImpl, this.origin, path, {

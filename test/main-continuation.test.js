@@ -8,7 +8,7 @@ import { readMainInput, saveMainInput } from "../dist/src/runtime/main-continuat
 import { restorePendingTaskInput } from "../scripts/main-session.mjs";
 
 async function fixture(t) {
-  const root = await mkdtemp(join(tmpdir(), "atria-main-continuation-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-main-continuation-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   return { root, sessions: join(root, "sessions"), inputPath: join(root, "input.json") };
 }

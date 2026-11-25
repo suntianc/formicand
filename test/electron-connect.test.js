@@ -39,7 +39,7 @@ const alive = (pid) => {
 
 function isolatedEnv(overrides = {}) {
   const inherited = Object.fromEntries(
-    Object.entries(process.env).filter(([name]) => !/^(?:COWORK_|PI_|ATRIA_|ELECTRON_)/.test(name))
+    Object.entries(process.env).filter(([name]) => !/^(?:FORMICAND_|PI_|FORMICAND_|ELECTRON_)/.test(name))
   );
   return { ...inherited, ...overrides };
 }
@@ -57,16 +57,16 @@ async function createRoot(prefix, extra = {}) {
   await writeFile(configPath, "{}");
   const env = isolatedEnv({
     HOME: userHome,
-    ATRIA_HOME: home,
+    FORMICAND_HOME: home,
     PI_CODING_AGENT_DIR: join(base, "pi"),
     PI_OFFLINE: "1",
     PI_TELEMETRY: "0",
-    COWORK_HARNESS_ROOT: repositoryRoot,
-    COWORK_WORKSPACE: workspace,
-    COWORK_GLOBAL_INDEX: join(home, "runtime", "workspaces.json"),
-    COWORK_CONFIG: configPath,
-    COWORK_DISABLE_MAIN_GUARDIAN: "1",
-    COWORK_SUPERVISOR_INTERVAL_MS: "1000",
+    FORMICAND_HARNESS_ROOT: repositoryRoot,
+    FORMICAND_WORKSPACE: workspace,
+    FORMICAND_GLOBAL_INDEX: join(home, "runtime", "workspaces.json"),
+    FORMICAND_CONFIG: configPath,
+    FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
+    FORMICAND_SUPERVISOR_INTERVAL_MS: "1000",
     ...extra
   });
   return { base, home, workspace, project, userHome, configPath, env };
@@ -118,7 +118,7 @@ async function readRecord(home) {
 }
 
 async function api(instance, method, path, body) {
-  const headers = { "x-atria-token": instance.token };
+  const headers = { "x-formicand-token": instance.token };
   if (body !== undefined) headers["content-type"] = "application/json";
   const response = await fetch(`${instance.url}${path}`, {
     method,
@@ -170,7 +170,7 @@ function hostFetch(credentials, seen) {
     if (seen) seen.push({ origin, path: new URL(url).pathname, token });
     return fetch(url, {
       ...init,
-      headers: { ...init.headers, ...(token ? { "x-atria-token": token } : {}) }
+      headers: { ...init.headers, ...(token ? { "x-formicand-token": token } : {}) }
     });
   };
 }
@@ -191,8 +191,8 @@ test(
   "desktop authorization binds a chosen data root to its live identity",
   { timeout: 120_000 },
   async (t) => {
-    const left = await createRoot("atria-host-left-");
-    const right = await createRoot("atria-host-right-");
+    const left = await createRoot("formicand-host-left-");
+    const right = await createRoot("formicand-host-right-");
     t.after(async () => {
       await stopRoot(left);
       await stopRoot(right);
@@ -206,7 +206,7 @@ test(
     const host = createBackendAuthorization({
       appRoot: repositoryRoot,
       fetchImpl: (url, options) => {
-        seen.push({ origin: new URL(url).origin, token: options.headers["x-atria-token"] });
+        seen.push({ origin: new URL(url).origin, token: options.headers["x-formicand-token"] });
         return fetch(url, options);
       }
     });
@@ -268,7 +268,7 @@ test(
 );
 
 test("desktop waits for host authorization before business requests", { timeout: 120_000 }, async (t) => {
-  const root = await createRoot("atria-auth-gate-");
+  const root = await createRoot("formicand-auth-gate-");
   t.after(async () => {
     await stopRoot(root);
     await rm(root.base, { recursive: true, force: true });
@@ -312,7 +312,7 @@ test("desktop waits for host authorization before business requests", { timeout:
 });
 
 test("late pre-session refusal cannot revoke a newly authorized session", { timeout: 120_000 }, async (t) => {
-  const root = await createRoot("atria-auth-race-");
+  const root = await createRoot("formicand-auth-race-");
   t.after(async () => {
     await stopRoot(root);
     await rm(root.base, { recursive: true, force: true });
@@ -351,7 +351,7 @@ test(
   "one data root is served by one instance across backend start, desktop attach and the development dashboard",
   { timeout: 120_000 },
   async (t) => {
-    const root = await createRoot("atria-connect-owner-");
+    const root = await createRoot("formicand-connect-owner-");
     t.after(async () => {
       await stopRoot(root);
       await rm(root.base, { recursive: true, force: true });
@@ -374,7 +374,7 @@ test(
     // of listening as a second server for the same data root.
     const dashboard = await runProcess(process.execPath, [dashboardEntry], {
       ...root.env,
-      COWORK_UI_PORT: "3897"
+      FORMICAND_UI_PORT: "3897"
     });
     assert.equal(dashboard.code, 0, dashboard.err);
     assert.match(dashboard.out, /already served/u);
@@ -403,8 +403,8 @@ test(
   "two isolated backends with different bootstrap credentials authorize, switch and reauthorize after revocation",
   { timeout: 120_000 },
   async (t) => {
-    const left = await createRoot("atria-connect-left-");
-    const right = await createRoot("atria-connect-right-");
+    const left = await createRoot("formicand-connect-left-");
+    const right = await createRoot("formicand-connect-right-");
     t.after(async () => {
       await stopRoot(left);
       await stopRoot(right);
@@ -525,7 +525,7 @@ test(
   "a task accepted by a desktop session keeps running after that session exits and the next launch reads it",
   { timeout: 180_000 },
   async (t) => {
-    const root = await createRoot("atria-connect-continue-");
+    const root = await createRoot("formicand-connect-continue-");
     let model;
     t.after(async () => {
       // A resident Main outlives the backend that launched it: stopping the
@@ -536,7 +536,7 @@ test(
       if (instance)
         await fetch(`${instance.url}/api/tasks/connect-task/action`, {
           method: "POST",
-          headers: { "content-type": "application/json", "x-atria-token": instance.token },
+          headers: { "content-type": "application/json", "x-formicand-token": instance.token },
           body: JSON.stringify({ action: "cancel" })
         })
           .then((response) => response.arrayBuffer())
@@ -602,7 +602,7 @@ await prepareDesktopData(paths, "0.1.0");
 const { writeFile } = await import("node:fs/promises");
 await writeFile(paths.configPath, "{}", { flag: "wx" }).catch(() => undefined);
 const backend = await connectBackend(paths, settings, process.execPath);
-const headers = { "content-type": "application/json", "x-atria-token": backend.token };
+const headers = { "content-type": "application/json", "x-formicand-token": backend.token };
 const call = async (path, body) => {
   const response = await fetch(backend.url + path, { method: "POST", headers, body: JSON.stringify(body) });
   const value = await response.json();

@@ -17,9 +17,9 @@ import { StringDecoder } from "node:string_decoder";
  */
 
 /** Advances the position by `count` deltas the log left out. */
-export const OMITTED_DELTAS = "cowork_deltas_omitted";
+export const OMITTED_DELTAS = "formicand_deltas_omitted";
 /** Deltas of a message that never ended, each at the position it had. */
-export const RESTORED_DELTAS = "cowork_deltas_restored";
+export const RESTORED_DELTAS = "formicand_deltas_restored";
 
 export interface PositionedEvent {
   index: number;
@@ -164,7 +164,7 @@ export class RuntimeOutputRecorder {
       })
       .catch((error) =>
         console.error(
-          `[cowork] output persist failed: ${error instanceof Error ? error.message : String(error)}`
+          `[formicand] output persist failed: ${error instanceof Error ? error.message : String(error)}`
         )
       );
   }

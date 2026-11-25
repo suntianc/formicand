@@ -18,14 +18,14 @@ export function createComposerModel({
     model: null,
     // The model picked for each conversation, remembered across restarts like
     // its level and provider; a conversation without one shows the default.
-    modelByTask: rememberedTaskMap(() => storage, "atria.model.model-by-task"),
+    modelByTask: rememberedTaskMap(() => storage, "formicand.model.model-by-task"),
     /**
      * A model picked from another provider: its profile id, sent with each run so
      * that run uses that provider. Null follows the Main connection.
      */
     profileId: null,
     // Remembered per conversation across restarts (`remembered-choices.js`).
-    profileByTask: rememberedTaskMap(() => storage, "atria.model.profile-by-task"),
+    profileByTask: rememberedTaskMap(() => storage, "formicand.model.profile-by-task"),
     /** Usable providers and their models, from /api/models. */
     modelProviders: [],
     mainProviderId: "",
@@ -35,7 +35,7 @@ export function createComposerModel({
      * inherited level must never be sent as if it were a choice.
      */
     thinkingLevel: null,
-    thinkingLevelByTask: rememberedTaskMap(() => storage, "atria.model.level-by-task"),
+    thinkingLevelByTask: rememberedTaskMap(() => storage, "formicand.model.level-by-task"),
     /** Per model: the reasoning levels it accepts and where they came from (#27). */
     modelLevels: {},
     /** The Main connection's saved level, reported by the server for the label. */
@@ -54,7 +54,7 @@ export function createComposerModel({
 
   // The last model a person picked stays as the default for the next new
   // conversation, so switching once is enough instead of re-picking each time.
-  const PREFERRED_MODEL_KEY = "atria.model.preferred";
+  const PREFERRED_MODEL_KEY = "formicand.model.preferred";
   function readPreferredModel() {
     try {
       return (storage && storage.getItem(PREFERRED_MODEL_KEY)) || "";
@@ -73,7 +73,7 @@ export function createComposerModel({
       /* storage may be disabled */
     }
   }
-  const PREFERRED_PROFILE_KEY = "atria.model.preferred-profile";
+  const PREFERRED_PROFILE_KEY = "formicand.model.preferred-profile";
   function readPreferredProfile() {
     try {
       return (storage && storage.getItem(PREFERRED_PROFILE_KEY)) || "";

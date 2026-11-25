@@ -4,7 +4,7 @@ build
 dist
 .tmp
 .tools
-.cowork
+.formicand
 config.json
 package-lock.json
 eslint-suppressions.json

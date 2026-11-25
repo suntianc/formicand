@@ -345,7 +345,7 @@ if (PROJECT_DATA_ENGINES.includes("postgres"))
       async function waitForWriters(count) {
         for (let attempt = 0; attempt < 300; attempt++) {
           const { rows } = await gate.query(
-            "SELECT count(*) AS waiting FROM pg_stat_activity WHERE datname = current_database() AND application_name='coworkos-project-data' AND wait_event_type='Lock'"
+            "SELECT count(*) AS waiting FROM pg_stat_activity WHERE datname = current_database() AND application_name='formicand-project-data' AND wait_event_type='Lock'"
           );
           if (Number(rows[0].waiting) === count) return;
           await delay(10);
@@ -385,13 +385,13 @@ test("an invalid engine is refused with a locatable error and no fallback databa
 
 test("a malformed PostgreSQL URL refuses startup with a locatable configuration error", async (t) => {
   const password = "fixture-password";
-  const raw = `postgresql://coworkos_test:${encodeURIComponent(password)}@127.0.0.1:not-a-port/ledger`;
-  const fallback = join("/tmp", `coworkos-p3-malformed-fallback-${process.pid}-${Date.now()}.sqlite`);
+  const raw = `postgresql://formicand_test:${encodeURIComponent(password)}@127.0.0.1:not-a-port/ledger`;
+  const fallback = join("/tmp", `formicand-p3-malformed-fallback-${process.pid}-${Date.now()}.sqlite`);
   await assert.rejects(
     startDashboard({
       defaultProject: false,
       config: { projectData: { engine: "postgres", postgres: { connectionString: raw } } },
-      env: { COWORK_PROJECT_DATA_SQLITE: fallback }
+      env: { FORMICAND_PROJECT_DATA_SQLITE: fallback }
     }),
     (error) => {
       assert.match(error.message, /PostgreSQL/);
@@ -408,7 +408,7 @@ test("a malformed PostgreSQL URL refuses startup with a locatable configuration 
 test("an unreachable PostgreSQL refuses to start instead of writing SQLite", async (t) => {
   const port = await closedPort();
   const password = "fixture-password";
-  const fallback = join("/tmp", `coworkos-p3-fallback-${process.pid}-${Date.now()}.sqlite`);
+  const fallback = join("/tmp", `formicand-p3-fallback-${process.pid}-${Date.now()}.sqlite`);
   await assert.rejects(
     startDashboard({
       defaultProject: false,
@@ -416,11 +416,11 @@ test("an unreachable PostgreSQL refuses to start instead of writing SQLite", asy
         projectData: {
           engine: "postgres",
           postgres: {
-            connectionString: `postgresql://coworkos_test:${encodeURIComponent(password)}@127.0.0.1:${port}/unreachable`
+            connectionString: `postgresql://formicand_test:${encodeURIComponent(password)}@127.0.0.1:${port}/unreachable`
           }
         }
       },
-      env: { COWORK_PROJECT_DATA_SQLITE: fallback }
+      env: { FORMICAND_PROJECT_DATA_SQLITE: fallback }
     }),
     (error) => {
       assert.match(error.message, /PostgreSQL/);

@@ -63,7 +63,7 @@ import { readProjectAssignment } from "../workspace/project-assignment.js";
 export function createWorkspaceDirectory(
   initialRoot: string,
   globalIndexPath: string,
-  runtimeValue: (name: "COWORK_MODEL") => string | undefined,
+  runtimeValue: (name: "FORMICAND_MODEL") => string | undefined,
   ownsMainProcess?: (root: string, taskId: string, runId: string) => boolean
 ) {
   let workspaceRoot = initialRoot;
@@ -223,7 +223,7 @@ export function createWorkspaceDirectory(
     return {
       workspaceRoot,
       currentWorkspaceRoot: workspaceRoot,
-      model: runtimeValue("COWORK_MODEL"),
+      model: runtimeValue("FORMICAND_MODEL"),
       ...grouped
     };
   }

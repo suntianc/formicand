@@ -136,7 +136,7 @@ test(
     const details = () => request(taskPath);
     // The handoffs as Main's session stores them; the browser never receives them.
     const handoffs = async () => {
-      const directory = join(dashboard.env.COWORK_WORKSPACE, session.taskId, "sessions", "main", "pi");
+      const directory = join(dashboard.env.FORMICAND_WORKSPACE, session.taskId, "sessions", "main", "pi");
       const files = (await readdir(directory)).filter((file) => file.endsWith(".jsonl"));
       const lines = (await Promise.all(files.map((file) => readFile(join(directory, file), "utf8"))))
         .join("\n")

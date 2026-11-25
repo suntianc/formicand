@@ -125,13 +125,13 @@ function fakeBackend({ origin, backendId, projects = [], tasks = [], requirement
   async function fetchImpl(input, init = {}) {
     const url = new URL(input);
     const method = init.method || "GET";
-    const header = init.headers?.["x-atria-token"];
+    const header = init.headers?.["x-formicand-token"];
     requests.push({
       method,
       path: url.pathname,
       search: url.search,
       token: header,
-      readOnly: init.headers?.["x-cowork-read-only"]
+      readOnly: init.headers?.["x-formicand-read-only"]
     });
     if (!backend.online) throw new TypeError("fetch failed");
     if (url.pathname === "/api/session" && method === "POST") {
@@ -374,7 +374,7 @@ test("adding, renaming, disconnecting, reauthorizing and removing a node keep it
   );
   assert.ok(
     [...Array(sessionStorage.length).keys()].some((index) =>
-      sessionStorage.key(index).startsWith(`cowork.node.${a.origin}:`)
+      sessionStorage.key(index).startsWith(`formicand.node.${a.origin}:`)
     ),
     "the node session was not stored under its own origin"
   );
@@ -495,6 +495,6 @@ test("every observation read carries the read-only marker and the work entry sen
     assert.equal(request.readOnly, "1", `${request.method} ${request.path} was not marked read-only`);
   const local = localReads.filter((entry) => entry.path.endsWith("/developments"));
   assert.equal(local.length, 1, "the local read went through the port");
-  assert.equal(local[0].headers["x-cowork-read-only"], "1");
+  assert.equal(local[0].headers["x-formicand-read-only"], "1");
   port.dispose();
 });

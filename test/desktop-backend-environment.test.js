@@ -11,7 +11,7 @@ const finderPath = "/usr/bin:/bin:/usr/sbin:/sbin";
 const posixFixture = { skip: process.platform === "win32" && "macOS PATH fixtures need POSIX directories" };
 
 async function fixture(t) {
-  const home = await mkdtemp(join(tmpdir(), "atria-desktop-env-"));
+  const home = await mkdtemp(join(tmpdir(), "formicand-desktop-env-"));
   t.after(() => rm(home, { recursive: true, force: true }));
   const localBin = join(home, ".local/bin");
   const officeBin = join(home, "Applications/LibreOffice.app/Contents/MacOS");
@@ -30,17 +30,21 @@ test(
         mode: 0o700
       });
     }
-    await writeFile(join(f.officeBin, "atria-office-fixture"), "#!/bin/sh\nprintf 'soffice-fixture\\n'\n", {
-      mode: 0o700
-    });
-    const source = { HOME: f.home, PATH: finderPath, COWORK_PYTHON_PATH: "/explicit/python" };
+    await writeFile(
+      join(f.officeBin, "formicand-office-fixture"),
+      "#!/bin/sh\nprintf 'soffice-fixture\\n'\n",
+      {
+        mode: 0o700
+      }
+    );
+    const source = { HOME: f.home, PATH: finderPath, FORMICAND_PYTHON_PATH: "/explicit/python" };
     const environment = desktopBackendEnvironment(source, "darwin");
     assert.deepEqual(source, {
       HOME: f.home,
       PATH: finderPath,
-      COWORK_PYTHON_PATH: "/explicit/python"
+      FORMICAND_PYTHON_PATH: "/explicit/python"
     });
-    assert.equal(environment.COWORK_PYTHON_PATH, "/explicit/python");
+    assert.equal(environment.FORMICAND_PYTHON_PATH, "/explicit/python");
     assert.ok(environment.PATH.startsWith(`${f.localBin}:`));
     assert.ok(environment.PATH.endsWith(`:${finderPath}`));
     for (const directory of ["/opt/homebrew/bin", "/usr/local/bin"]) {
@@ -55,7 +59,7 @@ test(
       }
     }
     if (process.platform !== "win32") {
-      const command = spawnSync("/bin/sh", ["-c", "node; python3; fc-list; atria-office-fixture"], {
+      const command = spawnSync("/bin/sh", ["-c", "node; python3; fc-list; formicand-office-fixture"], {
         env: environment,
         encoding: "utf8"
       });

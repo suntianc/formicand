@@ -34,19 +34,19 @@ test("ledger configuration is checked when the tool runs, not when it registers"
     });
   }
   // A refused first call does not poison the tool: a later credential works.
-  const previous = process.env.COWORK_API_TOKEN;
+  const previous = process.env.FORMICAND_API_TOKEN;
   try {
-    delete process.env.COWORK_API_TOKEN;
+    delete process.env.FORMICAND_API_TOKEN;
     const retry = createProjectLedgerTool({ dashboardUrl: "http://127.0.0.1:1", taskId: "task-a" });
     await assert.rejects(retry.execute({ action: "query" }), /没有本地服务凭据/);
-    process.env.COWORK_API_TOKEN = token;
+    process.env.FORMICAND_API_TOKEN = token;
     await assert.rejects(retry.execute({ action: "query" }), (error) => {
       assert.doesNotMatch(error.message, /没有本地服务凭据/);
       return true;
     });
   } finally {
-    if (previous === undefined) delete process.env.COWORK_API_TOKEN;
-    else process.env.COWORK_API_TOKEN = previous;
+    if (previous === undefined) delete process.env.FORMICAND_API_TOKEN;
+    else process.env.FORMICAND_API_TOKEN = previous;
   }
 });
 
@@ -162,8 +162,8 @@ test("the Main tool reads and writes only the current project through the produc
     method: "POST",
     headers: {
       "content-type": "application/json",
-      "x-atria-token": f.token,
-      "x-cowork-task-id": "task-a"
+      "x-formicand-token": f.token,
+      "x-formicand-task-id": "task-a"
     },
     body: JSON.stringify({ action: "query" })
   });

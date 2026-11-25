@@ -6,7 +6,7 @@ import { profileId, providerConfig } from "./model-provider-fixture.mjs";
 /**
  * Which connection a resident Main's next turn should use.
  *
- * The launch copied a resolved connection into `COWORK_API_*`; these values
+ * The launch copied a resolved connection into `FORMICAND_API_*`; these values
  * outrank the host file in ordinary role resolution. A turn boundary must read
  * the saved configuration instead, and must never do that for a connection the
  * environment pinned.
@@ -41,13 +41,16 @@ const config = {
 
 const launch = {
   [MAIN_MODEL_FROM_CONFIG]: "1",
-  COWORK_API_BASE: "https://launch.example/v1",
-  COWORK_API_KEY: "launch-key",
-  COWORK_MODEL: "launch-model"
+  FORMICAND_API_BASE: "https://launch.example/v1",
+  FORMICAND_API_KEY: "launch-key",
+  FORMICAND_MODEL: "launch-model"
 };
 
 test("an environment-pinned launch keeps the connection it was started with", () => {
-  assert.equal(resolveMainTurnModel(config, {}, { COWORK_API_BASE: "https://launch.example/v1" }), undefined);
+  assert.equal(
+    resolveMainTurnModel(config, {}, { FORMICAND_API_BASE: "https://launch.example/v1" }),
+    undefined
+  );
 });
 
 test("a Dashboard-resolved launch reads the saved connection, not the values copied into the environment", () => {

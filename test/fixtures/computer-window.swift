@@ -15,7 +15,7 @@ final class Delegate: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
         editItem.submenu = edit; menu.addItem(editItem)
         NSApp.mainMenu = menu
         window = NSWindow(contentRect: NSRect(x: 180, y: 180, width: 640, height: 360), styleMask: [.titled, .closable], backing: .buffered, defer: false)
-        window.title = "CoworkOS Computer Use Isolated Test"
+        window.title = "Formicand Computer Use Isolated Test"
         input = NSTextField(frame: NSRect(x: 30, y: 150, width: 580, height: 44))
         input.placeholderString = "Isolated input probe"
         input.setAccessibilityLabel("Probe input")

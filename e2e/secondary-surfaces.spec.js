@@ -19,11 +19,11 @@ test("adding a project keeps a quiet two-mode dialog in both themes and sizes", 
   try {
     const directory = join(dashboard.root, "new-project");
     await mkdir(directory);
-    await page.addInitScript(() => localStorage.setItem("atria.appearance", "system"));
+    await page.addInitScript(() => localStorage.setItem("formicand.appearance", "system"));
     await page.goto(dashboard.base);
     await page.locator("#composer-input").fill("创建项目之前的草稿");
     await page.evaluate((directory) => {
-      window.bookmanDesktop = { chooseProject: async () => directory };
+      window.formicandDesktop = { chooseProject: async () => directory };
     }, directory);
     for (const theme of ["light", "dark"]) {
       for (const width of [1440, 320]) {
@@ -88,7 +88,7 @@ test("project rename and removal use shared dialogs without native prompts, and 
     await page.request.post(`${dashboard.base}/api/tasks`, {
       data: { taskId: "kept-history", goal: "移除后保留的会话", projectId: project.projectId }
     });
-    await page.addInitScript(() => localStorage.setItem("atria.appearance", "system"));
+    await page.addInitScript(() => localStorage.setItem("formicand.appearance", "system"));
     await page.goto(dashboard.base);
     const group = page.locator(`[data-project="${project.projectId}"]`);
     await expect(group).toBeVisible();
@@ -159,7 +159,7 @@ test("attachment previews retain file content and styled page controls at deskto
 }, info) => {
   const dashboard = await startDashboard();
   try {
-    await page.addInitScript(() => localStorage.setItem("atria.appearance", "system"));
+    await page.addInitScript(() => localStorage.setItem("formicand.appearance", "system"));
     await page.goto(dashboard.base);
     await page.locator("#composer-input").fill("预览结束后保留的草稿");
     await page.locator("#file-input").setInputFiles({

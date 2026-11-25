@@ -17,7 +17,7 @@ const samples = {
   ts: `// load the user\nexport async function load(id: string): Promise<User> {\n  const url = \`/api/\${id}\`; /* note */\n  return fetch(url, { retries: 3, ok: true });\n}`,
   python: `@cache\ndef area(r: float) -> float:\n    """Circle area."""\n    return 3.14 * r ** 2  # approx\nprint(f"{area(2)}", None)`,
   bash: `# build\nexport NODE_ENV=production\nif [ -n "$CI" ]; then npm run build --silent; fi\necho 'done' $HOME # ok`,
-  json: `{"name": "atria", "version": 2, "private": true, "tags": ["a", null]}`,
+  json: `{"name": "formicand", "version": 2, "private": true, "tags": ["a", null]}`,
   css: `.card:hover { color: #fff; --gap: 4px; margin: calc(2px + 1rem); } @media (x) {}`,
   html: `<!-- top --><a href="/x" data-id='1'>Hi &amp; bye</a>`,
   sql: `SELECT id, name FROM users WHERE age > 18 -- adults\nORDER BY name;`,
@@ -66,7 +66,7 @@ test("each family colours its own constructs", () => {
 
   const json = highlightCode("json", samples.json);
   assert.deepEqual(tokens(json, "type"), ['"name"', '"version"', '"private"', '"tags"']);
-  assert.ok(tokens(json, "string").includes('"atria"'));
+  assert.ok(tokens(json, "string").includes('"formicand"'));
 
   const sql = highlightCode("sql", samples.sql);
   assert.ok(tokens(sql, "keyword").includes("SELECT"));

@@ -17,7 +17,7 @@ import { fakeEventHandlers } from "./fixtures/fake-pi-events.mjs";
 import { startSubagentBackend } from "./fixtures/subagent-backend-fixture.mjs";
 import { providerConfig } from "./model-provider-fixture.mjs";
 
-const extensionPath = resolve(".pi/extensions/cowork.ts");
+const extensionPath = resolve(".pi/extensions/formicand.ts");
 const requirePi = createRequire(import.meta.resolve("@earendil-works/pi-coding-agent"));
 
 function fakePi() {
@@ -72,7 +72,7 @@ function resultFromDispatch(input) {
 }
 
 test("restored selections retain core discovery without exposing ungranted computer actions", async (t) => {
-  const root = await mkdtemp(join(tmpdir(), "atria-computer-tool-selection-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-computer-tool-selection-"));
   const previous = { ...process.env };
   t.after(async () => {
     for (const name of Object.keys(process.env)) if (!(name in previous)) delete process.env[name];
@@ -80,18 +80,18 @@ test("restored selections retain core discovery without exposing ungranted compu
     await rm(root, { recursive: true, force: true });
   });
   Object.assign(process.env, {
-    COWORK_API_BASE: "https://example.test",
-    COWORK_API_KEY: "local-fixture",
-    COWORK_CONFIG: join(root, "config.json"),
-    COWORK_WORKSPACE: root,
-    COWORK_TASK_ID: "selection-task",
-    COWORK_RUN_ID: "main-selection",
+    FORMICAND_API_BASE: "https://example.test",
+    FORMICAND_API_KEY: "local-fixture",
+    FORMICAND_CONFIG: join(root, "config.json"),
+    FORMICAND_WORKSPACE: root,
+    FORMICAND_TASK_ID: "selection-task",
+    FORMICAND_RUN_ID: "main-selection",
     // Desktop, browser and CUA tools are offered only to a Main connection
     // that accepts image input.
-    COWORK_SUPPORTS_IMAGES: "1",
-    COWORK_DASHBOARD_URL: "http://127.0.0.1:1"
+    FORMICAND_SUPPORTS_IMAGES: "1",
+    FORMICAND_DASHBOARD_URL: "http://127.0.0.1:1"
   });
-  await writeFile(process.env.COWORK_CONFIG, "{}");
+  await writeFile(process.env.FORMICAND_CONFIG, "{}");
   await new LocalWorkspaceStore(root).createTask("selection-task", { goal: "Use task capabilities" });
   const pi = fakePi();
   let selected = ["read"];
@@ -130,33 +130,33 @@ test("restored selections retain core discovery without exposing ungranted compu
 });
 
 test("call_subagent keeps task/mode required and dispatches one work item per call", async (t) => {
-  const root = await mkdtemp(join(tmpdir(), "atria-extension-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-extension-"));
   const previous = {
-    COWORK_API_BASE: process.env.COWORK_API_BASE,
-    COWORK_API_KEY: process.env.COWORK_API_KEY,
-    COWORK_CONFIG: process.env.COWORK_CONFIG,
-    COWORK_WORKSPACE: process.env.COWORK_WORKSPACE,
-    COWORK_TASK_ID: process.env.COWORK_TASK_ID,
-    COWORK_RUN_ID: process.env.COWORK_RUN_ID,
-    COWORK_SUBAGENT_BACKEND_URL: process.env.COWORK_SUBAGENT_BACKEND_URL,
-    COWORK_SUBAGENT_BACKEND_TOKEN: process.env.COWORK_SUBAGENT_BACKEND_TOKEN,
-    ATRIA_HOME: process.env.ATRIA_HOME
+    FORMICAND_API_BASE: process.env.FORMICAND_API_BASE,
+    FORMICAND_API_KEY: process.env.FORMICAND_API_KEY,
+    FORMICAND_CONFIG: process.env.FORMICAND_CONFIG,
+    FORMICAND_WORKSPACE: process.env.FORMICAND_WORKSPACE,
+    FORMICAND_TASK_ID: process.env.FORMICAND_TASK_ID,
+    FORMICAND_RUN_ID: process.env.FORMICAND_RUN_ID,
+    FORMICAND_SUBAGENT_BACKEND_URL: process.env.FORMICAND_SUBAGENT_BACKEND_URL,
+    FORMICAND_SUBAGENT_BACKEND_TOKEN: process.env.FORMICAND_SUBAGENT_BACKEND_TOKEN,
+    FORMICAND_HOME: process.env.FORMICAND_HOME
   };
   const taskId = "extension-task";
   const runId = "main-extension";
   const backend = await startSubagentBackend({ workspaceRoot: root, taskId, runId });
   try {
-    process.env.COWORK_API_BASE = "https://example.test";
-    process.env.COWORK_API_KEY = "test-key";
+    process.env.FORMICAND_API_BASE = "https://example.test";
+    process.env.FORMICAND_API_KEY = "test-key";
     // The user's own data home (its MCP servers, skills and Agents) stays out of the test.
-    process.env.ATRIA_HOME = join(root, "home");
-    process.env.COWORK_CONFIG = join(root, "config.json");
-    await writeFile(process.env.COWORK_CONFIG, "{}\n");
-    process.env.COWORK_WORKSPACE = root;
-    process.env.COWORK_TASK_ID = taskId;
-    process.env.COWORK_RUN_ID = runId;
-    process.env.COWORK_SUBAGENT_BACKEND_URL = backend.url;
-    process.env.COWORK_SUBAGENT_BACKEND_TOKEN = backend.token;
+    process.env.FORMICAND_HOME = join(root, "home");
+    process.env.FORMICAND_CONFIG = join(root, "config.json");
+    await writeFile(process.env.FORMICAND_CONFIG, "{}\n");
+    process.env.FORMICAND_WORKSPACE = root;
+    process.env.FORMICAND_TASK_ID = taskId;
+    process.env.FORMICAND_RUN_ID = runId;
+    process.env.FORMICAND_SUBAGENT_BACKEND_URL = backend.url;
+    process.env.FORMICAND_SUBAGENT_BACKEND_TOKEN = backend.token;
     const workspace = new LocalWorkspaceStore(root);
     await workspace.createTask(taskId, { goal: "extension regression" });
     await workspace.createRun(taskId, runId);
@@ -167,7 +167,7 @@ test("call_subagent keeps task/mode required and dispatches one work item per ca
     const request = { role: "user", content: "A follow-up after a context reset" };
     const callback = {
       role: "custom",
-      customType: "cowork-callback",
+      customType: "formicand-callback",
       content: "Existing delegated evidence"
     };
     const context = await pi.handlers.get("context")(
@@ -212,7 +212,7 @@ test("call_subagent keeps task/mode required and dispatches one work item per ca
     await assert.rejects(() => tool.execute("missing-task", {}, undefined, undefined, ctx), /requires task/);
 
     const keywordTask =
-      "调研 Cowork harness；长期关注 research papers、monitor Virtual Agent/watch program，并执行 experiment benchmark 记录 ledger";
+      "调研 Formicand harness；长期关注 research papers、monitor Virtual Agent/watch program，并执行 experiment benchmark 记录 ledger";
     const asyncOutput = await tool.execute("tool-async", { task: keywordTask }, undefined, undefined, ctx);
     assert.equal(asyncOutput.details.accepted, true);
     const accepted = JSON.parse(asyncOutput.content[0].text);
@@ -232,8 +232,8 @@ test("call_subagent keeps task/mode required and dispatches one work item per ca
   }
 });
 
-test("Pi prompt-cache warming stays off for the CoworkOS Main session", async (t) => {
-  const root = await mkdtemp(join(tmpdir(), "atria-extension-warming-"));
+test("Pi prompt-cache warming stays off for the Formicand Main session", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "formicand-extension-warming-"));
   const previous = { ...process.env };
   t.after(async () => {
     for (const name of Object.keys(process.env)) if (!(name in previous)) delete process.env[name];
@@ -241,15 +241,15 @@ test("Pi prompt-cache warming stays off for the CoworkOS Main session", async (t
     await rm(root, { recursive: true, force: true });
   });
   Object.assign(process.env, {
-    COWORK_API_BASE: "https://example.test",
-    COWORK_API_KEY: "local-fixture",
-    COWORK_CONFIG: join(root, "config.json"),
-    COWORK_WORKSPACE: root,
-    COWORK_PROJECT_DIR: root,
-    COWORK_TASK_ID: "warming-task",
-    COWORK_RUN_ID: "main-warming"
+    FORMICAND_API_BASE: "https://example.test",
+    FORMICAND_API_KEY: "local-fixture",
+    FORMICAND_CONFIG: join(root, "config.json"),
+    FORMICAND_WORKSPACE: root,
+    FORMICAND_PROJECT_DIR: root,
+    FORMICAND_TASK_ID: "warming-task",
+    FORMICAND_RUN_ID: "main-warming"
   });
-  await writeFile(process.env.COWORK_CONFIG, "{}\n");
+  await writeFile(process.env.FORMICAND_CONFIG, "{}\n");
   await new LocalWorkspaceStore(root).createTask("warming-task", { goal: "warming" });
   const pi = fakePi();
   await (
@@ -272,7 +272,7 @@ test("Pi prompt-cache warming stays off for the CoworkOS Main session", async (t
 });
 
 test("a delegated workspace without the run credential still registers the extension", async (t) => {
-  const root = await mkdtemp(join(tmpdir(), "atria-extension-delegated-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-extension-delegated-"));
   const previous = { ...process.env };
   t.after(async () => {
     for (const name of Object.keys(process.env)) if (!(name in previous)) delete process.env[name];
@@ -280,19 +280,19 @@ test("a delegated workspace without the run credential still registers the exten
     await rm(root, { recursive: true, force: true });
   });
   Object.assign(process.env, {
-    COWORK_API_BASE: "https://example.test",
-    COWORK_API_KEY: "fixture-model-key",
-    COWORK_CONFIG: join(root, "config.json"),
-    COWORK_WORKSPACE: root,
-    COWORK_PROJECT_DIR: root,
-    COWORK_TASK_ID: "delegated-task",
-    COWORK_RUN_ID: "main-delegated",
+    FORMICAND_API_BASE: "https://example.test",
+    FORMICAND_API_KEY: "fixture-model-key",
+    FORMICAND_CONFIG: join(root, "config.json"),
+    FORMICAND_WORKSPACE: root,
+    FORMICAND_PROJECT_DIR: root,
+    FORMICAND_TASK_ID: "delegated-task",
+    FORMICAND_RUN_ID: "main-delegated",
     // What businessCommandEnvironment leaves a delegated subprocess: the address
     // stays and the run credential is deliberately removed.
-    COWORK_DASHBOARD_URL: "http://127.0.0.1:1"
+    FORMICAND_DASHBOARD_URL: "http://127.0.0.1:1"
   });
-  delete process.env.COWORK_API_TOKEN;
-  await writeFile(process.env.COWORK_CONFIG, "{}\n");
+  delete process.env.FORMICAND_API_TOKEN;
+  await writeFile(process.env.FORMICAND_CONFIG, "{}\n");
   await new LocalWorkspaceStore(root).createTask("delegated-task", { goal: "delegated" });
   const pi = fakePi();
   await (
@@ -330,7 +330,7 @@ test("the registered ledger tool reaches the configured backend with the run cre
     request.on("end", () => {
       requests.push({
         url: request.url,
-        token: request.headers["x-atria-token"],
+        token: request.headers["x-formicand-token"],
         body: JSON.parse(Buffer.concat(chunks).toString("utf8"))
       });
       response.writeHead(200, { "content-type": "application/json" });
@@ -345,7 +345,7 @@ test("the registered ledger tool reaches the configured backend with the run cre
   server.listen(0, "127.0.0.1");
   await once(server, "listening");
   const { port } = server.address();
-  const root = await mkdtemp(join(tmpdir(), "atria-extension-ledger-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-extension-ledger-"));
   const previous = { ...process.env };
   t.after(async () => {
     await new Promise((done) => server.close(done));
@@ -354,17 +354,17 @@ test("the registered ledger tool reaches the configured backend with the run cre
     await rm(root, { recursive: true, force: true });
   });
   Object.assign(process.env, {
-    COWORK_API_BASE: "https://example.test",
-    COWORK_API_KEY: "fixture-model-key",
-    COWORK_CONFIG: join(root, "config.json"),
-    COWORK_WORKSPACE: root,
-    COWORK_PROJECT_DIR: root,
-    COWORK_TASK_ID: "ledger-task",
-    COWORK_RUN_ID: "main-ledger",
-    COWORK_DASHBOARD_URL: `http://127.0.0.1:${port}`,
-    COWORK_API_TOKEN: token
+    FORMICAND_API_BASE: "https://example.test",
+    FORMICAND_API_KEY: "fixture-model-key",
+    FORMICAND_CONFIG: join(root, "config.json"),
+    FORMICAND_WORKSPACE: root,
+    FORMICAND_PROJECT_DIR: root,
+    FORMICAND_TASK_ID: "ledger-task",
+    FORMICAND_RUN_ID: "main-ledger",
+    FORMICAND_DASHBOARD_URL: `http://127.0.0.1:${port}`,
+    FORMICAND_API_TOKEN: token
   });
-  await writeFile(process.env.COWORK_CONFIG, "{}\n");
+  await writeFile(process.env.FORMICAND_CONFIG, "{}\n");
   await new LocalWorkspaceStore(root).createTask("ledger-task", { goal: "ledger" });
   const pi = fakePi();
   await (
@@ -386,7 +386,7 @@ test("the registered ledger tool reaches the configured backend with the run cre
 });
 
 test("a turn takes the level of the message that opened it, not of a newer accepted message", async (t) => {
-  const root = await mkdtemp(join(tmpdir(), "atria-turn-level-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-turn-level-"));
   const provider = await modelProtocolFixture("openai-completions", () => ({ text: "unused" }), {
     models: [{ id: "turn-model" }]
   });
@@ -400,20 +400,20 @@ test("a turn takes the level of the message that opened it, not of a newer accep
   const taskId = "turn-level-task";
   const runId = "main-turn-level";
   Object.assign(process.env, {
-    ATRIA_HOME: join(root, "home"),
-    COWORK_API_BASE: provider.baseUrl,
-    COWORK_API_KEY: "{{SECRET_kdvqcozt}}",
-    COWORK_MODEL: "turn-model",
-    COWORK_CONFIG: join(root, "config.json"),
-    COWORK_WORKSPACE: root,
-    COWORK_TASK_ID: taskId,
-    COWORK_RUN_ID: runId,
-    COWORK_REASONING_EFFORT: "max",
-    COWORK_SUPPORTS_REASONING_EFFORT: "1",
-    COWORK_MAIN_MODEL_FROM_CONFIG: "1"
+    FORMICAND_HOME: join(root, "home"),
+    FORMICAND_API_BASE: provider.baseUrl,
+    FORMICAND_API_KEY: "{{SECRET_kdvqcozt}}",
+    FORMICAND_MODEL: "turn-model",
+    FORMICAND_CONFIG: join(root, "config.json"),
+    FORMICAND_WORKSPACE: root,
+    FORMICAND_TASK_ID: taskId,
+    FORMICAND_RUN_ID: runId,
+    FORMICAND_REASONING_EFFORT: "max",
+    FORMICAND_SUPPORTS_REASONING_EFFORT: "1",
+    FORMICAND_MAIN_MODEL_FROM_CONFIG: "1"
   });
   await writeFile(
-    process.env.COWORK_CONFIG,
+    process.env.FORMICAND_CONFIG,
     JSON.stringify({
       ...providerConfig([
         {

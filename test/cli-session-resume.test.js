@@ -10,7 +10,7 @@ import { once } from "node:events";
 import { LocalWorkspaceStore } from "../dist/src/workspace/workspace-store.js";
 
 const exec = promisify(execFile);
-const entry = resolve(process.env.ATRIA_TEST_CLI_ENTRY || "scripts/atria.mjs");
+const entry = resolve(process.env.FORMICAND_TEST_CLI_ENTRY || "scripts/formicand.mjs");
 const commandTimeoutMs = 15_000;
 const killGraceMs = 2_000;
 
@@ -20,7 +20,7 @@ test(
   // other Node files compete for startup CPU. Include fixture setup/cleanup.
   { timeout: commandTimeoutMs * 14 + killGraceMs + 5_000 },
   async (t) => {
-    const root = await mkdtemp(join(tmpdir(), "atria-cli-resume-"));
+    const root = await mkdtemp(join(tmpdir(), "formicand-cli-resume-"));
     const project = join(root, "project"),
       other = join(root, "other"),
       user = join(root, "user");
@@ -54,13 +54,13 @@ test(
     server.listen(0, "127.0.0.1");
     await once(server, "listening");
     const env = Object.fromEntries(
-      Object.entries(process.env).filter(([name]) => !/^(?:COWORK_|PI_|ATRIA_)/.test(name))
+      Object.entries(process.env).filter(([name]) => !/^(?:FORMICAND_|PI_|FORMICAND_)/.test(name))
     );
     Object.assign(env, {
-      ATRIA_HOME: user,
-      COWORK_API_KEY: "resume-fixture-key",
-      COWORK_MODEL_API: "openai-completions",
-      COWORK_DISABLE_MAIN_GUARDIAN: "1",
+      FORMICAND_HOME: user,
+      FORMICAND_API_KEY: "resume-fixture-key",
+      FORMICAND_MODEL_API: "openai-completions",
+      FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
       PI_OFFLINE: "1",
       PI_TELEMETRY: "0"
     });
@@ -142,7 +142,7 @@ test(
     await run(prompt("A separate project must stay separate.", ["--continue"]), {}, other);
     assert.equal((await tasks()).length, 2);
     await run(prompt("Use an explicit Task.", ["--session", sessionFile]), {
-      COWORK_TASK_ID: "explicit-resume"
+      FORMICAND_TASK_ID: "explicit-resume"
     });
     assert.equal(
       JSON.parse(await readFile(join(workspace, "explicit-resume", "task.json"), "utf8")).taskId,
@@ -185,7 +185,7 @@ test(
       requestCount = requests.length;
     await assert.rejects(
       run(prompt("Reject a conflicting project.", ["--session", sessionFile]), {
-        COWORK_TASK_ID: "explicit-resume"
+        FORMICAND_TASK_ID: "explicit-resume"
       }),
       (error) => /project.*session|项目.*会话/.test(error.stderr)
     );
@@ -195,7 +195,7 @@ test(
     const sharedDirectory = join(root, "shared-session-history");
     await run(
       prompt("Foreign shared-directory history.", ["--session-dir", sharedDirectory]),
-      { COWORK_TASK_ID: "foreign-shared" },
+      { FORMICAND_TASK_ID: "foreign-shared" },
       other
     );
     const [foreignFile] = (await readdir(sharedDirectory)).filter((file) => file.endsWith(".jsonl"));
@@ -207,7 +207,7 @@ test(
     });
     await run(
       prompt("A clean continuation of this project.", ["--continue", "--session-dir", sharedDirectory]),
-      { COWORK_TASK_ID: "guarded-project" }
+      { FORMICAND_TASK_ID: "guarded-project" }
     );
     assert.ok(!JSON.stringify(requests.at(-1).messages).includes("Foreign shared-directory history."));
     assert.equal(await readFile(foreignPath, "utf8"), foreignBefore);

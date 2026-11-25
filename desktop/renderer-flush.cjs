@@ -16,7 +16,7 @@ function createRendererFlush(getWindow, timeoutMs = 10_000) {
         };
         const timer = setTimeout(() => finish(false), timeoutMs);
         pending.set(requestId, finish);
-        window.webContents.send("bookman:prepare-close", requestId);
+        window.webContents.send("formicand:prepare-close", requestId);
       });
     },
     // The main process verifies sender identity before passing a response here.

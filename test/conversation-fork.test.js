@@ -54,17 +54,17 @@ test(
         stdio: ["ignore", "pipe", "pipe"],
         env: {
           ...process.env,
-          COWORK_WORKSPACE: workspaceRoot,
-          ATRIA_HOME: join(root, "home"),
-          COWORK_GLOBAL_INDEX: join(root, "global.json"),
-          COWORK_CONFIG: join(root, "config.json"),
-          COWORK_UI_PORT: String(port),
-          COWORK_API_BASE: `http://127.0.0.1:${model.address().port}`,
-          COWORK_API_KEY: "test-key",
-          COWORK_MODEL: "glm-5.3",
+          FORMICAND_WORKSPACE: workspaceRoot,
+          FORMICAND_HOME: join(root, "home"),
+          FORMICAND_GLOBAL_INDEX: join(root, "global.json"),
+          FORMICAND_CONFIG: join(root, "config.json"),
+          FORMICAND_UI_PORT: String(port),
+          FORMICAND_API_BASE: `http://127.0.0.1:${model.address().port}`,
+          FORMICAND_API_KEY: "test-key",
+          FORMICAND_MODEL: "glm-5.3",
           PI_CODING_AGENT_DIR: join(root, "pi-agent"),
-          COWORK_DISABLE_MAIN_GUARDIAN: "1",
-          COWORK_WEB_TOOLS: "0"
+          FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
+          FORMICAND_WEB_TOOLS: "0"
         }
       });
       child.stdout.on("data", (chunk) => (output += chunk));

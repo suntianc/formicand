@@ -119,12 +119,14 @@ export function registerCapabilityTools(
     let desktop: DesktopSession | null = null;
     let policy: { enabled?: boolean; mode?: string } | undefined;
     let policyPaused = false;
-    const base = process.env.COWORK_DASHBOARD_URL;
+    const base = process.env.FORMICAND_DASHBOARD_URL;
     if (base) {
       try {
         const response = await fetch(`${base}/api/tasks/${encodeURIComponent(input.taskId)}/computer`, {
           signal: AbortSignal.timeout(2000),
-          headers: process.env.COWORK_API_TOKEN ? { "x-atria-token": process.env.COWORK_API_TOKEN } : {}
+          headers: process.env.FORMICAND_API_TOKEN
+            ? { "x-formicand-token": process.env.FORMICAND_API_TOKEN }
+            : {}
         });
         if (response.ok) {
           const result = (await response.json()) as {

@@ -72,7 +72,7 @@ for (const layout of ["separate Runs", "one resident Run"]) {
         }
       }
       const get = async (header) =>
-        (await page.request.get(url, { headers: header ? { "x-atria-history": header } : {} })).json();
+        (await page.request.get(url, { headers: header ? { "x-formicand-history": header } : {} })).json();
       const full = await get(),
         first = await get("12");
       const users = (d) => d.messages.filter((m) => m.role === "user").map((m) => m.content);
@@ -84,8 +84,8 @@ for (const layout of ["separate Runs", "one resident Run"]) {
       const delta = await (
         await page.request.get(url, {
           headers: {
-            "x-atria-history": known(first.historyPage),
-            "x-atria-detail-revision": first.metadataPatch.revision
+            "x-formicand-history": known(first.historyPage),
+            "x-formicand-detail-revision": first.metadataPatch.revision
           }
         })
       ).json();
@@ -108,7 +108,7 @@ for (const layout of ["separate Runs", "one resident Run"]) {
       await expect(scroll.locator(".chat-message.user")).toHaveCount(12);
       await expect(scroll).toContainText("Question 31");
       const incoming = page.waitForResponse(
-        (r) => r.url() === url && r.request().headers()["x-atria-history"]?.startsWith("24;")
+        (r) => r.url() === url && r.request().headers()["x-formicand-history"]?.startsWith("24;")
       );
       const before = await scroll.evaluate((node) => {
         node.scrollTop = 0;

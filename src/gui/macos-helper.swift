@@ -228,7 +228,7 @@ func postKey(_ code: CGKeyCode, _ flags: CGEventFlags, _ pid: pid_t, text: Strin
             let context = LAContext()
             defer { context.invalidate() }
             do {
-                let reason = "允许 CoworkOS 后端 \(backend) 启用或恢复对所有应用窗口的控制"
+                let reason = "允许 Formicand 后端 \(backend) 启用或恢复对所有应用窗口的控制"
                 if try await context.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: reason) {
                     return ["approved": true]
                 }

@@ -52,7 +52,7 @@ export function createProjectDevelopmentClient(options: {
 }): ProjectDevelopmentClient {
   const origin = loopback(options.dashboardUrl);
   if (!TASK_ID.test(options.taskId)) throw new Error("需求开发工具不可用：当前会话 ID 不合法");
-  const token = options.token ?? process.env.COWORK_API_TOKEN;
+  const token = options.token ?? process.env.FORMICAND_API_TOKEN;
   if (!token) throw new Error("需求开发工具不可用：本次运行没有本地服务凭据");
   const base = `${origin}/api/tasks/${encodeURIComponent(options.taskId)}`;
 
@@ -64,7 +64,7 @@ export function createProjectDevelopmentClient(options: {
     const response = await fetch(`${base}/${path}`, {
       method: "POST",
       redirect: "error",
-      headers: { "content-type": "application/json", "x-atria-token": token },
+      headers: { "content-type": "application/json", "x-formicand-token": token },
       body: JSON.stringify(input),
       signal: signal
         ? AbortSignal.any([signal, AbortSignal.timeout(TIMEOUT_MS)])

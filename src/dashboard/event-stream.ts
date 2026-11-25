@@ -195,7 +195,7 @@ export function streamRunEvents(
     "cache-control": "no-cache, no-transform",
     connection: "keep-alive"
   });
-  response.write(": cowork event stream connected\n\n");
+  response.write(": formicand event stream connected\n\n");
   // Replay a bounded ledger tail, then follow appended bytes. Event identities
   // also suppress recent duplicates after file replacement or truncation.
   const sentEventKeys = new Set<string>();

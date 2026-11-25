@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile, access } from "node:fs/promises";
 if (process.platform !== "darwin") process.exit(0);
 const source = "src/gui/macos-helper.swift";
-const output = "dist/src/gui/atria-computer-use";
+const output = "dist/src/gui/formicand-computer-use";
 const target = `${process.arch === "arm64" ? "arm64" : "x86_64"}-apple-macosx13.0`;
 const hash = createHash("sha256")
   .update(target)

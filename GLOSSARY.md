@@ -1,4 +1,4 @@
-# CoworkOS 产品术语
+# Formicand 产品术语
 
 本文固定产品讨论中的用语。已交付能力见 [能力范围](docs/builtin-capabilities.md)，后续能力按阶段规划细化。
 

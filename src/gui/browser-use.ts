@@ -441,18 +441,20 @@ export class BrowserUse {
       const generation = this.generation;
       this.launching = (async () => {
         const executablePath =
-          this.options.executablePath ?? process.env.COWORK_BROWSER_EXECUTABLE ?? chromium.executablePath();
+          this.options.executablePath ??
+          process.env.FORMICAND_BROWSER_EXECUTABLE ??
+          chromium.executablePath();
         if (!isAbsolute(executablePath))
           throw new BrowserUseError(
             "browser_unavailable",
-            "COWORK_BROWSER_EXECUTABLE must be an absolute host-configured executable path"
+            "FORMICAND_BROWSER_EXECUTABLE must be an absolute host-configured executable path"
           );
         try {
           await access(executablePath, constants.X_OK);
         } catch {
           throw new BrowserUseError(
             "browser_unavailable",
-            "Chromium is unavailable. Install with: npx --yes --package=playwright-core@1.63.0 playwright-core install chromium; or configure COWORK_BROWSER_EXECUTABLE. No browser was installed automatically."
+            "Chromium is unavailable. Install with: npx --yes --package=playwright-core@1.63.0 playwright-core install chromium; or configure FORMICAND_BROWSER_EXECUTABLE. No browser was installed automatically."
           );
         }
         let browser: Browser | undefined;

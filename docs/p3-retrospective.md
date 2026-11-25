@@ -56,7 +56,7 @@
 
 ## 7. 环境与时序失败逐项归因
 
-Python 文档依赖未准备，且测试隔离 hook 清掉了文档约定的 `COWORK_PYTHON`。本轮修复保留覆盖变量，并准备隔离依赖。Electron 二进制未拉取导致 Info.plist 缺失，采用现有 ensure-electron 前置处理。仍可触发的环境条件归 [测试坑点](pitfalls/README.md)。
+Python 文档依赖未准备，且测试隔离 hook 清掉了文档约定的 `FORMICAND_PYTHON`。本轮修复保留覆盖变量，并准备隔离依赖。Electron 二进制未拉取导致 Info.plist 缺失，采用现有 ensure-electron 前置处理。仍可触发的环境条件归 [测试坑点](pitfalls/README.md)。
 
 PTY 文案断行与容量 settle 过早取样在旧基线同条件下也能复现。修复分别允许词间换行、等待持久终态与无活动进程同时成立，原语义断言保留；容量旧基线并行 3 次中 2 次失败。失败、基线和有界修复验证各有日志，未笼统归为“偶发”。
 
@@ -74,7 +74,7 @@ UI attempt 1–12 失败，13/14 通过，之后固定候选验收通过。失�
 
 ## 证据索引
 
-档案标识 `coworkos-p1-docs/os-p3-project-foundation`。下表路径相对于档案根目录；原始日志与安装包独立保存。仓库保留 [脱敏证据摘录](pitfalls/evidence/os-p3-project-foundation/checks.md)，不复制私人路径和操作流水。
+档案标识 `formicand-p1-docs/os-p3-project-foundation`。下表路径相对于档案根目录；原始日志与安装包独立保存。仓库保留 [脱敏证据摘录](pitfalls/evidence/os-p3-project-foundation/checks.md)，不复制私人路径和操作流水。
 
 | 内容                   | 档案内路径                                                                                                                                                              |
 | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

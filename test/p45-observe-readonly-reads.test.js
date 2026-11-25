@@ -31,7 +31,7 @@ const RECEIPT = {
   mergedAt: "2026-11-10T08:00:00.000Z"
 };
 const PROJECT_PATH = `/api/projects/${encodeURIComponent(PROJECT.projectId)}`;
-const READ_ONLY = { "x-cowork-read-only": "1" };
+const READ_ONLY = { "x-formicand-read-only": "1" };
 
 /**
  * The production service over an in-memory gateway: one merged operation this
@@ -39,7 +39,7 @@ const READ_ONLY = { "x-cowork-read-only": "1" };
  * `syncDelivery` the gateway receives is a replay the read performed.
  */
 async function fixture(t) {
-  const root = await mkdtemp(join(tmpdir(), "coworkos-observe-reads-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-observe-reads-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const syncs = [];
   const deliveries = [];
@@ -205,7 +205,7 @@ test("an unrecognized read-only marker is refused instead of silently writing", 
   const base = await serve(t, service);
 
   const result = await read(base, `${PROJECT_PATH}/developments`, {
-    headers: { "x-cowork-read-only": "yes" }
+    headers: { "x-formicand-read-only": "yes" }
   });
   assert.equal(result.status, 400, JSON.stringify(result.body));
   assert.equal(result.body.code, "invalid_read_only");

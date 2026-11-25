@@ -19,8 +19,8 @@ import { signAsync } from "@electron/osx-sign";
 import { HumanRequestStore } from "../dist/src/runtime/human.js";
 import { stopBackend } from "../dist/src/cli/backend.js";
 const settingsOnly = process.argv.includes("--settings-only");
-const appPath = resolve(process.env.ATRIA_DESKTOP_APP || ".tmp/release/mac-arm64/CoworkOS.app");
-const executablePath = join(appPath, "Contents/MacOS/CoworkOS");
+const appPath = resolve(process.env.FORMICAND_DESKTOP_APP || ".tmp/release/mac-arm64/Formicand.app");
+const executablePath = join(appPath, "Contents/MacOS/Formicand");
 const packagedMetadata = JSON.parse(
   await readFile(join(appPath, "Contents/Resources/app/package.json"), "utf8")
 );
@@ -31,9 +31,9 @@ const iconFile = plist.match(/<key>CFBundleIconFile<\/key>\s*<string>([^<]+)<\/s
 expect(iconFile).toBeTruthy();
 // Verify the actual Finder icon bytes in the package, not just the builder setting.
 expect(await readFile(join(appPath, "Contents/Resources", basename(iconFile)))).toEqual(
-  await readFile(resolve("build/atria.icns"))
+  await readFile(resolve("build/formicand.icns"))
 );
-const root = await realpath(await mkdtemp(join(tmpdir(), "atria-packaged-smoke-")));
+const root = await realpath(await mkdtemp(join(tmpdir(), "formicand-packaged-smoke-")));
 const data = join(root, "user-data");
 const projectDirectory = join(root, "project");
 await mkdir(projectDirectory);
@@ -170,7 +170,7 @@ async function desktopRequest(page, path, options = {}) {
     async ({ path, options }) => {
       const response = await fetch(path, {
         ...options,
-        headers: { ...options.headers, "x-cowork-desktop-nonce": window.bookmanDesktop.transportNonce }
+        headers: { ...options.headers, "x-formicand-desktop-nonce": window.formicandDesktop.transportNonce }
       });
       const text = await response.text();
       let body = text;
@@ -207,7 +207,7 @@ async function recordKeychainWorkers() {
   const workers = await native.evaluate(() =>
     process
       ._getActiveHandles()
-      .filter((handle) => handle.spawnargs?.includes("--atria-keychain-worker"))
+      .filter((handle) => handle.spawnargs?.includes("--formicand-keychain-worker"))
       .map((child) => child.pid)
   );
   for (const pid of workers) keychainPids.add(pid);
@@ -226,7 +226,7 @@ async function verifyBackgroundApplications() {
   await recordKeychainWorkers();
   const applications = await applicationMonitor.snapshot();
   const own = applications.find((app) => app.pid === native.process().pid);
-  expect(own?.policy, "the main CoworkOS application keeps its normal Dock identity").toBe(0);
+  expect(own?.policy, "the main Formicand application keeps its normal Dock identity").toBe(0);
   expect(
     unexpectedApplications(),
     "only the known Keychain worker may register a second application"
@@ -452,7 +452,7 @@ async function verifySettingsDuringRun(page, expectedBackend) {
 }
 async function runSmoke() {
   applicationMonitor = await startNativeApplicationMonitor(root, {
-    moduleCacheDirectory: process.env.ATRIA_SWIFT_MODULE_CACHE || undefined
+    moduleCacheDirectory: process.env.FORMICAND_SWIFT_MODULE_CACHE || undefined
   });
   expect(applicationMonitor.initial.monitorPolicy).toBe(2);
   console.log("Desktop smoke: first install");
@@ -551,7 +551,7 @@ async function runSmoke() {
   const tasks = (await desktopRequest(page, "/api/tasks")).body.tasks;
   const taskId = tasks.find((task) => task.taskId !== "workspace").taskId;
   console.log("Desktop smoke: Computer Use trusted IPC and real Pi observation");
-  expect(await page.evaluate(() => typeof window.bookmanDesktop.computerUse)).toBe("function");
+  expect(await page.evaluate(() => typeof window.formicandDesktop.computerUse)).toBe("function");
   const computerStatus = (await desktopRequest(page, "/api/computer/status")).body;
   const ownWindow = computerStatus.windows.find((window) => window.pid === native.process().pid);
   if (
@@ -680,7 +680,7 @@ async function runSmoke() {
   await expect(page.locator("#composer-input")).toHaveValue(conversationDraft);
   await expect(page.getByRole("button", { name: "移除 未发送的说明.txt", exact: true })).toBeVisible();
   const mirroredDrafts = JSON.parse(await readFile(join(data, "composer-drafts.json"), "utf8"));
-  const restoredDraft = JSON.parse(mirroredDrafts.entries[`atria.composer.v1:${taskId}`]);
+  const restoredDraft = JSON.parse(mirroredDrafts.entries[`formicand.composer.v1:${taskId}`]);
   expect(restoredDraft).toMatchObject({
     text: conversationDraft,
     attachments: [{ name: "未发送的说明.txt", kind: "text" }]
@@ -740,7 +740,7 @@ async function runSmoke() {
     .poll(
       async () =>
         Object.keys(JSON.parse(await readFile(humanDraftPath, "utf8")).entries).filter((key) =>
-          key.startsWith("atria.human.v1:")
+          key.startsWith("formicand.human.v1:")
         ).length
     )
     .toBe(0);
@@ -749,7 +749,7 @@ async function runSmoke() {
   );
   // Simulate a new installed release in a different directory, retaining only user data.
   await quit();
-  const next = join(root, "next-release/CoworkOS.app");
+  const next = join(root, "next-release/Formicand.app");
   await cp(appPath, next, { recursive: true, verbatimSymlinks: true });
   const packagePath = join(next, "Contents/Resources/app/package.json");
   const pkg = JSON.parse(await readFile(packagePath, "utf8"));
@@ -777,7 +777,7 @@ async function runSmoke() {
   });
   await promisify(execFile)("/usr/bin/codesign", ["--verify", "--deep", "--strict", next]);
   console.log("Desktop smoke: upgraded/recovered launch");
-  page = await launch(join(next, "Contents/MacOS/CoworkOS"));
+  page = await launch(join(next, "Contents/MacOS/Formicand"));
   expect(JSON.parse(await readFile(join(data, "data-version.json"), "utf8"))).toMatchObject({
     createdWith: originalVersion,
     lastOpenedWith: pkg.version
@@ -797,7 +797,7 @@ async function runSmoke() {
   expect(configError.body.error).toContain("运行中");
   await quit();
   console.log("Desktop smoke: upgraded/reconnected launch");
-  page = await launch(join(next, "Contents/MacOS/CoworkOS"));
+  page = await launch(join(next, "Contents/MacOS/Formicand"));
   const restored = (await desktopRequest(page, "/api/tasks")).body.tasks.find(
     (task) => task.taskId === taskId
   );
@@ -822,7 +822,7 @@ async function runSmoke() {
     "aria-description",
     "已完成"
   );
-  const proof = process.env.ATRIA_DESKTOP_PROOF;
+  const proof = process.env.FORMICAND_DESKTOP_PROOF;
   if (proof) await page.screenshot({ path: resolve(proof) });
   await quit();
   const log = await readFile(join(data, "logs/backend.log"), "utf8");
@@ -886,7 +886,7 @@ try {
   let cleanupComplete = true;
   try {
     const instance = JSON.parse(await readFile(join(data, "runtime/backend-instance.json"), "utf8"));
-    const stopped = await stopBackend({ ATRIA_HOME: data }, instance);
+    const stopped = await stopBackend({ FORMICAND_HOME: data }, instance);
     if (stopped.state !== "stopped") {
       cleanupComplete = false;
       process.exitCode = 1;
@@ -903,12 +903,12 @@ try {
       console.error("Desktop smoke backend cleanup failed:", error.message);
     }
   }
-  if (process.env.ATRIA_KEEP_SMOKE_DATA || !cleanupComplete) console.log("Smoke data:", root);
+  if (process.env.FORMICAND_KEEP_SMOKE_DATA || !cleanupComplete) console.log("Smoke data:", root);
   else {
     // Native launches register relocated test apps even after their bundles are removed.
     await promisify(execFile)(
       "/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister",
-      ["-u", join(root, "next-release/CoworkOS.app")]
+      ["-u", join(root, "next-release/Formicand.app")]
       // eslint-disable-next-line no-restricted-syntax -- lsregister 反注册是清理辅助步骤，清不掉也不影响随后删除冒烟目录
     ).catch(() => {});
     await rm(root, { recursive: true, force: true });

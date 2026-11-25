@@ -77,7 +77,7 @@ for (const api of ["openai-completions", "openai-responses"]) {
       // The connection test reads the saved effort directly. A conversation run keeps
       // its own run-level effort, so its wire value is not asserted here.
       const probes = provider.requests.filter(({ body }) =>
-        JSON.stringify(body).includes("atria_connection_check")
+        JSON.stringify(body).includes("formicand_connection_check")
       );
       expect(probes.length).toBeGreaterThan(0);
       for (const { body } of probes)

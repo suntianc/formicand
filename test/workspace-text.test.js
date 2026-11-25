@@ -6,7 +6,7 @@ import { test } from "node:test";
 import { readWorkspaceText, searchWorkspaceText } from "../dist/src/tools/workspace-text.js";
 
 async function fixture(t) {
-  const root = await mkdtemp(join(tmpdir(), "atria-workspace-text-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-workspace-text-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   return join(root, "trace.jsonl");
 }

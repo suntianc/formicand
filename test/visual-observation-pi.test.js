@@ -62,7 +62,7 @@ for (const main of [true])
     `real Main extension: crop → reference reread → multiple images → archive history`,
     { timeout: 45000 },
     async (t) => {
-      const root = await mkdtemp(join(tmpdir(), "atria-visual-tools-pi-"));
+      const root = await mkdtemp(join(tmpdir(), "formicand-visual-tools-pi-"));
       t.after(() => rm(root, { recursive: true, force: true }));
       const project = join(root, "project"),
         workspace = join(root, "workspace"),
@@ -88,7 +88,7 @@ for (const main of [true])
         const configPath = join(root, "config.json");
         await writeFile(configPath, JSON.stringify(connection));
         const env = Object.fromEntries(
-          Object.entries(process.env).filter(([name]) => !/^(COWORK_|PI_|ATRIA_)/.test(name))
+          Object.entries(process.env).filter(([name]) => !/^(FORMICAND_|PI_|FORMICAND_)/.test(name))
         );
         const pending = exec(
           process.execPath,
@@ -105,13 +105,13 @@ for (const main of [true])
             maxBuffer: 4000000,
             env: {
               ...env,
-              COWORK_CONFIG: configPath,
-              COWORK_PROJECT_DIR: project,
-              COWORK_WORKSPACE: workspace,
-              COWORK_TASK_ID: "visual-task",
-              COWORK_RUN_ID: "visual-run",
+              FORMICAND_CONFIG: configPath,
+              FORMICAND_PROJECT_DIR: project,
+              FORMICAND_WORKSPACE: workspace,
+              FORMICAND_TASK_ID: "visual-task",
+              FORMICAND_RUN_ID: "visual-run",
               PI_CODING_AGENT_DIR: join(root, "pi"),
-              COWORK_DISABLE_MAIN_GUARDIAN: "1",
+              FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
               PI_OFFLINE: "1"
             }
           }
@@ -143,7 +143,7 @@ for (const main of [true])
     "real Main Pi accepts empty/null unused image sources and rejects genuinely conflicting sources",
     { timeout: 45000 },
     async (t) => {
-      const root = await mkdtemp(join(tmpdir(), "atria-visual-source-pi-"));
+      const root = await mkdtemp(join(tmpdir(), "formicand-visual-source-pi-"));
       t.after(() => rm(root, { recursive: true, force: true }));
       const project = join(root, "project"),
         workspace = join(root, "workspace"),
@@ -210,7 +210,7 @@ for (const main of [true])
         const configPath = join(root, "config.json");
         await writeFile(configPath, JSON.stringify(connection));
         const env = Object.fromEntries(
-          Object.entries(process.env).filter(([name]) => !/^(COWORK_|PI_|ATRIA_)/.test(name))
+          Object.entries(process.env).filter(([name]) => !/^(FORMICAND_|PI_|FORMICAND_)/.test(name))
         );
         const pending = exec(
           process.execPath,
@@ -227,13 +227,13 @@ for (const main of [true])
             maxBuffer: 4000000,
             env: {
               ...env,
-              COWORK_CONFIG: configPath,
-              COWORK_PROJECT_DIR: project,
-              COWORK_WORKSPACE: workspace,
-              COWORK_TASK_ID: "visual-task",
-              COWORK_RUN_ID: "visual-source-run",
+              FORMICAND_CONFIG: configPath,
+              FORMICAND_PROJECT_DIR: project,
+              FORMICAND_WORKSPACE: workspace,
+              FORMICAND_TASK_ID: "visual-task",
+              FORMICAND_RUN_ID: "visual-source-run",
               PI_CODING_AGENT_DIR: join(root, "pi"),
-              COWORK_DISABLE_MAIN_GUARDIAN: "1",
+              FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
               PI_OFFLINE: "1"
             }
           }

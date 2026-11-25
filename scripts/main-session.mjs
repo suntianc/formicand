@@ -13,7 +13,7 @@ export async function alignSelectedTaskSession(sessionPath, sessionDirectory, pr
 }
 
 /** Pi defers its first session file until an assistant response. A cancelled
- * first request still has CoworkOS's durable context snapshot; restore it once. */
+ * first request still has Formicand's durable context snapshot; restore it once. */
 export async function restoreUnflushedTaskSession(sessionDirectory, projectDirectory, snapshotPath) {
   const sessions = await SessionManager.listAll(resolve(sessionDirectory));
   if (sessions.some((session) => session.messageCount > 0)) return;

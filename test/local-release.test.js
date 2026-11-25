@@ -10,7 +10,7 @@ const tag = `v${version}`;
 const repo = "suntianc/coworkos";
 
 test("local release builds once and uploads candidate archives without publishing them", async (t) => {
-  const root = await mkdtemp(join(tmpdir(), "coworkos-local-release-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-local-release-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const calls = [];
   const commandRunner = async (command, args, options) => {

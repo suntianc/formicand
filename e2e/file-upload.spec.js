@@ -37,7 +37,7 @@ for (const width of [1440, 900, 640])
       expect(original.toString()).toBe(text);
       await page.keyboard.press("Escape");
       await expect(page.locator(".attachment-preview")).toBeHidden();
-      const image = await readFile("web/assets/atria-symbol.png");
+      const image = await readFile("web/assets/formicand-symbol.png");
       await page
         .locator("#file-input")
         .setInputFiles({ name: "截图.png", mimeType: "image/png", buffer: image });
@@ -155,7 +155,7 @@ test("a sent image is hydrated from the bound session without exposing upload me
     await page.locator("#file-input").setInputFiles({
       name: "截图.png",
       mimeType: "image/png",
-      buffer: await readFile("web/assets/atria-symbol.png")
+      buffer: await readFile("web/assets/formicand-symbol.png")
     });
     await expect(page.locator("#attachment-strip")).toContainText("截图.png");
     await page.locator("#send-button").click();
@@ -164,7 +164,7 @@ test("a sent image is hydrated from the bound session without exposing upload me
     await expect(attachment).toContainText("截图.png", { timeout: 30_000 });
     await expect(thumbnail).toHaveAttribute("src", /^blob:/);
     await expect.poll(() => thumbnail.evaluate((img) => img.naturalWidth)).toBeGreaterThan(0);
-    await expect(page.locator(".chat-message.user").first()).not.toContainText("atria_uploaded_files");
+    await expect(page.locator(".chat-message.user").first()).not.toContainText("formicand_uploaded_files");
     await expect(page.locator('[data-answer-kind="final"]')).toContainText("协议会话验证成功", {
       timeout: 30_000
     });
@@ -203,7 +203,7 @@ test("drop, paste, retry, cancel and navigation keep files with their own draft"
         .dispatchEvent(new DragEvent("drop", { dataTransfer: data, bubbles: true, cancelable: true }));
     });
     await expect(page.locator("#attachment-strip")).toContainText("drop.txt");
-    const bytes = await readFile("web/assets/atria-symbol.png");
+    const bytes = await readFile("web/assets/formicand-symbol.png");
     await page.evaluate(
       (bytes) => {
         const data = new DataTransfer();

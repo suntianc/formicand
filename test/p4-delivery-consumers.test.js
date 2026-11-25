@@ -98,7 +98,7 @@ test(
   "development consumers read the delivery from project, Task and requirement, and recover a failed sync",
   { timeout: 240_000 },
   async (t) => {
-    const root = await mkdtemp(join(tmpdir(), "atria-p4-delivery-consumers-"));
+    const root = await mkdtemp(join(tmpdir(), "formicand-p4-delivery-consumers-"));
     const repository = await makeRepository(join(root, "repository"));
     const dashboard = await startDashboard({ defaultProject: false });
     t.after(async () => {
@@ -226,7 +226,7 @@ test(
     await prepareWorkItemSite({
       developmentDirectory: reviewed.workspace.directory,
       directory: executorSite,
-      branch: "coworkos/work/call-executor"
+      branch: "formicand/work/call-executor"
     });
     calls["call-executor"] = {
       callId: "call-executor",
@@ -245,7 +245,7 @@ test(
     await prepareWorkItemSite({
       developmentDirectory: reviewed.workspace.directory,
       directory: reviewerSite,
-      branch: "coworkos/work/call-reviewer"
+      branch: "formicand/work/call-reviewer"
     });
     calls["call-reviewer"] = {
       callId: "call-reviewer",

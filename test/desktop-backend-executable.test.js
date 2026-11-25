@@ -8,11 +8,11 @@ import { test } from "node:test";
 const { backendExecutable } = createRequire(import.meta.url)("../desktop/backend-executable.cjs");
 
 test("Mac workers select the accessory helper and leave ordinary Node executables alone", async () => {
-  const root = await mkdtemp(join(tmpdir(), "atria-worker-policy-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-worker-policy-"));
   try {
-    const executable = join(root, "CoworkOS.app/Contents/MacOS/CoworkOS");
-    const contents = join(root, "CoworkOS.app/Contents/Frameworks/CoworkOS Helper.app/Contents");
-    const helper = join(contents, "MacOS/CoworkOS Helper");
+    const executable = join(root, "Formicand.app/Contents/MacOS/Formicand");
+    const contents = join(root, "Formicand.app/Contents/Frameworks/Formicand Helper.app/Contents");
+    const helper = join(contents, "MacOS/Formicand Helper");
     await mkdir(join(contents, "MacOS"), { recursive: true });
     await writeFile(helper, "fixture", { mode: 0o700 });
     await writeFile(join(contents, "Info.plist"), "<dict><key>LSUIElement</key><true/></dict>");
@@ -25,18 +25,18 @@ test("Mac workers select the accessory helper and leave ordinary Node executable
 });
 
 test("a broken or regular helper cannot silently launch a second foreground application", async () => {
-  const root = await mkdtemp(join(tmpdir(), "atria-worker-missing-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-worker-missing-"));
   try {
-    const executable = join(root, "CoworkOS.app/Contents/MacOS/CoworkOS");
+    const executable = join(root, "Formicand.app/Contents/MacOS/Formicand");
     assert.throws(() => backendExecutable(executable, "darwin"), /后台运行时/);
     assert.equal(backendExecutable(executable, "darwin", join(root, "development")), executable);
     assert.throws(
-      () => backendExecutable(executable, "darwin", join(root, "CoworkOS.app/Contents/Resources/app")),
+      () => backendExecutable(executable, "darwin", join(root, "Formicand.app/Contents/Resources/app")),
       /后台运行时/
     );
-    const contents = join(root, "CoworkOS.app/Contents/Frameworks/CoworkOS Helper.app/Contents");
+    const contents = join(root, "Formicand.app/Contents/Frameworks/Formicand Helper.app/Contents");
     await mkdir(join(contents, "MacOS"), { recursive: true });
-    await writeFile(join(contents, "MacOS/CoworkOS Helper"), "fixture", { mode: 0o700 });
+    await writeFile(join(contents, "MacOS/Formicand Helper"), "fixture", { mode: 0o700 });
     await writeFile(join(contents, "Info.plist"), "<dict><key>LSUIElement</key><false/></dict>");
     assert.throws(() => backendExecutable(executable, "darwin"), /后台运行时/);
   } finally {

@@ -12,16 +12,16 @@ test("desktop lets users recover separate unbound drafts to chosen projects", as
   const profile = join(root, "profile");
   const inherited = Object.fromEntries(
     Object.entries(process.env).filter(
-      ([name]) => !/^(?:COWORK_|ATRIA_|PI_|ELECTRON_|NODE_OPTIONS$)/.test(name)
+      ([name]) => !/^(?:FORMICAND_|FORMICAND_|PI_|ELECTRON_|NODE_OPTIONS$)/.test(name)
     )
   );
   const env = {
     ...inherited,
     HOME: join(root, "user-home"),
-    COWORK_DESKTOP_DATA: profile,
+    FORMICAND_DESKTOP_DATA: profile,
     PI_OFFLINE: "1",
     PI_TELEMETRY: "0",
-    COWORK_DISABLE_MAIN_GUARDIAN: "1"
+    FORMICAND_DISABLE_MAIN_GUARDIAN: "1"
   };
   await mkdir(env.HOME, { recursive: true });
   const { stopBackend } = await import("../dist/src/cli/backend.js");
@@ -59,7 +59,7 @@ test("desktop lets users recover separate unbound drafts to chosen projects", as
       await mkdir(directory);
       const response = await fetch(primary.url + "/api/projects", {
         method: "POST",
-        headers: { "content-type": "application/json", "x-atria-token": primary.token },
+        headers: { "content-type": "application/json", "x-formicand-token": primary.token },
         body: JSON.stringify({ projectName: name, projectDirectory: directory })
       });
       expect(response.status).toBe(201);
@@ -77,7 +77,7 @@ test("desktop lets users recover separate unbound drafts to chosen projects", as
           setAttachments: (files) => {
             attachments = files;
           },
-          onPersist: () => window.bookmanDesktop.saveComposerDrafts()
+          onPersist: () => window.formicandDesktop.saveComposerDrafts()
         });
         await session.ready;
         session.activate(null, { projectId: project.projectId });
@@ -111,7 +111,7 @@ test("desktop lets users recover separate unbound drafts to chosen projects", as
       await observer.dispose();
       await one.dispose();
       await two.dispose();
-      window.bookmanDesktop.saveComposerDrafts();
+      window.formicandDesktop.saveComposerDrafts();
       return {
         closed,
         occupied,
@@ -170,7 +170,7 @@ test("desktop lets users recover separate unbound drafts to chosen projects", as
         destinations: projects.map((project) =>
           JSON.parse(
             localStorage.getItem(
-              `atria.composer.v1:${backend}:new:${encodeURIComponent(project.projectId)}`
+              `formicand.composer.v1:${backend}:new:${encodeURIComponent(project.projectId)}`
             ) || "null"
           )
         ),
@@ -192,7 +192,7 @@ test("desktop lets users recover separate unbound drafts to chosen projects", as
       console.log(
         JSON.stringify({
           event: "backend-stop",
-          ...(await stopBackend({ ...env, ATRIA_HOME: profile }, primary)),
+          ...(await stopBackend({ ...env, FORMICAND_HOME: profile }, primary)),
           pid: primary.pid
         })
       );

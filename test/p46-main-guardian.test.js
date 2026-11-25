@@ -42,13 +42,13 @@ const setEnv = (t, values) => {
 };
 
 /** The guardian must decide from a clean switch state unless a test sets one. */
-const enabledGuardian = (t) => setEnv(t, { COWORK_DISABLE_MAIN_GUARDIAN: undefined });
+const enabledGuardian = (t) => setEnv(t, { FORMICAND_DISABLE_MAIN_GUARDIAN: undefined });
 
 async function fixture(
   t,
   { tasks = [], capacity, mainSessions, projectId, modelConfigured = () => true } = {}
 ) {
-  const root = await mkdtemp(join(tmpdir(), "atria-main-guardian-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-main-guardian-"));
   const workspaceRoot = join(root, WORKSPACE);
   // The fake Main stays alive until shutdown, which is what an owned Run looks
   // like from the host; the guardian's decision is the only thing under test.
@@ -235,9 +235,9 @@ test("a full budget queues the wake and starts it when a slot frees", async (t) 
   assert.equal(f.spawned("queued").length, 1, "releasing a slot starts exactly that waiting demand");
 });
 
-for (const name of ["COWORK_DISABLE_MAIN_GUARDIAN"])
+for (const name of ["FORMICAND_DISABLE_MAIN_GUARDIAN"])
   test(`${name}=1 keeps the guardian idle`, async (t) => {
-    setEnv(t, { COWORK_DISABLE_MAIN_GUARDIAN: undefined });
+    setEnv(t, { FORMICAND_DISABLE_MAIN_GUARDIAN: undefined });
     setEnv(t, { [name]: "1" });
     const f = await fixture(t, { tasks: [{ taskId: "would-resume" }] });
     f.service.startMainGuardian();
@@ -302,8 +302,8 @@ test("the guardian implementation imports no retired monitoring modules", async 
 
   const application = await readFile(resolve("src/dashboard/application.ts"), "utf8");
   assert.match(application, /modelConfigured: \(\) =>/, "the host supplies the model gate");
-  assert.match(application, /runtimeValue\("COWORK_API_BASE"\)/);
-  assert.match(application, /runtimeValue\("COWORK_API_KEY"\)/);
+  assert.match(application, /runtimeValue\("FORMICAND_API_BASE"\)/);
+  assert.match(application, /runtimeValue\("FORMICAND_API_KEY"\)/);
 });
 
 /**
@@ -353,7 +353,7 @@ function capacityFixture(limit) {
 }
 
 test("a startup adoption failure is reported instead of silently skipped", async (t) => {
-  const root = await mkdtemp(join(tmpdir(), "atria-main-adoption-failure-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-main-adoption-failure-"));
   const workspaceRoot = join(root, WORKSPACE);
   const store = new LocalWorkspaceStore(workspaceRoot);
   await store.createTask("broken", { goal: "fixture broken" });

@@ -1,6 +1,6 @@
 const { randomBytes, timingSafeEqual } = require("node:crypto");
 
-const marker = "x-cowork-desktop-nonce";
+const marker = "x-formicand-desktop-nonce";
 
 /** A window-lifetime capability lets the protocol handler add the host-only session. */
 function createSessionTransport({ getSelected, requestToken }) {
@@ -15,7 +15,7 @@ function createSessionTransport({ getSelected, requestToken }) {
       const headers = new Headers(request.headers);
       const presented = headers.get(marker);
       headers.delete(marker);
-      headers.delete("x-atria-token");
+      headers.delete("x-formicand-token");
       const selected = getSelected();
       const url = new URL(request.url);
       const matches =
@@ -25,7 +25,7 @@ function createSessionTransport({ getSelected, requestToken }) {
         timingSafeEqual(Buffer.from(presented), Buffer.from(current));
       if (matches && selected && url.origin === selected.url && url.pathname.startsWith("/api/")) {
         const token = requestToken(selected);
-        if (token) headers.set("x-atria-token", token);
+        if (token) headers.set("x-formicand-token", token);
       }
       // Redirects return to the protocol handler so credentials are reevaluated
       // against the target origin instead of following a cross-origin Location.

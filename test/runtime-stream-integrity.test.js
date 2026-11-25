@@ -25,7 +25,7 @@ async function waitFor(check) {
   }
 }
 async function workspace(t) {
-  const root = await mkdtemp(join(tmpdir(), "atria-stream-integrity-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-stream-integrity-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const run = join(root, "task", "runs", "run");
   await mkdir(run, { recursive: true });
@@ -128,7 +128,7 @@ test("truncation clears incomplete UTF-8 and JSON state, and later valid events 
 });
 
 test("a real child's stderr cannot split stdout JSON events and remains available as diagnostics", async (t) => {
-  const root = await mkdtemp(join(tmpdir(), "atria-child-output-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-child-output-"));
   const workspaceRoot = join(root, "workspace");
   const store = new LocalWorkspaceStore(workspaceRoot);
   await store.createTask("task", { goal: "synthetic stream integrity" });
@@ -193,7 +193,7 @@ test("a real child's stderr cannot split stdout JSON events and remains availabl
   // The ended turn's snapshot stands for its delta, which keeps its position.
   assert.equal(
     await readFile(output, "utf8"),
-    line({ type: "cowork_deltas_omitted", count: 1 }) + line({ type: "turn_end" })
+    line({ type: "formicand_deltas_omitted", count: 1 }) + line({ type: "turn_end" })
   );
   const history = await readTaskRuntimeEvents(workspaceRoot, "task");
   assert.deepEqual(

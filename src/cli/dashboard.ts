@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { readCoworkConfig } from "../runtime/config.js";
+import { readFormicandConfig } from "../runtime/config.js";
 import { applyProxyEnvironment } from "../runtime/http-transport.js";
 import { createDashboardApplication } from "../dashboard/application.js";
 import {
@@ -9,9 +9,9 @@ import {
   type BackendInstance
 } from "../dashboard/backend-instance.js";
 import { claimBackendServing, publishBackendServing, releaseBackendServing } from "./backend.js";
-import { atriaHome } from "../../scripts/data-home.cjs";
+import { formicandHome } from "../../scripts/data-home.cjs";
 
-applyProxyEnvironment(readCoworkConfig());
+applyProxyEnvironment(readFormicandConfig());
 
 /**
  * The development dashboard: one serving process per data root, like the daemon.
@@ -27,12 +27,12 @@ applyProxyEnvironment(readCoworkConfig());
  * recognise a restarted process and scope its drafts and sessions to it), so the
  * entry reads the persisted identity rather than minting one per process.
  */
-const paths = backendPaths(atriaHome());
-const enforcedToken = process.env.COWORK_API_TOKEN?.trim() || undefined;
+const paths = backendPaths(formicandHome());
+const enforcedToken = process.env.FORMICAND_API_TOKEN?.trim() || undefined;
 const localAccessToken = enforcedToken ?? randomBytes(32).toString("hex");
 const served = await claimBackendServing(paths, randomBytes(32).toString("hex"));
 if (served.kind === "existing") {
-  console.log(`Cowork dashboard already served on ${served.instance.url}`);
+  console.log(`Formicand dashboard already served on ${served.instance.url}`);
 } else {
   const claimToken = served.claim.token;
   const identity = await readBackendIdentity(paths);
@@ -42,7 +42,7 @@ if (served.kind === "existing") {
     backendIdentity: { backendId: identity.value.backendId, startedAt },
     localAccessToken
   });
-  const port = Number(process.env.COWORK_UI_PORT ?? 3880);
+  const port = Number(process.env.FORMICAND_UI_PORT ?? 3880);
   try {
     // A refused project database must stop the service before it answers.
     await dashboard.ready;
@@ -79,7 +79,7 @@ if (served.kind === "existing") {
     await releaseBackendServing(paths, claimToken);
     throw error;
   });
-  console.log(`Cowork dashboard listening on ${dashboard.dashboardUrl}`);
+  console.log(`Formicand dashboard listening on ${dashboard.dashboardUrl}`);
   if (process.send) process.send({ type: "dashboard.ready", url: dashboard.dashboardUrl });
   let shuttingDown = false;
   for (const signal of ["SIGINT", "SIGTERM"] as const)

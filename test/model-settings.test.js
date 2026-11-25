@@ -4,21 +4,21 @@ import { mkdtemp, readFile, stat, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createModelSettings } from "../dist/src/dashboard/model-settings.js";
-import { readCoworkConfig } from "../dist/src/runtime/config.js";
+import { readFormicandConfig } from "../dist/src/runtime/config.js";
 import { resolveModelRole } from "../dist/src/runtime/role-models.js";
 
 const ENV = [
-  "COWORK_CONFIG",
-  "COWORK_API_BASE",
-  "COWORK_API_KEY",
-  "COWORK_MODEL",
-  "COWORK_SUPPORTS_IMAGES",
-  "COWORK_MODEL_API",
-  "COWORK_CREDENTIALS"
+  "FORMICAND_CONFIG",
+  "FORMICAND_API_BASE",
+  "FORMICAND_API_KEY",
+  "FORMICAND_MODEL",
+  "FORMICAND_SUPPORTS_IMAGES",
+  "FORMICAND_MODEL_API",
+  "FORMICAND_CREDENTIALS"
 ];
 
 async function fixture(t, initial = { workspaceRoot: "/preserve" }) {
-  const root = await mkdtemp(join(tmpdir(), "atria-model-providers-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-model-providers-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const saved = Object.fromEntries(ENV.map((key) => [key, process.env[key]]));
   t.after(() => {
@@ -31,7 +31,7 @@ async function fixture(t, initial = { workspaceRoot: "/preserve" }) {
   await writeFile(path, JSON.stringify(initial));
   const config = {};
   const settings = createModelSettings(root, config);
-  const reopen = () => createModelSettings(root, readCoworkConfig(root, { COWORK_CONFIG: path }));
+  const reopen = () => createModelSettings(root, readFormicandConfig(root, { FORMICAND_CONFIG: path }));
   return { root, path, config, settings, reopen, credentials: join(root, "credentials.json") };
 }
 
@@ -102,7 +102,7 @@ test("providers keep keys on the host, validate input and refuse changes during 
     ]
   );
 
-  process.env.COWORK_API_KEY = "environment-key";
+  process.env.FORMICAND_API_KEY = "environment-key";
   assert.equal(f.settings.status().managedByEnvironment, true);
   await assert.rejects(f.settings.saveProvider({ id: provider.id, name: "环境" }), /启动环境/);
 });

@@ -76,7 +76,7 @@ for (const theme of ["dark", "light"])
   }) => {
     const dashboard = await startDashboard();
     try {
-      await page.addInitScript((value) => localStorage.setItem("atria.appearance", value), theme);
+      await page.addInitScript((value) => localStorage.setItem("formicand.appearance", value), theme);
       await page.goto(dashboard.base);
       await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
       // With nothing to send the key rests on a quiet fill; it becomes the

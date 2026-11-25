@@ -6,7 +6,7 @@ import { test } from "node:test";
 import { GlobalWorkspaceCatalog } from "../dist/src/workspace/global-catalog.js";
 
 test("global workspace catalog deduplicates roots without moving task data", async () => {
-  const root = await mkdtemp(join(tmpdir(), "atria-global-catalog-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-global-catalog-"));
   const workspaceA = join(root, "project-a");
   const workspaceB = join(root, "project-b");
   const index = join(root, "global", "workspaces.json");

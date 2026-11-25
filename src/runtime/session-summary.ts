@@ -94,7 +94,7 @@ export async function writeHandoffSummary(
     return summary;
   } catch (error) {
     console.warn(
-      "[CoworkOS] The context handoff has no summary:",
+      "[Formicand] The context handoff has no summary:",
       error instanceof Error ? error.message : String(error)
     );
   }

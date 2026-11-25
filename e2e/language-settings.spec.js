@@ -72,7 +72,7 @@ test("English chrome preserves Chinese conversation titles and message text", as
         }
       })
     );
-    await page.addInitScript(() => localStorage.setItem("atria.language", "en"));
+    await page.addInitScript(() => localStorage.setItem("formicand.language", "en"));
     await page.goto(dashboard.base + "/?task=language-content");
     await expect(page.locator("html")).toHaveAttribute("lang", "en");
     await expect(page.locator("#topbar-task")).toHaveText("保存");
@@ -92,7 +92,7 @@ test("unavailable local storage does not reload or lose the current draft", asyn
     await page.evaluate(() => {
       const original = Storage.prototype.setItem;
       Storage.prototype.setItem = function (key, value) {
-        if (key === "atria.language") throw new DOMException("blocked", "QuotaExceededError");
+        if (key === "formicand.language") throw new DOMException("blocked", "QuotaExceededError");
         return original.call(this, key, value);
       };
     });

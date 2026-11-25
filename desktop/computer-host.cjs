@@ -25,7 +25,7 @@ function createComputerHost({ expected, inspect, isCurrent = () => true, fetchIm
     )
       throw new Error("后端身份已改变，请重新连接");
     const response = await fetchImpl(`${instance.url}/api/backend`, {
-      headers: { "x-atria-token": instance.token },
+      headers: { "x-formicand-token": instance.token },
       redirect: "error",
       signal: AbortSignal.timeout(3000)
     });
@@ -45,7 +45,7 @@ function createComputerHost({ expected, inspect, isCurrent = () => true, fetchIm
       method: "POST",
       headers: {
         "content-type": "application/json",
-        "x-atria-token": instance.token,
+        "x-formicand-token": instance.token,
         "x-computer-approval": token
       },
       body: JSON.stringify({ ...identity, input: { operation: "revoke-approval" } }),
@@ -61,7 +61,7 @@ function createComputerHost({ expected, inspect, isCurrent = () => true, fetchIm
       pending = (async () => {
         const response = await fetchImpl(`${instance.url}/api/host/computer/approve`, {
           method: "POST",
-          headers: { "content-type": "application/json", "x-atria-token": instance.token },
+          headers: { "content-type": "application/json", "x-formicand-token": instance.token },
           body: JSON.stringify(identity),
           redirect: "error",
           signal: AbortSignal.any([controller.signal, AbortSignal.timeout(125000)])
@@ -125,7 +125,7 @@ function createComputerHost({ expected, inspect, isCurrent = () => true, fetchIm
         method: "POST",
         headers: {
           "content-type": "application/json",
-          "x-atria-token": instance.token,
+          "x-formicand-token": instance.token,
           ...(privileged && approval ? { "x-computer-approval": approval } : {})
         },
         body: JSON.stringify({ ...identity, input }),

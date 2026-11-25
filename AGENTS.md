@@ -1,4 +1,4 @@
-# CoworkOS 开发入口
+# Formicand 开发入口
 
 中文 | [English](AGENTS.en.md)
 
@@ -15,7 +15,7 @@
 
 | 目录                                            | 职责                                      | 约束入口                                  |
 | ----------------------------------------------- | ----------------------------------------- | ----------------------------------------- |
-| `src/cli/`、`scripts/atria.mjs`                 | 用户命令、启动器与 smoke 入口             | [代码地图](docs/code-map.md)              |
+| `src/cli/`、`scripts/formicand.mjs`             | 用户命令、启动器与 smoke 入口             | [代码地图](docs/code-map.md)              |
 | `src/dashboard/`                                | 本地 HTTP/SSE、服务装配和 Run 编排        | [服务指引](src/dashboard/AGENTS.md)       |
 | `src/runtime/`                                  | Task/Run、调度、恢复、模型与 Pi 会话      | [运行时指引](src/runtime/AGENTS.md)       |
 | `src/gui/`、`src/security/`                     | 原生交互、窗口授权与执行权限              | [Computer Use](docs/computer-use.md)      |
@@ -61,6 +61,6 @@ GitHub 的日常检查流程在 PR 和推送到 main 时自动运行，也可手
 
 提交说明包含：问题和结果、涉及模块/接口、执行的检查、尚未验证的范围。委派、返修、独立审查和归档按 [开发交接](docs/development-handoffs.md) 明确本轮增量、验证责任与证据。改变命令、功能、路径或接口，同一变更更新对应文档与代码地图；路线图只记录状态、下一步与验收标准。
 
-`config.json`、`.cowork/`、`.tmp/`、`applications/`、`workspace/`、`task-*/`、supervisor 锁和用户数据都不是源码。不要读取真实密钥、删除运行数据、清理用户任务或把它们放进发布包。测试使用自己的临时目录与本地假模型服务。
+`config.json`、`.formicand/`、`.tmp/`、`applications/`、`workspace/`、`task-*/`、supervisor 锁和用户数据都不是源码。不要读取真实密钥、删除运行数据、清理用户任务或把它们放进发布包。测试使用自己的临时目录与本地假模型服务。
 
 第三方许可清单、分发渠道、签名/公证、干净机器安装和实际模型连接分别记录独立证据。正式/稳定版须完成对应 P0 门槛；限定范围的公开 beta 按贡献约定声明支持范围、ad-hoc/未公证的安装方式和待验收项，未完成的检查不能写成通过。本项目自有代码采用 MIT，第三方例外见 [许可证说明](THIRD_PARTY_NOTICES.md)。完整流程见 [贡献约定](CONTRIBUTING.md) 与 [Mac 发布](docs/mac-release.md)。

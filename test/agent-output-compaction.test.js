@@ -72,7 +72,7 @@ test("a delegated agent's log keeps settled events and the timing of the boundar
 });
 
 test("the launcher writes the child's events to its log through the compaction", async (t) => {
-  const root = await mkdtemp(join(tmpdir(), "atria-agent-output-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-agent-output-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const child = join(root, "child.mjs");
   // Lines split across writes, and a last line the child never finished.

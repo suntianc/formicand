@@ -226,8 +226,8 @@ export default [
   },
   {
     files: ["src/**/*.ts", ".pi/**/*.ts", "scripts/**/*.mjs", "web/**/*.js", "desktop/**/*.cjs"],
-    plugins: { cowork: { rules: { "pi-import-boundary": piImportBoundary } } },
-    rules: { "cowork/pi-import-boundary": "error" }
+    plugins: { formicand: { rules: { "pi-import-boundary": piImportBoundary } } },
+    rules: { "formicand/pi-import-boundary": "error" }
   },
   {
     files: [

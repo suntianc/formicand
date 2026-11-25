@@ -36,7 +36,7 @@ test("two nodes draw pulse lanes, Subagent branches, capacity groups and a stall
   const a = await startDashboard({
     port: portA,
     defaultProject: false,
-    env: { COWORK_TRUSTED_CLIENT_ORIGINS: origins }
+    env: { FORMICAND_TRUSTED_CLIENT_ORIGINS: origins }
   });
   let b;
   try {
@@ -44,7 +44,7 @@ test("two nodes draw pulse lanes, Subagent branches, capacity groups and a stall
       port: portB,
       defaultProject: false,
       config: { mainCapacity: { resident: 3, continuation: 2 } },
-      env: { COWORK_TRUSTED_CLIENT_ORIGINS: origins }
+      env: { FORMICAND_TRUSTED_CLIENT_ORIGINS: origins }
     });
     const projectA = await createProject(page, a, "P4 验收示例项目", `${a.root}/p4-project`);
     const projectB = await createProject(page, b, "官网", `${b.root}/site-project`);

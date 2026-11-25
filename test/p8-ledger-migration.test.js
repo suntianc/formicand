@@ -166,7 +166,7 @@ async function seedVersion8(database) {
 
 async function version8Database(t, engine) {
   if (engine === "sqlite") {
-    const directory = await mkdtemp(join(tmpdir(), "coworkos-ledger-v8-"));
+    const directory = await mkdtemp(join(tmpdir(), "formicand-ledger-v8-"));
     t.after(() => rm(directory, { recursive: true, force: true }));
     const path = join(directory, "project-data.sqlite");
     const database = await SqliteDatabase.open(path);
@@ -174,7 +174,7 @@ async function version8Database(t, engine) {
     await database.close();
     return { config: { sqlite: { path } }, dataRoot: directory };
   }
-  const name = `coworkos_v8_${randomBytes(4).toString("hex")}`;
+  const name = `formicand_v8_${randomBytes(4).toString("hex")}`;
   const admin = new pg.Client({ connectionString: postgres.connectionString });
   await admin.connect();
   await admin.query(`CREATE DATABASE ${name}`);
@@ -185,7 +185,7 @@ async function version8Database(t, engine) {
   const database = new PostgresDatabase({ connectionString: url.toString() });
   await seedVersion8(database);
   await database.close();
-  const directory = await mkdtemp(join(tmpdir(), "coworkos-ledger-v8-"));
+  const directory = await mkdtemp(join(tmpdir(), "formicand-ledger-v8-"));
   t.after(() => rm(directory, { recursive: true, force: true }));
   return { config: { engine, postgres: { connectionString: url.toString() } }, dataRoot: directory };
 }

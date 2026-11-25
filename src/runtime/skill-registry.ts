@@ -1,7 +1,7 @@
 import { readdir, readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
-import { atriaHome } from "../../scripts/data-home.cjs";
+import { formicandHome } from "../../scripts/data-home.cjs";
 import { projectAgentsSkillRoots, projectTrustDecision } from "./project-trust.js";
 import { removedSkillDirectories } from "./skill-index.js";
 import { parseSkillFrontmatter } from "./skill-frontmatter.js";
@@ -12,22 +12,22 @@ export function bundledSkillRoot(harnessRoot: string): string {
   return join(harnessRoot, ".pi", "skills");
 }
 
-/** Where CoworkOS installs global skills: `~/.atria/skills`. */
+/** Where Formicand installs global skills: `~/.formicand/skills`. */
 export function installedSkillRoot(home: string): string {
   return join(home, "skills");
 }
 
 /** The installed skill folder of the data home this process uses. */
 export function installedSkillRootNow(env: NodeJS.ProcessEnv = process.env): string {
-  return installedSkillRoot(atriaHome(env));
+  return installedSkillRoot(formicandHome(env));
 }
 
 /**
  * Where a skill came from, highest priority first.
  *
- * `project` and `global` are CoworkOS's own `.atria/skills`; the `-agents`
+ * `project` and `global` are Formicand's own `.formicand/skills`; the `-agents`
  * sources are the shared `.agents/skills` convention other tools also read,
- * which CoworkOS never writes to.
+ * which Formicand never writes to.
  */
 export const SKILL_SOURCES = ["project", "project-agents", "global", "global-agents", "bundled"] as const;
 export type SkillSource = (typeof SKILL_SOURCES)[number];
@@ -41,7 +41,7 @@ export interface SkillLocations {
   harnessRoot: string;
   /** Omitted for the global catalog. */
   projectDirectory?: string;
-  /** CoworkOS's data home (`~/.atria`). */
+  /** Formicand's data home (`~/.formicand`). */
   home: string;
   /** The user's home folder, where `~/.agents/skills` lives. */
   userHome: string;
@@ -54,7 +54,7 @@ export function skillRootsFor(locations: SkillLocations): SkillRoot[] {
   const roots: SkillRoot[] = [];
   const { projectDirectory } = locations;
   if (projectDirectory && locations.projectTrusted) {
-    roots.push({ source: "project", root: join(resolve(projectDirectory), ".atria", "skills") });
+    roots.push({ source: "project", root: join(resolve(projectDirectory), ".formicand", "skills") });
     for (const root of projectAgentsSkillRoots(projectDirectory))
       roots.push({ source: "project-agents", root });
   }
@@ -70,7 +70,7 @@ export async function processSkillLocations(
   projectDirectory: string | undefined,
   env: NodeJS.ProcessEnv = process.env
 ): Promise<SkillLocations> {
-  const home = atriaHome(env);
+  const home = formicandHome(env);
   const trusted = projectDirectory
     ? (await projectTrustDecision(home, projectDirectory)) === "trusted"
     : false;
@@ -86,7 +86,7 @@ export interface SkillMetadata {
 
 export interface SkillEntry extends SkillMetadata {
   source: SkillSource;
-  /** Removed from CoworkOS's index: hidden from every Agent, file untouched. */
+  /** Removed from Formicand's index: hidden from every Agent, file untouched. */
   removed: boolean;
   /** The directory of the higher-priority skill with the same name, when one wins. */
   shadowedBy?: string;

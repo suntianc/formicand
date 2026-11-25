@@ -394,7 +394,7 @@ for (const httpStatus of [undefined, 400])
       await recoveryFixture(page, dashboard, {
         failureKind: "model_request",
         httpStatus,
-        errorMessage: `cowork-glm API error (400): ${JSON.stringify({
+        errorMessage: `formicand-glm API error (400): ${JSON.stringify({
           message:
             "This content was flagged for possible cybersecurity risk. " +
             "private-provider-detail ".repeat(20),

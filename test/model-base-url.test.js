@@ -27,10 +27,10 @@ for (const path of ["/api/paas/v4", "/api/coding/paas/v4"]) {
           res.writeHead(404);
           return res.end('{"error":{"message":"wrong API path"}}');
         }
-        const probe = body.tools?.some((tool) => tool.function.name === "atria_connection_check");
+        const probe = body.tools?.some((tool) => tool.function.name === "formicand_connection_check");
         const reply = probe
           ? {
-              name: "atria_connection_check",
+              name: "formicand_connection_check",
               arguments: { status: "connected", color: "none", code: "none" }
             }
           : requests.length === 2
@@ -71,7 +71,7 @@ test("a bare host gets /v1 and an address with a path is used as written", async
     requests.push(String(input));
     return new Response(
       protocolStream("openai-completions", {
-        name: "atria_connection_check",
+        name: "formicand_connection_check",
         arguments: { status: "connected", color: "none", code: "none" }
       }),
       { headers: { "content-type": "text/event-stream" } }

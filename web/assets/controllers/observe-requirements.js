@@ -299,7 +299,7 @@ export function createObserveRequirements({
   /* ----------------------------------------------------------------- markup */
 
   function stamp(value) {
-    return formatStamp(value, window.atriaPreferences?.format() ?? "relative", now().valueOf());
+    return formatStamp(value, window.formicandPreferences?.format() ?? "relative", now().valueOf());
   }
 
   function tabMarkup(counts, current) {

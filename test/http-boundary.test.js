@@ -76,20 +76,20 @@ test("routes validate request shape and size", async (t) => {
 });
 
 test("a native dashboard authenticates header clients and HttpOnly browser sessions", () => {
-  const saved = process.env.COWORK_API_TOKEN;
-  process.env.COWORK_API_TOKEN = "native-test-session";
+  const saved = process.env.FORMICAND_API_TOKEN;
+  process.env.FORMICAND_API_TOKEN = "native-test-session";
   const base = "http://127.0.0.1:3880";
   const request = (headers) => ({ headers: { host: "127.0.0.1:3880", ...headers }, url: "/api/tasks" });
   try {
-    for (const headers of [{}, { "x-atria-token": "wrong" }, { cookie: "atria-session=wrong" }])
+    for (const headers of [{}, { "x-formicand-token": "wrong" }, { cookie: "formicand-session=wrong" }])
       assert.throws(() => localRequestUrl(request(headers), base), { status: 401 });
-    assert.doesNotThrow(() => localRequestUrl(request({ "x-atria-token": "native-test-session" }), base));
+    assert.doesNotThrow(() => localRequestUrl(request({ "x-formicand-token": "native-test-session" }), base));
     assert.doesNotThrow(() =>
-      localRequestUrl(request({ cookie: "other=value; atria-session=native-test-session" }), base)
+      localRequestUrl(request({ cookie: "other=value; formicand-session=native-test-session" }), base)
     );
   } finally {
-    if (saved === undefined) delete process.env.COWORK_API_TOKEN;
-    else process.env.COWORK_API_TOKEN = saved;
+    if (saved === undefined) delete process.env.FORMICAND_API_TOKEN;
+    else process.env.FORMICAND_API_TOKEN = saved;
   }
 });
 

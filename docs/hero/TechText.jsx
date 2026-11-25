@@ -1,6 +1,6 @@
 // Original path lettering and deterministic SVG animation, inspired by the
 // selection frame in React Bits Tech Text. No upstream source is copied.
-// These glyphs are a purpose-drawn CoworkOS wordmark, not a general text font.
+// These glyphs are a purpose-drawn Formicand wordmark, not a general text font.
 const glyphs = [
   {
     letter: "C",
@@ -46,7 +46,7 @@ const glyphs = [
 const mixColor = (from, to, amount) =>
   `rgb(${from.map((value, i) => Math.round(value + (to[i] - value) * amount)).join(" ")})`;
 export default function TechText({ text, x = 0, y = 0, time = 0, staticFrame = false, specks = 15 }) {
-  if (text !== "CoworkOS") throw new Error("This custom wordmark supports CoworkOS only.");
+  if (text !== "Formicand") throw new Error("This custom wordmark supports Formicand only.");
   const phase = staticFrame ? 0 : ((time % 6) + 6) % 6;
   // Constant opacity and geometry: only OS smoothly changes its blue/lilac ink.
   const blend = (1 - Math.cos((phase / 6) * Math.PI * 2)) / 2;

@@ -551,12 +551,12 @@ test("the worker and the CLI spend the same budget as the page", { timeout: 240_
   );
   const workerEnv = {
     ...dashboard.env,
-    COWORK_WORKSPACE: dashboard.workspaceRoot,
-    COWORK_TASK_ID: workerSession.taskId
+    FORMICAND_WORKSPACE: dashboard.workspaceRoot,
+    FORMICAND_TASK_ID: workerSession.taskId
   };
   const worker = async (taskId = workerSession.taskId) => {
     const { stdout, stderr, code } = await captured(["scripts/main-worker.mjs", "--task", taskId, "--once"], {
-      env: { ...workerEnv, COWORK_TASK_ID: taskId },
+      env: { ...workerEnv, FORMICAND_TASK_ID: taskId },
       timeoutMs: 90_000
     });
     const receipt = stdout
@@ -588,8 +588,8 @@ test("the worker and the CLI spend the same budget as the page", { timeout: 240_
     {
       env: {
         ...dashboard.env,
-        COWORK_WORKSPACE: dashboard.workspaceRoot,
-        COWORK_TASK_ID: cliSession.taskId
+        FORMICAND_WORKSPACE: dashboard.workspaceRoot,
+        FORMICAND_TASK_ID: cliSession.taskId
       },
       timeoutMs: 60_000
     }
@@ -1381,8 +1381,8 @@ test(
       model: "fixture-model",
       defaultProject: false,
       env: {
-        COWORK_MAIN_CAPACITY_TICK_MS: "120",
-        COWORK_MAIN_CAPACITY_RETRY_MS: "120"
+        FORMICAND_MAIN_CAPACITY_TICK_MS: "120",
+        FORMICAND_MAIN_CAPACITY_RETRY_MS: "120"
       },
       config: {
         projectData: { authority: { url: outage.url, token: instance.value.token } },
@@ -1953,9 +1953,9 @@ test(
         detached: true,
         env: {
           ...dashboard.env,
-          COWORK_TASK_ID: firstSession.taskId,
-          COWORK_RUN_ID: runId,
-          COWORK_MAIN_CAPACITY_GRANTED: requestId
+          FORMICAND_TASK_ID: firstSession.taskId,
+          FORMICAND_RUN_ID: runId,
+          FORMICAND_MAIN_CAPACITY_GRANTED: requestId
         }
       }
     );
@@ -2044,9 +2044,9 @@ test(
       stdio: ["ignore", "pipe", "pipe"],
       env: {
         ...dashboard.env,
-        COWORK_TASK_ID: "task-without-slot",
-        COWORK_RUN_ID: "main-without-slot",
-        COWORK_MAIN_CAPACITY_GRANTED: "request-without-slot"
+        FORMICAND_TASK_ID: "task-without-slot",
+        FORMICAND_RUN_ID: "main-without-slot",
+        FORMICAND_MAIN_CAPACITY_GRANTED: "request-without-slot"
       }
     });
     let stderr = "";
@@ -2076,7 +2076,7 @@ test(
     const { MainCapacityStore } = await import("../dist/src/storage/main-capacity-store.js");
     const { createMainCapacityService } = await import("../dist/src/dashboard/main-capacity-service.js");
     const dist = new URL("../dist/", import.meta.url);
-    const dir = await mkdtemp(join(tmpdir(), "cowork-capacity-race-"));
+    const dir = await mkdtemp(join(tmpdir(), "formicand-capacity-race-"));
     t.after(() => rm(dir, { recursive: true, force: true }));
     const childScript = join(dir, "child-self-register.mjs");
     await writeFile(

@@ -175,12 +175,12 @@ test("storage quota failures block closing until every in-memory conversation is
   session.activate("task-b");
   input.value = "B 最新内存草稿";
   assert.equal(session.prepareClose(), false);
-  assert.equal(JSON.parse(records.get("atria.composer.v1:task-a")).text, "A 原来已经保存的草稿");
+  assert.equal(JSON.parse(records.get("formicand.composer.v1:task-a")).text, "A 原来已经保存的草稿");
   assert.equal(input.value, "B 最新内存草稿");
   unavailable = false;
   assert.equal(session.prepareClose(), true);
-  assert.equal(JSON.parse(records.get("atria.composer.v1:task-a")).text, "A 最新内存草稿");
-  assert.equal(JSON.parse(records.get("atria.composer.v1:task-b")).text, "B 最新内存草稿");
+  assert.equal(JSON.parse(records.get("formicand.composer.v1:task-a")).text, "A 最新内存草稿");
+  assert.equal(JSON.parse(records.get("formicand.composer.v1:task-b")).text, "B 最新内存草稿");
   session.activate("task-a");
   assert.equal(input.value, "A 最新内存草稿");
 });
@@ -207,15 +207,15 @@ test("programmatic attachment changes, transfers and clearing notify the desktop
   input.value = "异步文件已读取";
   files = [{ name: "late.txt", text: "完整文件内容" }];
   session.save();
-  assert.equal(JSON.parse(mirrored.at(-1)["atria.composer.v1:new"]).attachments[0].name, "late.txt");
+  assert.equal(JSON.parse(mirrored.at(-1)["formicand.composer.v1:new"]).attachments[0].name, "late.txt");
   session.transfer("created-task");
-  assert.equal(JSON.parse(mirrored.at(-1)["atria.composer.v1:created-task"]).text, "异步文件已读取");
-  assert.equal(mirrored.at(-1)["atria.composer.v1:new"], undefined);
+  assert.equal(JSON.parse(mirrored.at(-1)["formicand.composer.v1:created-task"]).text, "异步文件已读取");
+  assert.equal(mirrored.at(-1)["formicand.composer.v1:new"], undefined);
   files = [];
   input.value = "";
   session.save();
-  assert.equal(mirrored.at(-1)["atria.composer.v1:created-task"], undefined);
-  assert.equal(JSON.parse(mirrored.at(-1)["atria.composer.v1:active"]), "created-task");
+  assert.equal(mirrored.at(-1)["formicand.composer.v1:created-task"], undefined);
+  assert.equal(JSON.parse(mirrored.at(-1)["formicand.composer.v1:active"]), "created-task");
 });
 
 test("message edit keeps the original draft through navigation, restart, cancellation and background acceptance", () => {

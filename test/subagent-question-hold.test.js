@@ -8,7 +8,7 @@ import { SubagentQuestionStore } from "../dist/src/runtime/subagent-questions.js
 import { HumanRequestStore } from "../dist/src/runtime/human.js";
 
 async function fixture(t) {
-  const root = await mkdtemp(join(tmpdir(), "atria-question-hold-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-question-hold-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const questions = new SubagentQuestionStore(root);
   const humans = new HumanRequestStore(root);

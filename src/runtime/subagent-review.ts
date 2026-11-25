@@ -221,7 +221,7 @@ function parsePreviousAnswers(
 export function parseReviewScope(raw: string | undefined): ReviewScope | undefined {
   if (!raw) return undefined;
   const value = JSON.parse(raw) as Partial<ReviewScope>;
-  if (!Array.isArray(value.criteria)) throw new Error("COWORK_REVIEW_SCOPE has no criteria");
+  if (!Array.isArray(value.criteria)) throw new Error("FORMICAND_REVIEW_SCOPE has no criteria");
   return {
     criteria: value.criteria.map(String),
     ...(Array.isArray(value.previous)

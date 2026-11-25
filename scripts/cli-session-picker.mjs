@@ -22,14 +22,14 @@ export async function selectCliSession({
 }) {
   if (!input.isTTY || !output.isTTY)
     throw new Error(
-      "会话选择需要交互终端。请使用 coworkos --continue 或 coworkos --session <ID|path>。Session selection requires a terminal; use coworkos --continue or coworkos --session <ID|path>."
+      "会话选择需要交互终端。请使用 formicand --continue 或 formicand --session <ID|path>。Session selection requires a terminal; use formicand --continue or formicand --session <ID|path>."
     );
   const available = [...new Map(sessions.map((session) => [session.path, session])).values()];
   if (available.length === 0) {
-    output.write("没有可恢复的会话；运行 coworkos 开始新任务。No saved sessions; run coworkos to start.\n");
+    output.write("没有可恢复的会话；运行 formicand 开始新任务。No saved sessions; run formicand to start.\n");
     return null;
   }
-  output.write("CoworkOS · 选择要继续的会话 / Select a session\n");
+  output.write("Formicand · 选择要继续的会话 / Select a session\n");
   for (const [index, session] of available.entries()) {
     const title = label(session.name || session.firstMessage || "未命名会话 / Untitled");
     output.write(`${index + 1}. ${title}\n   ${label(session.id)} · ${label(session.cwd)}\n`);

@@ -10,7 +10,7 @@ import { parseSkillFrontmatter } from "./skill-frontmatter.js";
  * one project. Each memory is one Markdown file with a small frontmatter; the
  * index Main sees every turn is derived from those files by the program, so it
  * can never drift from what is stored. Nothing is written into the user's
- * repository: both scopes live in CoworkOS's data home.
+ * repository: both scopes live in Formicand's data home.
  */
 export const MEMORY_TYPES = ["user", "feedback", "project", "reference"] as const;
 export type MemoryType = (typeof MEMORY_TYPES)[number];

@@ -13,9 +13,9 @@ import {
   productionPackages
 } from "../scripts/cli-package-lock.mjs";
 
-const parentName = "atria-packaging-fixture-parent";
-const childName = "atria-packaging-fixture-child";
-const nestedName = "atria-packaging-fixture-nested";
+const parentName = "formicand-packaging-fixture-parent";
+const childName = "formicand-packaging-fixture-child";
+const nestedName = "formicand-packaging-fixture-nested";
 
 function packageLock() {
   return {
@@ -51,11 +51,11 @@ test("CLI lock pins tested direct/platform versions and retains only production 
   const dependencies = cliDependencies(source, lock);
   assert.deepEqual(dependencies, { [parentName]: "1.0.0", esbuild: "0.28.2" });
   const manifest = {
-    name: "atria-packaging-fixture-cli",
+    name: "formicand-packaging-fixture-cli",
     version: "1.0.0",
     license: "MIT",
     engines: { node: ">=22.19.0" },
-    bin: { "atria-packaging-fixture": "cli.cjs" },
+    bin: { "formicand-packaging-fixture": "cli.cjs" },
     dependencies
   };
   const shrinkwrap = cliShrinkwrap(manifest, lock);
@@ -132,7 +132,7 @@ async function put(root, file, content) {
 }
 
 test("the actual CLI packer excludes retained Mac helpers and tolerates optional source resources", async () => {
-  const root = await mkdtemp(join(tmpdir(), "atria-cli-content-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-cli-content-"));
   try {
     // Copy only public source directories used by the actual packer. No build,
     // installed production dependencies, model configuration or user data.
@@ -174,11 +174,11 @@ test("the actual CLI packer excludes retained Mac helpers and tolerates optional
       packages: { "": { name: "cli-source-fixture", version, dependencies: {} } }
     });
     for (const file of [
-      "dist/src/gui/atria-computer-use",
-      "dist/src/gui/atria-computer-use.sha256",
-      "dist/src/gui/atria-speech-input",
-      "dist/src/gui/atria-speech-input.sha256",
-      "dist/src/gui/atria-icon.png",
+      "dist/src/gui/formicand-computer-use",
+      "dist/src/gui/formicand-computer-use.sha256",
+      "dist/src/gui/formicand-speech-input",
+      "dist/src/gui/formicand-speech-input.sha256",
+      "dist/src/gui/formicand-icon.png",
       "dist/src/gui/driver.js.map"
     ])
       await put(root, file, "Mac/generated sentinel excluded from portable CLI");
@@ -192,10 +192,10 @@ test("the actual CLI packer excludes retained Mac helpers and tolerates optional
     await put(root, "dist/src/tools/science/runner.py", "retired runtime sentinel");
     for (const name of ["npmrc", "global-npmrc"]) await put(root, name, "");
     const env = Object.fromEntries(
-      Object.entries(process.env).filter(([key]) => !/^(?:npm_config_|COWORK_|PI_|ATRIA_)/i.test(key))
+      Object.entries(process.env).filter(([key]) => !/^(?:npm_config_|FORMICAND_|PI_|FORMICAND_)/i.test(key))
     );
     Object.assign(env, {
-      ATRIA_PACKAGE_DIR: join(root, "archives"),
+      FORMICAND_PACKAGE_DIR: join(root, "archives"),
       npm_config_userconfig: join(root, "npmrc"),
       npm_config_globalconfig: join(root, "global-npmrc"),
       npm_config_cache: join(root, "npm-cache"),
@@ -210,12 +210,15 @@ test("the actual CLI packer excludes retained Mac helpers and tolerates optional
       timeout: 120_000,
       maxBuffer: 4 * 1024 * 1024
     });
-    const archive = join(root, "archives", `coworkos-cli-${version}.tgz`);
+    const archive = join(root, "archives", `formicand-cli-${version}.tgz`);
     const manifest = JSON.parse(
       execFileSync("tar", ["-xOf", archive, "package/package.json"], { encoding: "utf8" })
     );
-    assert.equal(manifest.name, "atria-cowork-cli");
-    assert.deepEqual(manifest.bin, { coworkos: "scripts/atria.mjs", atria: "scripts/atria.mjs" });
+    assert.equal(manifest.name, "formicand-cli");
+    assert.deepEqual(manifest.bin, {
+      formicand: "scripts/formicand.mjs",
+      formicand: "scripts/formicand.mjs"
+    });
     const files = execFileSync("tar", ["-tzf", archive], { encoding: "utf8" }).trim().split("\n");
     // The worker and the Pi runtime load this gate at run time, so the archive
     // has to carry it or an external-capacity CLI fails in the consumer's tree.
@@ -248,11 +251,11 @@ test("the actual CLI packer excludes retained Mac helpers and tolerates optional
     assert.ok(files.includes("package/.pi/skills/cua/SKILL.md"), "CLI archive excludes cua");
 
     assert.equal(
-      files.some((path) => /atria-(?:speech-input|computer-use)(?:\.sha256)?$/.test(path)),
+      files.some((path) => /formicand-(?:speech-input|computer-use)(?:\.sha256)?$/.test(path)),
       false
     );
     assert.equal(
-      files.some((path) => /\.map$|atria-icon\.png$/.test(path)),
+      files.some((path) => /\.map$|formicand-icon\.png$/.test(path)),
       false
     );
     const license = "licenses/pi-0.87.1-LICENSE.txt";
@@ -305,7 +308,7 @@ test(
   "portable CLI archive installs an overridden bundle and exact platform fallback locally/globally offline",
   { timeout: 60000 },
   async () => {
-    const root = await mkdtemp(join(tmpdir(), "atria-packaging-regression-"));
+    const root = await mkdtemp(join(tmpdir(), "formicand-packaging-regression-"));
     try {
       const npmCli = await npmCliPath();
       const cache = join(root, "cache");
@@ -440,9 +443,9 @@ test(
       ]);
       const dependencies = cliDependencies({ dependencies: { [parentName]: "^1.0.0" } }, lock);
       const manifest = {
-        name: "atria-packaging-fixture-cli",
+        name: "formicand-packaging-fixture-cli",
         version: "1.0.0",
-        bin: { "atria-packaging-fixture": "cli.cjs" },
+        bin: { "formicand-packaging-fixture": "cli.cjs" },
         dependencies,
         bundleDependencies: Object.keys(dependencies),
         overrides: { [childName]: "2.0.4" },
@@ -480,10 +483,12 @@ test(
             : join(prefix, process.platform === "win32" ? "node_modules" : "lib/node_modules", manifest.name);
         const launcher =
           mode === "local"
-            ? join(consumer, "node_modules/.bin/atria-packaging-fixture")
+            ? join(consumer, "node_modules/.bin/formicand-packaging-fixture")
             : join(
                 prefix,
-                process.platform === "win32" ? "atria-packaging-fixture" : "bin/atria-packaging-fixture"
+                process.platform === "win32"
+                  ? "formicand-packaging-fixture"
+                  : "bin/formicand-packaging-fixture"
               );
         await access(launcher);
         const output = execFileSync(

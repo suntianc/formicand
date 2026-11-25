@@ -32,7 +32,9 @@ createInterface({ input: process.stdin }).on("line", (line) => {
       reply(id, {
         content: [{ type: "text", text: "ready" }],
         structuredContent: {
-          atria: { operations: [{ operationType: "text.insert", payload: { at: 0, text: "candidate\n" } }] }
+          formicand: {
+            operations: [{ operationType: "text.insert", payload: { at: 0, text: "candidate\n" } }]
+          }
         }
       });
     }, message.params.arguments.delayMs ?? 0);

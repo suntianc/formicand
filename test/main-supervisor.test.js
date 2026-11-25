@@ -19,7 +19,7 @@ import { now } from "../dist/src/domain/types.js";
 const RUN = "run-1";
 
 async function workspace(t, { status = "running" } = {}) {
-  const root = await mkdtemp(join(tmpdir(), "atria-supervisor-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-supervisor-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const taskId = "opt-task";
   const store = new LocalWorkspaceStore(root);

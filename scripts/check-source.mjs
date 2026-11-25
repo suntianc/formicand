@@ -4,7 +4,7 @@ import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
 const privateFiles =
-  /^(?:config\.json$|\.openai\/hosting\.json$|(?:\.tmp|\.cowork|\.cowork-cli|node_modules|dist|build|release|applications|workspace|test-results|playwright-report|docs\/history)\/|task-[^/]+\/)/;
+  /^(?:config\.json$|\.openai\/hosting\.json$|(?:\.tmp|\.formicand|\.formicand-cli|node_modules|dist|build|release|applications|workspace|test-results|playwright-report|docs\/history)\/|task-[^/]+\/)/;
 const credential =
   /\b(?:gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{40,}|sk-(?:proj-)?[A-Za-z0-9_-]{24,}|AKIA[A-Z0-9]{16})\b/g;
 const personalPath = /\/(?:Users|home)\/([^\s/"'<>`]+)/g;

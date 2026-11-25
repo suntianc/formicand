@@ -39,7 +39,7 @@ import type {
 const MISSING_MERGE_CONFIG =
   "项目合入配置缺失：项目文件夹不是带有已提交当前分支的 Git 仓库，无法确定合入到哪里。" +
   "请停止开发并告诉用户：在项目文件夹初始化 Git 仓库、提交一次并切到要合入的分支后再继续。" +
-  "不要查找、读取或修改 CoworkOS 自己的数据、凭据或接口来绕过这一步。";
+  "不要查找、读取或修改 Formicand 自己的数据、凭据或接口来绕过这一步。";
 
 export function createDevelopmentWorkspaceService({
   gateway,
@@ -83,7 +83,7 @@ export function createDevelopmentWorkspaceService({
 
   const workspaceDirectory = (developmentId: string) => join(ports.developmentRoot, developmentId);
 
-  const workspaceBranch = (developmentId: string) => `coworkos/development/${developmentId}`;
+  const workspaceBranch = (developmentId: string) => `formicand/development/${developmentId}`;
 
   /**
    * The project's merge entry.

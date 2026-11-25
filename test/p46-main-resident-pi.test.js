@@ -19,7 +19,7 @@ import { readFixtureRequestBody } from "./http-request-body-fixture.mjs";
  * local provider; nothing here is an in-process stand-in.
  */
 
-const IDLE_ENV = "COWORK_MAIN_IDLE_TIMEOUT_MS";
+const IDLE_ENV = "FORMICAND_MAIN_IDLE_TIMEOUT_MS";
 
 function stream(response, delta, finishReason = null) {
   response.write(

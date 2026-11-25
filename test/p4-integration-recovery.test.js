@@ -102,7 +102,7 @@ test(
   "a crashed, conflicted and check-failed merge leaves reconcilable facts",
   { timeout: 300_000 },
   async (t) => {
-    const root = await mkdtemp(join(tmpdir(), "atria-p4-recovery-"));
+    const root = await mkdtemp(join(tmpdir(), "formicand-p4-recovery-"));
     const repository = await makeDirtyRepository(join(root, "repository"));
     const baseline = await git(repository, ["rev-parse", "HEAD"]);
     const before = await dirtyState(repository);
@@ -136,7 +136,7 @@ test(
     const execution = await startDashboard({
       defaultProject: false,
       config: { projectData: { authority: { url: authority.base, token: authorityInstance.token } } },
-      env: { COWORK_MERGE_FAULT_INJECT: "crash:*@after-apply" }
+      env: { FORMICAND_MERGE_FAULT_INJECT: "crash:*@after-apply" }
     });
     t.after(() => execution.stop());
     const executionInstance = await servingInstance(execution.root);
@@ -234,7 +234,7 @@ test(
 
     // Restarting the execution backend with a new process identity reconciles
     // the same merge instead of creating a second one.
-    delete execution.env.COWORK_MERGE_FAULT_INJECT;
+    delete execution.env.FORMICAND_MERGE_FAULT_INJECT;
     await execution.restart();
     let restartedInstance;
     await waitFor(async () => {

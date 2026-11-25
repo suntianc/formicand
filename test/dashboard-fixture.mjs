@@ -45,39 +45,39 @@ export async function startDashboard({
   blenderExecutable,
   defaultProject = true
 } = {}) {
-  const root = await mkdtemp(join(tmpdir(), "atria-dashboard-test-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-dashboard-test-"));
   const workspaceRoot = existingWorkspace ?? join(root, "workspace");
   await mkdir(workspaceRoot, { recursive: true });
   await writeFile(join(root, "config.json"), JSON.stringify(config));
   let port = requestedPort ?? (await freePort());
   const isolatedEnv = Object.fromEntries(
-    Object.entries(process.env).filter(([name]) => !/^(?:COWORK_|PI_|ATRIA_|EXA_)/.test(name))
+    Object.entries(process.env).filter(([name]) => !/^(?:FORMICAND_|PI_|FORMICAND_|EXA_)/.test(name))
   );
   const launchOptions = {
     cwd: harnessRoot,
     stdio: ["ignore", "pipe", "pipe"],
     env: {
       ...isolatedEnv,
-      ATRIA_HOME: join(root, "home"),
+      FORMICAND_HOME: join(root, "home"),
       PI_CODING_AGENT_DIR: join(root, "pi"),
       PI_OFFLINE: "1",
       PI_TELEMETRY: "0",
-      COWORK_WORKSPACE: workspaceRoot,
-      COWORK_GLOBAL_INDEX: join(root, "global.json"),
-      COWORK_CONFIG: join(root, "config.json"),
-      COWORK_UI_PORT: String(port),
+      FORMICAND_WORKSPACE: workspaceRoot,
+      FORMICAND_GLOBAL_INDEX: join(root, "global.json"),
+      FORMICAND_CONFIG: join(root, "config.json"),
+      FORMICAND_UI_PORT: String(port),
       // Recovery is guardian-driven: only a fixture that tests it may relaunch a parked Task.
-      COWORK_DISABLE_MAIN_GUARDIAN: mainGuardian ? "0" : "1",
-      ...(blenderExecutable ? { COWORK_BLENDER_EXECUTABLE: blenderExecutable } : {}),
-      ...(webSearchEndpoint ? { COWORK_EXA_MCP_ENDPOINT: webSearchEndpoint } : {}),
-      COWORK_API_BASE: modelEndpoint ?? "",
-      COWORK_API_KEY: modelEndpoint ? "local-fixture" : "",
-      COWORK_SUPPORTS_IMAGES: modelEndpoint ? (supportsImages ? "1" : "0") : undefined,
+      FORMICAND_DISABLE_MAIN_GUARDIAN: mainGuardian ? "0" : "1",
+      ...(blenderExecutable ? { FORMICAND_BLENDER_EXECUTABLE: blenderExecutable } : {}),
+      ...(webSearchEndpoint ? { FORMICAND_EXA_MCP_ENDPOINT: webSearchEndpoint } : {}),
+      FORMICAND_API_BASE: modelEndpoint ?? "",
+      FORMICAND_API_KEY: modelEndpoint ? "local-fixture" : "",
+      FORMICAND_SUPPORTS_IMAGES: modelEndpoint ? (supportsImages ? "1" : "0") : undefined,
       ...(modelEndpoint
         ? {
-            COWORK_MODEL: model,
-            COWORK_REASONING_EFFORT: "off",
-            COWORK_SUPPORTS_REASONING_EFFORT: "0"
+            FORMICAND_MODEL: model,
+            FORMICAND_REASONING_EFFORT: "off",
+            FORMICAND_SUPPORTS_REASONING_EFFORT: "0"
           }
         : {}),
       ...env
@@ -169,7 +169,7 @@ export async function startDashboard({
         if (newPort) {
           port = await freePort();
           base = `http://127.0.0.1:${port}`;
-          launchOptions.env.COWORK_UI_PORT = String(port);
+          launchOptions.env.FORMICAND_UI_PORT = String(port);
         }
         output = "";
         child = launch();
@@ -186,7 +186,7 @@ export async function startDashboard({
  * End every agent process this fixture left running, by its recorded group.
  *
  * Both Main and each delegated work item run as their own process group, so a
- * test that ends mid-run leaves processes whose ATRIA_HOME is under this run's
+ * test that ends mid-run leaves processes whose FORMICAND_HOME is under this run's
  * temporary root; the runner reports those as leaked backends.
  */
 export async function endAgentProcesses(workspaceRoot) {

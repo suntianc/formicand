@@ -326,7 +326,7 @@ test(
   async (t) => {
     const a = await provider(t, "连接A");
     const b = await provider(t, "连接B");
-    const root = await mkdtemp(join(tmpdir(), "atria-role-cli-"));
+    const root = await mkdtemp(join(tmpdir(), "formicand-role-cli-"));
     t.after(() => rm(root, { recursive: true, force: true }));
     const configPath = join(root, "config.json");
     const projectDirectory = join(root, "project");
@@ -376,19 +376,19 @@ test(
       )
     );
     const env = Object.fromEntries(
-      Object.entries(process.env).filter(([name]) => !/^(?:COWORK_|PI_|ATRIA_|EXA_)/.test(name))
+      Object.entries(process.env).filter(([name]) => !/^(?:FORMICAND_|PI_|FORMICAND_|EXA_)/.test(name))
     );
     Object.assign(env, {
-      ATRIA_HOME: join(root, "home"),
+      FORMICAND_HOME: join(root, "home"),
       PI_CODING_AGENT_DIR: join(root, "pi"),
       PI_OFFLINE: "1",
       PI_TELEMETRY: "0",
-      COWORK_CONFIG: configPath,
-      COWORK_HARNESS_ROOT: resolve("."),
-      COWORK_WORKSPACE: join(root, "workspace"),
-      COWORK_GLOBAL_INDEX: join(root, "global.json"),
-      COWORK_PROJECT_DIR: projectDirectory,
-      COWORK_DISABLE_MAIN_GUARDIAN: "1"
+      FORMICAND_CONFIG: configPath,
+      FORMICAND_HARNESS_ROOT: resolve("."),
+      FORMICAND_WORKSPACE: join(root, "workspace"),
+      FORMICAND_GLOBAL_INDEX: join(root, "global.json"),
+      FORMICAND_PROJECT_DIR: projectDirectory,
+      FORMICAND_DISABLE_MAIN_GUARDIAN: "1"
     });
     const child = spawn(
       process.execPath,
@@ -417,7 +417,7 @@ test(
   { timeout: 60_000 },
   async (t) => {
     const a = await provider(t, "连接A");
-    const root = await mkdtemp(join(tmpdir(), "atria-role-cli-broken-"));
+    const root = await mkdtemp(join(tmpdir(), "formicand-role-cli-broken-"));
     t.after(() => rm(root, { recursive: true, force: true }));
     await writeFile(
       join(root, "config.json"),
@@ -442,18 +442,18 @@ test(
       })
     );
     const env = Object.fromEntries(
-      Object.entries(process.env).filter(([name]) => !/^(?:COWORK_|PI_|ATRIA_|EXA_)/.test(name))
+      Object.entries(process.env).filter(([name]) => !/^(?:FORMICAND_|PI_|FORMICAND_|EXA_)/.test(name))
     );
     Object.assign(env, {
-      ATRIA_HOME: join(root, "home"),
+      FORMICAND_HOME: join(root, "home"),
       PI_CODING_AGENT_DIR: join(root, "pi"),
       PI_OFFLINE: "1",
-      COWORK_CONFIG: join(root, "config.json"),
-      COWORK_HARNESS_ROOT: resolve("."),
-      COWORK_WORKSPACE: join(root, "workspace"),
-      COWORK_GLOBAL_INDEX: join(root, "global.json"),
-      COWORK_PROJECT_DIR: join(root, "project"),
-      COWORK_DISABLE_MAIN_GUARDIAN: "1"
+      FORMICAND_CONFIG: join(root, "config.json"),
+      FORMICAND_HARNESS_ROOT: resolve("."),
+      FORMICAND_WORKSPACE: join(root, "workspace"),
+      FORMICAND_GLOBAL_INDEX: join(root, "global.json"),
+      FORMICAND_PROJECT_DIR: join(root, "project"),
+      FORMICAND_DISABLE_MAIN_GUARDIAN: "1"
     });
     const child = spawn(process.execPath, ["scripts/start-pi.mjs", "--print", "--no-session", "不应启动"], {
       cwd: resolve("."),

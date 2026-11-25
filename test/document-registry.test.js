@@ -207,7 +207,7 @@ test(
       await prepareWorkItemSite({
         developmentDirectory: integration,
         directory,
-        branch: `coworkos/work/${callId}`
+        branch: `formicand/work/${callId}`
       });
       await service.ticketStarted("task-r", developmentId, ticketId, {
         callId,
@@ -278,7 +278,7 @@ test(
 
 test("documents are listed by their raw names, quotes and backslashes included", async (t) => {
   const { documentsAdded, documentsAt } = await import("../dist/src/workspace/development-workspace.js");
-  const repo = await mkdtemp(join(tmpdir(), "coworkos-doc-names-"));
+  const repo = await mkdtemp(join(tmpdir(), "formicand-doc-names-"));
   t.after(() => rm(repo, { recursive: true, force: true }));
   const run = (args) =>
     promisify(execFile)("git", ["-C", repo, ...args]).then((result) => result.stdout.trim());

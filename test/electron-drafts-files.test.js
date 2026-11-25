@@ -131,8 +131,8 @@ for (const kind of ["project", "global"]) {
         return { input, session, files: () => files, setFiles: (v) => { files = v; } };
       }
       if (stage === "write" && kind === "global") {
-        storage.setItem("atria.composer.v1:new", JSON.stringify({text:"legacy A",attachments:[]}));
-        storage.setItem("atria.composer.v1:backend-a:new", JSON.stringify({text:"existing A",attachments:[]}));
+        storage.setItem("formicand.composer.v1:new", JSON.stringify({text:"legacy A",attachments:[]}));
+        storage.setItem("formicand.composer.v1:backend-a:new", JSON.stringify({text:"existing A",attachments:[]}));
         const a = fixture(); a.session.activate(null); a.session.setBackend("backend-a"); a.session.activate(null); a.session.prepareClose();
       }
       const view = fixture(); view.session.activate(null);
@@ -188,7 +188,8 @@ for (const kind of ["project", "global"]) {
       const deleted = run("restart");
       assert.deepEqual(deleted.restored, { text: "", attachments: [] });
       assert.equal(deleted.close, true);
-      if (kind === "global") assert.match(deleted.records["atria.composer.v1:backend-a:new"], /existing A/);
+      if (kind === "global")
+        assert.match(deleted.records["formicand.composer.v1:backend-a:new"], /existing A/);
     } finally {
       await rm(root, { recursive: true, force: true });
     }
@@ -252,7 +253,7 @@ test("P3: a conflicting recovered destination stays deleted after restart", () =
   first.session.save();
   assert.equal(first.session.prepareClose(), true);
   storage.setItem(
-    "atria.composer.v1:backend-a:new:p1",
+    "formicand.composer.v1:backend-a:new:p1",
     JSON.stringify({ text: "existing A", attachments: [] })
   );
   const a = draftFixture(storage);
@@ -385,7 +386,7 @@ test("P3: separately closed sessions can be explicitly recovered without overwri
 
 test("P3: a live marker from a session that never closed stays manually recoverable", async () => {
   const storage = migrationStorage();
-  const prefix = `atria.composer.v1:__prebind__:${"b".repeat(32)}:`;
+  const prefix = `formicand.composer.v1:__prebind__:${"b".repeat(32)}:`;
   storage.setItem(prefix + "active", JSON.stringify(`live:${"c".repeat(32)}`));
   storage.setItem(prefix + "new:p1", JSON.stringify({ text: "interrupted draft", attachments: [attached] }));
   const next = draftFixture(storage);
@@ -415,15 +416,15 @@ test("P3: a browser without cross-context locks preserves journal sources", asyn
   globalThis.window = {};
   try {
     const storage = migrationStorage();
-    const prefix = `atria.composer.v1:__prebind__:${"a".repeat(32)}:`;
+    const prefix = `formicand.composer.v1:__prebind__:${"a".repeat(32)}:`;
     const sourceKey = prefix + "new:p1";
-    const destination = "atria.composer.v1:backend-a:new:p1";
+    const destination = "formicand.composer.v1:backend-a:new:p1";
     const source = JSON.stringify({ text: "unlocked source", attachments: [attached] });
     storage.setItem(prefix + "active", JSON.stringify(`ready:lease:${"a".repeat(32)}`));
     storage.setItem(sourceKey, source);
     storage.setItem(destination, source);
     storage.setItem(
-      "atria.composer.v1:migration-journal:active",
+      "formicand.composer.v1:migration-journal:active",
       JSON.stringify(JSON.stringify([{ sourceKey, destination }]))
     );
     const view = draftFixture(storage);
@@ -442,7 +443,7 @@ test("P3: a browser without cross-context locks preserves journal sources", asyn
 test("P3: an automatic migration conflict remains selectable for another project", async () => {
   const storage = migrationStorage();
   storage.setItem(
-    "atria.composer.v1:backend-a:new:p1",
+    "formicand.composer.v1:backend-a:new:p1",
     JSON.stringify({ text: "existing", attachments: [] })
   );
   const original = draftFixture(storage);
@@ -492,7 +493,7 @@ test("P3: explicit recovery retries a failed journal before consuming its source
   const write = storage.setItem.bind(storage);
   let failed = true;
   storage.setItem = (key, value) => {
-    if (failed && key === "atria.composer.v1:migration-journal:active")
+    if (failed && key === "formicand.composer.v1:migration-journal:active")
       throw new Error("journal unavailable");
     write(key, value);
   };
@@ -501,7 +502,7 @@ test("P3: explicit recovery retries a failed journal before consuming its source
     reason: "save"
   });
   assert.ok(storage.getItem(source.id));
-  assert.equal(storage.getItem("atria.composer.v1:backend-a:new:p1"), null);
+  assert.equal(storage.getItem("formicand.composer.v1:backend-a:new:p1"), null);
   failed = false;
   assert.equal(next.session.prepareClose(), true);
   const restarted = draftFixture(storage);
@@ -713,7 +714,7 @@ test("P3: an A-B-A switch cancels a pending recovery before it writes", async ()
   next.session.setBackend("backend-a");
   assert.deepEqual(await pending, { ok: false, reason: "backend" });
   assert.ok(storage.getItem(source.id));
-  assert.equal(storage.getItem("atria.composer.v1:backend-a:new:p1"), null);
+  assert.equal(storage.getItem("formicand.composer.v1:backend-a:new:p1"), null);
 });
 
 test("P3: an unbound draft is not published when its ownership marker cannot be stored", () => {
@@ -756,7 +757,8 @@ test("P3: a failed recovery journal retries and restores the visible draft", () 
   const setItem = storage.setItem.bind(storage);
   let fail = true;
   storage.setItem = (key, value) => {
-    if (fail && key === "atria.composer.v1:migration-journal:active") throw new Error("journal unavailable");
+    if (fail && key === "formicand.composer.v1:migration-journal:active")
+      throw new Error("journal unavailable");
     setItem(key, value);
   };
   const next = draftFixture(storage);
@@ -820,7 +822,8 @@ test("P3: a recovered journal removes the now-empty session marker", () => {
   const setItem = storage.setItem.bind(storage);
   let fail = true;
   storage.setItem = (key, value) => {
-    if (fail && key === "atria.composer.v1:migration-journal:active") throw new Error("journal unavailable");
+    if (fail && key === "formicand.composer.v1:migration-journal:active")
+      throw new Error("journal unavailable");
     setItem(key, value);
   };
   view.session.setBackend("backend-a");
@@ -851,7 +854,7 @@ test("P3: interruption between multiple project migrations retains every project
       setItem(key, value) { records.set(key, String(value)); persist(); },
       removeItem(key) {
         records.delete(key); persist();
-        if (stage === "bind" && key === "atria.composer.v1:migration-journal:active") process.exit(79);
+        if (stage === "bind" && key === "formicand.composer.v1:migration-journal:active") process.exit(79);
       }
     };
     const input = { value: "", addEventListener() {} }; let files = [];
@@ -944,9 +947,12 @@ test("S1: recovered preconnection migration does not resurrect deleted text or a
 test("S1: deleting a destination with a conflicting preconnection source remains deleted", () => {
   const storage = migrationStorage();
   const source = JSON.stringify({ text: "unclaimed legacy", attachments: [attached] });
-  storage.setItem("atria.composer.v1:new", source);
-  storage.setItem("atria.composer.v1:backend-a:new", JSON.stringify({ text: "newer A", attachments: [] }));
-  storage.setItem("atria.composer.v1:backend-a:active", JSON.stringify("new"));
+  storage.setItem("formicand.composer.v1:new", source);
+  storage.setItem(
+    "formicand.composer.v1:backend-a:new",
+    JSON.stringify({ text: "newer A", attachments: [] })
+  );
+  storage.setItem("formicand.composer.v1:backend-a:active", JSON.stringify("new"));
   const first = draftFixture(storage);
   first.session.activate(null);
   first.session.setBackend("backend-a");
@@ -961,7 +967,7 @@ test("S1: deleting a destination with a conflicting preconnection source remains
   restarted.session.activate(null);
   assert.equal(restarted.input.value, "");
   assert.deepEqual(restarted.files(), []);
-  assert.equal(storage.getItem("atria.composer.v1:new"), source);
+  assert.equal(storage.getItem("formicand.composer.v1:new"), source);
 });
 
 test("S2: quota failure cannot move an unmarked backend task into another backend", () => {
@@ -974,14 +980,14 @@ test("S2: quota failure cannot move an unmarked backend task into another backen
   first.session.setBackend("backend-a");
   first.session.activate("task-a");
   const draft = JSON.stringify({ text: "saved work A", attachments: [attached] });
-  const taskKey = "atria.composer.v1:backend-a:task-a";
+  const taskKey = "formicand.composer.v1:backend-a:task-a";
   storage.setItem(filler, "x".repeat(capacity - filler.length - taskKey.length - draft.length));
   first.input.value = "saved work A";
   first.setFiles([attached]);
   first.session.save();
   assert.equal(storage.size(), capacity);
   assert.equal(storage.getItem(taskKey), draft);
-  assert.equal(storage.getItem("atria.composer.v1:backend-a:active"), null);
+  assert.equal(storage.getItem("formicand.composer.v1:backend-a:active"), null);
   assert.equal(first.session.prepareClose(), false);
   storage.removeItem(filler);
   const restarted = draftFixture(storage);
@@ -1000,7 +1006,7 @@ test("S2: quota-limited task survives actual process exit and another backend's 
   const root = await mkdtemp(join(tmpdir(), "draft-quota-process-"));
   const store = join(root, "local-storage.json");
   const modulePath =
-    process.env.COWORK_TEST_DRAFT_SESSION_FILE || resolve("web/assets/controllers/composer-session.js");
+    process.env.FORMICAND_TEST_DRAFT_SESSION_FILE || resolve("web/assets/controllers/composer-session.js");
   const script = `
     import { existsSync, readFileSync, writeFileSync } from "node:fs";
     const { createComposerSession } = await import(process.argv[1]);
@@ -1022,14 +1028,14 @@ test("S2: quota-limited task survives actual process exit and another backend's 
     const input = { value: "", addEventListener() {} };
     let files = [];
     const session = createComposerSession({ input, storage, getAttachments: () => files, setAttachments: (next) => { files = next; } });
-    const task = "atria.composer.v1:backend-a:task-a", filler = "fixture.other-cache";
+    const task = "formicand.composer.v1:backend-a:task-a", filler = "fixture.other-cache";
     if (stage === "write") {
       storage.setItem(filler, "x".repeat(capacity - filler.length));
       session.activate(null); session.setBackend("backend-a"); session.activate("task-a");
       const draft = JSON.stringify({ text: "saved work A", attachments: [${JSON.stringify(attached)}] });
       storage.setItem(filler, "x".repeat(capacity - filler.length - task.length - draft.length));
       input.value = "saved work A"; files = [${JSON.stringify(attached)}]; session.save();
-      console.log(JSON.stringify({ used: size(records), task: storage.getItem(task), active: storage.getItem("atria.composer.v1:backend-a:active") }));
+      console.log(JSON.stringify({ used: size(records), task: storage.getItem(task), active: storage.getItem("formicand.composer.v1:backend-a:active") }));
     } else {
       storage.removeItem(filler);
       session.activate(null); session.setBackend("backend-b"); session.activate("task-b");
@@ -1069,7 +1075,7 @@ test("S2: quota-limited task survives actual process exit and another backend's 
 
 test("S2: an ambiguous saved key is preserved until its backend is known", () => {
   const storage = migrationStorage();
-  const key = "atria.composer.v1:new:task-a";
+  const key = "formicand.composer.v1:new:task-a";
   const saved = JSON.stringify({ text: "ambiguous backend task", attachments: [attached] });
   storage.setItem(key, saved);
   const session = draftFixture(storage);
@@ -1085,7 +1091,7 @@ test("S2: an ambiguous saved key is preserved until its backend is known", () =>
 
 test("S2: a preconnection project cannot overwrite an ambiguous backend task key", () => {
   const storage = migrationStorage();
-  const key = "atria.composer.v1:new:task-a";
+  const key = "formicand.composer.v1:new:task-a";
   const saved = JSON.stringify({ text: "backend task", attachments: [attached] });
   storage.setItem(key, saved);
   const view = draftFixture(storage);
@@ -1108,7 +1114,7 @@ test("S2: a preconnection project cannot overwrite an ambiguous backend task key
 test("P2: a conflicting preconnection project stays with its first backend", () => {
   const storage = migrationStorage();
   storage.setItem(
-    "atria.composer.v1:backend-a:new:p1",
+    "formicand.composer.v1:backend-a:new:p1",
     JSON.stringify({ text: "existing A", attachments: [] })
   );
   const first = draftFixture(storage);
@@ -1136,7 +1142,7 @@ test("P1: a persisted journal restores a preconnection project after an interrup
   const setItem = storage.setItem.bind(storage);
   let failDestination = true;
   storage.setItem = (key, value) => {
-    if (failDestination && key === "atria.composer.v1:backend-a:new:p1") throw new Error("quota");
+    if (failDestination && key === "formicand.composer.v1:backend-a:new:p1") throw new Error("quota");
     setItem(key, value);
   };
   const first = draftFixture(storage);
@@ -1145,8 +1151,8 @@ test("P1: a persisted journal restores a preconnection project after an interrup
   first.setFiles([attached]);
   first.session.save();
   first.session.setBackend("backend-a");
-  assert.equal(storage.getItem("atria.composer.v1:backend-a:new:p1"), null);
-  assert.ok(storage.getItem("atria.composer.v1:migration-journal:active"));
+  assert.equal(storage.getItem("formicand.composer.v1:backend-a:new:p1"), null);
+  assert.ok(storage.getItem("formicand.composer.v1:migration-journal:active"));
   failDestination = false;
   const restarted = draftFixture(storage);
   restarted.session.activate(null);
@@ -1228,7 +1234,7 @@ test("P1: a destination changed by another window cannot consume its unchanged s
   const remove = storage.removeItem.bind(storage);
   let failCleanup = false;
   storage.removeItem = (key) => {
-    if (failCleanup && key === "atria.composer.v1:backend-a:new") throw new Error("cleanup unavailable");
+    if (failCleanup && key === "formicand.composer.v1:backend-a:new") throw new Error("cleanup unavailable");
     remove(key);
   };
   const view = draftFixture(storage);
@@ -1242,14 +1248,14 @@ test("P1: a destination changed by another window cannot consume its unchanged s
   view.session.setBackend("backend-b");
   view.session.activate(null);
   const changed = JSON.stringify({ text: "other window", attachments: [] });
-  storage.setItem("atria.composer.v1:backend-a:new:p1", changed);
+  storage.setItem("formicand.composer.v1:backend-a:new:p1", changed);
   failCleanup = false;
   assert.equal(view.session.prepareClose(), true);
-  assert.deepEqual(JSON.parse(storage.getItem("atria.composer.v1:backend-a:new")), {
+  assert.deepEqual(JSON.parse(storage.getItem("formicand.composer.v1:backend-a:new")), {
     text: "original source",
     attachments: [attached]
   });
-  assert.equal(storage.getItem("atria.composer.v1:backend-a:new:p1"), changed);
+  assert.equal(storage.getItem("formicand.composer.v1:backend-a:new:p1"), changed);
 });
 
 test("P1: a failed source cleanup blocks close and can be retried after a backend switch", () => {
@@ -1257,7 +1263,7 @@ test("P1: a failed source cleanup blocks close and can be retried after a backen
   const remove = storage.removeItem.bind(storage);
   let failCleanup = false;
   storage.removeItem = (key) => {
-    if (failCleanup && key === "atria.composer.v1:backend-a:new") throw new Error("cleanup unavailable");
+    if (failCleanup && key === "formicand.composer.v1:backend-a:new") throw new Error("cleanup unavailable");
     remove(key);
   };
   const view = draftFixture(storage);
@@ -1289,7 +1295,7 @@ test("P1: an interrupted cleanup cannot resurrect a subsequently deleted project
   const remove = storage.removeItem.bind(storage);
   let failCleanup = false;
   storage.removeItem = (key) => {
-    if (failCleanup && key === "atria.composer.v1:backend-a:new") throw new Error("cleanup unavailable");
+    if (failCleanup && key === "formicand.composer.v1:backend-a:new") throw new Error("cleanup unavailable");
     remove(key);
   };
   const first = draftFixture(storage);
@@ -1322,7 +1328,7 @@ test("P1: a failed migration journal prevents the destination committing before 
   const put = storage.setItem.bind(storage);
   let failJournal = false;
   storage.setItem = (key, value) => {
-    if (failJournal && key === "atria.composer.v1:migration-journal:active")
+    if (failJournal && key === "formicand.composer.v1:migration-journal:active")
       throw new Error("journal unavailable");
     put(key, value);
   };
@@ -1337,8 +1343,8 @@ test("P1: a failed migration journal prevents the destination committing before 
   assert.equal(view.input.value, "journal protected");
   assert.deepEqual(view.files(), [attached]);
   assert.equal(view.session.prepareClose(), false);
-  assert.equal(storage.getItem("atria.composer.v1:backend-a:new:p1"), null);
-  assert.match(storage.getItem("atria.composer.v1:backend-a:new"), /journal protected/);
+  assert.equal(storage.getItem("formicand.composer.v1:backend-a:new:p1"), null);
+  assert.match(storage.getItem("formicand.composer.v1:backend-a:new"), /journal protected/);
   failJournal = false;
   assert.equal(view.session.prepareClose(), true);
   const restarted = draftFixture(storage);
@@ -1354,7 +1360,7 @@ test("P1: restart preserves a changed migration source and a later destination d
   const remove = storage.removeItem.bind(storage);
   let failCleanup = false;
   storage.removeItem = (key) => {
-    if (failCleanup && key === "atria.composer.v1:backend-a:new") throw new Error("cleanup unavailable");
+    if (failCleanup && key === "formicand.composer.v1:backend-a:new") throw new Error("cleanup unavailable");
     remove(key);
   };
   const first = draftFixture(storage);
@@ -1368,7 +1374,7 @@ test("P1: restart preserves a changed migration source and a later destination d
   assert.equal(first.session.prepareClose(), false);
   failCleanup = false;
   const newer = JSON.stringify({ text: "new independent source", attachments: [attached] });
-  storage.setItem("atria.composer.v1:backend-a:new", newer);
+  storage.setItem("formicand.composer.v1:backend-a:new", newer);
   const restarted = draftFixture(storage);
   restarted.session.activate(null);
   restarted.session.setBackend("backend-a");
@@ -1383,14 +1389,14 @@ test("P1: restart preserves a changed migration source and a later destination d
   again.session.setBackend("backend-a");
   again.session.activate(null, { projectId: "p1" });
   assert.equal(again.input.value, "");
-  assert.equal(storage.getItem("atria.composer.v1:backend-a:new"), newer);
+  assert.equal(storage.getItem("formicand.composer.v1:backend-a:new"), newer);
 });
 
 test("P1: a damaged recovery journal blocks closing without consuming drafts", () => {
   const storage = migrationStorage();
-  storage.setItem("atria.composer.v1:migration-journal:active", "{broken");
+  storage.setItem("formicand.composer.v1:migration-journal:active", "{broken");
   storage.setItem(
-    "atria.composer.v1:backend-a:new",
+    "formicand.composer.v1:backend-a:new",
     JSON.stringify({ text: "preserve recovery data", attachments: [attached] })
   );
   const view = draftFixture(storage);
@@ -1401,18 +1407,18 @@ test("P1: a damaged recovery journal blocks closing without consuming drafts", (
   view.session.activate(null, { projectId: "p1" });
   assert.equal(view.input.value, "preserve recovery data");
   assert.equal(view.session.prepareClose(), false);
-  assert.equal(storage.getItem("atria.composer.v1:migration-journal:active"), "{broken");
-  assert.equal(storage.getItem("atria.composer.v1:backend-a:new:p1"), null);
+  assert.equal(storage.getItem("formicand.composer.v1:migration-journal:active"), "{broken");
+  assert.equal(storage.getItem("formicand.composer.v1:backend-a:new:p1"), null);
 });
 
 test("P1: desktop profile persists and replays an interrupted migration journal", async (t) => {
-  const directory = await mkdtemp(join(tmpdir(), "cowork-migration-profile-"));
+  const directory = await mkdtemp(join(tmpdir(), "formicand-migration-profile-"));
   t.after(() => rm(directory, { recursive: true, force: true }));
   const storage = migrationStorage();
   const remove = storage.removeItem.bind(storage);
   let failCleanup = false;
   storage.removeItem = (key) => {
-    if (failCleanup && key === "atria.composer.v1:backend-a:new") throw new Error("cleanup unavailable");
+    if (failCleanup && key === "formicand.composer.v1:backend-a:new") throw new Error("cleanup unavailable");
     remove(key);
   };
   const first = draftFixture(storage);
@@ -1424,7 +1430,7 @@ test("P1: desktop profile persists and replays an interrupted migration journal"
   failCleanup = true;
   first.session.activate(null, { projectId: "p1" });
   assert.equal(first.session.prepareClose(), false);
-  assert.ok(storage.getItem("atria.composer.v1:migration-journal:active"));
+  assert.ok(storage.getItem("formicand.composer.v1:migration-journal:active"));
   const store = createComposerDraftStore(directory);
   await store.load();
   await store.save(Object.fromEntries(storage.records), "http://127.0.0.1:45111");
@@ -1762,7 +1768,7 @@ test("an evicted pending preview cannot replace a newer read of the same path", 
 });
 
 test("desktop profile restores backend and project drafts including a durable deletion", async (t) => {
-  const directory = await mkdtemp(join(tmpdir(), "cowork-drafts-profile-"));
+  const directory = await mkdtemp(join(tmpdir(), "formicand-drafts-profile-"));
   t.after(() => rm(directory, { recursive: true, force: true }));
   const store = createComposerDraftStore(directory);
   await store.load();
@@ -1787,7 +1793,7 @@ test("desktop profile restores backend and project drafts including a durable de
   const entries = {};
   for (let i = 0; i < first.storage.length; i++) {
     const key = first.storage.key(i);
-    if (key.startsWith("atria.composer.v1:")) entries[key] = first.storage.getItem(key);
+    if (key.startsWith("formicand.composer.v1:")) entries[key] = first.storage.getItem(key);
   }
   await store.save(entries, "http://127.0.0.1:10001");
   const restartedStore = createComposerDraftStore(directory);
@@ -1806,11 +1812,11 @@ test("desktop profile restores backend and project drafts including a durable de
 });
 
 test("a rejected native save keeps the last snapshot and accepts a later recovery", async (t) => {
-  const directory = await mkdtemp(join(tmpdir(), "cowork-draft-retry-"));
+  const directory = await mkdtemp(join(tmpdir(), "formicand-draft-retry-"));
   t.after(() => rm(directory, { recursive: true, force: true }));
   const store = createComposerDraftStore(directory, { limit: 512 });
   await store.load();
-  const key = "atria.composer.v1:backend-a:new";
+  const key = "formicand.composer.v1:backend-a:new";
   const entry = (text) => ({ [key]: JSON.stringify({ text, attachments: [] }) });
   await store.save(entry("last good"));
   await assert.rejects(store.save(entry("x".repeat(1000))), /过大/);
@@ -1843,7 +1849,7 @@ test("selected bytes and artifacts stay with their authorized backend", { timeou
     }
   });
   t.after(() => model.close());
-  const root = await mkdtemp(join(tmpdir(), "cowork-electron-files-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-electron-files-"));
   const repository = resolve(new URL("..", import.meta.url).pathname);
   const instances = [];
   t.after(async () => {
@@ -1855,7 +1861,7 @@ test("selected bytes and artifacts stay with their authorized backend", { timeou
     if (ran)
       await fetch(`${ran.instance.url}/api/tasks/shared-task/action`, {
         method: "POST",
-        headers: { "content-type": "application/json", "x-atria-token": ran.instance.token },
+        headers: { "content-type": "application/json", "x-formicand-token": ran.instance.token },
         body: JSON.stringify({ action: "cancel" })
       })
         .then((response) => response.arrayBuffer())
@@ -1874,23 +1880,23 @@ test("selected bytes and artifacts stay with their authorized backend", { timeou
     await writeFile(config, "{}");
     const env = {
       ...Object.fromEntries(
-        Object.entries(process.env).filter(([key]) => !/^(COWORK_|PI_|ATRIA_|ELECTRON_)/.test(key))
+        Object.entries(process.env).filter(([key]) => !/^(FORMICAND_|PI_|FORMICAND_|ELECTRON_)/.test(key))
       ),
       HOME: userHome,
-      ATRIA_HOME: home,
+      FORMICAND_HOME: home,
       PI_CODING_AGENT_DIR: join(root, side, "pi"),
       PI_OFFLINE: "1",
       PI_TELEMETRY: "0",
-      COWORK_HARNESS_ROOT: repository,
-      COWORK_WORKSPACE: workspace,
-      COWORK_GLOBAL_INDEX: join(home, "runtime", "workspaces.json"),
-      COWORK_CONFIG: config,
-      COWORK_DISABLE_MAIN_GUARDIAN: "1",
-      COWORK_API_BASE: model.baseUrl,
-      COWORK_API_KEY: "local-fixture",
-      COWORK_MODEL: "protocol-fixture",
-      COWORK_REASONING_EFFORT: "off",
-      COWORK_SUPPORTS_REASONING_EFFORT: "0"
+      FORMICAND_HARNESS_ROOT: repository,
+      FORMICAND_WORKSPACE: workspace,
+      FORMICAND_GLOBAL_INDEX: join(home, "runtime", "workspaces.json"),
+      FORMICAND_CONFIG: config,
+      FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
+      FORMICAND_API_BASE: model.baseUrl,
+      FORMICAND_API_KEY: "local-fixture",
+      FORMICAND_MODEL: "protocol-fixture",
+      FORMICAND_REASONING_EFFORT: "off",
+      FORMICAND_SUPPORTS_REASONING_EFFORT: "0"
     };
     await startBackend(env, repository, process.execPath);
     const instance = JSON.parse(await readFile(join(home, "runtime", "backend-instance.json"), "utf8"));
@@ -1942,7 +1948,7 @@ test("selected bytes and artifacts stay with their authorized backend", { timeou
       const authorize = options.method === "POST" && new URL(url).pathname === "/api/session";
       return fetch(url, {
         ...options,
-        headers: { ...options.headers, ...(authorize ? { "x-atria-token": instance.token } : {}) }
+        headers: { ...options.headers, ...(authorize ? { "x-formicand-token": instance.token } : {}) }
       });
     }
   });

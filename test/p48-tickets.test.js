@@ -305,7 +305,7 @@ test(
   "tickets are proposed, confirmed on a card and revised through the real Dashboard",
   { timeout: 120_000 },
   async (t) => {
-    const root = await mkdtemp(join(tmpdir(), "atria-p48-tickets-"));
+    const root = await mkdtemp(join(tmpdir(), "formicand-p48-tickets-"));
     t.after(() => rm(root, { recursive: true, force: true }));
     const directory = await repository(root);
     const dashboard = await startDashboard({ defaultProject: false });
@@ -414,7 +414,7 @@ test(
 );
 
 test("a second backend writes tickets through the authority it reads", { timeout: 120_000 }, async (t) => {
-  const root = await mkdtemp(join(tmpdir(), "atria-p48-tickets-remote-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-p48-tickets-remote-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const authority = await startDashboard({ defaultProject: false });
   t.after(() => authority.stop());
@@ -471,7 +471,7 @@ for (const late of [false, true])
     `Main freezes the tickets with one ${late ? "late" : "timely"} card answer`,
     { timeout: 120_000 },
     async (t) => {
-      const root = await mkdtemp(join(tmpdir(), "atria-p48-tickets-main-"));
+      const root = await mkdtemp(join(tmpdir(), "formicand-p48-tickets-main-"));
       t.after(() => rm(root, { recursive: true, force: true }));
       const directory = await repository(root);
       let developmentId = "";
@@ -511,7 +511,10 @@ for (const late of [false, true])
         defaultProject: false,
         modelEndpoint: provider.baseUrl,
         model: "protocol-fixture",
-        env: { COWORK_DISABLE_MAIN_GUARDIAN: "1", ...(late ? { COWORK_HUMAN_ANSWER_TIMEOUT_MS: "150" } : {}) }
+        env: {
+          FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
+          ...(late ? { FORMICAND_HUMAN_ANSWER_TIMEOUT_MS: "150" } : {})
+        }
       });
       t.after(() => dashboard.stop());
       const setup = await project(dashboard, directory, "Main 票项目");
@@ -583,7 +586,7 @@ for (const late of [false, true])
         const cli = await run(
           process.execPath,
           [
-            "scripts/atria.mjs",
+            "scripts/formicand.mjs",
             "human",
             "reply",
             legacy.requestId,
@@ -593,7 +596,7 @@ for (const late of [false, true])
             "--workspace",
             dashboard.workspaceRoot
           ],
-          { env: { ...process.env, ATRIA_HOME: join(dashboard.root, "home") } }
+          { env: { ...process.env, FORMICAND_HOME: join(dashboard.root, "home") } }
         );
         assert.equal(JSON.parse(cli.stdout).delivered, true);
         await setup.post(`/api/tasks/${setup.taskId}/human/${legacy.requestId}/answer`, {

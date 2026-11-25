@@ -8,8 +8,8 @@ playwright-report/
 /config.json
 /.openai/hosting.json
 *.before-model-profiles
-.cowork/
-.cowork-cli/
+.formicand/
+.formicand-cli/
 # Local tasks and application documents are user data, not repository source.
 /applications/
 /workspace/

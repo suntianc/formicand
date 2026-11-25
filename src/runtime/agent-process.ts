@@ -520,7 +520,7 @@ export class AgentProcessHost {
               // Settlement failures are logged, not fatal: the record stays
               // unsettled so the next adoption retries.
               console.error(
-                `[cowork] agent process settlement failed: ${error instanceof Error ? error.message : String(error)}`
+                `[formicand] agent process settlement failed: ${error instanceof Error ? error.message : String(error)}`
               );
               return;
             }
@@ -534,7 +534,7 @@ export class AgentProcessHost {
         // reconcile there, and the rejection has no caller that could handle
         // it: settlement is always a background projection.
         console.error(
-          `[cowork] agent process record unavailable during settlement: ${
+          `[formicand] agent process record unavailable during settlement: ${
             error instanceof Error ? error.message : String(error)
           }`
         );
@@ -578,25 +578,27 @@ export class AgentProcessHost {
       ...process.env,
       ...this.baseEnv,
       ...input.env,
-      COWORK_HARNESS_ROOT: this.harnessRoot,
-      COWORK_WORKSPACE: this.workspaceRoot,
-      COWORK_PROJECT_DIR: input.projectDirectory ?? input.workingDirectory,
-      COWORK_TASK_ID: input.taskId,
-      COWORK_RUN_ID: input.runId,
-      COWORK_CLI_SESSION: "0",
+      FORMICAND_HARNESS_ROOT: this.harnessRoot,
+      FORMICAND_WORKSPACE: this.workspaceRoot,
+      FORMICAND_PROJECT_DIR: input.projectDirectory ?? input.workingDirectory,
+      FORMICAND_TASK_ID: input.taskId,
+      FORMICAND_RUN_ID: input.runId,
+      FORMICAND_CLI_SESSION: "0",
       // The receiver binds exactly the endpoint the record names, so a writer
       // reading the record and the process listening never disagree.
-      COWORK_WAKE_ENDPOINT: wakeEndpoint,
+      FORMICAND_WAKE_ENDPOINT: wakeEndpoint,
       // Only a delegated process takes the launcher's role branch; Main keeps
       // its own launch path and its own project directory.
-      ...(input.role === "main" ? {} : { COWORK_AGENT_ROLE: input.role, COWORK_AGENT_ID: input.agentId }),
-      ...(input.mode === "resident" ? { COWORK_MAIN_RESIDENT: "1" } : {}),
+      ...(input.role === "main"
+        ? {}
+        : { FORMICAND_AGENT_ROLE: input.role, FORMICAND_AGENT_ID: input.agentId }),
+      ...(input.mode === "resident" ? { FORMICAND_MAIN_RESIDENT: "1" } : {}),
       PI_OFFLINE: "1"
     };
     if (input.role !== "main") {
-      env.COWORK_SUBAGENT_CALL_ID = input.callId;
-      env.COWORK_SUBAGENT_TOKEN = token;
-      env.COWORK_SUBAGENT_RESULT = input.resultPath;
+      env.FORMICAND_SUBAGENT_CALL_ID = input.callId;
+      env.FORMICAND_SUBAGENT_TOKEN = token;
+      env.FORMICAND_SUBAGENT_RESULT = input.resultPath;
     }
     return env;
   }

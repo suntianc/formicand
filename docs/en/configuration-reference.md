@@ -10,7 +10,7 @@ For everyday setup, see [model and runtime configuration](configuration.md).
 | ------------------------------------- | -------------------------------------------------------------------------------------------------- |
 | `baseUrl`                             | Service root or `/v1`; legacy `apiBase` is supported                                               |
 | `model`                               | Provider model ID                                                                                  |
-| `apiKey`                              | Private configuration key, or use `COWORK_API_KEY`                                                 |
+| `apiKey`                              | Private configuration key, or use `FORMICAND_API_KEY`                                              |
 | `api`                                 | `openai-responses`, `openai-completions` or `anthropic-messages`; `openai-completions` when absent |
 | `supportsImages`                      | `false` for new connections                                                                        |
 | `thinkingFormat`                      | `auto` (default), `openai` or `zai`; affects Chat Completions only                                 |
@@ -76,44 +76,44 @@ The App and Web "Settings → Models" page saves models per provider in the exec
 
 The launcher selects the first matching file without merging files:
 
-1. The path in `COWORK_CONFIG`.
-2. `.cowork/config.json` in the launch directory.
+1. The path in `FORMICAND_CONFIG`.
+2. `.formicand/config.json` in the launch directory.
 3. `config.json` in the launch directory.
-4. `~/.atria/config.json`, or `ATRIA_HOME/config.json`.
+4. `~/.formicand/config.json`, or `FORMICAND_HOME/config.json`.
 
-Starting the CLI or running `doctor` requires the file specified by `COWORK_CONFIG` to exist. `init` can create a new file at that path. Invalid JSON or fields in the selected file cause an error without falling back to the next file.
+Starting the CLI or running `doctor` requires the file specified by `FORMICAND_CONFIG` to exist. `init` can create a new file at that path. Invalid JSON or fields in the selected file cause an error without falling back to the next file.
 
 Environment variables override the selected file. Explicit arguments override corresponding fields at their entrypoint, such as Main's `--thinking low`. Relative configuration paths resolve from the launch directory.
 
-`coworkos init` creates the user configuration by default. If a project file exists or `COWORK_CONFIG` is set, it uses that file. Existing files are preserved unless `--force` is given. `coworkos init --force` reads and updates the existing configuration, reusing its saved URL, model and key. It prompts only for missing required values. Pass `--base-url` or `--model` to change those values. To replace the key, first set `COWORK_API_KEY`, or use `--api-key-env` to name an environment variable containing the new key. Other fields and the existing message format are preserved.
+`formicand init` creates the user configuration by default. If a project file exists or `FORMICAND_CONFIG` is set, it uses that file. Existing files are preserved unless `--force` is given. `formicand init --force` reads and updates the existing configuration, reusing its saved URL, model and key. It prompts only for missing required values. Pass `--base-url` or `--model` to change those values. To replace the key, first set `FORMICAND_API_KEY`, or use `--api-key-env` to name an environment variable containing the new key. Other fields and the existing message format are preserved.
 
 If the existing file cannot be parsed or contains invalid fields, fix it first; `--force` still reads it. Automated setup can read a key from an environment variable you have already set:
 
 ```sh
-coworkos init --base-url https://your-service.example/v1 --model your-model-id --api-key-env COWORK_API_KEY
+formicand init --base-url https://your-service.example/v1 --model your-model-id --api-key-env FORMICAND_API_KEY
 ```
 
-Optional flags: `--images`, `--reasoning`, `--thinking high`, `--max-tokens 8192`, `--force`. `init` has no message format option. For a Chat Completions-only service, set `"api": "openai-completions"` in the selected configuration file, or set `COWORK_MODEL_API=openai-completions` when starting the CLI.
+Optional flags: `--images`, `--reasoning`, `--thinking high`, `--max-tokens 8192`, `--force`. `init` has no message format option. For a Chat Completions-only service, set `"api": "openai-completions"` in the selected configuration file, or set `FORMICAND_MODEL_API=openai-completions` when starting the CLI.
 
 To create a separate configuration for the current project, run from its directory:
 
 ```sh
-COWORK_CONFIG="$PWD/.cowork/config.json" coworkos init
+FORMICAND_CONFIG="$PWD/.formicand/config.json" formicand init
 ```
 
-Initialization creates the required directories. Then run `coworkos doctor` to confirm the selected configuration path.
+Initialization creates the required directories. Then run `formicand doctor` to confirm the selected configuration path.
 
-For source development, you can also copy the example from the CoworkOS source repository root:
+For source development, you can also copy the example from the Formicand source repository root:
 
 ```sh
-mkdir -p .cowork
-cp config.example.json .cowork/config.json
-chmod 600 .cowork/config.json
+mkdir -p .formicand
+cp config.example.json .formicand/config.json
+chmod 600 .formicand/config.json
 ```
 
 Replace the example URL, model and key, or remove `apiKey` and use the environment. The example's `workspaceRoot: ".tmp"` suits source development; use a fixed absolute directory to share tasks across projects. Keep real keys out of command arguments and shared scripts.
 
-Source Web uses the same file precedence. Installed Apps use host-managed configuration. `coworkos doctor` checks local requirements, configuration and workspace writes, and validates offline finding, content search and ignore rules with temporary files. It does not print keys. Only `--test-connection` requests the model.
+Source Web uses the same file precedence. Installed Apps use host-managed configuration. `formicand doctor` checks local requirements, configuration and workspace writes, and validates offline finding, content search and ignore rules with temporary files. It does not print keys. Only `--test-connection` requests the model.
 
 On macOS, Finder/Dock launches add existing `~/.local/bin`, Homebrew `bin`/`sbin`, `/usr/local/bin`/`sbin` and user/system LibreOffice directories to the backend `PATH`, inherited by Main, subagents and commands. Tool directories precede a system-only path; custom ordering is preserved with missing entries appended. Discovery does not execute shell profiles or guess version-manager directories. Terminal CLI uses the caller's environment.
 
@@ -121,11 +121,11 @@ On macOS, Finder/Dock launches add existing `~/.local/bin`, Homebrew `bin`/`sbin
 
 The App encrypts client session credentials with Electron safeStorage in `client-sessions.json` in the desktop data directory. A system authorization failure is displayed and a retry preserves the saved credentials. Model and search keys belong to the selected execution host.
 
-The standalone execution host keeps model and search keys in `credentials.json` (mode 0600) beside its configuration; `COWORK_CREDENTIALS` selects another path. Model keys are stored per provider id under `modelProviders`; the CLI's single connection uses `default`. Settings responses carry only `configured` and a concrete `credentialError`; they never return a key. A blank key keeps the stored value, and explicitly clearing the search key removes it. A damaged credential file is reported and left in place instead of being overwritten. The settings page and real runs share this host store, and keys never enter renderer state, logs or events.
+The standalone execution host keeps model and search keys in `credentials.json` (mode 0600) beside its configuration; `FORMICAND_CREDENTIALS` selects another path. Model keys are stored per provider id under `modelProviders`; the CLI's single connection uses `default`. Settings responses carry only `configured` and a concrete `credentialError`; they never return a key. A blank key keeps the stored value, and explicitly clearing the search key removes it. A damaged credential file is reported and left in place instead of being overwritten. The settings page and real runs share this host store, and keys never enter renderer state, logs or events.
 
 Deleting a provider deletes its key.
 
-Client sessions use the `CoworkOS Client` encryption identity through a separate Keychain process. Keys encrypted under the previous development identity may need re-entry. Original ciphertext and source directories remain available. When the system Keychain is reset (for example by an OS reinstall), a saved client session can no longer be decrypted; the App requests a new session from the backend and replaces that entry instead of stopping on an authorization error. If the Keychain itself is unavailable, it still asks you to check system authorization. Native Keychain and signing compatibility require separate acceptance checks.
+Client sessions use the `Formicand Client` encryption identity through a separate Keychain process. Keys encrypted under the previous development identity may need re-entry. Original ciphertext and source directories remain available. When the system Keychain is reset (for example by an OS reinstall), a saved client session can no longer be decrypted; the App requests a new session from the backend and replaces that entry instead of stopping on an authorization error. If the Keychain itself is unavailable, it still asks you to check system authorization. Native Keychain and signing compatibility require separate acceptance checks.
 
 ## Model roles
 
@@ -139,11 +139,11 @@ Images are read by the Main connection itself. When the connection enables `supp
 
 ## Web search
 
-Search is Exa or off: Exa is the default, and `webSearch.provider: "off"` or `COWORK_WEB_TOOLS=0` disables it, with environment disabling taking precedence.
+Search is Exa or off: Exa is the default, and `webSearch.provider: "off"` or `FORMICAND_WEB_TOOLS=0` disables it, with environment disabling taking precedence.
 
-For your own Exa key, set `webSearch.exaApiKey` or `COWORK_EXA_API_KEY` / `EXA_API_KEY`; environment values win. Main, subagents and recovered conversations use the same search settings; a resident Main re-reads them at the start of every turn, so a saved choice applies from the next turn.
+For your own Exa key, set `webSearch.exaApiKey` or `FORMICAND_EXA_API_KEY` / `EXA_API_KEY`; environment values win. Main, subagents and recovered conversations use the same search settings; a resident Main re-reads them at the start of every turn, so a saved choice applies from the next turn.
 
-The default [official Exa MCP](https://exa.ai/docs/get-started/exa-mcp) endpoint is `https://mcp.exa.ai/mcp?tools=web_search_exa,web_fetch_exa`. Only basic search and fetching are enabled, with JSON/SSE, session/protocol headers, cancellation and a 30-second total deadline. `COWORK_EXA_MCP_ENDPOINT` is for trusted test services only; the UI has no endpoint input.
+The default [official Exa MCP](https://exa.ai/docs/get-started/exa-mcp) endpoint is `https://mcp.exa.ai/mcp?tools=web_search_exa,web_fetch_exa`. Only basic search and fetching are enabled, with JSON/SSE, session/protocol headers, cancellation and a 30-second total deadline. `FORMICAND_EXA_MCP_ENDPOINT` is for trusted test services only; the UI has no endpoint input.
 
 Tools preserve source titles, URLs, bodies and available dates without inventing missing dates. A single-URL fetch needs a valid source and nonempty body, preserving redirects; multiple sources must match the requested URL. Invalid sources, empty structures, metadata-only results or unrelated bodies fail. Provider JSON envelopes are not page evidence. Only a genuine empty result list counts as zero results. Network, proxy, protocol, timeout and cancellation errors are failures.
 
@@ -167,7 +167,7 @@ The project ledger and shared project identities live in a separate project data
 {
   "projectData": {
     "engine": "postgres",
-    "postgres": { "connectionString": "postgresql://coworkos@db.example:5432/coworkos" }
+    "postgres": { "connectionString": "postgresql://formicand@db.example:5432/formicand" }
   }
 }
 ```
@@ -182,11 +182,11 @@ A secondary backend does not open a local engine; it reaches the same authority 
 }
 ```
 
-`authority` excludes `engine`, `sqlite` and `postgres`. At startup the client exchanges the host credential for one local session and presents only that session afterwards; the credential stays in server configuration or `COWORK_PROJECT_DATA_TOKEN` and never enters the UI, tool arguments or error text. An unreachable authority returns `storage_unavailable`; a revoked session returns `shared_auth_failed`. Neither fakes a successful claim or transfers ownership. Main session records, development records and the board are shared through the same client, while the Task, Pi transcript, checkout directory and execution ownership stay on the backend that created them; another backend cannot record or settle a Run for a session it does not own, and it can only read the checkout it prepared itself. The merge configuration's repository and target branch are checked by the configured execution backend on its own host; the authority only stores the validated shared fact and never runs Git against a remote path. Shared projects keep one `projectId`; each backend registers only its own local directory binding, and a remote absolute path never becomes a local execution directory.
+`authority` excludes `engine`, `sqlite` and `postgres`. At startup the client exchanges the host credential for one local session and presents only that session afterwards; the credential stays in server configuration or `FORMICAND_PROJECT_DATA_TOKEN` and never enters the UI, tool arguments or error text. An unreachable authority returns `storage_unavailable`; a revoked session returns `shared_auth_failed`. Neither fakes a successful claim or transfers ownership. Main session records, development records and the board are shared through the same client, while the Task, Pi transcript, checkout directory and execution ownership stay on the backend that created them; another backend cannot record or settle a Run for a session it does not own, and it can only read the checkout it prepared itself. The merge configuration's repository and target branch are checked by the configured execution backend on its own host; the authority only stores the validated shared fact and never runs Git against a remote path. Shared projects keep one `projectId`; each backend registers only its own local directory binding, and a remote absolute path never becomes a local execution directory.
 
-A development workspace is an isolated `git worktree` outside the target repository, under the data root at `ATRIA_HOME/runtime/development-workspaces/<developmentId>` (default `~/.atria/runtime/development-workspaces`). It is not part of shared data and is never written into the user's own working directory. A work item bound to a development forks its own site under the sibling `work-items/<callId>` and reuses that directory and branch when it resumes. A merge builds its combined version in its own temporary `merges/<mergeId>` site and removes it after the target update or on failure; it never overwrites the user's site, earlier merges or unmerged branches. A target update whose shared record has not been written yet is kept per project in `ATRIA_HOME/runtime/delivery-sync/<project-hash>.json` (0600, atomic replace) with only the merge identity, expected target, published commit and last error. That local pending fact belongs to the execution host, is not shared data and is not in the project database backup; reads, `apply_merge`, a manual retry, a bounded in-process retry task while this host runs, and a restart complete the same delivery once the service is reachable. Backup and restore run on the authority's backend; a remote client refuses them explicitly.
+A development workspace is an isolated `git worktree` outside the target repository, under the data root at `FORMICAND_HOME/runtime/development-workspaces/<developmentId>` (default `~/.formicand/runtime/development-workspaces`). It is not part of shared data and is never written into the user's own working directory. A work item bound to a development forks its own site under the sibling `work-items/<callId>` and reuses that directory and branch when it resumes. A merge builds its combined version in its own temporary `merges/<mergeId>` site and removes it after the target update or on failure; it never overwrites the user's site, earlier merges or unmerged branches. A target update whose shared record has not been written yet is kept per project in `FORMICAND_HOME/runtime/delivery-sync/<project-hash>.json` (0600, atomic replace) with only the merge identity, expected target, published commit and last error. That local pending fact belongs to the execution host, is not shared data and is not in the project database backup; reads, `apply_merge`, a manual retry, a bounded in-process retry task while this host runs, and a restart complete the same delivery once the service is reachable. Backup and restore run on the authority's backend; a remote client refuses them explicitly.
 
-SQLite defaults to `project-data.sqlite` under the data root (`ATRIA_HOME/runtime/project-data.sqlite`, `~/.atria/runtime/project-data.sqlite` by default); `projectData.sqlite.path` selects another file, and a relative path resolves against the data root. PostgreSQL also accepts separate `host`, `port`, `database`, `user`, `password` and `ssl` fields. Connection credentials stay in the serving host's configuration or `COWORK_PROJECT_DATA_URL` and never enter the UI, tool arguments or error text.
+SQLite defaults to `project-data.sqlite` under the data root (`FORMICAND_HOME/runtime/project-data.sqlite`, `~/.formicand/runtime/project-data.sqlite` by default); `projectData.sqlite.path` selects another file, and a relative path resolves against the data root. PostgreSQL also accepts separate `host`, `port`, `database`, `user`, `password` and `ssl` fields. Connection credentials stay in the serving host's configuration or `FORMICAND_PROJECT_DATA_URL` and never enter the UI, tool arguments or error text.
 
 This stage verified the integration with Node 22.23.4 (the minimum is 22.19.0), the built-in `node:sqlite` (SQLite 3.53.4), a PostgreSQL 18.6 server (the official `postgres:18.6-alpine3.24` image) and the locked `pg` 8.23.1 client; other engine versions were not verified here. The engine is fixed at startup, and switching it never reads the other engine's data.
 
@@ -197,8 +197,8 @@ Choosing an engine is not a data migration: switching engines does not move the 
 The service creates the current schema at startup. `GET /api/project-data` reports the current engine, server version and schema version; `target` is a file path or `postgresql://host:port/database` and carries no credential. The current schema is v14, covering long-lived feature requirements (description, summary, history and aliases), up to when the ledger was last tidied, the board, Main sessions, developments, tickets, reviews (with a final review's acceptance mapping), merge operations and delivery records. The v14 migration initializes a per-project clock from existing tidy and delivery records. It orders reads and deliveries that occur in the same millisecond. Rows tied with a legacy tidy boundary are presented for review once, since old timestamps did not distinguish which side they fell on. A tidy started before the upgrade must read a new snapshot and pass back its `readAt` token. A v12 database drops the per-project tidy read time in one transaction when it is opened; each read now hands back its own. A v10 database gains the review mapping in one transaction when it is opened, with no existing review having one. A v9 database also gains the tidy time in one transaction when it is opened, with existing projects never tidied, and each requirement gains a description taken from its summary's first sentence, or its title when the summary is empty. A v8 database is converted to v14 in one transaction when it is opened: a requirement's content and its decisions still in force become its summary, retracted decisions and each merge become history lines, a delivered development becomes merged, and every project gains its misc requirement. A database recorded at any other version is refused with its file path (or `postgresql://host:port/database`) and version, and is not rewritten; restore it from a backup or open it with the version that wrote it. Backup and restore use the same service against the current engine:
 
 ```sh
-coworkos data backup --to ~/backups/project-data.json
-coworkos data restore --from ~/backups/project-data.json
+formicand data backup --to ~/backups/project-data.json
+formicand data restore --from ~/backups/project-data.json
 ```
 
 A backup is a local logical snapshot (mode 0600) of the shared projects, this host's directory bindings, requirements, revisions, decisions, references, board entries and events with their delivered merge commit, Main sessions and Run ownership, development records, review channel decisions, fixed-candidate reviews with their findings and rulings, per-backend workspace bindings, the project merge configuration, merge operations and their receipts, and delivery rows with their ledger/board synchronization state. Pi transcripts and the checkout files are not in the snapshot; the executing backend keeps them locally. Restore replaces those records in one transaction in foreign-key order and refuses a snapshot from the other engine or an older schema. Stop the backend writing the data root before a restore and restart it afterwards. A backend using `projectData.authority` has no local database; run backup and restore on the authority's backend.
@@ -213,49 +213,49 @@ The external service's Main quotas live in the host's own configuration. Leaving
 
 `resident` bounds the external regular Mains running at once and `continuation` is reserved for continuation Mains; neither kind borrows from the other, and internal Mains spend no external capacity. A project may save as many external regular sessions as `resident`; a saved session occupies no running slot, and continuation sessions do not count toward the project limit. Lowering a quota below the running count or below any project's saved regular sessions is refused with its reason and never ends running work.
 
-Quotas and state are read with `GET /api/main-capacity` and changed with `POST /api/main-capacity`; running and waiting facts live in the data root's `main-capacity/state.json` (default `~/.atria/runtime/main-capacity/state.json`) beside the backend identity, not in shared project data. The program fills a free slot in arrival order and releases it on process exit, failed start, cancellation, crash and restart reconciliation; reconciliation only inspects this host's own processes and stops nothing unrelated. A recoverable failure (shared service unreachable or authentication unavailable) releases the unused slot but keeps the accepted demand, retried with backoff and shown as waiting/failed with its last error; a permanent refusal keeps the input too and becomes `failed` without spending retries. A failed demand keeps its input and `POST /api/main-capacity` with `retry` puts it back in line. A dispatched Main registers its own pid before doing any work; reclaiming a stale reservation is a single check-and-remove in the capacity store, so a Main that registered in between keeps its slot and is counted, and a Main whose reservation is already gone refuses to start. The CLI and main-worker read the same file and write to the same queue. A waiting demand keeps only its explicit profile/model/thinking choice: the host and project role defaults are resolved when it actually gets a slot, so a default changed during the wait applies to that Run.
+Quotas and state are read with `GET /api/main-capacity` and changed with `POST /api/main-capacity`; running and waiting facts live in the data root's `main-capacity/state.json` (default `~/.formicand/runtime/main-capacity/state.json`) beside the backend identity, not in shared project data. The program fills a free slot in arrival order and releases it on process exit, failed start, cancellation, crash and restart reconciliation; reconciliation only inspects this host's own processes and stops nothing unrelated. A recoverable failure (shared service unreachable or authentication unavailable) releases the unused slot but keeps the accepted demand, retried with backoff and shown as waiting/failed with its last error; a permanent refusal keeps the input too and becomes `failed` without spending retries. A failed demand keeps its input and `POST /api/main-capacity` with `retry` puts it back in line. A dispatched Main registers its own pid before doing any work; reclaiming a stale reservation is a single check-and-remove in the capacity store, so a Main that registered in between keeps its slot and is counted, and a Main whose reservation is already gone refuses to start. The CLI and main-worker read the same file and write to the same queue. A waiting demand keeps only its explicit profile/model/thinking choice: the host and project role defaults are resolved when it actually gets a slot, so a default changed during the wait applies to that Run.
 
 Interface details: [Product API](../product-api.md#external-main-capacity).
 
 ## Paths and environment variables
 
-| Variable                                              | Purpose                                                                                      |
-| ----------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| `COWORK_CONFIG`                                       | Explicit configuration file                                                                  |
-| `COWORK_API_BASE` / `COWORK_MODEL` / `COWORK_API_KEY` | Model URL, ID and key                                                                        |
-| `COWORK_MODEL_API`                                    | Same values as `api`                                                                         |
-| `COWORK_THINKING_FORMAT`                              | Thinking format for the current process                                                      |
-| `COWORK_SUPPORTS_IMAGES`                              | `1` / `true` enables; `0` / `false` disables                                                 |
-| `COWORK_REASONING_EFFORT`                             | Reasoning level                                                                              |
-| `COWORK_SUPPORTS_REASONING_EFFORT`                    | `1` / `true` enables; `0` / `false` omits effort fields                                      |
-| `COWORK_SUPPORTS_PROMPT_CACHE_KEY`                    | `1` / `true` enables; `0` / `false` disables third-party cache keys                          |
-| `ATRIA_HOME`                                          | App, CLI and Web user home, default `~/.atria`; explicit path overrides still win            |
-| `COWORK_DESKTOP_DATA`                                 | Separate desktop data directory                                                              |
-| `COWORK_WORKSPACE`                                    | Persistent task data directory, default `~/.atria/workspace`                                 |
-| `COWORK_PROJECT_DIR`                                  | Main's project directory for files and commands                                              |
-| `PI_CODING_AGENT_DIR`                                 | Pi state directory, default `~/.atria/pi`                                                    |
-| `COWORK_TASK_ID`                                      | Fixed Main Task, used with its original Pi session for recovery                              |
-| `COWORK_UI_PORT`                                      | Source Web port, default 3880                                                                |
-| `COWORK_TRUSTED_CLIENT_ORIGINS`                       | Trusted local page origins; exact loopback `http://127.0.0.1:<port>` values, comma-separated |
-| `COWORK_PROJECT_DATA_ENGINE`                          | Project data engine: `sqlite` (default) or `postgres`                                        |
-| `COWORK_PROJECT_DATA_SQLITE`                          | SQLite data file path                                                                        |
-| `COWORK_PROJECT_DATA_URL`                             | PostgreSQL connection URL; overrides `projectData.postgres` in the file                      |
-| `COWORK_PROJECT_DATA_AUTHORITY`                       | Shared project data authority URL; overrides `projectData.authority.url`                     |
-| `COWORK_PROJECT_DATA_TOKEN`                           | Authority access credential; overrides `projectData.authority.token`                         |
+| Variable                                                       | Purpose                                                                                      |
+| -------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| `FORMICAND_CONFIG`                                             | Explicit configuration file                                                                  |
+| `FORMICAND_API_BASE` / `FORMICAND_MODEL` / `FORMICAND_API_KEY` | Model URL, ID and key                                                                        |
+| `FORMICAND_MODEL_API`                                          | Same values as `api`                                                                         |
+| `FORMICAND_THINKING_FORMAT`                                    | Thinking format for the current process                                                      |
+| `FORMICAND_SUPPORTS_IMAGES`                                    | `1` / `true` enables; `0` / `false` disables                                                 |
+| `FORMICAND_REASONING_EFFORT`                                   | Reasoning level                                                                              |
+| `FORMICAND_SUPPORTS_REASONING_EFFORT`                          | `1` / `true` enables; `0` / `false` omits effort fields                                      |
+| `FORMICAND_SUPPORTS_PROMPT_CACHE_KEY`                          | `1` / `true` enables; `0` / `false` disables third-party cache keys                          |
+| `FORMICAND_HOME`                                               | App, CLI and Web user home, default `~/.formicand`; explicit path overrides still win        |
+| `FORMICAND_DESKTOP_DATA`                                       | Separate desktop data directory                                                              |
+| `FORMICAND_WORKSPACE`                                          | Persistent task data directory, default `~/.formicand/workspace`                             |
+| `FORMICAND_PROJECT_DIR`                                        | Main's project directory for files and commands                                              |
+| `PI_CODING_AGENT_DIR`                                          | Pi state directory, default `~/.formicand/pi`                                                |
+| `FORMICAND_TASK_ID`                                            | Fixed Main Task, used with its original Pi session for recovery                              |
+| `FORMICAND_UI_PORT`                                            | Source Web port, default 3880                                                                |
+| `FORMICAND_TRUSTED_CLIENT_ORIGINS`                             | Trusted local page origins; exact loopback `http://127.0.0.1:<port>` values, comma-separated |
+| `FORMICAND_PROJECT_DATA_ENGINE`                                | Project data engine: `sqlite` (default) or `postgres`                                        |
+| `FORMICAND_PROJECT_DATA_SQLITE`                                | SQLite data file path                                                                        |
+| `FORMICAND_PROJECT_DATA_URL`                                   | PostgreSQL connection URL; overrides `projectData.postgres` in the file                      |
+| `FORMICAND_PROJECT_DATA_AUTHORITY`                             | Shared project data authority URL; overrides `projectData.authority.url`                     |
+| `FORMICAND_PROJECT_DATA_TOKEN`                                 | Authority access credential; overrides `projectData.authority.token`                         |
 
-`COWORK_TRUSTED_CLIENT_ORIGINS` accepts only exact local `http://` origins and never a wildcard. Named origins may read this backend's responses across ports and appear in its page's `connect-src`; credentials and the `127.0.0.1` listener are unchanged. A browser page managing another local backend names both origins on the two backends. See [Product API](../product-api.md#trusted-local-client-origins).
+`FORMICAND_TRUSTED_CLIENT_ORIGINS` accepts only exact local `http://` origins and never a wildcard. Named origins may read this backend's responses across ports and appear in its page's `connect-src`; credentials and the `127.0.0.1` listener are unchanged. A browser page managing another local backend names both origins on the two backends. See [Product API](../product-api.md#trusted-local-client-origins).
 
-Runtime state defaults to `~/.atria/runtime` in every entrypoint. Project settings save `projectName`, `projectId` and `projectDirectory`; the first message creates the conversation. Project working directories are separate from internal storage under `workspaceRoot` / `COWORK_WORKSPACE`.
+Runtime state defaults to `~/.formicand/runtime` in every entrypoint. Project settings save `projectName`, `projectId` and `projectDirectory`; the first message creates the conversation. Project working directories are separate from internal storage under `workspaceRoot` / `FORMICAND_WORKSPACE`.
 
-Explicit old `.tmp` / `.tmp/pi-agent` paths still work. Source entrypoints no longer select checkout `.tmp` implicitly. Release and development Apps share data and the instance lock; explicit `COWORK_DESKTOP_DATA` and `ATRIA_HOME` overrides still select a separate directory.
+Explicit old `.tmp` / `.tmp/pi-agent` paths still work. Source entrypoints no longer select checkout `.tmp` implicitly. Release and development Apps share data and the instance lock; explicit `FORMICAND_DESKTOP_DATA` and `FORMICAND_HOME` overrides still select a separate directory.
 
-Run `coworkos data paths` to inspect selected paths.
+Run `formicand data paths` to inspect selected paths.
 
 ## Interface language
 
 Choose Simplified Chinese or English under Settings → General → Language. The default is Simplified Chinese. Switching saves conversation and human-reply drafts before reloading. If saving is blocked, the current interface stays open.
 
-Web stores the preference per origin in `localStorage` under `atria.language`. App stores it in `language.json` in its user data directory, independently of the backend's random port. This setting covers shared App/Web chrome, settings and conversations. It does not change existing user content, model response language, CLI, native system dialogs or third-party tools' own language settings. Raw backend and external-tool errors retain their original language.
+Web stores the preference per origin in `localStorage` under `formicand.language`. App stores it in `language.json` in its user data directory, independently of the backend's random port. This setting covers shared App/Web chrome, settings and conversations. It does not change existing user content, model response language, CLI, native system dialogs or third-party tools' own language settings. Raw backend and external-tool errors retain their original language.
 
 ## Appearance storage
 
@@ -265,21 +265,21 @@ The App saves appearance in `appearance.json` in its user data directory; Web st
 
 These are underlying Runtime defaults, overridden by files or environment settings. New connections use 8192 output tokens and `off` / `false` reasoning settings; existing connections are not rewritten.
 
-| JSON field                  | Environment variable                  | Runtime default                                                 |
-| --------------------------- | ------------------------------------- | --------------------------------------------------------------- |
-| `mainMaxTurns`              | `COWORK_MAIN_MAX_TURNS`               | 2000                                                            |
-| `subagentMaxTurns`          | `COWORK_MAX_TURNS`                    | 200                                                             |
-| `mainMaxTokens`             | `COWORK_MAIN_MAX_TOKENS`              | 65536; new connections 8192                                     |
-| `subagentMaxTokens`         | `COWORK_MAX_TOKENS`                   | 65536; new connections 8192                                     |
-| `contextWindow`             | `COWORK_CONTEXT_WINDOW`               | 256000 tokens                                                   |
-| `mainTimeoutMs`             | `COWORK_MAIN_TIMEOUT_MS`              | 0, unlimited                                                    |
-| `subagentTimeoutMs`         | `COWORK_SUBAGENT_TIMEOUT_MS`          | 0, unlimited; legacy `COWORK_TIMEOUT_MS` affects subagents only |
-| `mainIdleTimeoutMs`         | `COWORK_MAIN_IDLE_TIMEOUT_MS`         | 300000 (5 minutes); 0 never exits while idle                    |
-| `commandTimeoutMs`          | `COWORK_COMMAND_TIMEOUT_MS`           | 1800000 (30 minutes); 0 is unlimited                            |
-| `maxAttempts`               | `COWORK_MAX_ATTEMPTS`                 | 3 including the first delegation; 1 disables delegation retries |
-| `subagentQuestionTimeoutMs` | `COWORK_SUBAGENT_QUESTION_TIMEOUT_MS` | 180000 (3 minutes); 0 disables questions to Main                |
-| `humanAnswerTimeoutMs`      | `COWORK_HUMAN_ANSWER_TIMEOUT_MS`      | 60000 (1 minute)                                                |
-| `subagentMaxQuestions`      | `COWORK_SUBAGENT_MAX_QUESTIONS`       | 3                                                               |
+| JSON field                  | Environment variable                     | Runtime default                                                    |
+| --------------------------- | ---------------------------------------- | ------------------------------------------------------------------ |
+| `mainMaxTurns`              | `FORMICAND_MAIN_MAX_TURNS`               | 2000                                                               |
+| `subagentMaxTurns`          | `FORMICAND_MAX_TURNS`                    | 200                                                                |
+| `mainMaxTokens`             | `FORMICAND_MAIN_MAX_TOKENS`              | 65536; new connections 8192                                        |
+| `subagentMaxTokens`         | `FORMICAND_MAX_TOKENS`                   | 65536; new connections 8192                                        |
+| `contextWindow`             | `FORMICAND_CONTEXT_WINDOW`               | 256000 tokens                                                      |
+| `mainTimeoutMs`             | `FORMICAND_MAIN_TIMEOUT_MS`              | 0, unlimited                                                       |
+| `subagentTimeoutMs`         | `FORMICAND_SUBAGENT_TIMEOUT_MS`          | 0, unlimited; legacy `FORMICAND_TIMEOUT_MS` affects subagents only |
+| `mainIdleTimeoutMs`         | `FORMICAND_MAIN_IDLE_TIMEOUT_MS`         | 300000 (5 minutes); 0 never exits while idle                       |
+| `commandTimeoutMs`          | `FORMICAND_COMMAND_TIMEOUT_MS`           | 1800000 (30 minutes); 0 is unlimited                               |
+| `maxAttempts`               | `FORMICAND_MAX_ATTEMPTS`                 | 3 including the first delegation; 1 disables delegation retries    |
+| `subagentQuestionTimeoutMs` | `FORMICAND_SUBAGENT_QUESTION_TIMEOUT_MS` | 180000 (3 minutes); 0 disables questions to Main                   |
+| `humanAnswerTimeoutMs`      | `FORMICAND_HUMAN_ANSWER_TIMEOUT_MS`      | 60000 (1 minute)                                                   |
+| `subagentMaxQuestions`      | `FORMICAND_SUBAGENT_MAX_QUESTIONS`       | 3                                                                  |
 
 Timeouts are milliseconds. `mainTimeoutMs` bounds one turn's model work; `mainIdleTimeoutMs` is how long a resident Main keeps its process with no turn running and no Subagent working. When it expires the process exits with its session and Task state kept, and the next message or callback starts Main again. `maxAttempts` is a delegation budget, separate from model request retries. See the [runtime reference](runtime-reference.md#request-retry-and-context-recovery) for long tasks and retries.
 

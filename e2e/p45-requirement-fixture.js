@@ -15,7 +15,7 @@ const delay = (ms) => new Promise((done) => setTimeout(done, ms));
 /** The serving backend's identity, which recorded workspace and merge facts must name. */
 export async function servingBackendId(dashboard) {
   for (let attempt = 0; attempt < 200; attempt += 1) {
-    const instance = await readBackendInstance(backendPaths(dashboard.env.ATRIA_HOME));
+    const instance = await readBackendInstance(backendPaths(dashboard.env.FORMICAND_HOME));
     if (instance.value?.backendId) return instance.value.backendId;
     await delay(25);
   }
@@ -74,7 +74,7 @@ export async function seedRequirement(page, dashboard, project, input) {
   // completing it. A case that wants this host to own the merge names its own
   // identity and configures the project's merge entry the same way.
   const ownedBy = input.executionBackendId ?? REMOTE_BACKEND;
-  const declared = { "x-cowork-backend-id": ownedBy };
+  const declared = { "x-formicand-backend-id": ownedBy };
   const projectPath = (suffix) => `/api/projects/${encodeURIComponent(project.projectId)}${suffix}`;
 
   const requirement = (
@@ -120,7 +120,7 @@ export async function seedRequirement(page, dashboard, project, input) {
       workspaceId: `workspace_${requirement.requirementId}`,
       backendId,
       directory: join(dashboard.root, "checkouts", requirement.requirementId),
-      branch: `coworkos/${requirement.requirementId}`,
+      branch: `formicand/${requirement.requirementId}`,
       baseCommit: checkout.baseline,
       state: "ready"
     }
@@ -128,7 +128,7 @@ export async function seedRequirement(page, dashboard, project, input) {
   const candidate = {
     commit: checkout.candidate,
     tree: checkout.tree,
-    branch: `coworkos/${requirement.requirementId}`,
+    branch: `formicand/${requirement.requirementId}`,
     workspace: join(dashboard.root, "checkouts", requirement.requirementId)
   };
   if (!input.phase || input.phase === "development") return { requirement, session, development, checkout };
@@ -396,7 +396,7 @@ export async function configureMerge(
     `${dashboard.base}/api/projects/${encodeURIComponent(project.projectId)}/merge-config`,
     {
       data: { repository, targetBranch: "main", executionBackendId },
-      headers: { "content-type": "application/json", "x-cowork-backend-id": executionBackendId }
+      headers: { "content-type": "application/json", "x-formicand-backend-id": executionBackendId }
     }
   );
   const payload = await response.text();

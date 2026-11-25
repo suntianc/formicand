@@ -434,7 +434,7 @@ export async function readRunStatistics(input: {
       mergeUsage(combined, summary, agent.agentId);
       return {
         ...agent,
-        name: agent.agentId === "main" ? "CoworkOS" : agentDisplayName(agent.agentId),
+        name: agent.agentId === "main" ? "Formicand" : agentDisplayName(agent.agentId),
         usage: snapshot(summary, scanning)
       };
     })

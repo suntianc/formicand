@@ -14,7 +14,7 @@ test("desktop windows launched by tests stay out of the foreground but still dra
   test.setTimeout(120_000);
   // The suite defaults the switch on (playwright.config.js); the smoke environment carries it.
   expect(process.env.FORMICAND_DESKTOP_BACKGROUND).toBe("1");
-  if (!existsSync("build/atria.icns"))
+  if (!existsSync("build/formicand.icns"))
     execFileSync(process.execPath, ["scripts/build-desktop-icon.mjs"], { stdio: "inherit" });
   const data = await mkdtemp(join(tmpdir(), "formicand-p45-background-"));
   const env = desktopSmokeEnvironment({ data });

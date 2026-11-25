@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { mainRunEnv } from "../dist/src/dashboard/main-run-env.js";
-import { atriaDataPaths } from "../scripts/data-home.cjs";
+import { formicandDataPaths } from "../scripts/data-home.cjs";
 
 /**
  * What the Dashboard hands a Main run.
@@ -24,24 +24,24 @@ const base = {
 };
 
 test("a Main run is told where the Dashboard is", () => {
-  // Host-dependent tools read COWORK_DASHBOARD_URL to reach their Dashboard.
-  assert.equal(mainRunEnv(base).COWORK_DASHBOARD_URL, "http://127.0.0.1:4321");
+  // Host-dependent tools read FORMICAND_DASHBOARD_URL to reach their Dashboard.
+  assert.equal(mainRunEnv(base).FORMICAND_DASHBOARD_URL, "http://127.0.0.1:4321");
   // It must follow the port the Dashboard actually listens on, not a default:
   // assuming 3880 breaks every instance that is not on it, tests included.
   assert.equal(
-    mainRunEnv({ ...base, dashboardUrl: "http://127.0.0.1:9999" }).COWORK_DASHBOARD_URL,
+    mainRunEnv({ ...base, dashboardUrl: "http://127.0.0.1:9999" }).FORMICAND_DASHBOARD_URL,
     "http://127.0.0.1:9999"
   );
 });
 
 test("the run's identity and workspace travel with it", () => {
   const env = mainRunEnv(base);
-  assert.equal(env.COWORK_TASK_ID, "task");
-  assert.equal(env.COWORK_RUN_ID, "main-1");
-  assert.equal(env.COWORK_CLI_SESSION, "0", "Dashboard Main uses its own fixed Task recovery policy");
-  assert.equal(env.COWORK_WORKSPACE, "/tmp/ws");
-  assert.equal(env.COWORK_MODEL, "glm-5.3");
-  assert.equal(env.COWORK_API_BASE, "https://api.example.test");
+  assert.equal(env.FORMICAND_TASK_ID, "task");
+  assert.equal(env.FORMICAND_RUN_ID, "main-1");
+  assert.equal(env.FORMICAND_CLI_SESSION, "0", "Dashboard Main uses its own fixed Task recovery policy");
+  assert.equal(env.FORMICAND_WORKSPACE, "/tmp/ws");
+  assert.equal(env.FORMICAND_MODEL, "glm-5.3");
+  assert.equal(env.FORMICAND_API_BASE, "https://api.example.test");
   // Every value is a string: this object is spread into a process env, where a
   // non-string is either coerced or dropped depending on the platform.
   for (const [key, value] of Object.entries(env)) {
@@ -50,8 +50,8 @@ test("the run's identity and workspace travel with it", () => {
 });
 
 test("an explicit reasoning level overrides the connection default for one Main run", () => {
-  assert.equal(mainRunEnv({ ...base, thinkingLevel: "low" }).COWORK_REASONING_EFFORT, "low");
-  assert.equal(mainRunEnv(base).COWORK_REASONING_EFFORT, undefined);
+  assert.equal(mainRunEnv({ ...base, thinkingLevel: "low" }).FORMICAND_REASONING_EFFORT, "low");
+  assert.equal(mainRunEnv(base).FORMICAND_REASONING_EFFORT, undefined);
 });
 
 test("only a connection resolved from the host file is re-readable at the next turn", () => {
@@ -70,13 +70,13 @@ test("only a connection resolved from the host file is re-readable at the next t
   // fixed for the process's whole life.
   for (const source of ["active", "host", "project"])
     assert.equal(
-      mainRunEnv({ ...base, selection: selection(source) }).COWORK_MAIN_MODEL_FROM_CONFIG,
+      mainRunEnv({ ...base, selection: selection(source) }).FORMICAND_MAIN_MODEL_FROM_CONFIG,
       "1",
       source
     );
   for (const source of ["environment", "explicit", "retry"])
     assert.equal(
-      mainRunEnv({ ...base, selection: selection(source) }).COWORK_MAIN_MODEL_FROM_CONFIG,
+      mainRunEnv({ ...base, selection: selection(source) }).FORMICAND_MAIN_MODEL_FROM_CONFIG,
       undefined,
       source
     );
@@ -84,12 +84,12 @@ test("only a connection resolved from the host file is re-readable at the next t
 
 test("an explicit Pi agent directory wins over the derived one", () => {
   assert.equal(mainRunEnv({ ...base, piAgentDir: "/tmp/explicit" }).PI_CODING_AGENT_DIR, "/tmp/explicit");
-  assert.equal(mainRunEnv(base).PI_CODING_AGENT_DIR, atriaDataPaths().piAgentDir);
+  assert.equal(mainRunEnv(base).PI_CODING_AGENT_DIR, formicandDataPaths().piAgentDir);
 });
 
 test("a reassigned project changes execution CWD while task storage stays stable", () => {
   const env = mainRunEnv({ ...base, projectDirectory: "/tmp/new-project" });
-  assert.equal(env.COWORK_PROJECT_DIR, "/tmp/new-project");
-  assert.equal(env.COWORK_WORKSPACE, base.taskWorkspace);
-  assert.equal(mainRunEnv(base).COWORK_PROJECT_DIR, base.taskWorkspace);
+  assert.equal(env.FORMICAND_PROJECT_DIR, "/tmp/new-project");
+  assert.equal(env.FORMICAND_WORKSPACE, base.taskWorkspace);
+  assert.equal(mainRunEnv(base).FORMICAND_PROJECT_DIR, base.taskWorkspace);
 });

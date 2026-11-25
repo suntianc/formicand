@@ -93,7 +93,7 @@ export function createCatalogEvents(options: CatalogEventsOptions): CatalogEvent
       await (await ledger).publish({ scope, objectId, type, payload: asRecord(payload) });
     } catch (error) {
       console.error(
-        `[cowork] 事件写入失败，将在下次快照时补齐：${scope}:${objectId} ${
+        `[formicand] 事件写入失败，将在下次快照时补齐：${scope}:${objectId} ${
           error instanceof Error ? error.message : String(error)
         }`
       );
@@ -136,7 +136,7 @@ export function createCatalogEvents(options: CatalogEventsOptions): CatalogEvent
         connection: "keep-alive",
         "x-content-type-options": "nosniff"
       });
-      response.write(`: cowork events connected at ${current.cursor()}\n\n`);
+      response.write(`: formicand events connected at ${current.cursor()}\n\n`);
       let cursor = after;
       /** Set by the one end path below; no frame is written once it is true. */
       let settled = false;
@@ -206,7 +206,7 @@ export function createCatalogEvents(options: CatalogEventsOptions): CatalogEvent
           // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- settled 由 settle() 在 close 监听里置位，客户端断开后不再上报刷新失败
           if (!settled)
             console.error(
-              `[cowork] 事件流刷新失败：${error instanceof Error ? error.message : String(error)}`
+              `[formicand] 事件流刷新失败：${error instanceof Error ? error.message : String(error)}`
             );
         } finally {
           emitting = false;

@@ -4,17 +4,13 @@
 
 For first installation, see the [Mac App](getting-started.md) or [CLI quickstart](cli-quickstart.md).
 
-## Name and compatibility
+## Name and data directory
 
-The product is now CoworkOS, with the same logo. `coworkos` is the primary command, with `atria` kept as a compatibility alias.
+The product, command, packages and data directory are all named Formicand: the command is `formicand`, configuration and tasks live in `~/.formicand/` (move it with `FORMICAND_HOME`), environment variables start with `FORMICAND_`, and the desktop bundle ID is `io.github.suntianc.formicand`.
 
-Starting the CLI or running `coworkos doctor` refreshes legacy search adapters to the current runtime path. Only product-owned scripts are replaced; user-installed tools and symbolic links are preserved.
-
-The existing `~/.atria/` home, `ATRIA_*` environment variables, desktop bundle ID, system keychain identity and persisted format identifiers remain stable. Existing configuration and tasks need no migration. New builds use the CoworkOS application name and `coworkos-cli` archive name (the archive keeps its internal package name `atria-cowork-cli`).
+Starting the CLI or running `formicand doctor` refreshes search adapters to the current runtime path. Only product-owned scripts are replaced; user-installed tools and symbolic links are preserved.
 
 Installed Apps have no in-app updater and are upgraded manually with a local DMG; existing user data stays in its data directory.
-
-The old source updater also rejects the new project name. For the first rename upgrade, save documents and finish tasks, then run `git pull --ff-only`, `npm ci` and `npm run build` in a clean checkout with an upstream branch, and restart. The new updater accepts the one-way transition from `cowork-harness` to `coworkos`, while rejecting unrelated project identities and the reverse rename.
 
 ## Updates
 
@@ -22,7 +18,7 @@ Save documents and finish running tasks before updating.
 
 Upgrade the Mac App manually from a local DMG:
 
-1. Back up `~/.atria/` (or the actual `ATRIA_HOME`) and external projects, then finish running tasks. For each running data root, use a matching CLI to run `coworkos backend stop` and confirm `stopped` or `absent`; then quit the App.
+1. Back up `~/.formicand/` (or the actual `FORMICAND_HOME`) and external projects, then finish running tasks. For each running data root, use a matching CLI to run `formicand backend stop` and confirm `stopped` or `absent`; then quit the App.
 2. Verify the DMG SHA-256 and open it. Rename the old App to retain it, then drag the new App to the original installation directory. App resources and user data are separate.
 3. Open the new App and check connections, conversations, attachments and settings. If startup or data validation fails, quit the new App, restore the retained old App and any needed data backup, and retry.
 
@@ -31,19 +27,19 @@ See [development](development.md#standalone-backend) for standalone backend star
 For a source installation, exit the interactive interface first, then run these commands in your system terminal:
 
 ```sh
-coworkos update --check
-coworkos update
-coworkos --version
+formicand update --check
+formicand update
+formicand --version
 ```
 
 `--check` only checks; it does not install. After `update` completes, the next launch uses the new version. For source checkout requirements, see [development](development.md#updating-a-source-checkout). A CLI archive you packaged yourself has no updater; install the newer archive instead.
 
 ## Data and backups
 
-Configuration and tasks default to `~/.atria/`. Project files stay in the project folder from which you start the CLI. Inspect the actual paths in your terminal:
+Configuration and tasks default to `~/.formicand/`. Project files stay in the project folder from which you start the CLI. Inspect the actual paths in your terminal:
 
 ```sh
-coworkos data paths
+formicand data paths
 ```
 
 Back up important user data and external project files together. See [workspace persistence](../task-workspace-layout.md) (Chinese) for the layout. Updates preserve existing data; do not delete the user directory to troubleshoot. After reopening the App, continue in the original conversation. See [CLI quickstart](cli-quickstart.md) for CLI exit and recovery.
@@ -61,7 +57,7 @@ npm --version
 
 Continue with CLI installation after both commands print version numbers.
 
-### `coworkos: command not found`
+### `formicand: command not found`
 
 `npm link` puts the command in npm's global `bin` directory. Show that directory:
 
@@ -78,7 +74,7 @@ printf '%s\n' "export PATH=\"$(npm prefix -g)/bin:\$PATH\"" >> "$HOME/.zshrc"
 printf '%s\n' "export PATH=\"$(npm prefix -g)/bin:\$PATH\"" >> "$HOME/.bashrc"
 ```
 
-Open a new terminal and run `coworkos --version` to confirm.
+Open a new terminal and run `formicand --version` to confirm.
 
 ### `npm link` reports a permission error
 
@@ -93,29 +89,29 @@ Then add `$HOME/.local/bin` to PATH as above. Do not install with `sudo`.
 
 ### `配置已存在，未覆盖` (configuration exists; not overwritten)
 
-`coworkos init` creates a new configuration without overwriting an existing file. First run this in your project folder:
+`formicand init` creates a new configuration without overwriting an existing file. First run this in your project folder:
 
 ```sh
-coworkos doctor
+formicand doctor
 ```
 
-Read the path printed after `配置路径：`. If the saved configuration is valid, run `coworkos` directly. To change it, open that file and edit `baseUrl`, `model`, `apiKey` or `api` using [CLI files and environment variables](configuration.md#cli-files-and-environment-variables). `coworkos init --force` retains populated fields rather than asking for every connection value again.
+Read the path printed after `配置路径：`. If the saved configuration is valid, run `formicand` directly. To change it, open that file and edit `baseUrl`, `model`, `apiKey` or `api` using [CLI files and environment variables](configuration.md#cli-files-and-environment-variables). `formicand init --force` retains populated fields rather than asking for every connection value again.
 
 ### `FAIL 模型配置` or `FAIL 流式模型连接与工具调用`
 
 Read the error on that line and the printed configuration path:
 
-- Missing configuration: run `coworkos init` in your project folder and enter your provider's API URL, model ID and API key.
+- Missing configuration: run `formicand init` in your project folder and enter your provider's API URL, model ID and API key.
 - Invalid JSON or model fields: open the printed configuration file and fix it using [CLI configuration](configuration.md#cli-files-and-environment-variables). Do not post the full file or key in issue reports.
 - A service that only supports Chat Completions: run the commands below in the current terminal, then test again.
 - Authentication, access or quota errors: check the provider's API key, model access and balance, then test again.
 
 ```sh
-export COWORK_MODEL_API=openai-completions
-coworkos doctor --test-connection
+export FORMICAND_MODEL_API=openai-completions
+formicand doctor --test-connection
 ```
 
-The format switch above is only for Chat Completions services and only applies in the current terminal. See [CLI configuration](configuration.md#cli-files-and-environment-variables) to save it. For a Responses service, fix its configuration and rerun `coworkos doctor --test-connection` directly. Start a task only after all checks pass.
+The format switch above is only for Chat Completions services and only applies in the current terminal. See [CLI configuration](configuration.md#cli-files-and-environment-variables) to save it. For a Responses service, fix its configuration and rerun `formicand doctor --test-connection` directly. Start a task only after all checks pass.
 
 ### The Mac App cannot open or save a connection
 

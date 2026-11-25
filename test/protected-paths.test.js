@@ -9,13 +9,13 @@ import {
   ProtectedPaths,
   configuredProtectedPaths,
   projectWritesEnabled,
-  atriaInstallRoot,
+  formicandInstallRoot,
   DEFAULT_PROTECTED_PATHS
 } from "../dist/src/tools/protected-paths.js";
 
 async function project(t) {
   // Resolve symlinks: on macOS /var is /private/var, and `pwd` reports the real path.
-  const base = await realpath(await mkdtemp(join(tmpdir(), "atria-guard-")));
+  const base = await realpath(await mkdtemp(join(tmpdir(), "formicand-guard-")));
   t.after(() => rm(base, { recursive: true, force: true }));
   const root = join(base, "project");
   // The agent's workspace sits outside the project, as it does in a real run.
@@ -54,11 +54,11 @@ test("the guard protects version control, but not the project's own code", async
 
 test("the harness install is protected by absolute path, wherever it sits", async (t) => {
   const { root } = await project(t);
-  const install = "/opt/atria";
+  const install = "/opt/formicand";
   const guard = new ProtectedPaths({ root, protectedRoots: [install] });
   // An agent must not edit the runtime it runs in, even from outside the project.
-  assert.equal(guard.match("/opt/atria/src/runtime/role-models.ts"), install);
-  assert.equal(guard.match("/opt/atria/.pi/extensions/cowork.ts"), install);
+  assert.equal(guard.match("/opt/formicand/src/runtime/role-models.ts"), install);
+  assert.equal(guard.match("/opt/formicand/.pi/extensions/formicand.ts"), install);
   assert.equal(
     guard.match(join(root, "src/synth/mix.py")),
     undefined,
@@ -66,31 +66,31 @@ test("the harness install is protected by absolute path, wherever it sits", asyn
   );
 
   // Emptying the project patterns is allowed; the runtime stays protected.
-  const opened = configuredProtectedPaths(root, { COWORK_PROTECTED_PATHS: "" }, [install]);
+  const opened = configuredProtectedPaths(root, { FORMICAND_PROTECTED_PATHS: "" }, [install]);
   assert.equal(opened.match(join(root, ".git/config")), undefined);
-  assert.equal(opened.match("/opt/atria/src/x.ts"), install, "the runtime is never a write target");
+  assert.equal(opened.match("/opt/formicand/src/x.ts"), install, "the runtime is never a write target");
 });
 
-test("atriaInstallRoot points at the harness, not at dist", () => {
-  const root = atriaInstallRoot();
+test("formicandInstallRoot points at the harness, not at dist", () => {
+  const root = formicandInstallRoot();
   assert.ok(existsSync(join(root, "package.json")), `${root} should be the install root`);
-  assert.equal(JSON.parse(readFileSync(join(root, "package.json"), "utf8")).name, "coworkos");
+  assert.equal(JSON.parse(readFileSync(join(root, "package.json"), "utf8")).name, "formicand");
 });
 
 test("the environment preset can grant project writes for a preconfigured run", () => {
   // The normal path is a Task grant. This exists for a run configured ahead of
   // time — an unattended job — and is off unless set.
   assert.equal(projectWritesEnabled({}), false, "an ordinary task gets the sandbox");
-  assert.equal(projectWritesEnabled({ COWORK_PROJECT_WRITE: "1" }), true);
-  assert.equal(projectWritesEnabled({ COWORK_PROJECT_WRITE: "0" }), false);
-  assert.equal(projectWritesEnabled({ COWORK_PROJECT_WRITE: "false" }), false);
+  assert.equal(projectWritesEnabled({ FORMICAND_PROJECT_WRITE: "1" }), true);
+  assert.equal(projectWritesEnabled({ FORMICAND_PROJECT_WRITE: "0" }), false);
+  assert.equal(projectWritesEnabled({ FORMICAND_PROJECT_WRITE: "false" }), false);
 });
 
 test("the protected set is configurable, and can be emptied deliberately", () => {
   const root = "/project";
   assert.ok(configuredProtectedPaths(root, {}).match("/project/.git/config"), "defaults apply when unset");
 
-  const custom = configuredProtectedPaths(root, { COWORK_PROTECTED_PATHS: "scoring/, golden.json" });
+  const custom = configuredProtectedPaths(root, { FORMICAND_PROTECTED_PATHS: "scoring/, golden.json" });
   assert.ok(custom.match("/project/scoring/run.py"));
   assert.ok(custom.match("/project/golden.json"));
   assert.equal(
@@ -100,7 +100,7 @@ test("the protected set is configurable, and can be emptied deliberately", () =>
   );
 
   assert.equal(
-    configuredProtectedPaths(root, { COWORK_PROTECTED_PATHS: "" }).match("/project/.git/config"),
+    configuredProtectedPaths(root, { FORMICAND_PROTECTED_PATHS: "" }).match("/project/.git/config"),
     undefined,
     "the guard can be turned off, but only by saying so"
   );

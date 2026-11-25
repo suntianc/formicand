@@ -19,9 +19,12 @@ const { backendExecutable } = require("../desktop/backend-executable.cjs");
 
 test(
   "Mac launch gives the App and its helper their own permission responsibility while preserving profile and arguments",
-  { skip: process.platform !== "darwin" || process.env.ATRIA_NATIVE_DESKTOP_TEST !== "1", timeout: 120_000 },
+  {
+    skip: process.platform !== "darwin" || process.env.FORMICAND_NATIVE_DESKTOP_TEST !== "1",
+    timeout: 120_000
+  },
   async (t) => {
-    const directory = await mkdtemp(join(tmpdir(), "atria-launch-permissions-"));
+    const directory = await mkdtemp(join(tmpdir(), "formicand-launch-permissions-"));
     const bundle = join(directory, "Permission Probe.app");
     t.after(async () => {
       await run(
@@ -36,7 +39,7 @@ test(
       join(bundle, "Contents/Info.plist"),
       `<?xml version="1.0" encoding="UTF-8"?><plist version="1.0"><dict>
       <key>CFBundleExecutable</key><string>probe</string>
-      <key>CFBundleIdentifier</key><string>org.atria.test.launch.${Date.now()}</string>
+      <key>CFBundleIdentifier</key><string>org.formicand.test.launch.${Date.now()}</string>
       <key>CFBundleName</key><string>Permission Probe</string>
       <key>CFBundlePackageType</key><string>APPL</string>
       <key>LSUIElement</key><true/></dict></plist>`
@@ -58,23 +61,23 @@ test(
       const restarting = profile === "second profile";
       if (restarting) {
         const previous = {
-          marker: process.env.ATRIA_LAUNCH_FIXTURE_MARKER,
-          report: process.env.ATRIA_LAUNCH_FIXTURE_REPORT
+          marker: process.env.FORMICAND_LAUNCH_FIXTURE_MARKER,
+          report: process.env.FORMICAND_LAUNCH_FIXTURE_REPORT
         };
         try {
-          process.env.ATRIA_LAUNCH_FIXTURE_MARKER = profile;
-          process.env.ATRIA_LAUNCH_FIXTURE_REPORT = report;
+          process.env.FORMICAND_LAUNCH_FIXTURE_MARKER = profile;
+          process.env.FORMICAND_LAUNCH_FIXTURE_REPORT = report;
           await restartDevelopment({
             root: directory,
             pid: control.pid,
             nodeExecutable: process.execPath,
-            runtimeEnvironment: { COWORK_DESKTOP_DATA: data },
+            runtimeEnvironment: { FORMICAND_DESKTOP_DATA: data },
             developmentExecutableImpl: async () => executable
           });
         } finally {
           for (const [name, value] of [
-            ["ATRIA_LAUNCH_FIXTURE_MARKER", previous.marker],
-            ["ATRIA_LAUNCH_FIXTURE_REPORT", previous.report]
+            ["FORMICAND_LAUNCH_FIXTURE_MARKER", previous.marker],
+            ["FORMICAND_LAUNCH_FIXTURE_REPORT", previous.report]
           ]) {
             if (value === undefined) delete process.env[name];
             else process.env[name] = value;
@@ -84,7 +87,7 @@ test(
         await launchMacApplication(executable, {
           args: [report, "argument with spaces", "中文"],
           cwd: directory,
-          env: { ...process.env, ATRIA_LAUNCH_FIXTURE_MARKER: profile, COWORK_DESKTOP_DATA: data }
+          env: { ...process.env, FORMICAND_LAUNCH_FIXTURE_MARKER: profile, FORMICAND_DESKTOP_DATA: data }
         });
       }
       let actual;
@@ -115,7 +118,7 @@ test("Mac application launch rejects entries outside an absolute App executable 
 });
 
 test(
-  "Mac development retains vendor identity and reuses a CoworkOS runtime with an accessory backend",
+  "Mac development retains vendor identity and reuses a Formicand runtime with an accessory backend",
   { skip: process.platform !== "darwin" },
   async () => {
     const vendorPlist = resolve("node_modules/electron/dist/Electron.app/Contents/Info.plist");
@@ -135,12 +138,12 @@ test(
     const plist = join(executable, "../../Info.plist");
     assert.match(
       (await run("/usr/libexec/PlistBuddy", ["-c", "Print :CFBundleDisplayName", plist])).stdout.trim(),
-      /^CoworkOS Dev \([a-f0-9]{8}\)$/
+      /^Formicand Dev \([a-f0-9]{8}\)$/
     );
     for (const key of ["CFBundleName", "CFBundleExecutable"])
       assert.equal(
         (await run("/usr/libexec/PlistBuddy", ["-c", `Print :${key}`, plist])).stdout.trim(),
-        "CoworkOS Dev"
+        "Formicand Dev"
       );
     await run("/usr/bin/codesign", ["--verify", "--deep", "--strict", resolve(executable, "../../..")]);
   }
@@ -150,14 +153,14 @@ test(
   "ad-hoc development runtimes isolate permission identities and preserve the signature in Finder copies",
   { skip: process.platform !== "darwin", timeout: 120_000 },
   async (t) => {
-    const directory = await mkdtemp(join(tmpdir(), "atria-dev-identities-"));
+    const directory = await mkdtemp(join(tmpdir(), "formicand-dev-identities-"));
     t.after(() => rm(directory, { recursive: true, force: true }));
     const prepare = async (name) => {
       const root = join(directory, name);
       await mkdir(join(root, "build"), { recursive: true });
       await mkdir(join(root, "desktop"));
       await symlink(resolve("node_modules"), join(root, "node_modules"), "dir");
-      await copyFile("build/atria.icns", join(root, "build/atria.icns"));
+      await copyFile("build/formicand.icns", join(root, "build/formicand.icns"));
       await copyFile("desktop/entitlements.mac.plist", join(root, "desktop/entitlements.mac.plist"));
       await writeFile(join(root, "package.json"), JSON.stringify({ version: "0.0.1" }));
       return root;
@@ -208,25 +211,28 @@ test(
 
 test(
   "Finder development entry preserves host settings and drafts across native relaunch",
-  { skip: process.platform !== "darwin" || process.env.ATRIA_NATIVE_DESKTOP_TEST !== "1", timeout: 120_000 },
+  {
+    skip: process.platform !== "darwin" || process.env.FORMICAND_NATIVE_DESKTOP_TEST !== "1",
+    timeout: 120_000
+  },
   async () => {
     const { _electron } = await import("@playwright/test");
-    const directory = await mkdtemp(join(tmpdir(), "atria-dev-lifecycle-"));
+    const directory = await mkdtemp(join(tmpdir(), "formicand-dev-lifecycle-"));
     const executablePath = await installDevelopmentApp({ directory: join(directory, "Applications") });
     assert.equal(await installDevelopmentApp({ directory: join(directory, "Applications") }), executablePath);
     const env = {
       ...process.env,
-      COWORK_DESKTOP_DATA: directory,
-      COWORK_DISABLE_MAIN_GUARDIAN: "1",
+      FORMICAND_DESKTOP_DATA: directory,
+      FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
       PI_OFFLINE: "1"
     };
     for (const name of [
       "ELECTRON_RUN_AS_NODE",
-      "COWORK_WORKSPACE",
-      "COWORK_CONFIG",
-      "COWORK_API_KEY",
-      "COWORK_API_BASE",
-      "COWORK_MODEL"
+      "FORMICAND_WORKSPACE",
+      "FORMICAND_CONFIG",
+      "FORMICAND_API_KEY",
+      "FORMICAND_API_BASE",
+      "FORMICAND_MODEL"
     ])
       delete env[name];
     let desktop, monitor;
@@ -250,7 +256,7 @@ test(
       const page = await desktop.firstWindow();
       await page.locator("#entry-work").waitFor();
       assert.equal(
-        await desktop.evaluate(({ app }) => process.env.COWORK_DESKTOP_SOURCE_ROOT || app.getAppPath()),
+        await desktop.evaluate(({ app }) => process.env.FORMICAND_DESKTOP_SOURCE_ROOT || app.getAppPath()),
         resolve(".")
       );
       return page;
@@ -282,8 +288,8 @@ test(
         async () =>
           (
             await fetch("/api/model-settings", {
-              headers: window.bookmanDesktop?.transportNonce
-                ? { "x-cowork-desktop-nonce": window.bookmanDesktop.transportNonce }
+              headers: window.formicandDesktop?.transportNonce
+                ? { "x-formicand-desktop-nonce": window.formicandDesktop.transportNonce }
                 : {}
             })
           ).ok
@@ -291,8 +297,8 @@ test(
       const status = await page.evaluate(async () =>
         (
           await fetch("/api/model-settings", {
-            headers: window.bookmanDesktop?.transportNonce
-              ? { "x-cowork-desktop-nonce": window.bookmanDesktop.transportNonce }
+            headers: window.formicandDesktop?.transportNonce
+              ? { "x-formicand-desktop-nonce": window.formicandDesktop.transportNonce }
               : {}
           })
         ).json()
@@ -301,7 +307,7 @@ test(
       assert.equal(status.model, "dev-fixture");
       const applications = await monitor.snapshot();
       const own = applications.find((application) => application.pid === desktop.process().pid);
-      assert.match(own?.name, /^CoworkOS Dev \([a-f0-9]{8}\)$/);
+      assert.match(own?.name, /^Formicand Dev \([a-f0-9]{8}\)$/);
       assert.equal(own?.policy, 0);
       assert.deepEqual(
         monitor.registrations.filter(

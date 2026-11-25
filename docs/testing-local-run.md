@@ -69,7 +69,7 @@ docker pull postgres:18.6-alpine3.24
 node scripts/test.mjs --skip-build --file test/p3-foundation-integration.test.js
 ```
 
-缺少 Docker、镜像或 PostgreSQL 时该文件必须失败，不能记为通过或跳过；只有显式设置 `COWORK_TEST_ENGINES=sqlite` 时才不启动 PostgreSQL、只跑 SQLite 用例，适合本地按改动验证，合入前的全量仍跑两种引擎；`--skip-build` 需要当前源码的既有构建。组合界面流程使用真实后端和页面、本地假模型：
+缺少 Docker、镜像或 PostgreSQL 时该文件必须失败，不能记为通过或跳过；只有显式设置 `FORMICAND_TEST_ENGINES=sqlite` 时才不启动 PostgreSQL、只跑 SQLite 用例，适合本地按改动验证，合入前的全量仍跑两种引擎；`--skip-build` 需要当前源码的既有构建。组合界面流程使用真实后端和页面、本地假模型：
 
 ```sh
 npx playwright test e2e/p3-foundation-flow.spec.js --workers=1 --output=.tmp/browser-p3
@@ -107,9 +107,9 @@ npm run test:release -- --native --stage app
 
 浏览器入口会构建并运行 Playwright；原生变体的适用条件以测试和发布清单为准。并行本地浏览器进程使用独立 `--output` 目录。真实模型 smoke 会消耗模型服务资源，按 [模型配置](configuration.md) 显式配置后执行。最终包安装、升级、签名/公证和人工体验按 [发布指南](mac-release.md) 单独记录。
 
-打包 App 使用 `npm run test:desktop` 验证文本、Pi/本地模型、保存恢复、退出/重启与搬移升级。已有当前候选时可用 `ATRIA_DESKTOP_APP=.tmp/release/mac-arm64/CoworkOS.app node scripts/desktop-smoke.mjs` 避免重复构建。
+打包 App 使用 `npm run test:desktop` 验证文本、Pi/本地模型、保存恢复、退出/重启与搬移升级。已有当前候选时可用 `FORMICAND_DESKTOP_APP=.tmp/release/mac-arm64/Formicand.app node scripts/desktop-smoke.mjs` 避免重复构建。
 
-聚焦模型设置时可在已有候选包上运行 `ATRIA_DESKTOP_APP=.tmp/release/mac-arm64/CoworkOS.app node scripts/desktop-smoke.mjs --settings-only`。该入口验证首次保存、脱敏读取及任务运行时模型/搜索设置拒绝修改；其他桌面 smoke 阶段不执行。
+聚焦模型设置时可在已有候选包上运行 `FORMICAND_DESKTOP_APP=.tmp/release/mac-arm64/Formicand.app node scripts/desktop-smoke.mjs --settings-only`。该入口验证首次保存、脱敏读取及任务运行时模型/搜索设置拒绝修改；其他桌面 smoke 阶段不执行。
 
 开发入口重启、输入框与模型连接原生测试使用临时 App、独立数据目录和 Chromium 测试钥匙串，验证客户端凭据加密、密文兼容、草稿与原生进程生命周期，避免临时签名触发真实钥匙串授权。此隔离仅用于测试；产品继续使用系统钥匙串，实际授权、签名安装包和跨版本升级需要单独验收。
 

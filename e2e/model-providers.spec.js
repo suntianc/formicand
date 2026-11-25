@@ -45,26 +45,26 @@ for (const native of [false, true]) {
     const second = await modelProtocolFixture("openai-responses", () => ({ text: "第二家继续回复" }), {
       models: [{ id: "second-model" }]
     });
-    const root = await mkdtemp(join(tmpdir(), "atria-providers-e2e-"));
+    const root = await mkdtemp(join(tmpdir(), "formicand-providers-e2e-"));
     let app, dashboard, page;
     const launch = async () => {
       const keep = [
-        "COWORK_DESKTOP_DATA",
-        "ATRIA_HOME",
+        "FORMICAND_DESKTOP_DATA",
+        "FORMICAND_HOME",
         "PI_CODING_AGENT_DIR",
-        "COWORK_DISABLE_MAIN_GUARDIAN",
+        "FORMICAND_DISABLE_MAIN_GUARDIAN",
         "PI_OFFLINE"
       ];
       const env = {
         ...process.env,
-        COWORK_DESKTOP_DATA: root,
-        ATRIA_HOME: join(root, "home"),
+        FORMICAND_DESKTOP_DATA: root,
+        FORMICAND_HOME: join(root, "home"),
         PI_CODING_AGENT_DIR: join(root, "pi"),
-        COWORK_DISABLE_MAIN_GUARDIAN: "1",
+        FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
         PI_OFFLINE: "1"
       };
       for (const name of Object.keys(env))
-        if (/^(?:COWORK_|ATRIA_|PI_)/.test(name) && !keep.includes(name)) delete env[name];
+        if (/^(?:FORMICAND_|FORMICAND_|PI_)/.test(name) && !keep.includes(name)) delete env[name];
       delete env.ELECTRON_RUN_AS_NODE;
       app = await electron.launch({
         executablePath: await developmentExecutable(),
@@ -450,7 +450,7 @@ test("composer reasoning level is sent with the selected Main request", async ({
   const provider = await modelProtocolFixture("openai-completions", () => ({ text: "推理档位已生效" }));
   const dashboard = await startDashboard({
     modelEndpoint: provider.baseUrl,
-    env: { COWORK_SUPPORTS_REASONING_EFFORT: "1" }
+    env: { FORMICAND_SUPPORTS_REASONING_EFFORT: "1" }
   });
   try {
     await page.goto(dashboard.base);

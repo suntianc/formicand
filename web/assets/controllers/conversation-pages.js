@@ -80,9 +80,9 @@ export function createConversationPages() {
     reset,
     headers(taskId, incremental) {
       return {
-        "x-atria-history": header(taskId, incremental),
+        "x-formicand-history": header(taskId, incremental),
         ...(incremental && saved?.taskId === taskId && revision
-          ? { "x-atria-detail-revision": revision }
+          ? { "x-formicand-detail-revision": revision }
           : {})
       };
     },

@@ -675,7 +675,7 @@ test(
         }
         // Complete the two subagent calls in queue.json after the short pre-wait lease expires
         // (without touching inbox-store.json), so wait_for_subagents deterministically claims both
-        // callbacks into details._coworkInboxMessages.
+        // callbacks into details._formicandInboxMessages.
         void delay(300).then(async () => {
           for (const [stepId, token] of claimedLeases) await scheduler.complete(stepId, token);
         });
@@ -1006,12 +1006,12 @@ test(
       content: [{ type: "text", text: "ROOT_BRANCH_PROMPT" }],
       timestamp: Date.now()
     });
-    session.appendCustomMessageEntry("cowork-callback", "OTHER_BRANCH_CALLBACK_TEXT", true, {
-      _coworkInbox: { taskId, runId, messageId: "other-branch-cb" }
+    session.appendCustomMessageEntry("formicand-callback", "OTHER_BRANCH_CALLBACK_TEXT", true, {
+      _formicandInbox: { taskId, runId, messageId: "other-branch-cb" }
     });
     session.branch(rootId);
-    session.appendCustomMessageEntry("cowork-callback", "ACTIVE_BRANCH_CALLBACK_TEXT", true, {
-      _coworkInbox: { taskId, runId, messageId: "active-branch-cb" }
+    session.appendCustomMessageEntry("formicand-callback", "ACTIVE_BRANCH_CALLBACK_TEXT", true, {
+      _formicandInbox: { taskId, runId, messageId: "active-branch-cb" }
     });
 
     const inbox = new InboxStore(
@@ -1060,7 +1060,7 @@ test(
   "real Pi standalone --print CLI launcher materializes request sidecar when Pi receives SIGKILL mid-tool",
   { timeout: 60_000 },
   async (t) => {
-    const root = await mkdtemp(join(tmpdir(), "atria-cli-sigkill-"));
+    const root = await mkdtemp(join(tmpdir(), "formicand-cli-sigkill-"));
     const workspaceRoot = join(root, "workspace");
     const projectDir = join(root, "project");
     const piAgentDir = join(root, "pi-agent");
@@ -1124,11 +1124,11 @@ test(
           PATH: process.env.PATH,
           HOME: root,
           TMPDIR: process.env.TMPDIR ?? tmpdir(),
-          COWORK_CONFIG: configPath,
-          COWORK_HARNESS_ROOT: process.cwd(),
-          COWORK_WORKSPACE: workspaceRoot,
-          COWORK_TASK_ID: taskId,
-          COWORK_PROJECT_DIR: projectDir,
+          FORMICAND_CONFIG: configPath,
+          FORMICAND_HARNESS_ROOT: process.cwd(),
+          FORMICAND_WORKSPACE: workspaceRoot,
+          FORMICAND_TASK_ID: taskId,
+          FORMICAND_PROJECT_DIR: projectDir,
           PI_CODING_AGENT_DIR: piAgentDir
         },
         stdio: ["ignore", "pipe", "pipe"]

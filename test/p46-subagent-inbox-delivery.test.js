@@ -61,9 +61,9 @@ function inContext(messageId) {
   return [
     {
       role: "custom",
-      customType: "cowork-agent-message",
+      customType: "formicand-agent-message",
       content: "guidance",
-      details: { _coworkInbox: { taskId: TASK_ID, runId: RUN_ID, messageId } }
+      details: { _formicandInbox: { taskId: TASK_ID, runId: RUN_ID, messageId } }
     }
   ];
 }
@@ -298,7 +298,7 @@ test("a message addressed to another Run is not consumed by this process", async
     {
       type: "custom_message",
       content: "guidance",
-      details: { _coworkInbox: { taskId: TASK_ID, runId: "another-run", messageId: "other-run-message" } }
+      details: { _formicandInbox: { taskId: TASK_ID, runId: "another-run", messageId: "other-run-message" } }
     }
   ]);
   assert.equal((await f.inbox.list(AGENT_ID))[0].state, "ready");

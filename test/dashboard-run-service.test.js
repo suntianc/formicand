@@ -152,7 +152,7 @@ async function fixture(
     subagents
   }
 ) {
-  const root = await mkdtemp(join(tmpdir(), "atria-run-outcome-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-run-outcome-"));
   const workspaceRoot = join(root, "workspace");
   const store = new LocalWorkspaceStore(workspaceRoot);
   await store.createTask("task", { goal: "只验证隔离子进程的状态归属。" });

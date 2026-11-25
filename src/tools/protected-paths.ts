@@ -6,11 +6,11 @@ import { containsFilePath, resolveFileTarget, resolveProtectedTarget } from "./f
 /**
  * Where this harness is installed.
  *
- * Derived from the module's own location so it holds however CoworkOS was
+ * Derived from the module's own location so it holds however Formicand was
  * started, and used as an absolute protected root: an Agent must not edit the
  * runtime it runs in. `dist/src/tools/` is three levels below the install root.
  */
-export function atriaInstallRoot(): string {
+export function formicandInstallRoot(): string {
   return resolve(fileURLToPath(new URL("../../../", import.meta.url)));
 }
 
@@ -95,7 +95,7 @@ export class ProtectedPaths {
     const shown = containsFilePath(this.root, absolute) ? rel : absolute;
     throw new Error(
       `${shown} is read-only for agents (protected by "${pattern}"). ` +
-        `The CoworkOS runtime and version-control metadata are not edited by agents; ask the user if this file must change.`
+        `The Formicand runtime and version-control metadata are not edited by agents; ask the user if this file must change.`
     );
   }
 
@@ -125,7 +125,7 @@ export class ProtectedPaths {
 /**
  * Read the guard from the environment.
  *
- * `COWORK_PROTECTED_PATHS` replaces the default patterns wholesale, and an
+ * `FORMICAND_PROTECTED_PATHS` replaces the default patterns wholesale, and an
  * empty value drops them; it cannot unprotect `protectedRoots`.
  */
 export function configuredProtectedPaths(
@@ -133,7 +133,7 @@ export function configuredProtectedPaths(
   env: NodeJS.ProcessEnv = process.env,
   protectedRoots: readonly string[] = []
 ): ProtectedPaths {
-  const raw = env.COWORK_PROTECTED_PATHS;
+  const raw = env.FORMICAND_PROTECTED_PATHS;
   const patterns = raw === undefined ? [...DEFAULT_PROTECTED_PATHS] : splitPatterns(raw);
   return new ProtectedPaths({ root, patterns, protectedRoots });
 }
@@ -154,7 +154,7 @@ function splitPatterns(raw: string): string[] {
  * ordinary task has no reason to hold permission over the user's code.
  */
 export function projectWritesEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
-  const value = env.COWORK_PROJECT_WRITE?.trim();
+  const value = env.FORMICAND_PROJECT_WRITE?.trim();
   if (value === undefined || value === "") return false;
   return value !== "0" && value !== "false";
 }

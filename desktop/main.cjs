@@ -126,8 +126,7 @@ const documents = createRendererFlush(() => mainWindow);
 // Establish the stable profile before Chromium and the single-instance lock use it.
 app.setName(profile.name);
 app.setPath("userData", profile.userData);
-// The profile keeps the vendor identity used for runtime, data and update compatibility;
-// the application name people see is the product name.
+// The profile name separates the development build's runtime; people see the product name.
 app.setName(PRODUCT_NAME);
 const owner = app.requestSingleInstanceLock();
 if (!owner) app.quit();
@@ -135,7 +134,7 @@ const credentialStorage =
   process.platform === "darwin"
     ? createRetryableStorage({
         executable: process.execPath,
-        appName: "CoworkOS Client",
+        appName: "Formicand Client",
         args: [
           app.getAppPath(),
           ...(process.argv.includes("--use-mock-keychain") ? ["--use-mock-keychain"] : [])
@@ -243,7 +242,7 @@ function createWindow() {
     getDashboardUrl: () => selectedBackend?.url || backend?.url
   });
   const publishWindowState = () =>
-    mainWindow?.webContents.send("bookman:window-state", mainWindow.isFullScreen());
+    mainWindow?.webContents.send("formicand:window-state", mainWindow.isFullScreen());
   mainWindow.on("enter-full-screen", publishWindowState);
   mainWindow.on("leave-full-screen", publishWindowState);
   mainWindow.on("focus", refreshApplicationIcon);
@@ -299,8 +298,8 @@ function applicationIcon() {
 function refreshApplicationIcon() {
   if (process.platform === "darwin" && !background) refreshDockIcon(profile.appRoot, app.dock);
 }
-ipcMain.on("bookman:window-material", windowMaterialState);
-ipcMain.handle("bookman:choose-project", async (event) => {
+ipcMain.on("formicand:window-material", windowMaterialState);
+ipcMain.handle("formicand:choose-project", async (event) => {
   trust(event);
   const result = await dialog.showOpenDialog(mainWindow, {
     properties: ["openDirectory", "createDirectory"],
@@ -341,7 +340,7 @@ async function previewedFilePath(taskId, target) {
   if (target.source === "change") {
     response = await fetch(new URL(`${task}/deliveries`, selected.url), {
       method: "POST",
-      headers: { "content-type": "application/json", "x-atria-token": token },
+      headers: { "content-type": "application/json", "x-formicand-token": token },
       body: JSON.stringify({ action: "locate", developmentId: target.developmentId, path: target.path }),
       redirect: "error",
       signal: AbortSignal.timeout(15_000)
@@ -351,7 +350,7 @@ async function previewedFilePath(taskId, target) {
     url.searchParams.set("source", target.source);
     url.searchParams.set("path", target.path);
     response = await fetch(url, {
-      headers: { "x-atria-token": token },
+      headers: { "x-formicand-token": token },
       redirect: "error",
       signal: AbortSignal.timeout(15_000)
     });
@@ -362,22 +361,22 @@ async function previewedFilePath(taskId, target) {
     throw new Error(result?.error?.message || result?.error || "无法找到这个文件的本地位置");
   return result.absolutePath;
 }
-ipcMain.handle("bookman:file-default-icon", async (event) => {
+ipcMain.handle("formicand:file-default-icon", async (event) => {
   trust(event);
   return { icon: await fileOpener.defaultIcon(), platform: process.platform };
 });
-ipcMain.handle("bookman:file-apps", async (event, taskId, target) => {
+ipcMain.handle("formicand:file-apps", async (event, taskId, target) => {
   trust(event);
   return fileOpener.list(await previewedFilePath(taskId, target));
 });
-ipcMain.handle("bookman:open-file", async (event, taskId, target, appId) => {
+ipcMain.handle("formicand:open-file", async (event, taskId, target, appId) => {
   trust(event);
   if (appId !== undefined && (typeof appId !== "string" || appId.length > 4096))
     throw new Error("invalid application");
   await fileOpener.open(await previewedFilePath(taskId, target), appId);
   return true;
 });
-ipcMain.handle("bookman:open-artifact-viewer", async (event, value, pdf) => {
+ipcMain.handle("formicand:open-artifact-viewer", async (event, value, pdf) => {
   trust(event);
   if (!isArtifactViewerUrl(value, selectedBackend?.url)) throw new Error("无效的产出物预览地址");
   const sender = event.sender;
@@ -405,7 +404,7 @@ ipcMain.handle("bookman:open-artifact-viewer", async (event, value, pdf) => {
   viewer.on("closed", () => {
     artifactViewers.delete(viewer);
     void releasePdf?.().catch((error) => console.error("清理 PDF 预览失败", error.message));
-    if (!sender.isDestroyed()) sender.send("bookman:artifact-viewer-closed", value);
+    if (!sender.isDestroyed()) sender.send("formicand:artifact-viewer-closed", value);
   });
   try {
     await viewer.loadURL(target);
@@ -419,7 +418,7 @@ const desktopNotifications = createDesktopNotifications({
   supported: () => Notification.isSupported(),
   show: (value) => new Notification(value).show()
 });
-ipcMain.on("bookman:transport-nonce", (event) => {
+ipcMain.on("formicand:transport-nonce", (event) => {
   try {
     trust(event);
     event.returnValue = sessionTransport.nonce();
@@ -428,7 +427,7 @@ ipcMain.on("bookman:transport-nonce", (event) => {
     event.returnValue = null;
   }
 });
-ipcMain.on("bookman:capabilities", (event) => {
+ipcMain.on("formicand:capabilities", (event) => {
   try {
     trust(event);
     event.returnValue = { notifications: Notification.isSupported(), tray: desktopTray?.supported === true };
@@ -437,11 +436,11 @@ ipcMain.on("bookman:capabilities", (event) => {
     event.returnValue = null;
   }
 });
-ipcMain.handle("bookman:notify", async (event, value) => {
+ipcMain.handle("formicand:notify", async (event, value) => {
   trust(event);
   return desktopNotifications.notify(value);
 });
-ipcMain.handle("bookman:choose-backend", async (event) => {
+ipcMain.handle("formicand:choose-backend", async (event) => {
   trust(event);
   return settingsTarget.select(async () => {
     if (closing || quitting || restarting) throw new Error("应用正在关闭或重启，请稍后重试");
@@ -473,7 +472,7 @@ ipcMain.handle("bookman:choose-backend", async (event) => {
     }
   });
 });
-ipcMain.handle("bookman:authorize-backend", async (event, input) => {
+ipcMain.handle("formicand:authorize-backend", async (event, input) => {
   trust(event);
   if (!input || typeof input !== "object" || Array.isArray(input) || input.baseUrl !== "")
     throw new Error("无效的后端授权请求");
@@ -493,7 +492,7 @@ ipcMain.handle("bookman:authorize-backend", async (event, input) => {
   }
 });
 // Cached data makes this synchronous restore run before the page's ES modules.
-ipcMain.on("bookman:composer-drafts", (event) => {
+ipcMain.on("formicand:composer-drafts", (event) => {
   try {
     trust(event);
     event.returnValue = composerDrafts.snapshot();
@@ -502,12 +501,12 @@ ipcMain.on("bookman:composer-drafts", (event) => {
     event.returnValue = { entries: {}, warning: "草稿暂时无法恢复，请保留当前窗口并重试" };
   }
 });
-ipcMain.handle("bookman:save-composer-drafts", async (event, entries) => {
+ipcMain.handle("formicand:save-composer-drafts", async (event, entries) => {
   trust(event);
   await composerDrafts.save(entries, new URL(event.senderFrame.url).origin);
 });
 // Synchronous for the same reason as drafts: the page reads its choices on load.
-ipcMain.on("bookman:ui-preferences", (event) => {
+ipcMain.on("formicand:ui-preferences", (event) => {
   try {
     trust(event);
     event.returnValue = uiPreferences.snapshot();
@@ -516,7 +515,7 @@ ipcMain.on("bookman:ui-preferences", (event) => {
     event.returnValue = { entries: {}, persisted: false };
   }
 });
-ipcMain.handle("bookman:save-ui-preferences", async (event, entries) => {
+ipcMain.handle("formicand:save-ui-preferences", async (event, entries) => {
   trust(event);
   await uiPreferences.save(entries, new URL(event.senderFrame.url).origin);
 });
@@ -531,7 +530,7 @@ function registerComputerTakeover(enabled) {
   });
   return registered ? "Ctrl + Option + Esc" : null;
 }
-ipcMain.handle("bookman:computer-use", async (event, input) => {
+ipcMain.handle("formicand:computer-use", async (event, input) => {
   trust(event);
   if (closing || quitting || restarting || !selectedBackend) throw new Error("本地服务正在关闭或重启");
   return computerTargets.request(input);
@@ -541,7 +540,7 @@ app.on("will-quit", () => {
   // eslint-disable-next-line no-restricted-syntax -- the app is quitting; a failed updater dispose must not block will-quit
   void updates?.dispose().catch(() => {});
 });
-ipcMain.handle("bookman:documents-ready", (event, requestId, saved) => {
+ipcMain.handle("formicand:documents-ready", (event, requestId, saved) => {
   trust(event);
   documents.acknowledge(requestId, saved);
 });
@@ -549,7 +548,7 @@ async function initializeUpdates(userData) {
   updates = await createApplicationUpdateHost({
     profile,
     userData,
-    onStatus: (value) => mainWindow?.webContents.send("bookman:update-status", value),
+    onStatus: (value) => mainWindow?.webContents.send("formicand:update-status", value),
     beforeApply: async () => {
       if (closing || quitting || restarting) throw new Error("本地服务正在关闭或重启，请稍后更新");
       restarting = true;
@@ -587,16 +586,16 @@ async function initializeUpdates(userData) {
       setTimeout(() => app.quit(), 100);
     }
   });
-  ipcMain.handle("bookman:update-status", (event) => {
+  ipcMain.handle("formicand:update-status", (event) => {
     trust(event);
     return updates.status();
   });
-  ipcMain.handle("bookman:check-updates", (event, input) => {
+  ipcMain.handle("formicand:check-updates", (event, input) => {
     trust(event);
     if (closing || quitting || restarting) throw new Error("本地服务正在关闭或重启，请稍后检查更新");
     return updates.check(input);
   });
-  ipcMain.handle("bookman:apply-update", (event) => {
+  ipcMain.handle("formicand:apply-update", (event) => {
     trust(event);
     if (closing || quitting || restarting) throw new Error("本地服务正在关闭或重启，请稍后更新");
     return updates.apply();
@@ -607,7 +606,7 @@ if (owner)
     .whenReady()
     .then(async () => {
       if (background) enterBackground(app);
-      const userData = process.env.COWORK_DESKTOP_DATA || app.getPath("userData");
+      const userData = process.env.FORMICAND_DESKTOP_DATA || app.getPath("userData");
       const appearance = createAppearanceHost({
         userData,
         nativeTheme,

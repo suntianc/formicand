@@ -33,7 +33,7 @@ const ABSOLUTE_URL = /^[a-z][a-z0-9+.-]*:/i;
  * person watching a node never writes on it. The work entry's own client is a
  * different one and never sends this marker.
  */
-const READ_ONLY_HEADERS = { "x-cowork-read-only": "1" };
+const READ_ONLY_HEADERS = { "x-formicand-read-only": "1" };
 
 /**
  * A node read is always a path on that node.
@@ -50,7 +50,7 @@ function nodePath(path) {
 }
 
 function nodeStorage(base, origin) {
-  const prefix = `cowork.node.${origin}:`;
+  const prefix = `formicand.node.${origin}:`;
   return {
     prefix,
     getItem: (key) => base?.getItem(`${prefix}${key}`) ?? null,

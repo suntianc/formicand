@@ -90,7 +90,7 @@ test(
     assert.equal(fixture.summaries.length, 1);
     assert.equal(fixture.summaries[0].tools, undefined);
     assert.match(providerText(fixture.summaries[0]), /PRESERVE_VERBATIM/);
-    assert.equal(entries.filter((entry) => entry.customType === "cowork-context-capacity").length, 1);
+    assert.equal(entries.filter((entry) => entry.customType === "formicand-context-capacity").length, 1);
     assert.ok(entries.some((entry) => entry.message?.content?.some?.((block) => block.text === olderOutput)));
     await fixture.launch("Continue using the previous window.", { resume: true });
     assert.equal(fixture.requests.length, 6);
@@ -120,11 +120,11 @@ for (const role of ["main", "executor"]) {
         role === "executor"
           ? {
               launchEnv: {
-                COWORK_AGENT_ROLE: "executor",
-                COWORK_AGENT_ID: "fixture-executor",
-                COWORK_SUBAGENT_CALL_ID: "fixture-call",
-                COWORK_SUBAGENT_TOKEN: "fixture-token",
-                COWORK_SUBAGENT_RESULT: join(fixture.root, "result.json")
+                FORMICAND_AGENT_ROLE: "executor",
+                FORMICAND_AGENT_ID: "fixture-executor",
+                FORMICAND_SUBAGENT_CALL_ID: "fixture-call",
+                FORMICAND_SUBAGENT_TOKEN: "fixture-token",
+                FORMICAND_SUBAGENT_RESULT: join(fixture.root, "result.json")
               }
             }
           : {}

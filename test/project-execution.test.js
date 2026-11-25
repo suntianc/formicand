@@ -9,7 +9,7 @@ import { beginProjectExecution, projectExecutionIsAlive } from "../dist/src/work
 import { withFileLock } from "../dist/src/storage/file-lock.js";
 
 test("project execution leases protect startup, release ownership and reject duplicate launch", async (t) => {
-  const root = await mkdtemp(join(tmpdir(), "atria-project-lease-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-project-lease-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   assert.equal(await projectExecutionIsAlive(root, "task"), false);
   const lease = await beginProjectExecution(root, "task");
@@ -30,7 +30,7 @@ test("project execution leases protect startup, release ownership and reject dup
 });
 
 test("stale launch leases can recover while malformed records are preserved", async (t) => {
-  const root = await mkdtemp(join(tmpdir(), "atria-project-lease-recovery-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-project-lease-recovery-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const initial = await beginProjectExecution(root, "task");
   const path = join(root, "task", "agents", "main", "project-execution.json");
@@ -52,7 +52,7 @@ test(
   "SIGKILL during lease acquisition releases the nested lock for the next launch",
   { timeout: 10000 },
   async (t) => {
-    const root = await mkdtemp(join(tmpdir(), "atria-project-lease-crash-"));
+    const root = await mkdtemp(join(tmpdir(), "formicand-project-lease-crash-"));
     const path = join(root, "task", "agents", "main", "project-execution.json");
     const child = spawn(
       process.execPath,

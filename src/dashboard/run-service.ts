@@ -238,7 +238,7 @@ export function createDashboardRunService({
     const resolved = resolveMainModel(roleRequest);
     const selection = applyEndpointLimits(resolved, await endpointLimits(resolved));
     if (!selection.baseUrl || !selection.apiKey)
-      throw new Error("模型 API 未配置：请填写 config.json 或 .cowork/config.json");
+      throw new Error("模型 API 未配置：请填写 config.json 或 .formicand/config.json");
     // This demand owns its place and its model: the settled resident that
     // served the previous Run can be replaced now without stranding the demand
     // in the queue behind an idle process, and without ending a process for a

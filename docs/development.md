@@ -18,13 +18,13 @@
 
 `build:cli` 编译共享运行时并准备 CLI；`build`、`build:base` 和 `build:full` 准备 Web 界面依赖、数学排版、Computer Use 辅助程序与桌面宿主资源。非 Mac 环境跳过原生辅助程序和图标构建。
 
-文档附件测试需要 Python 3.11 和 PDF/Office 解析依赖，缺库应修环境，不能把跳过当成通过。使用独立环境，并让夹具和读取器共用 `COWORK_PYTHON`：
+文档附件测试需要 Python 3.11 和 PDF/Office 解析依赖，缺库应修环境，不能把跳过当成通过。使用独立环境，并让夹具和读取器共用 `FORMICAND_PYTHON`：
 
 ```sh
 python3.11 -m venv .tmp/document-python
 .tmp/document-python/bin/python -m pip install -r scripts/document-requirements.txt
 .tmp/document-python/bin/python -c 'import sys; print(sys.executable, sys.version); import fitz, docx, pptx, openpyxl'
-COWORK_PYTHON="$PWD/.tmp/document-python/bin/python" npm run verify:full
+FORMICAND_PYTHON="$PWD/.tmp/document-python/bin/python" npm run verify:full
 ```
 
 ## 使用隔离的开发工作区
@@ -32,29 +32,29 @@ COWORK_PYTHON="$PWD/.tmp/document-python/bin/python" npm run verify:full
 开发与测试不要使用真实用户任务、模型设置或用户文档。Web 可以显式指定工作区和全局索引：
 
 ```sh
-COWORK_WORKSPACE=/tmp/atria-dev \
-COWORK_GLOBAL_INDEX=/tmp/atria-dev-index/workspaces.json \
-COWORK_UI_PORT=3881 npm run ui
+FORMICAND_WORKSPACE=/tmp/formicand-dev \
+FORMICAND_GLOBAL_INDEX=/tmp/formicand-dev-index/workspaces.json \
+FORMICAND_UI_PORT=3881 npm run ui
 ```
 
 先完成无需模型的会话创建、附件读取和产出物预览/下载，再按 [模型配置](configuration.md) 配置模型验证任务。不要用删除数据来排查恢复问题；路径归属见 [工作区说明](task-workspace-layout.md)。
 
-Mac 开发版显示为 CoworkOS Dev (短后缀)，应用标识为 `org.atria.cowork.dev.runtime.<运行时哈希>`。每份不可变的 ad-hoc 开发运行时独立授权，避免不同 worktree 或运行时的签名共用同一条系统权限记录；同一运行时重复启动复用身份。
+Mac 开发版显示为 Formicand Dev (短后缀)，应用标识为 `io.github.suntianc.formicand.dev.runtime.<运行时哈希>`。每份不可变的 ad-hoc 开发运行时独立授权，避免不同 worktree 或运行时的签名共用同一条系统权限记录；同一运行时重复启动复用身份。
 
-数据与正式版、CLI、Web 共用 `~/.atria/`，两个默认桌面入口共享单实例锁。测试可设置 `COWORK_DESKTOP_DATA`，需要整套隔离时设置 `ATRIA_HOME`。
+数据与正式版、CLI、Web 共用 `~/.formicand/`，两个默认桌面入口共享单实例锁。测试可设置 `FORMICAND_DESKTOP_DATA`，需要整套隔离时设置 `FORMICAND_HOME`。
 
 ```sh
-npm run desktop:install-dev # 安装固定的 ~/Applications/CoworkOS Dev.app
+npm run desktop:install-dev # 安装固定的 ~/Applications/Formicand Dev.app
 npm run desktop             # 构建最新源码并启动同一入口
 ```
 
-固定入口读取当前仓库的 `desktop/`、`dist/`、`web/`，可从 Finder/Dock 启动；直接双击使用上次构建，仓库搬移后要重新安装入口。运行时在 `.tmp/desktop-runtime/`，打包 App 在 `.tmp/release/mac-arm64/`，可分发 DMG 在 `release/`。CLI 候选可用 `ATRIA_PACKAGE_DIR=.tmp/cli-candidate npm run cli:pack` 独立审查，默认输出仍为 `release/`。
+固定入口读取当前仓库的 `desktop/`、`dist/`、`web/`，可从 Finder/Dock 启动；直接双击使用上次构建，仓库搬移后要重新安装入口。运行时在 `.tmp/desktop-runtime/`，打包 App 在 `.tmp/release/mac-arm64/`，可分发 DMG 在 `release/`。CLI 候选可用 `FORMICAND_PACKAGE_DIR=.tmp/cli-candidate npm run cli:pack` 独立审查，默认输出仍为 `release/`。
 
 Mac 开发启动与更新后重启统一通过 LaunchServices 打开指定的 App 包，命令在发起启动后返回，退出使用 App 菜单。测试数据目录等环境变量传给该实例。
 
-不要直接执行 `Contents/MacOS/` 中的二进制做系统权限验收：直接执行（包括 detached）可能把 App 和原生 helper 的权限归到 Terminal/IDE，导致关闭 CoworkOS 的系统权限后仍可操作，或没有出现 CoworkOS 的授权提示。测试时核对系统设置中带当前短后缀的 CoworkOS Dev 条目；人工撤销不一定重现首次安装弹窗，系统拒绝再次提示时仍需在系统设置确认。
+不要直接执行 `Contents/MacOS/` 中的二进制做系统权限验收：直接执行（包括 detached）可能把 App 和原生 helper 的权限归到 Terminal/IDE，导致关闭 Formicand 的系统权限后仍可操作，或没有出现 Formicand 的授权提示。测试时核对系统设置中带当前短后缀的 Formicand Dev 条目；人工撤销不一定重现首次安装弹窗，系统拒绝再次提示时仍需在系统设置确认。
 
-Finder 安装入口复制已签名的缓存包，不改内容或再次签名，保持相同权限身份。图标、Electron、工具链或包元数据变化产生新开发运行时后需要为新条目授权，旧授权不会自动迁移；旧版无后缀的 CoworkOS Dev 条目也不代表新测试包已授权。无需删除其他 App 或重置全部系统权限。
+Finder 安装入口复制已签名的缓存包，不改内容或再次签名，保持相同权限身份。图标、Electron、工具链或包元数据变化产生新开发运行时后需要为新条目授权，旧授权不会自动迁移；旧版无后缀的 Formicand Dev 条目也不代表新测试包已授权。无需删除其他 App 或重置全部系统权限。
 
 Web 与桌面从同一份构建产物加载首屏。修改前端模块或样式后运行 `npm run build:web-assets`，刷新即可。持续开发时在另一终端运行 `npm run watch:web-assets`，待重建完成后刷新。监听模式提供源码映射。首屏产物放在 `web/assets/markdown/generated/shell/`，随已有桌面源码更新器管理的目录一起升级和回滚。TypeScript 或 Swift 修改后重新构建并重启宿主。图标源、Electron 或包版本变化要重建开发运行时。生成文件不是修改入口。完整/CLI 构建会清理已删除或搬移源码对应的旧编译文件，保留原生 helper 与 Python runner。
 
@@ -62,20 +62,20 @@ Web 与桌面从同一份构建产物加载首屏。修改前端模块或样式�
 
 ### 独立后端
 
-独立后端可以脱离启动它的客户端继续运行。开发包支持 macOS 14+ Apple Silicon；App 首次连接会启动或复用同一数据根的后端，桌面退出不会停止它。独立运行 CLI 需要 Node.js ≥22.19.0，所用 CLI 与 App 应来自同一候选版本。完成 `npm run build:cli` 后，`node dist/src/cli/backend.js start`（或 `coworkos backend start`）在同一数据根启动分离进程，`status` 查看实例，`stop` 让后端完成受管进程收尾后退出；端口、会话 token 与实例身份记录在 `ATRIA_HOME/runtime/backend-instance.json`（权限 0600），后端身份在 `backend-identity.json` 中跨重启保持。直接执行 `serve` 遵守同一实例归属：已有可核验实例时只输出其身份并退出，另有启动中的后端或身份无法确认时明确报错，不覆盖实例记录。`stop` 只在后端完成收尾并删除实例记录后返回 `stopped`；超时被强制结束或收尾未完成时返回 `incomplete` 并以非零状态退出，同时保留实例记录供下次 `start` 沿用同一后端身份恢复。这些命令不安装 launchd/systemd 常驻服务。
+独立后端可以脱离启动它的客户端继续运行。开发包支持 macOS 14+ Apple Silicon；App 首次连接会启动或复用同一数据根的后端，桌面退出不会停止它。独立运行 CLI 需要 Node.js ≥22.19.0，所用 CLI 与 App 应来自同一候选版本。完成 `npm run build:cli` 后，`node dist/src/cli/backend.js start`（或 `formicand backend start`）在同一数据根启动分离进程，`status` 查看实例，`stop` 让后端完成受管进程收尾后退出；端口、会话 token 与实例身份记录在 `FORMICAND_HOME/runtime/backend-instance.json`（权限 0600），后端身份在 `backend-identity.json` 中跨重启保持。直接执行 `serve` 遵守同一实例归属：已有可核验实例时只输出其身份并退出，另有启动中的后端或身份无法确认时明确报错，不覆盖实例记录。`stop` 只在后端完成收尾并删除实例记录后返回 `stopped`；超时被强制结束或收尾未完成时返回 `incomplete` 并以非零状态退出，同时保留实例记录供下次 `start` 沿用同一后端身份恢复。这些命令不安装 launchd/systemd 常驻服务。
 
 Web 入口默认只监听本机。模型请求、任务执行和文件操作仍由本地后端负责，单独托管静态前端不能运行完整界面。若把后端部署到远程服务器，命令和文件操作也会在该服务器执行。
 
 ## 更新源码检出
 
-在 CoworkOS 的源码检出中运行：
+在 Formicand 的源码检出中运行：
 
 ```sh
 npm run cli -- update --check
 npm run cli -- update
 ```
 
-更新目标是 CoworkOS 所在的真实 Git 检出，即使从其他业务项目启动 `coworkos` 也不更新那个项目。当前分支必须有 upstream；检查 fetch 上游并比较提交，同 package version 的新提交也可被识别。detached HEAD、合并/变基中、已跟踪修改、非忽略的新文件、本地独有提交或分叉都会拒绝更新。源码跟随自身上游分支；安装包版本没有自动更新。
+更新目标是 Formicand 所在的真实 Git 检出，即使从其他业务项目启动 `formicand` 也不更新那个项目。当前分支必须有 upstream；检查 fetch 上游并比较提交，同 package version 的新提交也可被识别。detached HEAD、合并/变基中、已跟踪修改、非忽略的新文件、本地独有提交或分叉都会拒绝更新。源码跟随自身上游分支；安装包版本没有自动更新。
 
 CLI 准备 `build:cli`；开发 App 从“设置 → 更新”准备完整 `build`。CLI 已同步到最新提交但 App 构建尚未更新时，App 仍会提示重建并可在同一提交准备完整构建。Web 宿主先停止、更新，再用 `npm run ui` 重启以生成完整浏览器构建。
 
@@ -140,7 +140,7 @@ npm run verify
 
 浏览器可先 `npm run build`，再用 `npx playwright test e2e/conversation-menu.spec.js --output=.tmp/playwright-conversation` 运行对应文件。并行的 Playwright 进程须使用不同 `--output`，避免清理对方产物。无需模型的测试不应读取个人连接配置。
 
-`test:unit` 与 Playwright 每次运行都在系统临时目录下建一个本次专属的根目录（`formicand-run-*`），并把 `TMPDIR` 指向它，测试里的 `mkdtemp(tmpdir())` 都落在其中（[`scripts/test-run-root.mjs`](../scripts/test-run-root.mjs)）。运行结束时，仍以该目录为数据根存活的后端会被停掉并判本次运行失败；上一次运行被强行结束留下的根目录，在下一次运行开始时清理。启动 App 的用例须在收尾调用 `stopNativeBackend(<桌面数据根>)`（[`test/native-backend-fixture.mjs`](../test/native-backend-fixture.mjs)）：后端按设计在窗口关闭后继续运行，数据根是 `COWORK_DESKTOP_DATA`，未设置时才是 `ATRIA_HOME`。
+`test:unit` 与 Playwright 每次运行都在系统临时目录下建一个本次专属的根目录（`formicand-run-*`），并把 `TMPDIR` 指向它，测试里的 `mkdtemp(tmpdir())` 都落在其中（[`scripts/test-run-root.mjs`](../scripts/test-run-root.mjs)）。运行结束时，仍以该目录为数据根存活的后端会被停掉并判本次运行失败；上一次运行被强行结束留下的根目录，在下一次运行开始时清理。启动 App 的用例须在收尾调用 `stopNativeBackend(<桌面数据根>)`（[`test/native-backend-fixture.mjs`](../test/native-backend-fixture.mjs)）：后端按设计在窗口关闭后继续运行，数据根是 `FORMICAND_DESKTOP_DATA`，未设置时才是 `FORMICAND_HOME`。
 
 ## 应用 UI 约定
 

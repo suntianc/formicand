@@ -17,10 +17,10 @@ test(
   "text-only Browser tools reject coordinate input before dispatch while retaining ARIA semantics",
   browserTestOptions,
   async (t) => {
-    const root = await mkdtemp(join(tmpdir(), "atria-browser-text-only-"));
+    const root = await mkdtemp(join(tmpdir(), "formicand-browser-text-only-"));
     const fixture = await browserFixture();
-    const previousExecutable = process.env.COWORK_BROWSER_EXECUTABLE;
-    process.env.COWORK_BROWSER_EXECUTABLE = chromium.executablePath();
+    const previousExecutable = process.env.FORMICAND_BROWSER_EXECUTABLE;
+    process.env.FORMICAND_BROWSER_EXECUTABLE = chromium.executablePath();
     const tools = new Map();
     const lifecycle = registerBrowserTools(
       { registerTool: (tool) => tools.set(tool.name, tool) },
@@ -30,8 +30,8 @@ test(
       await lifecycle.dispose();
       await fixture.close();
       await rm(root, { recursive: true, force: true });
-      if (previousExecutable === undefined) delete process.env.COWORK_BROWSER_EXECUTABLE;
-      else process.env.COWORK_BROWSER_EXECUTABLE = previousExecutable;
+      if (previousExecutable === undefined) delete process.env.FORMICAND_BROWSER_EXECUTABLE;
+      else process.env.FORMICAND_BROWSER_EXECUTABLE = previousExecutable;
     });
     const execute = (name, params, input = ["text"]) =>
       tools.get(name).execute("browser-text-only", params, new AbortController().signal, () => {}, {
@@ -88,10 +88,10 @@ test(
   "text-only screenshot requests cannot clear the backend's uncertain-input gate",
   browserTestOptions,
   async (t) => {
-    const root = await mkdtemp(join(tmpdir(), "atria-browser-text-gate-"));
+    const root = await mkdtemp(join(tmpdir(), "formicand-browser-text-gate-"));
     const fixture = await browserFixture();
-    const previousExecutable = process.env.COWORK_BROWSER_EXECUTABLE;
-    process.env.COWORK_BROWSER_EXECUTABLE = chromium.executablePath();
+    const previousExecutable = process.env.FORMICAND_BROWSER_EXECUTABLE;
+    process.env.FORMICAND_BROWSER_EXECUTABLE = chromium.executablePath();
     const tools = new Map();
     const lifecycle = registerBrowserTools(
       { registerTool: (tool) => tools.set(tool.name, tool) },
@@ -101,8 +101,8 @@ test(
       await lifecycle.dispose();
       await fixture.close();
       await rm(root, { recursive: true, force: true });
-      if (previousExecutable === undefined) delete process.env.COWORK_BROWSER_EXECUTABLE;
-      else process.env.COWORK_BROWSER_EXECUTABLE = previousExecutable;
+      if (previousExecutable === undefined) delete process.env.FORMICAND_BROWSER_EXECUTABLE;
+      else process.env.FORMICAND_BROWSER_EXECUTABLE = previousExecutable;
     });
     const execute = (name, params) =>
       tools.get(name).execute("browser-text-gate", params, new AbortController().signal, () => {}, {
@@ -153,11 +153,11 @@ test(
   "Browser tool archive failure preserves live pixels and sent evidence, and lifecycle reset is reusable",
   browserTestOptions,
   async (t) => {
-    const root = await mkdtemp(join(tmpdir(), "atria-browser-feedback-"));
+    const root = await mkdtemp(join(tmpdir(), "formicand-browser-feedback-"));
     const fixture = await browserFixture();
     await writeFile(join(root, "visual"), "fixture prevents archive directory creation");
-    const previousExecutable = process.env.COWORK_BROWSER_EXECUTABLE;
-    process.env.COWORK_BROWSER_EXECUTABLE = chromium.executablePath();
+    const previousExecutable = process.env.FORMICAND_BROWSER_EXECUTABLE;
+    process.env.FORMICAND_BROWSER_EXECUTABLE = chromium.executablePath();
     const tools = new Map();
     const lifecycle = registerBrowserTools(
       { registerTool: (tool) => tools.set(tool.name, tool) },
@@ -167,8 +167,8 @@ test(
       await lifecycle.dispose();
       await fixture.close();
       await rm(root, { recursive: true, force: true });
-      if (previousExecutable === undefined) delete process.env.COWORK_BROWSER_EXECUTABLE;
-      else process.env.COWORK_BROWSER_EXECUTABLE = previousExecutable;
+      if (previousExecutable === undefined) delete process.env.FORMICAND_BROWSER_EXECUTABLE;
+      else process.env.FORMICAND_BROWSER_EXECUTABLE = previousExecutable;
     });
     const execute = (name, params, input = ["text", "image"]) =>
       tools

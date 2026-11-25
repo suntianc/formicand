@@ -1,4 +1,4 @@
-const unreadKey = "atria.conversations.unread.v1";
+const unreadKey = "formicand.conversations.unread.v1";
 const validTaskId = (value) =>
   typeof value === "string" && /^[A-Za-z0-9][A-Za-z0-9._-]{0,199}$/.test(value) && !value.includes("..");
 

@@ -110,26 +110,28 @@ export async function sessionContextFixture(
   await store.createTask(taskId, { projectDirectory: project });
   await store.createRun(taskId, runId);
   const inherited = Object.fromEntries(
-    Object.entries(process.env).filter(([name]) => !/^(COWORK_|ATRIA_|PI_|OPENAI_|ANTHROPIC_)/.test(name))
+    Object.entries(process.env).filter(
+      ([name]) => !/^(FORMICAND_|FORMICAND_|PI_|OPENAI_|ANTHROPIC_)/.test(name)
+    )
   );
   const env = {
     ...inherited,
-    ATRIA_HOME: join(root, "atria"),
-    COWORK_CONFIG: join(root, "config.json"),
-    COWORK_WORKSPACE: workspace,
-    COWORK_PROJECT_DIR: project,
-    COWORK_TASK_ID: taskId,
-    COWORK_RUN_ID: runId,
-    COWORK_GLOBAL_INDEX: join(root, "workspaces.json"),
-    COWORK_API_BASE: `http://127.0.0.1:${server.address().port}/v1`,
-    COWORK_API_KEY: "session-context-fixture",
-    COWORK_MODEL: "protocol-fixture",
-    COWORK_MODEL_API: api,
-    COWORK_DASHBOARD_URL: "",
-    COWORK_DISABLE_MAIN_GUARDIAN: "1",
-    COWORK_REASONING_EFFORT: "off",
-    COWORK_SUPPORTS_REASONING_EFFORT: "0",
-    COWORK_WEB_TOOLS: "0",
+    FORMICAND_HOME: join(root, "formicand"),
+    FORMICAND_CONFIG: join(root, "config.json"),
+    FORMICAND_WORKSPACE: workspace,
+    FORMICAND_PROJECT_DIR: project,
+    FORMICAND_TASK_ID: taskId,
+    FORMICAND_RUN_ID: runId,
+    FORMICAND_GLOBAL_INDEX: join(root, "workspaces.json"),
+    FORMICAND_API_BASE: `http://127.0.0.1:${server.address().port}/v1`,
+    FORMICAND_API_KEY: "session-context-fixture",
+    FORMICAND_MODEL: "protocol-fixture",
+    FORMICAND_MODEL_API: api,
+    FORMICAND_DASHBOARD_URL: "",
+    FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
+    FORMICAND_REASONING_EFFORT: "off",
+    FORMICAND_SUPPORTS_REASONING_EFFORT: "0",
+    FORMICAND_WEB_TOOLS: "0",
     PI_CODING_AGENT_DIR: join(root, "pi"),
     PI_OFFLINE: "1"
   };

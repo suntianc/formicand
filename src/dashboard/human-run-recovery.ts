@@ -107,7 +107,7 @@ export function createHumanRunRecovery({
           await inbox.consume(message.messageId);
         } catch (error) {
           console.error(
-            `[cowork] consuming a durable answer failed: ${error instanceof Error ? error.message : String(error)}`
+            `[formicand] consuming a durable answer failed: ${error instanceof Error ? error.message : String(error)}`
           );
         }
       }

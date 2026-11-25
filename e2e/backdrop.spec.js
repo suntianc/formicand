@@ -134,7 +134,7 @@ test("Web paints one solid per-theme backdrop under one token set, with glass pa
 }) => {
   const dashboard = await startDashboard();
   try {
-    await page.addInitScript(() => localStorage.setItem("atria.appearance", "dark"));
+    await page.addInitScript(() => localStorage.setItem("formicand.appearance", "dark"));
     await page.goto(dashboard.base);
     await expect(page.locator("#composer-input")).toBeVisible();
     await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");

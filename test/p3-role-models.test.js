@@ -12,7 +12,7 @@ import {
   saveRoleSettings
 } from "../dist/src/runtime/role-models.js";
 import { saveRoleModel } from "./role-settings.mjs";
-import { readCoworkConfig } from "../dist/src/runtime/config.js";
+import { readFormicandConfig } from "../dist/src/runtime/config.js";
 import { profileId as connectionId, providerConfig, saveTestConnection } from "./model-provider-fixture.mjs";
 
 /**
@@ -227,7 +227,7 @@ test("a missing referenced connection is reported where it is used and never rep
 
 test("resolution prefers an explicit choice, then the host and the active connection", async () => {
   const saved = Object.fromEntries(
-    ["COWORK_API_BASE", "COWORK_API_KEY", "COWORK_MODEL"].map((name) => [name, process.env[name]])
+    ["FORMICAND_API_BASE", "FORMICAND_API_KEY", "FORMICAND_MODEL"].map((name) => [name, process.env[name]])
   );
   for (const name of Object.keys(saved)) delete process.env[name];
   try {
@@ -274,28 +274,28 @@ test("resolution prefers an explicit choice, then the host and the active connec
 });
 
 test("the local configuration rejects a malformed role section instead of ignoring it", async (t) => {
-  const root = await mkdtemp(join(tmpdir(), "atria-role-config-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-role-config-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const path = join(root, "config.json");
   await writeFile(
     path,
     JSON.stringify({ roleModels: { version: 1, host: { planner: { profileId: "a" } } } })
   );
-  assert.throws(() => readCoworkConfig(root, { COWORK_CONFIG: path }), /未知角色：planner/);
+  assert.throws(() => readFormicandConfig(root, { FORMICAND_CONFIG: path }), /未知角色：planner/);
   await writeFile(path, JSON.stringify({ roleModels: { version: 2 } }));
-  assert.throws(() => readCoworkConfig(root, { COWORK_CONFIG: path }), /版本不兼容/);
+  assert.throws(() => readFormicandConfig(root, { FORMICAND_CONFIG: path }), /版本不兼容/);
   await writeFile(
     path,
     JSON.stringify({ roleModels: { version: 1, projects: { "/p": { router: { profileId: "a" } } } } })
   );
-  assert.throws(() => readCoworkConfig(root, { COWORK_CONFIG: path }), /未知角色：router/);
+  assert.throws(() => readFormicandConfig(root, { FORMICAND_CONFIG: path }), /未知角色：router/);
   await writeFile(path, JSON.stringify({ roleModels: { version: 1, host: { main: { skills: "some" } } } }));
-  assert.throws(() => readCoworkConfig(root, { COWORK_CONFIG: path }), /技能设置无法读取/);
+  assert.throws(() => readFormicandConfig(root, { FORMICAND_CONFIG: path }), /技能设置无法读取/);
   await writeFile(
     path,
     JSON.stringify({ roleModels: { version: 1, host: { executor: { thinkingLevel: "huge" } } } })
   );
-  assert.throws(() => readCoworkConfig(root, { COWORK_CONFIG: path }), /推理强度/);
+  assert.throws(() => readFormicandConfig(root, { FORMICAND_CONFIG: path }), /推理强度/);
 });
 
 test("a project's built-in settings win field by field over the host's, and effort follows the role", () => {

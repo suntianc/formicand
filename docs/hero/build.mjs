@@ -30,7 +30,7 @@ if (process.argv.includes("--serve")) {
   const session = await context(options);
   await session.watch();
   const { port } = await session.serve({ servedir: output, host: "127.0.0.1", port: 18742 });
-  console.log(`CoworkOS hero preview: http://127.0.0.1:${port}`);
+  console.log(`Formicand hero preview: http://127.0.0.1:${port}`);
 } else {
   await build(options);
   console.log("Hero built in .tmp/readme-hero");

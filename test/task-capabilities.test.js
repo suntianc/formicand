@@ -38,8 +38,8 @@ test("a Task grant is what widens capabilities", () => {
 
 test("the environment preset covers a run configured ahead of time", () => {
   const preset = resolveCapabilities(undefined, {
-    COWORK_PROJECT_WRITE: "1",
-    COWORK_MAX_ATTEMPTS: "1"
+    FORMICAND_PROJECT_WRITE: "1",
+    FORMICAND_MAX_ATTEMPTS: "1"
   });
   assert.equal(preset.projectWrite, true);
   assert.equal(preset.shell, true, "a shell is what makes project edits usable");
@@ -49,7 +49,7 @@ test("the environment preset covers a run configured ahead of time", () => {
 });
 
 test("a malformed grant on disk narrows to the sandbox rather than being trusted", async (t) => {
-  const root = await mkdtemp(join(tmpdir(), "atria-caps-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-caps-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const store = new LocalWorkspaceStore(root);
   await store.createTask("t", { goal: "x" });
@@ -65,7 +65,7 @@ test("a malformed grant on disk narrows to the sandbox rather than being trusted
 });
 
 test("a grant survives a round trip and records who made it", async (t) => {
-  const root = await mkdtemp(join(tmpdir(), "atria-caps-rt-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-caps-rt-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const store = new LocalWorkspaceStore(root);
   await store.createTask("t", { goal: "optimize" });
@@ -87,7 +87,7 @@ test("a grant survives a round trip and records who made it", async (t) => {
 });
 
 test("a job reports progress, completion and its output", async (t) => {
-  const root = await mkdtemp(join(tmpdir(), "atria-job-run-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-job-run-"));
   t.after(() => rm(root, { recursive: true, force: true }));
 
   const { jobId } = await startJob({
@@ -117,7 +117,7 @@ test("a job reports progress, completion and its output", async (t) => {
 });
 
 test("quiet time is reported so the model can judge a wedged job", async (t) => {
-  const root = await mkdtemp(join(tmpdir(), "atria-job-quiet-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-job-quiet-"));
   t.after(() => rm(root, { recursive: true, force: true }));
 
   // A job that printed once and then went silent: exactly the case a fixed
@@ -139,7 +139,7 @@ test("quiet time is reported so the model can judge a wedged job", async (t) => 
 });
 
 test("killing a job takes its children with it", async (t) => {
-  const root = await mkdtemp(join(tmpdir(), "atria-job-group-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-job-group-"));
   t.after(() => rm(root, { recursive: true, force: true }));
 
   // The work worth killing is usually a child of the shell, so the signal has
@@ -167,14 +167,17 @@ test("killing a job takes its children with it", async (t) => {
 
 test("an unknown job is an error, not a silent empty status", async () => {
   await assert.rejects(
-    () => jobStatus({ directory: "/tmp/atria-nonexistent", jobId: "job-1" }),
+    () => jobStatus({ directory: "/tmp/formicand-nonexistent", jobId: "job-1" }),
     /unknown job/
   );
-  await assert.rejects(() => killJob({ directory: "/tmp/atria-nonexistent", jobId: "job-1" }), /unknown job/);
+  await assert.rejects(
+    () => killJob({ directory: "/tmp/formicand-nonexistent", jobId: "job-1" }),
+    /unknown job/
+  );
 });
 
 test("a job survives the process that started it, and is found again by a later Agent", async (t) => {
-  const root = await mkdtemp(join(tmpdir(), "atria-job-persist-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-job-persist-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const directory = join(root, "logs");
 
@@ -198,7 +201,7 @@ test("a job survives the process that started it, and is found again by a later 
 });
 
 test("a job that ended unobserved is reported as ended, not as running", async (t) => {
-  const root = await mkdtemp(join(tmpdir(), "atria-job-orphan-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-job-orphan-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const directory = join(root, "logs");
   const { jobId } = await startJob({ command: "echo quick", cwd: root, directory });
@@ -224,5 +227,9 @@ test("the unsupervised command deadline leaves room for ordinary work", () => {
   // work belongs in start_job, which is supervised instead of deadlined.
   assert.equal(DEFAULT_COMMAND_TIMEOUT_MS, 30 * 60_000);
   assert.equal(configuredCommandTimeout({}), 30 * 60_000);
-  assert.equal(configuredCommandTimeout({ COWORK_COMMAND_TIMEOUT_MS: "0" }), 0, "zero still means unlimited");
+  assert.equal(
+    configuredCommandTimeout({ FORMICAND_COMMAND_TIMEOUT_MS: "0" }),
+    0,
+    "zero still means unlimited"
+  );
 });

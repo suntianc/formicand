@@ -30,16 +30,16 @@ const repositoryRoot = resolve(".");
 const backendEntry = join(repositoryRoot, "dist/src/cli/backend.js");
 
 async function dashboardFixture(t, options = {}, envOverrides = {}) {
-  const root = await mkdtemp(join(tmpdir(), "cowork-native-host-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-native-host-"));
   const environment = { ...process.env };
   for (const key of Object.keys(process.env))
-    if (/^(COWORK_|ATRIA_|PI_|ELECTRON_)/.test(key)) delete process.env[key];
+    if (/^(FORMICAND_|FORMICAND_|PI_|ELECTRON_)/.test(key)) delete process.env[key];
   Object.assign(process.env, {
-    ATRIA_HOME: root,
-    COWORK_WORKSPACE: join(root, "workspace"),
-    COWORK_CONFIG: join(root, "config.json"),
-    COWORK_API_TOKEN: hostToken,
-    COWORK_DISABLE_MAIN_GUARDIAN: "1",
+    FORMICAND_HOME: root,
+    FORMICAND_WORKSPACE: join(root, "workspace"),
+    FORMICAND_CONFIG: join(root, "config.json"),
+    FORMICAND_API_TOKEN: hostToken,
+    FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
     PI_OFFLINE: "1",
     ...envOverrides
   });
@@ -64,7 +64,7 @@ async function dashboardFixture(t, options = {}, envOverrides = {}) {
     // started it; end them before the tree is removed.
     await endAgentProcesses(join(root, "workspace"));
     for (const key of Object.keys(process.env))
-      if (/^(COWORK_|ATRIA_|PI_|ELECTRON_)/.test(key)) delete process.env[key];
+      if (/^(FORMICAND_|FORMICAND_|PI_|ELECTRON_)/.test(key)) delete process.env[key];
     Object.assign(process.env, environment);
     // A process settling as the tree is removed can write one last record.
     for (let attempt = 0; attempt < 20; attempt += 1) {
@@ -81,7 +81,7 @@ async function dashboardFixture(t, options = {}, envOverrides = {}) {
     const response = await fetch(`${app.dashboardUrl}${path}`, {
       method: body === undefined ? "GET" : "POST",
       headers: {
-        "x-atria-token": token,
+        "x-formicand-token": token,
         ...(body === undefined ? {} : { "content-type": "application/json" }),
         ...(approval ? { "x-computer-approval": approval } : {})
       },
@@ -171,19 +171,19 @@ test("a delegated process inherits no backend credential", { timeout: 60_000 }, 
     t,
     {},
     {
-      COWORK_API_BASE: model.baseUrl,
-      COWORK_API_KEY: "local-fixture",
-      COWORK_MODEL: "protocol-fixture",
-      COWORK_MODEL_API: "openai-completions",
-      COWORK_REASONING_EFFORT: "off",
-      COWORK_SUPPORTS_REASONING_EFFORT: "0",
+      FORMICAND_API_BASE: model.baseUrl,
+      FORMICAND_API_KEY: "local-fixture",
+      FORMICAND_MODEL: "protocol-fixture",
+      FORMICAND_MODEL_API: "openai-completions",
+      FORMICAND_REASONING_EFFORT: "off",
+      FORMICAND_SUPPORTS_REASONING_EFFORT: "0",
       PI_TELEMETRY: "0"
     }
   );
   t.after(() => model.close());
-  // The probe lives outside the data home: agents may not touch CoworkOS's
+  // The probe lives outside the data home: agents may not touch Formicand's
   // own data (src/tools/private-data.ts), and the delegate must reach it.
-  const probeDirectory = await mkdtemp(join(tmpdir(), "cowork-delegate-probe-"));
+  const probeDirectory = await mkdtemp(join(tmpdir(), "formicand-delegate-probe-"));
   t.after(() => rm(probeDirectory, { recursive: true, force: true }));
   probePath = join(probeDirectory, "delegate-probe.mjs");
   resultPath = join(probeDirectory, "delegate-result.json");
@@ -191,8 +191,8 @@ test("a delegated process inherits no backend credential", { timeout: 60_000 }, 
     probePath,
     `
 import {writeFile} from "node:fs/promises";
-const token=process.env.COWORK_API_TOKEN;
-const dashboard=process.env.COWORK_DASHBOARD_URL;
+const token=process.env.FORMICAND_API_TOKEN;
+const dashboard=process.env.FORMICAND_DASHBOARD_URL;
 await writeFile(process.argv[2],JSON.stringify({
   runCredential: typeof token === "string" && token.length > 0,
   dashboardUrl: Boolean(dashboard),
@@ -239,8 +239,8 @@ test("cancelling session verification rejects before releasing a credential", as
     await new Promise((done) => server.close(done));
   });
   const env = {
-    COWORK_DASHBOARD_URL: `http://127.0.0.1:${server.address().port}`,
-    COWORK_API_TOKEN: "fixture-session"
+    FORMICAND_DASHBOARD_URL: `http://127.0.0.1:${server.address().port}`,
+    FORMICAND_API_TOKEN: "fixture-session"
   };
   const abort = new AbortController();
   const verification = businessCommandEnvironment(env, abort.signal);
@@ -495,7 +495,7 @@ test(
   "an independent backend completes a code task after its client exits without a graphical host",
   { timeout: 150_000 },
   async (t) => {
-    const base = await mkdtemp(join(tmpdir(), "cowork-headless-host-"));
+    const base = await mkdtemp(join(tmpdir(), "formicand-headless-host-"));
     const home = join(base, "home");
     const project = join(base, "project");
     const userHome = join(base, "user");
@@ -543,26 +543,26 @@ test(
       }
     });
     const inherited = Object.fromEntries(
-      Object.entries(process.env).filter(([key]) => !/^(COWORK_|ATRIA_|PI_|ELECTRON_|EXA_)/.test(key))
+      Object.entries(process.env).filter(([key]) => !/^(FORMICAND_|FORMICAND_|PI_|ELECTRON_|EXA_)/.test(key))
     );
     const env = {
       ...inherited,
       HOME: userHome,
-      ATRIA_HOME: home,
+      FORMICAND_HOME: home,
       PI_CODING_AGENT_DIR: join(base, "pi"),
       PI_OFFLINE: "1",
       PI_TELEMETRY: "0",
-      COWORK_HARNESS_ROOT: repositoryRoot,
-      COWORK_WORKSPACE: join(base, "workspace"),
-      COWORK_GLOBAL_INDEX: join(home, "runtime/workspaces.json"),
-      COWORK_CONFIG: config,
-      COWORK_DISABLE_MAIN_GUARDIAN: "1",
-      COWORK_COMPUTER_USE_EXECUTABLE: executable,
-      COWORK_API_BASE: model.baseUrl,
-      COWORK_API_KEY: "local-fixture",
-      COWORK_MODEL: "protocol-fixture",
-      COWORK_REASONING_EFFORT: "off",
-      COWORK_SUPPORTS_REASONING_EFFORT: "0"
+      FORMICAND_HARNESS_ROOT: repositoryRoot,
+      FORMICAND_WORKSPACE: join(base, "workspace"),
+      FORMICAND_GLOBAL_INDEX: join(home, "runtime/workspaces.json"),
+      FORMICAND_CONFIG: config,
+      FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
+      FORMICAND_COMPUTER_USE_EXECUTABLE: executable,
+      FORMICAND_API_BASE: model.baseUrl,
+      FORMICAND_API_KEY: "local-fixture",
+      FORMICAND_MODEL: "protocol-fixture",
+      FORMICAND_REASONING_EFFORT: "off",
+      FORMICAND_SUPPORTS_REASONING_EFFORT: "0"
     };
     let instance;
     let backendPid;
@@ -601,9 +601,9 @@ test(
       join(project, "check-permission.mjs"),
       `
 import { writeFile } from "node:fs/promises";
-const url = process.env.COWORK_DASHBOARD_URL;
-const headers = {"x-atria-token": process.env.COWORK_API_TOKEN, "content-type": "application/json"};
-await writeFile(${JSON.stringify(join(project, "run-credential.txt"))}, process.env.COWORK_API_TOKEN);
+const url = process.env.FORMICAND_DASHBOARD_URL;
+const headers = {"x-formicand-token": process.env.FORMICAND_API_TOKEN, "content-type": "application/json"};
+await writeFile(${JSON.stringify(join(project, "run-credential.txt"))}, process.env.FORMICAND_API_TOKEN);
 const info = await (await fetch(url + "/api/backend", {headers})).json();
 const response = await fetch(url + "/api/host/computer", {
   method:"POST", headers,
@@ -622,7 +622,7 @@ await writeFile(${JSON.stringify(join(project, "permission-status.txt"))}, Strin
     assert.equal(instance.pid, startedState.pid);
     const call = async (path) => {
       const response = await fetch(`${instance.url}${path}`, {
-        headers: { "x-atria-token": instance.token }
+        headers: { "x-formicand-token": instance.token }
       });
       assert.equal(response.status, 200);
       return response.json();
@@ -636,7 +636,7 @@ await writeFile(${JSON.stringify(join(project, "permission-status.txt"))}, Strin
       client,
       `
 const [url, token, project] = process.argv.slice(2);
-const headers = {"x-atria-token": token, "content-type": "application/json"};
+const headers = {"x-formicand-token": token, "content-type": "application/json"};
 async function post(path, body) {
   const response = await fetch(url + path, {method:"POST", headers, body:JSON.stringify(body)});
   const result = await response.json();
@@ -685,7 +685,7 @@ process.stdout.write("client exited");
     // The serving instance rotated: the host credential the previous process
     // published no longer authorizes anything here.
     assert.equal(
-      (await fetch(`${instance.url}/api/backend`, { headers: { "x-atria-token": priorInstanceToken } }))
+      (await fetch(`${instance.url}/api/backend`, { headers: { "x-formicand-token": priorInstanceToken } }))
         .status,
       401
     );
@@ -693,8 +693,11 @@ process.stdout.write("client exited");
     // a Main adopted after the restart keeps working with it, and it still
     // grants no host action (the probe above recorded 403).
     assert.equal(
-      (await fetch(`${instance.url}/api/computer/status`, { headers: { "x-atria-token": runCredential } }))
-        .status,
+      (
+        await fetch(`${instance.url}/api/computer/status`, {
+          headers: { "x-formicand-token": runCredential }
+        })
+      ).status,
       200
     );
     assert.equal((await call("/api/computer/access")).policy.enabled, false);

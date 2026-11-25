@@ -31,7 +31,7 @@ import { hashFixture, prepareMeasuredFixture } from "./desktop-measure-fixture.m
 const exec = promisify(execFile);
 
 const HELP = `Package measurement for desktop release comparisons
-  node scripts/desktop-measure.mjs --app <CoworkOS.app> --template <data root> --out <dir> [options]
+  node scripts/desktop-measure.mjs --app <Formicand.app> --template <data root> --out <dir> [options]
   --label NAME       Condition name used in file names (default: build)
   --runs N           Launches to sample (default 3)
   --timeout MS       Launch/window readiness timeout (default 120000)
@@ -106,13 +106,13 @@ async function executableOf(appBundle) {
 function launchEnvironment(home, dataRoot) {
   const inherited = Object.fromEntries(
     Object.entries(process.env).filter(
-      ([name]) => !/^(?:COWORK_|ATRIA_|PI_|ELECTRON_|NODE_OPTIONS$)/.test(name)
+      ([name]) => !/^(?:FORMICAND_|FORMICAND_|PI_|ELECTRON_|NODE_OPTIONS$)/.test(name)
     )
   );
   return {
     ...inherited,
     HOME: home,
-    COWORK_DESKTOP_DATA: dataRoot,
+    FORMICAND_DESKTOP_DATA: dataRoot,
     PI_TELEMETRY: "0",
     FORMICAND_DESKTOP_BACKGROUND: inherited.FORMICAND_DESKTOP_BACKGROUND ?? "1"
   };
@@ -218,7 +218,7 @@ async function readInstance(dataRoot) {
 
 async function verifyInstance(instance) {
   const response = await fetch(`${instance.url}/api/backend`, {
-    headers: { "x-atria-token": instance.token },
+    headers: { "x-formicand-token": instance.token },
     signal: AbortSignal.timeout(3000)
   });
   if (!response.ok) throw new Error(`backend identity HTTP ${response.status}`);
@@ -241,7 +241,7 @@ async function stopOwnedBackend(dataRoot, expected, executable, options, home) {
   await verifyInstance(current);
   const appRoot = resolve(options.app, "Contents/Resources/app");
   const entry = join(appRoot, "dist/src/cli/backend.js");
-  const env = { ...launchEnvironment(home, dataRoot), ATRIA_HOME: dataRoot, ELECTRON_RUN_AS_NODE: "1" };
+  const env = { ...launchEnvironment(home, dataRoot), FORMICAND_HOME: dataRoot, ELECTRON_RUN_AS_NODE: "1" };
   const { stdout, stderr } = await exec(executable, [entry, "stop"], { cwd: appRoot, env, timeout: 45_000 });
   if ((await readInstance(dataRoot)) || alive(expected.pid)) throw new Error("backend stop did not complete");
   return { kind: "standalone", backendId: expected.backendId, pid: expected.pid, stdout, stderr };

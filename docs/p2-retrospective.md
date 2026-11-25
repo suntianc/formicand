@@ -11,7 +11,7 @@ P2 覆盖 Electron 45.2.3 接入独立后端、草稿与附件恢复、宿主管
 - 最终同一源码树的 `npm run verify:full` 记录为 2,896 tests、2,839 pass、0 fail、57 skip。第二轮终审的 `npm run verify` 和六条专项命令通过，专项合计 124/124，无跳过。
 - 保留实际后台任务、附件、设置、真实原生权限与钥匙串回执；未受本次改动影响的既有证据按验收映射复用。当前账户内使用隔离数据与安装目录完成安装验收；干净 macOS 账户安装和系统权限验收由 P6 承接。
 - 最终包的三次冷启动为 880/977/973 ms，中位数 973 ms；三次热启动为 552/588/563 ms，中位数 563 ms。空闲客户端与后端 RSS 中位数分别为 616.7 MiB、136.8 MiB，按进程角色分别统计。
-- 保留 `CoworkOS-0.1.3-mac-arm64.dmg`，大小 176,047,042 bytes，SHA-256 为 `483e1da96cef0e331b179a2ea88018e5dc1fa25c1884d736ed2df01fbb35e292`。ad-hoc 深度严格签名检查通过；Developer ID 签名、公证、真实外部模型连接及 Windows/Linux 未验收。
+- 保留 `Formicand-0.1.3-mac-arm64.dmg`，大小 176,047,042 bytes，SHA-256 为 `483e1da96cef0e331b179a2ea88018e5dc1fa25c1884d736ed2df01fbb35e292`。ad-hoc 深度严格签名检查通过；Developer ID 签名、公证、真实外部模型连接及 Windows/Linux 未验收。
 
 全程有 16 次票据审查、2 次终审、2 次执行者替换和 1 次集成失败；没有集成冲突。六次成功集成检查合计约 3 分钟，大量耗时出现在实现、原生验证、诊断和返修阶段。后续应优先改进交接和验证选择。
 
@@ -67,7 +67,7 @@ P2 覆盖 Electron 45.2.3 接入独立后端、草稿与附件恢复、宿主管
 
 ## 证据索引
 
-原始档案标识为 `coworkos-p1-docs/os-p2-electron`。下表路径相对于该 Workloop 档案根目录；档案与安装包独立保存，不纳入源码仓库。
+原始档案标识为 `formicand-p1-docs/os-p2-electron`。下表路径相对于该 Workloop 档案根目录；档案与安装包独立保存，不纳入源码仓库。
 
 | 内容                     | 档案内路径                                                                                                           |
 | ------------------------ | -------------------------------------------------------------------------------------------------------------------- |
@@ -78,7 +78,7 @@ P2 覆盖 Electron 45.2.3 接入独立后端、草稿与附件恢复、宿主管
 | 验证范围与启动补测       | `messages/06-limit-validation-work.md`、`messages/06-rework-1-startup-samples.md`                                    |
 | 生成资源与审查环境修复   | `reviews/04-722135d8.md`、`reviews/final-1-7f6c2153.md`、`evidence/final-a1-environment-reconciliation/receipt.json` |
 | 共享客户端与命令凭据审查 | `reviews/03-dc8745a0.md`、`messages/05-rework-1-watch-credential.md`、`reviews/05-c764e242.md`                       |
-| 最终安装包               | `evidence/06-a1/package-rework-2/CoworkOS-0.1.3-mac-arm64.dmg`                                                       |
+| 最终安装包               | `evidence/06-a1/package-rework-2/Formicand-0.1.3-mac-arm64.dmg`                                                      |
 | 引用核对与证据保留映射   | `evidence/archive-citation-inventory.json`、`evidence/archive-retained/manifest.json`                                |
 | 交付与归档结果           | `evidence/finish-7f6c2153.log`、`evidence/archive-7f6c2153.log` 及各自的 `.exit` 文件                                |
 

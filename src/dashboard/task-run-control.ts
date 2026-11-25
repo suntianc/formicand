@@ -344,7 +344,7 @@ export function createTaskRunControl({
         // is resolved here instead of trusting the in-memory map.
         const resident = await adoptResidentMain(taskId, location).catch((error) => {
           console.error(
-            `[cowork] resolving the Main to close for ${taskId} failed: ${
+            `[formicand] resolving the Main to close for ${taskId} failed: ${
               error instanceof Error ? error.message : String(error)
             }`
           );

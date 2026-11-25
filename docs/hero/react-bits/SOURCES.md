@@ -2,7 +2,7 @@
 
 ElectricLogo is vendored unchanged from [React Bits](https://github.com/DavidHDev/react-bits) at commit [`e12c22192ac7b4b452c5e2feb9b586d74765d696`](https://github.com/DavidHDev/react-bits/tree/e12c22192ac7b4b452c5e2feb9b586d74765d696). It was used by the previous README hero scene and is retained as legacy source. The current TechText scene is independently implemented and does not import ElectricLogo.
 
-License: **MIT + Commons Clause License Condition v1.0**, copyright (c) 2026 David Haz. The complete upstream terms are retained in [LICENSE.md](LICENSE.md). These files are not covered by Atria's own MIT grant.
+License: **MIT + Commons Clause License Condition v1.0**, copyright (c) 2026 David Haz. The complete upstream terms are retained in [LICENSE.md](LICENSE.md). These files are not covered by Formicand's own MIT grant.
 
 | Local file | Upstream source | Git blob SHA |
 | --- | --- | --- |

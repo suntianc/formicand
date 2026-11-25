@@ -8,7 +8,7 @@ const policy = JSON.parse(readFileSync(new URL("./cli-shell-policy.json", import
 const hash = (source) => createHash("sha256").update(source).digest("hex");
 const failure = (cause) =>
   new Error(
-    "CoworkOS Agent 的命令执行兼容性校验失败；请使用 Node >=22.19.0 并重新安装或构建当前 CLI。原会话已保留。",
+    "Formicand Agent 的命令执行兼容性校验失败；请使用 Node >=22.19.0 并重新安装或构建当前 CLI。原会话已保留。",
     { cause }
   );
 

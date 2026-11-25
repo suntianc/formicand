@@ -120,7 +120,7 @@ browser_act({
 
 ## 运行与生命周期
 
-生产依赖为 `playwright-core@1.63.0`，安装 CoworkOS 不自动下载浏览器。优先使用 Playwright 默认 Chromium 安装位置；可信宿主可用 `COWORK_BROWSER_EXECUTABLE` 指定可执行文件绝对路径，模型工具不能修改它。缺失时返回安装指令：
+生产依赖为 `playwright-core@1.63.0`，安装 Formicand 不自动下载浏览器。优先使用 Playwright 默认 Chromium 安装位置；可信宿主可用 `FORMICAND_BROWSER_EXECUTABLE` 指定可执行文件绝对路径，模型工具不能修改它。缺失时返回安装指令：
 
 ```bash
 npx --yes --package=playwright-core@1.63.0 playwright-core install chromium

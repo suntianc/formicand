@@ -1,10 +1,10 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import type { ProviderStreams } from "@earendil-works/pi-ai";
-import { createCoworkModel } from "../../dist/src/runtime/model-profile.js";
+import { createFormicandModel } from "../../dist/src/runtime/model-profile.js";
 import { createModelStreams } from "../../dist/src/runtime/model-provider.js";
 
 /**
- * Register the CoworkOS model provider for whichever agent process loaded this
+ * Register the Formicand model provider for whichever agent process loaded this
  * extension.
  *
  * Main and a delegated process use one connection, one protocol and one stream
@@ -12,10 +12,10 @@ import { createModelStreams } from "../../dist/src/runtime/model-provider.js";
  * recorder Main owns) differ, so they are inputs instead of a second copy of
  * the provider wiring.
  */
-export function registerCoworkProvider(
+export function registerFormicandProvider(
   pi: ExtensionAPI,
   input: {
-    model: ReturnType<typeof createCoworkModel>;
+    model: ReturnType<typeof createFormicandModel>;
     apiKey: string;
     sessionId: string;
     supportsPromptCacheKey: boolean;

@@ -58,7 +58,7 @@ export async function startSubagentBackend({
   const server = createServer(async (request, response) => {
     const chunks = [];
     for await (const chunk of request) chunks.push(chunk);
-    if (request.headers["x-atria-token"] !== token) {
+    if (request.headers["x-formicand-token"] !== token) {
       response.writeHead(401).end();
       return;
     }

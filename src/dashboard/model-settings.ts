@@ -2,7 +2,7 @@ import { existsSync } from "node:fs";
 import { chmod, mkdir, rename, writeFile } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import { dirname } from "node:path";
-import { coworkConfigPath, readCoworkConfig, type CoworkConfig } from "../runtime/config.js";
+import { formicandConfigPath, readFormicandConfig, type FormicandConfig } from "../runtime/config.js";
 import { withFileLock } from "../storage/file-lock.js";
 import { testModelConnection } from "../runtime/model-connection.js";
 import {
@@ -28,14 +28,14 @@ import {
 } from "../security/host-credentials.js";
 
 const ENVIRONMENT_KEYS = [
-  "COWORK_API_BASE",
-  "COWORK_API_KEY",
-  "COWORK_MODEL",
-  "COWORK_SUPPORTS_IMAGES",
-  "COWORK_MODEL_API",
-  "COWORK_SUPPORTS_PROMPT_CACHE_KEY",
-  "COWORK_THINKING_FORMAT",
-  "COWORK_CONTEXT_WINDOW"
+  "FORMICAND_API_BASE",
+  "FORMICAND_API_KEY",
+  "FORMICAND_MODEL",
+  "FORMICAND_SUPPORTS_IMAGES",
+  "FORMICAND_MODEL_API",
+  "FORMICAND_SUPPORTS_PROMPT_CACHE_KEY",
+  "FORMICAND_THINKING_FORMAT",
+  "FORMICAND_CONTEXT_WINDOW"
 ];
 
 /**
@@ -48,10 +48,10 @@ const ENVIRONMENT_KEYS = [
  */
 export function createModelSettings(
   root: string,
-  config: CoworkConfig,
+  config: FormicandConfig,
   options: { credentialsPath?: string } = {}
 ) {
-  const path = coworkConfigPath(root);
+  const path = formicandConfigPath(root);
   const store = new HostCredentialStore(options.credentialsPath ?? hostCredentialsPath(path));
   if (!store.error) applyHostCredentials(config, store.value);
   const managed = () =>
@@ -60,10 +60,10 @@ export function createModelSettings(
     const error = store.error;
     return {
       ...publicProviders(config),
-      model: process.env.COWORK_MODEL || config.model || "",
+      model: process.env.FORMICAND_MODEL || config.model || "",
       configured: Boolean(
-        (process.env.COWORK_API_BASE || config.baseUrl || config.apiBase) &&
-        (process.env.COWORK_API_KEY || config.apiKey)
+        (process.env.FORMICAND_API_BASE || config.baseUrl || config.apiBase) &&
+        (process.env.FORMICAND_API_KEY || config.apiKey)
       ),
       managedByEnvironment: managed(),
       ...(error ? { credentialError: error } : {}),
@@ -76,7 +76,7 @@ export function createModelSettings(
    * Keys are moved to the host store before the file is written, so a settings
    * response and the file on disk can never disagree about where a secret lives.
    */
-  const persist = async (next: CoworkConfig) => {
+  const persist = async (next: FormicandConfig) => {
     const persisted = structuredClone(next);
     const extracted = takeHostCredentials(persisted);
     const credentials = retainProviderCredentials(mergeHostCredentials(store.value, extracted), persisted);
@@ -99,12 +99,12 @@ export function createModelSettings(
    * Allowed while a turn runs: a Main turn and a work item hold the model,
    * address and key they started with, so a change applies from the next one.
    */
-  const update = async (change: (previous: CoworkConfig) => CoworkConfig) => {
+  const update = async (change: (previous: FormicandConfig) => FormicandConfig) => {
     if (managed()) throw new Error("当前模型连接由启动环境管理，请在启动配置中修改");
     await withFileLock(path, async () => {
       store.reload();
       if (store.error) throw new Error(store.error);
-      const previous = existsSync(path) ? readCoworkConfig(root, { COWORK_CONFIG: path }) : config;
+      const previous = existsSync(path) ? readFormicandConfig(root, { FORMICAND_CONFIG: path }) : config;
       applyHostCredentials(previous, store.value);
       await persist(change(previous));
     });

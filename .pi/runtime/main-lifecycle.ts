@@ -72,7 +72,7 @@ export function registerMainLifecycle(
   // long-lived interface, its Inbox wakes it, and it exits only when the
   // session is closed, when it has been idle long enough, or when a turn
   // cannot continue (a model request that failed).
-  const resident = process.env.COWORK_MAIN_RESIDENT === "1";
+  const resident = process.env.FORMICAND_MAIN_RESIDENT === "1";
   let agentStartedAt = 0;
   let sessionContext: ExtensionContext | undefined;
   let turnActive = false;
@@ -87,14 +87,14 @@ export function registerMainLifecycle(
   pi.on("agent_start", () => {
     agentStartedAt = Date.now();
   });
-  // Pi 1.5 enables prompt-cache warming by default. CoworkOS does not adopt the
+  // Pi 1.5 enables prompt-cache warming by default. Formicand does not adopt the
   // capability in this upgrade, so every refresh stops until the next real
   // request instead of sending an extra model call while Main is idle.
   pi.on("cache_warming_decision", () => ({ action: "stop" }));
   // A one-turn host already has a user prompt to start the turn, so startup
   // Inbox delivery must append to that context instead of racing it. A
   // resident Main has no such prompt: its Inbox is what starts the first turn.
-  let awaitingInitialPrompt = process.env.COWORK_INITIAL_PROMPT === "1" && !resident;
+  let awaitingInitialPrompt = process.env.FORMICAND_INITIAL_PROMPT === "1" && !resident;
   /**
    * Whether this process's first turn was accepted before a pause request.
    *
@@ -174,7 +174,8 @@ export function registerMainLifecycle(
         // An externally budgeted Run resumes a durable answer through the
         // backend, which first admits the turn it opens to that budget; a Run
         // outside the budget still opens the turn here as it always did.
-        holdAnswers: process.env.COWORK_MAIN_CAPACITY_MANAGED === "1" && (sessionContext?.isIdle() ?? true),
+        holdAnswers:
+          process.env.FORMICAND_MAIN_CAPACITY_MANAGED === "1" && (sessionContext?.isIdle() ?? true),
         // Only the startup read before the first turn needs the batch: after
         // that, each message is steered into the turn already in flight.
         batchStart: !firstTurnStarted && (sessionContext?.isIdle() ?? true),

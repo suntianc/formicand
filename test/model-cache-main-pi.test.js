@@ -16,7 +16,7 @@ for (const api of ["openai-completions", "openai-responses"]) {
       `${api}: Main ${enabled ? "opt-in" : "default"} cache policy and usage survive a real Pi restart`,
       { timeout: 30000 },
       async (t) => {
-        const root = await mkdtemp(join(tmpdir(), "atria-main-cache-"));
+        const root = await mkdtemp(join(tmpdir(), "formicand-main-cache-"));
         const workspace = join(root, "workspace");
         const project = join(root, "project");
         const sessions = join(root, "sessions");
@@ -79,27 +79,27 @@ for (const api of ["openai-completions", "openai-responses"]) {
         await store.createRun("cache-task", "cache-run");
         const inherited = Object.fromEntries(
           Object.entries(process.env).filter(
-            ([name]) => !/^(COWORK_|ATRIA_|PI_|OPENAI_|ANTHROPIC_)/.test(name)
+            ([name]) => !/^(FORMICAND_|FORMICAND_|PI_|OPENAI_|ANTHROPIC_)/.test(name)
           )
         );
         const env = {
           ...inherited,
-          ATRIA_HOME: join(root, "atria"),
-          COWORK_CONFIG: join(root, "config.json"),
-          COWORK_WORKSPACE: workspace,
-          COWORK_PROJECT_DIR: project,
-          COWORK_TASK_ID: "cache-task",
-          COWORK_RUN_ID: "cache-run",
-          COWORK_GLOBAL_INDEX: join(root, "global.json"),
-          COWORK_API_BASE: `http://127.0.0.1:${server.address().port}/v1`,
-          COWORK_API_KEY: "local-test-key",
-          COWORK_MODEL: "protocol-fixture",
-          COWORK_MODEL_API: api,
-          COWORK_DASHBOARD_URL: "",
-          COWORK_DISABLE_MAIN_GUARDIAN: "1",
-          COWORK_REASONING_EFFORT: "off",
-          COWORK_SUPPORTS_REASONING_EFFORT: "0",
-          COWORK_WEB_TOOLS: "0",
+          FORMICAND_HOME: join(root, "formicand"),
+          FORMICAND_CONFIG: join(root, "config.json"),
+          FORMICAND_WORKSPACE: workspace,
+          FORMICAND_PROJECT_DIR: project,
+          FORMICAND_TASK_ID: "cache-task",
+          FORMICAND_RUN_ID: "cache-run",
+          FORMICAND_GLOBAL_INDEX: join(root, "global.json"),
+          FORMICAND_API_BASE: `http://127.0.0.1:${server.address().port}/v1`,
+          FORMICAND_API_KEY: "local-test-key",
+          FORMICAND_MODEL: "protocol-fixture",
+          FORMICAND_MODEL_API: api,
+          FORMICAND_DASHBOARD_URL: "",
+          FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
+          FORMICAND_REASONING_EFFORT: "off",
+          FORMICAND_SUPPORTS_REASONING_EFFORT: "0",
+          FORMICAND_WEB_TOOLS: "0",
           PI_CODING_AGENT_DIR: join(root, "pi"),
           PI_OFFLINE: "1"
         };

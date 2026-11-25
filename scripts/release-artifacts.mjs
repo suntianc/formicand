@@ -9,8 +9,8 @@ import { releaseAssetUrl, releaseRepository, validateRelease } from "./release-m
 
 const execute = promisify(execFile);
 export const releaseFiles = (version) => ({
-  manifest: "atria-release-" + version + ".json",
-  notes: "atria-release-" + version + ".md"
+  manifest: "formicand-release-" + version + ".json",
+  notes: "formicand-release-" + version + ".md"
 });
 
 async function regularFile(path) {
@@ -68,7 +68,7 @@ function macSigningReport(report, version) {
     throw new Error("Mac signing report differs from the release version or validated distribution mode");
   const signature = report.parent;
   if (
-    signature?.identifier !== "org.atria.cowork" ||
+    signature?.identifier !== "io.github.suntianc.formicand" ||
     signature.mode !== report.mode ||
     signature.hardenedRuntime !== true ||
     signature.audioInput !== false ||
@@ -103,9 +103,9 @@ export async function inspectReleaseArtifacts({
       "Release repository differs from package.repository; single-repository releases are required"
     );
   const directory = resolve(root, "release");
-  const dmg = "CoworkOS-" + metadata.version + "-mac-arm64.dmg";
-  const cli = "coworkos-cli-" + metadata.version + ".tgz";
-  const signingName = "CoworkOS-" + metadata.version + "-mac-arm64.signing.json";
+  const dmg = "Formicand-" + metadata.version + "-mac-arm64.dmg";
+  const cli = "formicand-cli-" + metadata.version + ".tgz";
+  const signingName = "Formicand-" + metadata.version + "-mac-arm64.signing.json";
   const hasSigning = await exists(join(directory, signingName));
   if (requireSigningReport && !hasSigning)
     throw new Error("Mac distribution requires the actual package signing report");
@@ -147,7 +147,7 @@ export async function inspectReleaseArtifacts({
     build.version !== metadata.version ||
     build.commit !== metadata.commit ||
     build.dirty !== false ||
-    manifest.name !== "atria-cowork-cli" ||
+    manifest.name !== "formicand-cli" ||
     manifest.version !== metadata.version ||
     releaseRepository(manifest.repository) !== sourceRepository
   )

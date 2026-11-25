@@ -13,7 +13,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 // A slow-starting application server: the handshake stays outstanding long
 // enough that shutdown has to wait for an in-flight startup. With the hang
 // flag it never completes, which is how the forced-stop path is exercised.
-if (process.env.COWORK_FIXTURE_MCP_HANG === "1") {
+if (process.env.FORMICAND_FIXTURE_MCP_HANG === "1") {
   setInterval(() => {}, 1_000);
   await new Promise(() => {});
 }
@@ -30,7 +30,7 @@ process.stdout.on("error", () => {});
 process.on("uncaughtException", () => {});
 process.on("unhandledRejection", () => {});
 
-const server = new McpServer({ name: "atria-slow-shutdown", version: "1" });
+const server = new McpServer({ name: "formicand-slow-shutdown", version: "1" });
 server.registerTool(
   "slow_shutdown_ping",
   { description: "确认慢关闭夹具已启动", inputSchema: {} },

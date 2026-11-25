@@ -114,7 +114,7 @@ export function createMainRunLauncher({ locateTask, mainSessions, startMainRun }
           ?.settle(claimed.projectId, request.taskId, claimed.runId, "failed")
           .catch((settleError: unknown) =>
             console.error(
-              `[cowork] session run settlement failed: ${
+              `[formicand] session run settlement failed: ${
                 settleError instanceof Error ? settleError.message : String(settleError)
               }`
             )

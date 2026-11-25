@@ -313,7 +313,7 @@ export class SubagentDispatchService {
       ? {
           developmentDirectory: resolve(development.directory),
           directory: join(resolve(development.directory), "..", "work-items", callId),
-          branch: `coworkos/work/${callId}`
+          branch: `formicand/work/${callId}`
         }
       : undefined;
     const workItemSite = continued?.workItemSite ?? boundWorkspace;

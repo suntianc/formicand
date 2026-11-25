@@ -115,17 +115,17 @@ async function setup(t, handle, ports = {}) {
   const env = isolatedPiEnvironment({
     HOME: root,
     TMPDIR: root,
-    ATRIA_HOME: home,
-    COWORK_CONFIG: join(root, "config.json"),
-    COWORK_CONFIG_ROOT: root,
-    COWORK_HARNESS_ROOT: harness,
-    COWORK_WORKSPACE: workspace,
-    COWORK_DISABLE_MAIN_GUARDIAN: "1",
-    COWORK_API_BASE: provider.baseUrl,
-    COWORK_API_KEY: API_KEY,
-    COWORK_MODEL: MODEL,
-    COWORK_MODEL_API: "openai-completions",
-    COWORK_REASONING_EFFORT: "off",
+    FORMICAND_HOME: home,
+    FORMICAND_CONFIG: join(root, "config.json"),
+    FORMICAND_CONFIG_ROOT: root,
+    FORMICAND_HARNESS_ROOT: harness,
+    FORMICAND_WORKSPACE: workspace,
+    FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
+    FORMICAND_API_BASE: provider.baseUrl,
+    FORMICAND_API_KEY: API_KEY,
+    FORMICAND_MODEL: MODEL,
+    FORMICAND_MODEL_API: "openai-completions",
+    FORMICAND_REASONING_EFFORT: "off",
     PI_CODING_AGENT_DIR: join(root, "pi"),
     PI_OFFLINE: "1"
   });
@@ -336,7 +336,7 @@ test("Main is told which Agents exist and can name one in call_subagent", { time
   const home = join(root, "home");
   const project = join(root, "project");
   const workspace = join(root, "workspace");
-  for (const folder of [join(home, "agents"), join(project, ".atria", "agents"), workspace])
+  for (const folder of [join(home, "agents"), join(project, ".formicand", "agents"), workspace])
     await mkdir(folder, { recursive: true });
   await writeFile(
     join(home, "agents", "db-migrator.md"),
@@ -348,7 +348,7 @@ test("Main is told which Agents exist and can name one in call_subagent", { time
   );
   // An untrusted project's Agents are not read.
   await writeFile(
-    join(project, ".atria", "agents", "planted.md"),
+    join(project, ".formicand", "agents", "planted.md"),
     "---\nname: planted\ndescription: 项目里的\npermission: write\n---\n"
   );
   const provider = await startLocalProvider({ model: MODEL, handle: () => ({ text: "MAIN_DONE" }) });
@@ -364,14 +364,14 @@ test("Main is told which Agents exist and can name one in call_subagent", { time
     maxBuffer: 16 * 1024 * 1024,
     env: isolatedPiEnvironment({
       HOME: root,
-      ATRIA_HOME: home,
-      COWORK_CONFIG: configPath,
-      COWORK_PROJECT_DIR: project,
-      COWORK_WORKSPACE: workspace,
-      COWORK_TASK_ID: "main-agents",
-      COWORK_RUN_ID: "main-agents-run",
+      FORMICAND_HOME: home,
+      FORMICAND_CONFIG: configPath,
+      FORMICAND_PROJECT_DIR: project,
+      FORMICAND_WORKSPACE: workspace,
+      FORMICAND_TASK_ID: "main-agents",
+      FORMICAND_RUN_ID: "main-agents-run",
       PI_CODING_AGENT_DIR: join(root, "pi"),
-      COWORK_DISABLE_MAIN_GUARDIAN: "1",
+      FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
       PI_OFFLINE: "1"
     })
   });

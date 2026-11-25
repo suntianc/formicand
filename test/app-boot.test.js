@@ -43,7 +43,7 @@ function browserEnvironment() {
   globalThis.document = document;
   globalThis.window = window;
   globalThis.NodeFilter = NodeFilter;
-  const location = new URL("http://atria.invalid/");
+  const location = new URL("http://formicand.invalid/");
   const historyCalls = [];
   globalThis.location = window.location = location;
   globalThis.history = window.history = {
@@ -353,7 +353,7 @@ test("only backend file links use the authenticated download client", async (t) 
   const callsOf = (fragment) => page.server.calls.filter((call) => call.includes(fragment));
   // The Markdown export shape: the bytes are already a local blob URL. Taking
   // it over would send "blob:..." to the bound backend and lose the download.
-  click("blob:http://atria.invalid/markdown-export", "导出.md");
+  click("blob:http://formicand.invalid/markdown-export", "导出.md");
   await new Promise((resolve) => setTimeout(resolve, 0));
   assert.deepEqual(callsOf("blob:"), [], "a page-produced blob stays local");
   click("data:text/markdown,hello", "导出.md");

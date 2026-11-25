@@ -8,7 +8,7 @@ const require = createRequire(import.meta.url);
 const { desktopPaths, prepareDesktopData } = require("../desktop/paths.cjs");
 
 test("desktop upgrades preserve data outside installation, and future data versions refuse downgrade", async () => {
-  const root = await mkdtemp(join(tmpdir(), "atria-desktop-data-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-desktop-data-"));
   try {
     const paths = desktopPaths("/immutable/install", root, {});
     await prepareDesktopData(paths, "0.1.0");

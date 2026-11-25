@@ -3,7 +3,7 @@ import { processAgentLocations, resolveAgent } from "../runtime/agent-definition
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
 import { join } from "node:path";
-import { readHostCoworkConfig, type CoworkConfig } from "../runtime/config.js";
+import { readHostFormicandConfig, type FormicandConfig } from "../runtime/config.js";
 import { resolveModelRole } from "../runtime/role-models.js";
 import { LocalWorkspaceStore } from "../workspace/workspace-store.js";
 import { createSubagentBackend, type SubagentBackend } from "../dashboard/subagent-backend.js";
@@ -24,7 +24,7 @@ export interface SubagentHostOptions {
   workspaceRoot: string;
   /** Install root the shared launcher and extension are read from. */
   projectRoot: string;
-  config?: CoworkConfig;
+  config?: FormicandConfig;
   configPath?: string;
   piAgentDir?: string;
   pollMs?: number;
@@ -42,11 +42,11 @@ export interface SubagentHost {
 export async function openSubagentHost(options: SubagentHostOptions): Promise<SubagentHost | undefined> {
   // A role binding is read when a work item actually starts, so the host
   // re-reads the saved configuration instead of freezing it at startup.
-  const initialConfig = options.config ?? readHostCoworkConfig(options.projectRoot);
+  const initialConfig = options.config ?? readHostFormicandConfig(options.projectRoot);
   let config = initialConfig;
-  const currentConfig = (): CoworkConfig => {
+  const currentConfig = (): FormicandConfig => {
     if (options.config) return options.config;
-    config = readHostCoworkConfig(options.projectRoot);
+    config = readHostFormicandConfig(options.projectRoot);
     return config;
   };
   const store = new LocalWorkspaceStore(options.workspaceRoot);
@@ -129,7 +129,7 @@ async function answer(
   backend: SubagentBackend,
   token: string
 ): Promise<void> {
-  if (request.headers["x-atria-token"] !== token) throw new HttpError(401, "unauthorized");
+  if (request.headers["x-formicand-token"] !== token) throw new HttpError(401, "unauthorized");
   const url = new URL(request.url ?? "/", "http://127.0.0.1");
   if (await handleSubagentRequest(request, response, url, { backend })) return;
   throw new HttpError(404, "not found");

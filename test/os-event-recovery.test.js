@@ -39,7 +39,7 @@ const alive = (pid) => {
 
 function isolatedEnv(overrides) {
   const inherited = Object.fromEntries(
-    Object.entries(process.env).filter(([name]) => !/^(?:COWORK_|PI_|ATRIA_)/.test(name))
+    Object.entries(process.env).filter(([name]) => !/^(?:FORMICAND_|PI_|FORMICAND_)/.test(name))
   );
   return { ...inherited, ...overrides };
 }
@@ -57,16 +57,16 @@ async function createRoot(prefix, overrides = {}) {
   await writeFile(configPath, "{}");
   const env = isolatedEnv({
     HOME: userHome,
-    ATRIA_HOME: home,
+    FORMICAND_HOME: home,
     PI_CODING_AGENT_DIR: join(base, "pi"),
     PI_OFFLINE: "1",
     PI_TELEMETRY: "0",
-    COWORK_HARNESS_ROOT: repositoryRoot,
-    COWORK_WORKSPACE: workspace,
-    COWORK_GLOBAL_INDEX: join(home, "runtime", "workspaces.json"),
-    COWORK_CONFIG: configPath,
-    COWORK_DISABLE_MAIN_GUARDIAN: "1",
-    COWORK_SUPERVISOR_INTERVAL_MS: "1000",
+    FORMICAND_HARNESS_ROOT: repositoryRoot,
+    FORMICAND_WORKSPACE: workspace,
+    FORMICAND_GLOBAL_INDEX: join(home, "runtime", "workspaces.json"),
+    FORMICAND_CONFIG: configPath,
+    FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
+    FORMICAND_SUPERVISOR_INTERVAL_MS: "1000",
     ...overrides
   });
   return { base, home, workspace, project, userHome, configPath, env };
@@ -125,7 +125,7 @@ async function api(root, method, path, body, credential) {
   const instance = await readInstance(root);
   const token = credential === undefined ? instance.token : credential;
   const headers = {};
-  if (token) headers["x-atria-token"] = token;
+  if (token) headers["x-formicand-token"] = token;
   if (body !== undefined) headers["content-type"] = "application/json";
   const response = await fetch(`${instance.url}${path}`, {
     method,
@@ -202,7 +202,7 @@ async function createTask(root, token, input) {
 async function readStream(instance, token, cursor, enough, timeoutMs = 20_000) {
   const controller = new AbortController();
   const response = await fetch(`${instance.url}/api/events/stream?cursor=${cursor}`, {
-    headers: { "x-atria-token": token, accept: "text/event-stream" },
+    headers: { "x-formicand-token": token, accept: "text/event-stream" },
     signal: controller.signal
   });
   if (!response.ok) {
@@ -244,7 +244,7 @@ async function readStream(instance, token, cursor, enough, timeoutMs = 20_000) {
 const authenticatedFetch =
   (token) =>
   (url, options = {}) =>
-    fetch(url, { ...options, headers: { ...(options.headers || {}), "x-atria-token": token } });
+    fetch(url, { ...options, headers: { ...(options.headers || {}), "x-formicand-token": token } });
 
 /**
  * A transport whose stream bodies the test controls.
@@ -321,7 +321,7 @@ function controllableTransport({ snapshot, serve }) {
 // ---------------------------------------------------------------------------
 
 test("the ledger keeps sequence, revisions and retention across a restart", async (t) => {
-  const root = await mkdtemp(join(tmpdir(), "atria-ledger-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-ledger-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const directory = join(root, "events");
   const ledger = await EventLedger.open(directory, "backend_test", { maxRecords: 4 });
@@ -458,7 +458,7 @@ test("the ledger keeps sequence, revisions and retention across a restart", asyn
 // ---------------------------------------------------------------------------
 
 test("a subscription releases its timers and listeners on reset and on disconnect", async (t) => {
-  const root = await mkdtemp(join(tmpdir(), "atria-events-subscribe-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-events-subscribe-"));
   t.after(() => rm(root, { recursive: true, force: true }));
 
   // Track the real interval handles the subscription creates, so "ended" is
@@ -580,7 +580,7 @@ test("a subscription releases its timers and listeners on reset and on disconnec
 // ---------------------------------------------------------------------------
 
 test("a change made between the snapshot and the subscription is replayed once and the view matches the backend", async (t) => {
-  const root = await createRoot("atria-recovery-handoff-");
+  const root = await createRoot("formicand-recovery-handoff-");
   t.after(async () => {
     await stopQuietly(root);
     await rm(root.base, { recursive: true, force: true });
@@ -610,7 +610,7 @@ test("a change made between the snapshot and the subscription is replayed once a
   const handingOff = async (url, options = {}) => {
     const response = await fetch(url, {
       ...options,
-      headers: { ...(options.headers || {}), "x-atria-token": session.token }
+      headers: { ...(options.headers || {}), "x-formicand-token": session.token }
     });
     if (!String(url).includes("/api/events/snapshot") || changed) return response;
     changed = true;
@@ -721,7 +721,7 @@ test("a change made between the snapshot and the subscription is replayed once a
 // ---------------------------------------------------------------------------
 
 test("an expired cursor refuses the subscription and sends the client back for a snapshot", async (t) => {
-  const root = await createRoot("atria-recovery-expiry-", { COWORK_EVENT_LEDGER_RECORDS: "4" });
+  const root = await createRoot("formicand-recovery-expiry-", { FORMICAND_EVENT_LEDGER_RECORDS: "4" });
   t.after(async () => {
     await stopQuietly(root);
     await rm(root.base, { recursive: true, force: true });
@@ -797,7 +797,7 @@ test("an expired cursor refuses the subscription and sends the client back for a
 });
 
 test("duplicate and out-of-order records never apply twice and a gap is replayed in order", async (t) => {
-  const root = await createRoot("atria-recovery-order-");
+  const root = await createRoot("formicand-recovery-order-");
   t.after(async () => {
     await stopQuietly(root);
     await rm(root.base, { recursive: true, force: true });
@@ -874,7 +874,7 @@ test("duplicate and out-of-order records never apply twice and a gap is replayed
 });
 
 test("reconnecting a client does not execute an operation again and receipts stay per identity", async (t) => {
-  const root = await createRoot("atria-recovery-retry-");
+  const root = await createRoot("formicand-recovery-retry-");
   t.after(async () => {
     await stopQuietly(root);
     await rm(root.base, { recursive: true, force: true });
@@ -917,7 +917,7 @@ test("reconnecting a client does not execute an operation again and receipts sta
       "Connection: close",
       "Content-Type: application/json",
       `Content-Length: ${Buffer.byteLength(JSON.stringify(create))}`,
-      `x-atria-token: ${session.token}`,
+      `x-formicand-token: ${session.token}`,
       "",
       JSON.stringify(create)
     ].join("\r\n")
@@ -959,7 +959,7 @@ test("reconnecting a client does not execute an operation again and receipts sta
   // Task, and another identity never reads that receipt.
   const retried = await api(root, "POST", "/api/tasks", create, session.token);
   assert.equal(retried.status, 201, JSON.stringify(retried.body));
-  assert.equal(retried.headers["x-cowork-replayed"], "1");
+  assert.equal(retried.headers["x-formicand-replayed"], "1");
   assert.equal(retried.body.taskId, "retried-task");
   const list = await snapshotOf(root, session.token);
   assert.equal(list.tasks.filter((task) => task.taskId === "retried-task").length, 1);
@@ -976,7 +976,7 @@ test("reconnecting a client does not execute an operation again and receipts sta
 });
 
 test("changes written outside the management routes become events for a live subscription", async (t) => {
-  const root = await createRoot("atria-recovery-writer-");
+  const root = await createRoot("formicand-recovery-writer-");
   t.after(async () => {
     await stopQuietly(root);
     await rm(root.base, { recursive: true, force: true });
@@ -1063,8 +1063,8 @@ test("changes written outside the management routes become events for a live sub
 // ---------------------------------------------------------------------------
 
 test("a crash after the state commit and before the event heals from the durable state on restart", async (t) => {
-  const root = await createRoot("atria-recovery-crash-", {
-    COWORK_EVENT_FAULT_INJECT: "crash:task:recovered-task@2"
+  const root = await createRoot("formicand-recovery-crash-", {
+    FORMICAND_EVENT_FAULT_INJECT: "crash:task:recovered-task@2"
   });
   t.after(async () => {
     await stopQuietly(root);
@@ -1114,7 +1114,7 @@ test("a crash after the state commit and before the event heals from the durable
 
   // Restart: the committed title is authoritative, and the missing event is
   // recovered so a subscriber resuming from its old cursor learns about it.
-  delete root.env.COWORK_EVENT_FAULT_INJECT;
+  delete root.env.FORMICAND_EVENT_FAULT_INJECT;
   const restarted = await startBackend(root.env);
   assert.equal(restarted.backendId, instance.backendId, "the same backend identity comes back");
   const restartedInstance = await readInstance(root);
@@ -1151,8 +1151,8 @@ test("a crash after the state commit and before the event heals from the durable
 });
 
 test("a client bound to one backend rejects a late record from the backend it switched away from", async (t) => {
-  const first = await createRoot("atria-recovery-switch-a-");
-  const second = await createRoot("atria-recovery-switch-b-");
+  const first = await createRoot("formicand-recovery-switch-a-");
+  const second = await createRoot("formicand-recovery-switch-b-");
   t.after(async () => {
     await stopQuietly(first);
     await stopQuietly(second);

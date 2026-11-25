@@ -6,12 +6,12 @@ import { join, resolve } from "node:path";
 import { after, test } from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
 import { isolatedPiEnvironment, spawnPiRpc, startLocalProvider } from "./fixtures/pi-process-fixture.mjs";
-import { coworkProviderId } from "../dist/src/runtime/model-profile.js";
+import { formicandProviderId } from "../dist/src/runtime/model-profile.js";
 
 /**
  * A Main session written by one Pi runtime must stay usable after switching
  * between 0.87.1 and 1.5.x. Both directions run the real Pi CLI with the real
- * CoworkOS Main extension against a recorded local provider, so the session file
+ * Formicand Main extension against a recorded local provider, so the session file
  * is written by Pi itself and the model request is inspected at the provider
  * seam. 0.87.1 is installed from the local npm cache into a temporary directory;
  * the project dependencies stay on 1.5.x.
@@ -119,16 +119,16 @@ async function sessionHarness(t) {
     env: isolatedPiEnvironment({
       HOME: root,
       TMPDIR: root,
-      ATRIA_HOME: join(root, "home"),
-      COWORK_WORKSPACE: workspace,
-      COWORK_TASK_ID: "session-compat-task",
-      COWORK_RUN_ID: "session-compat-run",
-      COWORK_DISABLE_MAIN_GUARDIAN: "1",
-      COWORK_API_BASE: baseUrl,
-      COWORK_API_KEY: "fixture-key",
-      COWORK_MODEL: MODEL,
-      COWORK_MODEL_API: "openai-completions",
-      COWORK_REASONING_EFFORT: "off",
+      FORMICAND_HOME: join(root, "home"),
+      FORMICAND_WORKSPACE: workspace,
+      FORMICAND_TASK_ID: "session-compat-task",
+      FORMICAND_RUN_ID: "session-compat-run",
+      FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
+      FORMICAND_API_BASE: baseUrl,
+      FORMICAND_API_KEY: "fixture-key",
+      FORMICAND_MODEL: MODEL,
+      FORMICAND_MODEL_API: "openai-completions",
+      FORMICAND_REASONING_EFFORT: "off",
       PI_CODING_AGENT_DIR: join(root, "profile"),
       PI_OFFLINE: "1"
     })
@@ -147,13 +147,13 @@ function spawnPi(fixture, { bundleEntry, session }) {
     "--no-skills",
     "--no-context-files",
     "--extension",
-    join(repositoryRoot, ".pi", "extensions", "cowork.ts"),
+    join(repositoryRoot, ".pi", "extensions", "formicand.ts"),
     "--provider",
-    coworkProviderId(fixture.baseUrl, ""),
+    formicandProviderId(fixture.baseUrl, ""),
     "--model",
     MODEL,
     "--append-system-prompt",
-    join(repositoryRoot, ".pi", "prompts", "cowork-main.md"),
+    join(repositoryRoot, ".pi", "prompts", "formicand-main.md"),
     "--session-dir",
     fixture.sessions,
     ...(session ? ["--session", session] : [])

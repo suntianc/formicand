@@ -12,7 +12,7 @@
 
 ## 唤醒 socket 路径超过 sun_path 上限
 
-常驻 Main 的唤醒端点由 `join(tmpdir(), cowork-wake-<uid>, wake-<digest>.sock)` 拼出。Playwright 的运行根目录约 70 字节，端点因此 117–119 字节，超过 macOS `sun_path` 的 104 字节。Electron 内置的 Node 上 `listen` 报 `EINVAL`，Main 日志为 `Main Inbox wake channel failed: listen EINVAL`；普通 Node 上 `listen` 报成功但静默截断，socket 不在记录路径上，随后 `chmod` 报 `ENOENT`，而 `p46-idle-wake-pi` 等 Node 用例因写入方连接的也是截断名而照常通过。结果是桌面重开后新消息留在 Inbox 里，只能等文件事件。#09 让 `agentWakeEndpoint` 在路径过长时退到 `/tmp/cowork-wake-<uid>`，端点写入进程记录，读取方用记录值，并新增 `test/agent-wake.test.js`。来源：`reports/09-a2.md` A 节、`evidence/09-a2/wake-path-probe.txt`。
+常驻 Main 的唤醒端点由 `join(tmpdir(), formicand-wake-<uid>, wake-<digest>.sock)` 拼出。Playwright 的运行根目录约 70 字节，端点因此 117–119 字节，超过 macOS `sun_path` 的 104 字节。Electron 内置的 Node 上 `listen` 报 `EINVAL`，Main 日志为 `Main Inbox wake channel failed: listen EINVAL`；普通 Node 上 `listen` 报成功但静默截断，socket 不在记录路径上，随后 `chmod` 报 `ENOENT`，而 `p46-idle-wake-pi` 等 Node 用例因写入方连接的也是截断名而照常通过。结果是桌面重开后新消息留在 Inbox 里，只能等文件事件。#09 让 `agentWakeEndpoint` 在路径过长时退到 `/tmp/formicand-wake-<uid>`，端点写入进程记录，读取方用记录值，并新增 `test/agent-wake.test.js`。来源：`reports/09-a2.md` A 节、`evidence/09-a2/wake-path-probe.txt`。
 
 ## 基线即败被豁免为环境问题
 

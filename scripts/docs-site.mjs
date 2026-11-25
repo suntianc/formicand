@@ -48,7 +48,7 @@ const plain = (html) =>
 const isEnglish = (file) => file === "README.md" || file.includes("/en/") || file.endsWith(".en.md");
 const isDocument = (file) => file.endsWith(".md") || file === "LICENSE";
 const safeSource = (file) =>
-  files.has(file) && !/^(?:config\.json|\.tmp\/|\.cowork\/|workspace\/|task-)/.test(file);
+  files.has(file) && !/^(?:config\.json|\.tmp\/|\.formicand\/|workspace\/|task-)/.test(file);
 
 function translated(file, english) {
   if (file === "README.md" || file === "README.zh-CN.md") return english ? "README.md" : "README.zh-CN.md";
@@ -220,16 +220,16 @@ function shell(page, body) {
   return `<!doctype html>
 <html lang="${en ? "en" : "zh-CN"}"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="generator" content="CoworkOS Docs ${escape(manifest.version)}">
-<meta name="description" content="${escape(t("CoworkOS 使用文档：从安装与模型配置，到多智能体协作与开发扩展。", "CoworkOS documentation: installation, configuration, multi-agent workflows and development."))}">
-<meta name="theme-color" content="#ffffff"><title>${escape(isHome ? page.title : `${page.title} · CoworkOS Docs`)}</title>
-<link rel="icon" type="image/png" href="${asset("atria-logo.png")}"><link rel="stylesheet" href="${asset("theme.css")}">
+<meta name="generator" content="Formicand Docs ${escape(manifest.version)}">
+<meta name="description" content="${escape(t("Formicand 使用文档：从安装与模型配置，到多智能体协作与开发扩展。", "Formicand documentation: installation, configuration, multi-agent workflows and development."))}">
+<meta name="theme-color" content="#ffffff"><title>${escape(isHome ? page.title : `${page.title} · Formicand Docs`)}</title>
+<link rel="icon" type="image/png" href="${asset("formicand-logo.png")}"><link rel="stylesheet" href="${asset("theme.css")}">
 <link rel="stylesheet" href="${asset("components.css")}">
 <script type="module" src="${asset("client.js")}"></script></head>
 <body data-page="${page.file === home ? "home" : "guide"}">
 <a class="skip-link" href="#main-content">${t("跳到正文", "Skip to content")}</a>
 <header class="site-header">
-<a class="brand" href="${pageUrl(page.file, home)}"><img src="${asset("atria-logo.png")}" alt="" width="35" height="30"><span>CoworkOS <span class="brand-label">Docs</span></span></a>
+<a class="brand" href="${pageUrl(page.file, home)}"><img src="${asset("formicand-logo.png")}" alt="" width="35" height="30"><span>Formicand <span class="brand-label">Docs</span></span></a>
 <div class="header-links"><a href="${pageUrl(page.file, readme)}">${t("项目", "Project")}</a><a class="language-switch" href="${pageUrl(page.file, langTarget)}" lang="${en ? "zh-CN" : "en"}" title="${hasTranslation ? t("Read this page in English", "阅读本页中文") : t("English documentation home", "中文文档首页")}">${en ? "简体中文" : "English"}</a><button class="header-search" type="button" data-search aria-label="${t("搜索", "Search")}">${searchIcon}</button><button class="mobile-menu" type="button" aria-label="${t("导航", "Navigation")}" aria-controls="site-sidebar" aria-expanded="false">${menuIcon}</button></div>
 </header>
 <div class="sidebar-backdrop"></div><div class="docs-layout">
@@ -286,7 +286,7 @@ for (const file of pending) {
 }
 await save(
   "index.html",
-  '<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta http-equiv="refresh" content="0; url=docs/README.html"><title>CoworkOS Docs</title><a href="docs/README.html">打开 CoworkOS 文档 · Open CoworkOS Docs</a></html>'
+  '<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta http-equiv="refresh" content="0; url=docs/README.html"><title>Formicand Docs</title><a href="docs/README.html">打开 Formicand 文档 · Open Formicand Docs</a></html>'
 );
 for (const [target, original] of copies) {
   const metadata = await lstat(resolve(root, original));
@@ -298,7 +298,7 @@ for (const [target, original] of copies) {
 await save("_site/search-index.json", JSON.stringify(searchIndex));
 await save("_site/theme.css", await readFile(resolve(source, "theme.css")));
 await save("_site/components.css", await readFile(resolve(source, "components.css")));
-await save("_site/atria-logo.png", await readFile(resolve(root, "docs/assets/atria-logo.png")));
+await save("_site/formicand-logo.png", await readFile(resolve(root, "docs/assets/formicand-logo.png")));
 const bundle = await build({
   absWorkingDir: source,
   entryPoints: ["client.js"],
@@ -352,7 +352,7 @@ if (process.argv.includes("--serve")) {
         response
           .writeHead(404, { "Content-Type": "text/html; charset=utf-8" })
           .end(
-            '<!doctype html><html lang="en"><meta charset="utf-8"><title>Page not found · CoworkOS Docs</title><h1>Page not found</h1><p><a href="/">Return to CoworkOS Docs</a></p>'
+            '<!doctype html><html lang="en"><meta charset="utf-8"><title>Page not found · Formicand Docs</title><h1>Page not found</h1><p><a href="/">Return to Formicand Docs</a></p>'
           );
         return;
       }
@@ -368,7 +368,7 @@ if (process.argv.includes("--serve")) {
       response.end("Request unavailable");
     }
   });
-  server.listen(port, "127.0.0.1", () => console.log(`CoworkOS Docs: http://127.0.0.1:${port}/`));
+  server.listen(port, "127.0.0.1", () => console.log(`Formicand Docs: http://127.0.0.1:${port}/`));
   server.on("error", (error) => {
     console.error(error.message);
     process.exitCode = 1;

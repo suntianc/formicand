@@ -191,7 +191,7 @@ for (const engine of PROJECT_DATA_ENGINES) {
       await prepareWorkItemSite({
         developmentDirectory: remoteDevelopment.workspace.directory,
         directory: executorSite,
-        branch: "coworkos/work/call-executor"
+        branch: "formicand/work/call-executor"
       });
       calls["call-executor"] = {
         callId: "call-executor",
@@ -210,7 +210,7 @@ for (const engine of PROJECT_DATA_ENGINES) {
       await prepareWorkItemSite({
         developmentDirectory: remoteDevelopment.workspace.directory,
         directory: reviewerSite,
-        branch: "coworkos/work/call-reviewer"
+        branch: "formicand/work/call-reviewer"
       });
       calls["call-reviewer"] = {
         callId: "call-reviewer",

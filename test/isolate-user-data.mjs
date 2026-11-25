@@ -3,18 +3,18 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 // Loaded before each test worker: changing defaults must never read or write a real user's home.
-// COWORK_PYTHON (the explicit interpreter for document fixtures) and COWORK_TEST_ENGINES (which storage
+// FORMICAND_PYTHON (the explicit interpreter for document fixtures) and FORMICAND_TEST_ENGINES (which storage
 // engines run) choose how tests run; neither is user data.
-const home = mkdtempSync(join(tmpdir(), "atria-test-home-"));
+const home = mkdtempSync(join(tmpdir(), "formicand-test-home-"));
 for (const key of Object.keys(process.env))
   if (
-    /^(?:COWORK_|ATRIA_|PI_)/.test(key) &&
-    !["ATRIA_TEST_CLI_ENTRY", "COWORK_PYTHON", "COWORK_TEST_ENGINES"].includes(key)
+    /^(?:FORMICAND_|FORMICAND_|PI_)/.test(key) &&
+    !["FORMICAND_TEST_CLI_ENTRY", "FORMICAND_PYTHON", "FORMICAND_TEST_ENGINES"].includes(key)
   )
     delete process.env[key];
-process.env.ATRIA_HOME = home;
-process.env.COWORK_CONFIG = join(home, "config.json");
+process.env.FORMICAND_HOME = home;
+process.env.FORMICAND_CONFIG = join(home, "config.json");
 process.env.PI_OFFLINE = "1";
 process.env.PI_TELEMETRY = "0";
-writeFileSync(process.env.COWORK_CONFIG, "{}\n", { mode: 0o600 });
+writeFileSync(process.env.FORMICAND_CONFIG, "{}\n", { mode: 0o600 });
 process.once("exit", () => rmSync(home, { recursive: true, force: true }));

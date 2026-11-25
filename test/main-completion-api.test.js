@@ -54,7 +54,7 @@ async function removeAfterAsyncWrites(path) {
 }
 
 async function fixture(t, handle, maxTurns = 20, env = {}) {
-  const root = await mkdtemp(join(tmpdir(), "atria-main-completion-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-main-completion-"));
   let child;
   let output = "";
   const model = createServer(async (request, response) => {
@@ -114,18 +114,18 @@ async function fixture(t, handle, maxTurns = 20, env = {}) {
     stdio: ["ignore", "pipe", "pipe"],
     env: {
       ...process.env,
-      COWORK_WORKSPACE: workspaceRoot,
-      ATRIA_HOME: join(root, "home"),
-      COWORK_GLOBAL_INDEX: join(root, "global.json"),
-      COWORK_CONFIG: join(root, "config.json"),
-      COWORK_UI_PORT: String(port),
-      COWORK_API_BASE: `http://127.0.0.1:${model.address().port}`,
-      COWORK_API_KEY: "test-key",
-      COWORK_MODEL: "glm-5.3",
+      FORMICAND_WORKSPACE: workspaceRoot,
+      FORMICAND_HOME: join(root, "home"),
+      FORMICAND_GLOBAL_INDEX: join(root, "global.json"),
+      FORMICAND_CONFIG: join(root, "config.json"),
+      FORMICAND_UI_PORT: String(port),
+      FORMICAND_API_BASE: `http://127.0.0.1:${model.address().port}`,
+      FORMICAND_API_KEY: "test-key",
+      FORMICAND_MODEL: "glm-5.3",
       PI_CODING_AGENT_DIR: join(root, "pi-agent"),
-      COWORK_DISABLE_MAIN_GUARDIAN: "1",
-      COWORK_WEB_TOOLS: "0",
-      COWORK_MAIN_MAX_TURNS: String(maxTurns),
+      FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
+      FORMICAND_WEB_TOOLS: "0",
+      FORMICAND_MAIN_MAX_TURNS: String(maxTurns),
       ...env
     }
   });
@@ -252,7 +252,7 @@ test("askhuman waits for the answer and continues the same turn with it", { time
   assert.match(second, /保留英文术语/, "the answer reached the model");
   assert.doesNotMatch(
     second,
-    /Cowork human answer received from Inbox/,
+    /Formicand human answer received from Inbox/,
     "a delivered answer must not also arrive as an unprompted Inbox instruction"
   );
   assert.doesNotMatch(
@@ -299,7 +299,7 @@ test(
         reply({ text: "没有收到确认，我按推荐选项继续了。" });
       },
       20,
-      { COWORK_HUMAN_ANSWER_TIMEOUT_MS: "1200" }
+      { FORMICAND_HUMAN_ANSWER_TIMEOUT_MS: "1200" }
     );
 
     await f.start();
@@ -400,7 +400,7 @@ test("an answer given after the process stopped still resumes the run", { timeou
     // A resident Main stays after its turn; the durable answer path is the one
     // a person takes once that process is gone (an idle exit, a restart, a
     // machine that slept), so the fixture lets the process idle out here.
-    { COWORK_HUMAN_ANSWER_TIMEOUT_MS: "800", COWORK_MAIN_IDLE_TIMEOUT_MS: "800" }
+    { FORMICAND_HUMAN_ANSWER_TIMEOUT_MS: "800", FORMICAND_MAIN_IDLE_TIMEOUT_MS: "800" }
   );
   const run = await f.start();
 
@@ -469,7 +469,7 @@ for (const mode of ["wait tool", "premature answer"]) {
         const callbacks = body.messages.filter(
           (message) =>
             message.role === "user" &&
-            JSON.stringify(message.content).includes("Cowork callback received from Inbox")
+            JSON.stringify(message.content).includes("Formicand callback received from Inbox")
         );
         const evidence = JSON.stringify(body.messages);
         if (
@@ -534,7 +534,7 @@ for (const mode of ["wait tool", "premature answer"]) {
             (event, index) =>
               (waitEnd < 0 || index < waitEnd) &&
               event.type === "message_end" &&
-              event.message?.customType === "cowork-callback"
+              event.message?.customType === "formicand-callback"
           ),
           false,
           "a callback settled inside a tool is not delivered into the running turn"
@@ -574,7 +574,7 @@ for (const mode of ["wait tool", "premature answer"]) {
       );
       assert.ok(finalIndex >= 0);
       const callbackIndexes = events.flatMap((event, index) =>
-        event.type === "message_end" && event.message?.customType === "cowork-callback" ? [index] : []
+        event.type === "message_end" && event.message?.customType === "formicand-callback" ? [index] : []
       );
       const waitResult = events.find(
         (event) => event.type === "tool_execution_end" && event.toolName === "wait_for_subagents"
@@ -692,7 +692,7 @@ test(
         const hasCallback = body.messages.some(
           (message) =>
             message.role === "user" &&
-            JSON.stringify(message.content).includes("Cowork callback received from Inbox")
+            JSON.stringify(message.content).includes("Formicand callback received from Inbox")
         );
         if (!hasCallback) return reply({ text: "Waiting for verification." });
         if (!finishing) {
@@ -705,7 +705,7 @@ test(
         // that is still there for callers that do want it.
       },
       20,
-      { COWORK_MAX_ATTEMPTS: "3" }
+      { FORMICAND_MAX_ATTEMPTS: "3" }
     );
     await f.start();
     const detail = await until(f.detail, (value) => !value.runtime.active, "retried task completion", 30_000);
@@ -749,7 +749,7 @@ test(
         : body.messages.find(
             (message) =>
               message.role === "user" &&
-              JSON.stringify(message.content).includes("Cowork subagent question received from Inbox")
+              JSON.stringify(message.content).includes("Formicand subagent question received from Inbox")
           );
       if (question) {
         const raw =
@@ -769,7 +769,7 @@ test(
       const callback = body.messages.some(
         (message) =>
           message.role === "user" &&
-          JSON.stringify(message.content).includes("Cowork callback received from Inbox")
+          JSON.stringify(message.content).includes("Formicand callback received from Inbox")
       );
       reply({ text: callback ? "协作者已按澄清完成核对。" : "等待协作者。" });
     });
@@ -839,7 +839,7 @@ test(
         reply({ text: "等待协作者的问题被回答。" });
       },
       20,
-      { COWORK_SUBAGENT_QUESTION_TIMEOUT_MS: "600000" }
+      { FORMICAND_SUBAGENT_QUESTION_TIMEOUT_MS: "600000" }
     );
     await f.start();
     // Wait for the pending question itself, not merely for a file in its
@@ -893,7 +893,7 @@ test(
       20,
       // A resident Main serves the conversation between turns; this test also
       // covers the case where that process has idled out.
-      { COWORK_MAIN_IDLE_TIMEOUT_MS: "4000" }
+      { FORMICAND_MAIN_IDLE_TIMEOUT_MS: "4000" }
     );
     await f.start();
 

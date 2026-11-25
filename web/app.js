@@ -151,7 +151,7 @@ for (const button of document.querySelectorAll("[data-observe-view]"))
   button.addEventListener("click", () => entryController.setObserveView(button.dataset.observeView));
 const initialConversationTaskId = conversationTaskId(location.href);
 let backendConnection;
-const taskNotifications = createTaskNotifications({ notify: window.bookmanDesktop?.notify });
+const taskNotifications = createTaskNotifications({ notify: window.formicandDesktop?.notify });
 /**
  * The one client every business call goes through.
  *
@@ -160,12 +160,12 @@ const taskNotifications = createTaskNotifications({ notify: window.bookmanDeskto
  * desktop renderer and a plain browser consume exactly this module.
  */
 const management = createManagementClient({
-  ...(window.bookmanDesktop?.backend
+  ...(window.formicandDesktop?.backend
     ? {
         hostManagedSession: true,
-        transportHeaders: { "x-cowork-desktop-nonce": window.bookmanDesktop.transportNonce },
+        transportHeaders: { "x-formicand-desktop-nonce": window.formicandDesktop.transportNonce },
         authorizeSession: async (input) => {
-          const result = await window.bookmanDesktop.backend.authorize(input);
+          const result = await window.formicandDesktop.backend.authorize(input);
           if (result.error) {
             const error = new Error(result.error.message);
             error.code = result.error.code;
@@ -208,7 +208,7 @@ api.command = (path, options) => management.command(path, options);
 const artifactViewer = createArtifactViewer({
   read: (path) => management.blob(path),
   identity: () => management.state(),
-  host: window.bookmanDesktop?.artifactViewer
+  host: window.formicandDesktop?.artifactViewer
 });
 const backendFiles = createBackendFiles(management, showToast);
 window.addEventListener(
@@ -232,7 +232,7 @@ const composerSession = createComposerSession({
   getAttachments: () => state.attachments,
   setAttachments: (files) => composerAttachments.setDraft(files),
   onError: showToast,
-  onPersist: () => window.bookmanDesktop?.saveComposerDrafts?.()
+  onPersist: () => window.formicandDesktop?.saveComposerDrafts?.()
 });
 await composerSession.ready;
 const composerAttachments = createComposerAttachments({
@@ -566,7 +566,7 @@ window.addEventListener("resize", () => sessionMenu.reposition());
   true
 );
 window.addEventListener("storage", (event) => {
-  if (event.key !== "atria.conversations.unread.v1" && event.key !== null) return;
+  if (event.key !== "formicand.conversations.unread.v1" && event.key !== null) return;
   conversationReadState.reload();
   renderConversationList();
 });
@@ -721,7 +721,7 @@ $("#composer-input").removeAttribute("aria-busy");
  */
 async function bootBackend() {
   const connected = await management.connect({
-    baseUrl: window.bookmanDesktop?.backend ? "" : management.rememberedTarget()
+    baseUrl: window.formicandDesktop?.backend ? "" : management.rememberedTarget()
   });
   if (connected.status !== "connected") {
     updateSendButton();
@@ -735,7 +735,7 @@ async function bootBackend() {
   await refresh();
   await draftRecovery.refresh();
   updateSendButton();
-  if (window.bookmanDesktop && state.modelConfigured === false) void modelSettings.open();
+  if (window.formicandDesktop && state.modelConfigured === false) void modelSettings.open();
 }
 initialized = true;
 void bootBackend();
@@ -785,7 +785,7 @@ backendConnection = createBackendConnection({
     updateSendButton();
   }
 });
-window.bookmanDesktop?.onPrepareClose(prepareInterfaceClose);
+window.formicandDesktop?.onPrepareClose(prepareInterfaceClose);
 installLanguageSettings({ prepareClose: prepareInterfaceClose, storage: draftStorage });
 installSelectMenus();
 installDesktopUpdates({ host: observation.settingsPages.host });

@@ -21,7 +21,7 @@ test("global Agents: a built-in's fixed fields stay locked, a copy is edited, sa
 }) => {
   const dashboard = await startDashboard();
   try {
-    const home = dashboard.env.ATRIA_HOME;
+    const home = dashboard.env.FORMICAND_HOME;
     await seedReferences(home);
     await page.goto(dashboard.base);
     const settings = await openSettings(page, "agents");
@@ -94,7 +94,7 @@ test("built-in Agents: Main, Executor and Reviewer keep their settings, and a pr
 }) => {
   const dashboard = await startDashboard();
   try {
-    const home = dashboard.env.ATRIA_HOME;
+    const home = dashboard.env.FORMICAND_HOME;
     await seedReferences(home);
     await page.goto(dashboard.base);
     const settings = await openSettings(page, "agents");
@@ -157,7 +157,7 @@ test("a project with its own Agents is asked about once; trusted, its Agents are
 }) => {
   const dashboard = await startDashboard();
   try {
-    const home = dashboard.env.ATRIA_HOME;
+    const home = dashboard.env.FORMICAND_HOME;
     await mkdir(join(home, "agents"), { recursive: true });
     await writeFile(
       join(home, "agents", "db-migrator.md"),
@@ -167,22 +167,22 @@ test("a project with its own Agents is asked about once; trusted, its Agents are
       join(home, "agents", "pr-writer.md"),
       "---\nname: pr-writer\ndescription: 写 PR 说明\npermission: read\n---\n"
     );
-    const agents = join(dashboard.workspaceRoot, ".atria", "agents");
+    const agents = join(dashboard.workspaceRoot, ".formicand", "agents");
     await mkdir(agents, { recursive: true });
     await writeFile(
       join(agents, "db-migrator.md"),
       "---\nname: db-migrator\ndescription: 项目版本\npermission: write\n---\n"
     );
     await writeFile(
-      join(agents, "coworkos-tester.md"),
-      "---\nname: coworkos-tester\ndescription: 补测试时派给它\npermission: read\n---\n"
+      join(agents, "formicand-tester.md"),
+      "---\nname: formicand-tester\ndescription: 补测试时派给它\npermission: read\n---\n"
     );
     await page.goto(dashboard.base);
 
     // The work view asks before anything in the project reaches Main.
     const ask = page.getByRole("dialog", { name: /信任项目/ });
     await expect(ask).toBeVisible();
-    await expect(ask).toContainText("2 个 Agent：coworkos-tester、db-migrator（覆盖同名全局 Agent）");
+    await expect(ask).toContainText("2 个 Agent：db-migrator、formicand-tester（覆盖同名全局 Agent）");
     await ask.getByRole("button", { name: "信任", exact: true }).click();
     await expect(ask).toBeHidden();
     await page.reload();

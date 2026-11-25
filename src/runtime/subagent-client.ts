@@ -21,9 +21,9 @@ const TIMEOUT_MS = 30_000;
  * two names instead so its unrelated Dashboard tools stay unconfigured.
  */
 function backendAddress(env: NodeJS.ProcessEnv): { url?: string; token?: string } {
-  if (env.COWORK_SUBAGENT_BACKEND_URL)
-    return { url: env.COWORK_SUBAGENT_BACKEND_URL, token: env.COWORK_SUBAGENT_BACKEND_TOKEN };
-  return { url: env.COWORK_DASHBOARD_URL, token: env.COWORK_API_TOKEN };
+  if (env.FORMICAND_SUBAGENT_BACKEND_URL)
+    return { url: env.FORMICAND_SUBAGENT_BACKEND_URL, token: env.FORMICAND_SUBAGENT_BACKEND_TOKEN };
+  return { url: env.FORMICAND_DASHBOARD_URL, token: env.FORMICAND_API_TOKEN };
 }
 
 function loopback(dashboardUrl: string): string {
@@ -48,7 +48,7 @@ export function createSubagentClient(options: {
   if (!dashboardUrl) {
     // The CLI host only yields the workspace to a live backend; without a
     // route to that backend, the person needs to know where to run instead.
-    if (process.env.COWORK_SUBAGENT_UNAVAILABLE === "workspace_owned")
+    if (process.env.FORMICAND_SUBAGENT_UNAVAILABLE === "workspace_owned")
       throw new Error("子代理派单不可用：工作区由正在运行的应用后端管理，请在应用中运行，或关闭应用后重试");
     throw new Error("子代理派单不可用：本次运行没有本地服务地址");
   }
@@ -62,7 +62,7 @@ export function createSubagentClient(options: {
     const response = await fetch(base, {
       method: "POST",
       redirect: "error",
-      headers: { "content-type": "application/json", "x-atria-token": token },
+      headers: { "content-type": "application/json", "x-formicand-token": token },
       body: JSON.stringify(body),
       signal: AbortSignal.timeout(TIMEOUT_MS)
     });

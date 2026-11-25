@@ -73,7 +73,7 @@ export async function verifyMacApplication({ appPath, version, mode, commandRunn
       audioInput: false
     };
   };
-  const parent = await inspect(appPath, "org.atria.cowork");
+  const parent = await inspect(appPath, "io.github.suntianc.formicand");
   if (mode === "developer-id" && (!parent.teamIdentifier || parent.teamIdentifier === "not set"))
     throw new Error("Mac App must have a Developer ID team");
   const info = JSON.parse(

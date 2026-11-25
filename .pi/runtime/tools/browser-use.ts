@@ -8,7 +8,7 @@ import {
   type BrowserAction,
   type BrowserOperation
 } from "../../../dist/src/gui/browser-contracts.js";
-import type { CoworkToolContext } from "../extension.ts";
+import type { FormicandToolContext } from "../extension.ts";
 import type { RuntimeToolResult } from "../helpers.ts";
 import { createVisualFeedback } from "./visual-feedback.ts";
 
@@ -34,7 +34,7 @@ const snippets: Record<BrowserOperation, string> = {
 };
 
 /** The lifecycle owner must closeAll on session change and dispose on shutdown. */
-export function registerBrowserTools(pi: ExtensionAPI, context: CoworkToolContext) {
+export function registerBrowserTools(pi: ExtensionAPI, context: FormicandToolContext) {
   const controller = new BrowserUse({ taskDirectory: context.taskWorkspace });
   const visual = createVisualFeedback(context.taskWorkspace);
   const text = (details: unknown): RuntimeToolResult => ({

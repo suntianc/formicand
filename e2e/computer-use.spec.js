@@ -74,7 +74,7 @@ test("native window permission actions remain available on demand without granti
   try {
     await page.addInitScript(() => {
       window.computerOperations = [];
-      window.bookmanDesktop = {
+      window.formicandDesktop = {
         onPrepareClose() {},
         computerUse: async (request) => {
           window.computerOperations.push(request.operation);

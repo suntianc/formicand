@@ -51,14 +51,14 @@ test("two nodes' requirements aggregate with phase counts and scope filters", as
   const node = await startConfiguredDashboard({
     port: portA,
     defaultProject: false,
-    env: { COWORK_TRUSTED_CLIENT_ORIGINS: origins }
+    env: { FORMICAND_TRUSTED_CLIENT_ORIGINS: origins }
   });
   let remote;
   try {
     remote = await startDashboard({
       port: portB,
       defaultProject: false,
-      env: { COWORK_TRUSTED_CLIENT_ORIGINS: origins }
+      env: { FORMICAND_TRUSTED_CLIENT_ORIGINS: origins }
     });
     const localProject = await createProject(page, node, "本机项目", `${node.root}/local-project`);
     const remoteProject = await createProject(page, remote, "远程项目", `${remote.root}/remote-project`);

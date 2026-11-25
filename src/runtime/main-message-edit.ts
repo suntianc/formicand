@@ -260,7 +260,7 @@ export function versionRuntimeEvents(events: Record<string, unknown>[], versions
     : events;
 }
 function userText(entry: SessionEntry): string | undefined {
-  if (entry.type === "custom_message" && entry.customType === "cowork-user-message") {
+  if (entry.type === "custom_message" && entry.customType === "formicand-user-message") {
     const details = entry.details as { message?: string } | undefined;
     return details?.message;
   }
@@ -426,7 +426,8 @@ export async function latestEditableMessage(root: string, taskId: string, runId?
       entry.type === "message" && entry.message.role === "user"
         ? readQueuedUserTurn(entry.message.content)?.messageId
         : entry.type === "custom_message"
-          ? (entry.details as { _coworkInbox?: { messageId?: string } } | undefined)?._coworkInbox?.messageId
+          ? (entry.details as { _formicandInbox?: { messageId?: string } } | undefined)?._formicandInbox
+              ?.messageId
           : undefined;
     return latest.messageId ? identity === latest.messageId : true;
   });
@@ -434,11 +435,11 @@ export async function latestEditableMessage(root: string, taskId: string, runId?
   let body = latest.body ?? latest.text;
   const attachments: Array<InputFile | EditTextFile> = [];
   let inlineSource = latest.text;
-  const marker = "\n\n<atria_uploaded_files>\n";
+  const marker = "\n\n<formicand_uploaded_files>\n";
   const boundary = latest.text.lastIndexOf(marker);
-  if (boundary >= 0 && latest.text.endsWith("\n</atria_uploaded_files>")) {
+  if (boundary >= 0 && latest.text.endsWith("\n</formicand_uploaded_files>")) {
     const manifest = JSON.parse(
-      latest.text.slice(boundary + marker.length, -"\n</atria_uploaded_files>".length)
+      latest.text.slice(boundary + marker.length, -"\n</formicand_uploaded_files>".length)
     );
     if (manifest.version !== 1 || !Array.isArray(manifest.files) || manifest.files.length > 10)
       throw new Error("原消息附件引用无效。");
@@ -573,7 +574,7 @@ export async function prepareMessageEdit(
       await rename(temporary, sessionFile);
     } else {
       const fresh = SessionManager.create(session.getCwd(), session.getSessionDir());
-      fresh.appendCustomEntry("cowork-message-edit", { sourceFile, messageId: entry.id });
+      fresh.appendCustomEntry("formicand-message-edit", { sourceFile, messageId: entry.id });
       sessionFile = fresh.getSessionFile()!;
       // Pi persists an empty session lazily; ensure its header and audit entry exist before spawn.
       await writeFile(
@@ -592,14 +593,14 @@ export async function prepareMessageEdit(
             role?: string;
             content?: unknown;
             timestamp?: number;
-            details?: { _coworkInbox?: { messageId?: string } };
+            details?: { _formicandInbox?: { messageId?: string } };
           }
         | undefined;
       const identity =
         message?.id ??
         (message?.role === "user"
           ? readQueuedUserTurn(message.content)?.messageId
-          : message?.details?._coworkInbox?.messageId);
+          : message?.details?._formicandInbox?.messageId);
       return (
         event.type === "message_start" &&
         (identity === source.target.messageId ||

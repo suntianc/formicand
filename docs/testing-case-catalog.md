@@ -1,4 +1,4 @@
-# CoworkOS 四个环节的测试用例目录
+# Formicand 四个环节的测试用例目录
 
 按 **基础功能 → CLI 专门功能 → App 功能 → 用户 case** 阅读和维护。每个环节先列功能，再列操作与通过标准。发版前本地运行本套验收，不新增 GitHub CI。单元、集成、真实引擎、真实模型、优先级和本地发布批次统一作为执行属性，详见 [执行与发布规则](testing-execution-guide.md)。
 
@@ -117,7 +117,7 @@
 | CONTEXT-04 | 补充指令、clear_context、两 Task 同时更新            | 最新补充持久可重读，上下文文件使用正确绝对路径，无跨 Task 污染 |
 | CONTEXT-05 | 长任务重启继续、超上下文、未知工具结果、重复 tool ID | 准确续接剩余步骤；错误可诊断；不会误判工具已完成               |
 
-现有锚点：`main-compaction-pi.test.js`、`main-recovery-pi.test.js`、`cowork-extension.test.js`、`main-request-recording-pi.test.js`。
+现有锚点：`main-compaction-pi.test.js`、`main-recovery-pi.test.js`、`formicand-extension.test.js`、`main-request-recording-pi.test.js`。
 
 ### 10 停泊和定时唤醒
 
@@ -149,7 +149,7 @@
 | TOOL-07 | 五个技能来源同名覆盖、未信任项目、从索引移除与恢复                     | 清单唯一且 Main/子代理一致；未信任不读项目技能；移除后查不到、文件不动              |
 | TOOL-08 | 从文件夹、zip、Git 添加技能，同名、删除、项目信任                      | 只复制所选技能，临时文件清理；只删本产品安装的；未信任项目不列出也不能添加          |
 | TOOL-09 | MCP 服务增改、导入、停用、可见方式与连接检查                           | 与其他客户端同格式；不合法条目保留并说明原因；状态与工具来自 Pi                     |
-| TOOL-10 | Main 使用 `~/.atria/mcp.json` 的服务                                   | 先只见 `tool_search`；隐藏工具、停用服务与项目 `.pi/mcp.json` 不出现                |
+| TOOL-10 | Main 使用 `~/.formicand/mcp.json` 的服务                               | 先只见 `tool_search`；隐藏工具、停用服务与项目 `.pi/mcp.json` 不出现                |
 | TOOL-11 | 自定义 Agent 的定义、两级覆盖、启停、引用失效与项目信任                | 规则由代码执行；停用、缺失、坏定义报错不改派；未信任项目不读                        |
 | TOOL-12 | 派出自定义 Agent 后子进程的请求                                        | 只含所配工具、技能与 MCP 工具，附加提示词在角色提示后；只读 Agent 以文字交回        |
 | TOOL-13 | Main 经 `manage_agent` 新建、修改、停用 Agent                          | 写入前展示完整定义，只有确认才写；未配置的 MCP、未信任项目直接拒绝                  |
@@ -239,21 +239,21 @@
 
 ## 二 CLI 专门功能测试
 
-使用终端用户实际安装的 atria。这里检查终端入口和发行方式；文件、模型、委派等核心机制复用第一环节的通过标准。
+使用终端用户实际安装的 formicand。这里检查终端入口和发行方式；文件、模型、委派等核心机制复用第一环节的通过标准。
 
 ### 1 CLI 安装与首次使用
 
 | ID     | 检查场景                                                                                 | 通过标准                                                                                                                    |
 | ------ | ---------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| CLI-01 | Mac/Linux，Node 22.19/24，从 tgz 安装到独立 prefix，移开源码路径                         | prefix 下 atria 的版本/help/首个任务成功；没有调用仓库 dist，不依赖 Electron/Swift                                          |
+| CLI-01 | Mac/Linux，Node 22.19/24，从 tgz 安装到独立 prefix，移开源码路径                         | prefix 下 formicand 的版本/help/首个任务成功；没有调用仓库 dist，不依赖 Electron/Swift                                      |
 | CLI-02 | init 交互/非交互、空密钥、坏 URL、非法模型、Ctrl-C、已有配置与 force                     | 隐藏输入不泄露；坏配置不落盘；已有配置不误覆；新配置权限 0600；参数符合实际请求                                             |
 | CLI-03 | 全局有效配置 + 普通业务 config.json；专属项目配置/显式配置/env 混合                      | 业务文件 hash 不变，启动与 doctor 选定正确连接；force 不误写业务文件；覆盖优先级有明确契约                                  |
-| CLI-04 | 普通 atria 退出后 --continue，两个历史会话，显式新会话/固定 Task ID                      | 继续原 session/Task/Inbox/memory，未完成委派仍可发现；新会话才生成新身份                                                    |
+| CLI-04 | 普通 formicand 退出后 --continue，两个历史会话，显式新会话/固定 Task ID                  | 继续原 session/Task/Inbox/memory，未完成委派仍可发现；新会话才生成新身份                                                    |
 | CLI-05 | PTY 与 pipe、宽窄终端、中文/Emoji、缺参数/未知参数、无会话模式                           | 不死等交互；输出/退出码可解释；终端状态正常恢复；--no-session 的实际持久范围与说明一致                                      |
 | CLI-06 | doctor 普通/连接测试，缺 Node/编译/模型/可选依赖，外部项目空格路径                       | 普通检查零模型请求；连接测试预算明确；错误不打印密钥；可选依赖缺失不阻断基础 CLI                                            |
 | CLI-07 | task create/list/status/cancel/resume/complete、worker/human 子命令，缺模型配置、非法 ID | 无需模型的命令零请求且可用；状态/退出码准确；task resume 与恢复 Main 会话的区别明确；所有实际公开 help 入口有参数与错误回归 |
 
-现有锚点：`scripts/atria.mjs`、`scripts/package-cli.mjs`、`test/cli-onboarding.test.js`、`test/cli-commands.test.js`。恢复身份和业务配置碰撞需用隔离目录及实际安装的 CLI 验证。
+现有锚点：`scripts/formicand.mjs`、`scripts/package-cli.mjs`、`test/cli-onboarding.test.js`、`test/cli-commands.test.js`。恢复身份和业务配置碰撞需用隔离目录及实际安装的 CLI 验证。
 
 ### 2 终端交互与发行包
 

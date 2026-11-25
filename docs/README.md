@@ -1,4 +1,4 @@
-# CoworkOS 文档
+# Formicand 文档
 
 简体中文 | [English](en/README.md)
 

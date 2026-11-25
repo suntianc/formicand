@@ -20,7 +20,7 @@ npm run desktop:dist
 npm run test:desktop
 ```
 
-`desktop:pack` writes `.tmp/release/mac-arm64/CoworkOS.app`. `desktop:dist` creates and verifies `release/CoworkOS-<version>-mac-arm64.dmg` and SHA-256. Local builds never upload or publish. The hidden build directory avoids duplicate Spotlight/Launchpad installations.
+`desktop:pack` writes `.tmp/release/mac-arm64/Formicand.app`. `desktop:dist` creates and verifies `release/Formicand-<version>-mac-arm64.dmg` and SHA-256. Local builds never upload or publish. The hidden build directory avoids duplicate Spotlight/Launchpad installations.
 
 `npm run test:desktop` checks the host, conversations and artifact previews, Pi with a local model, drafts, quit/recovery and relocated upgrades. Component installation and the removed editors are no longer packaged.
 
@@ -44,7 +44,7 @@ Signing alone does not establish notarization or Gatekeeper acceptance.
 
 ## Data and installation acceptance
 
-Users drag CoworkOS from DMG into Applications. Data remains under shared `~/.atria/`, relocated with `ATRIA_HOME`; external project originals require their own backups. Replacing the App preserves documents, conversations, settings. Back up important data before upgrades and verify recovery after restart. See [storage layout](../task-workspace-layout.md) (Chinese).
+Users drag Formicand from DMG into Applications. Data remains under shared `~/.formicand/`, relocated with `FORMICAND_HOME`; external project originals require their own backups. Replacing the App preserves documents, conversations, settings. Back up important data before upgrades and verify recovery after restart. See [storage layout](../task-workspace-layout.md) (Chinese).
 
 The selected execution host stores model and search keys in `credentials.json` (0600) beside its configuration; settings APIs return redacted status. Electron safeStorage encrypts client session credentials, and the renderer accesses the selected backend through the trusted host. See [connection storage](configuration-reference.md#connection-storage-and-compatibility) for boundaries and migration. Gatekeeper may require the system's explicit approval flow for the current beta. Stable distributions still require Developer ID signing, notarization, stapling and downloaded-quarantine acceptance. Do not disable system protections.
 

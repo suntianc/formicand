@@ -1,10 +1,10 @@
 #!/usr/bin/env node
-// Shows what changed upstream in the skills CoworkOS adapted from mattpocock/skills.
+// Shows what changed upstream in the skills Formicand adapted from mattpocock/skills.
 //
 // Usage: node scripts/upstream-skills.mjs <upstream-clone> [--record]
 //   default:  print the upstream diff of every adapted skill between the commit
 //             recorded in upstream-skills.json and the clone's HEAD. The bundled
-//             copies in .pi/skills/ are edited for CoworkOS, so an upstream
+//             copies in .pi/skills/ are edited for Formicand, so an upstream
 //             change is merged into them by hand, never copied over them.
 //   --record: after merging, record the clone's HEAD as the new base.
 // The clone is only read: git runs with hooks and fsmonitor off.

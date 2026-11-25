@@ -3,7 +3,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { isSourceCheckout, updateSource } from "./update-source.mjs";
 
 export function updateHelp() {
-  return `Usage: coworkos update [--check]
+  return `Usage: formicand update [--check]
 
   --check     Check for a new commit without installing
 
@@ -38,8 +38,8 @@ export async function runUpdate({
   const result = await updateSource({ root, target: "cli", check: options.check, onProgress });
   const label = `${result.version}（${result.remoteCommit.slice(0, 7)}）`;
   if (options.check)
-    print(result.available ? `发现更新：${label}。运行 coworkos update 安装。` : "当前已是最新版本。");
-  else print(result.updated ? `更新完成：${label}。下次启动 coworkos 即使用新版本。` : "当前已是最新版本。");
+    print(result.available ? `发现更新：${label}。运行 formicand update 安装。` : "当前已是最新版本。");
+  else print(result.updated ? `更新完成：${label}。下次启动 formicand 即使用新版本。` : "当前已是最新版本。");
   return result;
 }
 

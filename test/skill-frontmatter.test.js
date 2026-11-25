@@ -6,7 +6,7 @@ import { test } from "node:test";
 import { discoverSkills } from "../dist/src/runtime/skill-registry.js";
 
 async function discover(t, files) {
-  const root = await mkdtemp(join(tmpdir(), "cowork-skill-frontmatter-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-skill-frontmatter-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   for (const [directory, content] of Object.entries(files)) {
     await mkdir(join(root, directory), { recursive: true });

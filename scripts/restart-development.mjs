@@ -32,7 +32,7 @@ function finderDirectory(root, entry) {
   if (!entry) return undefined;
   if (
     !isAbsolute(entry) ||
-    !["CoworkOS Dev", "Atria Dev"].some((name) =>
+    !["Formicand Dev", "Formicand Dev"].some((name) =>
       entry.endsWith(`${sep}${name}.app${sep}Contents${sep}MacOS${sep}${name}`)
     )
   )
@@ -50,7 +50,7 @@ function runtimePaths(input = {}) {
     throw new Error("开发重启的运行数据路径无效。");
   for (const [name, value] of Object.entries(input)) {
     if (
-      !["COWORK_DESKTOP_DATA", "COWORK_WORKSPACE"].includes(name) ||
+      !["FORMICAND_DESKTOP_DATA", "FORMICAND_WORKSPACE"].includes(name) ||
       typeof value !== "string" ||
       !isAbsolute(value) ||
       value.includes("\0")
@@ -63,15 +63,15 @@ function runtimePaths(input = {}) {
 export function developmentLaunchEnvironment({ root, toolchain, runtimeEnvironment }, input = process.env) {
   const inherited = { ...input };
   for (const name of Object.keys(inherited))
-    if (/^(?:COWORK_|PI_|ELECTRON_RUN_AS_NODE$|NODE_OPTIONS$)/.test(name)) delete inherited[name];
+    if (/^(?:FORMICAND_|PI_|ELECTRON_RUN_AS_NODE$|NODE_OPTIONS$)/.test(name)) delete inherited[name];
   const env = {
     ...inherited,
     ...runtimePaths(runtimeEnvironment),
-    COWORK_DESKTOP_DEV: "1",
-    COWORK_DESKTOP_SOURCE_ROOT: root,
-    COWORK_DESKTOP_NODE_EXECUTABLE: toolchain.nodeExecutable
+    FORMICAND_DESKTOP_DEV: "1",
+    FORMICAND_DESKTOP_SOURCE_ROOT: root,
+    FORMICAND_DESKTOP_NODE_EXECUTABLE: toolchain.nodeExecutable
   };
-  if (toolchain.npmCli) env.COWORK_DESKTOP_NPM_CLI = toolchain.npmCli;
+  if (toolchain.npmCli) env.FORMICAND_DESKTOP_NPM_CLI = toolchain.npmCli;
   return env;
 }
 

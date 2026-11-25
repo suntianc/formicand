@@ -13,10 +13,10 @@ const maximumBytes = 1024 * 1024;
 function isPreferenceKey(key) {
   return (
     typeof key === "string" &&
-    key.startsWith("atria.") &&
+    key.startsWith("formicand.") &&
     key.length <= 256 &&
-    !key.startsWith("atria.composer.v1:") &&
-    !key.startsWith("atria.human.v1:")
+    !key.startsWith("formicand.composer.v1:") &&
+    !key.startsWith("formicand.human.v1:")
   );
 }
 

@@ -93,7 +93,7 @@ export async function handleTaskLifecycleRequest(
   const taskId = decodeURIComponent(match[1]);
   if (request.method === "GET") {
     response.setHeader("cache-control", "no-store");
-    const header = request.headers["x-atria-history"];
+    const header = request.headers["x-formicand-history"];
     if (header === undefined) {
       sendJson(response, 200, await taskDetails(taskId));
       return;
@@ -113,8 +113,8 @@ export async function handleTaskLifecycleRequest(
       await taskDetails(taskId, {
         limit: Number(match[1]),
         metadataRevision:
-          typeof request.headers["x-atria-detail-revision"] === "string"
-            ? request.headers["x-atria-detail-revision"]
+          typeof request.headers["x-formicand-detail-revision"] === "string"
+            ? request.headers["x-formicand-detail-revision"]
             : undefined,
         ...(match[2]
           ? {

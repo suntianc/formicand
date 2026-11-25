@@ -44,8 +44,8 @@ function readPng(bytes) {
 const native = { skip: process.platform !== "darwin" && "Mac app icons are built on macOS" };
 
 test("Dock icon has transparent rounded corners and carries the dark Formicand tile", native, async () => {
-  const master = await readFile("build/atria-icon.png");
-  assert.deepEqual(await readFile("dist/src/desktop/atria-icon.png"), master);
+  const master = await readFile("build/formicand-icon.png");
+  assert.deepEqual(await readFile("dist/src/desktop/formicand-icon.png"), master);
   const icon = readPng(master);
   assert.equal(icon.width, 1024);
   assert.equal(icon.height, 1024);
@@ -73,7 +73,7 @@ test("Dock icon has transparent rounded corners and carries the dark Formicand t
 });
 
 test("Finder ICNS includes transparent artwork at every standard and Retina size", native, async () => {
-  const bytes = await readFile("build/atria.icns");
+  const bytes = await readFile("build/formicand.icns");
   assert.equal(bytes.toString("ascii", 0, 4), "icns");
   assert.equal(bytes.readUInt32BE(4), bytes.length);
   const entries = new Map();
@@ -85,7 +85,7 @@ test("Finder ICNS includes transparent artwork at every standard and Retina size
   }
   assert.ok(entries.has("ic04"), "ICNS contains the standard 16px icon");
   assert.ok(entries.has("ic05"), "ICNS contains the standard 32px icon");
-  const small = readPng(await readFile("build/atria.iconset/icon_16x16.png"));
+  const small = readPng(await readFile("build/formicand.iconset/icon_16x16.png"));
   assert.equal(small.width, 16);
   assert.equal(small.height, 16);
   assert.equal(small.alpha(0, 0), 0);

@@ -1,6 +1,6 @@
 # Python 与格式检查日志摘录
 
-来源：归档 `coworkos-p1-docs/os-core-pruning`，日期 2026-11-07。摘录仅保留错误与计数；fixture 路径和文档生成内容省略。完整失败和成功日志继续保存于档案。
+来源：归档 `formicand-p1-docs/os-core-pruning`，日期 2026-11-07。摘录仅保留错误与计数；fixture 路径和文档生成内容省略。完整失败和成功日志继续保存于档案。
 
 ## Python 失败及恢复
 
@@ -31,7 +31,7 @@ ModuleNotFoundError: No module named 'fitz'
 `evidence/01-a2/format-check.log` 在提交前完成格式检查；同一内容提交后的 `evidence/01-a2/format-check-committed.log` 输出：
 
 ```text
-> coworkos@0.1.3 format:check
+> formicand@0.1.3 format:check
 > node scripts/format.mjs
 
 No changed files to format

@@ -43,7 +43,7 @@ interface ContextMessage {
   role?: string;
   type?: string;
   message?: ContextMessage;
-  details?: { _coworkInbox?: InboxIdentity };
+  details?: { _formicandInbox?: InboxIdentity };
 }
 
 interface InboxIdentity {
@@ -191,7 +191,7 @@ export class AgentInboxDelivery {
       const entry = value as ContextMessage;
       const message = entry.type === "message" && entry.message ? entry.message : entry;
       if (message.role !== "custom" && entry.type !== "custom_message") continue;
-      const identity = message.details?._coworkInbox;
+      const identity = message.details?._formicandInbox;
       if (
         identity?.taskId !== this.input.taskId ||
         identity.runId !== this.input.runId ||

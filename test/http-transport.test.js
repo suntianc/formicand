@@ -104,7 +104,7 @@ for (const api of ["openai-completions", "openai-responses"]) {
     const proxy = await tunnel(t, port);
     process.env.HTTP_PROXY = proxy.url;
     const baseUrl = `http://model.fixture.test:${port}/v1`;
-    const root = await mkdtemp(join(tmpdir(), "atria-proxy-"));
+    const root = await mkdtemp(join(tmpdir(), "formicand-proxy-"));
     t.after(() => rm(root, { recursive: true, force: true }));
     const connection = {
       api,
@@ -186,7 +186,7 @@ test(
     t.after(() => provider.close());
     const port = Number(new URL(provider.baseUrl).port);
     const proxy = await tunnel(t, port);
-    const root = await mkdtemp(join(tmpdir(), "atria-main-proxy-"));
+    const root = await mkdtemp(join(tmpdir(), "formicand-main-proxy-"));
     t.after(() => rm(root, { recursive: true, force: true }));
     const project = join(root, "project"),
       workspace = join(root, "workspace");
@@ -204,7 +204,7 @@ test(
       })
     );
     const env = Object.fromEntries(
-      Object.entries(process.env).filter(([key]) => !/^(COWORK_|PI_|ATRIA_)/.test(key))
+      Object.entries(process.env).filter(([key]) => !/^(FORMICAND_|PI_|FORMICAND_)/.test(key))
     );
     const pending = promisify(execFile)(
       process.execPath,
@@ -214,13 +214,13 @@ test(
         maxBuffer: 4000000,
         env: {
           ...env,
-          COWORK_CONFIG: configPath,
-          COWORK_PROJECT_DIR: project,
-          COWORK_WORKSPACE: workspace,
-          COWORK_TASK_ID: "proxy-task",
-          COWORK_RUN_ID: "proxy-run",
+          FORMICAND_CONFIG: configPath,
+          FORMICAND_PROJECT_DIR: project,
+          FORMICAND_WORKSPACE: workspace,
+          FORMICAND_TASK_ID: "proxy-task",
+          FORMICAND_RUN_ID: "proxy-run",
           PI_CODING_AGENT_DIR: join(root, "pi"),
-          COWORK_DISABLE_MAIN_GUARDIAN: "1",
+          FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
           PI_OFFLINE: "1",
           PI_TELEMETRY: "0"
         }

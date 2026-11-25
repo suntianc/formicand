@@ -106,7 +106,7 @@ test(
       original
     );
     assert.equal(detail.artifacts.length, 0);
-    assert.match(JSON.stringify(detail.messages), /atria_uploaded_files/);
+    assert.match(JSON.stringify(detail.messages), /formicand_uploaded_files/);
     assert.equal(
       (await post("/api/tasks/file-http/run", { prompt: "坏附件", attachmentIds: ["missing"] })).status,
       400

@@ -10,7 +10,7 @@ import { ensureCliBranding, ensureCliStartupSettings } from "../scripts/cli-bran
 const exec = promisify(execFile);
 
 async function fixture(t) {
-  const root = await mkdtemp(join(tmpdir(), "atria-cli-branding-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-cli-branding-"));
   const piPackageDir = join(root, "readonly-pi");
   const agentDir = join(root, "profile");
   await mkdir(join(piPackageDir, "dist/modes/interactive/theme"), { recursive: true });
@@ -39,18 +39,18 @@ test("concurrent branding overlays preserve upstream assets and Pi's configured 
   const input = { ...f, version: "0.1.1" };
   const [first, second] = await Promise.all([ensureCliBranding(input), ensureCliBranding(input)]);
   assert.deepEqual(first, second);
-  assert.equal(first.ATRIA_CODING_AGENT_DIR, f.agentDir);
+  assert.equal(first.FORMICAND_CODING_AGENT_DIR, f.agentDir);
   const configUrl = new URL("./config.js", import.meta.resolve("@earendil-works/pi-coding-agent")).href;
   const env = Object.fromEntries(
-    Object.entries(process.env).filter(([name]) => !/^(PI_|COWORK_|ATRIA_)/.test(name))
+    Object.entries(process.env).filter(([name]) => !/^(PI_|FORMICAND_|FORMICAND_)/.test(name))
   );
   const source = `const p=await import(${JSON.stringify(configUrl)});console.log(JSON.stringify({name:p.APP_NAME,title:p.APP_TITLE,profile:p.getAgentDir(),themes:p.getThemesDir(),assets:p.getInteractiveAssetsDir(),exports:p.getExportTemplateDir(),docs:p.getDocsPath()}));`;
   const { stdout } = await exec(process.execPath, ["--input-type=module", "-e", source], {
     env: { ...env, ...first, PI_OFFLINE: "1" }
   });
   const result = JSON.parse(stdout);
-  assert.equal(result.name, "coworkos");
-  assert.equal(result.title, "coworkos");
+  assert.equal(result.name, "formicand");
+  assert.equal(result.title, "formicand");
   assert.equal(result.profile, f.agentDir);
   assert.equal(await readFile(join(result.themes, "dark.json"), "utf8"), "original theme");
   assert.equal(await readFile(join(result.assets, "logo.txt"), "utf8"), "original asset");
@@ -62,9 +62,9 @@ test("concurrent branding overlays preserve upstream assets and Pi's configured 
     new URL("./utils/changelog.js", import.meta.resolve("@earendil-works/pi-coding-agent"))
   );
   assert.deepEqual(parseChangelog(changes), []);
-  assert.match(changes, /coworkos update --check/);
+  assert.match(changes, /formicand update --check/);
   assert.equal(await readFile(join(f.piPackageDir, "CHANGELOG.md"), "utf8"), "Upstream changes");
-  assert.equal((await readdir(join(f.agentDir, ".atria-runtime"))).length, 1);
+  assert.equal((await readdir(join(f.agentDir, ".formicand-runtime"))).length, 1);
 });
 
 test("a corrupt immutable overlay is rejected and retained rather than rewritten", async (t) => {
@@ -77,7 +77,7 @@ test("a corrupt immutable overlay is rejected and retained rather than rewritten
   assert.equal(await readFile(path, "utf8"), "Corrupted retained resource");
 });
 
-test("upgrading CoworkOS or relocating Pi creates a new overlay without mutating active sessions", async (t) => {
+test("upgrading Formicand or relocating Pi creates a new overlay without mutating active sessions", async (t) => {
   const f = await fixture(t);
   const first = await ensureCliBranding({ ...f, version: "0.1.1" });
   const upgraded = await ensureCliBranding({ ...f, version: "0.1.2" });

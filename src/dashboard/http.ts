@@ -71,11 +71,11 @@ export async function readJsonBody(
  * The local credential a request presents.
  *
  * One reader for the three shapes clients already use: header clients send
- * `x-atria-token`, the desktop host installs an HttpOnly `atria-session`
+ * `x-formicand-token`, the desktop host installs an HttpOnly `formicand-session`
  * cookie, and other local tools may send `Authorization: Bearer`.
  */
 export function presentedCredential(request: IncomingMessage): string | undefined {
-  const direct = request.headers["x-atria-token"];
+  const direct = request.headers["x-formicand-token"];
   if (typeof direct === "string" && direct) return direct;
   const authorization = request.headers.authorization;
   if (typeof authorization === "string" && authorization.startsWith("Bearer ")) {
@@ -86,8 +86,8 @@ export function presentedCredential(request: IncomingMessage): string | undefine
     String(request.headers.cookie || "")
       .split(";")
       .map((item) => item.trim())
-      .find((item) => item.startsWith("atria-session="))
-      ?.slice("atria-session=".length) || undefined
+      .find((item) => item.startsWith("formicand-session="))
+      ?.slice("formicand-session=".length) || undefined
   );
 }
 
@@ -107,7 +107,7 @@ export interface LocalCredentialPolicy {
 export function environmentCredentialPolicy(): LocalCredentialPolicy {
   return {
     admit(request) {
-      const expected = process.env.COWORK_API_TOKEN;
+      const expected = process.env.FORMICAND_API_TOKEN;
       if (expected && !sameSecret(presentedCredential(request), expected))
         throw new HttpError(401, "本地会话未授权", "unauthorized");
     }
@@ -121,10 +121,10 @@ export function environmentCredentialPolicy(): LocalCredentialPolicy {
  * such a request with the page's Origin and needs CORS. Only the loopback
  * origins listed explicitly are accepted — no wildcard and no non-local host —
  * so the listener and the same-origin rule stay as they are for everyone else.
- * Configuration is `COWORK_TRUSTED_CLIENT_ORIGINS=http://127.0.0.1:4000,...`.
+ * Configuration is `FORMICAND_TRUSTED_CLIENT_ORIGINS=http://127.0.0.1:4000,...`.
  */
 export function trustedClientOrigins(env: NodeJS.ProcessEnv = process.env): string[] {
-  const raw = env.COWORK_TRUSTED_CLIENT_ORIGINS;
+  const raw = env.FORMICAND_TRUSTED_CLIENT_ORIGINS;
   if (!raw) return [];
   const origins = new Set<string>();
   for (const item of raw.split(",")) {
@@ -145,7 +145,7 @@ export function trustedClientOrigins(env: NodeJS.ProcessEnv = process.env): stri
     // A typo must not silently widen access; the accepted list is exactly what
     // was written, and anything unreadable is reported instead of guessed.
     if (!valid) {
-      console.error(`[cowork] 忽略了不是本机 http 来源的受信客户端配置：${origin}`);
+      console.error(`[formicand] 忽略了不是本机 http 来源的受信客户端配置：${origin}`);
       continue;
     }
     origins.add(origin);
@@ -181,9 +181,9 @@ export function applyTrustedClientCors(response: ServerResponse, origin: string)
   // the only extra header a browser may send.
   response.setHeader(
     "access-control-allow-headers",
-    "accept, authorization, content-type, x-atria-token, x-cowork-read-only, x-atria-history, x-atria-detail-revision"
+    "accept, authorization, content-type, x-formicand-token, x-formicand-read-only, x-formicand-history, x-formicand-detail-revision"
   );
-  response.setHeader("access-control-expose-headers", "x-cowork-replayed");
+  response.setHeader("access-control-expose-headers", "x-formicand-replayed");
   response.setHeader("access-control-max-age", "600");
   response.setHeader("vary", "origin");
 }
@@ -201,17 +201,17 @@ export function localRequestUrl(
   const local = new URL(dashboardUrl);
   const host = request.headers.host;
   const localhost = `localhost:${local.port}`;
-  if (host !== local.host && host !== localhost) throw new HttpError(403, "只能通过本机地址访问 CoworkOS");
+  if (host !== local.host && host !== localhost) throw new HttpError(403, "只能通过本机地址访问 Formicand");
   const origin = `${local.protocol}//${host}`;
   const requested = request.headers.origin;
   // A page served by another trusted local backend names that origin. It is
   // still a local client; anything else keeps the single-origin rule.
   const crossOrigin = typeof requested === "string" && requested !== origin;
   if ((crossOrigin && !trustedClientOrigin(request)) || request.headers["sec-fetch-site"] === "cross-site") {
-    throw new HttpError(403, "请从 CoworkOS 界面访问本地 API");
+    throw new HttpError(403, "请从 Formicand 界面访问本地 API");
   }
   const url = new URL(request.url ?? "/", origin);
-  if (url.origin !== origin) throw new HttpError(403, "请求地址不是本地 CoworkOS");
+  if (url.origin !== origin) throw new HttpError(403, "请求地址不是本地 Formicand");
   // A browser preflight deliberately carries no credentials. Answering it
   // reveals only the origin, methods and headers, never data, so the actual
   // request still goes through the credential policy.

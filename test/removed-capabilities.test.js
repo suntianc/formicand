@@ -218,7 +218,7 @@ const REMOVED = [
   term("ApplicationService"),
   term("McpSupervisor"),
   term("ResourceMappingStore"),
-  term("COWORK_TABS_INDEX"),
+  term("FORMICAND_TABS_INDEX"),
   term("boundResourceId"),
   term("loadedInstanceId"),
   term("workbench"),
@@ -268,8 +268,8 @@ const REMOVED = [
   ),
   term("starfield"),
   term("night-sky"),
-  term("atria.background.motion"),
-  term("atria.galaxy.motion"),
+  term("formicand.background.motion"),
+  term("formicand.galaxy.motion"),
   term("星空"),
   term("流星"),
 
@@ -293,8 +293,8 @@ const REMOVED = [
   term("monitoringPrograms"),
   term("backgroundMonitoringPaused"),
   term(RETIRED_GUARDIAN_SWITCH, { roots: ["test", "e2e", "scripts"] }),
-  term("COWORK_SUPERVISOR_AUTOSTART"),
-  term("COWORK_SUPERVISOR_INTERVAL_MS"),
+  term("FORMICAND_SUPERVISOR_AUTOSTART"),
+  term("FORMICAND_SUPERVISOR_INTERVAL_MS"),
   term("goalDelegation"),
   term("goal-delegation-request"),
   term("watch-supervisor"),
@@ -330,7 +330,7 @@ const REMOVED = [
   term("model-request-retry"),
   term("retry-request.json"),
   term("human-goal_"),
-  term("cowork-completion-check"),
+  term("formicand-completion-check"),
   term("data-migration"),
   term("importLegacyData"),
   term("migrateLegacyDesktopData"),
@@ -340,7 +340,6 @@ const REMOVED = [
   term("data import"),
   term("You are an expert coding assistant operating inside pi"),
   term("Pi documentation (read only when the user asks about pi itself"),
-  term("You are Atria Main, the agent responsible for completing the user's tasks in Atria Cowork."),
   // The removed in-process trace path, which nothing writes any more.
   pattern(/sessions\/\$\{[^`]*\}\.jsonl/, "an in-process trace path"),
 
@@ -366,7 +365,7 @@ const REMOVED = [
   term("science_search"),
   term("science_describe"),
   term("science_run"),
-  term("COWORK_SCIENCE_TOOLS"),
+  term("FORMICAND_SCIENCE_TOOLS"),
 
   // Identifiers: the removed voice input path.
   // Packaging and signing scripts name the privacy keys they strip or reject,
@@ -379,7 +378,7 @@ const REMOVED = [
   term("voiceInput", { roots: ["src", ".pi", "web", "desktop"] }),
   term("speechInput", { roots: ["src", ".pi", "web", "desktop"] }),
   term("speech-input", { roots: ["src", ".pi", "web", "desktop"] }),
-  term("bookman:voice-", { roots: ["src", ".pi", "web", "desktop"] }),
+  term("formicand:voice-", { roots: ["src", ".pi", "web", "desktop"] }),
 
   // Identifiers: the removed vision connection role.
   pattern(/\bvision/i, "a vision role or field"),
@@ -517,7 +516,7 @@ test(
   "the Pi extension, skills registry and CLI offer none of the removed entry points",
   { timeout: 60_000 },
   async (t) => {
-    const root = await mkdtemp(join(tmpdir(), "cowork-removed-"));
+    const root = await mkdtemp(join(tmpdir(), "formicand-removed-"));
     t.after(() => rm(root, { recursive: true, force: true }));
     const previous = { ...process.env };
     t.after(() => {
@@ -526,14 +525,14 @@ test(
     });
     await writeFile(join(root, "config.json"), "{}");
     Object.assign(process.env, {
-      COWORK_CONFIG: join(root, "config.json"),
-      COWORK_WORKSPACE: join(root, "workspace"),
-      COWORK_TASK_ID: "tool-task",
-      COWORK_RUN_ID: "main-tool-task",
-      COWORK_DASHBOARD_URL: "http://127.0.0.1:1"
+      FORMICAND_CONFIG: join(root, "config.json"),
+      FORMICAND_WORKSPACE: join(root, "workspace"),
+      FORMICAND_TASK_ID: "tool-task",
+      FORMICAND_RUN_ID: "main-tool-task",
+      FORMICAND_DASHBOARD_URL: "http://127.0.0.1:1"
     });
-    delete process.env.COWORK_API_BASE;
-    delete process.env.COWORK_API_KEY;
+    delete process.env.FORMICAND_API_BASE;
+    delete process.env.FORMICAND_API_KEY;
 
     const registered = new Map();
     const pi = {
@@ -545,7 +544,7 @@ test(
       setActiveTools() {},
       sendMessage: async () => {}
     };
-    const extensionPath = resolve(".pi/extensions/cowork.ts");
+    const extensionPath = resolve(".pi/extensions/formicand.ts");
     const requirePi = createRequire(import.meta.resolve("@earendil-works/pi-coding-agent"));
     const { createJiti } = await import(requirePi.resolve("jiti"));
     const extension = await createJiti(pathToFileURL(extensionPath).href, {
@@ -563,7 +562,7 @@ test(
     const help = cliHelp();
     const commandRows = REMOVED.filter((entry) => entry.kind === "command");
     for (const row of commandRows) {
-      assert.doesNotMatch(help, new RegExp(`coworkos\\s+${row.name}\\b`), `${row.name} is still in help`);
+      assert.doesNotMatch(help, new RegExp(`formicand\\s+${row.name}\\b`), `${row.name} is still in help`);
       assert.throws(() => parseCliCommand(row.name, []), /Unknown command/, `${row.name} is still accepted`);
     }
     const packageJson = JSON.parse(await readFile("package.json", "utf8"));

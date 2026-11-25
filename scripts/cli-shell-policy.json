@@ -11,19 +11,19 @@
       "id": "tool-environment",
       "file": "dist/bundle/cli-runtime.js",
       "original": "process.env.AI_AGENT=\"pi\"",
-      "replacement": "process.env.AI_AGENT=\"coworkos\""
+      "replacement": "process.env.AI_AGENT=\"formicand\""
     },
     {
       "id": "agent-bash-output",
       "file": "dist/bundle/chunks/chunk-VEJDBY3O.js",
       "original": "tempFilePrefix:\"pi-bash\"",
-      "replacement": "tempFilePrefix:\"atria-bash\""
+      "replacement": "tempFilePrefix:\"formicand-bash\""
     },
     {
       "id": "manual-bash-output",
       "file": "dist/bundle/chunks/chunk-VEJDBY3O.js",
       "original": "createOutputFileStream(\"pi-bash\",\".log\")",
-      "replacement": "createOutputFileStream(\"atria-bash\",\".log\")"
+      "replacement": "createOutputFileStream(\"formicand-bash\",\".log\")"
     }
   ]
 }

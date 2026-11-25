@@ -9,17 +9,17 @@ import { dismissModelSetup } from "./model-provider-ui.js";
 test("桌面版用本机应用打开产物，并且只接受后端解析到的本地文件和列出的应用", async () => {
   test.skip(process.platform !== "darwin", "Native desktop acceptance requires macOS");
   test.setTimeout(180_000);
-  const root = await mkdtemp(join(tmpdir(), "atria-p46-artifact-desktop-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-p46-artifact-desktop-"));
   const env = Object.fromEntries(
     Object.entries(process.env).filter(
-      ([name]) => !/^(?:COWORK_|ATRIA_|PI_|EXA_|ELECTRON_RUN_AS_NODE$|NODE_OPTIONS$)/.test(name)
+      ([name]) => !/^(?:FORMICAND_|FORMICAND_|PI_|EXA_|ELECTRON_RUN_AS_NODE$|NODE_OPTIONS$)/.test(name)
     )
   );
   Object.assign(env, {
-    COWORK_DESKTOP_DATA: root,
-    ATRIA_HOME: join(root, "home"),
+    FORMICAND_DESKTOP_DATA: root,
+    FORMICAND_HOME: join(root, "home"),
     PI_CODING_AGENT_DIR: join(root, "pi"),
-    COWORK_DISABLE_MAIN_GUARDIAN: "1",
+    FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
     PI_OFFLINE: "1"
   });
   let native;
@@ -37,8 +37,8 @@ test("桌面版用本机应用打开产物，并且只接受后端解析到的�
     // The host authorizes the renderer's requests once the selected backend is up.
     const created = await page.evaluate(async () => {
       const headers = { "content-type": "application/json" };
-      const nonce = window.bookmanDesktop?.transportNonce;
-      if (nonce) headers["x-cowork-desktop-nonce"] = nonce;
+      const nonce = window.formicandDesktop?.transportNonce;
+      if (nonce) headers["x-formicand-desktop-nonce"] = nonce;
       let response;
       for (let attempt = 0; attempt < 100; attempt += 1) {
         response = await fetch("/api/tasks", {
@@ -51,7 +51,7 @@ test("桌面版用本机应用打开产物，并且只接受后端解析到的�
       }
       const text = await response.text();
       const detail = await fetch("/api/tasks/desktop-artifact", {
-        headers: nonce ? { "x-cowork-desktop-nonce": nonce } : {}
+        headers: nonce ? { "x-formicand-desktop-nonce": nonce } : {}
       });
       return {
         status: response.status,
@@ -122,7 +122,7 @@ test("桌面版用本机应用打开产物，并且只接受后端解析到的�
     const refused = await page.evaluate(async () => {
       const attempt = async (target, appId) => {
         try {
-          await window.bookmanDesktop.files.open("desktop-artifact", target, appId);
+          await window.formicandDesktop.files.open("desktop-artifact", target, appId);
           return "opened";
         } catch (error) {
           return error.message;

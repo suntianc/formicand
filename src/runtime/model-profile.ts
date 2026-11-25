@@ -3,10 +3,10 @@ import type { Model, SimpleStreamOptions } from "@earendil-works/pi-ai";
 import {
   configuredModelApi,
   normalizeModelApi,
-  type CoworkModelApi,
+  type FormicandModelApi,
   configuredThinkingFormat,
   normalizeThinkingFormat,
-  type CoworkThinkingFormat,
+  type FormicandThinkingFormat,
   configuredMainMaxTokens,
   configuredSubagentMaxTokens,
   configuredContextWindow,
@@ -56,8 +56,8 @@ export function modelSamplingOptions(
 }
 
 export interface ConnectionProfile {
-  api: CoworkModelApi;
-  thinkingFormat?: CoworkThinkingFormat;
+  api: FormicandModelApi;
+  thinkingFormat?: FormicandThinkingFormat;
   reasoningEffort: PiThinkingLevel;
   /** Absent means every level; narrowed only for models nothing else describes (#27). */
   reasoningLevels?: PiThinkingLevel[];
@@ -73,7 +73,7 @@ export interface ConnectionProfile {
 export function connectionProfile(
   config: RuntimeSettingsConfig & { baseUrl?: string; apiBase?: string }
 ): ConnectionProfile {
-  const existing = Boolean(config.baseUrl || config.apiBase || process.env.COWORK_API_BASE);
+  const existing = Boolean(config.baseUrl || config.apiBase || process.env.FORMICAND_API_BASE);
   const env = runtimeSettingsEnv(existing ? config : { ...NEW_CONNECTION_PROFILE, ...config });
   return {
     api: configuredModelApi(env),
@@ -149,7 +149,7 @@ export function parseConnectionProfile(
  * similar provider paths are not rewritten; a bare host gets the usual `/v1`.
  * Anthropic's SDK adds `/v1` itself, so its address is never extended.
  */
-export function requestBaseUrl(baseUrl: string, api: CoworkModelApi = "openai-completions"): string {
+export function requestBaseUrl(baseUrl: string, api: FormicandModelApi = "openai-completions"): string {
   const base = baseUrl.trim().replace(/\/+$/, "");
   if (api === "anthropic-messages") return base;
   if (!URL.canParse(base)) return base;
@@ -158,27 +158,30 @@ export function requestBaseUrl(baseUrl: string, api: CoworkModelApi = "openai-co
 }
 
 /** Distinguish service/account contexts even when both advertise the same model ID. */
-export function coworkProviderId(baseUrl: string, connectionId = process.env.COWORK_CONNECTION_ID): string {
-  if (!connectionId) return "cowork-glm"; // Existing CLI integrations retain their provider name.
+export function formicandProviderId(
+  baseUrl: string,
+  connectionId = process.env.FORMICAND_CONNECTION_ID
+): string {
+  if (!connectionId) return "formicand-glm"; // Existing CLI integrations retain their provider name.
   const endpoint = requestBaseUrl(baseUrl);
-  return `cowork-${createHash("sha256")
+  return `formicand-${createHash("sha256")
     .update(JSON.stringify([endpoint, connectionId]))
     .digest("hex")
     .slice(0, 24)}`;
 }
 
 /** Main, delegated sessions and connection probes use the same provider declaration. */
-export function createCoworkModel(options: {
+export function createFormicandModel(options: {
   baseUrl: string;
   connectionId?: string;
-  api?: CoworkModelApi;
-  thinkingFormat?: CoworkThinkingFormat;
+  api?: FormicandModelApi;
+  thinkingFormat?: FormicandThinkingFormat;
   model?: string;
   maxTokens?: number;
   contextWindow?: number;
   supportsImages?: boolean;
   supportsReasoningEffort: boolean;
-}): Model<CoworkModelApi> {
+}): Model<FormicandModelApi> {
   const base = options.baseUrl.replace(/\/+$/, "");
   const model = options.model ?? "glm-5.3";
   const api = normalizeModelApi(options.api);
@@ -188,7 +191,7 @@ export function createCoworkModel(options: {
     id: model,
     name: model,
     api,
-    provider: coworkProviderId(base, options.connectionId),
+    provider: formicandProviderId(base, options.connectionId),
     baseUrl: requestBaseUrl(base, api),
     reasoning: api === "openai-completions" || options.supportsReasoningEffort,
     // Off must remain selectable by Pi. Its wire omission is handled by model-provider.

@@ -1,4 +1,4 @@
-export const LANGUAGE_KEY = "atria.language";
+export const LANGUAGE_KEY = "formicand.language";
 export const validLanguage = (value) => value === "zh-CN" || value === "en";
 export function readLanguage(storage) {
   try {
@@ -16,7 +16,7 @@ try {
 } catch {
   // Restricted storage retains the existing Chinese default.
 }
-const desktopLanguage = globalThis.window?.bookmanDesktop?.language?.initial;
+const desktopLanguage = globalThis.window?.formicandDesktop?.language?.initial;
 export const language = validLanguage(desktopLanguage) ? desktopLanguage : readLanguage(storage);
 // Chinese sessions do not download or parse the English catalog.
 const english = language === "en" ? (await import("./language-en.js")).default : {};

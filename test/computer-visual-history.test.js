@@ -19,7 +19,7 @@ const { registerComputerTools } = await createJiti(import.meta.url).import(
 );
 
 async function fixture(t) {
-  const taskDirectory = await mkdtemp(join(tmpdir(), "atria-computer-visual-"));
+  const taskDirectory = await mkdtemp(join(tmpdir(), "formicand-computer-visual-"));
   const image = new PNG({ width: 8, height: 6 });
   for (let y = 0; y < image.height; y++)
     for (let x = 0; x < image.width; x++) image.data.set([x * 20, y * 30, 0, 255], (y * image.width + x) * 4);
@@ -27,7 +27,7 @@ async function fixture(t) {
   const target = {
     pid: 11,
     windowId: 12,
-    bundleId: "org.atria.fixture",
+    bundleId: "org.formicand.fixture",
     application: "Fixture",
     title: "Visual"
   };
@@ -57,11 +57,11 @@ async function fixture(t) {
   });
   server.listen(0, "127.0.0.1");
   await once(server, "listening");
-  const previous = process.env.COWORK_DASHBOARD_URL;
-  process.env.COWORK_DASHBOARD_URL = `http://127.0.0.1:${server.address().port}`;
+  const previous = process.env.FORMICAND_DASHBOARD_URL;
+  process.env.FORMICAND_DASHBOARD_URL = `http://127.0.0.1:${server.address().port}`;
   t.after(async () => {
-    if (previous === undefined) delete process.env.COWORK_DASHBOARD_URL;
-    else process.env.COWORK_DASHBOARD_URL = previous;
+    if (previous === undefined) delete process.env.FORMICAND_DASHBOARD_URL;
+    else process.env.FORMICAND_DASHBOARD_URL = previous;
     computer.stop("task", "ended");
     server.closeAllConnections();
     await new Promise((done) => server.close(done));

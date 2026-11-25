@@ -266,12 +266,9 @@ export async function recordingProducer() {
   for (const relative of ["../../../package.json", "../../package.json"]) {
     try {
       const pkg = JSON.parse(await readFile(new URL(relative, import.meta.url), "utf8"));
-      if (
-        !["coworkos", "coworkos-app", "atria-cowork-cli", "cowork-harness", "coworkos-cli"].includes(pkg.name)
-      )
-        continue;
+      if (!["formicand", "formicand-cli"].includes(pkg.name)) continue;
       return {
-        name: "CoworkOS",
+        name: "Formicand",
         version: pkg.version,
         piAgentCore: pkg.dependencies?.["@earendil-works/pi-agent-core"],
         piAi: pkg.dependencies?.["@earendil-works/pi-ai"],
@@ -282,5 +279,5 @@ export async function recordingProducer() {
       // An unavailable manifest does not discard the request itself.
     }
   }
-  return { name: "CoworkOS", version: "unknown" };
+  return { name: "Formicand", version: "unknown" };
 }

@@ -22,7 +22,7 @@ function systemText(body) {
 /** Main proposes the Agent, then delegates to it; a delegated process answers at once. */
 function provider() {
   let mainStep = 0;
-  const isSubagent = (body) => /CoworkOS Subagent/.test(systemText(body));
+  const isSubagent = (body) => /Formicand Subagent/.test(systemText(body));
   return modelProtocolFixture(
     "openai-completions",
     waitForMarkedDelegations(
@@ -56,12 +56,12 @@ test("Main drafts an Agent, the user confirms it on the card, and Main delegates
     await expect(card).toBeVisible({ timeout: 30_000 });
     await expect(card.locator("h3")).toHaveText("db-migrator");
     await expect(card).toContainText("创建 Agent");
-    await expect(card).toContainText(join(dashboard.env.ATRIA_HOME, "agents", "db-migrator.md"));
+    await expect(card).toContainText(join(dashboard.env.FORMICAND_HOME, "agents", "db-migrator.md"));
     await expect(card).toContainText("涉及表结构变更时派给它");
     await expect(card).toContainText("可写");
     await expect(card).toContainText("先在临时库演练。");
     await expect(card.getByRole("button", { name: "发送修改意见" })).toBeHidden();
-    const file = join(dashboard.env.ATRIA_HOME, "agents", "db-migrator.md");
+    const file = join(dashboard.env.FORMICAND_HOME, "agents", "db-migrator.md");
     expect(existsSync(file), "nothing is written before the user confirms").toBe(false);
 
     await card.getByRole("button", { name: "确认创建" }).click();
@@ -91,7 +91,7 @@ test("'Edit in settings' writes nothing and opens the definition on the Agent pa
     await expect(settings.getByLabel("附加提示词")).toHaveValue("先在临时库演练。");
     await settings.getByRole("button", { name: "保存" }).click();
     await expect(settings.locator("[data-agent-list]")).toContainText("db-migrator");
-    expect(await readFile(join(dashboard.env.ATRIA_HOME, "agents", "db-migrator.md"), "utf8")).toContain(
+    expect(await readFile(join(dashboard.env.FORMICAND_HOME, "agents", "db-migrator.md"), "utf8")).toContain(
       "name: db-migrator"
     );
     // Main was told not to save it: its turn ends without using the Agent.

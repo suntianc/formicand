@@ -36,9 +36,9 @@ export function createProjectController({
     localTasks = new Map(),
     projectLimits = new Map();
   const PROJECT_PAGE_SIZE = 5;
-  const selectedKey = "atria.selected-project.v1";
-  const collapsedKey = "atria.collapsed-projects.v1";
-  const pinnedCollapsedKey = "atria.collapsed-pinned.v1";
+  const selectedKey = "formicand.selected-project.v1";
+  const collapsedKey = "formicand.collapsed-projects.v1";
+  const pinnedCollapsedKey = "formicand.collapsed-pinned.v1";
   let pinnedCollapsed = false;
   try {
     state.selectedProjectId ||= storage?.getItem(selectedKey) || null;
@@ -555,8 +555,8 @@ export function createProjectController({
       const button = $("#project-directory-choose");
       button.disabled = true;
       try {
-        const selected = window.bookmanDesktop
-          ? await window.bookmanDesktop.chooseProject()
+        const selected = window.formicandDesktop
+          ? await window.formicandDesktop.chooseProject()
           : (await api("/api/projects/choose-directory", { method: "POST" })).projectDirectory;
         if (epoch !== dialogEpoch || panel.hidden || !selected) return;
         $("#project-directory").value = selected;

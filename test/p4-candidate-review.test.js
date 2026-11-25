@@ -105,12 +105,12 @@ test(
   "a frozen Git candidate is reviewed, reworked in the original session and re-reviewed",
   { timeout: 300_000 },
   async (t) => {
-    const root = await mkdtemp(join(tmpdir(), "atria-p4-review-"));
+    const root = await mkdtemp(join(tmpdir(), "formicand-p4-review-"));
     const repository = await makeRepository(join(root, "repository"));
     const baselineHead = await git(repository, ["rev-parse", "HEAD"]);
     const dashboard = await startDashboard({
       defaultProject: false,
-      env: { COWORK_PROJECT_WRITE: "1", COWORK_DISABLE_MAIN_GUARDIAN: "1" }
+      env: { FORMICAND_PROJECT_WRITE: "1", FORMICAND_DISABLE_MAIN_GUARDIAN: "1" }
     });
     t.after(async () => {
       await dashboard.stop();
@@ -164,7 +164,7 @@ test(
         .filter((message) => ["system", "developer"].includes(message.role))
         .map(messageText)
         .join("\n");
-      if (!system.includes("You are a CoworkOS Subagent")) return "main";
+      if (!system.includes("You are a Formicand Subagent")) return "main";
       const match = userText(body).match(/工作项 ([A-D])/);
       return match ? match[1].toLowerCase() : "unknown";
     };
@@ -740,7 +740,7 @@ test(
     assert.equal(await readFile(join(integration, "export.txt"), "utf8"), "header\nbody\ntotal\n");
     assert.equal(
       await git(calls.a.workspace, ["rev-parse", "--abbrev-ref", "HEAD"]),
-      `coworkos/work/${calls.a.callId}`
+      `formicand/work/${calls.a.callId}`
     );
     assert.equal(
       await git(calls.a2.workspace, ["rev-parse", "HEAD"]),
@@ -808,7 +808,7 @@ after(async () => {
 
 for (const engine of PROJECT_DATA_ENGINES) {
   test(`${engine}: review plans, fixed candidates and rulings survive restart and backup`, async (t) => {
-    const root = await mkdtemp(join(tmpdir(), `atria-p4-review-${engine}-`));
+    const root = await mkdtemp(join(tmpdir(), `formicand-p4-review-${engine}-`));
     t.after(() => rm(root, { recursive: true, force: true }));
     const repository = await makeRepository(join(root, "repository"));
     const developmentRoot = join(root, "development-workspaces");
@@ -878,7 +878,7 @@ for (const engine of PROJECT_DATA_ENGINES) {
     await prepareWorkItemSite({
       developmentDirectory: integration,
       directory: executorSite,
-      branch: "coworkos/work/call-author"
+      branch: "formicand/work/call-author"
     });
     calls["call-author"] = {
       callId: "call-author",
@@ -898,7 +898,7 @@ for (const engine of PROJECT_DATA_ENGINES) {
     await prepareWorkItemSite({
       developmentDirectory: integration,
       directory: reviewerSite,
-      branch: "coworkos/work/call-reviewer"
+      branch: "formicand/work/call-reviewer"
     });
     calls["call-reviewer"] = {
       callId: "call-reviewer",
@@ -948,7 +948,7 @@ for (const engine of PROJECT_DATA_ENGINES) {
     await prepareWorkItemSite({
       developmentDirectory: integration,
       directory: laterSite,
-      branch: "coworkos/work/call-later"
+      branch: "formicand/work/call-later"
     });
     calls["call-later"] = {
       callId: "call-later",
@@ -1016,7 +1016,7 @@ for (const engine of PROJECT_DATA_ENGINES) {
  * remote gateway path #01 established, now carrying review records.
  */
 test("a remote backend writes review facts through the authority and reads them back", async (t) => {
-  const root = await mkdtemp(join(tmpdir(), "atria-p4-review-remote-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-p4-review-remote-"));
   const repository = await makeRepository(join(root, "repository"));
   const dashboard = await startDashboard({ defaultProject: false });
   t.after(async () => {
@@ -1088,7 +1088,7 @@ test("a remote backend writes review facts through the authority and reads them 
   await prepareWorkItemSite({
     developmentDirectory: integration,
     directory: reviewerSite,
-    branch: "coworkos/work/call-remote-reviewer"
+    branch: "formicand/work/call-remote-reviewer"
   });
   calls["call-remote-reviewer"] = {
     callId: "call-remote-reviewer",
@@ -1224,7 +1224,7 @@ async function makeLifecycleHarness({ root, runtime, backendId = "backend-lifecy
     await prepareWorkItemSite({
       developmentDirectory: development.workspace.directory,
       directory,
-      branch: `coworkos/work/${callId}`
+      branch: `formicand/work/${callId}`
     });
     const fact = {
       callId,
@@ -1249,7 +1249,7 @@ async function makeLifecycleHarness({ root, runtime, backendId = "backend-lifecy
     await prepareWorkItemSite({
       developmentDirectory: development.workspace.directory,
       directory,
-      branch: `coworkos/work/${callId}`
+      branch: `formicand/work/${callId}`
     });
     const fact = {
       callId,
@@ -1346,7 +1346,7 @@ async function makeLifecycleHarness({ root, runtime, backendId = "backend-lifecy
 }
 
 test("a closed or drifted review keeps its findings rulable and one reviewer owns it", async (t) => {
-  const root = await mkdtemp(join(tmpdir(), "atria-p4-lifecycle-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-p4-lifecycle-"));
   const config = { sqlite: { path: join(root, "project-data.sqlite") } };
   let runtime = new ProjectDataRuntime({
     config,
@@ -1498,7 +1498,7 @@ test("a closed or drifted review keeps its findings rulable and one reviewer own
   await prepareWorkItemSite({
     developmentDirectory: pending.workspace.directory,
     directory: pendingDirectory,
-    branch: `coworkos/work/${pendingCall}`
+    branch: `formicand/work/${pendingCall}`
   });
   const pendingAttached = await h.attach(pendingReview, pendingCall);
   assert.equal(pendingAttached.reviewer.callId, pendingCall);
@@ -1560,7 +1560,7 @@ test("a closed or drifted review keeps its findings rulable and one reviewer own
 
 for (const engine of PROJECT_DATA_ENGINES) {
   test(`${engine}: linked review rounds settle their own findings and unrelated open ones still block`, async (t) => {
-    const root = await mkdtemp(join(tmpdir(), `atria-p4-chain-${engine}-`));
+    const root = await mkdtemp(join(tmpdir(), `formicand-p4-chain-${engine}-`));
     const config =
       engine === "sqlite"
         ? { sqlite: { path: join(root, "project-data.sqlite") } }
@@ -1663,7 +1663,7 @@ for (const engine of PROJECT_DATA_ENGINES) {
 }
 
 test("the program imports the Reviewer's conclusion, narrows the re-review and stops a third round", async (t) => {
-  const root = await mkdtemp(join(tmpdir(), "atria-p4-rules-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-p4-rules-"));
   const runtime = new ProjectDataRuntime({
     config: { sqlite: { path: join(root, "project-data.sqlite") } },
     configPath: join(root, "config.json"),

@@ -10,10 +10,10 @@ import { modelProtocolFixture } from "./model-protocol-fixture.mjs";
 const exec = promisify(execFile);
 
 test(
-  "real Main Pi reaches ~/.atria/mcp.json servers through tool_search only",
+  "real Main Pi reaches ~/.formicand/mcp.json servers through tool_search only",
   { timeout: 60000 },
   async (t) => {
-    const root = await mkdtemp(join(tmpdir(), "atria-mcp-pi-"));
+    const root = await mkdtemp(join(tmpdir(), "formicand-mcp-pi-"));
     t.after(() => rm(root, { recursive: true, force: true }));
     const home = join(root, "home"),
       project = join(root, "project"),
@@ -66,7 +66,7 @@ test(
       })
     );
     const inherited = Object.fromEntries(
-      Object.entries(process.env).filter(([name]) => !/^(COWORK_|PI_|ATRIA_)/.test(name))
+      Object.entries(process.env).filter(([name]) => !/^(FORMICAND_|PI_|FORMICAND_)/.test(name))
     );
     const pending = exec(
       process.execPath,
@@ -77,14 +77,14 @@ test(
         maxBuffer: 16 * 1024 * 1024,
         env: {
           ...inherited,
-          ATRIA_HOME: home,
-          COWORK_CONFIG: configPath,
-          COWORK_PROJECT_DIR: project,
-          COWORK_WORKSPACE: workspace,
-          COWORK_TASK_ID: "mcp",
-          COWORK_RUN_ID: "mcp-run",
+          FORMICAND_HOME: home,
+          FORMICAND_CONFIG: configPath,
+          FORMICAND_PROJECT_DIR: project,
+          FORMICAND_WORKSPACE: workspace,
+          FORMICAND_TASK_ID: "mcp",
+          FORMICAND_RUN_ID: "mcp-run",
           PI_CODING_AGENT_DIR: join(root, "pi"),
-          COWORK_DISABLE_MAIN_GUARDIAN: "1",
+          FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
           PI_OFFLINE: "1"
         }
       }
@@ -106,7 +106,7 @@ test(
   "real Main uses the skills, MCP servers and extra prompt set for it, the project's over the host's",
   { timeout: 60000 },
   async (t) => {
-    const root = await mkdtemp(join(tmpdir(), "atria-main-settings-pi-"));
+    const root = await mkdtemp(join(tmpdir(), "formicand-main-settings-pi-"));
     t.after(() => rm(root, { recursive: true, force: true }));
     const home = join(root, "home"),
       project = join(root, "project"),
@@ -153,7 +153,7 @@ test(
       })
     );
     const inherited = Object.fromEntries(
-      Object.entries(process.env).filter(([name]) => !/^(COWORK_|PI_|ATRIA_)/.test(name))
+      Object.entries(process.env).filter(([name]) => !/^(FORMICAND_|PI_|FORMICAND_)/.test(name))
     );
     const pending = exec(process.execPath, ["scripts/start-pi.mjs", "--print", "--mode", "json", "Hello."], {
       cwd: resolve("."),
@@ -161,14 +161,14 @@ test(
       maxBuffer: 16 * 1024 * 1024,
       env: {
         ...inherited,
-        ATRIA_HOME: home,
-        COWORK_CONFIG: configPath,
-        COWORK_PROJECT_DIR: project,
-        COWORK_WORKSPACE: workspace,
-        COWORK_TASK_ID: "settings",
-        COWORK_RUN_ID: "settings-run",
+        FORMICAND_HOME: home,
+        FORMICAND_CONFIG: configPath,
+        FORMICAND_PROJECT_DIR: project,
+        FORMICAND_WORKSPACE: workspace,
+        FORMICAND_TASK_ID: "settings",
+        FORMICAND_RUN_ID: "settings-run",
         PI_CODING_AGENT_DIR: join(root, "pi"),
-        COWORK_DISABLE_MAIN_GUARDIAN: "1",
+        FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
         PI_OFFLINE: "1"
       }
     });

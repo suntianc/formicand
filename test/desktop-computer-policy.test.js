@@ -181,7 +181,7 @@ test("permission request failures remain retryable and invalid permission kinds 
 });
 
 test("desktop CUA policy defaults off and persists only human policy across restarts", async () => {
-  const root = await mkdtemp(join(tmpdir(), "atria-computer-policy-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-computer-policy-"));
   try {
     const store = createComputerPolicyStore(root);
     assert.deepEqual(await store.load(), { enabled: false, mode: "observe" });
@@ -337,7 +337,7 @@ test("a human pause cancels a resume still waiting to apply saved policy", async
 });
 
 test("an old observe-only policy is disabled on upgrade instead of silently gaining control", async () => {
-  const root = await mkdtemp(join(tmpdir(), "atria-computer-policy-upgrade-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-computer-policy-upgrade-"));
   try {
     const legacy = JSON.stringify({ version: 1, policy: { enabled: true, mode: "observe" } });
     await writeFile(join(root, "computer-policy.json"), legacy);

@@ -13,14 +13,14 @@ const version = "0.1.2-beta.1";
 const noAudio = "<plist><dict></dict></plist>";
 
 async function fixture(t, changes = {}) {
-  const directory = await mkdtemp(join(tmpdir(), "atria-mac-signing-"));
+  const directory = await mkdtemp(join(tmpdir(), "formicand-mac-signing-"));
   t.after(() => rm(directory, { recursive: true, force: true }));
-  const appPath = join(directory, "CoworkOS.app");
+  const appPath = join(directory, "Formicand.app");
   const packaged = join(appPath, "Contents/Resources/app/package.json");
   await mkdir(join(appPath, "Contents/Resources/app"), { recursive: true });
   await writeFile(packaged, JSON.stringify({ version: changes.packageVersion || version }));
   const info = {
-    CFBundleIdentifier: "org.atria.cowork",
+    CFBundleIdentifier: "io.github.suntianc.formicand",
     CFBundleShortVersionString: version,
     CFBundleVersion: version,
     LSMinimumSystemVersion: "14.0",
@@ -41,7 +41,7 @@ async function fixture(t, changes = {}) {
     }
     return {
       stderr: [
-        `Identifier=${changes.identifier || "org.atria.cowork"}`,
+        `Identifier=${changes.identifier || "io.github.suntianc.formicand"}`,
         `CodeDirectory flags=0x10002(${changes.runtime === false ? "adhoc" : "adhoc,runtime"})`,
         changes.authority ||
           (mode === "developer-id" ? "Authority=Developer ID Application: Fixture Team" : "Signature=adhoc"),
@@ -100,7 +100,7 @@ test("ad-hoc report binds the parent signature and actual beta package version w
   assert.equal(report.bundleVersion, version);
   assert.equal(report.minimumSystemVersion, "14.0");
   assert.equal(report.strictVerified, true);
-  assert.equal(report.parent.identifier, "org.atria.cowork");
+  assert.equal(report.parent.identifier, "io.github.suntianc.formicand");
   assert.equal(report.parent.audioInput, false);
   assert.equal("speechHelper" in report, false);
   assert.deepEqual(f.calls[0], {

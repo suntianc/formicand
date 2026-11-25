@@ -53,7 +53,7 @@ test("CLI picker handles missing choices, ambiguous IDs, cancellation and empty 
 test("CLI picker rejects non-terminal selection and strips terminal instructions from titles", async () => {
   await assert.rejects(
     selectCliSession({ sessions, input: { isTTY: false }, output: { isTTY: false } }),
-    /coworkos --continue.*coworkos --session/
+    /formicand --continue.*formicand --session/
   );
   const f = terminal(["0"]);
   await selectCliSession({

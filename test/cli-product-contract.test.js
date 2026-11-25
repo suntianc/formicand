@@ -21,20 +21,20 @@ import { promisify } from "node:util";
 import { createRequire } from "node:module";
 import { SessionManager } from "@earendil-works/pi-coding-agent";
 import { LocalWorkspaceStore } from "../dist/src/workspace/workspace-store.js";
-import { projectAtriaSystemMessage } from "../dist/src/domain/agent-identity.js";
+import { projectFormicandSystemMessage } from "../dist/src/domain/agent-identity.js";
 import { createSessionExport } from "../dist/src/storage/session-export.js";
 import { exportCliSession } from "../scripts/cli-session-export.mjs";
 import { protocolStream } from "./model-protocol-fixture.mjs";
 import { CombinedAutocompleteProvider } from "@earendil-works/pi-tui";
 const exec = promisify(execFile);
-const entry = resolve(process.env.ATRIA_TEST_CLI_ENTRY || "scripts/atria.mjs");
+const entry = resolve(process.env.FORMICAND_TEST_CLI_ENTRY || "scripts/formicand.mjs");
 const requirePi = createRequire(import.meta.resolve("@earendil-works/pi-coding-agent"));
 const { createJiti } = await import(requirePi.resolve("jiti"));
 const jiti = createJiti(import.meta.url, { interopDefault: true, fsCache: false });
 const { registerCliCommands } = await jiti.import(resolve(".pi/runtime/cli-commands.ts"));
 
 async function fixture(t) {
-  const root = await mkdtemp(join(tmpdir(), "atria-cli-contract-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-cli-contract-"));
   const cleanup = [];
   t.after(async () => {
     for (const close of cleanup.reverse()) await close();
@@ -68,7 +68,7 @@ async function fixture(t) {
       id: "bind",
       parentId: null,
       timestamp,
-      customType: "atria-cli-task",
+      customType: "formicand-cli-task",
       data: {
         version: 1,
         sessionId,
@@ -171,15 +171,15 @@ async function fixture(t) {
   });
   const env = Object.fromEntries(
     Object.entries(process.env).filter(
-      ([name]) => !/^(COWORK_|PI_|ATRIA_|EXA_|OPENAI_|ANTHROPIC_)/.test(name)
+      ([name]) => !/^(FORMICAND_|PI_|FORMICAND_|EXA_|OPENAI_|ANTHROPIC_)/.test(name)
     )
   );
   Object.assign(env, {
-    ATRIA_HOME: user,
-    COWORK_CONFIG: config,
-    COWORK_API_KEY: apiKey,
-    COWORK_EXA_API_KEY: searchKey,
-    COWORK_DISABLE_MAIN_GUARDIAN: "1",
+    FORMICAND_HOME: user,
+    FORMICAND_CONFIG: config,
+    FORMICAND_API_KEY: apiKey,
+    FORMICAND_EXA_API_KEY: searchKey,
+    FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
     PI_OFFLINE: "1"
   });
   const run = (args, options = {}) => {
@@ -210,16 +210,16 @@ async function fixture(t) {
   };
 }
 
-test("offline CoworkOS exports resolve nested session IDs, preserve branches, metadata and source bytes", async (t) => {
+test("offline Formicand exports resolve nested session IDs, preserve branches, metadata and source bytes", async (t) => {
   const f = await fixture(t),
     before = await readFile(f.sessionPath),
     taskBefore = await readFile(join(f.workspace, f.taskId, "task.json"));
   const result = JSON.parse((await f.run(["session", "export", f.sessionId])).stdout);
-  assert.match(result.outputPath, /coworkos-session-.*\.json$/);
+  assert.match(result.outputPath, /formicand-session-.*\.json$/);
   const raw = await readFile(result.outputPath, "utf8"),
     data = JSON.parse(raw);
-  assert.equal(data.format, "atria.session");
-  assert.equal(data.producer.name, "CoworkOS");
+  assert.equal(data.format, "formicand.session");
+  assert.equal(data.producer.name, "Formicand");
   assert.equal(data.session.taskId, f.taskId);
   assert.equal(data.session.runId, "legacy-run");
   assert.equal(data.artifacts.length, 1);
@@ -240,7 +240,7 @@ test("offline CoworkOS exports resolve nested session IDs, preserve branches, me
   await f.run(["session", "export", f.sessionId.slice(0, 8), "--force"]);
   const htmlResult = JSON.parse((await f.run(["start", "--export", f.sessionPath])).stdout);
   const html = await readFile(htmlResult.outputPath, "utf8");
-  assert.ok(html.includes("· CoworkOS"));
+  assert.ok(html.includes("· Formicand"));
   assert.ok(html.includes("current result"));
   assert.ok(!html.includes("<script>unsafe()"));
   assert.ok(html.includes("&lt;script&gt;"));
@@ -367,7 +367,7 @@ test("forced JSON and HTML exports become private and preserve source/link prote
     assert.equal(await readFile(output, "utf8"), "previous export");
     if (process.platform !== "win32") assert.equal((await stat(output)).mode & 0o777, 0o644);
     await f.run(["session", "export", f.sessionPath, "--format", format, "--output", output, "--force"]);
-    assert.match(await readFile(output, "utf8"), /atria.session/);
+    assert.match(await readFile(output, "utf8"), /formicand.session/);
     if (process.platform !== "win32") assert.equal((await stat(output)).mode & 0o777, 0o600);
   }
   const links = [
@@ -465,13 +465,13 @@ test("owned slash commands intercept the submission boundary and generate only l
   );
   adapter.configure(ctx);
   const suggestions = await autocomplete.getSuggestions(["/sh"], 0, 3, { signal: t.signal });
-  assert.equal(suggestions.items[0].description, "Save a local CoworkOS session export");
+  assert.equal(suggestions.items[0].description, "Save a local Formicand session export");
   assert.equal(
     autocomplete.applyCompletion(["/sh"], 0, 3, suggestions.items[0], suggestions.prefix).lines[0],
     "/share "
   );
   const bug = await autocomplete.getSuggestions(["/bu"], 0, 3, { signal: t.signal });
-  assert.match(bug.items[0].description, /local CoworkOS feedback/);
+  assert.match(bug.items[0].description, /local Formicand feedback/);
   const model = await autocomplete.getSuggestions(["/mo"], 0, 3, { signal: t.signal });
   assert.equal(model.items[0].description, "Select a model");
   const configured = factory({}, {}, {});
@@ -482,23 +482,23 @@ test("owned slash commands intercept the submission boundary and generate only l
   configured.onSubmit("  /share whitespace.html  ");
   configured.onSubmit("\n/bug\tdescription");
   assert.deepEqual(submitted, [
-    "/coworkos-share local-share.html",
-    "/coworkos-bug description",
+    "/formicand-share local-share.html",
+    "/formicand-bug description",
     "/model",
-    "/coworkos-share whitespace.html",
-    "/coworkos-bug description"
+    "/formicand-share whitespace.html",
+    "/formicand-bug description"
   ]);
   editorText = " \n/share busy.html";
-  assert.equal(configured.getExpandedText(), "/coworkos-share busy.html");
-  assert.equal(configured.getText(), "/coworkos-share busy.html");
+  assert.equal(configured.getExpandedText(), "/formicand-share busy.html");
+  assert.equal(configured.getText(), "/formicand-share busy.html");
   editorText = "  ordinary task text  ";
   assert.equal(configured.getText(), editorText);
-  await commands.get("atria-share").handler("local-share.html", ctx);
+  await commands.get("formicand-share").handler("local-share.html", ctx);
   assert.ok((await readFile(join(f.project, "local-share.html"), "utf8")).includes("current result"));
-  await commands.get("atria-bug").handler(`test ${f.searchKey}`, ctx);
-  const report = (await readdir(f.project)).find((name) => name.startsWith("coworkos-feedback-"));
+  await commands.get("formicand-bug").handler(`test ${f.searchKey}`, ctx);
+  const report = (await readdir(f.project)).find((name) => name.startsWith("formicand-feedback-"));
   assert.ok(!(await readFile(join(f.project, report), "utf8")).includes(f.searchKey));
-  await commands.get("atria-changelog").handler("", ctx);
+  await commands.get("formicand-changelog").handler("", ctx);
   assert.ok(notifications.some((text) => text.includes("暂无云端")));
   assert.ok(notifications.some((text) => text.includes("github.com/suntianc/coworkos/issues")));
   assert.ok(notifications.every((text) => !text.includes("pi.dev")));
@@ -517,14 +517,14 @@ test("identity projection preserves explicit user prompts, dynamic rules, system
     toolsAdded: [{ name: "new-tool" }],
     toolsRemoved: ["old-tool"]
   };
-  const projected = projectAtriaSystemMessage(input);
-  assert.match(projected.sections.preamble, /CoworkOS Main/);
+  const projected = projectFormicandSystemMessage(input);
+  assert.match(projected.sections.preamble, /Formicand Main/);
   assert.equal(projected.sections.docs, null);
   const unknownIdentity = {
     ...input,
     sections: { ...input.sections, preamble: "You are Main, an identity this build never writes." }
   };
-  assert.equal(projectAtriaSystemMessage(unknownIdentity), unknownIdentity);
+  assert.equal(projectFormicandSystemMessage(unknownIdentity), unknownIdentity);
   assert.equal(projected.sections.rules, "new rule");
   assert.equal(projected.toolsAdded, input.toolsAdded);
   assert.equal(input.sections.preamble, preamble);
@@ -536,7 +536,7 @@ test("identity projection preserves explicit user prompts, dynamic rules, system
       docs: "Read Pi SDK docs for the requested programming task."
     }
   };
-  assert.equal(projectAtriaSystemMessage(custom), custom);
+  assert.equal(projectFormicandSystemMessage(custom), custom);
   const data = await createSessionExport({
     sessionId: "fixture",
     projectDirectory: "/fixture",
@@ -585,10 +585,10 @@ test("audit tool results belong to the nearest call when providers reuse IDs acr
   assert.equal(data.toolCalls[1].resultMessageId, "result-b2");
 });
 
-test("start help belongs to CoworkOS and offline export rejects unsupported formats and mixed launch flags", async (t) => {
+test("start help belongs to Formicand and offline export rejects unsupported formats and mixed launch flags", async (t) => {
   const f = await fixture(t);
   const help = (await f.run(["start", "--help"])).stdout;
-  assert.match(help, /CoworkOS/);
+  assert.match(help, /Formicand/);
   assert.match(help, /session export/);
   assert.doesNotMatch(help, /pi.dev|PI_SHARE_VIEWER_URL|update \[source\|self\|pi\]/);
   await assert.rejects(f.run(["session", "export", f.sessionId, "--format", "zip"]), /须为 json 或 html/);
@@ -602,7 +602,7 @@ async function modelFixture(f) {
     for await (const chunk of request.setEncoding("utf8")) raw += chunk;
     requests.push(JSON.parse(raw));
     response.writeHead(200, { "content-type": "text/event-stream" });
-    response.end(protocolStream("openai-completions", { text: "CoworkOS fixture result." }));
+    response.end(protocolStream("openai-completions", { text: "Formicand fixture result." }));
   });
   server.listen(0, "127.0.0.1");
   await once(server, "listening");
@@ -611,15 +611,15 @@ async function modelFixture(f) {
     await new Promise((done) => server.close(done));
   });
   Object.assign(f.env, {
-    COWORK_API_BASE: `http://127.0.0.1:${server.address().port}/v1`,
-    COWORK_MODEL: "fixture",
-    COWORK_MODEL_API: "openai-completions"
+    FORMICAND_API_BASE: `http://127.0.0.1:${server.address().port}/v1`,
+    FORMICAND_MODEL: "fixture",
+    FORMICAND_MODEL_API: "openai-completions"
   });
   return requests;
 }
 
 test(
-  "real RPC exports and feedback use CoworkOS commands without model calls or non-JSON stdout",
+  "real RPC exports and feedback use Formicand commands without model calls or non-JSON stdout",
   { timeout: 20000 },
   async (t) => {
     const f = await fixture(t),
@@ -667,20 +667,20 @@ test(
     child.stdin.write(JSON.stringify({ id: "ready", type: "get_state" }) + "\n");
     assert.equal((await wait((row) => row.id === "ready")).success, true);
     for (const [id, message] of [
-      ["export", "/coworkos-export json rpc-export.json"],
-      ["share", "/coworkos-share rpc-share.html"],
-      ["bug", `/coworkos-bug ${f.secrets.join(" ")}`],
-      ["help", "/coworkos-help"]
+      ["export", "/formicand-export json rpc-export.json"],
+      ["share", "/formicand-share rpc-share.html"],
+      ["bug", `/formicand-bug ${f.secrets.join(" ")}`],
+      ["help", "/formicand-help"]
     ]) {
       child.stdin.write(JSON.stringify({ id, type: "prompt", message }) + "\n");
       assert.equal((await wait((row) => row.id === id && row.type === "response")).success, true);
     }
     const data = JSON.parse(await readFile(join(f.project, "rpc-export.json"), "utf8"));
-    assert.equal(data.producer.name, "CoworkOS");
+    assert.equal(data.producer.name, "Formicand");
     assert.equal(data.session.taskId, f.taskId);
     for (const key of f.secrets) assert.ok(!JSON.stringify(data).includes(key), `export leaked ${key}`);
-    assert.ok((await readFile(join(f.project, "rpc-share.html"), "utf8")).includes("· CoworkOS"));
-    const report = (await readdir(f.project)).find((name) => name.startsWith("coworkos-feedback-"));
+    assert.ok((await readFile(join(f.project, "rpc-share.html"), "utf8")).includes("· Formicand"));
+    const report = (await readdir(f.project)).find((name) => name.startsWith("formicand-feedback-"));
     for (const key of f.secrets) assert.ok(!(await readFile(join(f.project, report), "utf8")).includes(key));
     assert.equal(requests.length, 0);
     assert.equal(parseError, undefined);
@@ -703,13 +703,13 @@ test(
           `CLI exit ${error.code}, ${requests.length} requests: ${error.stdout.slice(-4000)} ${error.stderr.slice(-4000)}`
         );
       });
-    assert.match(result.stdout, /CoworkOS fixture result/);
+    assert.match(result.stdout, /Formicand fixture result/);
     assert.equal(requests.length, 1);
     const system = requests[0].messages
       .filter((message) => message.role === "system")
       .map((message) => message.content)
       .join("\n");
     assert.ok(system.includes("User-selected fixture identity. Read Pi SDK docs"));
-    assert.ok(!system.includes("You are CoworkOS Main"));
+    assert.ok(!system.includes("You are Formicand Main"));
   }
 );

@@ -9,7 +9,7 @@ import { ui } from "../ui/language.js";
  */
 export const ENTRY_MODES = ["work", "observe"];
 export const OBSERVE_VIEWS = ["overview", "requirements", "runs"];
-export const ENTRY_STORAGE_KEY = "atria.entry.v1";
+export const ENTRY_STORAGE_KEY = "formicand.entry.v1";
 
 const OBSERVE_TITLES = { overview: "总览", requirements: "需求", runs: "运行" };
 

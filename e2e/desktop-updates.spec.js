@@ -18,7 +18,7 @@ async function bridge(page, mode, installMethod, options = {}) {
         state = { ...state, ...value };
         listener?.(state);
       };
-      window.bookmanDesktop = {
+      window.formicandDesktop = {
         onPrepareClose: () => {},
         updateStatus: async () => state,
         onUpdateStatus: (callback) => {
@@ -128,7 +128,7 @@ test("a refused source update leaves the draft editable and offers retry", async
     await page.locator("#user-menu-button").click();
     await expect(page.locator("[data-update-apply]")).toBeVisible();
     await page.evaluate(() => {
-      window.__updateError = "请先结束正在运行的任务，再更新 CoworkOS";
+      window.__updateError = "请先结束正在运行的任务，再更新 Formicand";
     });
     await page.locator("[data-update-apply]").click();
     await expect(page.locator("[data-update-error]")).toContainText("正在运行的任务");

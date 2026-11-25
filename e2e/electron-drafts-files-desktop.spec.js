@@ -9,40 +9,40 @@ import { dismissModelSetup } from "./model-provider-ui.js";
 test("desktop keeps drafts and selected file bytes with their backend", async () => {
   test.skip(process.platform !== "darwin", "Native desktop acceptance requires macOS");
   test.setTimeout(180_000);
-  const root = await mkdtemp(join(tmpdir(), "cowork-native-drafts-"));
+  const root = await mkdtemp(join(tmpdir(), "formicand-native-drafts-"));
   const profile = join(root, "profile");
   const otherHome = join(root, "other-backend");
   const otherWorkspace = join(root, "other-workspace");
   const evidence = process.env.P2_NATIVE_EVIDENCE;
   const inherited = Object.fromEntries(
     Object.entries(process.env).filter(
-      ([name]) => !/^(?:COWORK_|ATRIA_|PI_|ELECTRON_|NODE_OPTIONS$)/.test(name)
+      ([name]) => !/^(?:FORMICAND_|FORMICAND_|PI_|ELECTRON_|NODE_OPTIONS$)/.test(name)
     )
   );
   const env = {
     ...inherited,
     HOME: join(root, "user-home"),
-    COWORK_DESKTOP_DATA: profile,
+    FORMICAND_DESKTOP_DATA: profile,
     PI_OFFLINE: "1",
     PI_TELEMETRY: "0",
-    COWORK_DISABLE_MAIN_GUARDIAN: "1"
+    FORMICAND_DISABLE_MAIN_GUARDIAN: "1"
   };
   const otherEnv = {
     ...inherited,
     HOME: env.HOME,
-    ATRIA_HOME: otherHome,
+    FORMICAND_HOME: otherHome,
     PI_CODING_AGENT_DIR: join(root, "other-pi"),
     PI_OFFLINE: "1",
     PI_TELEMETRY: "0",
-    COWORK_HARNESS_ROOT: resolve("."),
-    COWORK_WORKSPACE: otherWorkspace,
-    COWORK_CONFIG: join(root, "other-config.json"),
-    COWORK_DISABLE_MAIN_GUARDIAN: "1"
+    FORMICAND_HARNESS_ROOT: resolve("."),
+    FORMICAND_WORKSPACE: otherWorkspace,
+    FORMICAND_CONFIG: join(root, "other-config.json"),
+    FORMICAND_DISABLE_MAIN_GUARDIAN: "1"
   };
   const { startBackend, stopBackend } = await import("../dist/src/cli/backend.js");
   await mkdir(env.HOME, { recursive: true });
   await mkdir(otherWorkspace, { recursive: true });
-  await writeFile(otherEnv.COWORK_CONFIG, "{}");
+  await writeFile(otherEnv.FORMICAND_CONFIG, "{}");
   const otherStarted = await startBackend(otherEnv, resolve("."), process.execPath);
   const other = JSON.parse(await readFile(join(otherHome, "runtime/backend-instance.json"), "utf8"));
   expect(otherStarted.pid).toBe(other.pid);
@@ -89,7 +89,7 @@ test("desktop keeps drafts and selected file bytes with their backend", async ()
     page.on("pageerror", (error) => errors.push(error.message));
     await expect(page.locator("#composer-input")).toBeAttached();
     await expect(page.locator(".mic-button, #i-mic")).toHaveCount(0);
-    expect(await page.evaluate(() => "voiceInput" in window.bookmanDesktop)).toBe(false);
+    expect(await page.evaluate(() => "voiceInput" in window.formicandDesktop)).toBe(false);
     await expect(page.locator("[data-backend-status]")).not.toContainText("正在连接", { timeout: 30_000 });
     await closeModel();
     primary ??= JSON.parse(await readFile(join(profile, "runtime/backend-instance.json"), "utf8"));
@@ -105,7 +105,7 @@ test("desktop keeps drafts and selected file bytes with their backend", async ()
     const post = async (path, body) => {
       const response = await fetch(instance.url + path, {
         method: "POST",
-        headers: { "content-type": "application/json", "x-atria-token": instance.token },
+        headers: { "content-type": "application/json", "x-formicand-token": instance.token },
         body: JSON.stringify(body)
       });
       expect(response.status).toBe(201);
@@ -171,7 +171,7 @@ test("desktop keeps drafts and selected file bytes with their backend", async ()
     expect(ids[0]).not.toBe(ids[1]);
     for (const [index, id] of ids.entries()) {
       const response = await fetch(`${primary.url}/api/uploads/${id}`, {
-        headers: { "x-atria-token": primary.token }
+        headers: { "x-formicand-token": primary.token }
       });
       expect(await response.text()).toBe(`native file A${index + 1}`);
     }
@@ -276,7 +276,7 @@ test("desktop keeps drafts and selected file bytes with their backend", async ()
     await chmod(profile, 0o700).catch(() => {});
     await native?.close();
     if (primary) {
-      const result = await stopBackend({ ...env, ATRIA_HOME: profile }, primary);
+      const result = await stopBackend({ ...env, FORMICAND_HOME: profile }, primary);
       console.log(JSON.stringify({ event: "primary-stop", state: result.state, pid: primary.pid }));
     }
     const result = await stopBackend(otherEnv, other);

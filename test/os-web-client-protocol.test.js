@@ -28,7 +28,7 @@ const HOST_CREDENTIAL = "host-credential-for-os-web-client-protocol";
 
 function isolatedEnv(overrides) {
   const inherited = Object.fromEntries(
-    Object.entries(process.env).filter(([name]) => !/^(?:COWORK_|PI_|ATRIA_|EXA_)/.test(name))
+    Object.entries(process.env).filter(([name]) => !/^(?:FORMICAND_|PI_|FORMICAND_|EXA_)/.test(name))
   );
   return { ...inherited, PI_OFFLINE: "1", PI_TELEMETRY: "0", ...overrides };
 }
@@ -44,13 +44,13 @@ async function createRoot(prefix, overrides = {}) {
   await writeFile(configPath, "{}");
   const env = isolatedEnv({
     HOME: userHome,
-    ATRIA_HOME: home,
+    FORMICAND_HOME: home,
     PI_CODING_AGENT_DIR: join(base, "pi"),
-    COWORK_HARNESS_ROOT: repositoryRoot,
-    COWORK_WORKSPACE: workspace,
-    COWORK_GLOBAL_INDEX: join(home, "runtime", "workspaces.json"),
-    COWORK_CONFIG: configPath,
-    COWORK_DISABLE_MAIN_GUARDIAN: "1",
+    FORMICAND_HARNESS_ROOT: repositoryRoot,
+    FORMICAND_WORKSPACE: workspace,
+    FORMICAND_GLOBAL_INDEX: join(home, "runtime", "workspaces.json"),
+    FORMICAND_CONFIG: configPath,
+    FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
     ...overrides
   });
   return { base, home, workspace, project, env };
@@ -126,7 +126,7 @@ async function stopQuietly(root) {
 
 /** Host-principal request, used only to set up and revoke a client session. */
 async function hostRequest(instance, method, path, body) {
-  const headers = { "x-atria-token": instance.token };
+  const headers = { "x-formicand-token": instance.token };
   if (body !== undefined) headers["content-type"] = "application/json";
   const response = await fetch(`${instance.url}${path}`, {
     method,
@@ -186,7 +186,8 @@ function hostFetch(instances, overrides = {}) {
     }
     const instance = list.find((entry) => new URL(entry.url).origin === origin);
     const authorization = init.method === "POST" && String(url).endsWith("/api/session");
-    if (authorization && instance && !headers["x-atria-token"]) headers["x-atria-token"] = instance.token;
+    if (authorization && instance && !headers["x-formicand-token"])
+      headers["x-formicand-token"] = instance.token;
     const request = { ...init, headers };
     if (overrides.fetch) {
       const replaced = overrides.fetch(url, request);
@@ -223,8 +224,8 @@ async function createProject(client, name, directory) {
 }
 
 test("opening a PDF reads the bound backend's file through its authorized session", async (t) => {
-  const first = await createRoot("cowork-artifact-view-a-", { COWORK_API_TOKEN: "artifact-host-a" });
-  const second = await createRoot("cowork-artifact-view-b-", { COWORK_API_TOKEN: "artifact-host-b" });
+  const first = await createRoot("formicand-artifact-view-a-", { FORMICAND_API_TOKEN: "artifact-host-a" });
+  const second = await createRoot("formicand-artifact-view-b-", { FORMICAND_API_TOKEN: "artifact-host-b" });
   const a = await startBackend(first);
   const b = await startBackend(second);
   t.after(async () => {
@@ -323,8 +324,8 @@ test("opening a PDF reads the bound backend's file through its authorized sessio
 });
 
 test("a file response whose body finishes after switching backends is discarded", async (t) => {
-  const first = await createRoot("cowork-artifact-body-a-");
-  const second = await createRoot("cowork-artifact-body-b-");
+  const first = await createRoot("formicand-artifact-body-a-");
+  const second = await createRoot("formicand-artifact-body-b-");
   const a = await startBackend(first);
   const b = await startBackend(second);
   t.after(async () => {
@@ -373,8 +374,8 @@ test("a file response whose body finishes after switching backends is discarded"
 
 for (const status of [200, 401])
   test(`a settings JSON ${status} body finishing after switching A to B and back is discarded`, async (t) => {
-    const first = await createRoot("cowork-settings-body-a-");
-    const second = await createRoot("cowork-settings-body-b-");
+    const first = await createRoot("formicand-settings-body-a-");
+    const second = await createRoot("formicand-settings-body-b-");
     const a = await startBackend(first);
     const b = await startBackend(second);
     t.after(async () => {
@@ -419,7 +420,7 @@ for (const status of [200, 401])
   });
 
 test("cancelling an error response body does not revoke the current session", async (t) => {
-  const root = await createRoot("cowork-cancel-error-body-");
+  const root = await createRoot("formicand-cancel-error-body-");
   const backend = await startBackend(root);
   t.after(async () => {
     await stopQuietly(root);
@@ -459,8 +460,8 @@ test("cancelling an error response body does not revoke the current session", as
 });
 
 test("a browser client authorizes, reads projects, follows Task events and downloads an artifact", async (t) => {
-  const root = await createRoot("cowork-web-client-", {
-    COWORK_API_TOKEN: HOST_CREDENTIAL
+  const root = await createRoot("formicand-web-client-", {
+    FORMICAND_API_TOKEN: HOST_CREDENTIAL
   });
   const instance = await startBackend(root);
   t.after(() => stopQuietly(root));
@@ -541,7 +542,7 @@ test("a browser client authorizes, reads projects, follows Task events and downl
 });
 
 test("a lost response is reconciled from the command receipt without repeating the command", async (t) => {
-  const root = await createRoot("cowork-web-receipt-");
+  const root = await createRoot("formicand-web-receipt-");
   const instance = await startBackend(root);
   t.after(() => stopQuietly(root));
   let posts = 0;
@@ -572,8 +573,8 @@ test("a lost response is reconciled from the command receipt without repeating t
 });
 
 test("switching backends drops the old identity, and a late response or event cannot enter the new view", async (t) => {
-  const first = await createRoot("cowork-web-switch-a-");
-  const second = await createRoot("cowork-web-switch-b-");
+  const first = await createRoot("formicand-web-switch-a-");
+  const second = await createRoot("formicand-web-switch-b-");
   const firstInstance = await startBackend(first);
   const secondInstance = await startBackend(second);
   t.after(() => stopQuietly(first));
@@ -676,7 +677,7 @@ test("switching backends drops the old identity, and a late response or event ca
 });
 
 test("a client declaring another protocol version gets the backend's actionable refusal", async (t) => {
-  const root = await createRoot("cowork-web-protocol-");
+  const root = await createRoot("formicand-web-protocol-");
   const instance = await startBackend(root);
   t.after(() => stopQuietly(root));
   const { client, seen } = clientFor(instance, { client: { protocolVersion: "2.0" } });
@@ -690,7 +691,7 @@ test("a client declaring another protocol version gets the backend's actionable 
 });
 
 test("a backend without catalog-event capabilities is named instead of half-starting the view", async (t) => {
-  const root = await createRoot("cowork-web-capability-");
+  const root = await createRoot("formicand-web-capability-");
   const instance = await startBackend(root);
   t.after(() => stopQuietly(root));
   let snapshots = 0;
@@ -719,11 +720,11 @@ test("a backend without catalog-event capabilities is named instead of half-star
 });
 
 test("another trusted local browser origin may manage this backend, and only when named", async (t) => {
-  const first = await createRoot("cowork-web-origin-page-");
+  const first = await createRoot("formicand-web-origin-page-");
   const firstInstance = await startBackend(first);
   const pageOrigin = new URL(firstInstance.url).origin;
-  const second = await createRoot("cowork-web-origin-trust-", {
-    COWORK_TRUSTED_CLIENT_ORIGINS: pageOrigin
+  const second = await createRoot("formicand-web-origin-trust-", {
+    FORMICAND_TRUSTED_CLIENT_ORIGINS: pageOrigin
   });
   const secondInstance = await startBackend(second);
   t.after(() => stopQuietly(first));
@@ -738,16 +739,16 @@ test("another trusted local browser origin may manage this backend, and only whe
 
   const preflight = await crossOrigin("OPTIONS", "/api/session", {
     "access-control-request-method": "POST",
-    "access-control-request-headers": "content-type,x-atria-token,x-cowork-read-only"
+    "access-control-request-headers": "content-type,x-formicand-token,x-formicand-read-only"
   });
   assert.equal(preflight.status, 204);
   assert.equal(preflight.headers.get("access-control-allow-origin"), pageOrigin);
-  assert.match(preflight.headers.get("access-control-allow-headers"), /x-atria-token/);
+  assert.match(preflight.headers.get("access-control-allow-headers"), /x-formicand-token/);
   // The observation entry watches this backend from its own page and marks
   // those reads; a browser needs the marker allowed through the preflight.
-  assert.match(preflight.headers.get("access-control-allow-headers"), /x-cowork-read-only/);
+  assert.match(preflight.headers.get("access-control-allow-headers"), /x-formicand-read-only/);
 
-  const allowed = await crossOrigin("GET", "/api/backend", { "x-atria-token": secondInstance.token });
+  const allowed = await crossOrigin("GET", "/api/backend", { "x-formicand-token": secondInstance.token });
   assert.equal(allowed.status, 200);
   assert.equal(allowed.headers.get("access-control-allow-origin"), pageOrigin);
   const info = await allowed.json();
@@ -761,13 +762,13 @@ test("another trusted local browser origin may manage this backend, and only whe
   assert.equal(stranger.status, 403);
 
   // A wildcard is not a trusted origin: it is ignored, never interpreted.
-  const wildcard = await createRoot("cowork-web-origin-wildcard-", {
-    COWORK_TRUSTED_CLIENT_ORIGINS: "*"
+  const wildcard = await createRoot("formicand-web-origin-wildcard-", {
+    FORMICAND_TRUSTED_CLIENT_ORIGINS: "*"
   });
   const wildcardInstance = await startBackend(wildcard);
   t.after(() => stopQuietly(wildcard));
   const refused = await fetch(`${wildcardInstance.url}/api/backend`, {
-    headers: { origin: pageOrigin, "x-atria-token": wildcardInstance.token },
+    headers: { origin: pageOrigin, "x-formicand-token": wildcardInstance.token },
     signal: AbortSignal.timeout(10_000)
   });
   assert.equal(refused.status, 403);

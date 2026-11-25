@@ -136,13 +136,13 @@ test("the run bar pauses at the step boundary and continues from that point", as
     expect(local.requests).toHaveLength(1);
     expect(await readFile(work.marker, "utf8")).toBe("step-1\n");
     await page.screenshot({ path: testInfo.outputPath("run-paused-1440.png") });
-    await page.evaluate(() => localStorage.setItem("atria.appearance", "light"));
+    await page.evaluate(() => localStorage.setItem("formicand.appearance", "light"));
     await page.reload();
     await expect(paused).toBeVisible();
     await expect(paused).toContainText("已暂停");
     await expect(page.locator(".chat-message.user")).toBeVisible();
     await page.screenshot({ path: testInfo.outputPath("run-paused-light-1440.png") });
-    await page.evaluate(() => localStorage.setItem("atria.appearance", "dark"));
+    await page.evaluate(() => localStorage.setItem("formicand.appearance", "dark"));
     await page.reload();
     await expect(paused).toBeVisible();
 
