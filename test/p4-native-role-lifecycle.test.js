@@ -1002,7 +1002,7 @@ test(
         if (step === 2) {
           const accepted = toolJson(entry.body);
           assert.equal(accepted.accepted, true, JSON.stringify(accepted).slice(0, 500));
-          assert.equal(accepted.name, "Ara", "a refused call must not consume a team name");
+          assert.equal(accepted.name, "Atta", "a refused call must not consume a team name");
           return { text: "拒绝路径完成。" };
         }
         return { text: "拒绝路径完成。" };

@@ -272,12 +272,12 @@ test("two nodes draw pulse lanes, Subagent branches, capacity groups and a stall
     // Subagent branches: role, name, completion and the running head.
     const executor = localCard.locator('[data-runs-agent="subagent_1"]');
     await expect(executor).toContainText("Executor");
-    await expect(executor).toContainText("Ara");
+    await expect(executor).toContainText("Atta");
     await expect(executor).toContainText("已完成");
     await expect(executor.locator(".runs-done, .runs-head")).toHaveCount(0);
     const reviewer = localCard.locator('[data-runs-agent="subagent_3"]');
     await expect(reviewer).toContainText("Reviewer");
-    await expect(reviewer).toContainText("Circinus");
+    await expect(reviewer).toContainText("Messor");
     await expect(reviewer.locator(".runs-head")).toHaveCount(1);
 
     // A Main's Subagent rows fold into its lane and come back; while one is

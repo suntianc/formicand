@@ -147,7 +147,7 @@ test("runs renders Main lanes, Subagent branches and the stage colouring", async
   });
   const reviewer = agent({
     agentId: "subagent_3",
-    name: "Circinus",
+    name: "Messor",
     role: "subagent",
     workRole: "reviewer",
     state: "running",
@@ -213,7 +213,7 @@ test("runs renders Main lanes, Subagent branches and the stage colouring", async
 
   const reviewBranch = card.querySelector('[data-runs-agent="subagent_3"]');
   assert.match(reviewBranch.textContent, /Reviewer/);
-  assert.match(reviewBranch.textContent, /Circinus/);
+  assert.match(reviewBranch.textContent, /Messor/);
   assert.ok(reviewBranch.querySelector(".runs-head"));
 
   // The window narrows the drawn range as well as the axis labels.

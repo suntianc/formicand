@@ -45,9 +45,9 @@ test("projects hold their Main sessions and Subagents, folds persist, and no sta
 
     const subagents = first.locator(".subagent-row");
     await expect(subagents).toHaveCount(2);
-    await expect(subagents.nth(0)).toContainText("Ara");
+    await expect(subagents.nth(0)).toContainText("Atta");
     await expect(subagents.nth(0)).toContainText("Executor");
-    await expect(subagents.nth(1)).toContainText("Norma");
+    await expect(subagents.nth(1)).toContainText("Lasius");
     await expect(subagents.nth(1)).toContainText("Reviewer");
     await expect(secondProject.locator(".subagent-row")).toHaveCount(0);
 
