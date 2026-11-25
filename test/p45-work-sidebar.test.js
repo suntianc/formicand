@@ -111,8 +111,9 @@ test("the work tree marks running sessions, nests Subagents with their time, mar
   first.controller.render();
 
   assert.equal(first.$('[data-task="main-a"]').getAttribute("aria-description"), null);
-  // A running session says so; a waiting one does not.
-  assert.ok(first.$('[data-task="main-a"] .conversation-activity[data-state="running"]'));
+  // A running session says so outside the title mask; a waiting one does not.
+  assert.ok(first.$('[data-task="main-a"] > .conversation-activity[data-state="running"]'));
+  assert.equal(first.$('[data-task="main-a"] .conversation-item-title .conversation-activity'), null);
   assert.equal(first.$('[data-task="main-b"] .conversation-activity'), null);
   assert.deepEqual(
     [...first.$("#project-list").querySelectorAll(".subagent-row .subagent-name")].map(
