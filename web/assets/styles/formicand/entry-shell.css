@@ -251,6 +251,15 @@ html[data-desktop-platform] :is(.app-titlebar, .observe-header, .requirement-pan
 html[data-desktop-platform] :is(button, a, input, select, textarea, [role="button"], [role="tab"], summary) {
   -webkit-app-region: no-drag;
 }
+/* A region inherits, and Chromium takes one rectangle from every element that
+   carries it, clipped or not. Pane content scrolled up behind the title row
+   therefore punched no-drag holes in it. The pane box alone keeps its content
+   out of the drag; nothing inside adds a rectangle, apart from the panel heads. */
+html[data-desktop-platform]
+  :is(.conversation-sidebar, .chat-pane, .observe-pane, .agent-pane)
+  :not(:is(.observe-header, .requirement-panel-head), :is(.observe-header, .requirement-panel-head) *) {
+  -webkit-app-region: initial;
+}
 
 /* Entry switch: the two product entries, one active at a time. */
 .entry-switch {
