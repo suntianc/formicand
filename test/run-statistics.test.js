@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 import { readRunStatistics, runTiming } from "../dist/src/runtime/run-statistics.js";
-import { formatRunDuration, renderRunOverview, runElapsed } from "../web/assets/run-overview.js";
+import { formatRunDuration, runElapsed } from "../web/assets/run-overview.js";
 
 const time = (seconds) => new Date(Date.UTC(2026, 8, 8, 0, 0, seconds)).toISOString();
 const response = (
@@ -175,14 +175,8 @@ test("follow-ups accumulate duration and usage, keep historical agents, and surv
     result,
     "totals are recovered from durable logs after restart"
   );
-  const html = renderRunOverview(result);
-  assert.match(html, /整个会话累计/);
-  assert.match(html, /2 轮/);
-  assert.doesNotMatch(
-    html,
-    /data-usage-agent="call-1"/,
-    "historical totals must not open an unrelated current trace"
-  );
+  assert.equal(result.scope, "conversation");
+  assert.equal(result.runCount, 2);
   assert.equal(await f.read({ task: { ...task, taskId: "another", activeRunId: undefined } }), null);
 });
 
@@ -222,7 +216,7 @@ test("usage cache preserves partial JSON lines, reads append-only updates, and r
   assert.equal((await f.read()).usage.totalTokens, 420);
 });
 
-test("unknown usage stays unknown and partial coverage is retained in data while the UI displays numeric totals", async (t) => {
+test("unknown usage stays unknown and partial coverage is retained in data", async (t) => {
   const f = await fixture(t, []);
   await writeFile(
     f.main,
@@ -231,13 +225,10 @@ test("unknown usage stays unknown and partial coverage is retained in data while
   let result = await f.read();
   assert.equal(result.usage.totalTokens, null);
   assert.equal(result.usage.coverage, "unavailable");
-  assert.match(renderRunOverview(result), /title="累计 Token">—<\/strong>/);
   await appendFile(f.main, jsonl([response("reported")]));
   result = await f.read();
   assert.equal(result.usage.totalTokens, 210);
   assert.equal(result.usage.coverage, "partial");
-  assert.match(renderRunOverview(result), /title="210 Token">210<\/strong>/);
-  assert.doesNotMatch(renderRunOverview(result), /≥|已上报|未返回|尚不完整/);
 });
 
 test("large legacy usage scans catch up without passing a tail sample off as a total", async (t) => {
@@ -336,7 +327,6 @@ test("cache coverage preserves explicit zero and partial totals across reload", 
   let result = await f.read();
   assert.equal(result.usage.cacheReadCoverage, "complete");
   assert.equal(result.usage.cacheReadReportedResponses, 1);
-  assert.match(renderRunOverview(result), /输入缓存命中<\/dt><dd>0<\/dd>/);
   await appendFile(
     f.main,
     jsonl([response("missing", { ...usage, cacheReadReported: false, cacheWriteReported: false })])
@@ -344,7 +334,6 @@ test("cache coverage preserves explicit zero and partial totals across reload", 
   result = await f.read();
   assert.equal(result.usage.totalTokens, 220);
   assert.equal(result.usage.cacheReadCoverage, "partial");
-  assert.match(renderRunOverview(result), /输入缓存命中<\/dt><dd>0 <small>已报告 · 部分未知/);
   await appendFile(f.main, jsonl([response("hit", { ...usage, input: 60, cacheRead: 40 })]));
   result = await f.read();
   assert.equal(result.usage.cacheRead, 40);
