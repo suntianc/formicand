@@ -746,8 +746,12 @@ html[data-theme] .subagent-step .subagent-status {
 html[data-theme] .subagent-step.is-failed .subagent-status {
   color: var(--color-danger, #e5484d);
 }
+html[data-theme] .subagent-step .agent-avatar {
+  width: 18px;
+  height: 18px;
+}
 html[data-theme] .subagent-step .tool-details-body {
-  margin-left: 24px;
+  margin-left: 26px;
 }
 html[data-theme] .turn-stopped .turn-stopped-note {
   color: var(--color-text-3);

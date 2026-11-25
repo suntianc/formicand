@@ -1,5 +1,5 @@
 import { ui } from "./ui/language.js";
-import { agentName } from "./agent-names.js";
+import { agentAvatar, agentName } from "./agent-names.js";
 
 const esc = (value) =>
   String(value ?? "").replace(
@@ -40,7 +40,7 @@ function cacheLabel(usage, field) {
 
 function agentUsageRow(agent) {
   const current = agent.current !== false;
-  return `<div class="run-agent-row${current ? "" : " historical"}"><span>${agent.agentId === "main" ? '<svg class="avatar-mark" aria-hidden="true"><use href="#i-formicand-mark-small" /></svg>' : '<svg class="ui-icon"><use href="#i-team"/></svg>'}<strong>${esc(agentName(agent) || ui("协作成员"))}</strong>${current ? "" : ui("<small>历史</small>")}</span><span title="${agent.usage.totalTokens == null ? ui("累计 Token") : `${number(agent.usage.totalTokens)} Token`}">${tokenLabel(agent.usage)}</span></div>`;
+  return `<div class="run-agent-row${current ? "" : " historical"}"><span>${agentAvatar(agent.agentId) || '<svg class="ui-icon"><use href="#i-team"/></svg>'}<strong>${esc(agentName(agent) || ui("协作成员"))}</strong>${current ? "" : ui("<small>历史</small>")}</span><span title="${agent.usage.totalTokens == null ? ui("累计 Token") : `${number(agent.usage.totalTokens)} Token`}">${tokenLabel(agent.usage)}</span></div>`;
 }
 
 export function renderRunOverview(statistics, now = Date.now()) {

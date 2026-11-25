@@ -190,6 +190,7 @@ function delegatedAgent(args, data, detail = {}) {
     .trim()
     .split(/\n|(?<=[。！？.!?])\s*/u)[0];
   return {
+    agentId: firstString(data.agentId, entry?.agentId) || undefined,
     name: firstString(args.agentName, args.name, data.name, data.agentName, entry?.name) || ui("子助手"),
     role: (entry?.role || args.role) === "reviewer" ? ui("审查") : ui("执行"),
     task: concise(firstString(args.task, entry?.task), 120),

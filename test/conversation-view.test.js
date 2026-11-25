@@ -738,6 +738,27 @@ test("tool rows show delegation purpose and avoid repeating an already visible s
   );
 });
 
+test("a delegate row wears its genus's ant once the agent is known", () => {
+  const { document, state, render } = fixture("delegate-avatar", "");
+  state.detail.runtimeEvents.push(
+    update("toolcall_end", 1, {
+      toolCall: { id: "dispatch", name: "call_subagent", arguments: { task: "核对机构" } }
+    }),
+    {
+      type: "tool_execution_end",
+      toolCallId: "dispatch",
+      result: { details: { accepted: true, callId: "call-one", agentId: "subagent_2", name: "Lasius" } }
+    }
+  );
+  render();
+  const row = document.querySelector(".subagent-step");
+  assert.equal(row.querySelectorAll(".tool-status-dot").length, 0);
+  assert.match(
+    row.querySelector(".agent-avatar").getAttribute("style"),
+    /ant-02-light\.webp.*ant-02-dark\.webp/
+  );
+});
+
 test("all tool diagnostic sections retain independent reading positions through updates and collapse", () => {
   const { document, state, render } = fixture("tool-reading", "先核对输出。");
   state.detail.runtimeEvents.push(

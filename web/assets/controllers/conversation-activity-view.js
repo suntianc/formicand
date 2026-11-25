@@ -13,6 +13,7 @@ import { icon } from "../ui/icons.js";
 import { executionElapsedMs, formatExecutionDuration } from "../execution-time.js";
 import { antMarkSvg } from "../ui/thinking-mark.js";
 import { completeMarkdown, hasOpenFence } from "../ui/stream-reveal.js";
+import { agentAvatar } from "../agent-names.js";
 
 const readTools = new Set(["read", "read_file", "read_attachment"]);
 const searchTools = new Set(["search", "grep", "find", "web_search", "fetch_url"]);
@@ -513,7 +514,7 @@ export function createConversationActivityView({
         ? ` data-live-since="${since}" data-live-label="${esc(ui("运行中"))}"`
         : "";
       const statusText = liveClock ? liveClockText(ui("运行中"), since) : right;
-      const mark = '<span class="tool-status-dot" aria-hidden="true"></span>';
+      const mark = agentAvatar(agent.agentId) || '<span class="tool-status-dot" aria-hidden="true"></span>';
       const text = finished && agent.outcome ? agent.outcome : agent.task;
       const sections = open ? presentation.detailSections || [] : [];
       const body = open ? renderToolDetailsBody(sections, resolved.state, resolved.detailKey) : "";

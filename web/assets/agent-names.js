@@ -75,17 +75,21 @@ const genera = [
   "Aenictus"
 ];
 
+/** Where a durable ID sits in the genus list, before letter designations. */
+function nameIndex(agentId) {
+  const number = /^subagent[_-](\d+)$/.exec(agentId)?.[1];
+  return number && Number.isSafeInteger(Number(number))
+    ? Math.max(0, Number(number) - 1)
+    : [...agentId].reduce((hash, char) => (Math.imul(hash, 31) + char.codePointAt(0)) >>> 0, 0);
+}
+
 /** A durable ID always has the same name, including in older task snapshots.
  * @param {string} agentId
  * @returns {string}
  */
 export function agentDisplayName(agentId) {
   if (agentId === "main") return "Formicand";
-  const number = /^subagent[_-](\d+)$/.exec(agentId)?.[1];
-  const index =
-    number && Number.isSafeInteger(Number(number))
-      ? Math.max(0, Number(number) - 1)
-      : [...agentId].reduce((hash, char) => (Math.imul(hash, 31) + char.codePointAt(0)) >>> 0, 0);
+  const index = nameIndex(agentId);
   // Letter designations keep names unique once every genus is used.
   let generation = Math.floor(index / genera.length);
   let designation = "";
@@ -94,6 +98,21 @@ export function agentDisplayName(agentId) {
     generation = Math.floor((generation - 1) / 26);
   }
   return genera[index % genera.length] + (designation ? ` ${designation}` : "");
+}
+
+const AVATARS = 32;
+
+/** Avatar markup for an agent, or "" without an ID. A genus always wears the same ant;
+ * Main keeps the brand mark.
+ * @param {string} [agentId]
+ * @returns {string}
+ */
+export function agentAvatar(agentId) {
+  if (!agentId) return "";
+  if (agentId === "main")
+    return '<svg class="avatar-mark" aria-hidden="true"><use href="#i-formicand-mark-small" /></svg>';
+  const file = `/assets/brand/agents/ant-${String(((nameIndex(agentId) % genera.length) % AVATARS) + 1).padStart(2, "0")}`;
+  return `<span class="agent-avatar" aria-hidden="true" style="--avatar-light: url(${file}-light.webp); --avatar-dark: url(${file}-dark.webp)"></span>`;
 }
 
 /** The display name of one agent, including names persisted by older snapshots.
