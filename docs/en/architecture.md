@@ -57,8 +57,10 @@ Main can hand a requirement to subagents through a Workloop-style flow whose sta
 3. **Ticket**: scope, acceptance criteria with how to check them, what must stay unchanged, what is out of scope, and dependencies. Frozen once the user confirms.
 4. **Delegation**: the Executor works in its own worktree branched from the requirement's site and reports on each criterion with `submit_report`.
 5. **Review**: the Reviewer reviews a frozen candidate commit and returns `pass` or `changes_requested` with `submit_review`. Blocking findings must cite an acceptance criterion or one of four baselines: regression, data loss, security, project rule.
-6. **Rework**: another turn in the original Executor's session and worktree (`continueCallId`), not a new agent.
-7. **Merge**: merged into the configured target branch in a temporary combined worktree, with the project's checks.
+6. **Rework**: When a ticket returns to rework, the service checks the remaining rounds before dispatching a continuation. If a round remains, `continueCallId` resumes the original Executor's session and worktree. Once the rounds are exhausted, Main records the next approach on the latest failed review. If Main chooses a fresh Executor, the ticket stays in rework until the new Executor takes it.
+7. **Integrate into the requirement site**: once a ticket passes review the program merges it into the requirement's site (`integrate_ticket`), runs the project checks and then that ticket's acceptance commands; the `full` route freezes its final review only after every ticket is in.
+8. **Final review**: on the `full` route freezing the final review requires an acceptance mapping (`mapping`, one row per requirement with the test, command or file that proves it); the program numbers the rows so blocking findings can cite them. Before it freezes, the program also checks the document registry in the project's `AGENTS.md`: with no table it asks for one covering every document, and it refuses documents the requirement added or renamed without a row, rows pointing at deleted documents, and two documents of one type and domain. A fix ticket repairs it.
+9. **Merge into the target branch**: once the route's own acceptance is met, the change is merged into the configured target branch in a temporary combined worktree with the project's checks; the `full` route also requires the final review of that same version to pass.
 
 There are three routes: `quick` lets Main collect the result itself; `direct` and `full` freeze and review per ticket before integrating.
 
@@ -111,18 +113,21 @@ Projects, the ledger, the board, Main sessions, development, review and merge re
 
 All endpoints listen on `127.0.0.1`, check Host and Origin, and require a client session credential. Routes are defined in [routes.ts](../../src/dashboard/routes.ts) and the `*-routes.ts` files:
 
-| Prefix                                           | Content                                                             |
-| ------------------------------------------------ | ------------------------------------------------------------------- |
-| `/api/tasks`                                     | Tasks, messages, runs, delegation, artifacts, window control        |
-| `/api/events`                                    | SSE stream, replayed by sequence number after a reconnect           |
-| `/api/projects`, `/api/project-data`             | Projects, ledger, board, development and merge records, backup info |
-| `/api/composer`, `/api/uploads`                  | Drafts and uploads                                                  |
-| `/api/model-settings`, `/api/models`             | Model providers and models                                          |
-| `/api/agents`, `/api/skills`, `/api/mcp`         | Custom agents, skills, MCP servers                                  |
-| `/api/memory`                                    | Main's memory                                                       |
-| `/api/computer`                                  | Window access state                                                 |
-| `/api/web-search-settings`, `/api/main-capacity` | Web search, external Main slots                                     |
-| `/api/backend`, `/api/host`                      | Backend identity, desktop host only endpoints                       |
+| Prefix                                           | Content                                                                                                                                                                                     |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/api/tasks`                                     | Tasks, messages, runs, delegation, artifacts, window control                                                                                                                                |
+| `/api/events`                                    | SSE stream, replayed by sequence number after a reconnect                                                                                                                                   |
+| `/api/projects`, `/api/tasks`                    | Projects, ledger, board, Main sessions, development and merge records; ledger actions (`lookup`, `context`, `tidy`, …) are POSTs to `/api/projects/:id/ledger` (or `/api/tasks/:id/ledger`) |
+| `/api/project-data`                              | Project-data service description, project list and directory bindings                                                                                                                       |
+| `/api/composer`, `/api/uploads`                  | Drafts and uploads                                                                                                                                                                          |
+| `/api/model-settings`, `/api/models`             | Model providers and models                                                                                                                                                                  |
+| `/api/agents`, `/api/skills`, `/api/mcp`         | Custom agents, skills, MCP servers                                                                                                                                                          |
+| `/api/memory`                                    | Main's memory                                                                                                                                                                               |
+| `/api/computer`                                  | Window access state                                                                                                                                                                         |
+| `/api/web-search-settings`, `/api/main-capacity` | Web search, external Main slots                                                                                                                                                             |
+| `/api/backend`, `/api/host`                      | Backend identity, desktop host only endpoints                                                                                                                                               |
+
+Project data is backed up and restored with the CLI's `formicand data backup` and `formicand data restore`, not over HTTP.
 
 When changing an endpoint, change the producer, the consumers and the behavior tests together.
 

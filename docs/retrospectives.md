@@ -47,11 +47,11 @@
 | 需求进度面板同 Task 重载时清空                              | [需求进度面板](../e2e/p45-requirement-panel.spec.js)、[P4.5 §1](p4.5-retrospective.md#1-审查抓到的真实缺陷)                                                         |
 | 测试假服务器在块边界切断多字节字符                          | [请求恢复](../e2e/request-recovery.spec.js)、[P4.5 §2](p4.5-retrospective.md#2-偶发失败多数是测试自身的问题)                                                        |
 | 实际前台命令等待 stdin EOF                                  | [P4 修复及超时语义](p4-retrospective.md#6-stdin-eof-修复保留宿主生命周期管道)                                                                                       |
-| 首份目录恢复或绑定换草稿时覆盖已键入内容与上传中附件        | [草稿就绪竞态](../e2e/markdown-links.spec.js)、[P4.5 打磨清单](p4.5-polish-backlog.md)                                                                              |
+| 首份目录恢复或绑定换草稿时覆盖已键入内容与上传中附件        | [草稿就绪竞态](../e2e/markdown-links.spec.js)、[P4.5 §1](p4.5-retrospective.md#1-审查抓到的真实缺陷)                                                                |
 
 ## 仍需按触发条件查阅
 
-[坑点索引](pitfalls/README.md) 按环境、命令和工具触发条件组织：依赖软链接、锁文件变化后的旧安装、Python 环境、Electron 运行时、格式检查范围、产品模型未配置、归档用户实例，以及 Workloop 正文交接/审查分类。P4.6 三轮（剔除、Pi 升级、子代理独立进程与 Main 常驻）的经验按触发条件写入坑点：跨票替换开关、偶发失败对照基线、高负载下的时序用例、改变进程生命周期的波及面、常驻 Main 的测试收尾、既有偶发卡住收尾门、文件事件不可靠，以及 [Pi 运行时升级与回滚](pitfalls/pi-runtime.md)；摘录见 [P4.6 摘录](pitfalls/evidence/os-p46/retro.md)。测试精简（os-test-trim）补充了 [Unix socket 路径上限](pitfalls/pi-runtime.md#unix-socket-路径超过-sun_path-上限) 和「基线即败不等于环境问题」，摘录见 [测试精简摘录](pitfalls/evidence/os-test-trim/retro.md)。已修复产品问题留在上表与原复盘，不再重复建立操作坑点。
+[坑点索引](pitfalls/README.md) 按环境、命令和工具触发条件组织：依赖软链接、锁文件变化后的旧安装、Python 环境、Electron 运行时、格式检查范围、产品模型未配置和归档用户实例。P4.6 三轮（剔除、Pi 升级、子代理独立进程与 Main 常驻）的经验按触发条件写入坑点：跨票替换开关、偶发失败对照基线、高负载下的时序用例、改变进程生命周期的波及面、常驻 Main 的测试收尾、既有偶发卡住收尾门、文件事件不可靠，以及 [Pi 运行时升级与回滚](pitfalls/pi-runtime.md)；摘录见 [P4.6 摘录](pitfalls/evidence/os-p46/retro.md)。测试精简（os-test-trim）补充了 [Unix socket 路径上限](pitfalls/pi-runtime.md#unix-socket-路径超过-sun_path-上限) 和「基线即败不等于环境问题」，摘录见 [测试精简摘录](pitfalls/evidence/os-test-trim/retro.md)。已修复产品问题留在上表与原复盘，不再重复建立操作坑点。
 
 ## P3 新增建议的去向
 
@@ -60,16 +60,14 @@
 | 交接细化迁移归属、冻结前合并、原发现的失败类别 | [派发与返修](development-handoffs.md#派发与返修)        | 本轮已采用，后续落实已有规则         |
 | 先校准 UI 路径/选择器，再进入正式组合验收      | [P3 §8](p3-retrospective.md#8-减少脚手架试错和重复准备) | 已记录，未增加流程或测试矩阵         |
 | 同候选、依赖、环境复用准备与已接受证据         | [输出与复用](development-handoffs.md#输出失败与复用)    | 已有复用规则；通用前置回执支持待评估 |
-| 用明确断言和退出码表达 probe 违例              | [WL-06](workloop-followups.md#wl-06-诊断脚本的失败表达) | 原记录保留，后续独立测试已补证       |
+| 用明确断言和退出码表达 probe 违例              | `WL-06`，原文见 [已删除文档](adr-history.md)            | 原记录保留，后续独立测试已补证       |
 
 ## 单列的 Workloop 建议
 
-统一维护于 [Workloop 问题与建议](workloop-followups.md)：保留剪枝及 P3 的条目，合并 P4 再次出现的 Basis 解析和证据复用来源，新增最终 verdict 格式反馈、归档数据所有权、每轮报告身份与建议去重。确认的工具问题、证据质量问题和能力建议分别标记。
-
-P4 的新增建议、文档落实与剩余状态见 [建议与去向](p4-retrospective.md#建议与去向)。跨运行审计提醒更新为 P4 收尾时的 9 个 run（上次检查为 2026-11-05）。本次整理未执行该审计，未修改 Workloop 源码、skills、状态或审计基线。
+Workloop 工具已不再使用，WL-01 至 WL-18 的原文归入 [已删除文档](adr-history.md)，尚未落地的工具建议记在需求台账的开发记录里。P4 的新增建议、文档落实与剩余状态见 [建议与去向](p4-retrospective.md#建议与去向)。
 
 ## 保留的阶段决定
 
-P1、P2、科学剪枝、P3、P4 和 P4.5 已交付归档，P4.6 三轮已合入、待真实模型验收。P2 干净 macOS 账户安装与系统权限验收保留到 P6；已接受的包、原生和性能记录继续使用。P5/P6/P7/P8 未启动，下一步以 [阶段规划](development-phases.md) 为准。
+P1、P2、科学剪枝、P3、P4 和 P4.5 已交付归档，P4.6 三轮已合入。P2 干净 macOS 账户安装与系统权限验收保留到 P6；已接受的包、原生和性能记录继续使用。P5 及之后的阶段按需求台账里的开发记录推进。
 
 各档案 `suggestions.md` 中包含重复与尚未验证的范围外观察。P3 的 67 条、P4 的 89 条也包含已修复项和元数据。这些原始记录保留，新的产品工作仍按具体目标与证据确定范围。

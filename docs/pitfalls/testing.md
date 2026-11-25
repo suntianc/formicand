@@ -82,7 +82,7 @@
 
 ## 应用就绪前输入的草稿被恢复覆盖
 
-- **状态：** 已修复（#22），回归覆盖 `e2e/markdown-links.spec.js` 的「a draft typed while the first catalog loads stays in the composer」「an upload in flight when the first catalog loads keeps its attachment」「a conversation link keeps typing that lands before the catalog」「a stale conversation link keeps early typing in the composer」。本条目已移出坑点索引，历史保留在 [P4.5 打磨清单](../p4.5-polish-backlog.md) 第 19 条。
+- **状态：** 已修复（#22），回归覆盖 `e2e/markdown-links.spec.js` 的「a draft typed while the first catalog loads stays in the composer」「an upload in flight when the first catalog loads keeps its attachment」「a conversation link keeps typing that lands before the catalog」「a stale conversation link keeps early typing in the composer」。本条目已移出坑点索引，历史保留在 [P4.5 复盘](../p4.5-retrospective.md) 与原清单里（清单已删除，原文见 [架构决定历史](../adr-history.md)）。
 - **Trigger：** 页面打开后立即向 `#composer-input` 填入文字、选择附件（上传还没结束也算），或带 `?task=` 链接打开（`e2e/markdown-links.spec.js` 原首个用例、`e2e/recovery-review.spec.js` 同类断言）。全量运行时偶发失败，读到的输入框值为空或会话已切换。
 - **What happens：** 修复前的说法是草稿恢复在 `await composerSession.ready` 之后执行、覆盖了就绪前的输入；实测根因在更后面。草稿租约落定前输入框只读（`aria-busy`），输不进字；租约一落定，输入可编辑与全部输入/附件监听在同一段同步代码里生效。丢字发生在之后：首份目录（`/api/events/snapshot` 或 `/api/tasks`）到达时页面自动恢复默认会话、或用默认会话替换已消失的会话，把这段窗口里键入的文字、已选附件和还在上传的附件换成那份空草稿；链接会话在后端绑定后会短暂失去草稿，绑定到目录之间键入的内容也会落到别的会话草稿里。
 - **Confirm：** 用 `page.route` 扣住首份目录（必要时连 `/api/session`、`/api/uploads` 一起扣）直到输入或上传完成，再放行；修复前读到的输入框为空、附件条为空或活动会话被换掉，修复后保留。单独重复运行通常全部通过，所以偶发失败要按这些方式构造确定性复现。
@@ -103,7 +103,7 @@
 - **What happens：** 门禁每次都运行公共检查加全部回归命令，回归里的全量又包含各个单项，一轮约 20–30 分钟。P4.5 #14 因此跑了 6 轮，其中 3 轮失败是环境原因。
 - **Confirm：** 对比失败用例与本次改动的关系，单独重复运行失败项，确认是回归、测试缺陷还是环境问题。
 - **Avoid：** 失败后只单独重跑失败项，确认原因并修好后再整体合入。只改动部分模块时只跑相关测试；全量（`npm run verify:full` 加 `npx playwright test --workers=1`）只在合入 main 前或终审时跑一次，收尾复用同一提交上的全量结果。
-- **Sources：** 2026-11-11 [P4.5 复盘](../p4.5-retrospective.md#3-测试重复导致合入很慢)、[WL-11](../workloop-followups.md#wl-11-合入与收尾的重复检查)。
+- **Sources：** 2026-11-11 [P4.5 复盘](../p4.5-retrospective.md#3-测试重复导致合入很慢)、WL-11（原文见 [已删除文档](../adr-history.md)）。
 
 ## 替换环境开关后旧用法残留
 

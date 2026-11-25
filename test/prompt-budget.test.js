@@ -10,8 +10,9 @@ import { startDashboard } from "./dashboard-fixture.mjs";
 import { modelProtocolFixture } from "./model-protocol-fixture.mjs";
 
 /**
- * The size limits of each prompt layer (docs/prompt-and-delivery-design.md).
- * A layer that grows past its limit must give up other text first.
+ * The size limits of each prompt layer. A layer that grows past its limit must
+ * give up other text first; the measurement behind the limits is archived in
+ * docs/adr-history.md.
  */
 const BASE = 4 * 1024;
 const STATE = 1.5 * 1024;

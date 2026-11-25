@@ -27,6 +27,50 @@
 | `docs/`                                         | 用户指南、开发约定和接口参考              | [文档指引](docs/AGENTS.md)                |
 | `scripts/`、`.github/`                          | 构建、验证、打包、CI                      | [开发指南](docs/development.md)           |
 
+## 文档
+
+登记表说明每份文档是什么、归哪个领域。一个文件属于第一行覆盖它的路径，所以这里逐项写出路径，不设兜底行：新文档没登记时程序会拒绝冻结终审。根 `AGENTS.md`、`CLAUDE.md` 和 `docs/pitfalls/` 不写也算已登记；`docs/en` 是中文使用与开发文档的英文版本，作为一个领域登记。
+
+| 路径                                 | 类型         | 领域         |
+| ------------------------------------ | ------------ | ------------ |
+| `.pi`                                | instructions | Pi           |
+| `src/runtime`                        | instructions | 运行时       |
+| `src/dashboard`                      | instructions | 后端         |
+| `web`                                | instructions | 前端         |
+| `desktop`                            | instructions | 桌面         |
+| `test`                               | instructions | 测试         |
+| `docs/AGENTS.md`                     | instructions | 文档         |
+| `AGENTS.en.md`                       | instructions | global       |
+| `docs/adr`                           | adr          | global       |
+| `docs/adr-history.md`                | history      | global       |
+| `docs/pitfalls`                      | pitfalls     | global       |
+| `docs/retrospectives.md`             | history      | global       |
+| `docs/p1-retrospective.md`           | history      | global       |
+| `docs/p2-retrospective.md`           | history      | global       |
+| `docs/p3-retrospective.md`           | history      | global       |
+| `docs/p4-retrospective.md`           | history      | global       |
+| `docs/p4.5-retrospective.md`         | history      | global       |
+| `docs/core-pruning-retrospective.md` | history      | global       |
+| `docs/development-handoffs.md`       | standards    | 交接         |
+| `docs/development.md`                | standards    | 开发         |
+| `docs/testing.md`                    | standards    | 测试         |
+| `CONTRIBUTING.md`                    | standards    | 贡献规范     |
+| `CONTRIBUTING.en.md`                 | standards    | 英文贡献规范 |
+| `GLOSSARY.md`                        | glossary     | global       |
+| `README.zh-CN.md`                    | product      | 产品说明     |
+| `README.md`                          | product      | 英文产品说明 |
+| `THIRD_PARTY_NOTICES.md`             | product      | global       |
+| `docs/en`                            | product      | 英文文档     |
+| `docs/README.md`                     | product      | 文档         |
+| `docs/getting-started.md`            | product      | 上手         |
+| `docs/configuration.md`              | product      | 配置         |
+| `docs/capabilities.md`               | product      | 能力         |
+| `docs/architecture.md`               | product      | 架构         |
+| `docs/hero/README.md`                | product      | 界面         |
+| `scripts/eval/README.md`             | product      | 测评         |
+| `scripts/eval/repo/README.md`        | product      | 测评示例     |
+| `.github`                            | product      | 发布         |
+
 ## 代码规则
 
 - CLI 与桌面宿主使用同一套服务。共享业务模块不能导入 CLI 入口；运行时层不能反向导入 Dashboard。ESLint 检查这些方向。
@@ -58,7 +102,7 @@
 
 GitHub 的日常检查流程在 PR 和推送到 main 时自动运行，也可手动触发；执行轻量静态检查 `npm run check:ci`。完整回归和发布验收在本地执行并记录证据。Mac 工作流仅手动触发，打包并上传到 Release 草稿，详见 [打包和发布](docs/development.md#打包和发布)。不要把 CI 通过当作完整测试通过，也不要默认添加浏览器、原生或跨平台测试矩阵。
 
-提交说明包含：问题和结果、涉及模块/接口、执行的检查、尚未验证的范围。委派、返修、独立审查和归档按 [开发交接](docs/development-handoffs.md) 明确本轮增量、验证责任与证据。改变命令、功能、路径或接口，同一变更更新对应文档与代码地图；路线图只记录状态、下一步与验收标准。
+提交说明包含：问题和结果、涉及模块/接口、执行的检查、尚未验证的范围。委派、返修、独立审查和归档按 [开发交接](docs/development-handoffs.md) 明确本轮增量、验证责任与证据。改变命令、功能、路径或接口，同一变更更新对应文档与代码地图；还没做的范围和下一步记在需求台账的开发记录里，不写进仓库文档。
 
 `config.json`、`.formicand/`、`.tmp/`、`applications/`、`workspace/`、`task-*/`、supervisor 锁和用户数据都不是源码。不要读取真实密钥、删除运行数据、清理用户任务或把它们放进发布包。测试使用自己的临时目录与本地假模型服务。
 

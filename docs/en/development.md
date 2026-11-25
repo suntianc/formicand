@@ -103,13 +103,14 @@ Formicand's own code is [MIT](../../LICENSE); third-party components keep their 
 
 ## Documentation conventions
 
-- Each fact lives in one document; others link to it. Current behavior goes into the usage and interface docs; planned work goes into the [phase plan](../development-phases.md) (Chinese) with completion criteria.
+- Each fact lives in one document; others link to it. Current behavior goes into the usage and interface docs; planned scope and next steps live in the requirement ledger's development records, not in repository documents.
 - Changing a command, setting, path or interface updates the docs in the same change. Commands must match `package.json`, the scripts and the CLI help.
-- The usage docs (getting started, configuration, capabilities, architecture, development, testing) are bilingual, with English in `docs/en/`; update both together. Process records (retrospectives, pitfalls, handoffs, design notes) are Chinese only.
+- The usage docs (getting started, configuration, capabilities, architecture, development, testing) are bilingual, with English in `docs/en/`; update both together. Process records (retrospectives, pitfalls, handoffs, decision records and their history) are Chinese only.
+- Adding, moving or deleting a document updates the registry in the root [AGENTS](../../AGENTS.md#文档) (Chinese); a choice still in force and hard to reverse becomes an [ADR](../adr/), a superseded decision or a deleted document goes into the [decision history](../adr-history.md), and open items live in the development record.
 - Do not commit real keys, private services, personal configuration or user tasks. Examples use placeholders and generic paths.
 - Use relative Markdown links. When deleting or moving a document, update every reference and run `npm run check:docs`.
 
-Docs site: `cd docs/site && npm ci && npm run preview` previews locally, and `npm run build` writes a static site to `.tmp/docs-site/`. Navigation lives in [navigation.mjs](../site/navigation.mjs); register new docs there.
+Docs site: `cd docs/site && npm ci && npm run preview` previews locally, and `npm run build` writes a static site to `.tmp/docs-site/`. Navigation lives in [navigation.mjs](../site/navigation.mjs); register new docs there when they belong in the sidebar.
 
 ## Troubleshooting
 

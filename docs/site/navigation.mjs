@@ -26,12 +26,10 @@ export const navigation = [
     en: "Records (Chinese)",
     collapsed: true,
     pages: [
-      ["docs/development-phases.md", "阶段规划", "Phase plan"],
       ["docs/development-handoffs.md", "开发交接", "Handoffs"],
       ["docs/pitfalls/README.md", "项目坑点", "Pitfalls"],
-      ["docs/retrospectives.md", "复盘", "Retrospectives"],
-      ["docs/workloop-comparison.md", "与 Workloop 的对比", "Workloop comparison"],
-      ["docs/workloop-followups.md", "Workloop 问题", "Workloop follow-ups"]
+      ["docs/adr-history.md", "架构决定历史", "Decision history"],
+      ["docs/retrospectives.md", "复盘", "Retrospectives"]
     ]
   }
 ];
