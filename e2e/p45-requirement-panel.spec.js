@@ -28,7 +28,7 @@ const CASES = [
     steps: ["done", "done", "current", "pending", "pending"],
     // Criteria are ticked together once a review passes; passing checks alone tick none.
     checks: ["false", "false"],
-    meta: { review: "Reviewer Norma" }
+    meta: { review: "Reviewer Lasius" }
   },
   {
     phase: "rework",
@@ -36,7 +36,7 @@ const CASES = [
     stage: "rework",
     steps: ["done", "done", "blocked", "pending", "pending"],
     checks: ["false", "false"],
-    meta: { review: "Reviewer Norma" }
+    meta: { review: "Reviewer Lasius" }
   },
   {
     phase: "merged",

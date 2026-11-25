@@ -1,6 +1,6 @@
 import { atConversationEnd } from "./conversation-layout.js";
 import { hydrateLinkPreviews } from "../link-previews.js";
-import { createConversationActivityView, liveClockText } from "./conversation-activity-view.js";
+import { createConversationActivityView } from "./conversation-activity-view.js";
 import { language, ui } from "../ui/language.js";
 import { confirmCopied, copyText } from "../ui/code-blocks.js";
 import { createConversationProjection } from "./conversation-projection.js";
@@ -654,14 +654,13 @@ export function createConversationView({
   const isLazyDisclosure = (node) =>
     node.classList.contains("execution-history") ||
     node.classList.contains("process-segment") ||
-    node.classList.contains("tool-details") ||
-    node.classList.contains("subagent-step");
+    node.classList.contains("tool-details");
   const hasLazyBody = (node) => {
     if (node.classList.contains("execution-history"))
       return Boolean(node.querySelector(":scope > .execution-timeline")) || node.dataset.l0Expanded === "1";
     if (node.classList.contains("process-segment"))
       return Boolean(node.querySelector(":scope > .live-workflow"));
-    if (node.classList.contains("tool-details") || node.classList.contains("subagent-step"))
+    if (node.classList.contains("tool-details"))
       return Boolean(node.querySelector(":scope > .tool-details-body"));
     return true;
   };
@@ -745,23 +744,6 @@ export function createConversationView({
   function allPreservedMessage(task) {
     return task.taskId && state.detail?.messages?.length ? ui("你发送的内容和已有过程已保留。") : "";
   }
-  // Running Subagent rows count their own time between renders.
-  let liveClockTimer;
-  function syncLiveClocks(scroll) {
-    const tick = () => {
-      const clocks = scroll.querySelectorAll("[data-live-since]");
-      if (!clocks.length) {
-        clearInterval(liveClockTimer);
-        liveClockTimer = undefined;
-        return;
-      }
-      for (const clock of clocks)
-        clock.textContent = liveClockText(clock.dataset.liveLabel, Number(clock.dataset.liveSince));
-    };
-    if (liveClockTimer === undefined && scroll.querySelector("[data-live-since]"))
-      liveClockTimer = setInterval(tick, 1000);
-  }
-
   function bindArtifactLinks(roots) {
     queryInRoots(roots, "[data-message-artifact]").forEach((link) => {
       if (boundNodes.has(link)) return;
@@ -1477,7 +1459,6 @@ export function createConversationView({
       if (!virtualScroll && (!previous || parts.length !== previous.partSignatures.length))
         animateArrivals(scroll, task.taskId, historyPrepend);
       streamReveal.apply(scroll);
-      syncLiveClocks(scroll);
       const ownsRecovery = () => state.selected === task.taskId && state.detail?.task?.taskId === task.taskId;
       for (const [selector, action] of [
         ["[data-edit-message]", () => edit?.(task.taskId, state.detail?.editableMessage)],

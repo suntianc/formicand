@@ -61,15 +61,7 @@ html[data-theme] :is(.thinking-spinner, .workflow-progress-spinner).ant-mark {
     animation: none;
   }
 }
-html.is-page-hidden
-  :is(
-    .ant-mark,
-    .ant-mark *,
-    .shimmer-text,
-    .conversation-activity,
-    .subagent-state .ui-icon,
-    .rp-agent-mark .ui-icon
-  ) {
+html.is-page-hidden :is(.ant-mark, .ant-mark *, .shimmer-text, .conversation-activity) {
   animation-play-state: paused !important;
 }
 
@@ -462,7 +454,7 @@ html[data-theme] .reasoning-step.is-interrupted .reasoning-state {
    L0 (.execution-history): whole settled round collapses to "用时 X ›" above final answer
    L1 (.execution-timeline / live message): mid-round speech + .process-segment + .subagent-group
    L2 (.process-segment[open] > .live-workflow): indented step rail with flat reasoning prose & tool rows
-   L3 (.tool-details / .subagent-step): tool args, outputs & subagent details */
+   L3 (.tool-details): tool args and outputs */
 html[data-theme] .execution-history {
   margin: 0 0 14px;
   white-space: normal;
@@ -750,9 +742,6 @@ html[data-theme] .subagent-step .agent-avatar {
   width: 18px;
   height: 18px;
 }
-html[data-theme] .subagent-step .tool-details-body {
-  margin-left: 26px;
-}
 html[data-theme] .turn-stopped .turn-stopped-note {
   color: var(--color-text-3);
 }
@@ -772,56 +761,12 @@ html[data-theme] .turn-stopped .turn-stopped-note {
   flex: none;
 }
 
-/* Requirement panel without a requirement: the Subagents at work, then why
-   the phases are missing. */
-.rp-agents {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-.rp-agent {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 30px;
-  color: var(--color-text-2);
-  font-size: 13px;
-}
-.rp-agent-mark {
-  display: inline-grid;
-  place-items: center;
-  width: 16px;
-  color: var(--color-text-3);
-}
-.rp-agent-mark .ui-icon {
-  width: 14px;
-  height: 14px;
-}
-.rp-agent-mark.is-active .ui-icon {
-  animation: ui-spin 1.1s linear infinite;
-}
-.rp-agent-name {
-  color: var(--color-text);
-  font-weight: 500;
-}
-.rp-agent-role,
-.rp-agent-state {
-  color: var(--color-text-3);
-  font-size: 12px;
-}
+/* Requirement panel without a requirement: why the phases are missing. */
 .rp-empty {
   margin: 0;
   color: var(--color-text-3);
   font-size: 12.5px;
   line-height: 1.6;
-}
-@media (prefers-reduced-motion: reduce) {
-  .rp-agent-mark.is-active .ui-icon {
-    animation: none;
-  }
 }
 
 /* The heading's resting dot sits in the same 16px mark column as the steps. */

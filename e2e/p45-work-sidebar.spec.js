@@ -2,7 +2,7 @@ import { test, expect } from "@playwright/test";
 import { startDashboard } from "../test/dashboard-fixture.mjs";
 import { createProject, createTask, markTaskRunning } from "./p45-work-helpers.js";
 
-test("projects hold their Main sessions and Subagents, folds persist, and no stage label leaks into the tree", async ({
+test("projects hold their Main sessions and Subagents, a running session is marked and folds persist", async ({
   page
 }) => {
   const dashboard = await startDashboard();
@@ -24,7 +24,7 @@ test("projects hold their Main sessions and Subagents, folds persist, and no sta
       taskId: "tree-rating",
       runId: "run-tree",
       subagents: [
-        { agentId: "subagent_1", role: "executor", state: "running" },
+        { agentId: "subagent_1", role: "executor", state: "leased" },
         { agentId: "subagent_2", role: "reviewer", state: "queued" },
         // A finished Subagent leaves the tree; the conversation still shows its work.
         { agentId: "subagent_3", role: "executor" }
@@ -40,15 +40,17 @@ test("projects hold their Main sessions and Subagents, folds persist, and no sta
     const rating = first.locator('.conversation-item[data-task="tree-rating"]');
     await expect(rating).toHaveText("评分汇总验收");
     await expect(rating).not.toHaveAttribute("aria-description");
-    await expect(first.locator(".conversation-activity")).toHaveCount(0);
     await expect(rating).toHaveAttribute("data-status", "running");
+    await expect(rating.locator('.conversation-activity[data-state="running"]')).toHaveCount(1);
 
+    // Each running Subagent wears its ant and counts its own time; a queued one waits.
     const subagents = first.locator(".subagent-row");
     await expect(subagents).toHaveCount(2);
-    await expect(subagents.nth(0)).toContainText("Atta");
-    await expect(subagents.nth(0)).toContainText("Executor");
-    await expect(subagents.nth(1)).toContainText("Lasius");
-    await expect(subagents.nth(1)).toContainText("Reviewer");
+    await expect(subagents.nth(0).locator(".subagent-name")).toHaveText("Atta");
+    await expect(subagents.nth(0).locator(".agent-avatar")).toBeVisible();
+    await expect(subagents.nth(0).locator(".subagent-time")).toHaveText(/^\d+:\d\d(:\d\d)?$/);
+    await expect(subagents.nth(1).locator(".subagent-name")).toHaveText("Lasius");
+    await expect(subagents.nth(1).locator(".subagent-time")).toHaveText("排队中");
     await expect(secondProject.locator(".subagent-row")).toHaveCount(0);
 
     await first.locator('[data-session-toggle="tree-rating"]').click();
