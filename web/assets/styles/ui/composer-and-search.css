@@ -113,7 +113,6 @@
   font-size: var(--ui-type-control);
 }
 .thinking-spinner,
-.tool-progress-spinner,
 .workflow-progress-spinner {
   display: inline-block;
   flex: 0 0 14px;
@@ -172,7 +171,6 @@
     animation: none;
   }
   .thinking-spinner,
-  .tool-progress-spinner,
   .workflow-progress-spinner {
     animation: none;
   }

@@ -67,7 +67,7 @@ test("returned async tools retain real work status through progress, callbacks a
     const agent = page.locator(".subagent-step");
     await expect(page.locator(".subagent-group")).toContainText("派出 1 个子助手");
     await expect(agent.locator(".subagent-status")).toHaveText("运行中");
-    await expect(agent.locator(".ant-mark, .tool-progress-spinner")).toHaveCount(0);
+    await expect(agent.locator(".ant-mark")).toHaveCount(0);
     await expect(agent.locator(".tool-status-dot")).toHaveCount(1);
     for (const summary of await page.locator(".process-segment > summary").all()) await summary.click();
     await expect(page.locator(".tool-step .activity-status")).toHaveText(["未答复，已继续", "已入队"]);

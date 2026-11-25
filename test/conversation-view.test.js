@@ -493,7 +493,10 @@ test("between steps the next step's thinking row waits at the end of the steps",
   assert.equal(waiting(), null);
   assert.match(document.querySelector(".process-segment > summary").textContent, /读取文件中/);
   assert.match(document.querySelector(".tool-action").textContent, /读取附件/);
-  assert.equal(document.querySelectorAll(".tool-progress-spinner").length, 1);
+  // The running call shows a still dot beside its status, not the working ant.
+  assert.equal(document.querySelectorAll(".tool-step .ant-mark").length, 0);
+  assert.equal(document.querySelectorAll(".tool-step.is-running .tool-status-dot").length, 1);
+  assert.equal(document.querySelectorAll(".process-segment > summary .ant-mark").length, 0);
   state.detail.runtimeEvents.push({
     type: "tool_execution_end",
     toolCallId: "attachment",
@@ -783,7 +786,7 @@ test("a rejected finish acknowledgement remains waiting in the visible tool row"
   expandHistory(document, render);
   assert.equal(document.querySelector(".activity-status").textContent, "等待中");
   assert.equal(document.querySelector(".tool-step").classList.contains("is-done"), false);
-  assert.equal(document.querySelectorAll(".tool-progress-spinner").length, 0);
+  assert.equal(document.querySelectorAll(".tool-step .ant-mark").length, 0);
 });
 
 test("command exit evidence marks a failed tool while counting its returned call", () => {
@@ -1531,7 +1534,7 @@ test("an async delegation row follows real progress without changing its disclos
   assert.equal(row.querySelector("strong").textContent, "Ara");
   assert.equal(row.querySelector(".subagent-role-tag").textContent, "审查");
   assert.equal(row.querySelector(".subagent-status").textContent, "运行中 36 秒");
-  assert.equal(row.querySelectorAll(".tool-progress-spinner, .ant-mark").length, 0);
+  assert.equal(row.querySelectorAll(".ant-mark").length, 0);
   assert.equal(row.querySelectorAll(".tool-status-dot").length, 1);
   // Main's own turn ends while Ara works; Ara's row keeps its running state without logo animation.
   state.detail.runtime.active = false;
@@ -1539,7 +1542,7 @@ test("an async delegation row follows real progress without changing its disclos
   row = document.querySelector(".subagent-step");
   assert.equal(row.open, true);
   assert.equal(row.classList.contains("is-running"), true);
-  assert.equal(row.querySelectorAll(".tool-progress-spinner, .ant-mark").length, 0);
+  assert.equal(row.querySelectorAll(".ant-mark").length, 0);
   assert.equal(document.querySelectorAll(".live-workflow-head").length, 0);
   state.detail.progress.agents[0] = {
     ...state.detail.progress.agents[0],
@@ -1552,7 +1555,7 @@ test("an async delegation row follows real progress without changing its disclos
   assert.equal(row.querySelector(".subagent-status").textContent, "完成 1 分钟 24 秒");
   // Once done the row says what came back instead of what was asked.
   assert.equal(row.querySelector(".tool-subject").textContent, "机构名称全部核对无误。");
-  assert.equal(row.querySelectorAll(".tool-progress-spinner").length, 0);
+  assert.equal(row.querySelectorAll(".tool-step .ant-mark").length, 0);
   state.detail.progress.agents[0].callbackPending = false;
   state.detail.coordination = { calls: [{ callId: "call-one", status: "completed" }] };
   render();

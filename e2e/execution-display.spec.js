@@ -284,12 +284,10 @@ async function saveEvidence(page, name) {
       open: node.open,
       focused: node.querySelector(":scope > summary") === document.activeElement
     })),
-    spinnerAnimations: Array.from(
-      document.querySelectorAll(".thinking-spinner, .tool-progress-spinner"),
-      (node) =>
-        node
-          .getAnimations({ subtree: true })
-          .map((animation) => ({ playState: animation.playState, currentTime: animation.currentTime }))
+    spinnerAnimations: Array.from(document.querySelectorAll(".thinking-spinner"), (node) =>
+      node
+        .getAnimations({ subtree: true })
+        .map((animation) => ({ playState: animation.playState, currentTime: animation.currentTime }))
     )
   }));
   await writeFile(test.info().outputPath(`${name}.json`), JSON.stringify(layout, null, 2));
@@ -399,7 +397,7 @@ test("provider thinking envelopes, failure evidence, raw details and keyboard st
     await expect(history.locator(":scope > summary > strong")).toHaveText("用时 3 分钟 1 秒");
     await expect(history.locator(":scope > summary .history-failures")).toHaveCount(0);
     await expect(page.locator(".turn-endline")).toHaveCount(0);
-    await expect(page.locator(".thinking-spinner, .tool-progress-spinner")).toHaveCount(0);
+    await expect(page.locator(".thinking-spinner")).toHaveCount(0);
     await expect(page.locator('[data-answer-kind="final"]')).toContainText(
       "已按实际工具返回定位路径和语法问题"
     );
@@ -545,18 +543,16 @@ test("reduced motion retains actual busy state and tool progress without rotatin
     await page.locator(".process-segment > summary").click();
     await expect(page.locator(".process-live-state")).toHaveText("运行命令中");
     await expect(page.locator(".tool-step .activity-status").first()).toHaveText("执行中");
-    const spinners = page.locator(".thinking-spinner, .tool-progress-spinner");
-    await expect(spinners).toHaveCount(2);
-    expect(
-      await spinners.evaluateAll((nodes) => nodes.map((node) => node.getAnimations({ subtree: true }).length))
-    ).toEqual([0, 0]);
+    // A running command shows its kind with a still icon; the ant is only for thinking.
+    await expect(page.locator(".thinking-spinner")).toHaveCount(0);
+    await expect(page.locator(".process-segment.is-live > summary .process-segment-icon")).toHaveCount(1);
     await page.evaluate(() => window.executionFixture.append());
     await expect(page.locator(".reasoning-copy > p").first()).toHaveText(headings[0]);
     await expect(page.locator('[data-answer-kind="pending"]')).toHaveAttribute("aria-busy", "true");
     const layout = await saveEvidence(page, "reduced-motion-active");
-    expect(layout.spinnerAnimations).toEqual([[], []]);
+    expect(layout.spinnerAnimations.flat()).toEqual([]);
     await completeFixture(page);
-    await expect(page.locator(".thinking-spinner, .tool-progress-spinner")).toHaveCount(0);
+    await expect(page.locator(".thinking-spinner")).toHaveCount(0);
     await expect(page.locator('[data-answer-kind="pending"]')).toHaveCount(0);
     await expect(page.locator(".execution-history > summary > strong")).toHaveText("用时 3 分钟 1 秒");
     expect(requests).toEqual({ api: [], external: [] });
