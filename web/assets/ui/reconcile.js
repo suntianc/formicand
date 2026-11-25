@@ -42,8 +42,11 @@ function patchNode(node, source) {
   const owned = node.getAttribute("data-ui-owned");
   if (owned && owned === source.getAttribute("data-ui-owned")) return;
   const keepOpen = node.nodeName === "DETAILS" && node.hasAttribute("data-activity-key");
+  const uploadSrc = node.nodeName === "IMG" ? node.getAttribute("data-upload-src") : null;
+  const keepUploadImage = Boolean(uploadSrc) && uploadSrc === source.getAttribute("data-upload-src");
   for (const attribute of [...node.attributes]) {
     if (keepOpen && attribute.name === "open") continue;
+    if (keepUploadImage && (attribute.name === "src" || attribute.name === "data-upload-loaded")) continue;
     if (!source.hasAttribute(attribute.name)) node.removeAttribute(attribute.name);
   }
   for (const attribute of [...source.attributes]) {

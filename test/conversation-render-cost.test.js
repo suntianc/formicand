@@ -180,6 +180,35 @@ test("reconcileRange patches only the requested slice and leaves siblings untouc
   );
 });
 
+test("reconcile preserves hydrated src on img[data-upload-src] until its uploadId changes", () => {
+  const { document } = parseHTML("<!doctype html><html><body><div id=list></div></body></html>");
+  const list = document.getElementById("list");
+  reconcileParts(list, ['<article data-view-key="u1"><img data-upload-src="upload-a" alt="" /></article>']);
+  const image = list.querySelector("img");
+  image.setAttribute("src", "blob:http://127.0.0.1/upload-a");
+  image.setAttribute("data-upload-loaded", "upload-a");
+
+  reconcileRange(
+    list,
+    '<article data-view-key="u1"><img data-upload-src="upload-a" alt="" /><span>after</span></article>',
+    0,
+    1
+  );
+  assert.equal(list.querySelector("img"), image);
+  assert.equal(image.getAttribute("src"), "blob:http://127.0.0.1/upload-a");
+  assert.equal(image.getAttribute("data-upload-loaded"), "upload-a");
+
+  reconcileRange(
+    list,
+    '<article data-view-key="u1"><img data-upload-src="upload-b" alt="" /></article>',
+    0,
+    1
+  );
+  assert.equal(image.getAttribute("data-upload-src"), "upload-b");
+  assert.equal(image.getAttribute("src"), null);
+  assert.equal(image.getAttribute("data-upload-loaded"), null);
+});
+
 test("fingerprint produces compact stable hashes for nested values", () => {
   const a = { list: [1, "two", { nested: true, empty: null }] };
   const b = { list: [1, "two", { nested: true, empty: null }] };

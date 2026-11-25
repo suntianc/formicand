@@ -365,6 +365,7 @@ const conversationView = createConversationView({
         runId ? `&runId=${encodeURIComponent(runId)}` : ""
       }`
     ),
+  hydrateImages: (roots) => backendFiles.hydrateImages(roots),
   showToast
 });
 installSelectionGlide();
@@ -385,8 +386,7 @@ const runControl = createRunControl({
   isContinuing: (taskId) => delivery.isContinuing(taskId)
 });
 function renderConversation(messages, task, options) {
-  const updatedRoot = conversationView.renderConversation(messages, task, options);
-  backendFiles.hydrateImages(updatedRoot || $("#conversation"));
+  conversationView.renderConversation(messages, task, options);
 }
 const syncPageVisibility = () =>
   document.documentElement.classList.toggle("is-page-hidden", Boolean(document.hidden));
