@@ -171,7 +171,6 @@ web/                    页面：原生 ES modules
 desktop/                Electron 主进程、preload、凭据加密、退出保存
 test/                   Node 行为、协议和生命周期测试
 e2e/                    浏览器和 Electron 用户流程测试
-vendor/                 随仓库附带的第三方技能
 ```
 
 构建产物在 `dist/`、`build/` 和 `.tmp/`，改源码后重新构建，不要直接改产物。

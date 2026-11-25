@@ -11,7 +11,6 @@ eslint-suppressions.json
 benchmarks
 agents
 
-vendor/workloop-skills/
 docs/hero/react-bits/
 web/assets/math/generated/
 web/assets/mermaid/generated/

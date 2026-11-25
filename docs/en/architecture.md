@@ -171,7 +171,6 @@ web/                    page, native ES modules
 desktop/                Electron main process, preload, credential encryption, save before quit
 test/                   Node behavior, protocol and lifecycle tests
 e2e/                    browser and Electron user flow tests
-vendor/                 third-party skills shipped with the repository
 ```
 
 Build output lives in `dist/`, `build/` and `.tmp/`. Rebuild after changing source; never edit the output.
