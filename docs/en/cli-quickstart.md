@@ -2,65 +2,22 @@
 
 [简体中文](../cli-quickstart.md) | English
 
-macOS / Linux · Node.js >=22.19.0 · npm
+macOS / Linux · Node.js >=22.19.0 · npm · Git
 
-## Install with npm
+## Install from source
 
-Requires [Node.js ≥22.19.0](https://nodejs.org/en/download) (including npm):
+Requires [Node.js ≥22.19.0](https://nodejs.org/en/download) (including npm) and Git. In a terminal, run:
 
 ```sh
-npm install -g coworkos-app
+git clone https://github.com/suntianc/CoworkOS.git
+cd CoworkOS
+ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm ci
+npm run build:cli
+npm link
 coworkos --version
 ```
 
-Then [connect a model](#connect-a-model). To install the Mac App too, run `coworkos desktop install` on macOS 14+ Apple Silicon.
-
-The npm package owns only the `coworkos` command. If an older global `atria-cowork-cli` installation already owns that command, uninstall that package with npm first; your `~/.atria` configuration and tasks remain. Do not use `--force` to overwrite another package's command.
-
-The [release installer](../../scripts/install.sh) remains available for verified archive installation under `~/.local` with bash / zsh PATH setup. npm installations update with `npm install -g coworkos-app@latest`.
-
-<details>
-<summary>Manual download, verification and installation</summary>
-
-## Open a terminal and check Node.js
-
-On macOS, open Terminal. On Linux, open your system terminal. Run the commands below there.
-
-```sh
-node --version
-npm --version
-```
-
-`node` should print `v22.19.0` or newer; `npm` should print a version number. If either command is missing or Node.js is too old, install a suitable version from [Node.js](https://nodejs.org/en/download), then reopen the terminal and check again.
-
-## Download and install
-
-Download both files from the [public releases](https://github.com/ignorejjj/Atria-Releases/releases) and keep them in the same directory:
-
-- `coworkos-cli-<version>.tgz`
-- `coworkos-cli-<version>.tgz.sha256`
-
-Choose a CoworkOS release. Historical Atria archives only provide `atria`; use the installer above to expose `coworkos` for those versions. The commands below assume the files are in `~/Downloads`. Replace `<version>` with the downloaded version and adjust the directory if needed.
-
-```sh
-cd "$HOME/Downloads"
-archive="coworkos-cli-<version>.tgz"
-# macOS
-shasum -a 256 -c "$archive.sha256"
-# On Linux, use: sha256sum -c "$archive.sha256"
-```
-
-Expect the archive name followed by `OK`. After verification passes, install from the same directory. npm needs network access during installation.
-
-```sh
-npm install --global --prefix "$HOME/.local" "./$archive"
-export PATH="$HOME/.local/bin:$PATH"
-coworkos --version
-```
-
-The last command should print `CoworkOS` and the installed version. The `export PATH` command applies only to this terminal. If a new terminal cannot find `coworkos`, follow the [PATH troubleshooting steps](installation-reference.md#troubleshooting).
-
-</details>
+The last command should print `CoworkOS` and the version. Afterwards, run `coworkos update` in this checkout to follow its upstream branch; see the [development guide](development.md#updating-a-source-checkout).
 
 ## Connect a model
 

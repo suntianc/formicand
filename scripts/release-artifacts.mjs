@@ -5,8 +5,7 @@ import { lstat, readFile, writeFile } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
-import { validateRelease } from "./release-metadata.mjs";
-import { releaseAssetUrl, updateRepository } from "./update-release.mjs";
+import { releaseAssetUrl, releaseRepository, validateRelease } from "./release-metadata.mjs";
 
 const execute = promisify(execFile);
 export const releaseFiles = (version) => ({
@@ -98,16 +97,14 @@ export async function inspectReleaseArtifacts({
 } = {}) {
   const metadata = await validateRelease(root, tag);
   const pkg = JSON.parse(await readFile(join(root, "package.json"), "utf8"));
-  const sourceRepository = updateRepository(pkg.repository);
-  if (repository !== undefined && updateRepository(repository) !== sourceRepository)
+  const sourceRepository = releaseRepository(pkg.repository);
+  if (repository !== undefined && releaseRepository(repository) !== sourceRepository)
     throw new Error(
       "Release repository differs from package.repository; single-repository releases are required"
     );
   const directory = resolve(root, "release");
   const dmg = "CoworkOS-" + metadata.version + "-mac-arm64.dmg";
   const cli = "coworkos-cli-" + metadata.version + ".tgz";
-  const zip = "CoworkOS-" + metadata.version + "-mac-arm64.zip";
-  const feedName = "atria-update-mac-arm64.json";
   const signingName = "CoworkOS-" + metadata.version + "-mac-arm64.signing.json";
   const hasSigning = await exists(join(directory, signingName));
   if (requireSigningReport && !hasSigning)
@@ -120,13 +117,7 @@ export async function inspectReleaseArtifacts({
       metadata.version
     );
   }
-  const signedFiles = [zip, zip + ".sha256", feedName];
-  const present = await Promise.all(signedFiles.map((name) => exists(join(directory, name))));
-  if (present.some(Boolean) && !present.every(Boolean))
-    throw new Error("Signed update ZIP, checksum and feed must be present together");
-  if (mac && mac.developerId !== present.every(Boolean))
-    throw new Error("Mac signing report and Developer ID ZIP/feed distribution disagree");
-  const names = [dmg, dmg + ".sha256", cli, cli + ".sha256", ...(present.every(Boolean) ? signedFiles : [])];
+  const names = [dmg, dmg + ".sha256", cli, cli + ".sha256"];
   const artifacts = await Promise.all(names.map((name) => fingerprint(directory, name)));
 
   if (hasSigning) {
@@ -158,28 +149,11 @@ export async function inspectReleaseArtifacts({
     build.dirty !== false ||
     manifest.name !== "atria-cowork-cli" ||
     manifest.version !== metadata.version ||
-    updateRepository(manifest.repository) !== sourceRepository
+    releaseRepository(manifest.repository) !== sourceRepository
   )
     throw new Error(
       "CLI archive provenance differs from the clean release tag; rebuild from that exact source"
     );
-  if (present.every(Boolean)) {
-    await checkChecksum(directory, lookup(zip));
-    const feed = JSON.parse(await readFile(join(directory, feedName), "utf8"));
-    const release = feed.releases?.[0];
-    const update = release?.updateTo;
-    const expectedUrl = releaseAssetUrl(sourceRepository, tag, zip);
-    if (
-      feed.currentRelease !== metadata.version ||
-      feed.releases?.length !== 1 ||
-      release?.version !== metadata.version ||
-      update?.version !== metadata.version ||
-      update?.url !== expectedUrl ||
-      update?.sha256 !== lookup(zip).sha256 ||
-      update?.size !== lookup(zip).size
-    )
-      throw new Error("Signed update feed differs from the release ZIP, source repository or version");
-  }
   return {
     schemaVersion: 1,
     version: metadata.version,
@@ -205,7 +179,7 @@ export async function renderReleaseNotes(root, manifest) {
     REPOSITORY_URL: repositoryUrl,
     MAC_SIGNING_NOTICE:
       manifest.mac?.developerId === true
-        ? "Developer ID 签名更新产物已生成；公证与 Gatekeeper 安装仍须单独验收。"
+        ? "此包使用 Developer ID 签名；公证与 Gatekeeper 安装仍须单独验收。"
         : "此包使用 ad-hoc 签名，不含 Developer ID 签名或公证。首次打开可能需要在“系统设置 → 隐私与安全性”批准；无需关闭系统安全保护。"
   };
   notes = notes.replace(/\{\{(VERSION|TAG|REPOSITORY_URL|MAC_SIGNING_NOTICE)\}\}/g, (_, key) => values[key]);

@@ -21,7 +21,6 @@
     "lint": "eslint src web desktop scripts .pi e2e --max-warnings=0",
     "desktop:pack": "npm run desktop:prepare && electron-builder --config electron-builder.config.cjs --mac --arm64 --dir",
     "desktop:dist": "npm run desktop:prepare && node scripts/package-mac.mjs",
-    "desktop:npm:pack": "node scripts/package-desktop-npm.mjs",
     "test:desktop": "npm run build:full && node scripts/desktop-smoke.mjs",
     "format": "node scripts/format.mjs --write",
     "format:check": "node scripts/format.mjs",
@@ -45,9 +44,7 @@
     "build:full": "npm run build:base",
     "build:base": "npm run build:cli && npm run build:web-assets && node scripts/build-computer-use.mjs && node scripts/build-desktop-icon.mjs",
     "desktop:prepare": "node scripts/ensure-electron.mjs && npm run build:base",
-    "release:publish:public": "node scripts/public-release-publish.mjs",
-    "release:local": "node scripts/release-local.mjs",
-    "npm:pack": "npm run build:cli && node scripts/package-cli.mjs --npm"
+    "release:local": "node scripts/release-local.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",

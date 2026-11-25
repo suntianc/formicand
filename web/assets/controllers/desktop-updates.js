@@ -45,7 +45,7 @@ export function installDesktopUpdates({ host } = {}) {
   }
 
   function canApply() {
-    return Boolean(state.available || state.downloaded || (state.updated && state.error));
+    return Boolean(state.available || (state.updated && state.error));
   }
 
   function render() {
@@ -53,15 +53,9 @@ export function installDesktopUpdates({ host } = {}) {
     const busy = pending || state.busy === true;
     const source = state.mode === "source";
     const manual = state.installMethod === "manual";
-    const ready = state.downloaded === true;
     const preparing = applying || state.applying === true;
-    const inAppInstall = ["native", "managed"].includes(state.installMethod);
-    const finished = Boolean((state.updated || state.installReady) && !state.error);
-    const editingLocked =
-      finished ||
-      (source && (preparing || state.phase === "updating")) ||
-      (inAppInstall && ready && preparing);
-    lockEditors(Boolean(editingLocked));
+    const finished = Boolean(state.updated && !state.error);
+    lockEditors(Boolean(finished || (source && (preparing || state.phase === "updating"))));
     section.querySelector("[data-update-version]").textContent = state.currentVersion
       ? ui`版本 ${state.currentVersion}${source ? ui(" · 源码开发版") : ""}`
       : ui("版本信息暂不可用");
@@ -75,43 +69,23 @@ export function installDesktopUpdates({ host } = {}) {
       ? ui("正在重新打开…")
       : busy && state.phase === "checking"
         ? ui("检查中…")
-        : busy && state.phase === "downloading"
-          ? ui("下载中…")
-          : busy && preparing
-            ? source
-              ? ui("更新中…")
-              : ui("正在安装…")
-            : canApply()
-              ? source
-                ? ui("更新并重启")
-                : ready
-                  ? inAppInstall
-                    ? ui("重启并安装")
-                    : ui("打开安装器")
-                  : inAppInstall
-                    ? ui("下载更新")
-                    : ui("下载安装器")
-              : ui("检查更新");
+        : busy && preparing
+          ? ui("更新中…")
+          : canApply()
+            ? ui("更新并重启")
+            : ui("检查更新");
     const labels = {
       manual: ui("请使用本地安装包手动升级。"),
       checking: ui("正在检查更新…"),
       "up-to-date": ui("已是最新版本。"),
       updating: ui("正在更新，完成后会重新打开 Formicand。"),
-      downloading: ui("正在下载更新…"),
-      ready:
-        source || state.installReady
-          ? ui("更新完成，正在重新打开 Formicand…")
-          : inAppInstall
-            ? ui("更新已下载，重启即可安装。")
-            : ui("安装器已下载并校验，请打开后将安装包内的 App 拖入 Applications，再重新打开。")
+      ready: ui("更新完成，正在重新打开 Formicand…")
     };
     message.textContent =
       state.phase === "available"
-        ? source
-          ? state.rebuildRequired
-            ? ui("CLI 已更新，需要重新构建 App，可以更新并重启。")
-            : ui("发现新的开发提交，可以更新并重启。")
-          : ui`有新版本 ${state.version}。`
+        ? state.rebuildRequired
+          ? ui("CLI 已更新，需要重新构建 App，可以更新并重启。")
+          : ui("发现新的开发提交，可以更新并重启。")
         : labels[state.phase] || "";
     if (state.phase === "up-to-date" && state.message) message.textContent = state.message;
     message.hidden = !message.textContent;
@@ -120,17 +94,13 @@ export function installDesktopUpdates({ host } = {}) {
         ? state.error.replace(/^Error invoking remote method '[^']+': (?:Error: )?/, "")
         : "";
     error.hidden = !error.textContent;
-    progress.hidden = !busy || !["updating", "downloading"].includes(state.phase);
+    progress.hidden = !busy || state.phase !== "updating";
     if (Number.isFinite(state.progress?.percent)) {
       progress.max = 100;
       progress.value = Math.min(100, Math.max(0, state.progress.percent));
     } else progress.removeAttribute("value");
     notice.hidden = !canApply() || busy || finished;
-    const noticeLabel = source
-      ? ui("发现更新，查看 Formicand 更新")
-      : ready
-        ? ui("更新已下载，查看并重启安装")
-        : ui`发现新版本${state.version ? ` ${state.version}` : ""}，查看 Formicand 更新`;
+    const noticeLabel = ui("发现更新，查看 Formicand 更新");
     notice.setAttribute("aria-label", noticeLabel);
     notice.title = noticeLabel;
   }
@@ -191,15 +161,7 @@ export function installDesktopUpdates({ host } = {}) {
     .then(async (value) => {
       if (disposed) return;
       if (revision === initialRevision) reflect(value);
-      // A completed background download remains installable across page reloads.
-      if (
-        state.installMethod !== "manual" &&
-        !state.downloaded &&
-        !state.busy &&
-        !state.installReady &&
-        !state.updated
-      )
-        await runCheck();
+      if (state.installMethod !== "manual" && !state.busy && !state.updated) await runCheck();
     })
     .catch((failure) => {
       state = { ...state, error: failure?.message || ui("无法读取更新状态") };

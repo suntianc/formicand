@@ -9,19 +9,11 @@ macOS 14+ · Apple Silicon
 <a id="mac-app"></a>
 <a id="before-installing"></a>
 
-## Install through npm
+## Install
 
-With Node.js ≥22.19.0 and npm installed, run:
+In a source checkout, run `npm ci` and `npm run desktop:dist` to get `CoworkOS-<version>-mac-arm64.dmg` in `release/`; open it and drag the App into Applications. You can also run it in development mode with `npm run desktop`, see the [development guide](development.md#environment). If macOS blocks the first launch, follow [Apple's guidance](https://support.apple.com/en-us/102445) in System Settings → Privacy & Security.
 
-```sh
-npx coworkos-app@latest desktop install
-```
-
-The installer downloads the Apple Silicon desktop package from npm and verifies the npm tarball integrity, DMG SHA-256, application identity and signature before installing it in `~/Applications/CoworkOS.app` without administrator access. It preserves macOS security checks. Node.js and npm are needed only for installation; the App includes its own runtime. If macOS blocks the first launch, follow [Apple's guidance](https://support.apple.com/en-us/102445) in System Settings → Privacy & Security.
-
-Upgrade an installed App manually with a local DMG. Back up user data and external projects, finish tasks and stop the standalone backend, then quit the App. Retain the old App, copy the new one into the installation directory and verify your data after launch. See [installation and upgrades](installation-reference.md#updates). The npm first installer does not overwrite an existing App; use `--directory /absolute/path` for another writable installation directory.
-
-Updating or uninstalling the npm CLI affects only the CLI/installer; it does not remove the independent App or user data. This beta has not been notarized by Apple.
+The App has no in-app updater; upgrade manually with a local DMG. Back up user data and external projects, finish tasks and stop the standalone backend, then quit the App. Retain the old App, copy the new one into the installation directory and verify your data after launch. See [installation and upgrades](installation-reference.md#updates). This build has not been notarized by Apple.
 
 ## Connect a model
 

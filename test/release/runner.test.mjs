@@ -158,12 +158,9 @@ test("mixed files retain Web coverage and gate only native variants", async () =
   assert.ok(browser.args.includes("--grep-invert"));
   assert.ok(browser.args.some((arg) => arg.includes("desktop: Main moves between providers")));
   assert.equal(normal.steps.find((step) => step.id === "app-node").env.ATRIA_NATIVE_DESKTOP_TEST, "0");
-  assert.equal(normal.steps.find((step) => step.id === "app-node").env.ATRIA_MANAGED_UPDATE_NATIVE, "0");
-  assert.ok(normal.deferredVariants.some((variant) => variant.file === "test/desktop-update-install.test.js"));
-  assert.equal(normal.deferredVariants.length, 3);
+  assert.equal(normal.deferredVariants.length, 2);
   const native = await loadPlan(root, parseOptions(["--native"]), "darwin");
   assert.equal(native.steps.find((step) => step.id === "app-node").env.ATRIA_NATIVE_DESKTOP_TEST, "1");
-  assert.equal(native.steps.find((step) => step.id === "app-node").env.ATRIA_MANAGED_UPDATE_NATIVE, "1");
   assert.ok(!native.steps.find((step) => step.id === "app-browser").args.includes("--grep-invert"));
   assert.equal(native.deferredVariants.length, 0);
 });

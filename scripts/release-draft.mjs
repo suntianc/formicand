@@ -2,14 +2,13 @@ import { execFile } from "node:child_process";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
-import { validateRelease } from "./release-metadata.mjs";
+import { releaseRepository, validateRelease } from "./release-metadata.mjs";
 import { releaseFiles, verifyReleaseArtifacts } from "./release-artifacts.mjs";
-import { updateRepository } from "./update-release.mjs";
 
 const execute = promisify(execFile);
 
 export async function readReleaseDraft({ repository, tag, commandRunner = execute }) {
-  repository = updateRepository(repository);
+  repository = releaseRepository(repository);
   let response;
   try {
     response = await commandRunner("gh", [
@@ -117,7 +116,7 @@ if (process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.m
     if (action === "check") {
       if (args.length) throw new Error("--replace-notes requires upload");
       const metadata = await validateRelease(process.cwd(), process.env.RELEASE_TAG);
-      const repository = updateRepository(process.env.GITHUB_REPOSITORY);
+      const repository = releaseRepository(process.env.GITHUB_REPOSITORY);
       const draft = await readReleaseDraft({ repository, tag: metadata.tag });
       console.log(
         draft

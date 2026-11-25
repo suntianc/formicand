@@ -9,6 +9,24 @@ const semver = new RegExp(
   `^${numeric}\\.${numeric}\\.${numeric}(?:-${prerelease}(?:\\.${prerelease})*)?(?:\\+[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?$`
 );
 
+/** The GitHub owner/repo a release belongs to, from a package.json repository or a plain value. */
+export function releaseRepository(value) {
+  const raw = typeof value === "object" && value ? value.url : value;
+  const repository = String(raw ?? "")
+    .replace(/^git\+/, "")
+    .replace(/^https:\/\/github\.com\//, "")
+    .replace(/^git@github\.com:/, "")
+    .replace(/\.git$/, "")
+    .replace(/\/$/, "");
+  if (!/^[A-Za-z0-9][A-Za-z0-9_.-]*\/[A-Za-z0-9][A-Za-z0-9_.-]*$/.test(repository))
+    throw new Error("未配置有效的 GitHub 仓库；package.json 的 repository 应为 owner/repo");
+  return repository;
+}
+
+export function releaseAssetUrl(repository, tag, name) {
+  return `https://github.com/${releaseRepository(repository)}/releases/download/${encodeURIComponent(tag)}/${encodeURIComponent(name)}`;
+}
+
 export function releaseMetadata(version, lockVersion, tag) {
   if (typeof version !== "string" || /[\r\n]/.test(version) || !semver.test(version))
     throw new Error("Package version must be a release version with no path or shell characters");

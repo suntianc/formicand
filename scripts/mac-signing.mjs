@@ -108,3 +108,14 @@ export async function verifyMacApplication({ appPath, version, mode, commandRunn
     parent
   };
 }
+
+export async function verifyDeveloperIdApplication(appPath, commandRunner = execute) {
+  try {
+    await commandRunner("/usr/bin/codesign", ["--verify", "--deep", "--strict", appPath]);
+    const result = await commandRunner("/usr/bin/codesign", ["--display", "--verbose=4", appPath]);
+    if (!/^Authority=Developer ID Application:/m.test(`${result.stdout ?? ""}\n${result.stderr ?? ""}`))
+      throw new Error("Developer ID Application certificate required");
+  } catch {
+    throw new Error("Developer ID signing requires a valid Developer ID Application signature");
+  }
+}

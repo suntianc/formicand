@@ -19,11 +19,6 @@ const args = process.argv.slice(2);
 const command = args.shift() || "start";
 
 async function help(topic) {
-  if (topic === "desktop") {
-    const { runDesktop } = await import("./desktop.mjs");
-    await runDesktop({ args: ["--help"] });
-    return;
-  }
   if (topic === "init") {
     console.log(`Usage: coworkos init [--base-url URL] [--model ID] [--api-key-env NAME]
   --images                   Enable image input
@@ -470,11 +465,7 @@ try {
       );
     await sessionExport(args);
   } else if (exportArgs) await sessionExport(exportArgs);
-  else if (command === "desktop") {
-    requireNode();
-    const { runDesktop } = await import("./desktop.mjs");
-    await runDesktop({ root: harness, args });
-  } else if (command === "backend") {
+  else if (command === "backend") {
     requireNode();
     const { runBackendCommand } = await import("../dist/src/cli/backend.js");
     process.exitCode = await runBackendCommand(args);

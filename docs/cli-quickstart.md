@@ -2,65 +2,22 @@
 
 简体中文 | [English](en/cli-quickstart.md)
 
-macOS / Linux · Node.js >=22.19.0 · npm
+macOS / Linux · Node.js >=22.19.0 · npm · Git
 
-## 通过 npm 安装
+## 从源码安装
 
-需要 [Node.js ≥22.19.0](https://nodejs.org/en/download)（含 npm）：
+需要 [Node.js ≥22.19.0](https://nodejs.org/en/download)（含 npm）和 Git。在终端运行：
 
 ```sh
-npm install -g coworkos-app
+git clone https://github.com/suntianc/CoworkOS.git
+cd CoworkOS
+ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm ci
+npm run build:cli
+npm link
 coworkos --version
 ```
 
-然后继续[连接模型](#连接模型)。macOS 14+ Apple Silicon 用户还可运行 `coworkos desktop install` 安装桌面 App。
-
-npm 包仅持有 `coworkos` 命令。若旧版全局 `atria-cowork-cli` 已持有同名命令，先用 npm 卸载旧包；`~/.atria` 配置和任务会保留。不要用 `--force` 覆盖其他包的命令。
-
-[发行版安装脚本](../scripts/install.sh)仍可校验并安装发行包到 `~/.local`，配置 bash / zsh 命令路径。npm 安装使用 `npm install -g coworkos-app@latest` 更新。
-
-<details>
-<summary>手动下载、校验与安装</summary>
-
-## 打开终端并检查 Node.js
-
-macOS 打开“终端”（Terminal）；Linux 打开系统终端。以下命令在终端中运行。
-
-```sh
-node --version
-npm --version
-```
-
-`node` 应显示 `v22.19.0` 或更高版本，`npm` 应显示版本号。若命令不存在或 Node.js 版本过低，先从 [Node.js 官网](https://nodejs.org/en/download)安装符合要求的版本，再重新打开终端检查。
-
-## 下载并安装
-
-从[公开下载页](https://github.com/ignorejjj/Atria-Releases/releases)下载以下两个文件，放在同一目录：
-
-- `coworkos-cli-<version>.tgz`
-- `coworkos-cli-<version>.tgz.sha256`
-
-选择 CoworkOS 发行版。历史 Atria 安装包只提供 `atria`；安装历史版本时请使用上方安装脚本补充 `coworkos` 命令。以下假定文件保存在 `~/Downloads`；将 `<version>` 替换为实际下载的版本号，必要时调整目录。
-
-```sh
-cd "$HOME/Downloads"
-archive="coworkos-cli-<version>.tgz"
-# macOS
-shasum -a 256 -c "$archive.sha256"
-# Linux 改用：sha256sum -c "$archive.sha256"
-```
-
-应看到安装包文件名及 `OK`。校验通过后，仍在此目录安装；npm 安装期间需要联网。
-
-```sh
-npm install --global --prefix "$HOME/.local" "./$archive"
-export PATH="$HOME/.local/bin:$PATH"
-coworkos --version
-```
-
-最后一条命令应输出 `CoworkOS` 和实际安装的版本号。`export PATH` 只对当前终端生效；新终端找不到 `coworkos` 时，按[PATH 排错步骤](installation-reference.md#常见问题)设置。
-
-</details>
+最后一条命令应输出 `CoworkOS` 和版本号。之后在这个检出里运行 `coworkos update` 跟随上游分支更新，见 [开发指南](development.md#更新源码检出)。
 
 ## 连接模型
 

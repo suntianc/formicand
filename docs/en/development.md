@@ -75,7 +75,7 @@ npm run cli -- update --check
 npm run cli -- update
 ```
 
-The target is CoworkOS's real Git checkout, even when `coworkos` is invoked from another project. The current branch must have an upstream; checks fetch that upstream and compare commits, so a newer commit can be available with the same package version. Detached HEAD, merge/rebase in progress, tracked changes, nonignored untracked files, local-only commits and divergence block updates. Source installations follow their upstream branch; `--channel` applies only to installed release packages.
+The target is CoworkOS's real Git checkout, even when `coworkos` is invoked from another project. The current branch must have an upstream; checks fetch that upstream and compare commits, so a newer commit can be available with the same package version. Detached HEAD, merge/rebase in progress, tracked changes, nonignored untracked files, local-only commits and divergence block updates. Source installations follow their upstream branch; installed packages have no updater.
 
 The CLI prepares `build:cli`; the development App prepares full `build` through Settings → Updates. If the CLI has synchronized the latest commit but the App build is still pending, the App can offer and prepare a full rebuild at that same commit. A Web host should be stopped, updated, then restarted with `npm run ui` to prepare its full browser build.
 
@@ -83,11 +83,11 @@ Candidate dependencies and builds run in an isolated temporary source directory.
 
 Publication failures attempt rollback; concurrent edits or rollback failures retain recovery copies and report manual recovery. Ignored user settings/tasks are neither copied into the candidate nor cleaned. The updater does not reset, stash or clean your checkout.
 
-The App checks for an update once after startup and applies only on request. Application flush, running-task checks and backend shutdown belong to the desktop host. Rebuild/relaunch applies the prepared code; an interrupted/failed update must not be reported as installed. Update tests use local Git remotes or fake release responses, with no real repository mutation or release publication.
+The App checks for an update once after startup and applies only on request. Application flush, running-task checks and backend shutdown belong to the desktop host. Rebuild/relaunch applies the prepared code; an interrupted/failed update must not be reported as installed. Update tests use local Git remotes, with no real repository mutation or release publication.
 
 The development App uses a separate [restart helper](../../scripts/restart-development.mjs) to wait for the old process to exit, refresh the development entry and start the new build. If an older development launcher lacks toolchain metadata, quit the App and refresh it with `npm run desktop` or `npm run desktop:install-dev` before using in-app updates. The host reports this prerequisite before changing source files.
 
-The update implementations are [source transaction](../../scripts/update-source.mjs), [CLI dispatcher](../../scripts/update.mjs), [npm desktop package transport](../../scripts/update-npm-desktop.mjs), [legacy Release download/install](../../scripts/update-release.mjs), [desktop lifecycle](../../desktop/updates.cjs) and [UI](../../web/assets/controllers/desktop-updates.js). Start with `test/source-update.test.js`, `test/development-restart.test.js`, `test/update-npm-desktop.test.js`, `test/package-desktop-npm.test.js`, `test/update-release.test.js`, `test/desktop-updates.test.js` and `e2e/desktop-updates.spec.js`, then run relevant verification. Release feed generation and signing guards are covered by `scripts/update-feed.mjs` and `test/update-feed.test.js`. CLI packages must ship their imported update scripts; desktop-only dependencies do not belong in the CLI bundle.
+The update implementations are [source transaction](../../scripts/update-source.mjs), [CLI dispatcher](../../scripts/update.mjs), [desktop lifecycle](../../desktop/updates.cjs) and [UI](../../web/assets/controllers/desktop-updates.js). Start with `test/source-update.test.js`, `test/development-restart.test.js`, `test/desktop-updates.test.js` and `e2e/desktop-updates.spec.js`, then run relevant verification. CLI packages must ship their imported update scripts; desktop-only dependencies do not belong in the CLI bundle.
 
 ## Daily change workflow
 

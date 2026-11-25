@@ -42,13 +42,7 @@ async function bridge(page, mode, installMethod, options = {}) {
         applyUpdate: () => {
           window.__updateCalls.push(["apply"]);
           if (window.__updateError) return Promise.reject(new Error(window.__updateError));
-          const installing = ["native", "managed"].includes(installMethod) && state.downloaded;
-          state = {
-            ...state,
-            phase: mode === "source" ? "updating" : installing ? "ready" : "downloading",
-            busy: true,
-            applying: installing
-          };
+          state = { ...state, phase: "updating", busy: true };
           listener?.(state);
           if (window.__updateErrorAfterStart)
             return Promise.reject(new Error(window.__updateErrorAfterStart));
@@ -58,11 +52,9 @@ async function bridge(page, mode, installMethod, options = {}) {
                 ...state,
                 phase: "ready",
                 busy: false,
-                downloaded: mode !== "source",
-                available: mode !== "source",
-                updated: mode === "source",
-                needsRelaunch: mode === "source" || installing,
-                installReady: Boolean(installing),
+                available: false,
+                updated: true,
+                needsRelaunch: true,
                 applying: false
               };
               listener?.(state);
@@ -122,34 +114,6 @@ test("source App checks once and updates with progress while keeping saved draft
     await overview.locator("#settings-back").click();
     await expect(overview).toBeHidden();
     await expect(page.locator("#composer-input")).toHaveValue("保留这份更新前的草稿");
-  } finally {
-    await dashboard.stop();
-  }
-});
-
-test("release App has one update action and downloads without freezing editing", async ({ page }) => {
-  const dashboard = await startDashboard();
-  try {
-    await bridge(page, "release", "managed");
-    await page.goto(dashboard.base);
-    await page.locator("#user-menu-button").click();
-    await expect(page.locator("[data-update-message]")).toContainText("0.1.2");
-    await expect(page.locator("[data-update-channel]")).toHaveCount(0);
-    await expect(page.locator(".desktop-updates button")).toHaveCount(1);
-    expect(await page.evaluate(() => window.__updateCalls)).toEqual([["check", {}]]);
-    await page.getByRole("button", { name: "下载更新", exact: true }).click();
-    await page.evaluate(() => window.__updateStatus({ progress: { percent: 42 } }));
-    await expect(page.locator("[data-update-progress]")).toBeVisible();
-    await expect(page.locator("[data-update-progress]")).toHaveAttribute("value", "42");
-    await expect(page.locator("#settings-back")).toBeEnabled();
-    expect(await page.locator(".app-shell").evaluate((node) => node.inert)).toBe(false);
-    await page.locator("#settings-back").click();
-    await page.locator("#composer-input").fill("下载期间仍可编辑");
-    await page.evaluate(() => window.__finishUpdate());
-    await page.locator("[data-update-notice]").click();
-    await expect(page.getByRole("button", { name: "重启并安装", exact: true })).toBeFocused();
-    await expect(page.locator("[data-update-message]")).toContainText("重启即可安装");
-    await expect(page.locator("#composer-input")).toHaveValue("下载期间仍可编辑");
   } finally {
     await dashboard.stop();
   }
@@ -222,43 +186,12 @@ test("a reloaded source App waits for backend recovery and then offers restart r
   }
 });
 
-for (const installMethod of ["managed", "native"]) {
-  test(`${installMethod} App protects drafts only during a separate restart and install`, async ({
-    page
-  }) => {
-    const dashboard = await startDashboard();
-    try {
-      await bridge(page, "release", installMethod);
-      await page.goto(dashboard.base);
-      await page.locator("#composer-input").fill("安装前保留的草稿");
-      await page.locator("#user-menu-button").click();
-      await expect(page.locator("[data-update-apply]")).toHaveText("下载更新");
-      await page.locator("[data-update-apply]").click();
-      await expect(page.locator("#settings-back")).toBeEnabled();
-      await page.evaluate(() => window.__finishUpdate());
-      await expect(page.locator("[data-update-apply]")).toHaveText("重启并安装");
-      await expect(page.locator("#settings-back")).toBeEnabled();
-      await page.locator("[data-update-apply]").click();
-      await expect(page.locator("#settings-back")).toBeDisabled();
-      expect(await page.locator(".app-shell").evaluate((node) => node.inert)).toBe(true);
-      await page.keyboard.press("Escape");
-      await expect(page.locator("#settings-entry")).toBeVisible();
-      await page.evaluate(() => window.__finishUpdate());
-      await expect(page.locator("[data-update-message]")).toContainText("重新打开");
-      await expect(page.locator("[data-update-notice]")).toBeHidden();
-      await expect(page.locator("#composer-input")).toHaveValue("安装前保留的草稿");
-    } finally {
-      await dashboard.stop();
-    }
-  });
-}
-
 test("automatic update events show a circular reminder above settings with keyboard access", async ({
   page
 }, testInfo) => {
   const dashboard = await startDashboard();
   try {
-    await bridge(page, "release", "managed", { availableOnCheck: false });
+    await bridge(page, "source", "source", { availableOnCheck: false });
     await page.goto(dashboard.base);
     const notice = page.locator("[data-update-notice]");
     await expect(notice).toBeHidden();
@@ -272,7 +205,7 @@ test("automatic update events show a circular reminder above settings with keybo
     );
     await expect(notice).toBeVisible();
     await expect(page.locator("#settings-entry")).toBeHidden();
-    await expect(notice).toHaveAccessibleName("发现新版本 0.1.3，查看 Formicand 更新");
+    await expect(notice).toHaveAccessibleName("发现更新，查看 Formicand 更新");
     await expect(notice).toHaveCSS("border-radius", "50%");
     // The reminder uses the theme text token; assert the resolved token, not a literal.
     const reminderBackground = await page.evaluate(() => {
@@ -293,7 +226,7 @@ test("automatic update events show a circular reminder above settings with keybo
     await notice.focus();
     await page.keyboard.press("Enter");
     await expect(page.locator("#settings-entry")).toBeVisible();
-    await expect(page.getByRole("button", { name: "下载更新", exact: true })).toBeFocused();
+    await expect(page.getByRole("button", { name: "更新并重启", exact: true })).toBeFocused();
     expect(await page.evaluate(() => window.__updateCalls)).toEqual([["check", {}]]);
     await page.keyboard.press("Escape");
     await expect(page.locator("#settings-entry")).toBeHidden();
@@ -308,7 +241,7 @@ test("automatic update events show a circular reminder above settings with keybo
 test("idle settings offer a single check action and check failures remain retryable", async ({ page }) => {
   const dashboard = await startDashboard();
   try {
-    await bridge(page, "release", "managed", { availableOnCheck: false });
+    await bridge(page, "source", "source", { availableOnCheck: false });
     await page.goto(dashboard.base);
     await page.locator("#user-menu-button").click();
     const check = page.getByRole("button", { name: "检查更新", exact: true });
@@ -337,89 +270,17 @@ test("idle settings offer a single check action and check failures remain retrya
   }
 });
 
-test("a ready update survives initial state loading and an installation failure unlocks drafts", async ({
-  page
-}) => {
-  const dashboard = await startDashboard();
-  try {
-    await bridge(page, "release", "managed", {
-      initial: {
-        phase: "ready",
-        downloaded: true,
-        available: true,
-        version: "0.1.3"
-      }
-    });
-    await page.goto(dashboard.base);
-    await expect(page.locator("[data-update-notice]")).toBeVisible();
-    expect(await page.evaluate(() => window.__updateCalls)).toEqual([]);
-    await page.locator("#composer-input").fill("失败后保留这份草稿");
-    await page.locator("[data-update-notice]").click();
-    await page.evaluate(() => {
-      window.__updateError = "无法启动安装，请重试";
-    });
-    await page.getByRole("button", { name: "重启并安装", exact: true }).click();
-    await expect(page.locator("[data-update-error]")).toContainText("无法启动安装");
-    await expect(page.locator("#settings-back")).toBeEnabled();
-    expect(await page.locator(".app-shell").evaluate((node) => node.inert)).toBe(false);
-    await page.evaluate(() =>
-      window.__updateStatus({ installReady: true, phase: "error", error: "安装失败，请重试" })
-    );
-    await expect(page.locator("#settings-back")).toBeEnabled();
-    await expect(page.getByRole("button", { name: "重启并安装", exact: true })).toBeEnabled();
-    await page.keyboard.press("Escape");
-    await page.locator("#composer-input").fill("安装失败后仍能编辑");
-    await expect(page.locator("#composer-input")).toHaveValue("安装失败后仍能编辑");
-  } finally {
-    await dashboard.stop();
-  }
-});
-
-test("a failed managed download clears transient busy state and can resume without losing a draft", async ({
-  page
-}) => {
-  const dashboard = await startDashboard();
-  try {
-    await bridge(page, "release", "managed");
-    await page.goto(dashboard.base);
-    await page.locator("#composer-input").fill("下载失败仍保留的草稿");
-    await page.locator("[data-update-notice]").click();
-    await page.evaluate(() => {
-      window.__updateErrorAfterStart = "下载连接已断开，请重试";
-    });
-    const download = page.getByRole("button", { name: "下载更新", exact: true });
-    await download.click();
-    await expect(page.locator("[data-update-error]")).toContainText("下载连接已断开");
-    await expect(download).toBeEnabled();
-    await expect(page.locator("[data-update-progress]")).toBeHidden();
-    await expect(page.locator("#settings-back")).toBeEnabled();
-    expect(await page.locator(".app-shell").evaluate((node) => node.inert)).toBe(false);
-    await page.evaluate(() => {
-      window.__updateErrorAfterStart = undefined;
-    });
-    await download.click();
-    await expect(page.locator("[data-update-error]")).toBeHidden();
-    await expect(page.locator("[data-update-progress]")).toBeVisible();
-    await page.evaluate(() => window.__finishUpdate());
-    await expect(page.getByRole("button", { name: "重启并安装", exact: true })).toBeEnabled();
-    await page.keyboard.press("Escape");
-    await expect(page.locator("#composer-input")).toHaveValue("下载失败仍保留的草稿");
-  } finally {
-    await dashboard.stop();
-  }
-});
-
 test("update details stay reachable on narrow screens", async ({ page }, testInfo) => {
   const dashboard = await startDashboard();
   try {
-    await bridge(page, "release", "managed");
+    await bridge(page, "source", "source");
     await page.goto(dashboard.base);
     for (const width of [640]) {
       await page.setViewportSize({ width, height: 600 });
       await page.locator("[data-update-notice]").click();
       const dialog = page.locator("#settings-entry");
       await expect(dialog).toBeVisible();
-      const action = page.getByRole("button", { name: "下载更新", exact: true });
+      const action = page.getByRole("button", { name: "更新并重启", exact: true });
       await expect(action).toBeInViewport();
       expect(await dialog.evaluate((node) => node.scrollWidth <= node.clientWidth)).toBe(true);
       expect(

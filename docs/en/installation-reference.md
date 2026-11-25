@@ -6,13 +6,13 @@ For first installation, see the [Mac App](getting-started.md) or [CLI quickstart
 
 ## Name and compatibility
 
-The product is now CoworkOS, with the same logo. `coworkos` is the primary command; Release archives retain `atria` as a compatibility alias. The npm package exposes only `coworkos`.
+The product is now CoworkOS, with the same logo. `coworkos` is the primary command, with `atria` kept as a compatibility alias.
 
 Starting the CLI or running `coworkos doctor` refreshes legacy search adapters to the current runtime path. Only product-owned scripts are replaced; user-installed tools and symbolic links are preserved.
 
-The existing `~/.atria/` home, `ATRIA_*` environment variables, desktop bundle ID, system keychain identity and persisted format identifiers remain stable. Existing configuration and tasks need no migration. GitHub repository URLs and historical release assets retain their real addresses. New builds use the CoworkOS application name and `coworkos-cli` archive name (the Release archive retains its internal package name `atria-cowork-cli` for upgrade ownership; the npm registry package is `coworkos-app`), and can read legacy update assets.
+The existing `~/.atria/` home, `ATRIA_*` environment variables, desktop bundle ID, system keychain identity and persisted format identifiers remain stable. Existing configuration and tasks need no migration. New builds use the CoworkOS application name and `coworkos-cli` archive name (the archive keeps its internal package name `atria-cowork-cli`).
 
-An older App's update URL is stored in its binary. Current installed Apps use a local DMG for manual upgrades; existing user data stays in its data directory.
+Installed Apps have no in-app updater and are upgraded manually with a local DMG; existing user data stays in its data directory.
 
 The old source updater also rejects the new project name. For the first rename upgrade, save documents and finish tasks, then run `git pull --ff-only`, `npm ci` and `npm run build` in a clean checkout with an upstream branch, and restart. The new updater accepts the one-way transition from `cowork-harness` to `coworkos`, while rejecting unrelated project identities and the reverse rename.
 
@@ -26,17 +26,9 @@ Upgrade the Mac App manually from a local DMG:
 2. Verify the DMG SHA-256 and open it. Rename the old App to retain it, then drag the new App to the original installation directory. App resources and user data are separate.
 3. Open the new App and check connections, conversations, attachments and settings. If startup or data validation fails, quit the new App, restore the retained old App and any needed data backup, and retry.
 
-See [development](development.md#standalone-backend) for standalone backend start, status and stop. Production signing, notarization and automatic updates belong to P6.
+See [development](development.md#standalone-backend) for standalone backend start, status and stop.
 
-For an npm installation, exit the CLI and update with:
-
-```sh
-npm install -g coworkos-app@latest
-```
-
-`coworkos update --check` checks the npm tag; `coworkos update` prints the matching npm command. The npm installer never replaces the independent desktop App; upgrade the App manually as above.
-
-For a Release archive or source installation, exit the interactive interface first, then run these commands in your system terminal:
+For a source installation, exit the interactive interface first, then run these commands in your system terminal:
 
 ```sh
 coworkos update --check
@@ -44,7 +36,7 @@ coworkos update
 coworkos --version
 ```
 
-`--check` only checks; it does not install. After `update` completes, the next launch uses the new version. Upgrade non-global CLI installations with their original package manager. For source checkout requirements and commands, see [development](development.md#updating-a-source-checkout).
+`--check` only checks; it does not install. After `update` completes, the next launch uses the new version. For source checkout requirements, see [development](development.md#updating-a-source-checkout). A CLI archive you packaged yourself has no updater; install the newer archive instead.
 
 ## Data and backups
 
@@ -71,52 +63,33 @@ Continue with CLI installation after both commands print version numbers.
 
 ### `coworkos: command not found`
 
-If you installed to `~/.local` using the quickstart, run this in the current terminal:
+`npm link` puts the command in npm's global `bin` directory. Show that directory:
 
 ```sh
-export PATH="$HOME/.local/bin:$PATH"
-coworkos --version
+echo "$(npm prefix -g)/bin"
 ```
 
-To keep PATH in new terminals, choose the command for your shell below and add it once. Run `echo "$SHELL"` if you need to check your shell.
-
-zsh (the macOS default):
+Add it to PATH once, choosing the line for your shell (check with `echo "$SHELL"`):
 
 ```sh
-printf '%s\n' 'export PATH="$HOME/.local/bin:$PATH"' >> "$HOME/.zshrc"
+# zsh (macOS default)
+printf '%s\n' "export PATH=\"$(npm prefix -g)/bin:\$PATH\"" >> "$HOME/.zshrc"
+# bash (common on Linux)
+printf '%s\n' "export PATH=\"$(npm prefix -g)/bin:\$PATH\"" >> "$HOME/.bashrc"
 ```
 
-bash (common in Linux terminals):
+Open a new terminal and run `coworkos --version` to confirm.
+
+### `npm link` reports a permission error
+
+When npm's global directory is not writable, move it to your home directory and run the link again in the source checkout:
 
 ```sh
-printf '%s\n' 'export PATH="$HOME/.local/bin:$PATH"' >> "$HOME/.bashrc"
+npm config set prefix "$HOME/.local"
+npm link
 ```
 
-Open a new terminal and confirm with `coworkos --version`.
-
-### Installation or checksum verification reports `ENOENT` / `No such file or directory`
-
-Enter the folder where you saved the archive and check that both files exist. Replace the first path if you did not save them in `~/Downloads`:
-
-```sh
-cd "$HOME/Downloads"
-ls coworkos-cli-0.1.2-beta.12.tgz coworkos-cli-0.1.2-beta.12.tgz.sha256
-```
-
-The version in the file names must match your download. If a file is missing, download it again from [CLI setup](cli-quickstart.md#download-and-install), then verify and install. If verification prints `FAILED`, download both files again and install only after verification passes.
-
-### Global npm installation reports a permission error
-
-If the error points to a system global installation directory, install into your user directory instead. Run this from the folder containing the archive:
-
-```sh
-archive="coworkos-cli-<version>.tgz"
-npm install --global --prefix "$HOME/.local" "./$archive"
-export PATH="$HOME/.local/bin:$PATH"
-coworkos --version
-```
-
-If downloading a platform dependency fails, restore network access and rerun the installation command. Do not skip installation scripts with `--ignore-scripts`.
+Then add `$HOME/.local/bin` to PATH as above. Do not install with `sudo`.
 
 ### `配置已存在，未覆盖` (configuration exists; not overwritten)
 

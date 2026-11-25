@@ -6,8 +6,12 @@ import { createHash } from "node:crypto";
 import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { releaseMetadata } from "./release-metadata.mjs";
-import { macUpdateArtifacts, verifyDeveloperIdApplication, writeMacUpdateFeed } from "./update-feed.mjs";
-import { macPackagingArguments, macPackagingEnvironment, verifyMacApplication } from "./mac-signing.mjs";
+import {
+  macPackagingArguments,
+  macPackagingEnvironment,
+  verifyDeveloperIdApplication,
+  verifyMacApplication
+} from "./mac-signing.mjs";
 
 if (process.platform !== "darwin" || process.arch !== "arm64")
   throw new Error("Mac packaging currently requires an Apple Silicon Mac");
@@ -22,19 +26,8 @@ if (lock.packages?.[""]?.version !== version)
 const packaging = macPackagingEnvironment();
 const signingConfigured = packaging.mode === "developer-id";
 const appPath = resolve(".tmp/release/mac-arm64/CoworkOS.app");
-const archive = resolve(`release/CoworkOS-${version}-mac-arm64.zip`);
 const signingReport = resolve(`release/CoworkOS-${version}-mac-arm64.signing.json`);
-const feed = resolve("release/atria-update-mac-arm64.json");
-const updateMetadata = signingConfigured
-  ? macUpdateArtifacts({
-      version,
-      lockVersion: lock.version,
-      tag,
-      repository: process.env.ATRIA_UPDATE_REPOSITORY ?? process.env.GITHUB_REPOSITORY ?? pkg.repository
-    })
-  : undefined;
-// Never upload an old signed update alongside a newly generated unsigned DMG.
-for (const path of [archive, `${archive}.sha256`, feed, signingReport]) await rm(path, { force: true });
+await rm(signingReport, { force: true });
 console.log(signingConfigured ? "Building the Developer ID app" : "Building the ad-hoc beta app");
 const { stdout } = await exec(process.execPath, macPackagingArguments(process.cwd(), packaging.mode), {
   maxBuffer: 4 * 1024 * 1024,
@@ -83,16 +76,6 @@ try {
   for await (const chunk of createReadStream(output)) digest.update(chunk);
   await writeFile(`${output}.sha256`, `${digest.digest("hex")}  ${output.split("/").at(-1)}\n`);
   console.log(`Mac package ready: ${output}`);
-  if (signingConfigured) {
-    await exec("/usr/bin/ditto", ["-c", "-k", "--sequesterRsrc", "--keepParent", appPath, archive]);
-    await exec("/usr/bin/unzip", ["-tq", archive]);
-    const metadata = await writeMacUpdateFeed({ archive, ...updateMetadata });
-    console.log(`Signed Mac update ready: ${metadata.archive}\nUpdate feed: ${metadata.feed}`);
-  } else {
-    console.log(
-      "Ad-hoc beta distribution: DMG only, not notarized; native ZIP updates require Developer ID signing."
-    );
-  }
 } finally {
   await rm(staging, { recursive: true, force: true });
 }
