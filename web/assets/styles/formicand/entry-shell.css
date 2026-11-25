@@ -496,7 +496,21 @@ html[data-theme] .sidebar-bottom .account-icon {
   width: 16px;
   height: 16px;
 }
-/* Settings is one round button at the foot's right edge. */
+/* Settings is one round glass button floating at the foot's right edge. */
+html[data-theme] {
+  --settings-glass-fill: linear-gradient(180deg, #ffffff24, #ffffff0a);
+  --settings-glass-fill-hover: linear-gradient(180deg, #ffffff33, #ffffff14);
+  --settings-glass-edge: #ffffff24;
+  --settings-glass-shine: #ffffff2e;
+  --settings-glass-lift: 0 1px 2px #00000066, 0 8px 22px #00000073;
+}
+html[data-theme="light"] {
+  --settings-glass-fill: linear-gradient(180deg, #ffffffe6, #ffffff8c);
+  --settings-glass-fill-hover: linear-gradient(180deg, #fffffff2, #ffffffb3);
+  --settings-glass-edge: #18181b1a;
+  --settings-glass-shine: #ffffff;
+  --settings-glass-lift: 0 1px 2px #18181b14, 0 8px 22px #18181b24;
+}
 html[data-theme] .conversation-sidebar > .sidebar-bottom {
   display: flex;
   align-items: center;
@@ -514,19 +528,26 @@ html[data-theme] .sidebar-settings {
   width: 36px;
   height: 36px;
   padding: 0;
-  border: 1px solid var(--color-line-strong);
+  border: 1px solid var(--settings-glass-edge);
   border-radius: 18px;
   color: var(--color-text-2);
-  background: var(--color-surface-2);
+  background: var(--settings-glass-fill);
+  box-shadow:
+    inset 0 1px 0 var(--settings-glass-shine),
+    var(--settings-glass-lift);
+  backdrop-filter: blur(16px) saturate(1.6);
   cursor: pointer;
   transition:
     color var(--motion-fast) var(--ease-standard),
-    background-color var(--motion-fast) var(--ease-standard);
+    transform var(--motion-fast) var(--ease-standard);
 }
 html[data-theme] .sidebar-settings:hover,
 html[data-theme] .sidebar-settings[aria-expanded="true"] {
   color: var(--color-text);
-  background: var(--color-surface-3);
+  background: var(--settings-glass-fill-hover);
+}
+html[data-theme] .sidebar-settings:hover {
+  transform: translateY(-1px);
 }
 html[data-theme] .sidebar-settings .ui-icon {
   width: 18px;

@@ -72,12 +72,17 @@ export function createNewSessionView({ state, $, onSelectProject = () => {}, onA
     const before = composer?.getBoundingClientRect();
     pane.classList.toggle("is-new-session", composing);
     if (!composer || !before?.height) return;
-    const shift = before.top - composer.getBoundingClientRect().top;
-    if (Math.abs(shift) < 2) return;
-    animate(composer, [{ transform: `translateY(${shift}px)` }, { transform: "none" }], {
-      duration: motionDuration("--motion-layout", 240),
-      easing:
-        getComputedStyle(document.documentElement).getPropertyValue("--ease-standard").trim() || "ease-out"
+    // The conversation above the composer is swapped later in this same turn
+    // (old messages out, the question in), so its landing place is only known
+    // on the next frame, which still comes before anything is painted.
+    requestAnimationFrame(() => {
+      const shift = before.top - composer.getBoundingClientRect().top;
+      if (Math.abs(shift) < 2) return;
+      animate(composer, [{ transform: `translateY(${shift}px)` }, { transform: "none" }], {
+        duration: motionDuration("--motion-layout", 240),
+        easing:
+          getComputedStyle(document.documentElement).getPropertyValue("--ease-standard").trim() || "ease-out"
+      });
     });
   }
   function sync() {
