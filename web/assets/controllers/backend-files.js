@@ -21,16 +21,23 @@ export function createBackendFiles(management, showToast) {
   }
 
   function hydrateImages(root) {
-    for (const image of root.querySelectorAll("img[data-upload-src]")) {
-      if (image.dataset.uploadLoaded) continue;
-      image.dataset.uploadLoaded = "1";
-      const id = image.dataset.uploadSrc;
-      void mediaObjectUrl(`/api/uploads/${encodeURIComponent(id)}`)
-        .then((href) => {
-          image.src = href;
-        })
-        // eslint-disable-next-line no-restricted-syntax -- a failed media read leaves this one upload image unloaded, and the transcript keeps rendering
-        .catch(() => undefined);
+    const roots = Array.isArray(root) ? root : [root];
+    for (const scope of roots) {
+      if (!scope || scope.nodeType !== 1) continue;
+      const images = scope.matches?.("img[data-upload-src]")
+        ? [scope]
+        : [...scope.querySelectorAll("img[data-upload-src]")];
+      for (const image of images) {
+        const id = image.dataset.uploadSrc;
+        if (!id || image.dataset.uploadLoaded === id) continue;
+        image.dataset.uploadLoaded = id;
+        void mediaObjectUrl(`/api/uploads/${encodeURIComponent(id)}`)
+          .then((href) => {
+            if (image.dataset.uploadSrc === id) image.src = href;
+          })
+          // eslint-disable-next-line no-restricted-syntax -- a failed media read leaves this one upload image unloaded, and the transcript keeps rendering
+          .catch(() => undefined);
+      }
     }
   }
 

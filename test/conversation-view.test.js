@@ -3,6 +3,7 @@ import { test } from "node:test";
 import { parseHTML } from "linkedom";
 import { applyMainParkEvent } from "../web/assets/conversation.js";
 import { createConversationView } from "../web/assets/controllers/conversation-view.js";
+import { createBackendFiles } from "../web/assets/controllers/backend-files.js";
 import { humanAnswerTurn } from "../web/assets/human-questions.js";
 
 const textContent = (content) =>
@@ -2402,4 +2403,115 @@ test("fast path does not establish when a newer unmatched user turn in the same 
   );
   assert.equal(fast.document.querySelector(".live-answer").textContent.trim(), "old");
   assert.doesNotMatch(fast.document.querySelector("#conversation").textContent, /NEW/);
+});
+
+test("expanding live process keeps hydrated upload thumbnail src and triggers hydrateImages on internal rerender", () => {
+  const hydrated = [];
+  const { document, state, render } = fixture("live-upload-toggle", "先核对图片细节。", {
+    hydrateImages(roots) {
+      hydrated.push(roots);
+      for (const root of Array.isArray(roots) ? roots : [roots]) {
+        if (!root || root.nodeType !== 1) continue;
+        for (const img of root.querySelectorAll("img[data-upload-src]")) {
+          const id = img.getAttribute("data-upload-src");
+          if (img.getAttribute("data-upload-loaded") === id) continue;
+          img.setAttribute("data-upload-loaded", id);
+          img.setAttribute("src", `blob:http://127.0.0.1/${id}`);
+        }
+      }
+    }
+  });
+  const id = "upload-11111111-1111-1111-1111-111111111111";
+  const imageUser = {
+    role: "user",
+    timestamp: 1,
+    content:
+      "好多文件链接没有渲染，漏了什么？" +
+      "\n\n<formicand_uploaded_files>\n" +
+      JSON.stringify({
+        version: 1,
+        files: [{ uploadId: id, name: "image-1.png", kind: "image", path: "/private/inputs/original.png" }]
+      }) +
+      "\n</formicand_uploaded_files>"
+  };
+  state.detail.runtimeEvents = [
+    { type: "turn_start" },
+    { type: "message_start", message: imageUser },
+    { type: "message_start", message: { role: "assistant", timestamp: 2, content: [] } },
+    update("thinking_start", 0),
+    update("thinking_delta", 0, { delta: "先核对图片细节。" }),
+    update("toolcall_end", 1, { toolCall: { id: "call-read", name: "read", arguments: { path: "a.js" } } }),
+    { type: "tool_execution_start", toolCallId: "call-read", toolName: "read", args: { path: "a.js" } },
+    { type: "tool_execution_end", toolCallId: "call-read", toolName: "read", isError: false, result: {} }
+  ];
+  render([imageUser]);
+  const image = document.querySelector("img[data-upload-src]");
+  assert.ok(image);
+  assert.equal(image.getAttribute("src"), `blob:http://127.0.0.1/${id}`);
+  const callsBeforeToggle = hydrated.length;
+
+  // Expanding the live process disclosure triggers internal rerenderForToggle.
+  const segment = document.querySelector("details.process-segment");
+  assert.ok(segment);
+  segment.open = true;
+  segment.dispatchEvent(new document.defaultView.Event("toggle"));
+
+  assert.equal(document.querySelector("img[data-upload-src]"), image);
+  assert.equal(image.getAttribute("src"), `blob:http://127.0.0.1/${id}`);
+  assert.equal(image.getAttribute("data-upload-loaded"), id);
+  assert.ok(hydrated.length > callsBeforeToggle, "internal toggle rerender should invoke hydrateImages");
+});
+
+test("createBackendFiles.hydrateImages supports root arrays and ignores stale async resolutions after uploadId changes", async () => {
+  const { document } = parseHTML(
+    '<div id="a"><img data-upload-src="upload-old" alt="" /></div><div id="b"><img data-upload-src="upload-two" alt="" /></div>'
+  );
+  const previousDocument = globalThis.document;
+  const previousCreateObjectURL = URL.createObjectURL;
+  const previousRevokeObjectURL = URL.revokeObjectURL;
+  globalThis.document = document;
+  let counter = 0;
+  URL.createObjectURL = () => `blob:test/${++counter}`;
+  URL.revokeObjectURL = () => {};
+  const resolvers = new Map();
+  try {
+    const files = createBackendFiles(
+      {
+        blob(path) {
+          return new Promise((resolve) => {
+            resolvers.set(path, () => resolve({ blob: { path } }));
+          });
+        }
+      },
+      () => {}
+    );
+    const imgA = document.querySelector("#a img");
+    const imgB = document.querySelector("#b img");
+    files.hydrateImages([document.querySelector("#a"), document.querySelector("#b")]);
+    assert.equal(imgA.dataset.uploadLoaded, "upload-old");
+    assert.equal(imgB.dataset.uploadLoaded, "upload-two");
+
+    // Swap imgA to a newer uploadId before the first blob read settles.
+    imgA.dataset.uploadSrc = "upload-new";
+    delete imgA.dataset.uploadLoaded;
+    files.hydrateImages(imgA);
+    assert.equal(imgA.dataset.uploadLoaded, "upload-new");
+
+    resolvers.get("/api/uploads/upload-new")();
+    resolvers.get("/api/uploads/upload-two")();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const newUrl = imgA.getAttribute("src");
+    assert.match(newUrl, /^blob:test\//);
+    assert.match(imgB.getAttribute("src"), /^blob:test\//);
+
+    // Late resolution for upload-old must not clobber imgA's newer upload.
+    resolvers.get("/api/uploads/upload-old")();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    assert.equal(imgA.getAttribute("src"), newUrl);
+    files.clear();
+  } finally {
+    globalThis.document = previousDocument;
+    URL.createObjectURL = previousCreateObjectURL;
+    URL.revokeObjectURL = previousRevokeObjectURL;
+  }
 });

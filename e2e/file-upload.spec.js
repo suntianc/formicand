@@ -174,6 +174,87 @@ test("a sent image is hydrated from the bound session without exposing upload me
   }
 });
 
+test("expanding process disclosures during and after a run keeps sent image thumbnails loaded", async ({
+  page
+}) => {
+  let releaseFinal;
+  const finalGate = new Promise((resolve) => (releaseFinal = resolve));
+  let secondTurnReached;
+  const onSecondTurn = new Promise((resolve) => (secondTurnReached = resolve));
+  const model = await modelProtocolFixture("openai-completions", async (_body, requests) => {
+    if (requests.length === 1) {
+      return {
+        name: "bash",
+        arguments: { command: "echo process-step-ready" }
+      };
+    }
+    secondTurnReached();
+    await finalGate;
+    return { text: "图片已核对完成" };
+  });
+  let dashboard;
+  try {
+    dashboard = await startDashboard({ modelEndpoint: model.baseUrl });
+    await page.goto(dashboard.base);
+    await page.locator("#new-conversation").click();
+    await page.locator("#composer-input").fill("检查图片里的链接");
+    await page.locator("#file-input").setInputFiles({
+      name: "截图.png",
+      mimeType: "image/png",
+      buffer: await readFile("web/assets/brand/formicand-icon.png")
+    });
+    await expect(page.locator("#attachment-strip")).toContainText("截图.png");
+    await page.locator("#send-button").click();
+
+    const thumbnail = page.locator(".chat-message.user .message-attachments img[data-upload-src]").first();
+    await expect(thumbnail).toHaveAttribute("src", /^blob:/, { timeout: 30_000 });
+    await expect.poll(() => thumbnail.evaluate((img) => img.naturalWidth)).toBeGreaterThan(0);
+    const hydratedSrc = await thumbnail.getAttribute("src");
+
+    await onSecondTurn;
+    const liveProcess = page.locator(".process-segment.is-live");
+    await expect(liveProcess).toBeVisible({ timeout: 30_000 });
+    await liveProcess.locator(":scope > summary").click();
+    await expect(liveProcess).toHaveAttribute("open", "");
+    await expect(liveProcess.locator(".tool-step")).toBeVisible();
+
+    const duringRun = await thumbnail.evaluate((img) => ({
+      src: img.getAttribute("src"),
+      complete: img.complete,
+      naturalWidth: img.naturalWidth
+    }));
+    expect(duringRun.src, "expanding live process must not strip thumbnail src").toBe(hydratedSrc);
+    expect(duringRun.complete && duringRun.naturalWidth > 0).toBe(true);
+
+    // Collapse the live process so the settled round starts collapsed, then expand history after completion.
+    await liveProcess.locator(":scope > summary").click();
+    await expect(liveProcess).not.toHaveAttribute("open", "");
+
+    releaseFinal();
+    await expect(page.locator('[data-answer-kind="final"]')).toContainText("图片已核对完成", {
+      timeout: 30_000
+    });
+    const history = page.locator(".execution-history").first();
+    await expect(history).toBeVisible();
+    await expect(history).not.toHaveAttribute("open", "");
+    await history.locator(":scope > summary").click();
+    await expect(history).toHaveAttribute("open", "");
+    const afterSettledExpand = await thumbnail.evaluate((img) => ({
+      src: img.getAttribute("src"),
+      complete: img.complete,
+      naturalWidth: img.naturalWidth
+    }));
+    expect(afterSettledExpand.src, "expanding settled history must not strip thumbnail src").toBe(
+      hydratedSrc
+    );
+    expect(afterSettledExpand.complete && afterSettledExpand.naturalWidth > 0).toBe(true);
+  } finally {
+    releaseFinal?.();
+    await dashboard?.stop();
+    await model.close();
+  }
+});
+
 test("drop, paste, retry, cancel and navigation keep files with their own draft", async ({ page }) => {
   const dashboard = await startDashboard({ modelEndpoint: "http://127.0.0.1:1/v1" });
   let rejectFirst = true;

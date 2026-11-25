@@ -260,6 +260,7 @@ export function createConversationView({
   fork,
   resolveFile,
   loadToolDetail,
+  hydrateImages = () => {},
   showToast = () => {}
 }) {
   const streamReveal = createStreamReveal();
@@ -1487,6 +1488,7 @@ export function createConversationView({
       }
       bindArtifactLinks(bindRoots);
       hydrateLinkPreviews(bindRoots);
+      hydrateImages(bindRoots);
       queryInRoots(bindRoots, "details[data-activity-key]").forEach((node) => {
         const saved = activityStates.get(node.dataset.activityKey);
         if (saved) {
