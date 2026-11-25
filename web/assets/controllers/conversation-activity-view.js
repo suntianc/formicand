@@ -370,13 +370,17 @@ export function createConversationActivityView({
           const segmentOpen = Boolean(isActivityOpen(segmentKey));
           let summary;
           if (segmentLive) {
-            const spinner = `<span class="thinking-spinner ant-mark" data-thinking-key="${esc(`${segmentKey}:live`)}" aria-hidden="true">${antMarkSvg}</span>`;
+            let spinner = `<span class="thinking-spinner ant-mark" data-thinking-key="${esc(`${segmentKey}:live`)}" aria-hidden="true">${antMarkSvg}</span>`;
             let stateText;
             let shimmer = false;
             if (isLastSegment && retry) {
               stateText = ui("正在恢复模型连接…");
             } else if (runningToolItem) {
-              stateText = categoryMeta[toolCategory(runningToolItem.call)].live();
+              // A call in flight shows what kind of call it is, still; the ant
+              // is kept for Main's own thinking.
+              const meta = categoryMeta[toolCategory(runningToolItem.call)];
+              spinner = `<span class="process-segment-icon" aria-hidden="true">${icon(meta.icon)}</span>`;
+              stateText = meta.live();
             } else {
               stateText = ui("思考中");
               shimmer = true;
@@ -588,10 +592,8 @@ export function createConversationActivityView({
           ...new Set([presentation.summary, resultContext].filter((value) => value && value !== subject))
         ].join(" · ");
     const sections = open ? presentation.detailSections || [] : [];
-    const indicator =
-      statusClass === "running"
-        ? `<span class="tool-progress-spinner ant-mark" data-thinking-key="${esc(`${key}:tool`)}" aria-hidden="true">${antMarkSvg}</span>`
-        : '<span class="tool-status-dot" aria-hidden="true"></span>';
+    // The ant belongs to Main's own thinking, not to every call it makes.
+    const indicator = '<span class="tool-status-dot" aria-hidden="true"></span>';
     const body = open ? renderToolDetailsBody(sections, resolved.state, resolved.detailKey) : "";
     return `<div class="activity-step tool-step is-${statusClass}" data-view-key="${esc(key)}">
     <div class="activity-step-content">

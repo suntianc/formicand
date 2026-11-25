@@ -594,15 +594,13 @@ html[data-theme] .toast {
     animation: none !important;
     transition-property: opacity !important;
   }
-  :root:not([data-reduced-motion="off"])
-    :is(.thinking-spinner, .tool-progress-spinner, .workflow-progress-spinner) {
+  :root:not([data-reduced-motion="off"]) :is(.thinking-spinner, .workflow-progress-spinner) {
     width: auto;
     height: auto;
     flex-basis: auto;
     border: 0;
   }
-  :root:not([data-reduced-motion="off"])
-    :is(.thinking-spinner, .tool-progress-spinner, .workflow-progress-spinner)::after {
+  :root:not([data-reduced-motion="off"]) :is(.thinking-spinner, .workflow-progress-spinner)::after {
     content: "…";
   }
 }
@@ -612,15 +610,13 @@ html[data-theme] .toast {
   animation: none !important;
   transition-property: opacity !important;
 }
-:root[data-reduced-motion="reduce"]
-  :is(.thinking-spinner, .tool-progress-spinner, .workflow-progress-spinner) {
+:root[data-reduced-motion="reduce"] :is(.thinking-spinner, .workflow-progress-spinner) {
   width: auto;
   height: auto;
   flex-basis: auto;
   border: 0;
 }
-:root[data-reduced-motion="reduce"]
-  :is(.thinking-spinner, .tool-progress-spinner, .workflow-progress-spinner)::after {
+:root[data-reduced-motion="reduce"] :is(.thinking-spinner, .workflow-progress-spinner)::after {
   content: "…";
 }
 

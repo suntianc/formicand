@@ -13,7 +13,7 @@ html[data-theme="light"] {
 
 /* ------------------------------------------------------------ working ant */
 
-html[data-theme] :is(.thinking-spinner, .tool-progress-spinner, .workflow-progress-spinner).ant-mark {
+html[data-theme] :is(.thinking-spinner, .workflow-progress-spinner).ant-mark {
   position: relative;
   display: inline-grid;
   place-items: center;
@@ -71,11 +71,6 @@ html.is-page-hidden
     .rp-agent-mark .ui-icon
   ) {
   animation-play-state: paused !important;
-}
-html[data-theme] .tool-step .activity-status .tool-progress-spinner.ant-mark {
-  flex-basis: 12px;
-  width: 12px !important;
-  height: 12px !important;
 }
 
 /* A label that is working gets a light swept across it twice, then rests:

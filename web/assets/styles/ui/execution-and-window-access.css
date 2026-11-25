@@ -151,13 +151,6 @@
   border-radius: 50%;
   background: currentColor;
 }
-.tool-step .activity-status .tool-progress-spinner {
-  width: 10px;
-  height: 10px;
-  flex-basis: 10px;
-  border-color: currentColor;
-  border-right-color: transparent;
-}
 .tool-step .activity-status.failed {
   color: var(--ui-danger);
 }
