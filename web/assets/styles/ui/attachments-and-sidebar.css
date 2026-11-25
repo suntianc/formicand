@@ -196,6 +196,9 @@
   --sidebar-row-bg: var(--ui-accent-soft);
 }
 .conversation-sidebar .conversation-row .conversation-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   min-height: 36px;
   margin: 0;
   padding: 8px 10px;
@@ -281,6 +284,8 @@
 }
 .conversation-sidebar .conversation-item-title:has(.conversation-title-text) {
   display: flex;
+  flex: 1;
+  min-width: 0;
   align-items: center;
   gap: 6px;
 }
@@ -291,7 +296,7 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.conversation-item-title :is(.conversation-activity, .conversation-unread) {
+.conversation-item-title .conversation-unread {
   order: -1;
 }
 .conversation-activity {
