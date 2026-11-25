@@ -11,6 +11,7 @@
     "implement": "skills/engineering/implement",
     "tdd": "skills/engineering/tdd",
     "to-spec": "skills/engineering/to-spec",
-    "to-tickets": "skills/engineering/to-tickets"
+    "to-tickets": "skills/engineering/to-tickets",
+    "writing-for-agents": "skills/productivity/writing-for-agents"
   }
 }
