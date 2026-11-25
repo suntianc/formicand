@@ -1,11 +1,18 @@
 # Formicand Docs
 
-English | [简体中文](../README.md)
+[简体中文](../README.md) | English
 
-- [Mac App](getting-started.md)
-- [CLI](cli-quickstart.md)
-- [Model settings](configuration.md)
+## Use
 
-## Development
+- [Getting started](getting-started.md): install, connect a model, first task, updates and troubleshooting
+- [Configuration](configuration.md): models, agents, keys, search, proxy, project data and run limits
+- [Built-in capabilities](capabilities.md): Main's tools for images, the browser, native windows and CUA scripts
 
-[Setup](development.md) · [Product glossary (Chinese)](../../GLOSSARY.md) · [Phase plan (Chinese)](../development-phases.md) · [Architecture](architecture.md) · [API](../product-api.md) · [Contribute](../../CONTRIBUTING.en.md) · [Retrospective follow-through (Chinese)](../retrospectives.md) · [Workloop follow-ups (Chinese)](../workloop-followups.md) · [Project pitfalls (Chinese)](../pitfalls/README.md)
+## Develop
+
+- [Architecture and code map](architecture.md): processes, data layout, interfaces and where to change what
+- [Development](development.md): environment, change workflow, checks, merging and releases
+- [Testing](testing.md): writing and running tests, release acceptance and the case list
+- [Contributing](../../CONTRIBUTING.en.md)
+
+Process records (phase plan, handoffs, pitfalls, design notes, retrospectives and the Workloop notes) are kept in Chinese; see the [Chinese index](../README.md#过程记录).

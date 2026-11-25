@@ -2,7 +2,7 @@
 
 English | [中文](CONTRIBUTING.md)
 
-Use Node >=22.19.0 and `npm ci`. People and coding agents start with [AGENTS](AGENTS.en.md), the [code map](docs/en/code-map.md), and target-directory instructions. Source uses [MIT](LICENSE); dependency origins/licenses are in [third-party notices](THIRD_PARTY_NOTICES.md).
+Use Node >=22.19.0 and `npm ci`. People and coding agents start with [AGENTS](AGENTS.en.md), the [code map](docs/en/architecture.md#code-map), and target-directory instructions. Source uses [MIT](LICENSE); dependency origins/licenses are in [third-party notices](THIRD_PARTY_NOTICES.md).
 
 ## Definition of a completed change
 
@@ -22,7 +22,7 @@ npm run desktop:pack
 npm run test:desktop
 ```
 
-Verify owns ordinary local engineering checks. Native, actual model and five-section release checks remain separate; see [local testing](docs/en/testing-local-run.md). A skip does not certify a platform; local model fixtures do not certify actual model capability.
+Verify owns ordinary local engineering checks. Native, actual model and five-section release checks remain separate; see [local testing](docs/en/testing.md). A skip does not certify a platform; local model fixtures do not certify actual model capability.
 
 ## Code and interface rules
 
@@ -40,11 +40,11 @@ Never commit model keys, private settings, user workspaces/traces, test outputs 
 
 ## PR, review and release
 
-Keep one long-lived main branch. Temporary feat/fix branches start from main and merge through PRs, then are deleted. Main represents reviewed integration code; fixed tags and Releases identify user versions. Packaging and releases are covered in [Mac release](docs/en/mac-release.md).
+Keep one long-lived main branch. Temporary feat/fix branches start from main and merge through PRs, then are deleted. Main represents reviewed integration code; fixed tags and Releases identify user versions. Packaging and releases are covered in [Packaging and releases](docs/en/development.md#packaging-and-releases).
 
-Keep each PR focused on one complete change. Use the [PR template](.github/pull_request_template.md): final problem/outcome, consumers, data impact, actual validation and uncovered scope. Review roles are in [module ownership](docs/module-ownership.md) (Chinese). Cross-interface work involves both ends; maintainers review until real people are assigned. Role/workflow files do not prove CODEOWNERS/branch protection is enabled.
+Keep each PR focused on one complete change. Use the [PR template](.github/pull_request_template.md): final problem/outcome, consumers, data impact, actual validation and uncovered scope. Review roles are in [module ownership](docs/architecture.md) (Chinese). Cross-interface work involves both ends; maintainers review until real people are assigned. Role/workflow files do not prove CODEOWNERS/branch protection is enabled.
 
-After local verify, add relevant browser/platform/native/install acceptance and include evidence in the PR. Routine GitHub checks run lightweight `check:ci` build/static checks automatically on PRs and pushes to main, and can also be triggered manually; the Mac workflow uploads only Release drafts, which maintainers publish after acceptance. Local behavioral requirements remain unchanged. Triggers are in [development](docs/en/development.md#github-actions).
+After local verify, add relevant browser/platform/native/install acceptance and include evidence in the PR. Routine GitHub checks run lightweight `check:ci` build/static checks automatically on PRs and pushes to main, and can also be triggered manually; the Mac workflow uploads only Release drafts, which maintainers publish after acceptance. Local behavioral requirements remain unchanged. Triggers are in [development](docs/en/development.md#branches-and-merging).
 
 Before making the corresponding product/platform commitments, a formal/stable release satisfies the following P0 gates: license/notices, distribution, actual models, Developer ID signing/notarization, clean installation and upgrade recovery. A public beta with limited scope documents its support, installation method and pending acceptance separately; it does not certify that every stable-release P0 gate is complete.
 
@@ -56,4 +56,4 @@ Release notes separately record completed local verify, protocol/browser regress
 
 ## Documentation and languages
 
-See [documentation policy](docs/documentation.md) (Chinese) for fact ownership/sync and the [index](docs/en/README.md) for navigation. Critical user/developer entrypoints have Chinese/English versions. Update both when changing commands, support, boundaries or acceptance criteria. Specialized API references are currently mainly Chinese and are labeled accordingly.
+See [documentation policy](docs/development.md) (Chinese) for fact ownership/sync and the [index](docs/en/README.md) for navigation. Critical user/developer entrypoints have Chinese/English versions. Update both when changing commands, support, boundaries or acceptance criteria. Specialized API references are currently mainly Chinese and are labeled accordingly.

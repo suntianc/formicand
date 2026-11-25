@@ -1,199 +1,125 @@
-# 开发指南
+# 开发
 
-[English](en/development.md) | 中文
+简体中文 | [English](en/development.md)
 
-先读 [AGENTS](../AGENTS.md)、[架构](architecture.md) 和 [代码地图](code-map.md)；贡献规则见 [CONTRIBUTING](../CONTRIBUTING.md)。
+先读 [AGENTS](../AGENTS.md) 和 [架构与代码地图](architecture.md)。测试的写法和跑法见 [测试](testing.md)。
 
-## 准备环境
+## 环境
 
-使用 Node.js >=22.19.0、npm 和 Git；依赖以锁文件为准，执行 `npm ci`。第一次下载 npm 依赖和 Chromium 需要网络。模型密钥仅用于实际模型请求，普通本地回归使用隔离工作区和本地协议夹具。
+- Node.js ≥22.19.0、npm、Git。依赖以锁文件为准，用 `npm ci` 安装。
+- Mac App 和窗口操作需要 macOS 14+、Apple Silicon 和 Xcode Command Line Tools。
+- 附件解析的测试需要 Python 3.11 和 [scripts/document-requirements.txt](../scripts/document-requirements.txt) 里的库，用 `FORMICAND_PYTHON` 指向这个 Python。
 
-| 开发目标      | 环境和准备                                                                 | 启动                                            |
-| ------------- | -------------------------------------------------------------------------- | ----------------------------------------------- |
-| CLI / harness | `ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm ci`，`npm run build:cli`              | `npm run init`、`npm start`                     |
-| Web           | `npm ci`、`npm run build`；Mac 构建需 Xcode Command Line Tools             | `npm run ui`，默认 `http://127.0.0.1:3880`      |
-| Electron App  | `npm ci`；打包前由 `node scripts/ensure-electron.mjs` 获取 Electron 运行时 | `npm run desktop`                               |
-| Computer Use  | Mac、Xcode Command Line Tools；截图需 macOS 14+、系统权限                  | 编译随 `npm run build`；动作验收需解锁桌面      |
-| Mac 安装包    | macOS 14+、Apple Silicon Mac；离线完整包另需 uv                            | `npm run desktop:pack` / `npm run desktop:dist` |
+| 要开发的 | 准备                                                          | 启动                                       |
+| -------- | ------------------------------------------------------------- | ------------------------------------------ |
+| CLI      | `ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm ci`、`npm run build:cli` | `npm run cli`、`npm start`                 |
+| Web      | `npm ci`、`npm run build`                                     | `npm run ui`，默认 `http://127.0.0.1:3880` |
+| Mac App  | `npm ci`                                                      | `npm run desktop`                          |
 
-`build:cli` 编译共享运行时并准备 CLI；`build`、`build:base` 和 `build:full` 准备 Web 界面依赖、数学排版、Computer Use 辅助程序与桌面宿主资源。非 Mac 环境跳过原生辅助程序和图标构建。
+## 运行和调试
 
-文档附件测试需要 Python 3.11 和 PDF/Office 解析依赖，缺库应修环境，不能把跳过当成通过。使用独立环境，并让夹具和读取器共用 `FORMICAND_PYTHON`：
+- **用隔离的数据。** 开发和测试不要碰真实的任务、模型设置和文档。设置 `FORMICAND_HOME` 换一整套数据目录，只隔离桌面数据用 `FORMICAND_DESKTOP_DATA`。
+- **开发版 App。** `npm run desktop` 构建后启动 `Formicand Dev`。`npm run desktop:install-dev` 把它装成固定的 `~/Applications/Formicand Dev.app`，可以从 Finder 或 Dock 打开，读的是当前仓库的代码；仓库换了位置要重新安装。开发版和正式版共用数据目录和单实例锁，不能同时打开。
+- **系统权限。** 验收屏幕录制和辅助功能时，从 Finder 或 `npm run desktop` 打开 App，不要直接执行 `Contents/MacOS/` 里的程序，否则权限会记到终端名下。每次开发运行时的身份不同，需要在系统设置里给对应的 `Formicand Dev` 条目授权。
+- **只改页面。** 改了前端模块或样式后运行 `npm run build:web-assets` 再刷新；持续开发时另开终端运行 `npm run watch:web-assets`。改了 TypeScript 或 Swift 要重新构建并重启。
+- **独立后端。** `formicand backend start|status|stop` 单独管理后端。实例信息在 `~/.formicand/runtime/backend-instance.json`。同一个数据目录只会有一个后端，再启动会复用已有的那个。
+- **更新源码。** `formicand update --check` 和 `formicand update` 按当前分支的 Git 上游更新并重新构建 CLI。有未提交改动、本地独有提交、分叉或处于合并中时会拒绝更新。
 
-```sh
-python3.11 -m venv .tmp/document-python
-.tmp/document-python/bin/python -m pip install -r scripts/document-requirements.txt
-.tmp/document-python/bin/python -c 'import sys; print(sys.executable, sys.version); import fitz, docx, pptx, openpyxl'
-FORMICAND_PYTHON="$PWD/.tmp/document-python/bin/python" npm run verify:full
-```
+## 日常修改流程
 
-## 使用隔离的开发工作区
+1. 从 [代码地图](architecture.md#代码地图) 找到负责这个行为的模块、它的消费者和测试，读目标目录的 `AGENTS.md`，再到 [坑点](pitfalls/README.md) 里找和本次工具、路径或接口相关的条目。
+2. 先复现，再跑已有的相关测试。修在负责的模块里，入口文件只做装配。
+3. 加一个能覆盖原来失败的测试。异步行为要覆盖归属、取消、迟到的返回、冲突和退出恢复。
+4. 按改动范围验证：先跑相关测试，再跑 `npm run verify`。纯文档改动只跑 `npm run check:docs` 和 `npm run format:check`。影响面大的改动跑 `npm run verify:full`。
+5. 同一个改动里同步更新相关文档。提交说明写清楚问题和结果、涉及的模块、跑过的检查和没验证到的范围。
 
-开发与测试不要使用真实用户任务、模型设置或用户文档。Web 可以显式指定工作区和全局索引：
+派单、返修、独立审查和交接的约定见 [开发交接](development-handoffs.md)。
 
-```sh
-FORMICAND_WORKSPACE=/tmp/formicand-dev \
-FORMICAND_GLOBAL_INDEX=/tmp/formicand-dev-index/workspaces.json \
-FORMICAND_UI_PORT=3881 npm run ui
-```
+## 检查命令
 
-先完成无需模型的会话创建、附件读取和产出物预览/下载，再按 [模型配置](configuration.md) 配置模型验证任务。不要用删除数据来排查恢复问题；路径归属见 [工作区说明](task-workspace-layout.md)。
+| 命令                                         | 检查什么                                                                         | 什么时候跑                |
+| -------------------------------------------- | -------------------------------------------------------------------------------- | ------------------------- |
+| `npm run test:unit -- --file test/x.test.js` | 指定的 Node 测试，默认先构建                                                     | 每次相关修改              |
+| `npm run verify`                             | CLI 和页面资源构建、源码卫生、lint、扩展类型、增量格式、文档链接、发布执行器自测 | 完成一项修改后            |
+| `npm run verify:full`                        | 完整构建、静态检查和全部 Node 测试                                               | 发布前、影响面大的改动    |
+| `npm run check:ci`                           | GitHub 上跑的轻量检查                                                            | CI 自动跑                 |
+| `npm run check:source`                       | 有没有提交私有配置、密钥、个人路径和不该提交的产物                               | 提交前                    |
+| `npm run check:docs`                         | 文档里的本地链接和标题锚点                                                       | 改了文档或代码路径        |
+| `npm run test:browser`                       | Chromium 和 Electron 用户流程                                                    | 改了页面、HTTP 和页面联动 |
+| `npm run test:desktop`                       | 打包后的 App：设置、会话、退出重启、模拟升级。先 `npm run desktop:pack`          | 改了桌面宿主或打包        |
+| `npm run test:release`                       | 发版验收的全部环节                                                               | 准备发版                  |
 
-Mac 开发版显示为 Formicand Dev (短后缀)，应用标识为 `io.github.suntianc.formicand.dev.runtime.<运行时哈希>`。每份不可变的 ad-hoc 开发运行时独立授权，避免不同 worktree 或运行时的签名共用同一条系统权限记录；同一运行时重复启动复用身份。
+单独跑 lint 前先 `npm run build:cli`，让 `.pi/` 引用的类型和源码一致；`verify` 已经按这个顺序跑。
 
-数据与正式版、CLI、Web 共用 `~/.formicand/`，两个默认桌面入口共享单实例锁。测试可设置 `FORMICAND_DESKTOP_DATA`，需要整套隔离时设置 `FORMICAND_HOME`。
+## Lint 规则
 
-```sh
-npm run desktop:install-dev # 安装固定的 ~/Applications/Formicand Dev.app
-npm run desktop             # 构建最新源码并启动同一入口
-```
+[ESLint 配置](../eslint.config.mjs) 在常规规则之外，还检查吞掉错误的写法（不绑定错误也不抛出的 catch、空 catch、对应的 `.catch()` 回调）、多余的条件判断和多余的类型断言。
 
-固定入口读取当前仓库的 `desktop/`、`dist/`、`web/`，可从 Finder/Dock 启动；直接双击使用上次构建，仓库搬移后要重新安装入口。运行时在 `.tmp/desktop-runtime/`，打包 App 在 `.tmp/release/mac-arm64/`，可分发 DMG 在 `release/`。CLI 候选可用 `FORMICAND_PACKAGE_DIR=.tmp/cli-candidate npm run cli:pack` 独立审查，默认输出仍为 `release/`。
+[存量基线](../eslint-suppressions.json) 已经清空，保持为空对象。确实需要例外的地方，逐处写 `// eslint-disable-next-line <规则> -- <依据>`，并接受审查。不要用扩充基线或换个写法吞错来绕过。改了相关代码后运行 `npm run lint -- --prune-suppressions`。
 
-Mac 开发启动与更新后重启统一通过 LaunchServices 打开指定的 App 包，命令在发起启动后返回，退出使用 App 菜单。测试数据目录等环境变量传给该实例。
+`format:check` 只检查改动过的文件；要检查整个仓库，在干净工作树上运行 `npm run format:check:all`。
 
-不要直接执行 `Contents/MacOS/` 中的二进制做系统权限验收：直接执行（包括 detached）可能把 App 和原生 helper 的权限归到 Terminal/IDE，导致关闭 Formicand 的系统权限后仍可操作，或没有出现 Formicand 的授权提示。测试时核对系统设置中带当前短后缀的 Formicand Dev 条目；人工撤销不一定重现首次安装弹窗，系统拒绝再次提示时仍需在系统设置确认。
+## 分支和合并
 
-Finder 安装入口复制已签名的缓存包，不改内容或再次签名，保持相同权限身份。图标、Electron、工具链或包元数据变化产生新开发运行时后需要为新条目授权，旧授权不会自动迁移。无需删除其他 App 或重置全部系统权限。
+- 只有 `main` 一条长期分支。功能和修复在临时分支上做，合进 `main` 后删掉分支。
+- 合并用 `git merge --no-ff`，合完重新构建一次。
+- 版本以 tag 和 GitHub Release 为准。
 
-Web 与桌面从同一份构建产物加载首屏。修改前端模块或样式后运行 `npm run build:web-assets`，刷新即可。持续开发时在另一终端运行 `npm run watch:web-assets`，待重建完成后刷新。监听模式提供源码映射。首屏产物放在 `web/assets/markdown/generated/shell/`，随已有桌面源码更新器管理的目录一起升级和回滚。TypeScript 或 Swift 修改后重新构建并重启宿主。图标源、Electron 或包版本变化要重建开发运行时。生成文件不是修改入口。完整/CLI 构建会清理已删除或搬移源码对应的旧编译文件，保留原生 helper 与 Python runner。
+[常规工作流](../.github/workflows/test.yml) 在 PR 和推送到 `main` 时运行 `npm run check:ci`。CI 只做构建和静态检查，完整测试、浏览器、原生能力和真实模型都在本地做，不能把 CI 通过当成测试通过。
 
-只迭代界面时，完成一次 `npm run build` 后可直接运行 `node dist/src/cli/dashboard.js`，省去 `npm run ui` 每次启动时的构建。保留需要的隔离环境变量；HTML 修改后直接刷新，JS 和 CSS 使用上面的监听命令。后端改动仍需停止服务、重新构建并启动。该入口与服务、桌面使用同一实例归属：同一数据根已经后端或桌面连接时复用其地址并退出，不另开写入服务。
+## 打包和发布
 
-### 独立后端
+当前只出 Apple Silicon 的 Mac 安装包，用 ad-hoc 签名，没有 Developer ID 签名、公证和应用内更新。
 
-独立后端可以脱离启动它的客户端继续运行。开发包支持 macOS 14+ Apple Silicon；App 首次连接会启动或复用同一数据根的后端，桌面退出不会停止它。独立运行 CLI 需要 Node.js ≥22.19.0，所用 CLI 与 App 应来自同一候选版本。完成 `npm run build:cli` 后，`node dist/src/cli/backend.js start`（或 `formicand backend start`）在同一数据根启动分离进程，`status` 查看实例，`stop` 让后端完成受管进程收尾后退出；端口、会话 token 与实例身份记录在 `FORMICAND_HOME/runtime/backend-instance.json`（权限 0600），后端身份在 `backend-identity.json` 中跨重启保持。直接执行 `serve` 遵守同一实例归属：已有可核验实例时只输出其身份并退出，另有启动中的后端或身份无法确认时明确报错，不覆盖实例记录。`stop` 只在后端完成收尾并删除实例记录后返回 `stopped`；超时被强制结束或收尾未完成时返回 `incomplete` 并以非零状态退出，同时保留实例记录供下次 `start` 沿用同一后端身份恢复。这些命令不安装 launchd/systemd 常驻服务。
+| 命令                   | 产物                                                                  |
+| ---------------------- | --------------------------------------------------------------------- |
+| `npm run desktop:pack` | `.tmp/release/mac-arm64/Formicand.app`，用来跑 `npm run test:desktop` |
+| `npm run desktop:dist` | `release/Formicand-<版本>-mac-arm64.dmg` 和它的 SHA-256               |
+| `npm run cli:pack`     | `release/` 下的 CLI 安装包；用 `FORMICAND_PACKAGE_DIR` 换输出目录     |
 
-Web 入口默认只监听本机。模型请求、任务执行和文件操作仍由本地后端负责，单独托管静态前端不能运行完整界面。若把后端部署到远程服务器，命令和文件操作也会在该服务器执行。
+发版步骤：
 
-## 更新源码检出
+1. 本地完成全部验收，见 [测试](testing.md#发版验收)。
+2. 改版本号并提交：`npm version 0.1.4 --no-git-tag-version`，连同本次要发布的源码和文档一起提交。
+3. 打 tag 并推送：`git tag v0.1.4`，推送提交和 tag。
+4. 在干净的 tag 检出上运行 `npm run release:local -- v0.1.4`。它会校验 tag 和版本，构建 DMG 和 CLI 包，生成校验文件，并上传到 GitHub Release 草稿。
+5. 核对草稿里的文件、版本和说明，手动点 Publish。测试版标成 Pre-release，并在说明里写明未签名、未公证。
 
-在 Formicand 的源码检出中运行：
+本地构建机不可用时，可以手动运行 [Release Mac 工作流](../.github/workflows/release-mac.yml) 在云端构建；只要内部测试包时用 [Internal Mac package](../.github/workflows/internal-mac.yml)。已经发布的版本不能替换文件，修复要发新版本，不要移动 tag。
 
-```sh
-npm run cli -- update --check
-npm run cli -- update
-```
+打包关闭了 asar，因为 Pi 扩展和子进程要用真实文件路径。打包用白名单挑文件，但发布前仍要检查最终包里有没有不该带的东西，不能只靠 `.gitignore`。
 
-更新目标是 Formicand 所在的真实 Git 检出，即使从其他业务项目启动 `formicand` 也不更新那个项目。当前分支必须有 upstream；检查 fetch 上游并比较提交，同 package version 的新提交也可被识别。detached HEAD、合并/变基中、已跟踪修改、非忽略的新文件、本地独有提交或分叉都会拒绝更新。源码跟随自身上游分支；安装包版本没有自动更新。
+自有代码使用 [MIT](../LICENSE)，第三方组件保留各自的许可证，见 [第三方声明](../THIRD_PARTY_NOTICES.md)。
 
-CLI 准备 `build:cli`；开发 App 从“设置 → 更新”准备完整 `build`。CLI 已同步到最新提交但 App 构建尚未更新时，App 仍会提示重建并可在同一提交准备完整构建。Web 宿主先停止、更新，再用 `npm run ui` 重启以生成完整浏览器构建。
+## 页面约定
 
-候选依赖与构建在独立临时源码目录完成；准备失败保留现有源码、依赖与构建。
+- **少说重复的话。** 用布局区分层级，不堆次级标题和说明文字。界面只展示实际可用的能力和真实状态。
+- **颜色和动效用令牌。** 颜色以 [formicand.css](../web/assets/formicand.css) 开头的令牌为准，强调只用黑白，彩色只表达成功、警告、危险这类语义。浮层统一用 `--popover-*` 实色。动效时长用 [ui.css](../web/assets/ui.css) 的 `--motion-*` 令牌，不写裸时长。
+- **字号。** 正文 15px、控件 14px、辅助文字 12px、栏目标题 16px、面板和弹窗标题 18px。字体是本地的 Inter，中文回退到系统字体。
+- **用现成组件。** 菜单用 [menu.js](../web/assets/ui/menu.js)，弹窗用 [modal.js](../web/assets/ui/modal.js)，下拉框用 [select-menu.js](../web/assets/ui/select-menu.js)，短表单用 [dialogs.css](../web/assets/dialogs.css) 的 `.app-dialog`。图标按钮要有 `aria-label`。
+- **状态归控制器。** 界面状态和 DOM 分开，草稿和异步请求的归属由各自的控制器保存。异步回来的结果要核对原来的任务和导航，不要覆盖用户已经切到的新会话。不要往 `web/app.js` 里加功能专用的状态机。
+- **流式更新**要保留 DOM 身份、展开状态、焦点和阅读位置。
+- **验收截图**要看浅色和深色、1440/1280 和 474/320 宽度，检查对比度、菜单位置、标题截断、键盘焦点和横向溢出。
 
-发布阶段失败尝试回退；发现并发编辑或回退失败时保留恢复副本并报告人工恢复。忽略的用户配置/任务不复制进候选，也不清理。更新器不 reset、stash 或 clean 检出。
+## 文档约定
 
-App 启动后检查一次，用户主动执行才更新。草稿保存与运行任务检查属于桌面宿主，后端在退出后继续运行；构建完成后重启启用新代码，中断或失败不能显示为已安装。更新回归使用本地 Git 远端，不修改真实仓库或发布 Release。
+- 每个事实只在一份文档里写，其他地方链接过去。现行行为写进使用和接口文档；还没做的写进 [阶段规划](development-phases.md)，附上完成标准。
+- 改了命令、配置、路径或接口，在同一个改动里更新文档。命令必须和 `package.json`、脚本、CLI 帮助对得上。
+- 使用文档（上手、配置、内置能力、架构、开发、测试）中英双语，英文版在 `docs/en/`，改一份要同步另一份。过程记录（复盘、坑点、交接、设计方案）只写中文。
+- 不提交真实密钥、私有服务、个人配置和用户任务。示例用占位符和通用路径。
+- 用相对 Markdown 链接。删除或移动文档时，更新所有引用它的地方，再跑 `npm run check:docs`。
 
-开发 App 更新后由独立 [重启 helper](../scripts/restart-development.mjs) 等待旧进程退出，再刷新开发入口并启动新构建。旧开发入口若缺少工具链元数据，先退出 App，用 `npm run desktop` 或 `npm run desktop:install-dev` 刷新，再使用应用内更新；宿主会在修改源码前给出该提示。
-
-更新实现分别位于 [源码事务](../scripts/update-source.mjs)、[CLI 调度](../scripts/update.mjs)、[桌面生命周期](../desktop/updates.cjs) 和 [UI](../web/assets/controllers/desktop-updates.js)。先跑 `test/source-update.test.js`、`test/development-restart.test.js`、`test/desktop-updates.test.js`、`e2e/desktop-updates.spec.js`，再运行对应验证。CLI 包必须携带所 import 的更新脚本，桌面专用依赖不进入 CLI 包。
-
-## 日常修改闭环
-
-委派、返修、独立审查和归档使用 [开发交接与验证记录](development-handoffs.md)，并按 [坑点索引](pitfalls/README.md) 查阅匹配的环境问题。历次建议的落实位置见 [复盘索引](retrospectives.md)。
-
-1. 从 [代码地图](code-map.md) 找到行为负责人、消费者和测试，读取目标目录的 `AGENTS.md`。
-2. 在临时工作区复现，先运行已有相关测试；修复所属服务或控制器，入口只装配。
-3. 增加覆盖原失败或新用户行为的回归。异步行为覆盖归属、取消、晚返回、冲突与退出恢复；协议测试同时验证两端。
-4. 按范围运行相关测试和轻量 `npm run verify`；纯文档只做链接/格式检查。发布或广泛影响的修改运行 `npm run verify:full`，界面、原生驱动和发布包另做对应验收。
-5. 同步代码地图、现行文档和路线图状态；交付实际命令、结果、跳过项和剩余限制。
-
-```sh
-npm run test:unit -- --list
-npm run test:unit -- --file test/artifact-store.test.js
-npm run test:unit -- --match artifact
-npm run verify
-```
-
-`test:unit` 默认准备构建；已有与当前源码一致的完整构建时可显式加 `--skip-build` 缩短反馈。不能用旧 `dist/` 的通过结果证明新源码正确。重复 `--file` 选择多个用例，`--match` 的筛选语义与完整说明见 [本地测试指南](testing-local-run.md)。
-
-## Lint 存量基线
-
-[ESLint 配置](../eslint.config.mjs) 在现有检查上启用以下规则：TypeScript/Pi 的 `no-unnecessary-condition`、`no-unnecessary-type-assertion` 和 `no-useless-catch`，以及 TypeScript、Pi、Web、Electron 和脚本中的定向 `no-restricted-syntax`。后者检查不绑定错误且未抛出的 catch、空 catch，以及相应的 `.catch()` 回调。绑定错误后仅记录日志或返回默认值等处理语义仍需审查。
-
-单独运行 lint 前先 `npm run build:cli`，使 `.pi` 引用的 `dist` 类型与当前源码一致，再执行 `npm run lint`；`verify` 和 `check:ci` 已按这个顺序运行。
-
-2026-11-09 将旧配置接入已验收的 `722959d` 代码时，仅为这次新增规则校准 [文件级基线](../eslint-suppressions.json)，记录 237 个文件、1037 项：多余条件 321、丢弃错误语法 641、多余类型断言 75。随后清理这些存量并清空基线：能证明冗余的条件和断言直接删除；工具参数、持久化读取、闭包写入的标记位等真实边界，以及预期内的 best-effort 清理，改为逐处 `eslint-disable-next-line <规则> -- <运行时依据>`。基线保持空对象，日常改动维持零新增；确有运行时依据的局部例外必须写明依据并接受审查，不以未使用绑定的 catch、等价吞错包装或扩充基线绕过检查。
-
-修改上述规则覆盖的代码后，运行 `npm run lint -- --prune-suppressions` 保持基线为空，再运行常规 lint。基线由 ESLint 维护，Prettier 跳过该文件。
-
-`npm run lint` 同时检查 E2E 脚本，Playwright 用例允许用空对象解构声明不依赖 fixture 的回调。日常的 `format:check` 按变更选择文件；在干净工作树检查全仓已跟踪源码和文档时，运行 `npm run format:check:all`。
-
-## 验证分层
-
-| 命令                                                      | 验证范围                                                                                              | 使用时机                                                    |
-| --------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
-| `npm run test:unit -- --file test/name.test.js`           | 有针对性的 Node 行为/协议/生命周期测试，默认先构建                                                    | 每次相关修改的快速反馈                                      |
-| `npm run verify`                                          | CLI 与 Web 资源构建、源码卫生、lint、扩展类型、增量格式、文档链接和发布执行器自测；其余行为测试不运行 | 完成一项修改后的默认本地门槛                                |
-| `npm run verify:full`                                     | 一次完整构建、静态检查、发布执行器自测和全量 Node 回归                                                | 发布验收或影响范围广的修改                                  |
-| `npm test` / `npm run check`                              | 保留的 Node 回归 / 构建与静态检查入口                                                                 | 兼容现有本地脚本；已执行 verify:full 时无需为同一源码重复跑 |
-| `npm run check:ci`                                        | CLI 构建、源码卫生、lint、扩展类型、增量格式和文档链接                                                | GitHub 轻量检查；本地 verify 与相关测试仍是完成门槛         |
-| `npm run check:source`                                    | 当前受版本管理及非忽略的源码文件；检查私有配置、凭据、个人路径和不应提交的产物/旧文档                 | 提交和发行前；不扫描 Git 历史                               |
-| `npm run check:docs`                                      | 现行导航的本地 Markdown 文件链接和标题锚点；不请求外部网站                                            | 文档和代码路径修改，可 `-- --list` 查看范围                 |
-| `npx playwright install chromium`                         | 安装 Chromium                                                                                         | 首次浏览器测试准备                                          |
-| `npm run test:browser`                                    | Chromium / Electron 用户流程；原生场景有各自环境要求                                                  | UI、HTTP/UI 集成、草稿、导航、协作变更                      |
-| `npm run desktop:pack` 后 `npm run test:desktop`          | 搬移后的真实打包 App、设置、Pi/本地模型、退出/重启/模拟升级                                           | 桌面宿主、运行生命周期、打包变更                            |
-| `npm run test:release -- --list` / `npm run test:release` | 五环节发版用例，记录版本、日志、跳过与人工项                                                          | 候选发布验收；原生/包阶段显式加入                           |
-
-普通 Node 回归排除单独的原生桌面/CUA 验收入口，并打印原因；可选引擎仍可能报告 TAP skip。详细前提、报告和显式原生命令见 [本地测试指南](testing-local-run.md)。本地协议夹具验证真实 Pi 的协议/生命周期，不证明实际模型能力；浏览器通过也不证明干净机器安装。检查范围以 [package.json](../package.json) 和执行器为准。
-
-浏览器可先 `npm run build`，再用 `npx playwright test e2e/conversation-menu.spec.js --output=.tmp/playwright-conversation` 运行对应文件。并行的 Playwright 进程须使用不同 `--output`，避免清理对方产物。无需模型的测试不应读取个人连接配置。
-
-`test:unit` 与 Playwright 每次运行都在系统临时目录下建一个本次专属的根目录（`formicand-run-*`），并把 `TMPDIR` 指向它，测试里的 `mkdtemp(tmpdir())` 都落在其中（[`scripts/test-run-root.mjs`](../scripts/test-run-root.mjs)）。运行结束时，仍以该目录为数据根存活的后端会被停掉并判本次运行失败；上一次运行被强行结束留下的根目录，在下一次运行开始时清理。启动 App 的用例须在收尾调用 `stopNativeBackend(<桌面数据根>)`（[`test/native-backend-fixture.mjs`](../test/native-backend-fixture.mjs)）：后端按设计在窗口关闭后继续运行，数据根是 `FORMICAND_DESKTOP_DATA`，未设置时才是 `FORMICAND_HOME`。
-
-## 应用 UI 约定
-
-用布局区分层级，减少重复的次级标签和说明。
-
-先按任务阶段和操作频率组织界面，再调整视觉样式。空白/生成中状态不铺满不可用功能；选择对象后再显示对象操作，启用工具后再显示结果。主工作区优先保留内容，次要面板可关闭并按所在容器宽度适配；文字不能逐字挤压，隐藏面板不能留下空列。功能列表使用有意义的分组，避免把每种导出格式、诊断说明和常用动作平铺为同一级。截图验收同时检查有效内容占比与任务路径，不能只检查控件边界和主题颜色。
-
-页面各视图共用 [ui.css](../web/assets/ui.css) 的颜色、字体、按钮、菜单与状态变量。字体使用本地 Inter 可变字体，中文回退到苹方、微软雅黑或系统字体，离线可用；来源与许可见[第三方声明](../THIRD_PARTY_NOTICES.md#inter-界面字体--interface-typeface)。正文 15px、控件 14px、辅助文字 12px、栏目标题 16px、任务面板及设置弹窗标题 18px、欢迎标题 22 至 26px；常规 400、标题 500、强调 600，默认正常字间距，正文行高 1.8。深色界面采用近黑底、低对比度分隔线和实色输入表面；桌面侧栏默认 232px，正文与输入框沿同一阅读列对齐。
-
-`ui.css` 装配共享组件后，[system-theme.css](../web/assets/system-theme.css) 加载中性浅深色表面与文字颜色；[settings.css](../web/assets/settings.css) 在其后统一设置总览、模型连接和联网搜索的表面、表单与固定操作栏，始终使用实色表面。图标来自 [icons.js](../web/assets/ui/icons.js) 与 SVG sprite；图标按钮须有 `aria-label`，优先使用 32px 点击区域。
-
-- 菜单使用 [menu.js](../web/assets/ui/menu.js)，支持方向键、Home/End、Esc、外部关闭和焦点归还；弹窗使用 [modal.js](../web/assets/ui/modal.js)，限制 Tab 并恢复发起控件焦点。
-- 单选下拉框保留原生 `<select>` 作为取值和读屏控件，点开时由 [select-menu.js](../web/assets/ui/select-menu.js) 弹出应用自绘的选项菜单；需要系统菜单的控件可在祖先上加 `data-native-select`。
-- 重命名、项目编辑等短表单统一使用 [dialogs.css](../web/assets/dialogs.css) 的 `.app-dialog`、字段、说明、错误和操作栏；输入框须有明确标签，动作区分主次，覆盖提交中、失败、禁用与键盘焦点状态，不依赖浏览器默认控件外观。附件预览归 [attachment-preview.css](../web/assets/styles/attachment-preview.css)。设置保留各自布局并共用主题变量。
-- 会话标题和项目归属统一放在顶栏。顶栏与侧栏复用 [会话菜单](../web/assets/controllers/conversation-menu.js)，按整理、复制/导出/打开和归档分组；运行或等待中的会话额外显示关闭会话。复制子菜单支持标题、ID、本机链接和对话正文，导出保留用户/助手的 Markdown 正文，不包含思考和原始工具日志。未读标记保存在本机浏览器，显式打开会话后清除；链接使用 `?task=<id>` 定位原会话。子菜单支持左右方向键与逐层 Esc，刷新时保留目标与焦点，窄屏切换为内嵌菜单。新任务页显示菜单但禁用会话操作。右侧任务面板在打开或刷新页面时默认收起，右上角开关在选中会话时收起或恢复右侧需求进度面板，全局设置位于左下角侧栏，不再重复显示会话标题栏。宽度 1280 及以上任务面板是一列，只用这个开关收起，面板内不再放关闭按钮；更窄时面板浮在顶栏之上，保留面板内的收起按钮。
-- 对话输入在正常布局流内，以圆角、独立底色和柔和阴影形成悬浮卡片，聚焦时保留阴影；外侧留白与画布同色。滚动区占剩余高度，附件条独立限高。流式更新保留 DOM 身份、展开、焦点和用户阅读位置；异步交互始终捕获原 Task/导航 token。
-- 界面只展示实际能力、进度和状态；侧栏设置不显示占位身份，Web 不模拟 Mac 窗口按钮。主要动作和危险操作使用现有状态类。
-- 容器优先以留白和中性表面区分层级；左右侧栏与主体之间保留一条低对比细线，侧栏与主面板之间平时和拖动时都不显示线，靠列宽光标和移动的边缘反馈；只有键盘聚焦时显示强调色细线；命中范围不随线宽缩小。项目归属和运行状态通过悬浮提示及无障碍状态提供。短表单使用柔和填充输入和无框次要动作，保留明确的焦点与错误提示；只有确实需要的内容边界使用细线，避免堆叠边框与阴影。成功状态用低强调的图标和文字表达，保留完成、停止与失败的语义区别。错误先显示简短原因与可用恢复动作，技术细节和长日志默认折叠；展开状态、键盘焦点和日志阅读位置在刷新中保持。
-- 没有活动会话时，任务面板提供简短的开始说明；运行用量位于团队星系之前。
-- 活动对话从等待首个响应、思考到工具执行和自动重试均显示持续的运行指示与当前阶段；完成和停止时退出动画。工具标题使用可读的具体工具名，未知工具仍显示名称。
-- 配色以 [formicand.css](../web/assets/formicand.css) 开头的令牌为准，浅深色各自取值（设计稿 `design/formicand-p4.5-ui.pen`「基础 · 色板」）。强调只用黑白：主要操作是正文色底、`--color-on-accent` 字，链接用正文色加下划线，不引入彩色强调色；颜色只用于语义（成功、警告、危险、审查）。表面分层：侧栏透明，需求面板 `--side-fill` 半透，主面板 `--panel-fill` 接近实色，输入框 `--composer-fill` 实色；菜单、提示、弹窗、抽屉、放大查看等浮层一律用 `--popover-fill`/`--popover-edge`/`--popover-shadow` 实色，不加模糊。选中态用 `--selected-fill`/`--selected-edge`/`--selected-shadow`/`--selected-weight`：深色是亮一级填充，浅色是抬起的白色卡片；不要写死阴影。代码高亮用 `--code-*` 令牌。
-- 动效统一用 [ui.css](../web/assets/ui.css) 的令牌：`--motion-fast`（120ms，悬停/按下/颜色反馈）、`--motion-base`（200ms，弹层、面板、抽屉进入）、`--motion-layout`（240ms，侧栏或面板收起展开）、`--motion-glide`（300ms，选中背景滑动）；缓动 `--ease-standard` 用于进入和移动，`--ease-exit` 用于离开，`--ease-glide` 用于滑动。不写裸时长。分段选项、设置导航、观测筛选、需求阶段和会话行的选中背景由 [motion.js](../web/assets/ui/motion.js) 的 `installSelectionGlide` 在用户点击或按键后滑到新选项，新增同类控件在 `SELECTION_GROUPS` 登记；侧栏和右侧面板的收起展开通过 `animateLayout` 只在切换的那一刻让网格列过渡，拖拽分隔条和窗口缩放仍即时跟随。系统或设置开启「减少动态效果」时，滑动和列过渡都不发生，脚本动画用 `reducedMotion()` 判断，不直接读媒体查询。
-- 检查浅深色下实际渲染的文字对比度，以及 1440/1280 和 474/320 宽度、菜单定位、标题截断、控件可达性、键盘焦点和横向溢出；增加对应实际浏览器回归，并复核截图中的表面层级与状态强调。
-
-界面状态与 DOM 分开，草稿与异步请求归属由各自控制器保存。使用 [代码地图](code-map.md) 中的领域入口和行为测试，不向 `web/app.js` 添加功能专用状态机。
+文档站：`cd docs/site && npm ci && npm run preview` 在本机预览，`npm run build` 生成静态站点到 `.tmp/docs-site/`。导航在 [navigation.mjs](site/navigation.mjs)，新增文档要登记进去。
 
 ## 定位故障
 
-| 现象                           | 优先核对                                                             |
-| ------------------------------ | -------------------------------------------------------------------- |
-| 保存失败 / 409                 | revision、外部修改与并发提交；保留草稿后重读或按提示恢复，不自动覆盖 |
-| Agent 看不到附件或工具         | 上传记录、工具组启用状态、首轮 `before_agent_start` 和后续 `context` |
-| 任务等待、停止不完整、恢复重复 | Task/Run 事件、Inbox 消费、问答/委派/jobs 和进程结束                 |
-| 重启后草稿/附件消失            | 工作区、全局索引、桌面用户目录与草稿镜像；先记录路径                 |
-| 模型启动失败                   | endpoint、协议、模型、参数、环境覆盖和脱敏错误；不输出完整配置       |
-| UI 异步回包覆盖新会话          | 捕获的 Task/草稿身份、导航 token、迟到请求和同 Task 串行化           |
+| 现象                           | 先查                                                          |
+| ------------------------------ | ------------------------------------------------------------- |
+| 保存失败、409                  | 版本号、外部修改和并发提交；保留草稿后重读，不要自动覆盖      |
+| Agent 看不到附件或工具         | 上传记录、工具组是否打开、首轮和后续的上下文装配              |
+| 任务卡住、停不干净、恢复后重复 | 任务和 Run 的事件、收件箱消费、提问、派单、后台任务和进程结束 |
+| 重启后草稿或附件不见了         | 数据目录、全局索引和草稿文件；先记下实际路径                  |
+| 模型启动失败                   | 地址、接口格式、模型、参数和环境变量覆盖；不要打印完整配置    |
+| 异步结果覆盖了新会话           | 记下的任务和草稿身份、导航 token、迟到的请求                  |
 
-日志/trace 位置见 [数据布局](task-workspace-layout.md)。报告问题注明版本/commit、系统、入口、复现、脱敏日志和测试目录。
-
-## GitHub Actions
-
-仓库只保留 main 一条长期主分支，功能/修复临时分支经 PR 合入后删除。main 是已评审集成代码；发布版本由固定 tag/Release 标识，完整流程见 [Mac 发布](mac-release.md)。
-
-[常规工作流](../.github/workflows/test.yml) 在 PR 和推送到 main 时自动运行，也可在 Actions 手动触发，使用单组 Ubuntu + Node 24；增量格式检查以 PR 基准或推送前的提交为对比基准。安装时跳过 Electron 二进制下载，然后执行 `npm run check:ci`：`build:cli`、源码卫生、lint、扩展类型、增量格式和现行文档链接检查。
-
-完整 Node 回归、浏览器、原生引擎、实际模型和安装包体验在本地完成；日常使用轻量 `npm run verify` 与相关测试；发布或广泛影响的修改用 `npm run verify:full`，按改动增加对应层的验收。GitHub 常规检查只提供构建与静态反馈，相关行为验证证据随 PR 提交。
-
-[Internal Mac package](../.github/workflows/internal-mac.yml) 仅手动生成并上传 arm64 内测 DMG/校验文件，不承担完整回归、浏览器或桌面 smoke。[Release Mac DMG](../.github/workflows/release-mac.yml) 则在版本 tag 推送后构建 DMG/CLI 与校验文件，并上传 GitHub Release 草稿，由维护者审阅后 Publish；只有显式配置并验证 Developer ID 签名时，另生成 ZIP、校验文件与 Mac 更新 feed。当前未配置签名，默认仍为 arm64 未签名候选。候选包生成后按 [Mac 发布指南](mac-release.md) 本地安装验收。发布前须完成安装与实际任务验收；分支保护需单独配置。
-
-## Mac 版本 tag 与 Release 草稿
-
-版本 tag 必须与根 package/lock 版本一致，工作流从 tag 提交构建；发布提交包含工作流、脚本和完整源码/文档变更。本地验收完成后再创建下一版，例如 `npm version 0.1.2 --no-git-tag-version`，暂存并提交全部预期修改，创建 `v0.1.2`，推送提交和 tag。自动构建不会发布草稿；当前配置仍未签名，签名 ZIP 更新需证书与独立安装验收。
-
-在 Release Mac DMG 等待 DMG/CLI 与校验文件上传，到对应 Release 草稿核对内容和安装验收，再由维护者选择发布分类并点击 Publish。可用手动输入已有 tag 重试/修复草稿；已发布同版本禁止替换，需新版本。完整命令与恢复规则见 [Mac 发布](mac-release.md#版本-tag-与-release-草稿)。
-
-`desktop:pack` / `desktop:dist` 打包会话界面和完整编排运行时，不安装或分发 CAD、Blender、PPT 组件。
+各种日志和记录的位置见 [数据布局](architecture.md#数据布局)。

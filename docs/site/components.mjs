@@ -21,53 +21,18 @@ const icon = (name) =>
   `<svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[name] || paths.file}</svg>`;
 const arrow = '<span class="card-arrow" aria-hidden="true">↗</span>';
 
-function sections(html, depth) {
-  const pattern = new RegExp(`<h${depth} id="([^"]+)">([\\s\\S]*?)<\\/h${depth}>`, "g");
-  const matches = [...html.matchAll(pattern)];
-  return {
-    prefix: matches.length ? html.slice(0, matches[0].index) : html,
-    items: matches.map((match, index) => ({
-      id: match[1],
-      title: match[2],
-      heading: match[0],
-      body: html.slice(match.index + match[0].length, matches[index + 1]?.index ?? html.length)
-    }))
-  };
-}
-
-function tabs(name, items, label, className = "") {
-  const buttons = items
-    .map(
-      (item, i) =>
-        `<button type="button" role="tab" id="${name}-tab-${i}" aria-controls="${name}-panel-${i}" aria-selected="${i === 0}" tabindex="${i === 0 ? 0 : -1}">${escape(item.label)}</button>`
-    )
-    .join("");
-  const panels = items
-    .map(
-      (item, i) =>
-        `<section class="docs-tab-panel" id="${name}-panel-${i}" role="tabpanel" aria-labelledby="${name}-tab-${i}" tabindex="0" data-tab-panel>${item.html}</section>`
-    )
-    .join("");
-  return `<div class="docs-tabs ${className}" data-tabs><div class="docs-tab-list" role="tablist" aria-label="${escape(label)}" hidden>${buttons}</div>${panels}</div>`;
-}
-
 function home(html, en) {
   return html.replace(/<ul[^>]*>([\s\S]*?)<\/ul>/, (_match, contents) => {
     const items = contents.replace(
       /<li>\s*<a ([^>]+)>([\s\S]*?)<\/a>\s*<\/li>/g,
       (_item, attributes, title) => {
-        const kind = /cli-quickstart/.test(attributes)
-          ? "terminal"
+        const kind = /getting-started/.test(attributes)
+          ? "mac"
           : /configuration/.test(attributes)
             ? "model"
-            : "mac";
-        const install = kind !== "model";
-        const meta =
-          kind === "mac"
-            ? "macOS 14+ · Apple Silicon"
-            : kind === "terminal"
-              ? "macOS / Linux · Node.js 22.19+"
-              : "";
+            : "text";
+        const install = kind === "mac";
+        const meta = install ? "macOS 14+ · Linux · Node.js 22.19+" : "";
         return `<li${install ? "" : ' class="entry-settings"'}><a ${attributes} class="entry-card ${install ? "entry-install" : "entry-route"}"><span class="entry-symbol">${icon(kind)}</span><strong>${title}</strong>${meta ? `<span class="entry-meta">${meta}</span>` : ""}${arrow}</a></li>`;
       }
     );
@@ -75,64 +40,9 @@ function home(html, en) {
   });
 }
 
-function steps(html) {
-  const { prefix, items } = sections(html, 2);
-  if (!items.length) return html;
-  return (
-    prefix +
-    `<ol class="setup-steps">${items
-      .map(
-        (item, i) =>
-          `<li class="setup-step"><span class="step-number" aria-hidden="true">${i + 1}</span><div class="step-body">${item.heading}${item.body}</div></li>`
-      )
-      .join("")}</ol>`
-  );
-}
-
-function downloads(html) {
-  return html.replace(/<ul>([\s\S]*?)<\/ul>/g, (original, contents) => {
-    if (!/\.tgz/.test(contents) || !/\.sha256/.test(contents)) return original;
-    return `<ul class="download-files">${contents.replace(
-      /<li>\s*<a ([^>]+)>([\s\S]*?)<\/a>\s*<\/li>/g,
-      (_item, attributes, name) =>
-        `<li><a ${attributes}><span class="download-file-icon">${icon(/sha256/.test(name) ? "file" : "download")}</span><span>${name}</span>${arrow}</a></li>`
-    )}</ul>`;
-  });
-}
-
-function configuration(html, en) {
-  const { prefix, items } = sections(html, 2);
-  const selected = items.filter((item) => /^(?:cli-|app-)/.test(item.id));
-  if (selected.length !== 2) return html;
-  selected.sort((a, b) => Number(a.id.startsWith("cli-")) - Number(b.id.startsWith("cli-")));
-  const group = tabs(
-    "connection",
-    selected.map((item) => ({
-      label: item.id.startsWith("cli-") ? "CLI" : "App / Web",
-      html: `<div class="panel-heading">${item.heading}</div>${item.body}`
-    })),
-    en ? "Connection setup" : "连接设置",
-    "connection-tabs"
-  );
-  let inserted = false;
-  return (
-    prefix +
-    items
-      .map((item) => {
-        if (!selected.includes(item)) return item.heading + item.body;
-        if (inserted) return "";
-        inserted = true;
-        return group;
-      })
-      .join("")
-  );
-}
-
 // Source Markdown stays readable on GitHub. Enhance only the maintained user entry pages.
 export function decorateArticle(page, html) {
   const file = page.file.replace(/^docs\/en\//, "docs/");
   if (file === "docs/README.md") return home(html, page.english);
-  if (file === "docs/configuration.md") return configuration(html, page.english);
-  if (["docs/getting-started.md", "docs/cli-quickstart.md"].includes(file)) return steps(downloads(html));
   return html;
 }

@@ -82,7 +82,7 @@ test("steering reaches the next model call while queued input waits until the cu
       )
     ).toHaveLength(1);
     // Steering drains only after the in-flight tool call returns, so the steer user turn
-    // follows that call's result (docs/product-api.md, steering). Compare message
+    // follows that call's result. Compare message
     // positions: the system prompt may quote both texts and must not decide the order.
     const messages = steerRequest.body.messages;
     const stepResult = messages.findIndex(

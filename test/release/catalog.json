@@ -156,37 +156,37 @@
     {
       "id": "release-cli-install",
       "stage": "cli",
-      "document": "docs/testing-case-catalog.md",
+      "document": "docs/testing.md",
       "description": "最终 tgz 独立 prefix 安装、首次配置、PTY、停止与继续、支持平台。"
     },
     {
       "id": "release-app-package",
       "stage": "app",
-      "document": "docs/testing-execution-guide.md",
+      "document": "docs/testing.md",
       "description": "最终 DMG 安装、Finder 启动、退出/重启、前版升级、签名/公证与干净用户。"
     },
     {
       "id": "release-app-native",
       "stage": "app",
-      "document": "docs/testing-case-catalog.md",
+      "document": "docs/testing.md",
       "description": "原生窗口、IPC、草稿、模型配置与协议的实际桌面体验。"
     },
     {
       "id": "release-computer-use",
       "stage": "app",
-      "document": "docs/testing-application-release.md",
+      "document": "docs/testing.md",
       "description": "解锁 Mac 的系统权限、真实输入与保存、接管；宽松策略单列待实现。"
     },
     {
       "id": "release-live-cases",
       "stage": "cases",
-      "document": "docs/testing-case-catalog.md",
+      "document": "docs/testing.md",
       "description": "真实模型两端任务、费用、独立产物与人类交互；不会自动调用收费模型。"
     },
     {
       "id": "release-coverage-review",
       "stage": "basic",
-      "document": "docs/testing-case-catalog.md",
+      "document": "docs/testing.md",
       "description": "逐项核对全部规划的具体断言，文件映射仅为部分覆盖线索。"
     }
   ]

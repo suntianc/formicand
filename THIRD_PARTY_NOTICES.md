@@ -76,9 +76,9 @@ Node dependencies are pinned by the root and PPTist lockfiles. The CLI bundles p
 
 ## Formicand terminal UI compatibility adapter
 
-Formicand 使用原始 Pi coding agent 1.5.2，在交互子进程加载时应用六处受限 UI 差异；各 CLI 模式另有三处命令身份/输出路径差异，使新命令的 `AI_AGENT=formicand`、完整输出文件为 `formicand-bash-*.log`。不改写依赖文件、许可、历史内容、恢复格式或 RPC 协议结构；模型/工具记录仍保存实际内容与真实输出路径。具体来源、固定 hash、差异和升级门槛见 [终端适配说明](docs/cli-ui-adapter.md)。
+Formicand 使用原始 Pi coding agent 1.5.2，在交互子进程加载时应用六处受限 UI 差异；各 CLI 模式另有三处命令身份/输出路径差异，使新命令的 `AI_AGENT=formicand`、完整输出文件为 `formicand-bash-*.log`。不改写依赖文件、许可、历史内容、恢复格式或 RPC 协议结构；模型/工具记录仍保存实际内容与真实输出路径。具体来源、固定 hash、差异和升级门槛见 [终端适配说明](docs/architecture.md)。
 
-Formicand uses the original Pi coding agent 1.5.2 with six bounded UI differences applied at load time in the interactive subprocess and three shell identity/output-path differences across CLI modes. New commands use `AI_AGENT=formicand` and `formicand-bash-*.log` for full output. Dependency files, licenses, historical content, recovery formats and RPC protocol structure remain intact; model/tool records retain actual content and real output paths. Source, pinned hashes, differences and upgrade gates are documented in the [terminal adapter guide](docs/en/cli-ui-adapter.md).
+Formicand uses the original Pi coding agent 1.5.2 with six bounded UI differences applied at load time in the interactive subprocess and three shell identity/output-path differences across CLI modes. New commands use `AI_AGENT=formicand` and `formicand-bash-*.log` for full output. Dependency files, licenses, historical content, recovery formats and RPC protocol structure remain intact; model/tool records retain actual content and real output paths. Source, pinned hashes, differences and upgrade gates are documented in the [terminal adapter guide](docs/en/architecture.md).
 
 ## 工程方法技能 / Engineering method skills
 

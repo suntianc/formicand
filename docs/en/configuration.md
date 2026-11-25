@@ -1,39 +1,61 @@
-# Model settings
+# Configuration
 
 [简体中文](../configuration.md) | English
 
-## Connection fields
+The first connection is walked through in [Getting started](getting-started.md). This page describes every setting.
 
-Get the API URL, model ID and API key from your provider, and check which message format the service supports.
+## Model connections
 
-| Field          | What to enter                                                                |
-| -------------- | ---------------------------------------------------------------------------- |
-| API URL        | A service root or `/v1`, such as `https://your-service.example/v1`           |
-| Model          | A provider model ID available to your account                                |
-| API Key        | The service's key                                                            |
-| Message format | Responses by default for new connections; Chat Completions is also available |
+A connection needs four things:
 
-The service must support streaming and tool calls in the selected format. Do not enter the full `/responses` or `/chat/completions` path. URLs cannot contain credentials, query parameters or fragments. Native Anthropic endpoints cannot be used directly.
+| Item    | Value                                                                                                |
+| ------- | ---------------------------------------------------------------------------------------------------- |
+| Address | The service root or the `/v1` address. Do not include paths like `/responses` or `/chat/completions` |
+| Model   | A model ID your account can call                                                                     |
+| API key | The key for this service                                                                             |
+| Format  | `openai-responses`, `openai-completions` or `anthropic-messages`                                     |
 
-## CLI files and environment variables
+The service must support streaming and tool calls in the chosen format.
 
-For first-time setup, run `formicand init` in your project folder and enter the URL, model ID and key when prompted. See the [CLI quickstart](cli-quickstart.md) for the full installation flow.
+### Settings in the App
 
-### Change the URL, model or key
+Settings → Models manages providers and models; Settings → Agents decides which model each agent uses.
 
-Exit the CLI's interactive interface, then run this in the project folder where you plan to work:
+- A bare domain gets `/v1` appended; an address with a path is used as is. `anthropic-messages` addresses are never changed.
+- The parameter button on a model row sets the context window, output limit, reasoning level and image input. Values marked "Auto" come from the provider or the built-in catalog.
+- After changing a name, address, key or format, click "Save".
+- A model or provider in use by an agent cannot be removed or disabled; switch the agent first.
 
-```sh
-formicand doctor
-```
+### Which model each agent uses
 
-Read “配置路径” (configuration path) near the top of the output. The default is `~/.formicand/config.json`. If another path is shown, edit that file instead.
+The "Built-in" group under Settings → Agents has three agents: Main (coordinates), Executor (implements) and Reviewer (reviews). Their roles, permissions and tools are fixed; you can change the model, reasoning level, skills, MCP servers and extra prompt. The "Projects" page can override these per project; anything not overridden follows the global setting.
 
-```sh
-nano ~/.formicand/config.json
-```
+| Agent    | Model when none is chosen                 | Default skills                                                                                    | Default MCP         |
+| -------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------- | ------------------- |
+| Main     | First model of the first enabled provider | All                                                                                               | All enabled servers |
+| Executor | Same as Main                              | `implement`, `tdd`, `diagnosing-bugs`, `code-review`, `domain-modeling`, `codebase-design`, `cua` | None                |
+| Reviewer | Same as Main                              | `code-review`, `domain-modeling`, `codebase-design`, `cua`                                        | None                |
 
-Update the matching fields in the existing file and keep its other settings. Replace the example URL, model and key with your provider's values:
+When changes apply:
+
+- Main's settings apply from its next turn.
+- Executor and Reviewer skills, MCP and extra prompt are fixed when the work is delegated; the model is read when the work item actually starts. Work items already running are not affected.
+- Switching models keeps the conversation; the next turn sends the history to the new service.
+
+## Configuration file
+
+The CLI and the source Web server use the first file that exists, without merging:
+
+1. The file named by `FORMICAND_CONFIG`;
+2. `.formicand/config.json` in the start directory;
+3. `config.json` in the start directory;
+4. `~/.formicand/config.json` (or `FORMICAND_HOME/config.json`).
+
+Environment variables override the file, and command-line options override environment variables. A selected file with errors is reported, never skipped. `formicand doctor` shows which file is in use.
+
+App settings are written to the same file on the execution host; providers live under `modelProviders`.
+
+### Single CLI connection
 
 ```json
 {
@@ -44,59 +66,202 @@ Update the matching fields in the existing file and keep its other settings. Rep
 }
 ```
 
-New connections created by `init` use Responses. For a service that only supports Chat Completions, change `api` to `"openai-completions"`. `init` does not prompt for this choice.
-
-In nano, press Ctrl+O, then Enter to save, and Ctrl+X to exit. If you previously used `export FORMICAND_MODEL_API=...` to change the format temporarily, run `unset FORMICAND_MODEL_API` so the file's `api` value takes effect.
-
-### Check the change
+`formicand init` only creates files; `formicand init --force` reads the existing file and asks only for missing values. Scripts can read the key from an environment variable:
 
 ```sh
-formicand doctor --test-connection
+formicand init --base-url https://your-service.example/v1 --model your-model-id --api-key-env FORMICAND_API_KEY
 ```
 
-After all checks pass and the model connection line reads `OK  流式模型连接与工具调用` (streaming connection and tool calls), run `formicand` again, or `formicand --continue` to return to the previous conversation. The connection test requests the model and uses service quota. Without `--test-connection`, `doctor` only checks local requirements and configuration.
+Optional flags: `--images`, `--reasoning`, `--thinking high`, `--max-tokens 8192`, `--force`.
 
-## App and Web model connections
+For a project-only configuration, run `FORMICAND_CONFIG="$PWD/.formicand/config.json" formicand init` in the project. For source development you can copy `config.example.json` to `.formicand/config.json`.
 
-Open Settings → Models. It manages providers and models only; which model Main, Executor, Reviewer and custom Agents use is chosen under Settings → Agent. Changes are allowed while a task runs: the current turn and work items keep what they started with, and the next one uses the new settings.
+When both `modelProviders` and the top-level fields exist, `modelProviders` wins.
 
-1. Select Add provider and pick one from China, International or Local and custom. A preset fills in the API address and wire format, so you only enter the API key. For any other service that speaks the OpenAI or Anthropic API, choose Custom, enter a name and the API address, and pick the format (Chat Completions, Responses or Anthropic Messages).
-2. Select Add and fetch models. The App reads the provider's model list; tick the models you want and select Add models. If the provider offers no list, close the dialog and use Add manually with the model ID.
-3. Select Check in the provider's detail to verify the connection and tool calls with its first model. A check uses a little quota.
-4. A model row's settings button opens its context window, output limits, reasoning levels and image input. Values marked Auto come from the provider's listing or the built-in catalog; a value you edit wins from then on.
+### Model parameters
 
-A bare host address gets `/v1`; an address with a path is used as written. After changing a provider's name, address, key or format, select Save at the bottom, or Discard to revert; unsaved edits survive switching to another provider.
+These fields can be set on a single connection or on each model under `modelProviders`.
 
-The Built-in group under Settings → Agent lists Main, Executor and Reviewer. Their name, description (Main's responsibility), permission and tools are fixed; model and reasoning effort, skills, MCP servers and extra prompt can be changed, and the model list is grouped by provider. Without a model, Main uses the first model of the first enabled provider and Executor and Reviewer use Main's; without an effort, the model's own default applies. Main sees every skill and every enabled MCP server by default; Executor sees only the bundled `implement`, `tdd`, `diagnosing-bugs`, `code-review`, `domain-modeling`, `codebase-design` and `cua`, Reviewer only `code-review`, `domain-modeling`, `codebase-design` and `cua`, and neither uses an MCP server; for other skills, switch to All visible or add them here. The Project page sets any of these for one project; a field it leaves alone follows the global value, and Follow global for all clears that project's settings.
+| Field                                 | Meaning                                                                                |
+| ------------------------------------- | -------------------------------------------------------------------------------------- |
+| `api`                                 | Format. Defaults to `openai-completions`; `init` writes `openai-responses`             |
+| `supportsImages`                      | Send images to the model. Default `false`                                              |
+| `reasoningEffort`                     | `off`, `low`, `medium`, `high`, `xhigh`, `max`; the service must support it            |
+| `supportsReasoningEffort`             | Send the reasoning effort field. Default `false`                                       |
+| `thinkingFormat`                      | `auto` (default), `openai` or `zai`; Chat Completions only. Use `zai` for GLM gateways |
+| `supportsPromptCacheKey`              | Send `prompt_cache_key` to third-party services. Default `false`                       |
+| `contextWindow`                       | Context budget, default 256000 tokens; used for automatic compaction, not sent         |
+| `mainMaxTokens` / `subagentMaxTokens` | Output limit per request; 8192 for new connections                                     |
+| `workspaceRoot`                       | Task data directory; use an absolute path                                              |
 
-Main's settings apply from the next turn. Executor and Reviewer fix their skills, MCP servers and extra prompt when an item is dispatched and read their model when it actually starts, so a running item keeps what it had. Switching models preserves conversations; the next turn sends the history to the new service. A model or provider a built-in Agent uses cannot be removed or disabled until that Agent picks another on the Agent page.
+On connections without image support, the image tools say so explicitly, and the browser and window tools are not offered.
 
-The execution host stores keys and the UI only shows whether a provider is configured. See [connection storage](configuration-reference.md#connection-storage-and-compatibility) for the location and failure handling, and [model providers](configuration-reference.md#model-providers) for the configuration shape.
+### Providers
 
-## Connection errors
+```json
+{
+  "modelProviders": {
+    "version": 1,
+    "providers": [
+      {
+        "id": "<provider id>",
+        "name": "DeepSeek",
+        "preset": "deepseek",
+        "baseUrl": "https://api.deepseek.com",
+        "api": "openai-completions",
+        "enabled": true,
+        "models": [{ "id": "deepseek-chat", "contextWindow": 256000, "mainMaxTokens": 8192 }]
+      }
+    ]
+  }
+}
+```
 
-| Symptom                                          | Action                                                                                                                                                                                                    |
-| ------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 401 / 403, authentication or access error        | Check the API key, model ID and your account's model access.                                                                                                                                              |
-| 404, URL or model not found                      | Check the API root and model ID against the provider's documentation; remove a trailing `/responses` or `/chat/completions` from the URL.                                                                 |
-| Unsupported message format or parameter          | Switch to the format the service supports (Chat Completions, Responses or Anthropic Messages); disable image, reasoning or cache parameters that the provider does not support.                           |
-| CLI reports `FAIL 模型配置`                      | Fix the JSON and required fields at the path printed by `doctor`. Run `formicand init` if no configuration exists. See [CLI troubleshooting](installation-reference.md#troubleshooting) for other errors. |
-| CLI still uses old values after editing the file | Check `FORMICAND_API_BASE`, `FORMICAND_MODEL`, `FORMICAND_API_KEY` and `FORMICAND_MODEL_API`. Environment variables override the file; remove obsolete overrides and retry.                               |
-| App save fails                                   | Follow the save error and select Save again; unsaved edits are kept.                                                                                                                                      |
+Models are referenced as `<provider id>#<model id>`. `preset` only sets the icon and preset address in the UI.
 
-Check again after fixing the error. In the App, select Check in the provider's detail. In the CLI, rerun `formicand doctor --test-connection`.
+### Agent settings
 
-<details>
-<summary>Other configuration references</summary>
+Settings → Agents writes `roleModels`:
 
-- [Images, reasoning, context and output limits](configuration-reference.md#model-parameters) · [Image input](configuration-reference.md#image-input)
-- [CLI file precedence and automated setup](configuration-reference.md#cli-files) · [Connection storage and compatibility](configuration-reference.md#connection-storage-and-compatibility)
-- <a id="app-and-web-project-folders"></a>[Project folders and internal data](../task-workspace-layout.md#项目与任务路径) (Chinese)
-- [Interface language](configuration-reference.md#interface-language)
-- <a id="appearance"></a>[Appearance](configuration-reference.md#appearance-storage)
-- <a id="web-search"></a>[Web search](configuration-reference.md#web-search)
-- <a id="network-proxies"></a>[Network proxies](configuration-reference.md#network-proxies)
-- <a id="paths-and-common-environment-variables"></a>[Paths and environment variables](configuration-reference.md#paths-and-environment-variables)
-- <a id="advanced-limits"></a>[Runtime limits](configuration-reference.md#advanced-limits)
+```json
+{
+  "roleModels": {
+    "version": 1,
+    "host": {
+      "main": { "profileId": "<provider id>#<model id>", "thinkingLevel": "high", "mcp": "all" },
+      "executor": {
+        "skills": ["pg-migration"],
+        "mcp": ["postgres"],
+        "prompt": "Run the tests before changing code."
+      }
+    },
+    "projects": { "/path/to/project": { "executor": { "thinkingLevel": "medium" } } }
+  }
+}
+```
 
-</details>
+`host` is the default for this machine; `projects` overrides by project directory. Every field is optional; `skills` and `mcp` take a list of names or `"all"`. A reference to a missing model is an error and the run is refused; it never silently switches to another model.
+
+## Where keys are stored
+
+| Key                                | Location                                                                                       |
+| ---------------------------------- | ---------------------------------------------------------------------------------------------- |
+| Model and search keys              | `credentials.json` next to the configuration (mode 0600); move it with `FORMICAND_CREDENTIALS` |
+| The App's session with the backend | Encrypted with the system Keychain in `client-sessions.json`                                   |
+
+The UI and the API only report that a key is configured; they never return it. Removing a provider removes its key. A damaged credentials file is reported and kept, never overwritten.
+
+## Web search
+
+Search uses [Exa's hosted MCP](https://exa.ai/docs/get-started/exa-mcp) by default, with a search tool and a page reader.
+
+- Turn it off: `"webSearch": { "provider": "off" }` in the configuration, or `FORMICAND_WEB_TOOLS=0`.
+- Use your own Exa key: `webSearch.exaApiKey`, or `FORMICAND_EXA_API_KEY` / `EXA_API_KEY`.
+
+A resident Main picks up changes at its next turn.
+
+## Network proxy
+
+| Field        | Environment variable          |
+| ------------ | ----------------------------- |
+| `httpProxy`  | `HTTP_PROXY` / `http_proxy`   |
+| `httpsProxy` | `HTTPS_PROXY` / `https_proxy` |
+| `noProxy`    | `NO_PROXY` / `no_proxy`       |
+
+Environment variables win. Only HTTP(S) proxy addresses are accepted. `localhost`, `127.0.0.1` and `::1` always bypass the proxy.
+
+## Project data
+
+Projects, the requirement ledger, the board, development and merge records are kept in the project data service. It uses local SQLite by default, at `~/.formicand/runtime/project-data.sqlite`. PostgreSQL is also supported:
+
+```json
+{
+  "projectData": {
+    "engine": "postgres",
+    "postgres": { "connectionString": "postgresql://formicand@db.example:5432/formicand" }
+  }
+}
+```
+
+Another backend can share the same data by connecting to that service instead of opening a local database:
+
+```json
+{ "projectData": { "authority": { "url": "http://127.0.0.1:3880", "token": "<host credential>" } } }
+```
+
+The engine is fixed at startup. A bad configuration, an unreachable database or failed authentication stops startup; it never switches engines or continues with an empty database. Changing engines does not move existing data.
+
+Backup and restore:
+
+```sh
+formicand data backup --to ~/backups/project-data.json
+formicand data restore --from ~/backups/project-data.json
+```
+
+A backup contains only the project database records, not session history or project files. Stop the backends that write this data directory before restoring, then start them again. A database from an unknown version is refused, with the file and version named.
+
+## External Main capacity
+
+Mains created through the external entry point are limited by slots; without this setting, external sessions are refused:
+
+```json
+{ "mainCapacity": { "resident": 2, "continuation": 1 } }
+```
+
+`resident` is the number of external regular Mains that can run at once; `continuation` is reserved for continuation Mains. They are not shared and each is at most 32. Requests over the limit queue in order.
+
+## Run limits
+
+| Field                       | Environment variable                     | Default                                              |
+| --------------------------- | ---------------------------------------- | ---------------------------------------------------- |
+| `mainMaxTurns`              | `FORMICAND_MAIN_MAX_TURNS`               | 2000                                                 |
+| `subagentMaxTurns`          | `FORMICAND_MAX_TURNS`                    | 200                                                  |
+| `mainTimeoutMs`             | `FORMICAND_MAIN_TIMEOUT_MS`              | 0, no limit                                          |
+| `mainIdleTimeoutMs`         | `FORMICAND_MAIN_IDLE_TIMEOUT_MS`         | 300000 (5 minutes); 0 keeps an idle Main running     |
+| `subagentTimeoutMs`         | `FORMICAND_SUBAGENT_TIMEOUT_MS`          | 0, no limit                                          |
+| `commandTimeoutMs`          | `FORMICAND_COMMAND_TIMEOUT_MS`           | 1800000 (30 minutes); 0 no limit                     |
+| `maxAttempts`               | `FORMICAND_MAX_ATTEMPTS`                 | 3 including the first delegation; 1 disables retries |
+| `subagentQuestionTimeoutMs` | `FORMICAND_SUBAGENT_QUESTION_TIMEOUT_MS` | 180000 (3 minutes); 0 stops subagents asking Main    |
+| `subagentMaxQuestions`      | `FORMICAND_SUBAGENT_MAX_QUESTIONS`       | 3                                                    |
+| `humanAnswerTimeoutMs`      | `FORMICAND_HUMAN_ANSWER_TIMEOUT_MS`      | 60000 (1 minute)                                     |
+
+Times are in milliseconds. `mainIdleTimeoutMs` is how long a resident Main stays alive with no turn in progress and no subagent running; it then exits, keeps the session, and the next message starts it again.
+
+## Environment variables
+
+| Variable                                                            | Purpose                                                        |
+| ------------------------------------------------------------------- | -------------------------------------------------------------- |
+| `FORMICAND_CONFIG`                                                  | Configuration file                                             |
+| `FORMICAND_HOME`                                                    | Data directory, default `~/.formicand`                         |
+| `FORMICAND_API_BASE` / `FORMICAND_MODEL` / `FORMICAND_API_KEY`      | Override address, model, key                                   |
+| `FORMICAND_MODEL_API`                                               | Override the format; same values as `api`                      |
+| `FORMICAND_SUPPORTS_IMAGES`                                         | `1` on, `0` off                                                |
+| `FORMICAND_REASONING_EFFORT`                                        | Reasoning effort                                               |
+| `FORMICAND_WORKSPACE`                                               | Task data directory, default `~/.formicand/workspace`          |
+| `FORMICAND_PROJECT_DIR`                                             | Project directory for Main's files and commands                |
+| `FORMICAND_UI_PORT`                                                 | Port of the source Web server, default 3880                    |
+| `FORMICAND_PROJECT_DATA_ENGINE`                                     | Project data engine: `sqlite` or `postgres`                    |
+| `FORMICAND_PROJECT_DATA_SQLITE` / `FORMICAND_PROJECT_DATA_URL`      | SQLite file / PostgreSQL connection string                     |
+| `FORMICAND_PROJECT_DATA_AUTHORITY` / `FORMICAND_PROJECT_DATA_TOKEN` | Shared project data service address / credential               |
+| `FORMICAND_TRUSTED_CLIENT_ORIGINS`                                  | Local page origins allowed to use the backend, comma separated |
+
+Other `FORMICAND_` variables pass state between processes and are not meant to be set by hand.
+
+## Other settings
+
+- **Language**: Settings → General → Language, Simplified Chinese or English; reload the page to apply.
+- **Appearance**: stored in `appearance.json` in the data directory for the App, and in the browser for the Web.
+- **Command search path**: an App started from Finder or the Dock adds `~/.local/bin`, Homebrew and `/usr/local/bin` to `PATH`, so Main and subagents can use them.
+
+## Connection failures
+
+| Problem                               | Fix                                                                                                                  |
+| ------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| 401 / 403                             | Check the API key, model ID and the account's model access                                                           |
+| 404                                   | Check the address and model ID; remove `/responses` or `/chat/completions` from the address                          |
+| Format or parameter not supported     | Use a format the service supports; turn off image, reasoning or cache options it lacks                               |
+| File edited but old values still used | Check `FORMICAND_API_BASE`, `FORMICAND_MODEL`, `FORMICAND_API_KEY`, `FORMICAND_MODEL_API`; environment variables win |
+
+Check again afterwards: click "Check" in the App, or run `formicand doctor --test-connection`.
+
+Implementation: [config reading](../../src/runtime/config.ts), [run settings](../../src/runtime/runtime-settings.ts), [connection parameters](../../src/runtime/model-profile.ts).

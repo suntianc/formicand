@@ -193,10 +193,9 @@ function shell(page, body) {
     item
       ? `<a class="${previous ? "pager-prev" : "pager-next"}" href="${escape(pageUrl(page.file, item.file))}">${previous ? '<span aria-hidden="true">←</span>' : ""}<strong>${escape(item.title)}</strong>${previous ? "" : '<span aria-hidden="true">→</span>'}</a>`
       : "<span></span>";
-  const journeys = [
-    ["docs/getting-started.md", "docs/configuration.md"],
-    ["docs/cli-quickstart.md", "docs/configuration.md"]
-  ].map((journey) => journey.map((file) => translated(file, en)));
+  const journeys = [["docs/getting-started.md", "docs/configuration.md", "docs/capabilities.md"]].map(
+    (journey) => journey.map((file) => translated(file, en))
+  );
   const journey = journeys.find((items) => items.slice(0, 2).includes(page.file));
   const step = journey?.indexOf(page.file);
   const previous = journey ? flat.find((item) => item.file === journey[step - 1]) : flat[position - 1];

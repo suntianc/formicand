@@ -1,39 +1,42 @@
 export const navigation = [
   {
-    zh: "开始使用",
-    en: "Get started",
+    zh: "使用",
+    en: "Use",
     pages: [
       ["docs/README.md", "概览", "Overview"],
-      ["docs/getting-started.md", "Mac App", "Mac App"],
-      ["docs/cli-quickstart.md", "CLI 安装", "CLI installation"],
-      ["docs/configuration.md", "模型设置", "Model settings"]
+      ["docs/getting-started.md", "上手", "Getting started"],
+      ["docs/configuration.md", "配置", "Configuration"],
+      ["docs/capabilities.md", "内置能力", "Built-in capabilities"]
     ]
   },
   {
-    zh: "开发者",
-    en: "Developers",
+    zh: "开发",
+    en: "Develop",
     collapsed: true,
     pages: [
-      ["docs/development.md", "开发环境", "Development"],
+      ["docs/architecture.md", "架构与代码地图", "Architecture and code map"],
+      ["docs/development.md", "开发", "Development"],
+      ["docs/testing.md", "测试", "Testing"],
       ["GLOSSARY.md", "产品术语", "Product glossary (Chinese)"],
-      ["docs/retrospectives.md", "复盘落实", "Retrospectives (Chinese)"],
-      ["docs/workloop-followups.md", "Workloop 问题", "Workloop follow-ups (Chinese)"],
-      ["docs/development-handoffs.md", "开发交接", "Handoffs (Chinese)"],
-      ["docs/pitfalls/README.md", "项目坑点", "Pitfalls (Chinese)"],
-      ["docs/code-map.md", "代码地图", "Code map"],
-      ["docs/architecture.md", "架构", "Architecture"],
-      ["docs/product-api.md", "HTTP / SSE API", "HTTP / SSE API"],
-      ["docs/task-workspace-layout.md", "文件与数据", "Files & storage"],
-      ["docs/testing-local-run.md", "测试", "Testing"],
-      ["CONTRIBUTING.md", "参与贡献", "Contributing"],
-      ["docs/mac-release.md", "Mac 发布", "Mac releases"],
-      ["docs/development-phases.md", "阶段规划", "Phase plan (Chinese)"],
-      ["docs/documentation.md", "文档维护", "Documentation policy"]
+      ["CONTRIBUTING.md", "参与贡献", "Contributing"]
+    ]
+  },
+  {
+    zh: "过程记录",
+    en: "Records (Chinese)",
+    collapsed: true,
+    pages: [
+      ["docs/development-phases.md", "阶段规划", "Phase plan"],
+      ["docs/development-handoffs.md", "开发交接", "Handoffs"],
+      ["docs/pitfalls/README.md", "项目坑点", "Pitfalls"],
+      ["docs/retrospectives.md", "复盘", "Retrospectives"],
+      ["docs/workloop-comparison.md", "与 Workloop 的对比", "Workloop comparison"],
+      ["docs/workloop-followups.md", "Workloop 问题", "Workloop follow-ups"]
     ]
   }
 ];
 
-const userNames = ["README", "getting-started", "cli-quickstart", "configuration"];
+const userNames = ["README", "getting-started", "configuration", "capabilities"];
 export const userGuideFiles = new Set([
   "README.md",
   "README.zh-CN.md",

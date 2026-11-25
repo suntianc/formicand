@@ -1,200 +1,125 @@
-# Development guide
+# Development
 
-English | [中文](../development.md)
+[简体中文](../development.md) | English
 
-Start with [AGENTS](../../AGENTS.en.md), [architecture](architecture.md) and the [code map](code-map.md). Follow [CONTRIBUTING](../../CONTRIBUTING.en.md).
+Read [AGENTS](../../AGENTS.en.md) and [Architecture and code map](architecture.md) first. How to write and run tests is in [Testing](testing.md).
 
 ## Environment
 
-Use Node.js >=22.19.0, npm and Git. Install locked dependencies with `npm ci`. Initial dependency/Chromium downloads require network access. Ordinary tests use temporary workspaces and local model protocol fixtures; real credentials are needed only for actual model requests.
+- Node.js ≥22.19.0, npm and Git. Dependencies follow the lockfile; install with `npm ci`.
+- The Mac App and window control need macOS 14+, Apple Silicon and the Xcode Command Line Tools.
+- Attachment parsing tests need Python 3.11 with the libraries in [scripts/document-requirements.txt](../../scripts/document-requirements.txt); point `FORMICAND_PYTHON` at that Python.
 
-| Target       | Preparation                                                                      | Launch                                                    |
-| ------------ | -------------------------------------------------------------------------------- | --------------------------------------------------------- |
-| CLI/harness  | `ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm ci`, `npm run build:cli`                    | `npm run init`, `npm start`                               |
-| Web          | `npm ci`, `npm run build`; Mac builds need Xcode Command Line Tools              | `npm run ui`, default `http://127.0.0.1:3880`             |
-| Electron App | `npm ci`; run `npm rebuild electron` if download was previously skipped          | `npm run desktop`                                         |
-| Computer Use | Mac, Xcode Command Line Tools; screenshots need macOS 14+ and system permissions | Built by `npm run build`; input needs an unlocked desktop |
-| Mac package  | Apple Silicon Mac; offline full archives also need uv                            | `npm run desktop:pack` / `npm run desktop:dist`           |
+| To work on | Prepare                                                       | Start                                         |
+| ---------- | ------------------------------------------------------------- | --------------------------------------------- |
+| CLI        | `ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm ci`, `npm run build:cli` | `npm run cli`, `npm start`                    |
+| Web        | `npm ci`, `npm run build`                                     | `npm run ui`, default `http://127.0.0.1:3880` |
+| Mac App    | `npm ci`                                                      | `npm run desktop`                             |
 
-`build:cli` compiles the shared runtime and prepares CLI assets. `build`, `build:base` and `build:full` prepare Web assets, math rendering, Computer Use helpers and desktop host assets. Non-Mac builds skip native helpers and icons.
+## Running and debugging
 
-Document attachment tests need Python 3.11 and PDF/Office parsing dependencies. Missing libraries must be fixed, not counted as passing skips. Fixtures/readers share `FORMICAND_PYTHON`:
+- **Use isolated data.** Keep development and tests away from real tasks, model settings and documents. Set `FORMICAND_HOME` for a whole separate data directory, or `FORMICAND_DESKTOP_DATA` for desktop data only.
+- **Development App.** `npm run desktop` builds and starts `Formicand Dev`. `npm run desktop:install-dev` installs it as a fixed `~/Applications/Formicand Dev.app` that opens from Finder or the Dock and runs the current repository's code; reinstall it after moving the repository. The development and release Apps share the data directory and single-instance lock, so they cannot run at the same time.
+- **System permissions.** When testing Screen Recording and Accessibility, open the App from Finder or with `npm run desktop`, never by running the binary in `Contents/MacOS/`, or the permission is recorded for your terminal. Each development runtime has its own identity, so grant the matching `Formicand Dev` entry in System Settings.
+- **Page only.** After changing front-end modules or styles, run `npm run build:web-assets` and reload; for continuous work run `npm run watch:web-assets` in another terminal. TypeScript or Swift changes need a rebuild and restart.
+- **Standalone backend.** `formicand backend start|status|stop` manages the backend directly. Its instance record is `~/.formicand/runtime/backend-instance.json`. One data directory has at most one backend; starting another reuses the existing one.
+- **Updating the source.** `formicand update --check` and `formicand update` follow the current branch's Git upstream and rebuild the CLI. They refuse when there are uncommitted changes, local-only commits, a diverged branch or a merge in progress.
 
-```sh
-python3.11 -m venv .tmp/document-python
-.tmp/document-python/bin/python -m pip install -r scripts/document-requirements.txt
-.tmp/document-python/bin/python -c 'import sys; print(sys.executable, sys.version); import fitz, docx, pptx, openpyxl'
-FORMICAND_PYTHON="$PWD/.tmp/document-python/bin/python" npm run verify:full
-```
+## Change workflow
 
-## Isolated development data
+1. Use the [code map](architecture.md#code-map) to find the module that owns the behavior, its consumers and tests; read the target directory's `AGENTS.md`; check the [pitfalls](../pitfalls/README.md) (Chinese) for the tools, paths or interfaces you touch.
+2. Reproduce first, then run the existing related tests. Fix the owning module; entry files only assemble.
+3. Add a test that covers the original failure. Asynchronous behavior must cover ownership, cancellation, late responses, conflicts and recovery after exit.
+4. Verify by scope: related tests first, then `npm run verify`. Pure doc changes only need `npm run check:docs` and `npm run format:check`. Broad changes run `npm run verify:full`.
+5. Update the related docs in the same change. The commit message states the problem and result, the modules involved, the checks run and what was not verified.
 
-Do not use real user tasks, model settings or documents for tests. Web can use explicit directories:
+Conventions for delegation, rework, independent review and handoffs are in [Development handoffs](../development-handoffs.md) (Chinese).
 
-```sh
-FORMICAND_WORKSPACE=/tmp/formicand-dev \
-FORMICAND_GLOBAL_INDEX=/tmp/formicand-dev-index/workspaces.json \
-FORMICAND_UI_PORT=3881 npm run ui
-```
+## Checks
 
-First verify conversation creation, attachment reading and artifact preview/download without a model; then configure a connection using the [model configuration](configuration.md). Investigate recovery using the [workspace reference](../task-workspace-layout.md) (Chinese); do not delete data to diagnose it.
+| Command                                      | Checks                                                                                                                         | When                              |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | --------------------------------- |
+| `npm run test:unit -- --file test/x.test.js` | The given Node tests, building first                                                                                           | Every related change              |
+| `npm run verify`                             | CLI and page asset builds, source hygiene, lint, extension types, changed-file formatting, doc links, release runner self-test | After finishing a change          |
+| `npm run verify:full`                        | Full build, static checks and all Node tests                                                                                   | Before a release, broad changes   |
+| `npm run check:ci`                           | The light checks run on GitHub                                                                                                 | CI runs it                        |
+| `npm run check:source`                       | Private configuration, keys, personal paths and files that must not be committed                                               | Before committing                 |
+| `npm run check:docs`                         | Local links and heading anchors in the docs                                                                                    | After changing docs or code paths |
+| `npm run test:browser`                       | Chromium and Electron user flows                                                                                               | Page and page/HTTP changes        |
+| `npm run test:desktop`                       | The packaged App: settings, sessions, quit and restart, simulated upgrade. Run `npm run desktop:pack` first                    | Desktop host or packaging changes |
+| `npm run test:release`                       | Every stage of release acceptance                                                                                              | Preparing a release               |
 
-Mac development displays Formicand Dev (short suffix), identifier `io.github.suntianc.formicand.dev.runtime.<runtime hash>`. Each immutable ad-hoc runtime has its own permission identity so different worktrees or runtimes do not share a system permission record with incompatible signatures. Reopening the same runtime reuses its identity.
+Before running lint on its own, run `npm run build:cli` so the types `.pi/` imports match the source; `verify` already does this in order.
 
-It shares `~/.formicand/` with the release App, CLI and Web; both default desktop entrypoints use the same instance lock. Tests may set `FORMICAND_DESKTOP_DATA`, or `FORMICAND_HOME` for full isolation. Legacy data retention and imports are documented in [workspace persistence](../task-workspace-layout.md) (Chinese).
+## Lint rules
 
-```sh
-npm run desktop:install-dev # installs fixed ~/Applications/Formicand Dev.app
-npm run desktop             # builds current source and starts the same entry
-```
+On top of the usual rules, the [ESLint configuration](../../eslint.config.mjs) flags swallowed errors (catch blocks that neither bind nor rethrow, empty catch blocks and the matching `.catch()` callbacks), unnecessary conditions and unnecessary type assertions.
 
-The fixed entry reads the current checkout's `desktop/`, `dist/` and `web/`; Finder/Dock launch uses the last build. Reinstall the entry after moving the repository. Runtime cache: `.tmp/desktop-runtime/`; packed App: `.tmp/release/mac-arm64/`; DMG: `release/`. CLI candidates may use `FORMICAND_PACKAGE_DIR=.tmp/cli-candidate npm run cli:pack` to inspect packages separately from the default `release/` directory.
+The [suppression baseline](../../eslint-suppressions.json) is empty and stays an empty object. A justified exception gets its own `// eslint-disable-next-line <rule> -- <reason>` and goes through review. Do not grow the baseline or rewrite code to swallow errors in another form. After touching such code, run `npm run lint -- --prune-suppressions`.
 
-Mac development startup and restart after updates open the exact App bundle through LaunchServices. The command returns after requesting launch; quit through the App menu. Environment variables such as the test data directory reach that instance.
+`format:check` checks changed files only; to check the whole repository, run `npm run format:check:all` on a clean tree.
 
-Do not directly execute the binary in `Contents/MacOS/` for system permission acceptance: direct execution, including detached execution, can attribute the App and native helper to Terminal/IDE. Revoking Formicand's permissions may then leave access working or fail to show Formicand's permission prompt. Check the Formicand Dev entry with the current short suffix in System Settings. Revocation may not reproduce a first-install prompt; when macOS declines to prompt again, confirm access in System Settings.
+## Branches and merging
 
-The Finder entry copies the signed cached bundle without changing or re-signing it, preserving its permission identity. Changes to the icon, Electron, toolchain or package metadata create a new development runtime that needs a new grant; old grants are not migrated automatically. Other Apps and system permissions do not need to be removed or reset.
+- `main` is the only long-lived branch. Work happens on temporary branches that are deleted after merging into `main`.
+- Merge with `git merge --no-ff` and rebuild afterwards.
+- Versions are defined by tags and GitHub Releases.
 
-Web and Electron load the same frontend bundles. After editing frontend modules or styles, run `npm run build:web-assets` and refresh. For repeated edits, run `npm run watch:web-assets` in another terminal and refresh after each rebuild. Watch mode includes source maps. Startup bundles live in `web/assets/markdown/generated/shell/` so existing desktop source updaters install and roll them back with the other generated assets. Rebuild and restart the host for TypeScript or Swift changes. Icon/Electron/package-version changes also require rebuilding the development runtime. Edit source, not generated artifacts. Full/CLI builds remove orphaned compiled files for moved/deleted sources while preserving native helpers and Python runners.
+The [regular workflow](../../.github/workflows/test.yml) runs `npm run check:ci` on pull requests and pushes to `main`. CI only builds and runs static checks; full tests, browser, native and real-model checks happen locally, so a green CI is not a passed test run.
 
-For interface iteration, complete `npm run build` once, then start with `node dist/src/cli/dashboard.js` to avoid the rebuild performed by every `npm run ui` launch. Keep the required isolation environment variables. Refresh after HTML edits. Use the watcher above for JavaScript and CSS. Backend changes still require stopping the server, rebuilding and restarting.
+## Packaging and releases
 
-### Standalone backend
+Only Apple Silicon Mac installers are produced, with ad-hoc signing: no Developer ID signing, notarization or in-app updates.
 
-The standalone backend runs independently of the client that started it. The development package supports macOS 14+ on Apple Silicon; the App starts or reuses the backend for its data root and quitting the desktop leaves it running. The standalone CLI requires Node.js ≥22.19.0 and should match the App candidate version. After `npm run build:cli`, `node dist/src/cli/backend.js start` (or `formicand backend start`) starts a detached process for one data root; `status` reports the instance and `stop` finishes managed work before exiting. The port, session token and instance identity live in `FORMICAND_HOME/runtime/backend-instance.json` (mode 0600), while the backend identity in `backend-identity.json` survives restarts. A direct `serve` follows the same ownership rule: with a verifiable live instance it only prints that identity and exits, and it refuses clearly while another backend is starting or its identity cannot be confirmed instead of overwriting the record. `stop` returns `stopped` only after the backend finished teardown and removed its instance record; a forced or incomplete teardown returns `incomplete` with a non-zero exit and keeps the record so the next `start` reclaims the same backend identity. These commands never install a launchd/systemd service.
+| Command                | Output                                                                         |
+| ---------------------- | ------------------------------------------------------------------------------ |
+| `npm run desktop:pack` | `.tmp/release/mac-arm64/Formicand.app`, used by `npm run test:desktop`         |
+| `npm run desktop:dist` | `release/Formicand-<version>-mac-arm64.dmg` and its SHA-256                    |
+| `npm run cli:pack`     | A CLI package in `release/`; change the directory with `FORMICAND_PACKAGE_DIR` |
 
-The Web entry listens only on the local machine by default. Model requests, task execution and file operations still use the local backend; static frontend hosting alone cannot run the full UI. Deploying the backend to a remote server also moves command execution and file operations to that server.
+Release steps:
 
-## Updating a source checkout
+1. Finish all acceptance locally; see [Testing](testing.md#release-acceptance).
+2. Bump the version and commit: `npm version 0.1.4 --no-git-tag-version`, together with the source and docs for this release.
+3. Tag and push: `git tag v0.1.4`, then push the commit and the tag.
+4. From a clean checkout of the tag, run `npm run release:local -- v0.1.4`. It checks the tag and version, builds the DMG and CLI package, writes checksums and uploads them to a GitHub Release draft.
+5. Review the draft's files, version and notes, then click Publish. Mark test builds as Pre-release and state that they are unsigned and not notarized.
 
-Run the update commands in the Formicand source checkout:
+If no local build machine is available, run the [Release Mac workflow](../../.github/workflows/release-mac.yml) manually to build in the cloud; for internal test packages use [Internal Mac package](../../.github/workflows/internal-mac.yml). Files of a published release cannot be replaced; ship fixes as a new version and never move a tag.
 
-```sh
-npm run cli -- update --check
-npm run cli -- update
-```
+Packaging disables asar because Pi extensions and child processes need real file paths. Files are picked by an allowlist, but still inspect the final package for anything that should not ship; do not rely on `.gitignore`.
 
-The target is Formicand's real Git checkout, even when `formicand` is invoked from another project. The current branch must have an upstream; checks fetch that upstream and compare commits, so a newer commit can be available with the same package version. Detached HEAD, merge/rebase in progress, tracked changes, nonignored untracked files, local-only commits and divergence block updates. Source installations follow their upstream branch; installed packages have no updater.
+Formicand's own code is [MIT](../../LICENSE); third-party components keep their licenses, listed in the [third-party notices](../../THIRD_PARTY_NOTICES.md).
 
-The CLI prepares `build:cli`; the development App prepares full `build` through Settings → Updates. If the CLI has synchronized the latest commit but the App build is still pending, the App can offer and prepare a full rebuild at that same commit. A Web host should be stopped, updated, then restarted with `npm run ui` to prepare its full browser build.
+## Page conventions
 
-Candidate dependencies and builds run in an isolated temporary source directory. Preparation failures preserve live source, dependencies and builds.
+- **Say things once.** Use layout for hierarchy instead of stacked subheadings and explanations. Show only real capabilities and real state.
+- **Use tokens for color and motion.** Colors come from the tokens at the top of [formicand.css](../../web/assets/formicand.css); emphasis is black and white only, and color is reserved for meaning such as success, warning and danger. Overlays use the solid `--popover-*` tokens. Durations use the `--motion-*` tokens in [ui.css](../../web/assets/ui.css), never raw values.
+- **Type sizes.** Body 15px, controls 14px, secondary text 12px, section titles 16px, panel and dialog titles 18px. The font is the bundled Inter, falling back to system fonts for Chinese.
+- **Use the existing components.** Menus use [menu.js](../../web/assets/ui/menu.js), dialogs [modal.js](../../web/assets/ui/modal.js), selects [select-menu.js](../../web/assets/ui/select-menu.js), and short forms the `.app-dialog` in [dialogs.css](../../web/assets/dialogs.css). Icon buttons need an `aria-label`.
+- **State belongs to controllers.** Keep UI state separate from the DOM; each controller owns its drafts and request ownership. Check that an async result still belongs to the original task and navigation before applying it, so it never overwrites a conversation the user has moved to. Do not add feature-specific state machines to `web/app.js`.
+- **Streaming updates** keep DOM identity, expanded state, focus and reading position.
+- **Screenshots for review** cover light and dark themes at 1440/1280 and 474/320 widths, checking contrast, menu placement, title truncation, keyboard focus and horizontal overflow.
 
-Publication failures attempt rollback; concurrent edits or rollback failures retain recovery copies and report manual recovery. Ignored user settings/tasks are neither copied into the candidate nor cleaned. The updater does not reset, stash or clean your checkout.
+## Documentation conventions
 
-The App checks for an update once after startup and applies only on request. Application flush, running-task checks and backend shutdown belong to the desktop host. Rebuild/relaunch applies the prepared code; an interrupted/failed update must not be reported as installed. Update tests use local Git remotes, with no real repository mutation or release publication.
+- Each fact lives in one document; others link to it. Current behavior goes into the usage and interface docs; planned work goes into the [phase plan](../development-phases.md) (Chinese) with completion criteria.
+- Changing a command, setting, path or interface updates the docs in the same change. Commands must match `package.json`, the scripts and the CLI help.
+- The usage docs (getting started, configuration, capabilities, architecture, development, testing) are bilingual, with English in `docs/en/`; update both together. Process records (retrospectives, pitfalls, handoffs, design notes) are Chinese only.
+- Do not commit real keys, private services, personal configuration or user tasks. Examples use placeholders and generic paths.
+- Use relative Markdown links. When deleting or moving a document, update every reference and run `npm run check:docs`.
 
-The development App uses a separate [restart helper](../../scripts/restart-development.mjs) to wait for the old process to exit, refresh the development entry and start the new build. If an older development launcher lacks toolchain metadata, quit the App and refresh it with `npm run desktop` or `npm run desktop:install-dev` before using in-app updates. The host reports this prerequisite before changing source files.
-
-The update implementations are [source transaction](../../scripts/update-source.mjs), [CLI dispatcher](../../scripts/update.mjs), [desktop lifecycle](../../desktop/updates.cjs) and [UI](../../web/assets/controllers/desktop-updates.js). Start with `test/source-update.test.js`, `test/development-restart.test.js`, `test/desktop-updates.test.js` and `e2e/desktop-updates.spec.js`, then run relevant verification. CLI packages must ship their imported update scripts; desktop-only dependencies do not belong in the CLI bundle.
-
-## Daily change workflow
-
-For delegation, rework, independent review and archival, use the [handoff and evidence guide (Chinese)](../development-handoffs.md). Consult matching [environment pitfalls (Chinese)](../pitfalls/README.md); the [retrospective index (Chinese)](../retrospectives.md) maps earlier findings to current guidance and fixes.
-
-1. Find the behavior owner, consumers and tests in the code map; read target-directory `AGENTS.md`.
-2. Reproduce in a temporary workspace and run relevant tests. Fix the owning service/adapter/controller; entrypoints compose dependencies.
-3. Add behavior coverage for the failure/new user flow. Async changes cover identity, cancellation, late responses, conflicts and exit/recovery; protocol changes cover both ends.
-4. Run focused tests and lightweight `npm run verify`; documentation-only edits need link/format checks. Use `npm run verify:full` for releases or broad changes, plus relevant browser/native/package acceptance.
-5. Update the code map, current documentation and roadmap status. Report actual commands, results, skips and remaining limits.
-
-```sh
-npm run test:unit -- --list
-npm run test:unit -- --file test/artifact-store.test.js
-npm run test:unit -- --match artifact
-npm run verify
-```
-
-`test:unit` builds by default. Use `--skip-build` only when an existing complete build matches current source. Repeat `--file` to select several tests; see [local testing](testing-local-run.md) for filter semantics. Passing stale `dist/` does not validate changed source.
-
-## Lint baseline
-
-The [ESLint configuration](../../eslint.config.mjs) extends existing checks with `no-unnecessary-condition`, `no-unnecessary-type-assertion` and `no-useless-catch` for TypeScript/Pi, plus targeted `no-restricted-syntax` selectors for TypeScript, Pi, Web, Electron and scripts. The selectors check catches without an error binding or throw, empty catches, and corresponding `.catch()` callbacks. Bound errors that are merely logged or replaced with defaults still need semantic review.
-
-Before standalone lint, run `npm run build:cli` so the `dist` types referenced by `.pi` match current source, then `npm run lint`. Both `verify` and `check:ci` already follow this order.
-
-On 2026-11-09, integrating the older configuration onto accepted source `722959d` calibrated the [file-level baseline](../../eslint-suppressions.json) for only these newly enabled rules: 237 files and 1037 findings, comprising 321 unnecessary conditions, 641 discarded-error syntax findings and 75 unnecessary assertions. Those findings were then cleaned up and the baseline emptied: conditions and assertions proven redundant are deleted, while real boundaries (tool arguments, persisted reads, closure-written flags) and expected best-effort cleanup use a per-site `eslint-disable-next-line <rule> -- <runtime basis>`. The baseline stays an empty object and daily changes add no findings; a justified local exception names its runtime basis and is reviewed, and neither an error-binding-free catch, an equivalent swallow wrapper nor an expanded baseline bypasses the check.
-
-After changing code covered by those rules, run `npm run lint -- --prune-suppressions` to keep the baseline empty, then run ordinary lint. ESLint maintains the baseline file; Prettier skips it.
-
-`npm run lint` also checks E2E scripts. Playwright specs may destructure an empty object in callbacks that use no fixtures. The daily `format:check` selects changed files. Run `npm run format:check:all` to check tracked source and documentation in a clean checkout.
-
-## Validation layers
-
-| Command                                                   | Scope                                                                                                                                                                | When                                                                                       |
-| --------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| `npm run test:unit -- --file test/name.test.js`           | Focused Node behavior/protocol/lifecycle tests; builds by default                                                                                                    | Fast feedback during a change                                                              |
-| `npm run verify`                                          | CLI and web asset builds, source hygiene, lint, extension types, incremental format, docs links and the release-runner self-test; other behavioral tests are not run | Default completed-change gate                                                              |
-| `npm run verify:full`                                     | One complete build, static checks, release-runner self-tests and the full Node suite                                                                                 | Release acceptance or changes with broad impact                                            |
-| `npm test` / `npm run check`                              | Existing Node regression / build and static checks                                                                                                                   | Existing local scripts; no need to repeat after equivalent verify:full on unchanged source |
-| `npm run check:ci`                                        | CLI build, source hygiene, lint, extension types, incremental format and docs links                                                                                  | GitHub checks; local verify/relevant tests remain the completion gate                      |
-| `npm run check:source`                                    | Current tracked and nonignored source files; private settings, credentials, personal paths and unwanted outputs/retired docs                                         | Before committing or distributing; Git history is outside its scope                        |
-| `npm run check:docs`                                      | Maintained local Markdown file links/heading anchors; no external requests                                                                                           | Documentation/path edits; `-- --list` prints scope                                         |
-| `npx playwright install chromium`                         | Chromium preparation                                                                                                                                                 | First browser run                                                                          |
-| `npm run test:browser`                                    | Chromium/Electron user flows; native branches have prerequisites                                                                                                     | UI, HTTP/UI integration, drafts, navigation, collaboration                                 |
-| `npm run desktop:pack` then `npm run test:desktop`        | Relocated packaged App, settings, real Pi/local model, exit/restart/simulated upgrade                                                                                | Desktop host/lifetime/package changes                                                      |
-| `npm run test:release -- --list` / `npm run test:release` | Five release sections with version/logs/skips/manual items                                                                                                           | Release candidate; explicitly enable native/package stages                                 |
-
-Ordinary Node regression defers explicit native desktop/CUA entrypoints and prints reasons. Optional engines may still produce TAP skips. See [local testing](testing-local-run.md) for prerequisites/reports/native commands. Local fixtures validate Pi protocol/lifecycle, not real model capability. Browser passing does not establish clean-machine installation. [package.json](../../package.json) and runners own exact scope.
-
-For a focused browser run, build first, then `npx playwright test e2e/conversation-menu.spec.js --output=.tmp/playwright-conversation`. Concurrent Playwright processes need distinct `--output` directories. Keyless tests must not read personal connections.
-
-Each `test:unit` and Playwright run creates its own root under the system temporary directory (`formicand-run-*`) and points `TMPDIR` at it, so a test's `mkdtemp(tmpdir())` lands inside ([`scripts/test-run-root.mjs`](../../scripts/test-run-root.mjs)). When the run ends, any backend still alive with its data root there is stopped and the run fails; roots left by a run that was killed outright are swept when the next run starts. A test that launches the app stops its backend at teardown with `stopNativeBackend(<desktop data root>)` ([`test/native-backend-fixture.mjs`](../../test/native-backend-fixture.mjs)): the backend outlives the window by design, and its data root is `FORMICAND_DESKTOP_DATA`, or `FORMICAND_HOME` when that is unset.
-
-## UI conventions
-
-Use layout to distinguish hierarchy, and remove secondary labels or descriptions that repeat it.
-
-Organize interfaces by task stage and action frequency before styling them. Empty or generating states do not expose every unavailable feature; object actions appear with a selection, and tool results appear when that tool is active. Prioritize content in the workspace, allow secondary panels to close, and adapt them to their container width without leaving empty columns or squeezing text into one-character lines. Group actions meaningfully rather than placing every export format, diagnostic and common action at the same level. Screenshot review checks useful content and task paths as well as control bounds and theme colors.
-
-Page views share [ui.css](../../web/assets/ui.css) tokens/buttons/status/menu styles. A locally bundled Inter variable font works offline, with PingFang SC, Microsoft YaHei and system fallbacks for Chinese; see the [third-party notice](../../THIRD_PARTY_NOTICES.md#inter-界面字体--interface-typeface) for provenance and licensing. Body text uses 15px, controls 14px, captions 12px, section headings 16px, task-panel and settings dialog titles 18px, and welcome headings 22 to 26px. Weights are 400 for regular text, 500 for headings, and 600 for emphasis, with normal letter spacing and a body line height of 1.8. Dark mode uses a near-black canvas, subtle dividers and solid input surfaces. The desktop sidebar defaults to 232px, and the transcript and composer align to the same reading column.
-
-`ui.css` assembles shared components, then [system-theme.css](../../web/assets/system-theme.css) applies neutral light/dark surfaces and text colors. [settings.css](../../web/assets/settings.css) follows it to unify the overview, model and web search dialogs with shared surfaces, form controls and fixed action bars, always using opaque surfaces. Icons use [icons.js](../../web/assets/ui/icons.js)/the SVG sprite; icon-only controls need `aria-label`, with a preferred 32px hit area.
-
-Without an active conversation, the task panel shows brief getting-started guidance. Runtime usage precedes the team galaxy.
-
-- Use [menu.js](../../web/assets/ui/menu.js) for arrows/Home/End/Escape/outside close/focus restoration. Use [modal.js](../../web/assets/ui/modal.js) for focus containment and restoration.
-- Single selects keep the native `<select>` for value and assistive technology, but open the app-drawn option list from [select-menu.js](../../web/assets/ui/select-menu.js); add `data-native-select` on an ancestor to keep the system popup.
-- Short forms such as rename and project editing use `.app-dialog`, fields, descriptions, errors and actions from [dialogs.css](../../web/assets/dialogs.css). Give inputs explicit labels, distinguish primary and secondary actions, and cover busy, failure, disabled and keyboard focus states without relying on browser-default control styling. Attachment previews belong to [attachment-preview.css](../../web/assets/styles/attachment-preview.css). Settings retain their specialized layout while sharing theme tokens.
-- Keep the conversation title and project context in the top bar. The top bar and sidebar share the [conversation menu](../../web/assets/controllers/conversation-menu.js), grouped into organization, copy/export/open, and archive actions; running or waiting conversations also show Close session. The copy submenu offers the title, ID, local link, and conversation text. Markdown export retains user/assistant text and omits thinking and raw tool logs. Unread marks remain in local browser storage until the conversation is explicitly opened; `?task=<id>` links select the original conversation. Submenus support left/right arrows and Escape one level at a time, retain their target and focus through refreshes, and use an inline layout on narrow screens. Show disabled actions for unsaved new tasks. Start the right task panel collapsed on page load or reload, with a far-right toggle that hides or restores the right requirement panel when a conversation is selected, and global settings in the lower-left sidebar, without a second conversation header. At 1280 px and wider the task panel is a column that this toggle puts away, with no close button of its own; narrower, the panel floats over the top bar and keeps its own collapse button.
-- Keep the composer in normal layout flow, using rounded corners, a distinct surface and a soft shadow to form a floating card. Preserve its shadow during focus and match the surrounding space to the canvas. Messages use remaining height and attachments scroll independently. Streaming preserves DOM identity, focus and reading position. Async actions capture original Task/navigation identity.
-- Display actual capabilities/progress/status, without placeholder identities. Web does not simulate Mac window buttons. Use existing primary/danger states.
-- Use spacing and neutral surfaces to distinguish containers. Keep one subtle line between each sidebar and the main surface; resize handles strengthen that line on hover, during dragging or on keyboard focus without shrinking their hit area. Provide project context and run status through tooltips and accessible status text. Short forms use softly filled inputs and borderless secondary actions while retaining clear focus and error indicators. Reserve thin lines for necessary content boundaries and avoid stacked borders and shadows. Show success with subdued icons and text while preserving the distinctions between completion, stopping and failure. Errors show a concise reason and available recovery actions first; technical details and long logs start collapsed. Preserve expansion, keyboard focus and log reading positions through refreshes.
-- Active conversations show a continuous activity indicator and current phase while waiting for the first response, thinking, running tools, or automatically retrying. Completion and stopping end the animation. Tool titles use readable names; unknown tools still display their names.
-- Take colours from the tokens at the top of [formicand.css](../../web/assets/formicand.css); light and dark each have their own values (design boards "基础 · 色板" in `design/formicand-p4.5-ui.pen`). Emphasis is black and white only: primary actions use the text colour as fill with `--color-on-accent` text, and links use the text colour with an underline; no coloured accent. Colour carries meaning only (success, warning, danger, review). Surfaces are layered: the sidebar is clear, the task panel half clear (`--side-fill`), the main panel nearly solid (`--panel-fill`) and the composer solid (`--composer-fill`). Menus, tooltips, dialogs, drawers and zoomed views are solid overlays using `--popover-fill`, `--popover-edge` and `--popover-shadow`, without blur. Selected states use `--selected-fill`, `--selected-edge`, `--selected-shadow` and `--selected-weight`: a brighter fill in dark, a raised white card in light; never hard-code the shadow. Code highlighting uses the `--code-*` tokens.
-- Motion uses the tokens in [ui.css](../../web/assets/ui.css): `--motion-fast` (120ms, hover/press/colour feedback), `--motion-base` (200ms, popovers, panels and drawers entering), `--motion-layout` (240ms, a sidebar or panel opening or closing) and `--motion-glide` (300ms, a selected background moving); `--ease-standard` eases in and moves, `--ease-exit` leaves, `--ease-glide` glides. Do not write bare durations. Segmented choices, settings navigation, observe filters, requirement stages and conversation rows glide their selected background to the new option after a click or key through `installSelectionGlide` in [motion.js](../../web/assets/ui/motion.js); register new controls of that kind in `SELECTION_GROUPS`. The sidebar and side panel open and close through `animateLayout`, which lets the grid columns transition only for that change, so dragging a divider or resizing the window still follows at once. Under reduced motion (system or settings) neither happens; scripted motion checks `reducedMotion()` instead of reading the media query.
-- Check rendered text contrast in both themes, plus 1440/1280 and 474/320 widths, menus, truncation, keyboard focus, reachable controls and overflow with real browser coverage. Review screenshots for surface hierarchy and status emphasis.
-
-UI state and DOM stay separate; drafts and async request ownership live in their controllers. Use domain owners from the code map rather than adding feature state machines to `web/app.js`.
+Docs site: `cd docs/site && npm ci && npm run preview` previews locally, and `npm run build` writes a static site to `.tmp/docs-site/`. Navigation lives in [navigation.mjs](../site/navigation.mjs); register new docs there.
 
 ## Troubleshooting
 
-| Symptom                                        | First inspect                                                                                     |
-| ---------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| Save failure/409                               | Revision, external edits and concurrent writes; preserve the draft before rereading or recovering |
-| Agent lacks attachments/tools                  | Upload records, enabled tool groups, first `before_agent_start` and later `context`               |
-| Waiting/stop/recovery errors                   | Task/Run events, inbox, questions/workers/jobs and process exit                                   |
-| Draft/attachment missing after restart         | Workspace/global index, desktop data and draft mirror                                             |
-| Model launch failure                           | Endpoint/protocol/model/parameters/env and redacted errors; never full config                     |
-| Late UI response replaces another conversation | Captured Task/draft identity, navigation token and serialization                                  |
+| Symptom                                                       | Check first                                                                                              |
+| ------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| Save fails, 409                                               | Revision, outside edits and concurrent submits; keep the draft and reload, never overwrite automatically |
+| An agent cannot see an attachment or tool                     | The upload record, whether the tool group is on, first-turn and later context assembly                   |
+| A task hangs, does not stop cleanly or repeats after recovery | Task and run events, inbox consumption, questions, delegation, background jobs and process exit          |
+| Drafts or attachments vanish after a restart                  | Data directory, global index and draft file; note the real paths first                                   |
+| The model fails to start                                      | Address, format, model, parameters and environment overrides; never print the full configuration         |
+| An async result overwrites a newer conversation               | The recorded task and draft identity, navigation token and late requests                                 |
 
-Reports include version/commit, OS, entrypoint, reproduction, redacted logs and test paths. Trace paths are in the workspace reference.
-
-## GitHub Actions
-
-Keep one long-lived main branch; temporary feature/fix branches merge through PRs and are deleted afterwards. Main is reviewed integration code, while fixed tags/Releases identify distributions. See [Mac release](mac-release.md) (Chinese).
-
-[Default workflow](../../.github/workflows/test.yml) runs automatically on PRs and pushes to main and can also be triggered manually, using one Ubuntu + Node 24 job. Incremental formatting compares against the PR base or the pre-push commit. Dependency installation skips the Electron binary, then runs `npm run check:ci`: `build:cli`, source hygiene, lint, extension types, incremental formatting and maintained documentation links.
-
-Complete Node regression, browser, native engines, actual models and package experience are validated locally. Use lightweight `npm run verify` and focused tests for daily changes, and `npm run verify:full` for releases or broad changes; add relevant acceptance layers and include evidence in the PR. Routine GitHub checks provide build/static feedback.
-
-[Internal Mac package](../../.github/workflows/internal-mac.yml) is manual and only builds/uploads an arm64 internal DMG/checksum. [Release Mac DMG](../../.github/workflows/release-mac.yml) builds DMG/CLI candidates and checksums on a version-tag push and uploads a GitHub Release draft for maintainer review and Publish. A ZIP, checksum and Mac update feed are generated only with explicitly configured and verified Developer ID signing. Neither workflow runs full regression, browser or desktop smoke; the default configuration remains an unsigned arm64 candidate. Install and validate candidates locally using the [Mac release guide](../mac-release.md). Release candidates require installation and actual-task acceptance; branch protection requires separate configuration.
-
-## Mac Release drafts from version tags
-
-Release tags must equal `v<package version>`, with matching package/lock versions. The workflow builds the tagged commit and uploads DMG/CLI candidates and checksums to a draft Release for review. Maintainers validate the candidate and choose its release classification before publishing. The default package configuration is unsigned and does not notarize builds.
-
-Manual retry accepts an existing version tag and replaces assets only while the Release remains a draft. Published versions require a new version/tag. Version commands, draft review and retry steps are in the [Mac release guide](../mac-release.md#版本-tag-与-release-草稿).
-
-`desktop:pack` / `desktop:dist` package the conversation UI and complete orchestration runtime. CAD, Blender and PPT components are excluded.
+Log and record locations are listed under [Data layout](architecture.md#data-layout).

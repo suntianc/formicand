@@ -1,92 +1,199 @@
-# Architecture and development boundaries
+# Architecture and code map
 
-English | [中文](../architecture.md)
+[简体中文](../architecture.md) | English
 
-Formicand is a local, single-user harness. CLI, Web and Electron share the runtime. Use the [code map](code-map.md) to find owners and tests, the [development guide](development.md) for setup, and the [workspace reference](../task-workspace-layout.md) (Chinese) for persistence.
+Formicand is a single-user, local multi-agent workbench. One backend manages every task and agent process; the Mac App, the browser page and the CLI are its clients and share one runtime.
 
-## Composition and dependencies
+## Overview
 
 ```text
-scripts/formicand.mjs → src/cli/ → runtime / tools / workspace
-desktop/ → src/cli/dashboard.ts → src/dashboard/
-web/ ─────── HTTP/SSE ─────────→ src/dashboard/
-                                 ├→ runtime / ProcessHost
-                                 ├→ gui → security / native driver
-                                 └→ workspace / storage / domain
-Pi launcher → .pi/extensions/ → .pi/runtime/ → runtime / tools
+Mac App (desktop/) ──┐
+Browser page (web/) ─┼── HTTP / SSE ──→ backend src/dashboard/ ──→ runtime src/runtime/
+CLI (src/cli/) ──────┘                         │                    │
+                                               │                    ├→ Main process (Pi, resident)
+                                               │                    └→ subagent processes (Pi, one per work item)
+                                               ├→ window control src/gui/, permissions src/security/
+                                               └→ task data src/workspace/, storage src/storage/, types src/domain/
 ```
 
-Runtime workers also use tools and workspace services. Shared services do not import executable CLI modules. Runtime does not import Dashboard. GUI does not import HTTP or CLI. ESLint and [architecture tests](../../test/architecture-boundaries.test.js) enforce these directions.
+Main and every subagent are separate Pi coding agent (`@earendil-works/pi-coding-agent`) processes. Formicand adds its tools, context and prompts through the Pi extension `.pi/extensions/formicand.ts` and does not modify Pi itself.
 
-The [project data service](../../src/workspace/project-data-service.ts) owns the project ledger, shared project identities and the demand board. The Dashboard opens the configured SQLite or PostgreSQL database at startup and applies versioned migrations; a bad configuration or unreachable database stops startup instead of switching engines. HTTP routes, the Main tool and `formicand data backup/restore` use the same service interface; SQL dialect, connections and transactions stay inside the [storage adapters](../../src/storage/project-data/), so business code does not branch on the database. The Main tool reaches only its Task's project and cannot name another. The board is a separate projection of ledger requirements: a controlled external publish writes the requirement and its board item in one transaction, while an internal need stays ledger-only; a claim is a conditional update with one winner, pausing keeps ownership, and only an explicit release returns it to the unclaimed pool. The same service holds each project's persistent Main sessions and Run ownership; a session names one local Task as its history container, while the Pi transcript and execution directory stay on the backend that runs it. Another backend reaches the same authority through the [authenticated remote client](../../src/workspace/project-data-remote.ts) and binds only its own local directory, so a remote path never enters execution.
+Dependency rules: reusable services do not import CLI entry points; `src/runtime/` does not import the backend HTTP layer; `src/gui/` imports neither HTTP nor CLI. ESLint and the [architecture tests](../../test/architecture-boundaries.test.js) enforce these directions.
 
-| Layer                    | Owns                                                                                      | Entry                                                                                                                                                                                                                                    | Boundary                                                                                   |
-| ------------------------ | ----------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| CLI                      | Arguments, diagnostics, launch and signals                                                | [launcher](../../scripts/formicand.mjs), [CLI](../../src/cli/formicand.ts), [Dashboard executable](../../src/cli/dashboard.ts)                                                                                                           | Executable entrypoints; reusable HTTP code lives elsewhere                                 |
-| Page/controllers         | Navigation, display, drafts, SSE, user interaction                                        | [app](../../web/app.js), [controllers](../../web/assets/controllers/), [UI](../../web/assets/ui/)                                                                                                                                        | Services decide Task/Run outcomes; requests retain their original identity                 |
-| Dashboard                | Local service composition, HTTP/SSE, Main process ownership                               | [application](../../src/dashboard/application.ts), [routes](../../src/dashboard/routes.ts), [Run](../../src/dashboard/run-service.ts)                                                                                                    | Routes validate and map responses; Run writes no HTTP responses; routes spawn no processes |
-| Runtime                  | Pi processes, delegation, inbox, recovery, completion                                     | [Coordinator](../../src/runtime/coordinator-runtime.ts), [subagent backend](../../src/dashboard/subagent-backend.ts), [process model](../../src/runtime/agent-process.ts), [process settlement](../../src/runtime/subagent-processes.ts) | No HTTP/DOM; completion accounts for workers, jobs, questions and messages                 |
-| ProcessHost              | Process groups, duplicate launch protection, stop and bounded shutdown                    | [ProcessHost](../../src/runtime/process-host.ts)                                                                                                                                                                                         | Does not decide conversation state                                                         |
-| Pi integration           | Hooks, tool registration and context composition                                          | [thin entry](../../.pi/extensions/formicand.ts), [runtime](../../.pi/runtime/extension.ts), [tools](../../.pi/runtime/tools/)                                                                                                            | Domain tools have their own modules; do not patch upstream Pi                              |
-| GUI/security             | Window grants, observation/actions, serial queue, cancellation, audit                     | [ComputerUse](../../src/gui/computer-use.ts), [permissions](../../src/security/execution-permissions.ts)                                                                                                                                 | Trusted host grants authority; no model decisions                                          |
-| Workspace/storage/domain | Task/Run data, inputs/artifacts, catalogs, events, trace, locks, types                    | [workspace](../../src/workspace/), [storage](../../src/storage/), [domain](../../src/domain/)                                                                                                                                            | Explicit format compatibility, path ownership and migration                                |
-| Desktop                  | Native windows, trusted IPC, encrypted client credentials, user directories, save on exit | [main](../../desktop/main.cjs), [preload](../../desktop/preload.cjs), [backend](../../desktop/backend.cjs)                                                                                                                               | Renderer has no Node privileges; artifact preview has no trusted bridge                    |
+## Layers
 
-Importing `createDashboardApplication()` opens no port and installs no signal handlers. `src/cli/dashboard.ts` owns listening and shutdown signals. Tests explicitly compose and stop reusable services.
+| Layer                | Owns                                                                        | Main entry points                                                                                                                                                   |
+| -------------------- | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| CLI                  | Arguments, diagnostics, startup and signals                                 | [launcher](../../scripts/formicand.mjs), [CLI](../../src/cli/formicand.ts), [backend entry](../../src/cli/dashboard.ts)                                             |
+| Page                 | Navigation, display, drafts, SSE and user interaction                       | [app](../../web/app.js), [controllers](../../web/assets/controllers/), [UI](../../web/assets/ui/)                                                                   |
+| Backend              | Service assembly, HTTP/SSE routes, starting and stopping Main               | [application](../../src/dashboard/application.ts), [routes](../../src/dashboard/routes.ts), [run service](../../src/dashboard/run-service.ts)                       |
+| Runtime              | Pi processes, delegation, inboxes, recovery, completion                     | [Coordinator](../../src/runtime/coordinator-runtime.ts), [subagent backend](../../src/dashboard/subagent-backend.ts), [process](../../src/runtime/agent-process.ts) |
+| Process host         | Process groups, duplicate-start guard, bounded shutdown                     | [ProcessHost](../../src/runtime/process-host.ts)                                                                                                                    |
+| Pi integration       | Pi hooks, tool registration, context assembly                               | [extension entry](../../.pi/extensions/formicand.ts), [runtime](../../.pi/runtime/extension.ts), [tools](../../.pi/runtime/tools/)                                  |
+| Windows, permissions | Window grants, observation and actions, serial queue, execution permissions | [ComputerUse](../../src/gui/computer-use.ts), [permissions](../../src/security/execution-permissions.ts)                                                            |
+| Data                 | Task data, attachments, artifacts, events, file locks, project data         | [workspace](../../src/workspace/), [storage](../../src/storage/), [domain types](../../src/domain/)                                                                 |
+| Desktop              | Native windows, trusted IPC, encrypted credentials, save before quit        | [main](../../desktop/main.cjs), [preload](../../desktop/preload.cjs), [backend](../../desktop/backend.cjs)                                                          |
+
+## Processes and lifecycle
+
+**The backend outlives its clients.** It can run on its own (`formicand backend start|status|stop`). Quitting the App only closes the window; the backend and running tasks continue, and the App reconnects to the same backend next time.
+
+**Main is resident.** One run is served by one Pi process, which stays alive after a turn and handles later messages and callbacks. Main ends only when the session is closed, it times out idle, or a model request cannot continue. An idle exit keeps the session, and the next message starts it again. After a backend restart, running Mains are taken over again.
+
+**Delegation goes through the backend.** `call_subagent` only registers a work item with the backend. The backend writes it to the run's durable queue, starts a separate subagent Pi process once its dependencies are met, and writes the result back to the queue with a callback to Main. Delegation is always asynchronous; use `wait_for_subagents` when the turn needs the result. Each data directory has exactly one backend that starts and settles subagents, and it takes them over from durable records after a restart.
+
+**Inboxes deliver messages.** Callbacks, follow-up messages, answers to questions and peer messages for Main or a subagent are first written to that process's durable inbox. The process rereads its inbox at every turn boundary; when idle, the writer sends a wake-up notification. A message counts as read only once it is in the session context, so it is delivered across backend restarts and read exactly once.
+
+**The program decides completion.** A run is complete only after its state and output are on disk; the last reply is never taken as proof. Completion checks for unfinished delegations, background jobs, pending questions and unread messages.
+
+**Sessions and context.** Pi keeps an append-only session log. When the context fills up, Formicand rotates the window: the model writes a summary, the program carries the necessary records, and work continues in the same session. Session notes and history search are scoped per session.
+
+## Development workflow
+
+Main can hand a requirement to subagents through a Workloop-style flow whose state and rules are kept and enforced by the program:
+
+1. **Requirement ledger** (`project_ledger`): each project's long-lived requirements, their current state and history.
+2. **Development record** (`project_development`): an isolated `git worktree` per requirement under `~/.formicand/runtime/development-workspaces/`, never touching the user's own working tree.
+3. **Ticket**: scope, acceptance criteria with how to check them, what must stay unchanged, what is out of scope, and dependencies. Frozen once the user confirms.
+4. **Delegation**: the Executor works in its own worktree branched from the requirement's site and reports on each criterion with `submit_report`.
+5. **Review**: the Reviewer reviews a frozen candidate commit and returns `pass` or `changes_requested` with `submit_review`. Blocking findings must cite an acceptance criterion or one of four baselines: regression, data loss, security, project rule.
+6. **Rework**: another turn in the original Executor's session and worktree (`continueCallId`), not a new agent.
+7. **Merge**: merged into the configured target branch in a temporary combined worktree, with the project's checks.
+
+There are three routes: `quick` lets Main collect the result itself; `direct` and `full` freeze and review per ticket before integrating.
+
+## Data layout
+
+```text
+~/.formicand/                      move it with FORMICAND_HOME
+├── config.json                    configuration (0600)
+├── credentials.json               model and search keys (0600)
+├── workspace/<taskId>/            per-task data, see below
+├── runtime/
+│   ├── projects.json              project names, IDs and folders
+│   ├── workspaces.json            global task index
+│   ├── project-data.sqlite        project database (default engine)
+│   ├── development-workspaces/    requirement worktrees
+│   └── main-capacity/state.json   external Main slots
+├── pi/                            Pi state
+├── memory/                        Main's memory: user/ and projects/<projectId>/
+├── client-sessions.json           the App's encrypted backend sessions
+├── composer-drafts.json           composer drafts
+├── ui-preferences.json            remembered UI choices
+├── computer-policy.json           window access switch
+└── logs/
+```
+
+Per task:
+
+```text
+<taskId>/
+├── task.json, task_events.jsonl   task state and events
+├── inputs/<uploadId>/             original user uploads
+├── artifacts/                     final deliverables
+├── visual/images/, downloads/     screenshots, images read, browser downloads
+├── agents/main/work/              Main's drafts and intermediate files
+├── agents/subagents/<id>/         subagent work directories and candidate files
+├── sessions/main/pi/              Main's Pi session
+├── sessions/<agentId>/pi/<callId> each subagent's Pi session
+└── runs/<runId>/                  run events, delegation queue, inboxes and results
+```
+
+- Intermediate files go in `work/`, subagent candidates in `deliverables/`; Main publishes checked files to `artifacts/` with `publish_artifact`. The artifact panel shows only `artifacts/`.
+- `sessions/main/request-retry.json` keeps the exact body of Main's latest model request so a failed request can be resent unchanged. It holds unredacted user content and has mode 0600.
+- The App and CLI share this directory, and so do the development and release Apps, so two default desktop instances cannot run at once. Use `FORMICAND_HOME` or `FORMICAND_DESKTOP_DATA` for a separate directory in tests.
+
+## Project data
+
+Projects, the ledger, the board, Main sessions, development, review and merge records are held by the [project data service](../../src/workspace/project-data-service.ts). At startup the backend opens SQLite or PostgreSQL as configured and runs versioned migrations; SQL differences stay inside the [storage adapters](../../src/storage/project-data/) so business code never branches on the database. Other backends can share the same data through the [remote client](../../src/workspace/project-data-remote.ts) and register only their own local folders. Tasks, Pi sessions and worktrees always stay on the backend that runs them. See [Configuration](configuration.md#project-data).
+
+## Backend interface
+
+All endpoints listen on `127.0.0.1`, check Host and Origin, and require a client session credential. Routes are defined in [routes.ts](../../src/dashboard/routes.ts) and the `*-routes.ts` files:
+
+| Prefix                                           | Content                                                             |
+| ------------------------------------------------ | ------------------------------------------------------------------- |
+| `/api/tasks`                                     | Tasks, messages, runs, delegation, artifacts, window control        |
+| `/api/events`                                    | SSE stream, replayed by sequence number after a reconnect           |
+| `/api/projects`, `/api/project-data`             | Projects, ledger, board, development and merge records, backup info |
+| `/api/composer`, `/api/uploads`                  | Drafts and uploads                                                  |
+| `/api/model-settings`, `/api/models`             | Model providers and models                                          |
+| `/api/agents`, `/api/skills`, `/api/mcp`         | Custom agents, skills, MCP servers                                  |
+| `/api/memory`                                    | Main's memory                                                       |
+| `/api/computer`                                  | Window access state                                                 |
+| `/api/web-search-settings`, `/api/main-capacity` | Web search, external Main slots                                     |
+| `/api/backend`, `/api/host`                      | Backend identity, desktop host only endpoints                       |
+
+When changing an endpoint, change the producer, the consumers and the behavior tests together.
 
 ## Pi dependency boundary
 
-A runtime import of a Pi package (`@earendil-works/pi-*`, not `import type`) is allowed only in the areas that own a Pi process: `.pi/` (extensions and tools), `scripts/` (launcher), model configuration, and Main session file read/write; every other module may only use type imports. The areas are the explicit file list of the [ESLint rule](../../eslint.config.mjs) (`formicand/pi-import-boundary`); the [boundary regression](../../test/architecture-boundaries.test.js) keeps that list identical to this section.
+Runtime imports of Pi packages (`@earendil-works/pi-*`) are allowed only where the Pi process is owned; every other module may use `import type` only. The allowed set is an explicit list in the [ESLint rule](../../eslint.config.mjs) `formicand/pi-import-boundary`, and the [boundary test](../../test/architecture-boundaries.test.js) checks that the list matches this section:
 
-- Model configuration (connection probing, thinking levels, model parameters and request recording): [main-request-retry](../../src/runtime/main-request-retry.ts), [model-cache](../../src/runtime/model-cache.ts), [model-connection](../../src/runtime/model-connection.ts), [model-levels](../../src/runtime/model-levels.ts), [model-profile](../../src/runtime/model-profile.ts), [model-provider](../../src/runtime/model-provider.ts), [model-request-recording](../../src/runtime/model-request-recording.ts).
-- Main session file read/write (the backend rewrites Pi session files while Main is not running, including editing, forking and offline window changes): [conversation-fork](../../src/runtime/conversation-fork.ts), [main-message-edit](../../src/runtime/main-message-edit.ts).
+- Directories: `.pi/` (extension and tools) and `scripts/` (launchers).
+- Model configuration: `src/runtime/main-request-retry.ts`, `src/runtime/model-cache.ts`, `src/runtime/model-connection.ts`, `src/runtime/model-levels.ts`, `src/runtime/model-profile.ts`, `src/runtime/model-provider.ts`, `src/runtime/model-request-recording.ts`.
+- Main session file writes (the backend edits a session while Main is not running, for edit-and-resend, forks and offline window rotation): `src/runtime/conversation-fork.ts`, `src/runtime/main-message-edit.ts`.
 
-Runtime imports of package-internal subpaths (such as `@earendil-works/pi-ai/api/...`) are allowed only in model configuration, because a Pi upgrade most easily invalidates those internal paths. The boundary narrows a Pi upgrade to a check of the listed modules instead of the whole tree.
+Deep imports into Pi packages (such as `@earendil-works/pi-ai/api/...`) are allowed only in the model configuration modules, so a Pi upgrade only needs checking in the listed modules.
 
-## Task, Run and process lifetime
+## Terminal UI adaptation
 
-A browser request flows through HTTP routes → Dashboard Run → AgentProcessHost → Pi launcher → Pi extension → Coordinator. CLI can use runtime services directly. These entrypoints share business semantics.
+The CLI's interactive interface runs the original Pi 1.5.2 without changing its files. At startup, in the interactive child process only, six text replacements are applied to one reviewed code chunk (restart, tmux, feedback and crash messages now name Formicand), and three more make the shell identity `AI_AGENT=formicand` and long output files `formicand-bash-*.log`.
 
-The shared Pi extension owns tool archiving, context projection and window changes (a model summary plus the records the program carries over) for both roles. Pi persists the append-only session and handoff cursor. Task detail exposes Main’s usage and window changes.
+The replacements are pinned in [cli-ui-policy.json](../../scripts/cli-ui-policy.json) and [cli-shell-policy.json](../../scripts/cli-shell-policy.json). Build and startup both check the Pi version, file hashes and replacement positions, and fail with an error on any mismatch instead of running an unadapted interface. Regenerate and recheck both policies when upgrading Pi.
 
-Pi session IDs scope notes, and history tools read original session entries and result archives.
+## Trust boundaries
 
-Dashboard Run owns the Main process and serializes starting/stopping the same Task. Runtime services own the Main process, Task/Run events and recovery state; Pi owns the session and its compaction. Persist state and output before announcing completion; the last text message alone is insufficient.
+- The backend listens locally only. The desktop uses a random port and talks to the main window through a trusted preload; the renderer has no Node access.
+- Keys never enter page state, source, logs or packages.
+- Window access must be turned on by the user in the App with local confirmation; agents cannot turn it on or resume it. See [Built-in capabilities](capabilities.md#native-windows).
+- That permission covers window control only and is not a sandbox for the whole product: commands run by agents are not isolated by the operating system.
+- The App supports Apple Silicon Macs only. Windows/Linux desktops, remote workers and multi-user isolation are not built yet.
 
-Main is resident: one Run is served by one Pi process, a finished turn leaves that process running, and later user messages and callbacks arrive through its own durable Inbox and start the next turn. The process is identified by the host and OS start time recorded at launch, so a backend restart or upgrade re-adopts the Main still running. Only closing the session (which also stops the Subagents that session started), the idle timeout and a model request that cannot continue end it. A Run is a stretch of that process's work, not a turn: every turn the same process serves keeps one `runId`, and `runs/<runId>/` keeps recording that work, while per-turn state (such as whether a turn is in flight) is recorded separately. A pause stops at the step boundary and keeps the process; a cancel interrupts the current turn only. An idle exit keeps the session file and Task state, and the next message or callback starts Main again on the same session. Whether a Main process exists and whether a turn is running are separate facts, reported by the backend record and by the process heartbeat.
+## Code map
 
-Delegation converges on the backend too: Main's `call_subagent` only registers a work item with the backend, which writes it into that Run's durable queue, launches a separate Pi process as soon as its dependencies and lease allow, and projects the process's exit back into the queue, the Run events and Main's callback. One owner per workspace root launches and settles delegated processes: while the Dashboard runs, the CLI worker takes no work, and a restarted owner re-adopts the subagents still running and delivers the callbacks that ended while it was away. A subagent's session, site and conclusion are recorded per work item, so a rework appends one turn to the original Executor's Pi session file and checkout; no session or workspace state lives only in the dispatch request or in process memory.
+```text
+scripts/formicand.mjs   CLI launcher: init, doctor, start and more
+scripts/                build, packaging, development start, tests and doc checks
+src/cli/                executable entry points
+src/dashboard/          backend: HTTP/SSE, service assembly, Main lifecycle, delegation
+src/runtime/            Pi processes, context, recovery, inboxes, model connections, configuration
+src/tools/              file, command, background job and web tool implementations
+src/workspace/          task data, attachments, artifacts, projects and the project data service
+src/storage/            event files, file locks, project database adapters
+src/domain/             domain types
+src/gui/, src/security/ browser and window control, execution permissions
+src/platform/           small platform helpers
+.pi/extensions/         Pi extension entry
+.pi/runtime/            Pi lifecycle assembly and tools by domain
+.pi/skills/             bundled skills
+web/                    page, native ES modules
+desktop/                Electron main process, preload, credential encryption, save before quit
+test/                   Node behavior, protocol and lifecycle tests
+e2e/                    browser and Electron user flow tests
+vendor/                 third-party skills shipped with the repository
+```
 
-On desktop exit, trusted IPC first waits for the renderer's draft/document save check; unsaved documents or task drafts prompt the user to return and fix them or confirm the exit. The backend and accepted runs continue after the desktop closes. Save failures preserve the window and draft.
+Build output lives in `dist/`, `build/` and `.tmp/`. Rebuild after changing source; never edit the output.
 
-Desktop and Web read and save model and search settings through the selected execution host; the host rejects changes while a turn is producing an answer, and an idle resident Main adopts what was saved at its next turn boundary. Open forms bind to a backend instance. The desktop encrypts client session credentials and injects them into trusted main-window API requests. Task notifications use the shared catalog stream and deduplicate by backend and completion.
+Where to start for a change:
 
-Pi `before_agent_start` registers tools before the first request; `context` refreshes context between later requests. Tests must cover real Pi hook order and subprocess termination.
+| To change                          | Look at                                                                                                                                                                                                 |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Main's prompt and context          | [extension](../../.pi/runtime/extension.ts) and the context modules in `.pi/runtime/`                                                                                                                   |
+| A new Main tool                    | Add it by domain under [.pi/runtime/tools/](../../.pi/runtime/tools/), then register it as a core tool or in a group in [capabilities](../../.pi/runtime/tools/capabilities.ts)                         |
+| Delegation, subagent roles, tools  | [coordination](../../.pi/runtime/tools/coordination.ts), [subagent backend](../../src/dashboard/subagent-backend.ts), [process settlement](../../src/runtime/subagent-processes.ts)                     |
+| Ledger, development, review, merge | [project_ledger](../../.pi/runtime/tools/project-ledger.ts), [project_development](../../.pi/runtime/tools/project-development.ts), [project data service](../../src/workspace/project-data-service.ts) |
+| Model connections, request retry   | [model-connection](../../src/runtime/model-connection.ts), [model-profile](../../src/runtime/model-profile.ts), [main-request-retry](../../src/runtime/main-request-retry.ts)                           |
+| Settings                           | [config](../../src/runtime/config.ts), [runtime-settings](../../src/runtime/runtime-settings.ts)                                                                                                        |
+| HTTP endpoints                     | [routes](../../src/dashboard/routes.ts) and the matching `*-routes.ts` and `*-service.ts`                                                                                                               |
+| The page                           | [app](../../web/app.js), [controllers](../../web/assets/controllers/), [ui](../../web/assets/ui/)                                                                                                       |
+| Desktop windows, IPC, quitting     | [main](../../desktop/main.cjs), [preload](../../desktop/preload.cjs)                                                                                                                                    |
+| CLI commands                       | [formicand.mjs](../../scripts/formicand.mjs), [src/cli/](../../src/cli/)                                                                                                                                |
+| Browser and window control         | [browser-use](../../src/gui/browser-use.ts), [computer-use](../../src/gui/computer-use.ts)                                                                                                              |
 
-The durable Inbox is the delivery channel Main and delegated processes share: the backend writes callbacks, external events, guidance, questions and peer messages into the target process's own Inbox, and the process's extension re-reads the whole Inbox at every safe turn boundary. `main.interrupt` and `main.resume` travel the same channel as process commands, consumed without entering the model context. An idle process is woken by the writer that produced the message: the endpoint is registered in the durable process record, the writer sends one "new work" nudge after its durable write, and the receiver re-reads the whole Inbox without trusting the notification, while a writer whose endpoint is unreachable skips silently; the file watch remains a fallback. Nothing goes over standard input and nothing polls. A watch event or a nudge can arrive late or not at all, so delivery does not depend on either arriving in time. A message counts as consumed only once it is in the process's Pi session context, so it survives backend restarts and is read exactly once. Timed parks and Main recovery keep their rules: the Dashboard Run service checks periodically and starts a Main again for a Task with callbacks or a due wake when no Main is alive, and Main decides whether to continue.
+When making the change:
 
-Visual observations share the Task image archive. Dashboard/desktop owns native ComputerUse policy, exclusive sessions and current action credentials; Main/Pi owns its ephemeral Chromium context.
-
-QuickJS keeps current Pi-session script state and dispatches each operation to an already active native/browser tool, which retains parameter, ownership and authorization checks. Session change/shutdown clears the VM and closes the browser, retaining Task images and accepted downloads. Persisted tool selection restores groups, not objects. See the Chinese [visual](../visual-observation.md), [browser](../browser-use.md) and [script](../cua-scripting.md) guides.
-
-## Conversation and UI consistency
-
-Composer Session stores drafts and validated attachments per conversation. Sending captures the original Task, draft token, model and attachments. Refresh, switching, queued/steered messages and attachment reads retain that identity. Streaming updates preserve DOM identity, focus, selection, reading position and expanded details.
-
-Desktop ports change between launches, so origin localStorage alone cannot restore drafts. Trusted preload restores private `composer-drafts.json` before page startup and mirrors only allowed draft keys. Files have format/size checks, atomic writes and corrupt backups. Web uses origin storage.
-
-## Trust and support limits
-
-- Local development may omit a token; Host/Origin checks still apply. Desktop uses a random port/token and IPC readiness. API authentication uses a local HttpOnly cookie or trusted child-process header.
-- Native IPC accepts only the main window's main frame. Secrets stay out of renderer state, source and packages. Desktop encryption differs from Web/CLI configuration storage; see the runtime guide.
-- Computer Use has three Settings buttons: Screen Recording, Accessibility and window access. System permissions are requested separately and their buttons become disabled once actually granted. Window access defaults off and can only be enabled when both are ready; trusted desktop IPC checks fresh status before persisting enabled=true/mode=control and permits all conversations to observe and control every visible application window.
-
-  Policy stays separate from Task/window sessions. Legacy observe-only policy is restored disabled with its source file preserved, rather than silently gaining control. HTTP/agents consume that policy without changing it.
-
-  One Task owns the complete observe/action workflow; other Tasks wait in FIFO order. Global sessions renew automatically; legacy manual grants retain five-minute expiry. Takeover requires explicit human resume. Cancellation, navigation/crash, shutdown and workspace changes revoke temporary sessions; restart restores policy only.
-
-- macOS 14+ capture, unlocked input, models that accept image input, commercial apps and clean-machine permissions require separate evidence. Permission/lock-screen skips do not certify input.
-- `GrantedPermissions` covers GUI host grants; it does not prove Pi bash/jobs are confined by a universal OS sandbox.
-- The App targets Apple Silicon Mac. Windows/Linux GUI drivers, remote workers, multiple users and unattended updates are not shipped.
-
-Update producers, consumers, compatibility/recovery docs and behavior tests together. Review roles are in [module ownership](../module-ownership.md) (Chinese); PR requirements are in [CONTRIBUTING](../../CONTRIBUTING.en.md). Public gates are in [contribution requirements](../../CONTRIBUTING.en.md#pr-review-and-release) and the [Mac release guide](../mac-release.md) (Chinese).
+- **Fixing a user flow**: find the layer at fault and its consumers, add a test that reproduces the failure, then fix the implementation. Do not add branches to entry files to work around it.
+- **Adding a tool**: put it in the module for its domain, define parameters with typebox, and update [Built-in capabilities](capabilities.md) and the related tests.
+- **Splitting a large module**: split by responsibility into new files while keeping the public interface, and adjust callers only after all tests pass.

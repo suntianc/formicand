@@ -35,18 +35,19 @@ npm run ui        # 网页界面
 npm run cli       # 终端
 ```
 
-首次打开后在“设置 → 模型”添加模型服务，步骤见 [Mac App 快速开始](docs/getting-started.md)。
+首次打开后在“设置 → 模型”添加模型服务，步骤见 [上手](docs/getting-started.md#mac-app)。
 
 ## 文档
 
-| 文档                                         | 说明                                |
-| -------------------------------------------- | ----------------------------------- |
-| [使用指南](docs/README.md)                   | 安装、连接模型、完成第一个任务      |
-| [CLI 快速开始](docs/cli-quickstart.md)       | 安装并使用 `formicand` 命令         |
-| [模型设置](docs/configuration.md)            | 服务地址、模型 ID 和接口格式        |
-| [更新与排错](docs/installation-reference.md) | 数据目录、备份、升级和常见问题      |
-| [开发指南](docs/development.md)              | 构建 Web/Desktop/CLI 并运行本地检查 |
-| [贡献指南](CONTRIBUTING.md)                  | 提交流程和验证要求                  |
+| 文档                                   | 内容                                    |
+| -------------------------------------- | --------------------------------------- |
+| [上手](docs/getting-started.md)        | 安装、连接模型、第一个任务、更新和排错  |
+| [配置](docs/configuration.md)          | 模型、Agent、密钥、搜索、代理和项目数据 |
+| [内置能力](docs/capabilities.md)       | 看图、浏览器、本机窗口和 CUA 脚本       |
+| [架构与代码地图](docs/architecture.md) | 进程、数据布局、接口和“要改什么去哪找”  |
+| [开发](docs/development.md)            | 环境、检查命令、合并和发布              |
+| [测试](docs/testing.md)                | 怎么跑测试、发版验收                    |
+| [贡献指南](CONTRIBUTING.md)            | 提交流程和验证要求                      |
 
 问题和建议请提交到 [Issues](https://github.com/suntianc/formicand/issues)。
 
