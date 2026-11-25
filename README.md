@@ -388,50 +388,9 @@ Three rules apply to all of them:
 - A crop is for looking only, never a click credential. Observe again before clicking.
 - Limits: 20 MiB per image, 16 megapixels per PNG, 1024 images and 512 MiB per task.
 
-### Browser
+### Browser, native windows and CUA scripts
 
-Formicand opens a throwaway Chromium per task, fully separate from the user's browser: no bookmarks, cookies or logins are read. The tools are `browser_open`, `browser_observe`, `browser_act`, `browser_wait` and `browser_close`.
-
-- **Find elements** semantically: role plus name, label, text or `testId`, matching exactly one element. Several matches raise `ambiguous_target`; narrow with a container `scope` or `nth`. CSS selectors and running arbitrary code in the page are not supported.
-- **Coordinate actions** (click, drag, scroll) must carry the `observationId` of the current screenshot.
-- **Observation cost** is `both` (default), `aria`, `screenshot` or `none`. Known consecutive steps can use `none` and observe at the next checkpoint.
-- **Downloads** need `expectDownload: true` on the click. Files land in the task's `visual/downloads/` with path, size and SHA-256, up to 20 MiB each.
-- **Logins** last only while that throwaway browser lives. Closing, cancelling or restarting means logging in again.
-- At most 8 pages per task in a 1280×800 window.
-
-Without Chromium installed the tools print the install command:
-
-```sh
-npx --yes --package=playwright-core@1.63.0 playwright-core install chromium
-```
-
-`FORMICAND_BROWSER_EXECUTABLE` points at another browser path.
-
-### Native windows
-
-Mac App only, macOS 14 or newer. Under Settings → Window access click three buttons in turn: **Enable Screen Recording**, **Enable Accessibility**, then **Enable window access**, which is offered once the first two are on and needs local confirmation. Once on, every conversation on that backend can observe and operate every visible application window; clicking again turns it off.
-
-- While operating, the interface shows the task and window being controlled plus a "Pause · take over" button. Pressing it, or `Ctrl + Option + Esc`, immediately cancels running and queued actions. After a pause the user must click "Resume window access"; an Agent cannot resume it.
-- One task controls the desktop at a time; others queue.
-- Window access does not come back by itself after a backend restart; the user confirms again.
-- A locked screen, secure keyboard entry or revoked system permission makes actions fail.
-
-The tools are `computer_status`, `computer_discover`, `computer_select`, `computer_observe`, `computer_act`, `computer_wait` and `computer_release`. Actions are `activate`, `click` (left or right), `type`, `key`, `press` and `set_value`.
-
-- Prefer the control's `elementId` from an observation; coordinate clicks use pixels from the latest screenshot.
-- Observations expire after 30 seconds. A moved, resized or refocused window, or a changed control, rejects the old observation.
-- Whole-screen work, the Dock, the menu bar, drag and wheel are not supported yet.
-- Input already sent cannot be taken back; cancelling only stops what has not been sent.
-
-This grant covers window operations only. It is not a system sandbox for the product: Agent commands still run under their own permissions.
-
-### CUA scripts
-
-`cua_script({ code, timeoutMs? })` runs a settled sequence of browser or window steps as one isolated QuickJS call; it cannot open a tool group or resume window access. The objects, examples and limits are in the [CUA guide](docs/en/README.md#cua-scripts), which ships with both installs.
-
-### Resuming after an interruption
-
-After a pause, a backend restart or a killed process, Main carries on in the same session with the actions and results already recorded. Before continuing, check whether the last state-changing action's result was verified. When the session shows something sent but unverified, look at the actual state read-only first (a status page, a saved file, a receipt) and then decide. A missing screenshot does not mean failure; when the outcome cannot be determined, say so instead of guessing.
+The tools of those three groups — including `browser_wait` and `computer_wait` — the element and window targets they accept, downloads and limits, and how to resume after an interruption are in the [CUA guide](docs/en/README.md#built-in-capabilities). Both installs carry that guide, and the bundled cua skill links it, so the browser and window detail is written there once.
 
 ## Development
 

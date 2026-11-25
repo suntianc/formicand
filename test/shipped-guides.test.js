@@ -67,6 +67,55 @@ test("a shipped statement only links guides the desktop package ships", async ()
   }
 });
 
+test("the CUA guide carries the browser, window and script text an install can read", async () => {
+  const guideFile = "docs/en/README.md";
+  assert.equal(await shipped(guideFile), true, "the desktop package ships the guide");
+  const guide = await readFile(guideFile, "utf8");
+  const anchors = markdownAnchors(guide);
+  for (const anchor of [
+    "built-in-capabilities",
+    "browser",
+    "native-windows",
+    "cua-scripts",
+    "resuming-after-an-interruption"
+  ])
+    assert.ok(anchors.has(anchor), `${guideFile} has the #${anchor} anchor`);
+  for (const body of ["browser_wait", "computer_wait", "cua_script("])
+    assert.ok(guide.includes(body), `${guideFile} writes out ${body}`);
+  // An installed agent reads only .pi/skills and the docs beside them, so a
+  // capability section may not send it to the repository-root README.
+  const capabilities = guide.slice(guide.indexOf("## Built-in capabilities"), guide.indexOf("## Records"));
+  assert.ok(capabilities.length, `${guideFile} has the capability sections`);
+  for (const { destination } of markdownLinks(capabilities)) {
+    const [path] = decodeURIComponent(destination ?? "").split("#");
+    if (!path) continue;
+    const rest = relative(root, resolve(dirname(guideFile), path));
+    assert.ok(rest.startsWith(`docs${sep}`), `${rest} is inside the readable part of an install`);
+    assert.equal(await shipped(rest), true, `${rest} ships with the desktop package`);
+  }
+  const readme = await readFile("README.md", "utf8");
+  assert.match(
+    readme,
+    /\(docs\/en\/README\.md#built-in-capabilities\)/,
+    "the product guide points at the CUA guide instead of repeating it"
+  );
+});
+
+test("the English entry keeps its language switch and the process-record index", async () => {
+  const entry = await readFile("docs/en/README.md", "utf8");
+  assert.match(entry, /^\[简体中文\]\(\.\.\/README\.md\) \| English$/m, "the Chinese switch is back");
+  const records = markdownLinks(entry.slice(entry.indexOf("## Records"))).map(({ destination }) =>
+    decodeURIComponent(destination ?? "")
+  );
+  for (const page of [
+    "../development-handoffs.md",
+    "../pitfalls/README.md",
+    "../adr-history.md",
+    "../retrospectives.md"
+  ])
+    assert.ok(records.includes(page), `the records index links ${page}`);
+});
+
 test("the code map links the capability implementations", async () => {
   const map = await readFile("docs/development.md", "utf8");
   for (const file of [

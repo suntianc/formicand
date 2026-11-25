@@ -13,19 +13,19 @@ This guide is for contributors and coding agents. Users start with [README](READ
 
 ## Repository map
 
-| Location                                        | Responsibility                                              | Local instructions                          |
-| ----------------------------------------------- | ----------------------------------------------------------- | ------------------------------------------- |
-| `src/cli/`, `scripts/formicand.mjs`             | User commands, launchers and smokes                         | [Code map](docs/development.md#代码地图)    |
-| `src/dashboard/`                                | Local HTTP/SSE, composition and Run orchestration           | [Service](src/dashboard/AGENTS.md)          |
-| `src/runtime/`                                  | Task/Run, scheduling, recovery, models and Pi sessions      | [Runtime](src/runtime/AGENTS.md)            |
-| `src/gui/`, `src/security/`                     | Native interaction, window grants and execution permissions | [Window access](README.md#native-windows)   |
-| `src/domain/`, `src/storage/`, `src/workspace/` | Domain types, persistence, workspaces and artifacts         | [Data layout](docs/development.md#数据布局) |
-| `.pi/`                                          | Product Pi composition, domain tools and skills             | [Pi](.pi/AGENTS.md)                         |
-| `web/`                                          | Shared Web/Desktop UI and controllers                       | [Frontend](web/AGENTS.md)                   |
-| `desktop/`                                      | Electron windows, trusted IPC and backend lifecycle         | [Desktop](desktop/AGENTS.md)                |
-| `test/`, `e2e/`                                 | Node regressions and browser/native acceptance              | [Testing](test/AGENTS.md)                   |
-| `docs/`                                         | User guides, development conventions and API references     | [Documentation](docs/AGENTS.md)             |
-| `scripts/`, `.github/`                          | Builds, verification, packaging and CI                      | [Development](docs/development.md)          |
+| Location                                        | Responsibility                                              | Local instructions                                |
+| ----------------------------------------------- | ----------------------------------------------------------- | ------------------------------------------------- |
+| `src/cli/`, `scripts/formicand.mjs`             | User commands, launchers and smokes                         | [Code map](docs/development.md#代码地图)          |
+| `src/dashboard/`                                | Local HTTP/SSE, composition and Run orchestration           | [Service](src/dashboard/AGENTS.md)                |
+| `src/runtime/`                                  | Task/Run, scheduling, recovery, models and Pi sessions      | [Runtime](src/runtime/AGENTS.md)                  |
+| `src/gui/`, `src/security/`                     | Native interaction, window grants and execution permissions | [Window access](docs/en/README.md#native-windows) |
+| `src/domain/`, `src/storage/`, `src/workspace/` | Domain types, persistence, workspaces and artifacts         | [Data layout](docs/development.md#数据布局)       |
+| `.pi/`                                          | Product Pi composition, domain tools and skills             | [Pi](.pi/AGENTS.md)                               |
+| `web/`                                          | Shared Web/Desktop UI and controllers                       | [Frontend](web/AGENTS.md)                         |
+| `desktop/`                                      | Electron windows, trusted IPC and backend lifecycle         | [Desktop](desktop/AGENTS.md)                      |
+| `test/`, `e2e/`                                 | Node regressions and browser/native acceptance              | [Testing](test/AGENTS.md)                         |
+| `docs/`                                         | User guides, development conventions and API references     | [Documentation](docs/AGENTS.md)                   |
+| `scripts/`, `.github/`                          | Builds, verification, packaging and CI                      | [Development](docs/development.md)                |
 
 Directory guides and process records are in Chinese and are authoritative for their modules; the development guide holds the architecture and code map. The document registry lives in the Chinese [AGENTS.md](AGENTS.md#文档): one area is documented once, and the English product guide is the English edition of the Chinese one.
 

@@ -53,10 +53,14 @@ module.exports = {
     "LICENSE",
     "THIRD_PARTY_NOTICES.md",
     "README.md",
-    "docs/en/README.md",
-    "docs/development.md",
-    "docs/testing.md",
+    "CONTRIBUTING.md",
+    "CONTRIBUTING.en.md",
+    "GLOSSARY.md",
+    // Every maintained guide travels with the app: the bundled skills and the
+    // English entry link these pages, and an install may read .pi/skills and docs only.
+    "docs/**/*.md",
     "licenses/**/*",
+    "!docs/site/**",
     "!**/*.map",
     "!**/*.tsbuildinfo",
     "!node_modules/**/test{,s}/**",

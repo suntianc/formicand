@@ -293,7 +293,7 @@ CLI 的交互界面直接使用原版 Pi 1.5.2，不改依赖文件。启动时�
 
 - 每个事实只在一份文档里写，其他地方链接过去。现行行为写进使用和接口文档；还没做的范围和下一步记在需求台账的开发记录里，不写进仓库。
 - 改了命令、配置、路径或接口，在同一个改动里更新文档。命令必须和 `package.json`、脚本、CLI 帮助对得上。
-- 产品说明是根 [README](../README.zh-CN.md) 和 [README](../README.md) 一对，改一份要同步另一份。英文读者从 [AGENTS.en.md](../AGENTS.en.md) 和 [CONTRIBUTING.en.md](../CONTRIBUTING.en.md) 进入开发标准；开发与测试标准只写中文。CUA 的英文操作指南写在 [docs/en/README.md](en/README.md#cua-scripts)：它随 CLI 和桌面包装分发，两种安装里的技能直接链接它。过程记录（复盘、坑点、交接、架构决定与历史）只写中文。
+- 产品说明是根 [README](../README.zh-CN.md) 和 [README](../README.md) 一对，改一份要同步另一份。英文读者从 [AGENTS.en.md](../AGENTS.en.md) 和 [CONTRIBUTING.en.md](../CONTRIBUTING.en.md) 进入开发标准；开发与测试标准只写中文。浏览器、本机窗口、CUA 脚本和中断恢复的英文正文写在 [docs/en/README.md](en/README.md#built-in-capabilities)：它随 CLI 和桌面包装分发，安装里的 cua 技能只读得到 `.pi/skills` 和 `docs`，所以这几节要写全，不能只留指向根 README 的链接。过程记录（复盘、坑点、交接、架构决定与历史）只写中文。
 - 新增、移动或删除文档时，同步根 [AGENTS](../AGENTS.md#文档) 的文档登记表；仍在生效且难逆的选择写成 [架构决定](adr/)，被取代的决定和删掉的文档记进 [架构决定历史](adr-history.md)，未结项记在开发记录里。
 - 不提交真实密钥、私有服务、个人配置和用户任务。示例用占位符和通用路径。
 - 用相对 Markdown 链接。删除或移动文档时，更新所有引用它的地方，再跑 `npm run check:docs`。
