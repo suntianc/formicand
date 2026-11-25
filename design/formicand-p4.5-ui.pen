@@ -13511,7 +13511,7 @@
                   "id": "mbXpv",
                   "name": "Composer",
                   "opacity": 0.5,
-                  "width": 740,
+                  "width": 768,
                   "fill": "#FFFFFF12",
                   "cornerRadius": 18,
                   "stroke": "$glass-edge",
@@ -58179,7 +58179,7 @@
                 {
                   "type": "frame",
                   "id": "g3r81",
-                  "name": "Process 运行中：每步一行，进行中的那行是蚂蚁动效",
+                  "name": "Process 运行中：每步一行，进行中的工具调用是小圆点",
                   "width": "fill_container",
                   "fill": "$v2-main",
                   "cornerRadius": 16,
@@ -58197,7 +58197,7 @@
                       "id": "fTNB7",
                       "name": "StateLabel",
                       "fill": "$v2-text-3",
-                      "content": "运行中：每步一行，进行中的那行是蚂蚁动效",
+                      "content": "运行中：每步一行，进行中的工具调用是小圆点",
                       "fontFamily": "Inter",
                       "fontSize": 12,
                       "fontWeight": "normal"
@@ -58413,82 +58413,28 @@
                     {
                       "type": "frame",
                       "id": "KFcNu",
-                      "name": "Step 思考中",
+                      "name": "Step 思考了 2 秒",
                       "width": "fill_container",
                       "height": 30,
                       "gap": 10,
                       "alignItems": "center",
                       "children": [
                         {
-                          "type": "frame",
-                          "id": "MOgT8",
-                          "name": "AntMark",
-                          "width": 14,
-                          "height": 14,
-                          "layout": "none",
-                          "children": [
-                            {
-                              "type": "ellipse",
-                              "id": "WFrQH",
-                              "x": 2.3690624999999996,
-                              "y": 2.3690624999999996,
-                              "name": "Head",
-                              "opacity": 0.4,
-                              "fill": "$v2-text-2",
-                              "width": 1.9293749999999998,
-                              "height": 1.9293749999999998
-                            },
-                            {
-                              "type": "ellipse",
-                              "id": "P2dDpL",
-                              "x": 3.9659374999999994,
-                              "y": 3.9659374999999994,
-                              "name": "Thorax",
-                              "fill": "$v2-text-2",
-                              "width": 4.134375,
-                              "height": 4.134375
-                            },
-                            {
-                              "type": "ellipse",
-                              "id": "RO7p0",
-                              "x": 7.427904166666666,
-                              "y": 7.427904166666666,
-                              "name": "Abdomen",
-                              "opacity": 0.6,
-                              "fill": "$v2-text-2",
-                              "width": 4.828775000000001,
-                              "height": 4.828775000000001
-                            },
-                            {
-                              "type": "ellipse",
-                              "id": "PmC22",
-                              "x": 8.4765625,
-                              "y": 1.2126041666666665,
-                              "name": "Feeler",
-                              "opacity": 0.45,
-                              "fill": "$v2-text-2",
-                              "width": 1.5035416666666668,
-                              "height": 1.5035416666666668
-                            },
-                            {
-                              "type": "ellipse",
-                              "id": "FSdcd",
-                              "x": 1.2126041666666665,
-                              "y": 8.4765625,
-                              "name": "Feeler",
-                              "opacity": 0.45,
-                              "fill": "$v2-text-2",
-                              "width": 1.5035416666666668,
-                              "height": 1.5035416666666668
-                            }
-                          ]
+                          "type": "text",
+                          "id": "nR8w2",
+                          "name": "Done",
+                          "fill": "$v2-text-3",
+                          "content": "✓",
+                          "fontFamily": "Inter",
+                          "fontSize": 12,
+                          "fontWeight": "normal"
                         },
                         {
                           "type": "text",
                           "id": "Wxywe",
                           "name": "Verb",
-                          "fill": "$v2-text-3",
-                          "content": "思考中",
+                          "fill": "$v2-text",
+                          "content": "思考了 2 秒",
                           "fontFamily": "Inter",
                           "fontSize": 13,
                           "fontWeight": "500"
@@ -58497,7 +58443,7 @@
                           "type": "text",
                           "id": "isG9q",
                           "name": "Obj",
-                          "fill": "$v2-text-3",
+                          "fill": "$v2-text-2",
                           "textGrowth": "fixed-width",
                           "width": "fill_container",
                           "content": "行数为 0 时不能除，要单独处理。",
@@ -58511,6 +58457,58 @@
                           "name": "Duration",
                           "fill": "$v2-text-3",
                           "fontFamily": "Inter",
+                          "fontSize": 12,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "YdAUI",
+                      "name": "Step 运行（进行中）",
+                      "width": "fill_container",
+                      "height": 30,
+                      "gap": 10,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "TX0QH",
+                          "name": "StatusDot",
+                          "width": 12,
+                          "height": 12,
+                          "justifyContent": "center",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "ellipse",
+                              "id": "q57MC8",
+                              "name": "Dot",
+                              "fill": "$v2-text-3",
+                              "width": 4,
+                              "height": 4
+                            }
+                          ]
+                        },
+                        {
+                          "type": "text",
+                          "id": "ZywzY",
+                          "name": "Verb",
+                          "fill": "$v2-text-3",
+                          "content": "运行",
+                          "fontFamily": "Inter",
+                          "fontSize": 13,
+                          "fontWeight": "500"
+                        },
+                        {
+                          "type": "text",
+                          "id": "cmCWj",
+                          "name": "Obj",
+                          "fill": "$v2-text-3",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "bash -n summarize.sh",
+                          "fontFamily": "JetBrains Mono",
                           "fontSize": 12,
                           "fontWeight": "normal"
                         }
@@ -59678,7 +59676,7 @@
                   "fill": "$v2-text-2",
                   "textGrowth": "fixed-width",
                   "width": "fill_container",
-                  "content": "头、胸、腹三个圆依次放大（0.7 → 1 → 0.82），透明度 0.4 → 1 → 0.6；周期 1.2s，相邻错开 0.15s；触角 45% 常亮。用于：等待首字的「正在思考」、正文末尾、运行中的工具、运行胶囊。「减少动态效果」时静止。思考中的文字带一道 2.2s 的高光扫过。",
+                  "content": "头、胸、腹三个圆依次放大（0.7 → 1 → 0.82），透明度 0.4 → 1 → 0.6；周期 1.2s，相邻错开 0.15s；触角 45% 常亮。用于：等待首字的「正在思考」、正文末尾、运行胶囊；工具调用不用蚂蚁，进行中显示小圆点。「减少动态效果」时静止。思考中的文字带一道 2.2s 的高光扫过。",
                   "lineHeight": 1.7,
                   "fontFamily": "Inter",
                   "fontSize": 13,
@@ -109845,11 +109843,64 @@
                   "name": "SettingsButton",
                   "width": 36,
                   "height": 36,
-                  "fill": "#FFFFFF0F",
+                  "fill": {
+                    "type": "gradient",
+                    "gradientType": "linear",
+                    "enabled": true,
+                    "rotation": 180,
+                    "size": {
+                      "height": 1
+                    },
+                    "colors": [
+                      {
+                        "color": "#FFFFFF24",
+                        "position": 0
+                      },
+                      {
+                        "color": "#FFFFFF0A",
+                        "position": 1
+                      }
+                    ]
+                  },
                   "cornerRadius": 18,
-                  "stroke": "#FFFFFF1A",
+                  "stroke": "#FFFFFF24",
                   "strokeWidth": 1,
                   "strokeAlignment": "inner",
+                  "effect": [
+                    {
+                      "type": "background_blur",
+                      "radius": 16
+                    },
+                    {
+                      "type": "shadow",
+                      "shadowType": "inner",
+                      "color": "#FFFFFF2E",
+                      "offset": {
+                        "x": 0,
+                        "y": 1
+                      }
+                    },
+                    {
+                      "type": "shadow",
+                      "shadowType": "outer",
+                      "color": "#00000066",
+                      "offset": {
+                        "x": 0,
+                        "y": 1
+                      },
+                      "blur": 2
+                    },
+                    {
+                      "type": "shadow",
+                      "shadowType": "outer",
+                      "color": "#00000073",
+                      "offset": {
+                        "x": 0,
+                        "y": 8
+                      },
+                      "blur": 22
+                    }
+                  ],
                   "justifyContent": "center",
                   "alignItems": "center",
                   "children": [
@@ -122442,11 +122493,64 @@
                   "name": "SettingsButton",
                   "width": 36,
                   "height": 36,
-                  "fill": "#FFFFFF0F",
+                  "fill": {
+                    "type": "gradient",
+                    "gradientType": "linear",
+                    "enabled": true,
+                    "rotation": 180,
+                    "size": {
+                      "height": 1
+                    },
+                    "colors": [
+                      {
+                        "color": "#FFFFFF24",
+                        "position": 0
+                      },
+                      {
+                        "color": "#FFFFFF0A",
+                        "position": 1
+                      }
+                    ]
+                  },
                   "cornerRadius": 18,
-                  "stroke": "#FFFFFF1A",
+                  "stroke": "#FFFFFF24",
                   "strokeWidth": 1,
                   "strokeAlignment": "inner",
+                  "effect": [
+                    {
+                      "type": "background_blur",
+                      "radius": 16
+                    },
+                    {
+                      "type": "shadow",
+                      "shadowType": "inner",
+                      "color": "#FFFFFF2E",
+                      "offset": {
+                        "x": 0,
+                        "y": 1
+                      }
+                    },
+                    {
+                      "type": "shadow",
+                      "shadowType": "outer",
+                      "color": "#00000066",
+                      "offset": {
+                        "x": 0,
+                        "y": 1
+                      },
+                      "blur": 2
+                    },
+                    {
+                      "type": "shadow",
+                      "shadowType": "outer",
+                      "color": "#00000073",
+                      "offset": {
+                        "x": 0,
+                        "y": 8
+                      },
+                      "blur": 22
+                    }
+                  ],
                   "justifyContent": "center",
                   "alignItems": "center",
                   "children": [
@@ -122523,7 +122627,7 @@
               "type": "frame",
               "id": "Ap5Tb",
               "name": "Center",
-              "width": 720,
+              "width": 768,
               "layout": "vertical",
               "gap": 24,
               "alignItems": "center",
