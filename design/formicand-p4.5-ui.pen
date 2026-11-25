@@ -119737,7 +119737,7 @@
               "fill": "$v2-text",
               "textGrowth": "fixed-width",
               "width": "fill_container",
-              "content": "包含子代理在各自阶段做的验证。[耗时明细]\n(/Users/suntc/.formicand/workspace/task-47c32222-32ed-4860-80bd-8d98cb68d505/agents/main/work/my-tasks/retro-timing.tsv)",
+              "content": "包含子代理在各自阶段做的验证。[耗时明细]\n(~/.formicand/workspace/task-47c32222-32ed-4860-80bd-8d98cb68d505/agents/main/work/my-tasks/retro-timing.tsv)",
               "lineHeight": 1.7,
               "fontFamily": "Noto Sans SC",
               "fontSize": 15,
