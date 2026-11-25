@@ -262,7 +262,8 @@ body {
   font-variant-numeric: tabular-nums;
 }
 .run-agent-row img,
-.run-agent-row .ui-icon {
+.run-agent-row .ui-icon,
+.run-agent-row .agent-avatar {
   width: 18px;
   height: 18px;
 }

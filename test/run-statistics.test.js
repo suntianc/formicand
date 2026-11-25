@@ -113,7 +113,7 @@ test("conversation usage counts Main and Subagent responses once across every ru
     2,
     "retries in the same agent trace must not duplicate the agent's total"
   );
-  assert.equal(result.agents[1].name, "Ara");
+  assert.equal(result.agents[1].name, "Atta");
   assert.equal(result.agents[1].usage.totalTokens, 420);
   assert.equal(result.elapsedMs, 25_000, "sum both runs, excluding idle gaps between them");
   assert.equal((await f.read({ nowMs: Date.parse(time(600)) })).elapsedMs, result.elapsedMs);

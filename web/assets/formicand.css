@@ -364,6 +364,17 @@ html[data-theme] .model-logo {
   height: 16px;
   color: var(--color-text-2);
 }
+/* A delegate's ant; agentAvatar() sets the image for each theme. */
+.agent-avatar {
+  display: inline-block;
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  background: var(--avatar-dark) center / cover no-repeat;
+}
+html[data-theme="light"] .agent-avatar {
+  background-image: var(--avatar-light);
+}
 
 /* Floating cards, popovers and drawers use the same glass language. */
 html[data-theme]
