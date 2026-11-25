@@ -92,9 +92,9 @@ P4.5 每次 integrate 都运行公共检查与全部回归命令：全量 Playwr
 
 rex.3 核对（2026-11-12）：同一合并树上已通过的命令不再重跑，命令列表去重，`--full-check` 列出的全量命令只由终审运行、finish 复用其 validate 回执，`--fresh` 才全部重跑。
 
-P4.6 第二轮核对（2026-11-13）：终审已在 `9a69b91e` 上跑过 `verify:full` 与 Playwright 全量，finish 在同一提交上仍运行了 24 条检查（含两项全量，约 30 分钟）；其中一条高负载偶发失败后再跑 finish，又运行了 16 分钟 Playwright 全量。终审的 validate 回执在终审工作树上，finish 没有复用。
+P4.6 第二轮核对（2026-11-13）：终审已在 `df81a627` 上跑过 `verify:full` 与 Playwright 全量，finish 在同一提交上仍运行了 24 条检查（含两项全量，约 30 分钟）；其中一条高负载偶发失败后再跑 finish，又运行了 16 分钟 Playwright 全量。终审的 validate 回执在终审工作树上，finish 没有复用。
 
-P4.6 第三轮核对（2026-11-16）：终审 r4 已在 `1dd3ec72` 上跑过全量，finish 仍在同一提交上重跑 Playwright 全量（约 17–20 分钟），三次都被既有偶发 `markdown-links:6` 卡住；之后重跑时已通过的命令被正确跳过。
+P4.6 第三轮核对（2026-11-16）：终审 r4 已在 `ff349139` 上跑过全量，finish 仍在同一提交上重跑 Playwright 全量（约 17–20 分钟），三次都被既有偶发 `markdown-links:6` 卡住；之后重跑时已通过的命令被正确跳过。
 
 ## WL-12 长检查前的环境预检
 
@@ -120,7 +120,7 @@ P4.6 第一轮 #05 收到 `send --merge-tip` 后，执行者没有执行合并�
 
 ## WL-16 wait 提示与终审报告不一致
 
-P4.6 第三轮终审 r3 报告中 A8 的 Blocking 列为 yes，`wait` 却提示「next: finish — the final review's blocking findings are all waived」。按报告处理，开了修复票 #21。建议提示以报告 Findings 表为准，存在未豁免的阻断项时不提示 finish。来源：`os-p46-subagents/reviews/final-3-aa765e41.md`。
+P4.6 第三轮终审 r3 报告中 A8 的 Blocking 列为 yes，`wait` 却提示「next: finish — the final review's blocking findings are all waived」。按报告处理，开了修复票 #21。建议提示以报告 Findings 表为准，存在未豁免的阻断项时不提示 finish。来源：`os-p46-subagents/reviews/final-3-21d97028.md`。
 
 ## WL-17 Rex 会话窗口上限
 
