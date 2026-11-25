@@ -148,8 +148,8 @@ test("the desktop window has no title bar, panels reach the top and traffic ligh
     expect(regions["#sidebar-toggle"]).toBe("no-drag");
     expect(regions["#output-pane-toggle"]).toBe("no-drag");
     expect(regions["#work-entry"]).toBe("no-drag");
-    // Electron inherits the pane's region into its content.
-    expect(regions[".chat-body"]).toBe("no-drag");
+    // Content adds no region of its own; the pane box keeps it out of the drag.
+    expect(regions[".chat-body"]).toBe("none");
     expect(regions["#agent-pane"]).toBe("no-drag");
 
     await page.locator(`.conversation-item[data-task="${taskId}"]`).click({ button: "right" });
@@ -164,6 +164,84 @@ test("the desktop window has no title bar, panels reach the top and traffic ligh
       platform: document.documentElement.dataset.desktopPlatform
     }));
     expect(materials).toEqual({ material: "under-window", platform: "darwin" });
+  } finally {
+    await native.close();
+    await stopNativeBackend(root);
+    await rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  }
+});
+
+// Chromium takes one rectangle from every element with a region, in document
+// order and without clipping, each later one winning. This replays that rule
+// along a horizontal line and names the element that ends up on top.
+const dragLine = (page, y) =>
+  page.evaluate((y) => {
+    const region = (el, pseudo) => getComputedStyle(el, pseudo).getPropertyValue("-webkit-app-region");
+    const rects = [];
+    for (const el of document.querySelectorAll("*")) {
+      const style = getComputedStyle(el);
+      if (style.display === "none" || style.visibility === "hidden") continue;
+      const value = region(el);
+      if (value === "drag" || value === "no-drag") rects.push({ el, value, box: el.getBoundingClientRect() });
+      const before = getComputedStyle(el, "::before");
+      if (before.content !== "none" && region(el, "::before") === "drag") {
+        const box = el.getBoundingClientRect();
+        rects.push({
+          el,
+          value: "drag",
+          box: { left: box.left, right: box.right, top: box.top, bottom: box.top + parseFloat(before.height) }
+        });
+      }
+    }
+    const holes = [];
+    for (let x = 2; x < innerWidth; x += 8) {
+      let top;
+      for (const rect of rects) {
+        const { left, right, top: t, bottom } = rect.box;
+        if (x >= left && x < right && y >= t && y < bottom) top = rect;
+      }
+      if (top?.value === "no-drag" && !top.el.closest("button, a, [role='button'], [role='tab']"))
+        holes.push(`${x}:${top.el.tagName.toLowerCase()}.${String(top.el.className).split(" ")[0]}`);
+    }
+    return holes;
+  }, y);
+
+test("content scrolled behind the title row or the settings margin never takes the window drag away", async () => {
+  test.skip(process.platform !== "darwin", "Window dragging is a desktop concern");
+  test.setTimeout(180_000);
+  const { native, page, root } = await bootDesktop();
+  try {
+    await createTaskThroughHost(page);
+    await page.reload();
+    await dismissModelSetup(page);
+    await page.locator(`.conversation-item[data-task="${taskId}"]`).click();
+    await expect(page.locator("#topbar-task")).toHaveText(taskGoal);
+    // A long transcript scrolled to its end leaves most of it above the pane.
+    await page.evaluate(() => {
+      const body = document.querySelector(".chat-body");
+      for (let index = 0; index < 80; index += 1) {
+        const row = document.createElement("p");
+        row.innerHTML = `<a href="#">链接 ${index}</a> <button type="button">复制</button>`;
+        body.append(row);
+      }
+      body
+        .closest(".chat-pane")
+        .querySelectorAll("*")
+        .forEach((node) => {
+          if (node.scrollHeight > node.clientHeight) node.scrollTop = node.scrollHeight;
+        });
+    });
+    expect(await dragLine(page, 22)).toEqual([]);
+
+    await page.locator("#user-menu-button").click();
+    await expect(page.locator(".settings-entry")).toBeVisible();
+    await page.evaluate(() => {
+      const content = document.querySelector(".settings-content");
+      content.scrollTop = content.scrollHeight;
+    });
+    expect(await dragLine(page, 5)).toEqual([]);
+    const holes = await dragLine(page, 30);
+    expect(holes.every((hole) => Number(hole.split(":")[0]) >= 248)).toBe(true);
   } finally {
     await native.close();
     await stopNativeBackend(root);
