@@ -1074,119 +1074,143 @@
         <div class="settings-column">
           <section class="settings-panel is-large" data-settings-panel="general" aria-label="通用">
             <h1 class="settings-page-title">通用</h1>
-            <div class="settings-group">
-              <div class="settings-group-head"><h2 class="settings-group-title">外观</h2></div>
-              <div class="settings-rows">
-                <div class="settings-row">
-                  <span class="settings-row-label">主题</span>
-                  <div class="settings-segmented" role="radiogroup" aria-label="主题" id="appearance-choices">
-                    <button type="button" role="radio" data-appearance-value="system" aria-checked="true">
-                      跟随系统
-                    </button>
-                    <button type="button" role="radio" data-appearance-value="light" aria-checked="false">
-                      浅色
-                    </button>
-                    <button type="button" role="radio" data-appearance-value="dark" aria-checked="false">
-                      深色
-                    </button>
+            <div class="settings-panel-body">
+              <div class="settings-group">
+                <div class="settings-group-head"><h2 class="settings-group-title">外观</h2></div>
+                <div class="settings-rows">
+                  <div class="settings-row">
+                    <span class="settings-row-label">主题</span>
+                    <div
+                      class="settings-segmented"
+                      role="radiogroup"
+                      aria-label="主题"
+                      id="appearance-choices"
+                    >
+                      <button type="button" role="radio" data-appearance-value="system" aria-checked="true">
+                        跟随系统
+                      </button>
+                      <button type="button" role="radio" data-appearance-value="light" aria-checked="false">
+                        浅色
+                      </button>
+                      <button type="button" role="radio" data-appearance-value="dark" aria-checked="false">
+                        深色
+                      </button>
+                    </div>
+                    <span id="appearance-status" role="status"></span>
                   </div>
-                  <span id="appearance-status" role="status"></span>
-                </div>
-                <div class="settings-row" id="window-material-row" hidden>
-                  <span class="settings-row-label">窗口材质</span>
-                  <button
-                    class="ui-switch"
-                    type="button"
-                    role="switch"
-                    id="window-material-toggle"
-                    aria-checked="true"
-                    aria-label="窗口材质"
-                  ></button>
-                </div>
-                <div class="settings-row">
-                  <span class="settings-row-label">减少动态效果</span>
-                  <div
-                    class="settings-segmented"
-                    role="radiogroup"
-                    aria-label="减少动态效果"
-                    id="reduced-motion-choices"
-                  >
-                    <button type="button" role="radio" data-reduced-motion-value="system" aria-checked="true">
-                      跟随系统
-                    </button>
-                    <button type="button" role="radio" data-reduced-motion-value="on" aria-checked="false">
-                      开启
-                    </button>
-                    <button type="button" role="radio" data-reduced-motion-value="off" aria-checked="false">
-                      关闭
-                    </button>
+                  <div class="settings-row" id="window-material-row" hidden>
+                    <span class="settings-row-label">窗口材质</span>
+                    <button
+                      class="ui-switch"
+                      type="button"
+                      role="switch"
+                      id="window-material-toggle"
+                      aria-checked="true"
+                      aria-label="窗口材质"
+                    ></button>
                   </div>
-                </div>
-              </div>
-            </div>
-            <div class="settings-group">
-              <div class="settings-group-head"><h2 class="settings-group-title">语言与区域</h2></div>
-              <div class="settings-rows">
-                <div class="settings-row">
-                  <label class="settings-row-label" for="language-select">界面语言</label>
-                  <select id="language-select" class="settings-select" aria-describedby="language-status">
-                    <option value="zh-CN" lang="zh-CN">简体中文</option>
-                    <option value="en" lang="en">English</option>
-                  </select>
-                  <span id="language-status" role="status"></span>
-                </div>
-                <div class="settings-row">
-                  <span class="settings-row-label">时间格式</span>
-                  <div
-                    class="settings-segmented"
-                    role="radiogroup"
-                    aria-label="时间格式"
-                    id="time-format-choices"
-                  >
-                    <button type="button" role="radio" data-time-format-value="relative" aria-checked="true">
-                      相对时间
-                    </button>
-                    <button type="button" role="radio" data-time-format-value="absolute" aria-checked="false">
-                      绝对时间
-                    </button>
+                  <div class="settings-row">
+                    <span class="settings-row-label">减少动态效果</span>
+                    <div
+                      class="settings-segmented"
+                      role="radiogroup"
+                      aria-label="减少动态效果"
+                      id="reduced-motion-choices"
+                    >
+                      <button
+                        type="button"
+                        role="radio"
+                        data-reduced-motion-value="system"
+                        aria-checked="true"
+                      >
+                        跟随系统
+                      </button>
+                      <button type="button" role="radio" data-reduced-motion-value="on" aria-checked="false">
+                        开启
+                      </button>
+                      <button type="button" role="radio" data-reduced-motion-value="off" aria-checked="false">
+                        关闭
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-            <div class="settings-group">
-              <div class="settings-group-head"><h2 class="settings-group-title">关于</h2></div>
-              <div class="settings-rows" id="profile-settings-about">
-                <div class="desktop-updates">
-                  <div class="settings-row about-product">
-                    <span class="settings-row-copy"
-                      ><span class="about-mark"
-                        ><svg class="brand-symbol" aria-hidden="true">
-                          <use href="#i-formicand-mark" /></svg></span
-                      ><span><strong>Formicand</strong><small data-update-version hidden></small></span
-                    ></span>
-                    <button class="about-update" type="button" data-update-action hidden>检查更新</button>
+              <div class="settings-group">
+                <div class="settings-group-head"><h2 class="settings-group-title">语言与区域</h2></div>
+                <div class="settings-rows">
+                  <div class="settings-row">
+                    <label class="settings-row-label" for="language-select">界面语言</label>
+                    <select id="language-select" class="settings-select" aria-describedby="language-status">
+                      <option value="zh-CN" lang="zh-CN">简体中文</option>
+                      <option value="en" lang="en">English</option>
+                    </select>
+                    <span id="language-status" role="status"></span>
                   </div>
-                  <p data-update-message role="status" aria-live="polite" hidden></p>
-                  <progress data-update-progress aria-label="更新进度" hidden></progress>
-                  <p data-update-error role="alert" hidden></p>
+                  <div class="settings-row">
+                    <span class="settings-row-label">时间格式</span>
+                    <div
+                      class="settings-segmented"
+                      role="radiogroup"
+                      aria-label="时间格式"
+                      id="time-format-choices"
+                    >
+                      <button
+                        type="button"
+                        role="radio"
+                        data-time-format-value="relative"
+                        aria-checked="true"
+                      >
+                        相对时间
+                      </button>
+                      <button
+                        type="button"
+                        role="radio"
+                        data-time-format-value="absolute"
+                        aria-checked="false"
+                      >
+                        绝对时间
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="settings-group">
+                <div class="settings-group-head"><h2 class="settings-group-title">关于</h2></div>
+                <div class="settings-rows" id="profile-settings-about">
+                  <div class="desktop-updates">
+                    <div class="settings-row about-product">
+                      <span class="settings-row-copy"
+                        ><span class="about-mark"
+                          ><svg class="brand-symbol" aria-hidden="true">
+                            <use href="#i-formicand-mark" /></svg></span
+                        ><span><strong>Formicand</strong><small data-update-version hidden></small></span
+                      ></span>
+                      <button class="about-update" type="button" data-update-action hidden>检查更新</button>
+                    </div>
+                    <p data-update-message role="status" aria-live="polite" hidden></p>
+                    <progress data-update-progress aria-label="更新进度" hidden></progress>
+                    <p data-update-error role="alert" hidden></p>
+                  </div>
                 </div>
               </div>
             </div>
           </section>
           <section class="settings-panel is-cards" data-settings-panel="nodes" aria-label="节点连接" hidden>
             <h1 class="settings-page-title">节点连接</h1>
-            <div class="settings-group">
-              <div class="settings-group-head">
-                <h2 class="settings-group-title">节点</h2>
-                <span class="settings-group-spacer"></span>
-                <button class="settings-link" type="button" id="settings-node-add" hidden>
-                  <svg class="ui-icon" aria-hidden="true"><use href="#i-plus" /></svg><span>添加节点</span>
-                </button>
+            <div class="settings-panel-body">
+              <div class="settings-group">
+                <div class="settings-group-head">
+                  <h2 class="settings-group-title">节点</h2>
+                  <span class="settings-group-spacer"></span>
+                  <button class="settings-link" type="button" id="settings-node-add" hidden>
+                    <svg class="ui-icon" aria-hidden="true"><use href="#i-plus" /></svg><span>添加节点</span>
+                  </button>
+                </div>
+                <div class="node-cards" id="settings-node-cards"></div>
               </div>
-              <div class="node-cards" id="settings-node-cards"></div>
-            </div>
-            <div class="settings-group" id="settings-node-backend">
-              <div class="settings-rows" id="settings-node-local"></div>
+              <div class="settings-group" id="settings-node-backend">
+                <div class="settings-rows" id="settings-node-local"></div>
+              </div>
             </div>
           </section>
           <section
@@ -1226,87 +1250,91 @@
             hidden
           >
             <h1 class="settings-page-title">成员与通道</h1>
-            <div class="settings-group">
-              <div class="settings-group-head"><h2 class="settings-group-title">成员</h2></div>
-              <div class="member-cards" id="settings-member-rows"></div>
-            </div>
-            <div class="settings-group is-placeholder">
-              <div class="settings-group-head">
-                <h2 class="settings-group-title">通知通道</h2>
-                <span class="settings-phase">P5 开放</span>
+            <div class="settings-panel-body">
+              <div class="settings-group">
+                <div class="settings-group-head"><h2 class="settings-group-title">成员</h2></div>
+                <div class="member-cards" id="settings-member-rows"></div>
               </div>
-              <div class="member-cards">
-                <div class="member-card">
-                  <span class="member-card-mark"
-                    ><svg class="ui-icon" aria-hidden="true"><use href="#i-chat" /></svg
-                  ></span>
-                  <span class="member-card-text"
-                    ><span class="member-card-name">飞书</span
-                    ><span class="member-card-sub">未连接</span></span
-                  >
-                  <button class="settings-outline-button" type="button" disabled>连接</button>
+              <div class="settings-group is-placeholder">
+                <div class="settings-group-head">
+                  <h2 class="settings-group-title">通知通道</h2>
+                  <span class="settings-phase">P5 开放</span>
                 </div>
-                <div class="member-card">
-                  <span class="member-card-mark"
-                    ><svg class="ui-icon" aria-hidden="true"><use href="#i-messages-square" /></svg
-                  ></span>
-                  <span class="member-card-text"
-                    ><span class="member-card-name">企业微信</span
-                    ><span class="member-card-sub">未连接</span></span
-                  >
-                  <button class="settings-outline-button" type="button" disabled>连接</button>
+                <div class="member-cards">
+                  <div class="member-card">
+                    <span class="member-card-mark"
+                      ><svg class="ui-icon" aria-hidden="true"><use href="#i-chat" /></svg
+                    ></span>
+                    <span class="member-card-text"
+                      ><span class="member-card-name">飞书</span
+                      ><span class="member-card-sub">未连接</span></span
+                    >
+                    <button class="settings-outline-button" type="button" disabled>连接</button>
+                  </div>
+                  <div class="member-card">
+                    <span class="member-card-mark"
+                      ><svg class="ui-icon" aria-hidden="true"><use href="#i-messages-square" /></svg
+                    ></span>
+                    <span class="member-card-text"
+                      ><span class="member-card-name">企业微信</span
+                      ><span class="member-card-sub">未连接</span></span
+                    >
+                    <button class="settings-outline-button" type="button" disabled>连接</button>
+                  </div>
+                  <div class="member-card">
+                    <span class="member-card-mark"
+                      ><svg class="ui-icon" aria-hidden="true"><use href="#i-send" /></svg
+                    ></span>
+                    <span class="member-card-text"
+                      ><span class="member-card-name">Telegram</span
+                      ><span class="member-card-sub">未连接</span></span
+                    >
+                    <button class="settings-outline-button" type="button" disabled>连接</button>
+                  </div>
+                  <button class="member-card is-add" type="button" disabled>
+                    <svg class="ui-icon" aria-hidden="true"><use href="#i-plus" /></svg><span>添加通道</span>
+                  </button>
                 </div>
-                <div class="member-card">
-                  <span class="member-card-mark"
-                    ><svg class="ui-icon" aria-hidden="true"><use href="#i-send" /></svg
-                  ></span>
-                  <span class="member-card-text"
-                    ><span class="member-card-name">Telegram</span
-                    ><span class="member-card-sub">未连接</span></span
-                  >
-                  <button class="settings-outline-button" type="button" disabled>连接</button>
-                </div>
-                <button class="member-card is-add" type="button" disabled>
-                  <svg class="ui-icon" aria-hidden="true"><use href="#i-plus" /></svg><span>添加通道</span>
-                </button>
               </div>
-            </div>
-            <div class="settings-group is-placeholder">
-              <div class="settings-group-head">
-                <h2 class="settings-group-title">回访</h2>
-                <span class="settings-phase">P5 开放</span>
-              </div>
-              <div class="settings-rows callback-card">
-                <div class="settings-row">
-                  <span class="settings-row-label">回访间隔</span>
-                  <span class="settings-row-spacer"></span>
-                  <select class="settings-select is-narrow" aria-label="回访间隔" disabled>
-                    <option>每 1 天</option>
-                  </select>
+              <div class="settings-group is-placeholder">
+                <div class="settings-group-head">
+                  <h2 class="settings-group-title">回访</h2>
+                  <span class="settings-phase">P5 开放</span>
                 </div>
-                <div class="settings-row">
-                  <span class="settings-row-label">3 次无回复后通知</span>
-                  <span class="settings-row-spacer"></span>
-                  <span class="settings-row-state">项目负责人</span>
+                <div class="settings-rows callback-card">
+                  <div class="settings-row">
+                    <span class="settings-row-label">回访间隔</span>
+                    <span class="settings-row-spacer"></span>
+                    <select class="settings-select is-narrow" aria-label="回访间隔" disabled>
+                      <option>每 1 天</option>
+                    </select>
+                  </div>
+                  <div class="settings-row">
+                    <span class="settings-row-label">3 次无回复后通知</span>
+                    <span class="settings-row-spacer"></span>
+                    <span class="settings-row-state">项目负责人</span>
+                  </div>
                 </div>
               </div>
             </div>
           </section>
           <section class="settings-panel is-large" data-settings-panel="tools" aria-label="工具" hidden>
             <h1 class="settings-page-title">工具</h1>
-            <div class="settings-group">
-              <div class="settings-group-head"><h2 class="settings-group-title">内置工具</h2></div>
-              <div class="settings-rows" id="profile-settings-tools"></div>
-            </div>
-            <div class="settings-group" id="settings-mcp-group" hidden>
-              <div class="settings-group-head">
-                <h2 class="settings-group-title">MCP 服务</h2>
-                <span class="settings-group-spacer"></span>
-                <button class="settings-link" type="button" id="settings-mcp-add" hidden>
-                  <svg class="ui-icon" aria-hidden="true"><use href="#i-plus" /></svg><span>添加服务</span>
-                </button>
+            <div class="settings-panel-body">
+              <div class="settings-group">
+                <div class="settings-group-head"><h2 class="settings-group-title">内置工具</h2></div>
+                <div class="settings-rows" id="profile-settings-tools"></div>
               </div>
-              <div class="settings-rows" id="settings-mcp-rows"></div>
+              <div class="settings-group" id="settings-mcp-group" hidden>
+                <div class="settings-group-head">
+                  <h2 class="settings-group-title">MCP 服务</h2>
+                  <span class="settings-group-spacer"></span>
+                  <button class="settings-link" type="button" id="settings-mcp-add" hidden>
+                    <svg class="ui-icon" aria-hidden="true"><use href="#i-plus" /></svg><span>添加服务</span>
+                  </button>
+                </div>
+                <div class="settings-rows" id="settings-mcp-rows"></div>
+              </div>
             </div>
           </section>
         </div>
