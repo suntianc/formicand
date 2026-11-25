@@ -202,3 +202,103 @@ test("/ and @ leave words in the draft and send what they name to Main", async (
     await provider.close();
   }
 });
+
+test("skill and file suggestion menus show a visible active highlight for ArrowDown/ArrowUp in light and dark themes", async ({
+  page
+}) => {
+  const provider = await modelProtocolFixture("openai-completions");
+  const dashboard = await startDashboard({ modelEndpoint: provider.baseUrl });
+  const errors = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  try {
+    await seed(dashboard);
+    await page.goto(dashboard.base);
+    const input = page.locator("#composer-input");
+    const rich = page.locator(".composer-rich");
+    const menu = page.locator("#composer-menu");
+    await expect(input).toBeEditable();
+    await expect(page.locator(".project-group").first()).toBeVisible();
+
+    const activeHighlightState = async () =>
+      menu.evaluate((panel) => {
+        const active = panel.querySelector(".composer-menu-item.is-active");
+        const inactive = [...panel.querySelectorAll(".composer-menu-item")].find((row) => row !== active);
+        return {
+          menuBg: getComputedStyle(panel).backgroundColor,
+          activeBg: active ? getComputedStyle(active).backgroundColor : null,
+          inactiveBg: inactive ? getComputedStyle(inactive).backgroundColor : null,
+          activeLabel: active?.querySelector(".composer-menu-label")?.textContent ?? null
+        };
+      });
+
+    for (const theme of ["light", "dark"]) {
+      await page.evaluate((value) => {
+        localStorage.clear();
+        localStorage.setItem("formicand.appearance", value);
+      }, theme);
+      await page.reload();
+      await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
+      await expect(input).toBeEditable();
+      await expect(page.locator(".project-group").first()).toBeVisible();
+
+      await input.fill("");
+      await input.pressSequentially("/pg");
+      await expect(menu).toBeVisible();
+      await expect(menu.locator(".composer-menu-item").nth(1)).toBeVisible();
+
+      const initialSlash = await activeHighlightState();
+      expect(initialSlash.activeBg, `${theme} slash active fill must differ from popover`).not.toBe(
+        initialSlash.menuBg
+      );
+      expect(initialSlash.activeBg, `${theme} slash active fill must not be transparent`).not.toBe(
+        "rgba(0, 0, 0, 0)"
+      );
+      expect(initialSlash.activeBg, `${theme} slash active fill must differ from inactive rows`).not.toBe(
+        initialSlash.inactiveBg
+      );
+
+      await input.press("ArrowDown");
+      const movedSlash = await activeHighlightState();
+      expect(movedSlash.activeLabel).not.toBe(initialSlash.activeLabel);
+      expect(movedSlash.activeBg).toBe(initialSlash.activeBg);
+
+      await input.press("ArrowUp");
+      const backSlash = await activeHighlightState();
+      expect(backSlash.activeLabel).toBe(initialSlash.activeLabel);
+      await input.press("Enter");
+      await expect(input).toHaveValue(`${initialSlash.activeLabel} `);
+
+      // Now inside the rich editor (a skill chip is present), `@` file suggestions must also highlight and respond to ArrowDown/ArrowUp.
+      await rich.pressSequentially("@0007");
+      await expect(menu).toBeVisible();
+      await expect(menu.locator(".composer-menu-item")).toHaveCount(2);
+
+      const initialFile = await activeHighlightState();
+      expect(initialFile.activeBg, `${theme} file active fill must differ from popover`).not.toBe(
+        initialFile.menuBg
+      );
+      expect(initialFile.activeBg, `${theme} file active fill must differ from inactive rows`).not.toBe(
+        initialFile.inactiveBg
+      );
+
+      await rich.press("ArrowDown");
+      const movedFile = await activeHighlightState();
+      expect(movedFile.activeLabel).not.toBe(initialFile.activeLabel);
+      expect(movedFile.activeBg).toBe(initialFile.activeBg);
+
+      await rich.press("Enter");
+      await expect(input).toHaveValue(
+        `${initialSlash.activeLabel} @src/storage/migrations/${movedFile.activeLabel} `
+      );
+      await input.evaluate((el) => {
+        el.value = "";
+        el.dispatchEvent(new Event("input", { bubbles: true }));
+      });
+      await expect(input).toHaveValue("");
+    }
+    expect(errors).toEqual([]);
+  } finally {
+    await dashboard.stop();
+    await provider.close();
+  }
+});
