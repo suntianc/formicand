@@ -122,6 +122,7 @@ test("running indicator sits in the left indent without shifting session titles"
         soloRow: box(project.querySelector('[data-task="solo-running"]').closest(".conversation-row")),
         subToggle: box(project.querySelector('[data-session-toggle="with-sub"]')),
         subSpinner: box(project.querySelector('[data-task="with-sub"] .conversation-activity')),
+        subTitle: box(project.querySelector('[data-task="with-sub"] .conversation-title-text')),
         pinnedRow: box(pinned.querySelector('[data-task="pinned-running"]').closest(".conversation-row")),
         pinnedSpinner: box(pinned.querySelector('[data-task="pinned-running"] .conversation-activity')),
         pinnedTitle: box(pinned.querySelector('[data-task="pinned-running"] .conversation-title-text'))
@@ -136,8 +137,11 @@ test("running indicator sits in the left indent without shifting session titles"
     expect(boxes.soloSpinner.right).toBeLessThanOrEqual(boxes.folder.right);
     expect(boxes.soloSpinner.y).toBeGreaterThanOrEqual(boxes.soloRow.y);
     expect(boxes.soloSpinner.bottom).toBeLessThanOrEqual(boxes.soloRow.bottom);
-    // Sessions with a subagent disclosure keep the spinner clear of the chevron button.
-    expect(boxes.subSpinner.x).toBeGreaterThanOrEqual(boxes.subToggle.right);
+    // A session with a subagent disclosure shows its spinner in the chevron's place,
+    // so its title starts where the button's own padding puts it.
+    expect(boxes.subSpinner.x).toBeGreaterThanOrEqual(boxes.subToggle.x);
+    expect(boxes.subSpinner.right).toBeLessThanOrEqual(boxes.subToggle.right);
+    expect(boxes.subTitle.x - boxes.subToggle.right).toBeLessThanOrEqual(9);
     // Pinned rows have no left indent; their spinner stays inside the row before the title.
     expect(boxes.pinnedSpinner.x).toBeGreaterThanOrEqual(boxes.pinnedRow.x);
     expect(boxes.pinnedSpinner.right).toBeLessThanOrEqual(boxes.pinnedTitle.x);
