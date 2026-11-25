@@ -136,6 +136,9 @@ html[data-theme] .pinned-section .conversation-row {
 html[data-theme] .pinned-section .conversation-indent {
   display: none;
 }
+html[data-theme] .pinned-section .conversation-toggle {
+  margin-inline: 0;
+}
 
 html[data-theme] .sidebar-section-label {
   flex: 0 0 auto;
@@ -339,6 +342,9 @@ html[data-theme] .conversation-toggle {
   flex: 0 0 20px;
   width: 20px;
   height: 20px;
+  /* Takes the indent's 15px in the row, so a session with Subagents lines its
+     title up with one without; the button reaches 2.5px past each side. */
+  margin-inline: -2.5px;
   padding: 0;
   border: 0;
   border-radius: 5px;
@@ -400,11 +406,18 @@ html[data-theme]
    pointing at the toggle brings the chevron back, so the title never moves. */
 html[data-theme] .conversation-row:has(> .conversation-toggle) > .conversation-item > .conversation-activity {
   position: absolute;
-  left: -14px;
+  left: -11.5px;
   top: 0;
   bottom: 0;
   margin-block: auto;
   pointer-events: none;
+}
+html[data-theme]
+  .pinned-section
+  .conversation-row:has(> .conversation-toggle)
+  > .conversation-item
+  > .conversation-activity {
+  left: -14px;
 }
 html[data-theme]
   .conversation-row:has(> .conversation-item > .conversation-activity)
