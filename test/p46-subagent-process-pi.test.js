@@ -97,7 +97,7 @@ async function recordedProcesses(workspace) {
 async function sameProcess(pid, startedAt) {
   const child = spawn("ps", ["-p", String(pid), "-o", "lstart="], {
     stdio: ["ignore", "pipe", "ignore"],
-    env: { ...process.env, LC_ALL: "C", LANG: "C" }
+    env: { ...process.env, LC_ALL: "C", LANG: "C", TZ: "UTC" }
   });
   let out = "";
   child.stdout.setEncoding("utf8").on("data", (chunk) => (out += chunk));

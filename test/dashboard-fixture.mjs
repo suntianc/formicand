@@ -221,7 +221,7 @@ async function sameProcess(pid, startedAt) {
   try {
     const { stdout } = await promisify(execFile)("ps", ["-p", String(pid), "-o", "lstart="], {
       timeout: 5_000,
-      env: { ...process.env, LC_ALL: "C", LANG: "C" }
+      env: { ...process.env, LC_ALL: "C", LANG: "C", TZ: "UTC" }
     });
     return stdout.trim() === startedAt;
   } catch {
