@@ -14,6 +14,14 @@ import type { PiThinkingLevel } from "./runtime-settings.js";
 export const MAIN_MODEL_FROM_CONFIG = "FORMICAND_MAIN_MODEL_FROM_CONFIG";
 
 /**
+ * The model the person picked for this Run's message, on the connection the
+ * launch resolved. A turn that re-reads the saved connection keeps it while
+ * that connection is still the one in use: the connection's own default model
+ * is not the person's choice.
+ */
+export const MAIN_TURN_MODEL = "FORMICAND_MAIN_TURN_MODEL";
+
+/**
  * Model values a launch already fixed.
  *
  * A resident Main re-reads the host file for the next turn, so every value the
@@ -55,14 +63,16 @@ export function resolveMainTurnModel(
   if (env[MAIN_MODEL_FROM_CONFIG] !== "1") return undefined;
   const launchFree: NodeJS.ProcessEnv = { ...env };
   for (const name of LAUNCH_MODEL_ENV) delete launchFree[name];
-  const selection = resolveModelRole(
-    config,
-    {
-      role: "main",
-      ...(input.thinkingLevel ? { thinkingLevel: input.thinkingLevel } : {}),
-      ...(input.projectDirectory ? { projectDirectory: input.projectDirectory } : {})
-    },
-    launchFree
-  );
+  const request = {
+    role: "main" as const,
+    ...(input.thinkingLevel ? { thinkingLevel: input.thinkingLevel } : {}),
+    ...(input.projectDirectory ? { projectDirectory: input.projectDirectory } : {})
+  };
+  let selection = resolveModelRole(config, request, launchFree);
+  const chosen = env[MAIN_TURN_MODEL]?.trim();
+  // A picked model names a model of the launch's connection; another
+  // connection saved since then starts from its own default.
+  if (chosen && selection.connectionId === env.FORMICAND_CONNECTION_ID)
+    selection = resolveModelRole(config, { ...request, model: chosen }, launchFree);
   return selection.baseUrl && selection.apiKey ? selection : undefined;
 }
