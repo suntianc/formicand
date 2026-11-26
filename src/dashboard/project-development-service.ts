@@ -540,7 +540,9 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
           ticketId: ticket.ticketId,
           title: ticket.title,
           state: ticket.state,
-          dependsOn: ticket.dependsOn
+          dependsOn: ticket.dependsOn,
+          // Which reviews are this ticket's, so a reader can tell the requirement's final review apart.
+          reviewIds: ticket.reviewIds
         }))
       );
     },

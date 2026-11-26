@@ -69,6 +69,17 @@ export const TICKET_STATE_LABELS = {
 const ticketList = (tickets) => (Array.isArray(tickets) ? tickets : []);
 const allTicketsIn = (tickets) =>
   ticketList(tickets).length > 0 && ticketList(tickets).every((ticket) => ticket?.state === "merged");
+/** A ticket whose work is written: handed to review, or back from it for a fix. */
+const DEVELOPED = new Set(["in_review", "rework", "passed", "merged"]);
+/** A ticket whose own review passed. */
+const REVIEWED = new Set(["passed", "merged"]);
+const countIn = (tickets, states) => ticketList(tickets).filter((ticket) => states.has(ticket?.state)).length;
+
+/** The requirement's final review: the last review no ticket owns. */
+function finalReview(tickets, reviews) {
+  const owned = new Set(ticketList(tickets).flatMap((ticket) => ticket?.reviewIds ?? []));
+  return (Array.isArray(reviews) ? reviews : []).filter((review) => !owned.has(review?.reviewId)).at(-1);
+}
 
 /**
  * A requirement's tickets for display: id, title, state and what it waits for,
@@ -103,7 +114,8 @@ function mergedOperation(merges) {
 function criteriaMet({ reviews, merges, tickets }) {
   if (mergedOperation(merges)) return true;
   // A ticket's passed review covers that ticket, not the whole requirement.
-  if (ticketList(tickets).length) return allTicketsIn(tickets);
+  if (ticketList(tickets).length)
+    return allTicketsIn(tickets) && finalReview(tickets, reviews)?.state === "passed";
   return lastReview(reviews)?.state === "passed";
 }
 
@@ -128,11 +140,14 @@ function stageOf(input) {
     return "merge";
   const tickets = ticketList(input.tickets);
   if (tickets.length) {
-    // Several tickets move at once; the phase is the one that needs attention first.
-    if (tickets.some((ticket) => ticket?.state === "rework")) return "rework";
-    if (tickets.some((ticket) => ticket?.state === "in_review")) return "review";
-    if (allTicketsIn(tickets)) return "merge";
-    return "development";
+    // The phase is the requirement's, not one ticket's: it stays in development
+    // until every ticket is written, so finishing a ticket never moves it back.
+    // A fix asked for, by a ticket's review or the final one, comes first.
+    const final = finalReview(tickets, reviews);
+    if (tickets.some((ticket) => ticket?.state === "rework") || final?.state === "failed") return "rework";
+    if (countIn(tickets, DEVELOPED) < tickets.length) return "development";
+    if (!allTicketsIn(tickets) || final?.state !== "passed") return "review";
+    return "merge";
   }
   if (review?.state === "failed") return "rework";
   if (review?.state === "in_review") return "review";
@@ -233,15 +248,19 @@ export function requirementSteps(input = {}) {
   const development = input.development;
   const review = lastReview(input.reviews);
   const merged = mergedOperation(input.merges);
+  const tickets = ticketList(input.tickets);
   const reviewed =
-    (ticketList(input.tickets).length ? allTicketsIn(input.tickets) : review?.state === "passed") ||
+    (tickets.length
+      ? allTicketsIn(tickets) && finalReview(tickets, input.reviews)?.state === "passed"
+      : review?.state === "passed") ||
     input.plan?.channel === "self" ||
     Boolean(merged) ||
     input.delivery?.state === "synced" ||
     Boolean(input.delivery);
   const reached = {
     requirement: Boolean(input.requirement) || Boolean(development),
-    development: Boolean(development) && stage !== "development",
+    development:
+      Boolean(development) && stage !== "development" && countIn(tickets, DEVELOPED) === tickets.length,
     review: reviewed,
     merge: Boolean(merged) || stage === "merged" || stage === "release" || stage === "delivered",
     delivery: stage === "delivered"
@@ -261,12 +280,22 @@ export function requirementSteps(input = {}) {
     merge: merged?.targetBranch ?? input.delivery?.targetBranch ?? development?.baseline?.branch ?? "",
     delivery: ""
   };
+  // With several tickets, development and review are rings cut one piece per
+  // ticket; a piece turns green as its ticket is written or passes review.
+  const segments =
+    tickets.length > 1
+      ? {
+          development: { done: countIn(tickets, DEVELOPED), total: tickets.length },
+          review: { done: countIn(tickets, REVIEWED), total: tickets.length }
+        }
+      : {};
   return STEPS.map((step) => {
     const done = reached[step.id];
     const current = currentStep === step.id;
     return {
       id: step.id,
       label: step.label,
+      ...(segments[step.id] ? { segments: segments[step.id] } : {}),
       state: current
         ? stage === "rework" && step.id === "review"
           ? "blocked"

@@ -230,6 +230,22 @@ export function createRequirementPanel({
     return values;
   }
 
+  /** A step's ring cut into one arc per ticket; finished tickets' arcs are green. */
+  function segmentRing({ done, total }) {
+    const radius = 8.25;
+    const circumference = 2 * Math.PI * radius;
+    const gap = total > 8 ? 1.2 : 2.4;
+    const length = circumference / total - gap;
+    const arcs = Array.from(
+      { length: total },
+      (_, index) =>
+        `<circle class="rp-arc${index < done ? " is-done" : ""}" cx="9" cy="9" r="${radius}" stroke-dasharray="${length.toFixed(
+          2
+        )} ${(circumference - length).toFixed(2)}" stroke-dashoffset="${(-(index * circumference) / total - gap / 2).toFixed(2)}"/>`
+    ).join("");
+    return `<svg class="rp-ring" viewBox="0 0 18 18" aria-hidden="true">${arcs}</svg>`;
+  }
+
   /** The phase in words over a row of dots, one per step. */
   function renderStepper(progress) {
     const current = progress.steps.find((step) => step.state === "current" || step.state === "blocked");
@@ -240,17 +256,22 @@ export function createRequirementPanel({
     )}</span>${meta ? `<span class="rp-status-meta" title="${esc(meta)}">${esc(meta)}</span>` : ""}</div>`;
     return `<div class="rp-phase">${status}<ol class="rp-stepper" data-stage="${esc(progress.stage)}" aria-label="${ui("需求阶段")}">${progress.steps
       .map((step) => {
+        const ring = step.segments && step.state !== "done" ? segmentRing(step.segments) : "";
         const node =
           step.state === "done"
             ? `<span class="rp-node">${icon("check")}</span>`
             : step.state === "pending"
-              ? '<span class="rp-node is-pending"></span>'
-              : '<span class="rp-node is-current"><span class="rp-pulse"></span></span>';
+              ? `<span class="rp-node is-pending${ring ? " is-segmented" : ""}">${ring}</span>`
+              : `<span class="rp-node is-current${ring ? " is-segmented" : ""}">${ring}<span class="rp-pulse"></span></span>`;
         const active = step.state === "current" || step.state === "blocked";
         const label = ui(step.label);
         return `<li class="rp-step" data-step="${esc(step.id)}" data-state="${esc(step.state)}"${
           active ? ' aria-current="step"' : ""
-        } title="${esc(step.meta ? `${label} · ${step.meta}` : label)}">${node}<span class="rp-step-label">${esc(
+        } title="${esc(
+          [label, step.segments ? ui`票 ${step.segments.done}/${step.segments.total}` : "", step.meta]
+            .filter(Boolean)
+            .join(" · ")
+        )}">${node}<span class="rp-step-label">${esc(
           label
         )}</span><span class="rp-step-meta">${esc(step.meta)}</span></li>`;
       })

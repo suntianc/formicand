@@ -225,6 +225,35 @@ html[data-theme] .agent-pane {
   border-color: var(--color-review);
   background: var(--color-review-soft);
 }
+/* Several tickets: the ring is drawn as arcs, one per ticket, over no border. */
+.rp-node.is-segmented {
+  position: relative;
+  border-color: transparent;
+}
+.rp-ring {
+  position: absolute;
+  inset: -1.5px;
+  width: 18px;
+  height: 18px;
+  transform: rotate(-90deg);
+  overflow: visible;
+}
+.rp-arc {
+  fill: none;
+  stroke: var(--color-line-strong);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  transition: stroke var(--motion-fast, 0.15s);
+}
+.rp-node.is-current .rp-arc:not(.is-done) {
+  stroke: var(--color-review);
+}
+.rp-step[data-state="blocked"] .rp-arc:not(.is-done) {
+  stroke: var(--color-warn);
+}
+.rp-arc.is-done {
+  stroke: var(--color-ok);
+}
 .rp-pulse {
   width: 6px;
   height: 6px;
