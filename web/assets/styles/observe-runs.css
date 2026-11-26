@@ -551,6 +551,8 @@ html[data-theme="light"] .observe-view[data-observe-panel="runs"] {
 }
 
 .runs-role {
+  /* One width for every role, so the avatars line up down the list. */
+  flex: 0 0 4.75em;
   color: var(--color-text-3);
   font-size: 12px;
   line-height: 17px;

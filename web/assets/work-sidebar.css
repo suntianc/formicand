@@ -245,10 +245,12 @@ html[data-theme] .project-name {
 html[data-theme] .project-group.is-selected .project-name {
   color: var(--color-text);
 }
+/* Centred in the same 20px column as the section's new-project button. */
 html[data-theme] .project-count {
   position: absolute;
   right: 8px;
   top: 50%;
+  width: 20px;
   min-width: 0;
   margin: 0;
   transform: translateY(-50%);
@@ -256,7 +258,8 @@ html[data-theme] .project-count {
   font: inherit;
   font-size: 11px;
   font-weight: 400;
-  text-align: right;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
 }
 html[data-theme] .project-question {
   position: absolute;
