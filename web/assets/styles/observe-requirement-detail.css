@@ -2,6 +2,9 @@
 
 html[data-theme] .app-layout[data-entry="observe"][data-observe-detail="open"] {
   grid-template-columns: var(--sidebar-width, 248px) minmax(0, 1fr) 420px;
+  /* The closed layout drops its right padding for the empty track; the open
+     detail is a real column and keeps the 10 px window edge. */
+  padding-right: 10px;
 }
 html[data-theme] .observe-detail {
   display: none;
