@@ -21,33 +21,22 @@ import { requirementDetailMarkup, shortCommit } from "./observe-requirement-deta
  * answering only empties its own rows. The phase comes from the shared mapping
  * the work panel uses, so both surfaces name the same phase the same way.
  *
- * Two reads build a row: the project's Main sessions and board, which the port
- * aggregates per project, and one delivery view per requirement — the same
- * record set the work panel renders. A requirement without a development has
- * no view and keeps the phase its ledger and board records describe.
+ * Reads per project, not per requirement: its Main sessions, its board and
+ * every requirement's phase records in one call each. Only the opened
+ * requirement reads its full delivery view (diff, review report), the record
+ * set the work panel renders. A requirement without a development has no
+ * phase and keeps the one its ledger and board records describe.
  */
 
 const enc = encodeURIComponent;
 const SOURCE_LABELS = { internal: "内部", external: "看板", legacy: "历史" };
 const PROJECT_READ_MS = 15_000;
 const VIEW_READ_MS = 15_000;
-const READ_CONCURRENCY = 4;
+/** Rows drawn at first and added each time the list is scrolled to its end. */
+const PAGE_ROWS = 50;
 
 const projectPath = (projectId, suffix = "") => `/api/projects/${enc(projectId)}${suffix}`;
 const readError = (error) => error?.message || ui("读取失败");
-
-/** Run the reads in a few lanes so one slow node does not open a request per row. */
-async function inLanes(items, limit, run) {
-  let index = 0;
-  const lanes = Array.from({ length: Math.min(limit, items.length) }, async () => {
-    while (index < items.length) {
-      const item = items[index];
-      index += 1;
-      await run(item);
-    }
-  });
-  await Promise.all(lanes);
-}
 
 /**
  * @param {object} options
@@ -76,8 +65,10 @@ export function createObserveRequirements({
 
   /** projectId → { origin, sessions, board, at } */
   const projects = new Map();
-  /** origin|projectId|requirementId → { view, at, absent } */
-  const views = new Map();
+  /** origin|projectId → { phases, at }: every requirement's phase records, read per project. */
+  const phases = new Map();
+  /** origin|projectId|requirementId → { view, at } — the full view of the opened requirement. */
+  const details = new Map();
   /** origin|projectId|requirementId → { context, stamp, failed } — the ledger detail of an opened requirement. */
   const contexts = new Map();
   const pending = new Set();
@@ -85,9 +76,14 @@ export function createObserveRequirements({
   let tab = "all";
   let query = "";
   let selected = null;
+  let shown = PAGE_ROWS;
   let refreshTimer;
 
   const viewKey = (row) => `${row.origin}|${row.projectId}|${row.requirementId}`;
+  const phaseKey = (row) => `${row.origin}|${row.projectId}`;
+  /** The opened requirement's full view once read, else its phase records. */
+  const viewOf = (row) =>
+    details.get(viewKey(row))?.view ?? phases.get(phaseKey(row))?.phases?.[row.requirementId];
   // Only the visible view reads: the entry switch hides the pane and the view
   // switch hides this section, and a hidden list must not keep reading the
   // nodes it was showing.
@@ -130,9 +126,30 @@ export function createObserveRequirements({
     entry.at = now().valueOf();
   }
 
-  async function loadView(row, force) {
-    const key = viewKey(row);
-    const cached = views.get(key);
+  async function loadPhases(projectId, origin, force) {
+    const key = `${origin}|${projectId}`;
+    const cached = phases.get(key);
+    if (pending.has(key)) return;
+    if (!force && cached && now().valueOf() - cached.at < VIEW_READ_MS) return;
+    pending.add(key);
+    try {
+      const result = await data.read(origin, projectPath(projectId, "/deliveries"), {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action: "phases" })
+      });
+      phases.set(key, { phases: result?.phases ?? {}, at: now().valueOf() });
+      // eslint-disable-next-line no-restricted-syntax -- 一个节点读不到阶段时，该项目的需求保留上次读到的阶段，其余项目照常显示
+    } catch {
+      phases.set(key, { phases: cached?.phases ?? {}, at: cached?.at ?? 0 });
+    } finally {
+      pending.delete(key);
+    }
+  }
+
+  async function loadDetail(row, force) {
+    const key = `detail|${viewKey(row)}`;
+    const cached = details.get(viewKey(row));
     if (pending.has(key)) return;
     if (!force && cached && now().valueOf() - cached.at < VIEW_READ_MS) return;
     pending.add(key);
@@ -142,15 +159,14 @@ export function createObserveRequirements({
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ action: "view", requirementId: row.requirementId })
       });
-      views.set(key, { view: result?.view, at: now().valueOf() });
-    } catch (error) {
-      // 404 is the documented "no development yet": the ledger and board still
-      // describe the phase, so this is not a failure to show.
-      if (error?.status === 404) views.set(key, { view: undefined, at: now().valueOf(), absent: true });
-      else views.set(key, { view: cached?.view, at: cached?.at ?? 0, failed: readError(error) });
+      details.set(viewKey(row), { view: result?.view, at: now().valueOf() });
+      // eslint-disable-next-line no-restricted-syntax -- 404 是“还没有开发”；其他失败时详情先用阶段记录，下次刷新再读
+    } catch {
+      details.set(viewKey(row), { view: cached?.view, at: now().valueOf() });
     } finally {
       pending.delete(key);
     }
+    render();
   }
 
   /** What the ledger detail was read at: a merge bumps the revision; a new, paused or withdrawn development does not. */
@@ -185,12 +201,14 @@ export function createObserveRequirements({
       if (!project) targets.set(row.projectId, { projectId: row.projectId, origins: [row.origin] });
       else if (!project.origins.includes(row.origin)) project.origins.push(row.origin);
     }
-    await Promise.all([...targets.values()].map((project) => loadProject(project, force)));
-    const stale = rows.filter((row) => {
-      const cached = views.get(viewKey(row));
-      return force || !cached || now().valueOf() - cached.at >= VIEW_READ_MS;
-    });
-    await inLanes(stale, READ_CONCURRENCY, (row) => loadView(row, force));
+    await Promise.all(
+      [...targets.values()].flatMap((project) => [
+        loadProject(project, force),
+        ...project.origins.map((origin) => loadPhases(project.projectId, origin, force))
+      ])
+    );
+    const opened = selected && rows.find((row) => viewKey(row) === selected);
+    if (opened) await loadDetail(opened, force);
     render();
   }
 
@@ -213,7 +231,7 @@ export function createObserveRequirements({
     const sessions = project?.sessions ?? [];
     return (
       sessions.find((session) => session.currentRequirementId === row.requirementId) ??
-      sessions.find((session) => session.taskId === views.get(viewKey(row))?.view?.development?.taskId)
+      sessions.find((session) => session.taskId === viewOf(row)?.development?.taskId)
     );
   }
 
@@ -252,7 +270,7 @@ export function createObserveRequirements({
         const board = (project?.board ?? []).find(
           (entry) => entry.requirementId === requirement.requirementId
         );
-        const view = views.get(viewKey(requirement))?.view;
+        const view = viewOf(requirement);
         const session = sessionFor(requirement, project);
         const facts = {
           requirement,
@@ -359,6 +377,7 @@ export function createObserveRequirements({
     if (tabsNode) tabsNode.innerHTML = tabMarkup(counts, tab);
     if (publishButton) publishButton.disabled = !scopeProjects().length;
     const visible = tab === "all" ? all : all.filter((row) => row.tab === tab);
+    const drawn = visible.slice(0, shown);
     const restore = focusedKey();
     body.innerHTML = `<div class="or-table" role="table" aria-label="${esc(ui("需求"))}">
       <div class="or-row or-head" role="row">
@@ -370,13 +389,33 @@ export function createObserveRequirements({
         <span class="or-cell or-col-updated" role="columnheader">${esc(ui("更新"))}</span>
       </div>${
         visible.length
-          ? visible.map((row) => rowMarkup(row, selected)).join("")
+          ? drawn.map((row) => rowMarkup(row, selected)).join("") +
+            (drawn.length < visible.length
+              ? `<div class="or-more" data-observe-more aria-hidden="true"></div>`
+              : "")
           : `<div class="or-empty" role="row"><span class="or-cell" role="cell">${esc(
               ui(query.trim() ? "没有匹配的需求" : "没有需求")
             )}</span></div>`
       }</div>`;
+    watchMore();
     renderDetail(all.find((row) => row.key === selected) ?? null);
     if (restore) body.querySelector(`[data-observe-requirement="${CSS.escape(restore)}"]`)?.focus();
+  }
+
+  /** Draw the next rows once the end of the drawn ones scrolls into view. */
+  const more =
+    typeof IntersectionObserver === "function"
+      ? new IntersectionObserver((entries) => {
+          if (!entries.some((entry) => entry.isIntersecting)) return;
+          shown += PAGE_ROWS;
+          render();
+        })
+      : undefined;
+
+  function watchMore() {
+    more?.disconnect();
+    const sentinel = body.querySelector("[data-observe-more]");
+    if (sentinel) more?.observe(sentinel);
   }
 
   /* ----------------------------------------------------------------- detail */
@@ -388,6 +427,7 @@ export function createObserveRequirements({
       detail.replaceChildren();
       return;
     }
+    if (!details.has(row.key)) void loadDetail(row);
     if (contexts.get(row.key)?.stamp !== contextStamp(row)) void loadContext(row);
     detail.innerHTML = requirementDetailMarkup(row, contexts.get(row.key));
   }
@@ -403,6 +443,7 @@ export function createObserveRequirements({
   function chooseTab(id) {
     if (!REQUIREMENT_TABS.some((entry) => entry.id === id)) return;
     tab = id;
+    shown = PAGE_ROWS;
     render();
     tabsNode?.querySelector(`[data-observe-tab="${id}"]`)?.focus();
   }
@@ -535,6 +576,7 @@ export function createObserveRequirements({
 
   search?.addEventListener("input", () => {
     query = search.value;
+    shown = PAGE_ROWS;
     render();
   });
 
@@ -593,6 +635,7 @@ export function createObserveRequirements({
     refresh,
     dispose() {
       clearTimeout(refreshTimer);
+      more?.disconnect();
       poll.dispose();
       unsubscribe?.();
       pane.removeEventListener("click", onClick);

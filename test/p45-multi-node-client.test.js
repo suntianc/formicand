@@ -203,7 +203,7 @@ function localProvider({ projects, tasks, requirements = {}, status = "online" }
     status: () => status,
     snapshot: () => ({ projects, tasks }),
     request: async (path) => {
-      const match = path.match(/^\/api\/projects\/([^/]+)\/ledger$/);
+      const match = path.match(/^\/api\/projects\/([^/]+)\/ledger(?:\?.*)?$/);
       if (match) return { requirements: requirements[decodeURIComponent(match[1])] ?? [] };
       throw new Error(`unexpected local read: ${path}`);
     }

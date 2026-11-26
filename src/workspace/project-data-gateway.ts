@@ -28,6 +28,8 @@ export interface RequirementQuery {
   text?: unknown;
   status?: unknown;
   limit?: unknown;
+  /** How many of the ordered requirements to skip, for reading a long ledger page by page. */
+  offset?: unknown;
 }
 
 export interface RequirementCreate {

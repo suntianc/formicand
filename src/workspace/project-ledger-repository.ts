@@ -361,6 +361,9 @@ export class ProjectLedgerRepository {
     const limit = query.limit === undefined ? 50 : query.limit;
     if (typeof limit !== "number" || !Number.isSafeInteger(limit) || limit < 1 || limit > 200)
       throw new ProjectDataInvalidError("limit 须为 1–200 的整数");
+    const offset = query.offset === undefined ? 0 : query.offset;
+    if (typeof offset !== "number" || !Number.isSafeInteger(offset) || offset < 0)
+      throw new ProjectDataInvalidError("offset 须为不小于 0 的整数");
     const filters = ["project_id = ?"];
     const params: Array<string | number> = [projectId];
     if (status) {
@@ -378,10 +381,10 @@ export class ProjectLedgerRepository {
       const pattern = likePattern(text);
       params.push(pattern, pattern, pattern, pattern);
     }
-    params.push(limit);
+    params.push(limit, offset);
     const rows = await this.transaction.query<RequirementRow>(
       `SELECT * FROM project_data_requirements WHERE ${filters.join(" AND ")}
-        ORDER BY updated_at DESC, requirement_id ASC LIMIT ?`,
+        ORDER BY updated_at DESC, requirement_id ASC LIMIT ? OFFSET ?`,
       params
     );
     const ids = rows.map((row) => row.requirement_id);

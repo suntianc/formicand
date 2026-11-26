@@ -4,6 +4,7 @@ import { type DevelopmentMerge } from "../domain/development-merge.js";
 import {
   type DeliveryDiff,
   type DeliveryPatch,
+  type DeliveryPhase,
   type DeliveryRoleProgress,
   type DeliveryStage,
   type DeliveryView,
@@ -270,6 +271,54 @@ export function createDevelopmentDeliveryViewService({
   }
 
   /**
+   * Every requirement's phase records in one read per project, keyed by
+   * requirement. The current development is the one find_by_requirement
+   * returns: an open one first, else the latest. A requirement without a
+   * development has no entry.
+   */
+  async function deliveryPhases(
+    projectId: string,
+    options: DevelopmentReadOptions = {}
+  ): Promise<Record<string, DeliveryPhase>> {
+    await project(projectId);
+    await mergeService.replayBeforeRead(projectId, options);
+    const service = await gateway();
+    const [developments, reviews, merges, deliveries] = await Promise.all([
+      service.queryDevelopments(projectId, ports.backendId),
+      service.queryReviews(projectId),
+      service.queryMerges(projectId),
+      service.queryDeliveries(projectId)
+    ]);
+    const open = (record: DevelopmentRecord) => record.status === "active" || record.status === "paused";
+    const current = new Map<string, DevelopmentRecord>();
+    for (const record of developments) {
+      const held = current.get(record.requirementId);
+      const newer =
+        !held ||
+        (open(record) && !open(held)) ||
+        (open(record) === open(held) &&
+          `${record.createdAt}|${record.developmentId}` > `${held.createdAt}|${held.developmentId}`);
+      if (newer) current.set(record.requirementId, record);
+    }
+    const phases: Record<string, DeliveryPhase> = {};
+    for (const [requirementId, development] of current) {
+      const id = development.developmentId;
+      const plan = await service.reviewPlan(projectId, id);
+      const { tickets } = await service.tickets(projectId, id);
+      const delivery = deliveries.filter((entry) => entry.developmentId === id).at(-1);
+      phases[requirementId] = {
+        development,
+        ...(plan ? { plan } : {}),
+        reviews: reviews.filter((entry) => entry.developmentId === id),
+        merges: merges.filter((entry) => entry.developmentId === id),
+        ...(delivery ? { delivery } : {}),
+        tickets
+      };
+    }
+    return phases;
+  }
+
+  /**
    * The unified patch of the accepted change, for the read-only preview.
    *
    * Only a file the delivery diff already lists can be read, and only from the
@@ -345,5 +394,5 @@ export function createDevelopmentDeliveryViewService({
     }
   }
 
-  return { deliveryView, deliveryPatch, deliveryFileLocation };
+  return { deliveryView, deliveryPhases, deliveryPatch, deliveryFileLocation };
 }

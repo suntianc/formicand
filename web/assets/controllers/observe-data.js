@@ -23,6 +23,8 @@ import { ui } from "../ui/language.js";
  */
 
 const LEDGER_PATH = (projectId) => `/api/projects/${encodeURIComponent(projectId)}/ledger`;
+/** The most requirements one ledger read returns. */
+const LEDGER_PAGE = 200;
 
 const ABSOLUTE_URL = /^[a-z][a-z0-9+.-]*:/i;
 /**
@@ -192,8 +194,17 @@ export function createObserveData({
       projects.map(async (project) => {
         if (!project?.projectId) return;
         try {
-          const result = await readEntry(entry, LEDGER_PATH(project.projectId));
-          const requirements = Array.isArray(result?.requirements) ? result.requirements : [];
+          // The ledger answers a page at a time; the list and its counts need every requirement.
+          const requirements = [];
+          for (;;) {
+            const result = await readEntry(
+              entry,
+              `${LEDGER_PATH(project.projectId)}?limit=${LEDGER_PAGE}&offset=${requirements.length}`
+            );
+            const page = Array.isArray(result?.requirements) ? result.requirements : [];
+            requirements.push(...page);
+            if (page.length < LEDGER_PAGE) break;
+          }
           next.set(project.projectId, requirements.filter(observed));
           // eslint-disable-next-line no-restricted-syntax -- one project's ledger may be unavailable on an older node; that project contributes no count and the other nodes still aggregate
         } catch {
