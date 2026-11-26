@@ -3,7 +3,7 @@ const { existsSync } = require("node:fs");
 const binary = path.join(__dirname, "../dist/desktop/motion.node");
 const sprite = path.join(__dirname, "../web/assets/brand/working-ant-20fps.png");
 const finite = (value, min, max) => Number.isFinite(value) && value >= min && value <= max;
-const kinds = new Set(["ring", "ant", "head", "halo", "loader", "checked", "copied"]);
+const kinds = new Set(["ring", "ant", "head", "loader", "checked", "copied"]);
 const color = (value) => Number.isInteger(value) && finite(value, 0, 0xffffffff);
 
 function validMotionScene(scene) {
@@ -45,18 +45,18 @@ function loadMotion() {
 
 function installDesktopMotion(ipc, getWindow, trust) {
   const native = loadMotion();
-  ipc.on("formicand:motion", (event, scene) => {
-    let accepted = false;
+  // Asynchronous, so a busy main process never stalls the page. A refused
+  // scene makes the page draw everything itself again.
+  ipc.handle("formicand:motion", (event, scene) => {
     try {
       trust(event);
       const win = getWindow();
-      if (!native || !validMotionScene(scene) || !win.isVisible() || win.isMinimized()) return;
+      if (!native || !validMotionScene(scene) || !win.isVisible() || win.isMinimized()) return false;
       const zoom = win.webContents.getZoomFactor();
       const items = scene.map(
         ({ id, kind, x, y, size, stroke, duration, phase, color, accent, top, height }) => ({
           id,
           kind,
-          ...(kind === "halo" ? { spread: 3 * zoom } : {}),
           ...(kind === "ring" && height !== undefined ? { height: height * zoom } : {}),
           x: x * zoom,
           y: y * zoom,
@@ -69,11 +69,10 @@ function installDesktopMotion(ipc, getWindow, trust) {
           top
         })
       );
-      accepted = native.update(win.getNativeWindowHandle(), JSON.stringify(items), sprite);
+      return native.update(win.getNativeWindowHandle(), JSON.stringify(items), sprite);
     } catch (error) {
       console.warn("Desktop motion rejected:", error.message);
-    } finally {
-      event.returnValue = accepted;
+      return false;
     }
   });
   return {

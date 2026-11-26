@@ -17,7 +17,9 @@ static napi_value inspect(napi_env env, napi_callback_info info) {
   NSView *root = (__bridge NSView *)(*(void **)bytes);
   NSMutableArray *layers = [NSMutableArray array];
   for (NSView *view in root.subviews) {
-    if (![NSStringFromClass(view.class) isEqual:@"FormicandMotionView"])
+    // A hidden view keeps its layers for the next scene but shows nothing.
+    if (![NSStringFromClass(view.class) isEqual:@"FormicandMotionView"] ||
+        view.hidden)
       continue;
     for (CALayer *layer in view.layer.sublayers) {
       CALayer *shown = layer.presentationLayer;

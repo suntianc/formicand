@@ -3,7 +3,6 @@
 const drawings = {
   "ant-frames": "ant",
   "runs-head-pulse": "head",
-  pulse: "halo",
   "ui-spin": "ring"
 };
 
@@ -47,12 +46,12 @@ function uncovered(host, rect, radius) {
   return true;
 }
 
-// Observe all painted pixels, including the halo, pulse overshoot and the wide
+// Observe all painted pixels, including the pulse overshoot and the wide
 // axis of a turning ellipse. A shadow slot keeps the measuring box out of the
 // conversation reconciler's children. It has no paint or pointer target.
 const measuringRoots = new WeakMap();
 function drawingArea(host, kind) {
-  const inset = kind === "halo" ? "-6px" : kind === "head" ? "-6%" : null;
+  const inset = kind === "head" ? "-6%" : null;
   const saving = host.matches(".ui-status > .action-spinner");
   if (!inset && !saving) return host;
   if (host.localName !== "span" && host.localName !== "formicand-spinner") return;
@@ -83,6 +82,8 @@ export function installNativeMotion(bridge, reducedMotion, onPreference) {
   let previous = "";
   let frame = 0;
   let scrolling = false;
+  let refused = false;
+  let sent = 0;
   let timer;
   const schedule = () => {
     if (!frame && candidates.size) frame = requestAnimationFrame(refresh);
@@ -235,6 +236,7 @@ export function installNativeMotion(bridge, reducedMotion, onPreference) {
     )
       return;
     const rect = host.getBoundingClientRect();
+    item.rect = rect;
     if (!item.symbol && kind === "ring" && item.area === host && Math.abs(rect.width - rect.height) > 0.1)
       return;
     const style = getComputedStyle(host);
@@ -292,13 +294,46 @@ export function installNativeMotion(bridge, reducedMotion, onPreference) {
     };
   }
 
+  // The page hides its drawings as soon as a scene is sent. If the window refuses
+  // it, every drawing goes back to the page, and the next change tries again.
+  function send(scene) {
+    const ticket = ++sent;
+    const settle = (ok) => {
+      if (ok || ticket !== sent || !scene.length) return;
+      previous = "";
+      refused = true;
+      refresh();
+      refused = false;
+    };
+    bridge.update(scene).then(settle, () => settle(false));
+  }
+
+  // Hover and focus restyle only what is under the pointer, so a change away from
+  // every drawing needs no new hit test.
+  function nearDrawing({ target, relatedTarget }) {
+    for (const node of [target, relatedTarget]) {
+      if (!node?.getBoundingClientRect) continue;
+      const box = node.getBoundingClientRect();
+      for (const { rect } of candidates.values())
+        if (
+          rect &&
+          box.left < rect.right + 8 &&
+          box.right > rect.left - 8 &&
+          box.top < rect.bottom + 8 &&
+          box.bottom > rect.top - 8
+        )
+          return true;
+    }
+    return false;
+  }
+
   function refresh() {
     cancelAnimationFrame(frame);
     frame = 0;
     const scene = [];
     const next = new Set();
     const ancestors = new Map();
-    if (!document.hidden && !reducedMotion() && !scrolling) {
+    if (!document.hidden && !reducedMotion() && !scrolling && !refused) {
       for (const [host, item] of candidates) {
         if (scene.length === 64) break;
         const drawing = describe(host, item, ancestors);
@@ -311,12 +346,8 @@ export function installNativeMotion(bridge, reducedMotion, onPreference) {
     // Phase matters when starting a layer, never as a reason to send another IPC.
     const stamp = devicePixelRatio + JSON.stringify(scene.map(({ phase: _phase, ...drawing }) => drawing));
     if (stamp !== previous && (scene.length || active.size)) {
-      const ok = bridge.update(scene);
-      previous = ok ? stamp : "";
-      if (!ok) {
-        if (active.size) bridge.update([]);
-        next.clear();
-      }
+      previous = stamp;
+      send(scene);
     }
     for (const host of active) {
       if (next.has(host)) continue;
@@ -368,30 +399,35 @@ export function installNativeMotion(bridge, reducedMotion, onPreference) {
     "transitionrun",
     "transitionend",
     "transitioncancel",
-    "focusin",
-    "focusout",
-    "pointerover",
-    "pointerout",
     "toggle"
   ]) {
     document.addEventListener(name, schedule, true);
   }
-  document.addEventListener(
-    "scroll",
-    () => {
-      if (!candidates.size) return;
-      if (!scrolling) {
-        scrolling = true;
-        refresh();
-      }
-      clearTimeout(timer);
-      timer = setTimeout(() => {
-        scrolling = false;
-        schedule();
-      }, 100);
-    },
-    { capture: true, passive: true }
-  );
+  for (const name of ["focusin", "focusout", "pointerover", "pointerout"]) {
+    document.addEventListener(
+      name,
+      (event) => {
+        if (candidates.size && nearDrawing(event)) schedule();
+      },
+      true
+    );
+  }
+  // The compositor scrolls before the scroll event reaches the page, so a wheel
+  // hands the drawings back to the page one step earlier.
+  const scrolled = () => {
+    if (!candidates.size) return;
+    if (!scrolling) {
+      scrolling = true;
+      refresh();
+    }
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      scrolling = false;
+      schedule();
+    }, 100);
+  };
+  for (const name of ["wheel", "scroll"])
+    document.addEventListener(name, scrolled, { capture: true, passive: true });
   window.addEventListener("resize", schedule);
   document.addEventListener("visibilitychange", refresh);
   onPreference(refresh);
