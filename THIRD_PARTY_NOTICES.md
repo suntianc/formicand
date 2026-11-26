@@ -46,6 +46,8 @@ Web/App math uses pinned [KaTeX 0.19.0](https://github.com/KaTeX/KaTeX/tree/v0.1
 
 ## Dependencies and external runtimes
 
+文件搜索与终端路径补全使用 FFF 0.11.0 的 Node 绑定和平台原生库，通过 ffi-rs 1.3.7 加载。两者均采用 MIT 许可证。File search and terminal path completion use the FFF 0.11.0 Node binding and platform library, loaded with ffi-rs 1.3.7. Both use the MIT license. [FFF](https://github.com/dmtrKovalenko/fff) · [ffi-rs](https://github.com/zhangyuang/node-ffi-rs)
+
 HTTP 代理传输使用 `undici` 8.13.1（MIT）。[该版本的许可证](https://github.com/nodejs/undici/blob/v8.13.1/LICENSE)
 
 HTTP proxy transport uses `undici` 8.13.1 under the [MIT license](https://github.com/nodejs/undici/blob/v8.13.1/LICENSE).
