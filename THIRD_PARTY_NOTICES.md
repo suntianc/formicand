@@ -46,6 +46,10 @@ Web/App math uses pinned [KaTeX 0.19.0](https://github.com/KaTeX/KaTeX/tree/v0.1
 
 ## Dependencies and external runtimes
 
+HTTP 代理传输使用 `undici` 8.13.1（MIT）。[该版本的许可证](https://github.com/nodejs/undici/blob/v8.13.1/LICENSE)
+
+HTTP proxy transport uses `undici` 8.13.1 under the [MIT license](https://github.com/nodejs/undici/blob/v8.13.1/LICENSE).
+
 视觉观察的 PNG 裁剪与缩放使用纯 JavaScript 的 `pngjs` `7.0.0`，随 CLI/App 生产依赖分发，保留其完整 [MIT 许可证](https://registry.npmjs.org/pngjs/-/pngjs-7.0.0.tgz)。来源为 [pngjs v7.0.0](https://github.com/pngjs/pngjs/tree/v7.0.0)。类型依赖 `@types/pngjs` `6.0.5` 仅用于开发。
 
 PNG cropping and resizing use the pure JavaScript `pngjs` `7.0.0` package, distributed as a CLI/App production dependency with its complete [MIT license](https://registry.npmjs.org/pngjs/-/pngjs-7.0.0.tgz). Source: [pngjs v7.0.0](https://github.com/pngjs/pngjs/tree/v7.0.0). `@types/pngjs` `6.0.5` is a development-only type dependency.
