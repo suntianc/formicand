@@ -118,7 +118,10 @@ async function* files(directory, rules = [], options = {}) {
 }
 
 function globMatches(path, pattern) {
-  return minimatch(pattern.includes("/") ? path : basename(path), pattern, { dot: true });
+  const glob = normalizedPattern(pattern);
+  // Scope a root-level negation before applying its complement to the filename.
+  if (glob !== pattern && glob.startsWith("!") && !glob.includes("/") && path.includes("/")) return false;
+  return minimatch(pattern.includes("/") ? path : basename(path), glob, { dot: true });
 }
 
 /** Pi accepts a leading "./" in relative globs; fd and ripgrep anchor patterns elsewhere. */
@@ -144,7 +147,7 @@ function nativeGlobPattern(pattern, root) {
   const normalized = normalizedPattern(pattern);
   if (!normalized) return { pattern: "", fullPath: false };
   if (isAbsolute(normalized)) return undefined;
-  if (!normalized.includes("/")) return { pattern: normalized, fullPath: false };
+  if (!pattern.includes("/")) return { pattern: normalized, fullPath: false };
   const escapedRoot = root.replace(/\/+$/, "").replace(/[\\*?[\]{}]/g, "\\$&");
   return { pattern: `${escapedRoot}/${normalized}`, fullPath: true };
 }
@@ -544,7 +547,7 @@ function emptyGrepResult(skippedFiles = []) {
 }
 
 async function nativeFind({ fd, root, pattern, limit, signal, deadline }) {
-  if (unsupportedGlobSyntax(pattern)) throw new NativeFallback();
+  if (unsupportedGlobSyntax(normalizedPattern(pattern))) throw new NativeFallback();
   const target = nativeGlobPattern(pattern, root);
   if (!target) throw new NativeFallback();
   if (!target.pattern) return { paths: [], limitReached: false };
@@ -720,7 +723,7 @@ function normalizeDiskParameters(operation, parameters) {
     const pattern = assertPattern(parameters.pattern);
     return {
       ...parameters,
-      pattern: normalizedPattern(pattern),
+      pattern,
       limit: resultLimit(parameters.limit, 1000)
     };
   }
@@ -729,7 +732,7 @@ function normalizeDiskParameters(operation, parameters) {
   const context = parameters.context ?? 0;
   if (!Number.isInteger(context) || context < 0 || context > 100)
     throw new Error("Search context must be an integer between 0 and 100.");
-  const glob = parameters.glob === undefined ? undefined : normalizedPattern(assertPattern(parameters.glob));
+  const glob = parameters.glob === undefined ? undefined : assertPattern(parameters.glob);
   if (!parameters.literal) new RegExp(pattern, parameters.ignoreCase ? "iu" : "u");
   return { ...parameters, pattern, limit, context, glob };
 }

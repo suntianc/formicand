@@ -1,4 +1,5 @@
 import type { FileFinder, GrepMode, GrepCursor, GrepResult, Result } from "@ff-labs/fff-node";
+import { setImmediate as nextTurn } from "node:timers/promises";
 import { existsSync, realpathSync } from "node:fs";
 import { stat } from "node:fs/promises";
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
@@ -41,12 +42,13 @@ function physicalPath(path: string): string {
 
 type ScopedPath = (indexedPath: string) => string | undefined;
 
-function searchLines(
+async function searchLines(
   index: FileFinder,
   pattern: string,
   mode: GrepMode,
   limit: number,
-  scopedPath: ScopedPath
+  scopedPath: ScopedPath,
+  signal?: AbortSignal
 ) {
   const lines: string[] = [];
   let linesTruncated = false;
@@ -69,6 +71,10 @@ function searchLines(
       lines.push(`${path}:${hit.lineNumber}: ${content.trimEnd()}`);
     }
     cursor = page.nextCursor;
+    if (cursor) {
+      await nextTurn();
+      signal?.throwIfAborted();
+    }
   } while (cursor);
   return { lines, truncated: false, linesTruncated };
 }
@@ -90,7 +96,7 @@ export class IndexedFileSearch {
   private async search<T>(
     path: string | undefined,
     signal: AbortSignal | undefined,
-    query: (index: FileFinder, scopedPath: ScopedPath) => T
+    query: (index: FileFinder, scopedPath: ScopedPath) => Promise<T>
   ): Promise<T> {
     signal?.throwIfAborted();
     const target = resolve(this.directory, path ?? ".");
@@ -120,14 +126,14 @@ export class IndexedFileSearch {
         })));
     try {
       signal?.throwIfAborted();
-      return query(index, scopedPath);
+      return await query(index, scopedPath);
     } finally {
       if (external) index.destroy();
     }
   }
 
   async names(pattern: string, limit: number, path?: string, signal?: AbortSignal) {
-    return this.search(path, signal, (index, scopedPath) => {
+    return this.search(path, signal, async (index, scopedPath) => {
       const paths: string[] = [];
       const pageSize = limit + 1;
       for (let pageIndex = 0; ; pageIndex++) {
@@ -139,15 +145,17 @@ export class IndexedFileSearch {
           paths.push(name);
         }
         if (!items.length || (pageIndex + 1) * pageSize >= totalMatched) return { paths, truncated: false };
+        await nextTurn();
+        signal?.throwIfAborted();
       }
     });
   }
 
   async content(pattern: string, limit: number, path?: string, signal?: AbortSignal) {
-    return this.search(path, signal, (index, scopedPath) => {
-      const exact = searchLines(index, pattern, "plain", limit, scopedPath);
+    return this.search(path, signal, async (index, scopedPath) => {
+      const exact = await searchLines(index, pattern, "plain", limit, scopedPath, signal);
       if (exact.lines.length) return { ...exact, text: exact.lines.join("\n") };
-      const similar = searchLines(index, pattern, "fuzzy", limit, scopedPath);
+      const similar = await searchLines(index, pattern, "fuzzy", limit, scopedPath, signal);
       return {
         ...similar,
         text: similar.lines.length
