@@ -70,9 +70,9 @@ test("Formicand's own program is refused, except its skills and guides", async (
   assert.ok(refusedInstall({ command: `sed -n 1,140p ${install}/dist/src/tools/protected-paths.js` }));
   assert.ok(refusedInstall({ command: "cat ~/project/Formicand/package.json" }));
   assert.ok(refusedInstall({ command: `cat ${install}/.pi/skills/../runtime/extension.ts` }));
-  // Skills and the guides they link to are meant to be read.
+  // Skills and the docs directory shipped beside them are meant to be read.
   assert.equal(refusedInstall({ path: `${install}/.pi/skills/cua/SKILL.md` }), undefined);
-  assert.equal(refusedInstall({ path: `${install}/docs/capabilities.md` }), undefined);
+  assert.equal(refusedInstall({ path: `${install}/docs/en/README.md` }), undefined);
   assert.equal(refusedInstall({ command: `cd ${project} && npm test` }), undefined);
   assert.equal(refusedInstall({ command: "ls /Users/example/project/Formicand-fork" }), undefined);
   // When the project is Formicand itself, or holds it, the install is the work.

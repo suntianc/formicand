@@ -67,8 +67,8 @@ test("bundled skills load on demand and every local resource survives installed 
       `Package excludes ${file}`
     );
   await cp(join(source, ".pi/skills"), join(root, ".pi/skills"), { recursive: true });
-  // The CUA skill links to user guides; the CLI package ships `docs/` beside it.
-  await cp(join(source, "docs"), join(root, "docs"), { recursive: true });
+  // The CUA skill links to the shipped documentation entry; both packages place it beside the skills.
+  await cp(join(source, "docs/en/README.md"), join(root, "docs/en/README.md"));
   const skills = await discoverSkills([join(root, ".pi/skills")]);
   const catalog = skillCatalogPrompt(skills);
   const loader = createLoadSkillTool(skills);

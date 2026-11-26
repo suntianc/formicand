@@ -26,10 +26,10 @@ function home(html, en) {
     const items = contents.replace(
       /<li>\s*<a ([^>]+)>([\s\S]*?)<\/a>\s*<\/li>/g,
       (_item, attributes, title) => {
-        const kind = /getting-started/.test(attributes)
+        const kind = /README(?:\.zh-CN)?\.(?:md|html)/.test(attributes)
           ? "mac"
-          : /configuration/.test(attributes)
-            ? "model"
+          : /development/.test(attributes)
+            ? "terminal"
             : "text";
         const install = kind === "mac";
         const meta = install ? "macOS 14+ · Linux · Node.js 22.19+" : "";

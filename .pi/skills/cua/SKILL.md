@@ -11,7 +11,7 @@ Choose the surface for the user's target:
 - Enable the `computer` group for an existing native window. Start with `computer_status` and reuse an active human grant through its `sessionId`. You cannot enable or resume desktop authorization; a paused or revoked session stays paused.
 - Enable `cua` as well when JavaScript simplifies several known steps; also enable the group the script drives.
 
-These tools belong to Main; a collaborator does not inherit them. See the [capabilities guide](../../../docs/en/capabilities.md).
+These tools belong to Main; a collaborator does not inherit them. The CUA guide ships with both installs at [docs/en/README.md](../../../docs/en/README.md#cua-scripts) — the section “CUA scripts” of that file (`docs/en/README.md`).
 
 ## Observe, act, verify
 

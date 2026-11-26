@@ -30,7 +30,7 @@ finish 的 Playwright 全量中 `e2e/p45-motion.spec.js:44` 失败（断言没�
 
 - 1.x 默认加载内置 MCP（读取用户 `mcp.json` 增加 `mcp__*` 工具）、1.0 起交互 TUI 默认全屏、1.5.1 起 `cacheWarming` 默认 `"idle"`。启动器加 `--no-mcp` 与 `--tui-mode regular`，Main 扩展对 `cache_warming_decision` 返回 `stop`。#05 曾以「对 Formicand 连接惰性」为由未关闭 `cacheWarming`，审查未拦，#07 按派单原则补上。
 - `pi-ai` 1.5 不再重导出 TypeBox，`pi-agent-core/harness` 被移除；`scripts/cli-ui-policy.json` 与 `scripts/cli-shell-policy.json` 锁定 bundle 哈希，升级时需重新生成。
-- 只把三个 Pi 包降到 0.87.1 无法启动：0.87.1 报 `Error: Unknown option: --no-mcp`，策略哈希不匹配，顶层也没有 `typebox`。回滚改为撤销升级提交，见 [运行参考](../../../architecture.md)。
+- 只把三个 Pi 包降到 0.87.1 无法启动：0.87.1 报 `Error: Unknown option: --no-mcp`，策略哈希不匹配，顶层也没有 `typebox`。回滚改为撤销升级提交，见 [运行参考](../../../development.md#终端界面适配)。
 - 来源：`os-p46-pi-upgrade/reports/05-a1.md`、`reports/06-a1.md`、`evidence/06-a1/old-pi-rejects-no-mcp.log`、`reviews/07-b4143411.md`。
 
 ## 常驻 Main 的波及面（第三轮）

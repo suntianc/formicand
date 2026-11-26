@@ -400,13 +400,26 @@ const REMOVED = [
   docFile("docs/memory-and-compaction-design.md"),
   docFile("docs/context-retrieval-design.md"),
   docFile("docs/workloop-comparison.md"),
-  docFile("docs/workloop-followups.md")
+  docFile("docs/workloop-followups.md"),
+
+  // Retired product guides: their content moved into README.md / README.zh-CN.md
+  // and docs/development.md; docs/adr-history.md records each one.
+  docFile("docs/getting-started.md"),
+  docFile("docs/configuration.md"),
+  docFile("docs/capabilities.md"),
+  docFile("docs/architecture.md"),
+  docFile("docs/en/getting-started.md"),
+  docFile("docs/en/configuration.md"),
+  docFile("docs/en/capabilities.md"),
+  docFile("docs/en/architecture.md"),
+  docFile("docs/en/development.md"),
+  docFile("docs/en/testing.md")
 ];
 
 /** Maintained documents, and the wording each must not use again. */
 const DOCUMENTED = [
   {
-    files: ["docs/development.md", "docs/en/development.md", "scripts/docs-site.mjs", "package.json"],
+    files: ["docs/development.md", "AGENTS.en.md", "README.md", "scripts/docs-site.mjs", "package.json"],
     phrases: [
       "MCP 状态",
       "资源绑定",
@@ -419,7 +432,7 @@ const DOCUMENTED = [
     ]
   },
   {
-    files: ["docs/architecture.md"],
+    files: ["docs/development.md"],
     phrases: ["goalDelegationRequestId"]
   },
   {
@@ -427,12 +440,14 @@ const DOCUMENTED = [
     patterns: [/Task、Run、Agent、Watch、Job/]
   },
   {
-    files: ["docs/architecture.md", "docs/en/architecture.md", "docs/testing.md", "docs/capabilities.md"],
+    files: ["docs/development.md", "docs/testing.md", "README.zh-CN.md", "README.md"],
     phrases: ["RETIRED_SYSTEM_SECTIONS", "退役段落", "旧快照没有 `piVersion`"],
     patterns: [/pi_version_missing|model-request-retry|retry-request\.json|legacyPending/]
   },
   {
-    files: ["docs/capabilities.md", "docs/en/capabilities.md"],
+    // The retired product guide split into the Chinese pair and the English
+    // entry; both English bodies carry the same constraint.
+    files: ["README.zh-CN.md", "README.md", "docs/en/README.md"],
     phrases: ["结果缓存"],
     patterns: [/analysis[- ]result cache/i]
   }
@@ -642,6 +657,12 @@ test("maintained documents do not advertise a removed capability", async () => {
     const text = await readFile(path, "utf8");
     for (const phrase of DOCUMENTED_ANYWHERE)
       if (text.includes(phrase)) offenders.push(`${normalized} → ${phrase}`);
+  }
+  // The product guide lives in the root README pair and carries the same constraint.
+  for (const file of ["README.md", "README.zh-CN.md"]) {
+    const text = await readFile(file, "utf8");
+    for (const phrase of DOCUMENTED_ANYWHERE)
+      if (text.includes(phrase)) offenders.push(`${file} → ${phrase}`);
   }
   assert.deepEqual(offenders, [], `removed capability still advertised:\n${offenders.join("\n")}`);
 });

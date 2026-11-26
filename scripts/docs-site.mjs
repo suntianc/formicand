@@ -128,8 +128,6 @@ function article(page) {
   body = body.replace(/<p>((?:\s*<a id="[^"]+"><\/a>\s*)+)<\/p>/g, "$1");
   if (page.file === "docs/README.md" || page.file === "docs/en/README.md")
     body = body.replace("<ul>", '<ul class="start-options">');
-  if (/^docs\/(?:en\/)?(?:getting-started|cli-quickstart)\.md$/.test(page.file))
-    body = body.replace(/<p>(<a href="[^"]+">[^<]+<\/a>)<\/p>/, '<p class="download-action">$1</p>');
   const sanitized = sanitize(body, {
     allowedTags: [...sanitize.defaults.allowedTags, "img", "picture", "source", "details", "summary"],
     allowedAttributes: {
@@ -193,15 +191,10 @@ function shell(page, body) {
     item
       ? `<a class="${previous ? "pager-prev" : "pager-next"}" href="${escape(pageUrl(page.file, item.file))}">${previous ? '<span aria-hidden="true">←</span>' : ""}<strong>${escape(item.title)}</strong>${previous ? "" : '<span aria-hidden="true">→</span>'}</a>`
       : "<span></span>";
-  const journeys = [["docs/getting-started.md", "docs/configuration.md", "docs/capabilities.md"]].map(
-    (journey) => journey.map((file) => translated(file, en))
-  );
-  const journey = journeys.find((items) => items.slice(0, 2).includes(page.file));
-  const step = journey?.indexOf(page.file);
-  const previous = journey ? flat.find((item) => item.file === journey[step - 1]) : flat[position - 1];
-  const next = journey
-    ? flat.find((item) => item.file === journey[step + 1])
-    : userGuideFiles.has(page.file) && flat[position + 1] && !userGuideFiles.has(flat[position + 1].file)
+  const previous = flat[position - 1];
+  // A user guide's "next" never points at reference material.
+  const next =
+    userGuideFiles.has(page.file) && flat[position + 1] && !userGuideFiles.has(flat[position + 1].file)
       ? undefined
       : flat[position + 1];
   const sectionHtml = (section) => {

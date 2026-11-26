@@ -38,10 +38,6 @@ module.exports = {
     "scripts/cli-shell-policy.json",
     "scripts/cli-shell-compatibility.mjs",
     "scripts/cli-shell-boot.mjs",
-    "docs/architecture.md",
-    "docs/en/architecture.md",
-    "docs/capabilities.md",
-    "docs/en/capabilities.md",
     "scripts/data-home.cjs",
     "scripts/cli-session.mjs",
     "scripts/cli-session-export.mjs",
@@ -56,7 +52,21 @@ module.exports = {
     "package.json",
     "LICENSE",
     "THIRD_PARTY_NOTICES.md",
+    "README.md",
+    "README.zh-CN.md",
+    "AGENTS.md",
+    "AGENTS.en.md",
+    "CONTRIBUTING.md",
+    "CONTRIBUTING.en.md",
+    "GLOSSARY.md",
+    // The product and development entries cite the evaluation guide, which is a
+    // document only: the harness beside it runs from a checkout, not an install.
+    "scripts/eval/README.md",
+    // Every maintained guide travels with the app: the bundled skills and the
+    // English entry link these pages, and an install may read .pi/skills and docs only.
+    "docs/**/*.md",
     "licenses/**/*",
+    "!docs/site/**",
     "!**/*.map",
     "!**/*.tsbuildinfo",
     "!node_modules/**/test{,s}/**",

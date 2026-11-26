@@ -55,6 +55,9 @@ try {
     "scripts/main-worker.mjs",
     "scripts/main-capacity-gate.mjs",
     "scripts/read-attachment.py",
+    // The product entry links the evaluation guide; only the page travels, never
+    // the harness, sample repository or hidden checks beside it.
+    "scripts/eval/README.md",
     "README.md",
     "README.zh-CN.md",
     "AGENTS.md",
@@ -62,6 +65,7 @@ try {
     "CLAUDE.md",
     "LICENSE",
     "THIRD_PARTY_NOTICES.md",
+    "GLOSSARY.md",
     "licenses",
     "docs",
     "ROADMAP.md",
@@ -161,6 +165,7 @@ try {
       "CLAUDE.md",
       "LICENSE",
       "THIRD_PARTY_NOTICES.md",
+      "GLOSSARY.md",
       "licenses",
       "config.example.json",
       "npm-shrinkwrap.json",

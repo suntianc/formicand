@@ -33,7 +33,7 @@ test("source gate allows documented examples and network/redaction fixtures", ()
     []
   );
   for (const host of ["127.0.0.1", "0.0.0.0", "192.0.2.1", "198.51.100.5", "203.0.113.7"])
-    assert.deepEqual(inspectSource("docs/configuration.md", `http://${host}:3880`), []);
+    assert.deepEqual(inspectSource("docs/development.md", `http://${host}:3880`), []);
   const address = ["http://", "35", ".", "77", ".", "88", ".", "99", ":3888"].join("");
   assert.equal(inspectSource("src/model.ts", address)[0].rule, "numeric-service-address");
   assert.equal(inspectSource("docs/history/old.md", "")[0].rule, "private-or-generated-file");

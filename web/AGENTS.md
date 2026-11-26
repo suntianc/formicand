@@ -22,4 +22,4 @@
 - 滚动、输入、缩放监听用 passive 并节流到每帧最多一次；轮询只在页面可见时进行（[visible-poll.js](assets/ui/visible-poll.js)）。
 - 新增动效、长列表或高频更新，在 DevTools Performance 中确认没有长任务和布局抖动，CPU 4 倍降速下仍然顺畅。
 
-验证可见行为使用对应 `e2e/*.spec.js`，补充 Node 的控制器/会话测试。详情见 [代码地图](../docs/architecture.md#代码地图)，不要把只匹配 HTML 文本的断言当成操作验收。
+验证可见行为使用对应 `e2e/*.spec.js`，补充 Node 的控制器/会话测试。详情见 [代码地图](../docs/development.md#代码地图)，不要把只匹配 HTML 文本的断言当成操作验收。
