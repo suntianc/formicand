@@ -1286,6 +1286,11 @@ test("thought blocks render flat inline before and after a tool and preserve seg
   assert.equal(copies.length, 2);
   assert.match(copies[0].textContent, /先核对第一部分。/);
   assert.match(copies[1].textContent, /根据工具结果核对第二部分。/);
+  assert.deepEqual(
+    copies.map((copy) => copy.previousElementSibling?.className),
+    ["reasoning-mark", "reasoning-mark"],
+    "each thought wears the thought mark in the tools' status column"
+  );
   assert.equal(document.querySelectorAll(".reasoning-details, .activity-raw").length, 0);
   assert.equal(document.querySelectorAll(".process-segment.is-live > summary .thinking-spinner").length, 1);
   const answer = {
@@ -1881,7 +1886,12 @@ test("parking hides the pending thought until the next turn starts", () => {
   const { state, document, render } = fixture("parked");
   state.detail.parked = { wakeAt: "2026-11-23T03:06:21Z" };
   state.detail.runtimeEvents = [
-    { type: "tool_execution_start", toolCallId: "sleep", toolName: "sleep_until" },
+    {
+      type: "tool_execution_start",
+      toolCallId: "sleep",
+      toolName: "sleep_until",
+      args: { wakeInSeconds: 300 }
+    },
     {
       type: "tool_execution_end",
       toolCallId: "sleep",
@@ -1892,7 +1902,7 @@ test("parking hides the pending thought until the next turn starts", () => {
   render();
   assert.doesNotMatch(document.querySelector("#conversation").textContent, /思考中/);
   expandDetails(document, ".process-segment", render);
-  assert.match(document.querySelector("#conversation").textContent, /等待新的进展/);
+  assert.match(document.querySelector("#conversation").textContent, /稍后继续5 分钟后/);
   assert.doesNotMatch(document.querySelector("#conversation").textContent, /思考中/);
   delete state.detail.parked;
   state.detail.runtimeEvents.push({ type: "turn_start" });

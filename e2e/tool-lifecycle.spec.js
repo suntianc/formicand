@@ -73,6 +73,19 @@ test("returned async tools retain real work status through progress, callbacks a
     await expect(agent.locator("summary")).toHaveCount(0);
     for (const summary of await page.locator(".process-segment > summary").all()) await summary.click();
     await expect(page.locator(".tool-step .activity-status")).toHaveText(["未答复，已继续", "已入队"]);
+    // Each row's mark sits on the middle of its words, whatever its state.
+    for (const offset of await page.$$eval(".tool-step", (steps) =>
+      steps.map((step) => {
+        const middle = (node) => {
+          const box = node.getBoundingClientRect();
+          return box.y + box.height / 2;
+        };
+        return (
+          middle(step.querySelector(".tool-status-dot")) - middle(step.querySelector(".tool-action strong"))
+        );
+      })
+    ))
+      expect(Math.abs(offset)).toBeLessThan(0.75);
     await mkdir(".tmp/status-verification", { recursive: true });
     await page.screenshot({ path: test.info().outputPath("running.png"), fullPage: true });
     await page.evaluate(() => {

@@ -526,7 +526,11 @@ export function createConversationActivityView({
     const stoppedHead = turn.interrupted
       ? `<div class="activity-step-head"><span class="reasoning-state">${esc(ui("思考已停止"))}</span></div>`
       : "";
-    return `<div class="activity-step reasoning-step${turn.interrupted ? " is-interrupted" : ""}" data-view-key="${esc(key)}"><div class="activity-step-content">${stoppedHead}<div class="reasoning-copy markdown-body" data-reading-key="${esc(key)}">${markdown(normalized)}</div></div></div>`;
+    // A stopped thought already wears the stopped mark on its head line.
+    const mark = turn.interrupted
+      ? ""
+      : `<span class="reasoning-mark" aria-hidden="true">${icon("activity")}</span>`;
+    return `<div class="activity-step reasoning-step${turn.interrupted ? " is-interrupted" : ""}" data-view-key="${esc(key)}"><div class="activity-step-content">${stoppedHead}<div class="reasoning-body">${mark}<div class="reasoning-copy markdown-body" data-reading-key="${esc(key)}">${markdown(normalized)}</div></div></div></div>`;
   }
 
   // Before the first token, the turn shows the row its first thought will

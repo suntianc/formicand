@@ -341,6 +341,8 @@ export default {
   添加服务: "Add server",
   刚刚: "Just now",
   " 分钟前": " min ago",
+  " 分钟后": " min later",
+  " 小时后": " h later",
   " 小时前": " h ago",
   " 天前": " d ago",
   飞书: "Feishu",
