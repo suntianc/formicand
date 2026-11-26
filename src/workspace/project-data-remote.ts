@@ -152,10 +152,13 @@ export class RemoteProjectDataService implements ProjectDataGateway {
       body?: Record<string, unknown>;
       actor?: BoardActor;
       backend?: boolean;
+      /** A data read: the authority answers from its records without replaying its own deliveries. */
+      read?: boolean;
     } = {}
   ): Promise<Record<string, unknown>> {
     const headers: Record<string, string> = { "x-formicand-token": this.token };
     if (options.backend !== false) headers["x-formicand-backend-id"] = this.backendId;
+    if (options.read) headers["x-formicand-read-only"] = "1";
     if (options.actor) headers["x-formicand-actor"] = this.actorHeader(options.actor);
     if (options.body) headers["content-type"] = "application/json";
     try {
@@ -435,13 +438,14 @@ export class RemoteProjectDataService implements ProjectDataGateway {
     _backendId?: string
   ): Promise<DevelopmentRecord> {
     const result = await this.request(
-      projectPath(projectId, `/developments/${encodeURIComponent(String(developmentId))}`)
+      projectPath(projectId, `/developments/${encodeURIComponent(String(developmentId))}`),
+      { read: true }
     );
     return result.development as DevelopmentRecord;
   }
 
   async queryDevelopments(projectId: unknown, _backendId?: string): Promise<DevelopmentRecord[]> {
-    const result = await this.request(projectPath(projectId, "/developments"));
+    const result = await this.request(projectPath(projectId, "/developments"), { read: true });
     return (result.developments as DevelopmentRecord[] | undefined) ?? [];
   }
 
@@ -452,7 +456,8 @@ export class RemoteProjectDataService implements ProjectDataGateway {
   ): Promise<DevelopmentRecord | undefined> {
     try {
       const result = await this.request(projectPath(projectId, "/developments"), {
-        body: { action: "find_by_requirement", requirementId }
+        body: { action: "find_by_requirement", requirementId },
+        read: true
       });
       return result.development as DevelopmentRecord;
     } catch (error) {
@@ -573,9 +578,9 @@ export class RemoteProjectDataService implements ProjectDataGateway {
   }
 
   async queryMerges(projectId: unknown, developmentId?: unknown): Promise<DevelopmentMerge[]> {
-    const result = await this.mergeRequest(projectId, {
-      action: "query",
-      ...(developmentId === undefined ? {} : { developmentId })
+    const result = await this.request(projectPath(projectId, "/merges"), {
+      body: { action: "query", ...(developmentId === undefined ? {} : { developmentId }) },
+      read: true
     });
     return (result.merges as DevelopmentMerge[] | undefined) ?? [];
   }
@@ -613,16 +618,17 @@ export class RemoteProjectDataService implements ProjectDataGateway {
   }
 
   async queryDeliveries(projectId: unknown, developmentId?: unknown): Promise<DevelopmentDelivery[]> {
-    const result = await this.deliveryRequest(projectId, {
-      action: "query",
-      ...(developmentId === undefined ? {} : { developmentId })
+    const result = await this.request(projectPath(projectId, "/deliveries"), {
+      body: { action: "query", ...(developmentId === undefined ? {} : { developmentId }) },
+      read: true
     });
     return (result.deliveries as DevelopmentDelivery[] | undefined) ?? [];
   }
 
   async getDelivery(projectId: unknown, deliveryId: unknown): Promise<DevelopmentDelivery> {
     const result = await this.request(
-      projectPath(projectId, `/deliveries/${encodeURIComponent(String(deliveryId))}`)
+      projectPath(projectId, `/deliveries/${encodeURIComponent(String(deliveryId))}`),
+      { read: true }
     );
     return result.delivery as DevelopmentDelivery;
   }

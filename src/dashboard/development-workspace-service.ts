@@ -28,6 +28,7 @@ import {
 } from "../workspace/development-workspace.js";
 import type {
   DevelopmentProject,
+  DevelopmentReadOptions,
   ProjectDevelopmentPorts,
   WorkItemCallFact
 } from "./project-development-service.js";
@@ -60,10 +61,17 @@ export function createDevelopmentWorkspaceService({
     });
   }
 
-  async function project(projectId: string): Promise<DevelopmentProject> {
+  /**
+   * The project a development read or write is for. A work read binds this
+   * host's directory into the shared project; a read-only one only finds it.
+   */
+  async function project(
+    projectId: string,
+    options: DevelopmentReadOptions = {}
+  ): Promise<DevelopmentProject> {
     const found = await ports.project(projectId);
     if (found) {
-      await bind(found);
+      if (!options.readOnly) await bind(found);
       return found;
     }
     // A secondary backend's project is not in this catalog. The shared

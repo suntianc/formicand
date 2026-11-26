@@ -33,8 +33,10 @@ export interface DevelopmentProject {
  *
  * `readOnly` is the observation entry's contract: it watches nodes and never
  * works on them, so its reads answer from the stored records without replaying
- * this host's pending deliveries. Work entry and Main tool reads send no
- * marker and still complete a pending delivery before they answer.
+ * this host's pending deliveries or binding its project directory. Reads this
+ * host makes of a shared authority carry the marker too, so the authority does
+ * not replay its own deliveries for them either. Work entry and Main tool reads
+ * send no marker and still complete a pending delivery before they answer.
  */
 export interface DevelopmentReadOptions {
   readOnly?: boolean;
@@ -228,7 +230,7 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
     setMergeConfig: saveMergeConfig,
 
     async list(projectId: string, backendId = ports.backendId, options: DevelopmentReadOptions = {}) {
-      await project(projectId);
+      await project(projectId, options);
       await mergeService.replayBeforeRead(projectId, options);
       return (await gateway()).queryDevelopments(projectId, backendId);
     },
@@ -245,7 +247,7 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
       backendId = ports.backendId,
       options: DevelopmentReadOptions = {}
     ) {
-      await project(projectId);
+      await project(projectId, options);
       await mergeService.replayBeforeRead(projectId, options);
       return (await gateway()).getDevelopment(projectId, developmentId, backendId);
     },
@@ -328,7 +330,7 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
       backendId = ports.backendId,
       options: DevelopmentReadOptions = {}
     ) {
-      await project(projectId);
+      await project(projectId, options);
       await mergeService.replayBeforeRead(projectId, options);
       return (await gateway()).findDevelopmentByRequirement(projectId, requirementId, backendId);
     },
@@ -346,7 +348,7 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
 
     /** Delivery rows for a project or one development; a pending row is readable with its error. */
     async deliveries(projectId: string, developmentId?: unknown, options: DevelopmentReadOptions = {}) {
-      await project(projectId);
+      await project(projectId, options);
       await mergeService.replayBeforeRead(projectId, options);
       return (await gateway()).queryDeliveries(
         projectId,
@@ -799,7 +801,7 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
     },
 
     async queryMerges(projectId: string, developmentId?: string, options: DevelopmentReadOptions = {}) {
-      await project(projectId);
+      await project(projectId, options);
       await mergeService.replayBeforeRead(projectId, options);
       return (await gateway()).queryMerges(projectId, developmentId);
     },
