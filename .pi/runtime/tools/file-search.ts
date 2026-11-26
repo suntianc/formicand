@@ -9,7 +9,7 @@ import { Type } from "typebox";
 import { stat } from "node:fs/promises";
 import { basename, resolve } from "node:path";
 import { IndexedFileSearch } from "../../../dist/src/runtime/indexed-file-search.js";
-import { runFileSearch as runDiskSearch } from "../../../scripts/file-search.mjs";
+import { assertPattern, resultLimit, runDiskSearch } from "../../../scripts/file-search.mjs";
 
 interface SearchDetails {
   resultLimitReached?: number;
@@ -89,24 +89,21 @@ export function registerSearchTools(pi: ExtensionAPI, cwd: string): void {
       pattern: Type.String({ description: "Fuzzy filename, exact path, or glob such as './src/*.ts'." })
     }),
     async execute(_id, params, signal) {
-      if (!params.pattern.trim()) throw new Error("pattern must be a non-empty string");
+      const pattern = assertPattern(params.pattern);
+      const limit = resultLimit(params.limit, 1000);
       if (
-        /[\\/*?[{]/.test(params.pattern) ||
+        !pattern.trim() ||
+        /[\\/*?[{]/.test(pattern) ||
         (params.path && !(await stat(resolve(cwd, params.path))).isDirectory())
       ) {
         const result = await runDiskSearch("find", params, { cwd, signal });
         const body = result.paths.join("\n") || "No files found matching pattern";
-        return output(body, result.limitReached ? { resultLimitReached: params.limit ?? 1000 } : {});
+        return output(body, result.limitReached ? { resultLimitReached: limit } : {});
       }
-      const result = await index.names(
-        params.pattern,
-        Math.min(1000, Math.max(1, params.limit ?? 1000)),
-        params.path,
-        signal
-      );
+      const result = await index.names(pattern, limit, params.path, signal);
       return output(
         result.paths.join("\n") || "No files found matching pattern",
-        result.truncated ? { resultLimitReached: params.limit ?? 1000 } : {}
+        result.truncated ? { resultLimitReached: limit } : {}
       );
     }
   });
@@ -128,8 +125,10 @@ export function registerSearchTools(pi: ExtensionAPI, cwd: string): void {
       )
     }),
     async execute(_id, params, signal) {
-      if (!params.pattern.trim()) throw new Error("pattern must be a non-empty string");
+      const pattern = assertPattern(params.pattern);
+      const limit = resultLimit(params.limit, 100);
       const disk =
+        !pattern.trim() ||
         params.mode === "exact" ||
         params.glob !== undefined ||
         params.literal !== undefined ||
@@ -144,19 +143,14 @@ export function registerSearchTools(pi: ExtensionAPI, cwd: string): void {
         );
         const body = result.text || "No matches found";
         return output(body, {
-          ...(result.limitReached ? { matchLimitReached: params.limit ?? 100 } : {}),
+          ...(result.limitReached ? { matchLimitReached: limit } : {}),
           ...(result.linesTruncated ? { linesTruncated: true } : {}),
           ...(result.outputLimitReached ? { outputLimitReached: true } : {}),
           ...(result.skippedFiles.length ? { skippedFiles: result.skippedFiles } : {})
         });
       }
-      const result = await index.content(
-        params.pattern,
-        Math.min(100, Math.max(1, params.limit ?? 100)),
-        params.path,
-        signal
-      );
-      return output(result.text, result.truncated ? { matchLimitReached: params.limit ?? 100 } : {});
+      const result = await index.content(pattern, limit, params.path, signal);
+      return output(result.text, result.truncated ? { matchLimitReached: limit } : {});
     }
   });
 }

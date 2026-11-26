@@ -5,9 +5,9 @@ import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { runFileSearch } from "./file-search.mjs";
+import { runFileSearch, SEARCH_ADAPTER_MARKER } from "./file-search.mjs";
 
-const MARKER = "# Formicand Pi search adapter v1";
+const MARKER = SEARCH_ADAPTER_MARKER;
 const shellQuote = (value) => `'${value.replaceAll("'", "'\\''")}'`;
 
 /** These adapters implement Pi's search/autocomplete arguments, not the fd/rg CLI. */
