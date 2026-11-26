@@ -2,14 +2,10 @@
  * When a change may not rest on Main's own checks. A user project lists the
  * paths that always take an independent Reviewer in a table under a
  * `## 独立审查` (or `## Independent review`) heading in its root AGENTS.md, one
- * row per path with the reason; a change of more files than Main can check by
- * itself takes one too. The program applies these when Main records the self
- * channel, so the route does not depend on which model is Main.
+ * row per path with the reason. The program applies these when Main records
+ * the self channel, so the route does not depend on which model is Main; a
+ * project without the table merges on Main's own checks.
  */
-import { isDocument } from "./project-documents.js";
-
-/** More changed files than this, documents aside, is too much to check alone. */
-export const SELF_CHECK_FILE_LIMIT = 20;
 
 export interface ReviewRule {
   path: string;
@@ -56,10 +52,7 @@ function covers(rule: string, file: string): boolean {
   return pattern.test(file);
 }
 
-/**
- * Why `changed` needs an independent Reviewer, or undefined when Main's own
- * checks may stand: the rows it touches, and its size without documents.
- */
+/** Why `changed` needs an independent Reviewer, or undefined when Main's own checks may stand. */
 export function independentReviewReason(rules: ReviewRule[], changed: string[]): string | undefined {
   const hits = rules.flatMap((rule) => {
     const files = changed.filter((file) => covers(rule.path, file));
@@ -67,12 +60,5 @@ export function independentReviewReason(rules: ReviewRule[], changed: string[]):
       ? [`${rule.path}（${rule.reason || "AGENTS.md 独立审查表"}）：${files.slice(0, 5).join("、")}`]
       : [];
   });
-  const code = changed.filter((file) => !isDocument(file));
-  const reasons = [
-    ...hits,
-    ...(code.length > SELF_CHECK_FILE_LIMIT
-      ? [`改动了 ${code.length} 个非文档文件，超过自查上限 ${SELF_CHECK_FILE_LIMIT}`]
-      : [])
-  ];
-  return reasons.length ? reasons.join("；") : undefined;
+  return hits.length ? hits.join("；") : undefined;
 }

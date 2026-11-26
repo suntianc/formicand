@@ -181,7 +181,7 @@ export function createLoadSkillTool(skills: SkillMetadata[]): RuntimeTool {
       if (!name) throw new Error("load_skill requires a skill name");
       const skill = byName.get(name);
       if (!skill) throw new Error(`unknown skill: ${name}`);
-      const body = await readFile(skill.path, "utf8");
+      const body = instructionsOf(await readFile(skill.path, "utf8"));
       const scripts = await readdir(join(skill.directory, "scripts"), { withFileTypes: true }).catch(
         // eslint-disable-next-line no-restricted-syntax -- scripts 子目录是可选约定，没有它技能照常可用，空列表就是真实结果
         () => []
@@ -199,6 +199,37 @@ export function createLoadSkillTool(skills: SkillMetadata[]): RuntimeTool {
       };
     }
   };
+}
+
+/**
+ * What the model reads when it loads a skill: the frontmatter repeats the
+ * catalog entry it chose from, and a whole-line HTML comment (an attribution
+ * note) is for maintainers. Comments inside code fences are content and stay.
+ */
+function instructionsOf(file: string): string {
+  const lines = parseSkillFrontmatter(file).body.split("\n");
+  const kept: string[] = [];
+  let fenced = false;
+  let comment = false;
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!comment && /^(```|~~~)/.test(trimmed)) fenced = !fenced;
+    if (comment) {
+      comment = !trimmed.includes("-->");
+      continue;
+    }
+    if (!fenced && trimmed.startsWith("<!--")) {
+      if (!trimmed.includes("-->")) comment = true;
+      // Text after a comment on its own line is content: keep that line.
+      else if (!trimmed.endsWith("-->")) kept.push(line);
+      continue;
+    }
+    kept.push(line);
+  }
+  return kept
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 }
 
 async function scanRoot(root: string, found: SkillMetadata[], seen: Set<string>): Promise<void> {

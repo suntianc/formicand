@@ -623,6 +623,14 @@ export async function handleDevelopmentRequest(
             : await ports.service.integrateTicket(projectId, body)
         );
       }
+      case "start_ticket": {
+        if (declared)
+          throw new HttpError(403, "票只能在需求现场所在后端开工", "development_workspace_owner_only");
+        if (!taskId) throw new HttpError(400, "start_ticket 只能由对话里的 Main 调用");
+        if (typeof body.developmentId !== "string")
+          throw new HttpError(400, "start_ticket 需要 developmentId");
+        return reply(response, 200, await ports.service.startTicketForTask(taskId, body));
+      }
       case "sync_target": {
         if (declared)
           throw new HttpError(403, "目标分支只能在需求现场所在后端合并", "development_workspace_owner_only");

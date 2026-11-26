@@ -3,7 +3,7 @@ name: code-review
 description: Review a candidate change along two axes, Spec (does it do what the ticket or requirement asked?) and Standards (does it follow the project's documented rules and stay clean?). Use as a Reviewer of a frozen candidate, or to review your own change before handing it over.
 ---
 
-<!-- Adapted from mattpocock/skills (MIT), skills/engineering/code-review at abeeaf9. Changes: the program or your brief supplies the change and the criteria; both axes run in this one session; findings follow Formicand's blocking rules, submitted by a Reviewer and fixed by the author in a self-review. -->
+<!-- Adapted from mattpocock/skills (MIT), skills/engineering/code-review at abeeaf9. Changes: the program or your brief supplies the change and the criteria; both axes run in this one session; findings follow Formicand's blocking rules, submitted by a Reviewer and fixed by the author in a self-review; a blocking finding in code nobody asked for is fixed by removing it. -->
 
 Two-axis review of a candidate change:
 
@@ -50,6 +50,8 @@ Each finding has a title, a location (`path:line`), evidence (the command and wh
 
 - **Blocking**, with its basis: a Spec finding cites the criterion id it violates; broken "Keep working" behaviour is `regression`; lost or corrupted data is `data_loss`; a security hole is `security`; a breach of a documented project rule or an ADR is `project_rule`.
 - **Not blocking**: every smell, every other design or style preference, extra tests or features nobody asked for. Write them as suggestions; they reach the user's report and block nothing.
+
+When a blocking finding sits in code the brief did not ask for, the fix it names is removing that code, not repairing it.
 
 As a **Reviewer**, hand the result back with `submit_review`: `pass` when nothing blocks, `changes_requested` when something does, the Spec findings first. On a re-review, follow the brief instead: answer each previous finding, re-run the acceptance commands, and look only for floor problems in the files changed this round.
 

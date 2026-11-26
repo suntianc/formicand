@@ -130,6 +130,7 @@ export function createProjectDevelopmentTool(options: ProjectDevelopmentToolOpti
             "tickets",
             "propose_tickets",
             "revise_ticket",
+            "start_ticket",
             "integrate_ticket",
             "sync_target",
             ...REVIEW_ACTIONS,
@@ -168,7 +169,7 @@ export function createProjectDevelopmentTool(options: ProjectDevelopmentToolOpti
           type: "string",
           enum: ["quick", "full"],
           description:
-            "quick (the default: you make the change; your checks, or an independent review the program requires, gate the merge) or full (tickets the user confirms, each reviewed, then a final review)."
+            "quick (the default, also for work in several parts: you write and check the change yourself; the program may require an independent review) or full (work too large to check as one change, or that the user wants to accept part by part: tickets the user confirms, which you write one at a time with start_ticket, each reviewed, then a final review)."
         },
         tickets: {
           type: "array",
@@ -188,7 +189,7 @@ export function createProjectDevelopmentTool(options: ProjectDevelopmentToolOpti
           minLength: 1,
           maxLength: 20,
           description:
-            "revise_ticket/integrate_ticket target. freeze_candidate: review this ticket's own checkout; without it once every ticket is in, the final review of the whole requirement."
+            "revise_ticket/start_ticket/integrate_ticket target. start_ticket opens the ticket's own checkout for you to write it yourself. freeze_candidate: review this ticket's own checkout; without it once every ticket is in, the final review of the whole requirement."
         },
         changes: {
           type: "object",
@@ -210,7 +211,7 @@ export function createProjectDevelopmentTool(options: ProjectDevelopmentToolOpti
           type: "string",
           enum: ["self", "independent", "combined"],
           description:
-            "review_plan: self (Main verified a small change), independent, or combined for a final version. self checks bind to the current commit/tree; record them again after the checkout moves. The program refuses self when the change touches a path in the project's AGENTS.md independent-review table or too many files; use independent then."
+            "review_plan: self (Main checked the change itself), independent, or combined for a final version. self checks bind to the current commit/tree; record them again after the checkout moves. When the program refuses self it says why; use independent then."
         },
         basis: {
           type: "string",
@@ -243,7 +244,7 @@ export function createProjectDevelopmentTool(options: ProjectDevelopmentToolOpti
         authorCallId: {
           ...ID,
           description:
-            "freeze_candidate: the Executor work item that produced the candidate; its identity must differ from the Reviewer's."
+            "freeze_candidate: the Executor work item that produced the candidate, when an Executor wrote it; its identity must differ from the Reviewer's."
         },
         mapping: {
           type: "array",
@@ -537,6 +538,8 @@ export function createProjectDevelopmentTool(options: ProjectDevelopmentToolOpti
     if (action === "propose_tickets") return proposeTickets(request, input, confirm);
     if (action === "revise_ticket") return reviseTicket(request, input, confirm);
     if (action === "sync_target") return request({ action, developmentId: input.developmentId });
+    if (action === "start_ticket")
+      return request({ action, developmentId: input.developmentId, ticketId: input.ticketId });
     if (action === "integrate_ticket")
       return request({
         action,

@@ -3,7 +3,7 @@ name: domain-modeling
 description: Build and sharpen a project's domain model. Use when discussing codebase terminology, writing or editing a GLOSSARY.md, or recording or editing an ADR.
 ---
 
-<!-- Adapted from mattpocock/skills (MIT), skills/engineering/domain-modeling at abeeaf9. Changes: where the files are written during a requirement, and what an Executor or Reviewer does with them. -->
+<!-- Adapted from mattpocock/skills (MIT), skills/engineering/domain-modeling at abeeaf9. Changes: where the files are written during a requirement, and what an Executor or Reviewer does with them; an edge case the user does not want handled is out of scope. -->
 
 # Domain Modeling
 
@@ -59,7 +59,7 @@ When the user uses vague or overloaded terms, propose a precise canonical term. 
 
 ### Discuss concrete scenarios
 
-When domain relationships are being discussed, stress-test them with specific scenarios. Invent scenarios that probe edge cases and force the user to be precise about the boundaries between concepts.
+When domain relationships are being discussed, stress-test them with specific scenarios. Invent scenarios that probe edge cases and force the user to be precise about the boundaries between concepts; an edge case the user does not want handled is out of scope, not something to build for.
 
 ### Cross-reference with code
 
