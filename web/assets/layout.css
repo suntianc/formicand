@@ -458,12 +458,18 @@ body {
   color: var(--ui-muted);
 }
 .human-questions button:focus-visible,
-.human-option:has(input:focus-visible),
-.human-option-other:has(textarea:focus-visible),
 .ticket-card summary:focus-visible,
 .proposal-prompt summary:focus-visible {
   outline: 2px solid var(--ui-accent);
   outline-offset: -2px;
+}
+/* Answer rows are fields: the quiet edge and halo every text field uses, not the button ring. */
+.human-option:has(input:focus-visible),
+.human-option-other:has(textarea:focus-visible) {
+  outline: none;
+  box-shadow:
+    inset 0 0 0 1px var(--field-focus-edge),
+    0 0 0 3px var(--field-focus-ring);
 }
 .human-card-footer {
   display: flex;
