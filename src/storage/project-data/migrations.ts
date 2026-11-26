@@ -6,12 +6,12 @@ import type { SqlDatabase, SqlTransaction } from "./database.js";
  * The project data schema this build writes.
  *
  * A new database is created at this version. A database at an earlier
- * version this build knows (8 to 13) is converted in the same transaction that
+ * version this build knows (8 to 14) is converted in the same transaction that
  * records the new version; any other version is refused with its location and
  * version, without being rewritten. Date/time values are ISO text and booleans
  * are integers so one business query serves both engines.
  */
-export const PROJECT_DATA_SCHEMA_VERSION = 14;
+export const PROJECT_DATA_SCHEMA_VERSION = 15;
 
 /** The title of the requirement every project keeps for changes no feature owns. */
 export const MISC_REQUIREMENT_TITLE = "杂项";
@@ -396,7 +396,7 @@ const PROJECT_DATA_SCHEMA: readonly string[] = [
 /**
  * Create this build's schema in one transaction, add version 11's final review
  * mapping to a version 10 database, version 10's tidy mark too to a version 9
- * one, drop version 12's tidy read time, convert a version 8 database, or refuse a file recorded at a version this build does not know.
+ * one, drop version 12's tidy read time, fold version 14's direct route into full, convert a version 8 database, or refuse a file recorded at a version this build does not know.
  *
  * The version row is written in the same transaction as the tables, so a
  * database is either empty or complete at the current version. A file at an
@@ -416,18 +416,19 @@ export async function migrateProjectData(database: SqlDatabase): Promise<number>
     );
     const version = Number(rows[0]?.version ?? 0);
     if (version === PROJECT_DATA_SCHEMA_VERSION) return version;
-    if (![0, 8, 9, 10, 11, 12, 13].includes(version)) throw incompatibleVersion(database.label, version);
+    if (![0, 8, 9, 10, 11, 12, 13, 14].includes(version)) throw incompatibleVersion(database.label, version);
     if (version === 9) await upgradeVersion9(transaction);
     if (version === 9 || version === 10) await upgradeVersion10(transaction);
     if (version === 12) await upgradeVersion12(transaction);
-    if (version >= 9)
+    if (version >= 9 && version < 14)
       await transaction.execute("ALTER TABLE project_data_projects ADD COLUMN ledger_clock TEXT");
     if (version < 9) {
       const previous = version === 8 ? await dropVersion8(transaction) : undefined;
       for (const statement of PROJECT_DATA_SCHEMA) await transaction.execute(statement);
       if (previous) await writeFromVersion8(transaction, previous);
     }
-    if (version > 0) await initializeLedgerClocks(transaction);
+    if (version > 0 && version < 14) await initializeLedgerClocks(transaction);
+    if (version > 0) await upgradeVersion14(transaction);
     await transaction.execute("INSERT INTO project_data_migrations (version, applied_at) VALUES (?, ?)", [
       PROJECT_DATA_SCHEMA_VERSION,
       now()
@@ -490,6 +491,14 @@ async function upgradeVersion10(transaction: SqlTransaction): Promise<void> {
  */
 async function upgradeVersion12(transaction: SqlTransaction): Promise<void> {
   await transaction.execute("ALTER TABLE project_data_projects DROP COLUMN ledger_tidy_read_at");
+}
+
+/**
+ * Version 15 drops the direct route: a development recorded on it carries
+ * tickets reviewed one by one, which is the full route.
+ */
+async function upgradeVersion14(transaction: SqlTransaction): Promise<void> {
+  await transaction.execute("UPDATE project_data_developments SET route = 'full' WHERE route = 'direct'");
 }
 
 /** Version 8's tables, parents before children. */

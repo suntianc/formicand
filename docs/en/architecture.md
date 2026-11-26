@@ -62,7 +62,7 @@ Main can hand a requirement to subagents through a Workloop-style flow whose sta
 8. **Final review**: on the `full` route freezing the final review requires an acceptance mapping (`mapping`, one row per requirement with the test, command or file that proves it); the program numbers the rows so blocking findings can cite them. Before it freezes, the program also checks the document registry in the project's `AGENTS.md`: with no table it asks for one covering every document, and it refuses documents the requirement added or renamed without a row, rows pointing at deleted documents, and two documents of one type and domain. A fix ticket repairs it.
 9. **Merge into the target branch**: once the route's own acceptance is met, the change is merged into the configured target branch in a temporary combined worktree with the project's checks; the `full` route also requires the final review of that same version to pass.
 
-There are three routes: `quick` lets Main collect the result itself; `direct` and `full` freeze and review per ticket before integrating.
+There are two routes. `quick`, the default, has Main make and check the change itself; when the change touches a path in the project's `AGENTS.md` independent-review table, or more than 20 non-document files, the program refuses the self check (`review_plan` with `self`) and requires an independent review. `full` freezes and reviews per ticket before integrating; when the target branch has new commits, `sync_target` merges them cleanly into the requirement site without a ticket of its own. A ticket that changes files outside its scope is not refused; the Reviewer judges them.
 
 ## Data layout
 

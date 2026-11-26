@@ -137,6 +137,8 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
 
   const {
     ticketRoute,
+    fromIntegration,
+    syncTarget,
     requireTicket,
     inspectDirectory,
     lastIntegration,
@@ -151,6 +153,7 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
     integrating,
     inspectWorkspace,
     taskProject,
+    requiredMergeConfig,
     ports
   });
 
@@ -165,7 +168,8 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
     ticketChangedPaths,
     openDevelopment,
     inDevelopment,
-    ticketRoute
+    requiredMergeConfig,
+    fromIntegration
   });
 
   const { deliveryQualification, nextStep, recordedMergeChecks, acceptanceReasons } =
@@ -175,6 +179,7 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
       inspectWorkspace,
       ticketRoute,
       lastIntegration,
+      fromIntegration,
       ports,
       requiredMergeConfig
     });
@@ -557,6 +562,14 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
 
     async integrateTicket(projectId: string, input: Record<string, unknown>) {
       return integrateTicket(projectId, input);
+    },
+
+    async syncTarget(projectId: string, input: Record<string, unknown>) {
+      return syncTarget(projectId, input);
+    },
+
+    async syncTargetForTask(taskId: string, input: Record<string, unknown>) {
+      return syncTarget((await taskProject(taskId)).projectId, input);
     },
 
     /**

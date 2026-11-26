@@ -40,13 +40,11 @@ test("the ticket rules hold for every route, dependency and revision", () => {
     () => applyTicketWrite(emptySet, { op: "propose", tickets: [ticket("01")] }, "quick", at),
     /quick 路线不建票/
   );
-  assert.throws(
-    () => applyTicketWrite(emptySet, { op: "propose", tickets: [ticket("01"), ticket("02")] }, "direct", at),
-    /direct 路线只有一张票/
-  );
-  assert.throws(
-    () => applyTicketWrite(emptySet, { op: "propose", tickets: [ticket("01", { scope: [] })] }, "direct", at),
-    /必须写明改动范围/
+  assert.equal(
+    applyTicketWrite(emptySet, { op: "propose", tickets: [ticket("01", { scope: [] })] }, "full", at).tickets
+      .length,
+    1,
+    "a ticket may leave its scope out; the Reviewer judges what it changed"
   );
   assert.throws(
     () =>
@@ -176,9 +174,9 @@ test("the ticket rules hold for every route, dependency and revision", () => {
 });
 
 test("the next step follows the records", () => {
-  const base = { route: "direct", workspaceReady: true, tickets: [] };
+  const base = { route: "full", workspaceReady: true, tickets: [] };
   assert.match(developmentNext({ ...base, workspaceReady: false }), /ensure_workspace/);
-  assert.match(developmentNext(base), /propose_tickets \(one ticket/);
+  assert.match(developmentNext(base), /Propose the tickets with propose_tickets/);
   assert.match(developmentNext({ ...base, tickets: [{ ticketId: "01", state: "draft" }] }), /01 are drafts/);
   const at = (state, extra = {}) => ({ ticketId: "01", state, dependsOn: [], reviewIds: [], ...extra });
   const confirmed = { ...base, tickets: [at("confirmed")] };
@@ -218,7 +216,16 @@ test("the next step follows the records", () => {
       tickets: [at("merged")],
       qualification: { eligible: false, reasons: ["candidate_changed"] }
     }),
-    /Every ticket is in the requirement checkout, but it does not qualify yet \(candidate_changed\)/
+    /Every ticket is in the requirement checkout\. To build on the target branch's new commits, sync_target merges them in first/
+  );
+  assert.match(
+    developmentNext({
+      ...base,
+      tickets: [at("merged")],
+      finalReview: { reviewId: "rf", state: "passed", reviewer: true },
+      qualification: { eligible: false, reasons: ["candidate_changed"] }
+    }),
+    /moved after final review rf passed: freeze_candidate again with previousReviewId/
   );
   assert.match(
     developmentNext({ ...confirmed, qualification: { eligible: true, reasons: [] } }),
@@ -323,14 +330,13 @@ test(
       requirementId,
       goal: "list 分页正确",
       completionCriteria: ["第二页从第 11 条开始"],
-      route: "direct"
+      route: "full"
     });
     const developmentId = created.development.developmentId;
-    assert.match(created.next, /propose_tickets \(one ticket/, "every result says what comes next");
-
-    await assert.rejects(
-      tool.execute({ action: "propose_tickets", developmentId, tickets: [ticket("01"), ticket("02")] }),
-      /direct 路线只有一张票/
+    assert.match(
+      created.next,
+      /Propose the tickets with propose_tickets/,
+      "every result says what comes next"
     );
 
     const shown = [];
@@ -495,7 +501,7 @@ for (const late of [false, true])
               request: "列表分页",
               goal: "list 分页正确",
               completionCriteria: ["第二页从第 11 条开始"],
-              route: "direct"
+              route: "full"
             }
           };
         if (step === 1 || (late && step === 2)) {
@@ -630,20 +636,20 @@ for (const late of [false, true])
 
 test("retrying the same proposal preserves the card revision and reuses the approved decision", () => {
   const proposal = { op: "propose", tickets: [ticket("01")] };
-  const draft = applyTicketWrite(emptySet, proposal, "direct", at);
+  const draft = applyTicketWrite(emptySet, proposal, "full", at);
   const later = "2026-11-20T00:01:30.000Z";
-  assert.deepEqual(applyTicketWrite(draft, proposal, "direct", later), draft);
+  assert.deepEqual(applyTicketWrite(draft, proposal, "full", later), draft);
   const decision = { op: "confirm", expectedRevision: draft.revision, decisionId: "human-original" };
-  const confirmed = applyTicketWrite(draft, decision, "direct", later);
-  assert.deepEqual(applyTicketWrite(confirmed, decision, "direct", later), confirmed);
-  assert.deepEqual(applyTicketWrite(confirmed, proposal, "direct", later), confirmed);
+  const confirmed = applyTicketWrite(draft, decision, "full", later);
+  assert.deepEqual(applyTicketWrite(confirmed, decision, "full", later), confirmed);
+  assert.deepEqual(applyTicketWrite(confirmed, proposal, "full", later), confirmed);
   const changed = applyTicketWrite(
     draft,
     { ...proposal, tickets: [ticket("01", { title: "changed" })] },
-    "direct",
+    "full",
     later
   );
-  assert.throws(() => applyTicketWrite(changed, decision, "direct", later), /票已更新/);
+  assert.throws(() => applyTicketWrite(changed, decision, "full", later), /票已更新/);
 });
 
 test("a late confirmation still applies after another ticket moved on, and only while its tickets are as shown", async () => {
@@ -734,7 +740,7 @@ test(
             request: "列表分页",
             goal: "list 分页正确",
             completionCriteria: ["第二页从第 11 条开始"],
-            route: "direct"
+            route: "full"
           }
         };
       if (step === 1 || step === 2) {

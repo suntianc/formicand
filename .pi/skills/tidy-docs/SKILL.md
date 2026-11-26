@@ -33,7 +33,7 @@ The registry is a table under a `## 文档` heading in the project's root `AGENT
 
 ## When a final review refuses for the registry
 
-On the full route the program checks the registry before the final review, as Workloop does; quick and direct changes are not checked. Fix it with a fix ticket, then freeze the final review again.
+On the full route the program checks the registry before the final review, as Workloop does; fix it with a fix ticket, then freeze the final review again. A quick change is not checked: hold it to these rules yourself before `review_plan`.
 
 - **No registry yet**: build it. Register every document in the repository; classify each by its path and first lines, and mark what you cannot place `unsorted`. Change and delete nothing else.
 - **Unregistered**: for each document the requirement added, delete it if it is a process document, else add a row.
@@ -46,4 +46,4 @@ On the full route the program checks the registry before the final review, as Wo
 
 ## A full tidy, when the user asks
 
-One ordinary development, reviewed like any other: follow [FULL-TIDY.md](FULL-TIDY.md).
+One ordinary development, its route chosen like any other (a change of documents only is quick): follow [FULL-TIDY.md](FULL-TIDY.md).

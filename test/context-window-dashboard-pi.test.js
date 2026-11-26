@@ -109,7 +109,7 @@ test(
       requirementId: requirement.requirementId,
       goal: "DURABLE GOAL",
       completionCriteria: ["DURABLE COMPLETION CRITERION"],
-      route: "direct"
+      route: "full"
     });
     await request(
       taskPath + "/developments",
@@ -164,7 +164,7 @@ test(
       "DURABLE GOAL",
       "DURABLE COMPLETION CRITERION",
       development.developmentId,
-      "Route: direct",
+      "Route: full",
       "01 [draft] AUTHORITATIVE TICKET",
       next.next,
       "MODEL SUMMARY 1"

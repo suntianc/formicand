@@ -54,6 +54,18 @@ Avoid unnecessary secondary labels, explanations, helper copy, descriptions and 
 - When revising an interface, remove redundant labels and explanations first. If clarity decreases, improve layout and button wording.
 - Performance comes first: motion, icons and lists must look equally refined while keeping the best performance. See the [frontend guide (Chinese)](web/AGENTS.md#性能与动效).
 
+## Independent review
+
+When a change touches a path below, the program will not merge it on Main's own checks: it needs an independent Reviewer. One path per row (a file or a directory; `*` matches within one name), read as of the version the development started from; a change of more than 20 non-document files needs one too.
+
+| Path                            | Reason                                         |
+| ------------------------------- | ---------------------------------------------- |
+| `src/storage`                   | persistent formats and migrations              |
+| `src/workspace/*-repository.ts` | project data reads and writes                  |
+| `src/dashboard/*-routes.ts`     | HTTP interfaces                                |
+| `desktop`                       | desktop host, IPC and backend lifecycle        |
+| `src/security`                  | execution permissions and window authorization |
+
 ## Verification and delivery
 
 Use Node >=22.19.0 and `npm ci`. Match validation to the change: documentation-only edits run `check:docs` and `format:check`; behavior changes run related tests and lightweight `npm run verify` (CLI and web asset builds, source hygiene, static checks and the release-runner self-test). Explicitly run `npm run verify:full` for release acceptance or changes with broad impact; it performs a complete build, release-runner self-tests and the full deterministic Node suite. Do not repeat the full suite for every small edit. `npm run test:unit -- --match model` selects test files; `npm run check:docs` checks documentation links; `npm run check:source` checks current source for private configuration, credentials, personal paths and generated/retired documents. See [local testing](docs/en/testing.md) for the full command inventory. Test doubles do not replace lifecycle tests; browser, native, real-model and clean-install evidence are separate.
