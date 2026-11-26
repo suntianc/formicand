@@ -49,7 +49,6 @@
     overflow-x: hidden;
     /* The entrance animation's transform would become the containing block of
        the fixed hover tree, which is drawn outside the rail. */
-    animation: none;
   }
   html[data-theme] .project-group {
     width: 36px;

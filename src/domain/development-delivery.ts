@@ -110,9 +110,19 @@ export interface DeliveryPatch {
   path?: string;
   patch: string;
   truncated: boolean;
-  /** The changed files' text at the previewed commit; binary or large files are left out. */
-  contents: Array<{ path: string; content: string }>;
+  /** What each changed file holds at the previewed commit. */
+  contents: DeliveryFileContent[];
 }
+
+/**
+ * One changed file as the preview shows it. Text over the preview limit keeps
+ * its beginning and says so; an image carries its bytes only when the request
+ * named that one file.
+ */
+export type DeliveryFileContent =
+  | { path: string; kind: "text"; content: string; truncated: boolean }
+  | { path: string; kind: "image"; mimeType: string; data?: string }
+  | { path: string; kind: "deleted" | "binary" | "large" };
 
 /**
  * Everything a project, Task or requirement reader needs to see one delivery.

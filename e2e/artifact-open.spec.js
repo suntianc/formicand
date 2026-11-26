@@ -82,6 +82,7 @@ test("artifact open displays authorized bytes for each isolated backend", async 
         FORMICAND_WORKSPACE: join(base, "workspace"),
         FORMICAND_CONFIG: config,
         FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
+        FORMICAND_DISABLE_SESSION_TITLES: "1",
         PI_CODING_AGENT_DIR: join(base, "pi"),
         PI_OFFLINE: "1",
         PI_TELEMETRY: "0",
@@ -144,16 +145,17 @@ test("artifact open displays authorized bytes for each isolated backend", async 
       expect(popup.url()).toMatch(/^blob:/);
       await popup.close();
 
-      await drawer.locator('[data-drawer-file="picture.svg"]').click();
-      const svgPromise = page.waitForEvent("popup");
-      await drawer.getByRole("link", { name: "打开 ↗" }).click();
-      const svg = await svgPromise;
-      await expect(svg.locator("img")).toBeVisible();
-      expect(await svg.locator("img").evaluate((image) => image.naturalWidth)).toBe(20);
+      // An image opens in the full-screen viewer, read through this backend, not as a tab.
+      await page.locator('[data-artifact="picture.svg"]').click();
+      const viewer = page.locator(".attachment-preview");
+      await expect(viewer.locator("img")).toBeVisible();
+      await expect.poll(() => viewer.locator("img").evaluate((image) => image.naturalWidth)).toBe(20);
       expect(await page.evaluate(() => localStorage.getItem("artifact-attack"))).toBe("untouched");
-      await svg.close();
+      await expect(drawer.locator('[data-drawer-file="picture.svg"]')).toHaveCount(0);
+      await page.keyboard.press("Escape");
+      await expect(viewer).toBeHidden();
 
-      await drawer.locator('[data-drawer-file="document.html"]').click();
+      await page.locator('[data-artifact="document.html"]').click();
       const htmlPromise = page.waitForEvent("popup");
       await drawer.getByRole("link", { name: "打开 ↗" }).click();
       const html = await htmlPromise;
@@ -170,7 +172,7 @@ test("artifact open displays authorized bytes for each isolated backend", async 
           response.status() === 200
         );
       });
-      await drawer.locator('[data-drawer-file="document.pdf"]').click();
+      await page.locator('[data-artifact="document.pdf"]').click();
       // A page renders where the PDF parser is installed; otherwise the viewer is offered.
       await expect(
         drawer.locator(".drawer-pdf-page img").or(drawer.getByText("点击“打开 ↗”查看 PDF。"))
@@ -251,7 +253,8 @@ test("点击产物只读预览并可下载，不可预览的直接下载，且�
     await panel.getByRole("button", { name: "查看 diff" }).click();
     await expect(drawer).toBeVisible();
     await expect(drawer.locator('[data-drawer-tab="diff"]')).toHaveAttribute("aria-selected", "true");
-    await expect(drawer.locator(".drawer-diff-file")).toHaveCount(2);
+    await expect(drawer.locator(".drawer-change-file")).toHaveCount(2);
+    // The attachment opened before keeps its tab beside the change.
     await drawer.locator('[data-drawer-file="方案.md"]').click();
     await expect(drawer.locator('[data-drawer-file="方案.md"]')).toHaveAttribute("aria-selected", "true");
     await expect(drawer.locator(".drawer-content")).toContainText("只读预览。");

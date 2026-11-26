@@ -20,6 +20,7 @@ test("桌面版用本机应用打开产物，并且只接受后端解析到的�
     FORMICAND_HOME: join(root, "home"),
     PI_CODING_AGENT_DIR: join(root, "pi"),
     FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
+    FORMICAND_DISABLE_SESSION_TITLES: "1",
     PI_OFFLINE: "1"
   });
   let native;

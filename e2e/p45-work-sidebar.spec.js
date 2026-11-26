@@ -123,6 +123,8 @@ test("running indicator sits in the left indent without shifting session titles"
         subToggle: box(project.querySelector('[data-session-toggle="with-sub"]')),
         subSpinner: box(project.querySelector('[data-task="with-sub"] .conversation-activity')),
         subTitle: box(project.querySelector('[data-task="with-sub"] .conversation-title-text')),
+        subGuide: box(project.querySelector(".subagent-row .subagent-guide")),
+        subAvatar: box(project.querySelector(".subagent-row .agent-avatar")),
         pinnedRow: box(pinned.querySelector('[data-task="pinned-running"]').closest(".conversation-row")),
         pinnedSpinner: box(pinned.querySelector('[data-task="pinned-running"] .conversation-activity')),
         pinnedTitle: box(pinned.querySelector('[data-task="pinned-running"] .conversation-title-text'))
@@ -143,9 +145,69 @@ test("running indicator sits in the left indent without shifting session titles"
     expect(boxes.subSpinner.right).toBeLessThanOrEqual(boxes.subToggle.right);
     expect(Math.abs(boxes.subTitle.x - boxes.idleTitle.x)).toBeLessThanOrEqual(1);
     expect(Math.abs(boxes.subSpinner.x - boxes.soloSpinner.x)).toBeLessThanOrEqual(1);
+    // A Subagent sits just inside its session: its ant starts a little right of
+    // the title, and the guide that ties them runs clear of the spinner.
+    expect(boxes.subAvatar.x - boxes.subTitle.x).toBeGreaterThanOrEqual(6);
+    expect(boxes.subAvatar.x - boxes.subTitle.x).toBeLessThanOrEqual(14);
+    expect(boxes.subGuide.x).toBeGreaterThan(boxes.subSpinner.right);
     // Pinned rows have no left indent; their spinner stays inside the row before the title.
     expect(boxes.pinnedSpinner.x).toBeGreaterThanOrEqual(boxes.pinnedRow.x);
     expect(boxes.pinnedSpinner.right).toBeLessThanOrEqual(boxes.pinnedTitle.x);
+  } finally {
+    await dashboard.stop();
+  }
+});
+
+test("running motion follows the viewport, page visibility and the effective motion preference", async ({
+  page
+}) => {
+  const dashboard = await startDashboard();
+  try {
+    await createTask(page, dashboard, {
+      taskId: "motion-task",
+      goal: "观察运行状态",
+      projectId: dashboard.projectId
+    });
+    await markTaskRunning(dashboard, { taskId: "motion-task", runId: "motion-run" });
+    await page.goto(dashboard.base);
+    const ring = page.locator('[data-task="motion-task"] .conversation-activity');
+    const rotations = () =>
+      ring.evaluate(
+        (node) => node.getAnimations({ subtree: true }).filter((a) => a.animationName === "ui-spin").length
+      );
+    await expect.poll(rotations).toBe(1);
+    const scroll = page.locator("[data-sidebar-scroll]");
+    await scroll.evaluate((node) => {
+      const spacer = document.createElement("div");
+      spacer.style.minHeight = "150vh";
+      node.append(spacer);
+      node.scrollTop = node.scrollHeight;
+    });
+    await expect(ring).not.toBeInViewport();
+    await expect.poll(rotations).toBe(0);
+    await scroll.evaluate((node) => {
+      node.scrollTop = 0;
+    });
+    await expect.poll(rotations).toBe(1);
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await expect.poll(rotations).toBe(0);
+    await expect(ring).toHaveAccessibleName("运行中");
+    await page.evaluate(() => {
+      document.documentElement.dataset.reducedMotion = "off";
+    });
+    await expect.poll(rotations).toBe(1);
+    // Headless tabs don't consistently background one another. Dispatch the
+    // browser visibility event through the same listener used by the app.
+    await page.evaluate(() => {
+      Object.defineProperty(document, "hidden", { value: true, configurable: true });
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+    await expect.poll(rotations).toBe(0);
+    await page.evaluate(() => {
+      delete document.hidden;
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+    await expect.poll(rotations).toBe(1);
   } finally {
     await dashboard.stop();
   }

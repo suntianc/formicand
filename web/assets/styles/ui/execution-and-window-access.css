@@ -22,7 +22,6 @@
   height: 5px;
   box-shadow: none;
   background: var(--ui-muted);
-  animation: none;
 }
 .workflow-rail {
   padding: 0;
@@ -358,15 +357,6 @@
 }
 .reasoning-details[open] .reasoning-chevron {
   transform: rotate(90deg);
-}
-@media (prefers-reduced-motion: reduce) {
-  .reasoning-chevron {
-    transition: none;
-  }
-  .tool-chevron,
-  .history-chevron {
-    transition: none;
-  }
 }
 @container conversation-pane (max-width: 380px) {
   .reasoning-state {

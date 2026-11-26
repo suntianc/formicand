@@ -48,6 +48,7 @@ test(
     for (const key of Object.keys(process.env))
       if (/^(FORMICAND_|PI_|FORMICAND_|ELECTRON_)/.test(key)) delete process.env[key];
     process.env.FORMICAND_DISABLE_MAIN_GUARDIAN = "1";
+    process.env.FORMICAND_DISABLE_SESSION_TITLES = "1";
     process.env.PI_OFFLINE = "1";
     process.env.PI_TELEMETRY = "0";
     const paths = desktopPaths(root, join(base, "home"), {});
@@ -113,6 +114,7 @@ test(
     for (const key of Object.keys(process.env))
       if (/^(FORMICAND_|PI_|FORMICAND_|ELECTRON_)/.test(key)) delete process.env[key];
     process.env.FORMICAND_DISABLE_MAIN_GUARDIAN = "1";
+    process.env.FORMICAND_DISABLE_SESSION_TITLES = "1";
     process.env.PI_OFFLINE = "1";
     process.env.PI_TELEMETRY = "0";
     const hosts = [];
@@ -216,6 +218,7 @@ test(
         FORMICAND_GLOBAL_INDEX: paths.globalIndex,
         PI_CODING_AGENT_DIR: paths.piAgentDir,
         FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
+        FORMICAND_DISABLE_SESSION_TITLES: "1",
         PI_OFFLINE: "1"
       },
       stdio: ["ignore", "pipe", "pipe"]
@@ -273,6 +276,7 @@ test(
     process.env.FORMICAND_HARNESS_ROOT = root;
     process.env.FORMICAND_WORKSPACE = join(base, "workspace");
     process.env.FORMICAND_DISABLE_MAIN_GUARDIAN = "1";
+    process.env.FORMICAND_DISABLE_SESSION_TITLES = "1";
     process.env.PI_OFFLINE = "1";
     process.env.FORMICAND_API_TOKEN = "synthetic-host-token";
     const port = await new Promise((done, fail) => {

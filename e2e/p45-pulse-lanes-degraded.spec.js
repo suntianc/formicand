@@ -135,7 +135,7 @@ test("a node without metrics falls back to stage blocks and reduced motion refre
     await expect(page.locator('[data-observe-panel="runs"]')).toHaveAttribute("data-motion", "live");
 
     const headAnimation = () =>
-      liveLane.locator(".runs-head").evaluate((node) => getComputedStyle(node).animationName);
+      liveLane.locator(".runs-head").evaluate((node) => getComputedStyle(node, "::before").animationName);
     await expect.poll(headAnimation).toBe("runs-head-pulse");
 
     // Reduced motion turns the wave into a static snapshot refreshed on a timer.

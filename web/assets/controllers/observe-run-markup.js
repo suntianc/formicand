@@ -148,7 +148,7 @@ export function createObserveRunMarkup(subsShown) {
     const finished = lane.endedAt !== undefined;
     return `<div class="runs-lane${lane.stalled ? " is-stalled" : ""}${
       finished ? " is-finished" : ""
-    }" data-runs-lane="${esc(lane.task.taskId)}" data-stage="${lane.stage.key}" data-stalled="${
+    }" data-view-key="lane:${esc(lane.task.taskId)}" data-runs-lane="${esc(lane.task.taskId)}" data-stage="${lane.stage.key}" data-stalled="${
       lane.stalled
     }" data-degraded="${degraded}" data-finished="${finished}">
       <div class="runs-lane-label">
@@ -240,7 +240,7 @@ export function createObserveRunMarkup(subsShown) {
           </svg>
           ${head}
         </div>`;
-    return `<div class="runs-sublane" data-runs-agent="${esc(agent.agentId)}" data-state="${esc(agent.state)}">
+    return `<div class="runs-sublane" data-view-key="agent:${esc(lane.task.taskId)}:${esc(agent.agentId)}" data-runs-agent="${esc(agent.agentId)}" data-state="${esc(agent.state)}">
       <div class="runs-sublane-label">
         <span class="runs-branch" aria-hidden="true"></span>
         <span class="runs-role">${esc(role)}</span>
@@ -306,7 +306,7 @@ export function createObserveRunMarkup(subsShown) {
     } else {
       body = lanes.map((lane) => laneMarkup(lane, plan)).join("");
     }
-    return `<section class="runs-node" data-runs-node="${esc(node.origin)}" data-role="${
+    return `<section class="runs-node" data-view-key="node:${esc(node.origin)}" data-runs-node="${esc(node.origin)}" data-role="${
       external ? "external" : "internal"
     }">
       <header class="runs-node-head">
@@ -322,7 +322,7 @@ export function createObserveRunMarkup(subsShown) {
   function offlineMarkup(node, at) {
     const status = ui(NODE_STATUS_LABEL[node.status] ?? "离线");
     const seen = node.lastSeen ? `${status} · ${formatStamp(node.lastSeen, "relative", at)}` : status;
-    return `<section class="runs-node is-offline" data-runs-node="${esc(node.origin)}">
+    return `<section class="runs-node is-offline" data-view-key="node:${esc(node.origin)}" data-runs-node="${esc(node.origin)}">
       ${icon("server")}
       <span class="runs-node-name">${esc(node.name)}</span>
       <span class="runs-node-dot" aria-hidden="true"></span>

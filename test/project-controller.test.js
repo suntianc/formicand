@@ -85,6 +85,23 @@ test("empty projects remain visible and project navigation creates only a draft"
   assert.deepEqual(f.began, ["b", "b"]);
 });
 
+test("catalog refresh keeps the running indicator until the task finishes", (t) => {
+  const f = fixture(t);
+  const task = { taskId: "live", goal: "进行中的会话", projectId: "a", status: "running" };
+  f.state.tasks = [task];
+  f.state.projects[0].tasks = [task];
+  f.controller.render();
+  const indicator = () => f.$('[data-task="live"] .conversation-activity');
+  const original = indicator();
+  assert.ok(original);
+  f.controller.render();
+  assert.equal(indicator(), original);
+  task.status = "completed";
+  f.controller.render();
+  assert.equal(indicator(), null);
+  assert.equal(original.isConnected, false);
+});
+
 test("explicit collaboration can establish a project without changing navigation or drafts", async (t) => {
   const created = { ...project("document"), projectDirectory: "/document-home", projectName: "文档协作" };
   const f = fixture(t, async () => ({ project: created }));

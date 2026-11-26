@@ -61,6 +61,8 @@ e2e/                    浏览器和 Electron 用户流程测试
 | 配置项                     | [config](../src/runtime/config.ts)、[runtime-settings](../src/runtime/runtime-settings.ts)                                                                                             |
 | HTTP 接口                  | [routes](../src/dashboard/routes.ts) 和对应的 `*-routes.ts`、`*-service.ts`                                                                                                            |
 | 页面                       | [app](../web/app.js)、[controllers](../web/assets/controllers/)、[ui](../web/assets/ui/)                                                                                               |
+| 运行指示与动效             | [motion](../web/assets/ui/motion.js)、[CSS 动效](../web/assets/styles/motion.css)、[时长与缓动](../web/assets/ui.css)                                                                  |
+| 桌面动效                   | [播放选择](../web/assets/ui/native-motion.js)、[动效桥](../desktop/motion.cjs)、[系统图层](../desktop/motion.mm)                                                                       |
 | 桌面窗口、IPC、退出        | [main](../desktop/main.cjs)、[preload](../desktop/preload.cjs)                                                                                                                         |
 | CLI 命令                   | [formicand.mjs](../scripts/formicand.mjs)、[src/cli/](../src/cli/)                                                                                                                     |
 | 浏览器和窗口操作           | [browser-use](../src/gui/browser-use.ts)、[computer-use](../src/gui/computer-use.ts)、[输入格式](../src/gui/browser-contracts.ts)、[Pi 工具](../.pi/runtime/tools/browser-use.ts)      |
@@ -115,7 +117,7 @@ Main 和子代理都是独立的 Pi coding agent（`@earendil-works/pi-coding-ag
 
 **完成判定由程序做。** 状态和输出落盘后才算完成，不能拿最后一条回复代替。完成判定会检查有没有没结束的派单、后台任务、待回答的提问和未读消息。
 
-**会话与上下文。** Pi 自己保存追加式会话记录。上下文快满时由 Formicand 换窗：模型写总结，程序带上必要的记录，接着在同一会话里继续。会话笔记和历史查询按会话隔离。
+**会话与上下文。** Pi 自己保存追加式会话记录。上下文快满时由 Formicand 换窗：模型写总结，程序带上必要的记录，接着在同一会话里继续。总结和新会话的标题由主机设置的辅助模型写（`src/runtime/utility-model.ts`，标题在 `src/dashboard/session-titles.ts`），没设置或请求失败时用会话自己的模型。会话笔记和历史查询按会话隔离。
 
 ## 需求交付流程
 

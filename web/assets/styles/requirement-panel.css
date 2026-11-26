@@ -250,7 +250,7 @@ html[data-theme] .agent-pane {
   stroke: var(--color-line-strong);
   stroke-width: 1.5;
   stroke-linecap: round;
-  transition: stroke var(--motion-fast, 0.15s);
+  transition: stroke var(--motion-fast);
 }
 .rp-node.is-current .rp-arc:not(.is-done) {
   stroke: var(--color-review);

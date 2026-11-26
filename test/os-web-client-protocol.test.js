@@ -51,6 +51,7 @@ async function createRoot(prefix, overrides = {}) {
     FORMICAND_GLOBAL_INDEX: join(home, "runtime", "workspaces.json"),
     FORMICAND_CONFIG: configPath,
     FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
+    FORMICAND_DISABLE_SESSION_TITLES: "1",
     ...overrides
   });
   return { base, home, workspace, project, env };
@@ -249,8 +250,8 @@ test("opening a PDF reads the bound backend's file through its authorized sessio
     selected: "shared-task",
     detail: { artifacts: [artifact] },
     artifactDrawerOpen: true,
-    previewPath: artifact.relativePath,
-    openFiles: [artifact.relativePath],
+    drawerTab: `attachment:${artifact.relativePath}`,
+    openFiles: [`attachment:${artifact.relativePath}`],
     artifactCache: new Map([
       [artifact.relativePath, { status: "ready", signature: artifactVersion(artifact), previewKind: "pdf" }]
     ])

@@ -126,6 +126,7 @@ function childEnvironment(f) {
     FORMICAND_HARNESS_ROOT: harness,
     FORMICAND_WORKSPACE: f.workspace,
     FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
+    FORMICAND_DISABLE_SESSION_TITLES: "1",
     FORMICAND_API_BASE: f.provider.baseUrl,
     FORMICAND_API_KEY: "{{SECRET_p46_message_key}}",
     FORMICAND_MODEL: MODEL,

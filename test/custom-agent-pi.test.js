@@ -121,6 +121,7 @@ async function setup(t, handle, ports = {}) {
     FORMICAND_HARNESS_ROOT: harness,
     FORMICAND_WORKSPACE: workspace,
     FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
+    FORMICAND_DISABLE_SESSION_TITLES: "1",
     FORMICAND_API_BASE: provider.baseUrl,
     FORMICAND_API_KEY: API_KEY,
     FORMICAND_MODEL: MODEL,
@@ -372,6 +373,7 @@ test("Main is told which Agents exist and can name one in call_subagent", { time
       FORMICAND_RUN_ID: "main-agents-run",
       PI_CODING_AGENT_DIR: join(root, "pi"),
       FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
+      FORMICAND_DISABLE_SESSION_TITLES: "1",
       PI_OFFLINE: "1"
     })
   });

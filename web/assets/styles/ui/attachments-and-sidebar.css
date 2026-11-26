@@ -310,15 +310,12 @@
   background: var(--ui-warning);
 }
 .conversation-activity:is([data-state="running"], [data-state="leased"]) {
+  --spinner-duration: var(--motion-spin-status);
+  background: transparent;
+}
+.conversation-activity:is([data-state="running"], [data-state="leased"])::before {
   border: 1.5px solid var(--ui-secondary);
   border-right-color: transparent;
-  background: transparent;
-  animation: ui-spin 1s linear infinite;
-}
-@media (prefers-reduced-motion: reduce) {
-  .conversation-activity {
-    animation: none;
-  }
 }
 @media (hover: none) {
   .project-heading :is(.project-settings, .project-create) {

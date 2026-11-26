@@ -734,7 +734,11 @@ test("tool rows show delegation purpose and avoid repeating an already visible s
   assert.equal(document.querySelectorAll(".tool-step").length, 1);
   assert.equal(document.querySelector(".tool-step .tool-context"), null);
   const group = document.querySelector(".subagent-group");
-  assert.match(group.querySelector(".activity-step-head").textContent, /派出 1 个子助手/);
+  assert.deepEqual(
+    [...group.children].map((node) => node.className),
+    ["subagent-step is-done"],
+    "the row is the whole group, with no dispatch header above it"
+  );
   const agent = group.querySelector(".subagent-step > .activity-step-head");
   assert.equal(agent.querySelector("strong").textContent, "Ara");
   assert.equal(agent.querySelector(".subagent-role-tag").textContent, "执行");
@@ -765,6 +769,30 @@ test("a delegate row wears its genus's ant once the agent is known", () => {
     row.querySelector(".agent-avatar").getAttribute("style"),
     /ant-02-light\.webp.*ant-02-dark\.webp/
   );
+});
+
+test("a delegate row waits for its dispatch to return and then appears whole", () => {
+  const { document, state, render } = fixture("delegate-pending", "");
+  state.detail.runtimeEvents.push(
+    update("toolcall_end", 1, {
+      toolCall: { id: "dispatch", name: "call_subagent", arguments: { role: "reviewer", task: "复审返修" } }
+    }),
+    { type: "tool_execution_start", toolCallId: "dispatch", toolName: "call_subagent" }
+  );
+  render();
+  assert.equal(document.querySelector(".subagent-group"), null);
+  assert.ok(document.querySelector(".thinking-spinner"), "Main still reads as working meanwhile");
+  state.detail.runtimeEvents.push({
+    type: "tool_execution_end",
+    toolCallId: "dispatch",
+    result: { details: { accepted: true, callId: "call-one", agentId: "subagent_2", name: "Lasius" } }
+  });
+  render();
+  const head = document.querySelector(".subagent-group > .subagent-step > .activity-step-head");
+  assert.ok(head.querySelector(".agent-avatar"));
+  assert.equal(head.querySelector("strong").textContent, "Lasius");
+  assert.equal(head.querySelector(".subagent-role-tag").textContent, "审查");
+  assert.equal(head.querySelector(".tool-subject").textContent, "复审返修");
 });
 
 test("all tool diagnostic sections retain independent reading positions through updates and collapse", () => {
@@ -1258,6 +1286,11 @@ test("thought blocks render flat inline before and after a tool and preserve seg
   assert.equal(copies.length, 2);
   assert.match(copies[0].textContent, /先核对第一部分。/);
   assert.match(copies[1].textContent, /根据工具结果核对第二部分。/);
+  assert.deepEqual(
+    copies.map((copy) => copy.previousElementSibling?.className),
+    ["reasoning-mark", "reasoning-mark"],
+    "each thought wears the thought mark in the tools' status column"
+  );
   assert.equal(document.querySelectorAll(".reasoning-details, .activity-raw").length, 0);
   assert.equal(document.querySelectorAll(".process-segment.is-live > summary .thinking-spinner").length, 1);
   const answer = {
@@ -1432,7 +1465,10 @@ test("a finished round folds into a top 用时 summary without a bottom endline 
     "读取了 1 个文件 · 运行了 1 条命令"
   );
   assert.equal(document.querySelector(".process-segment .tool-step"), null);
-  assert.match(document.querySelector(".subagent-group").textContent, /派出 2 个子助手/);
+  assert.deepEqual(
+    [...document.querySelectorAll(".subagent-step strong")].map((node) => node.textContent),
+    ["Apus", "Pavo"]
+  );
   // Expand L1 process segment -> L2 mounts individual tool rows.
   expandDetails(document, ".process-segment", render, [user, answer]);
   assert.equal(document.querySelectorAll(".process-segment .tool-step").length, 2);
@@ -1846,11 +1882,33 @@ test("a person's message keeps its own lines instead of being read as Markdown",
   );
 });
 
+test("a round waiting on its Subagents titles its last steps with the wait, then with what was done", () => {
+  const { document, state, render } = fixture("waiting-summary", "");
+  for (const [index, id] of ["one", "two"].entries())
+    state.detail.runtimeEvents.push(
+      update("toolcall_end", index + 1, { toolCall: { id, name: "get_task_status", arguments: {} } }),
+      { type: "tool_execution_end", toolCallId: id, toolName: "get_task_status", result: { content: [] } }
+    );
+  state.detail.runtime.active = false;
+  state.detail.coordination = { calls: [], pending: ["a", "b"], callbackPending: [] };
+  render();
+  const label = () => document.querySelector(".process-segment > summary .process-segment-label").textContent;
+  assert.equal(label(), "等待 2 个子助手的结果");
+  state.detail.coordination = { calls: [], pending: [], callbackPending: [] };
+  render();
+  assert.equal(label(), "执行了 2 项操作");
+});
+
 test("parking hides the pending thought until the next turn starts", () => {
   const { state, document, render } = fixture("parked");
   state.detail.parked = { wakeAt: "2026-11-23T03:06:21Z" };
   state.detail.runtimeEvents = [
-    { type: "tool_execution_start", toolCallId: "sleep", toolName: "sleep_until" },
+    {
+      type: "tool_execution_start",
+      toolCallId: "sleep",
+      toolName: "sleep_until",
+      args: { wakeInSeconds: 300 }
+    },
     {
       type: "tool_execution_end",
       toolCallId: "sleep",
@@ -1862,6 +1920,11 @@ test("parking hides the pending thought until the next turn starts", () => {
   assert.doesNotMatch(document.querySelector("#conversation").textContent, /思考中/);
   expandDetails(document, ".process-segment", render);
   assert.match(document.querySelector("#conversation").textContent, /等待新的进展/);
+  assert.equal(
+    document.querySelector(".process-segment > summary .process-segment-label").textContent,
+    "等待新的进展",
+    "the parked round's summary says what it waits for"
+  );
   assert.doesNotMatch(document.querySelector("#conversation").textContent, /思考中/);
   delete state.detail.parked;
   state.detail.runtimeEvents.push({ type: "turn_start" });

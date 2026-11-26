@@ -293,7 +293,6 @@ body {
   border-radius: 50%;
   background: #d4d4d4;
   box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.07);
-  animation: pulse 1.6s infinite;
 }
 .workflow-turn {
   margin-top: 5px;
@@ -334,7 +333,7 @@ body {
   font-size: 18px;
   line-height: 1;
   transform: rotate(0deg);
-  transition: transform 0.15s;
+  transition: transform var(--motion-disclosure);
 }
 .reasoning-block[open] summary::before,
 .tool-call-card[open] summary::before {
@@ -415,7 +414,6 @@ body {
   text-transform: uppercase;
 }
 .live-workflow.is-complete .live-pulse {
-  animation: none;
   background: #777;
   box-shadow: none;
 }
@@ -447,7 +445,7 @@ body {
   color: #777;
   font-size: 19px;
   line-height: 1;
-  transition: transform 0.15s;
+  transition: transform var(--motion-disclosure);
 }
 .execution-history[open] > summary::before {
   transform: rotate(90deg);

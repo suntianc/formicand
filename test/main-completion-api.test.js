@@ -124,6 +124,7 @@ async function fixture(t, handle, maxTurns = 20, env = {}) {
       FORMICAND_MODEL: "glm-5.3",
       PI_CODING_AGENT_DIR: join(root, "pi-agent"),
       FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
+      FORMICAND_DISABLE_SESSION_TITLES: "1",
       FORMICAND_WEB_TOOLS: "0",
       FORMICAND_MAIN_MAX_TURNS: String(maxTurns),
       ...env
@@ -490,8 +491,13 @@ for (const mode of ["wait tool", "premature answer"]) {
         Boolean,
         "two running Subagents and Main wait/stop"
       );
-      let detail = await f.detail();
-      assert.equal(detail.runtime.active, true);
+      // In the wait tool Main's turn is still running; after a premature
+      // answer the turn has settled and Main waits for the callbacks.
+      const waiting = (value) =>
+        mode === "wait tool"
+          ? value.runtime.active
+          : !value.runtime.active && value.task.status === "waiting";
+      let detail = await until(f.detail, waiting, "Main waiting for its Subagents");
       assert.notEqual(detail.task.status, "completed");
       if (mode === "wait tool")
         await until(
@@ -511,8 +517,8 @@ for (const mode of ["wait tool", "premature answer"]) {
       );
       detail = await f.detail();
       assert.notEqual(detail.task.status, "completed");
-      assert.equal(detail.runtime.active, true);
       if (mode === "wait tool") {
+        assert.equal(detail.runtime.active, true);
         // A callback that settles while Main is inside a tool must not be
         // injected into that turn: it stays in the Inbox until the tool reads
         // it. Both facts are durable, so assert them on the Inbox record and on
@@ -708,7 +714,12 @@ test(
       { FORMICAND_MAX_ATTEMPTS: "3" }
     );
     await f.start();
-    const detail = await until(f.detail, (value) => !value.runtime.active, "retried task completion", 30_000);
+    const detail = await until(
+      f.detail,
+      (value) => !value.runtime.active && value.task.status === "completed",
+      "retried task completion",
+      30_000
+    );
     assert.equal(subagentRequests, 2);
     assert.equal(detail.task.status, "completed");
     assert.equal(detail.task.completion.signal, "finish_task");

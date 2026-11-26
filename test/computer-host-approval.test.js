@@ -18,6 +18,7 @@ async function fixture(t, options = {}) {
     FORMICAND_CONFIG: join(root, "config.json"),
     FORMICAND_API_TOKEN: "business-fixture-token",
     FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
+    FORMICAND_DISABLE_SESSION_TITLES: "1",
     PI_OFFLINE: "1"
   });
   await writeFile(join(root, "config.json"), "{}\n");

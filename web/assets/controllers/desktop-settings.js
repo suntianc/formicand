@@ -2,6 +2,7 @@ import { ui } from "../ui/language.js";
 import { installWebSearchSettings } from "./web-search-settings.js";
 import { createSettingsBackend } from "./settings-backend.js";
 import { installModelProviders } from "./model-providers.js";
+import { installUtilityModelSettings } from "./utility-model-settings.js";
 
 /** Both hosts share one settings UI; keys are submitted once and never read back. */
 export function installDesktopSettings({ showToast, onSaved, host, api, identity = () => location.origin }) {
@@ -48,6 +49,20 @@ export function installDesktopSettings({ showToast, onSaved, host, api, identity
     identity
   });
   host?.onSection?.("models", () => void models.refresh());
+  const utilitySelect = document.querySelector("#utility-model-select");
+  if (utilitySelect) {
+    const utility = installUtilityModelSettings({
+      select: utilitySelect,
+      request,
+      status: () => {
+        settingsBackend.bind();
+        return request("GET");
+      },
+      showToast,
+      errorMessage
+    });
+    host?.onSection?.("general", () => void utility.refresh());
+  }
   installWebSearchSettings({ showToast, host, api, identity });
   return {
     /** Open settings on the model page; without providers the add dialog opens too. */

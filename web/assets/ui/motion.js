@@ -1,34 +1,207 @@
-/**
- * Motion shared by the page (#12). The durations and curves live as tokens in
- * formicand.css (`--motion-*`, `--ease-*`); this module reads the reduced
- * motion choice and moves a selection's background between options.
- */
+import { installNativeMotion } from "./native-motion.js";
 
-/** Settings can force reduced motion on or off; otherwise the system decides. */
-export function reducedMotion() {
-  const choice = document.documentElement.dataset.reducedMotion;
-  if (choice === "reduce") return true;
-  if (choice === "off") return false;
-  return Boolean(window.matchMedia?.("(prefers-reduced-motion: reduce)").matches);
-}
-
-/** What `animate` hands back when nothing moves: already finished. */
+/** Shared playback for the browser and Electron renderer. */
+let nativeSymbol;
+const activeTransitions = new Set();
 const STILL = Object.freeze({ finished: Promise.resolve(), cancel() {} });
 
-/**
- * Runs a Web Animation on `node`, or nothing. Under reduced motion, and in a
- * DOM without the Web Animations API (the Node test DOM), the element simply
- * shows its end state; either way the result has `finished` and `cancel`, so
- * a caller can wait on it the same way.
- */
-export function animate(node, keyframes, options) {
-  if (typeof node.animate !== "function" || reducedMotion()) return STILL;
-  return node.animate(keyframes, options);
+export function reducedMotion() {
+  const choice = globalThis.document?.documentElement.dataset.reducedMotion;
+  if (choice === "reduce") return true;
+  if (choice === "off") return false;
+  return Boolean(globalThis.window?.matchMedia?.("(prefers-reduced-motion: reduce)").matches);
+}
+
+export function onMotionPreferenceChange(callback) {
+  const media = globalThis.window?.matchMedia?.("(prefers-reduced-motion: reduce)");
+  let previous = reducedMotion();
+  const update = () => {
+    const next = reducedMotion();
+    if (next === previous) return;
+    previous = next;
+    callback(next);
+  };
+  media?.addEventListener?.("change", update);
+  const unsubscribe = globalThis.window?.formicandPreferences?.onChange?.(update);
+  return () => {
+    media?.removeEventListener?.("change", update);
+    unsubscribe?.();
+  };
+}
+
+/** Repeating CSS animations register on start, including pseudo-elements.
+ * Watch their actual clipping ancestor when the drawing is a wide frame strip.
+ * Animation.finished also settles on removal, even after the target detached. */
+export function installMotion() {
+  const loops = new Map();
+  function syncLoop(animation, visible) {
+    if (!animation.effect.target || animation.playState === "idle" || animation.playState === "finished")
+      return;
+    if (visible && !document.hidden && !animation.effect.target.closest("[data-native-motion]"))
+      animation.play();
+    else animation.pause();
+  }
+  const viewport = new IntersectionObserver(
+    (entries) => {
+      for (const { target, intersectionRatio } of entries) {
+        const visible = intersectionRatio > 0;
+        if (target.localName === "formicand-spinner") {
+          if (target.isConnected) target.toggleAttribute("data-in-viewport", visible);
+        } else {
+          const group = loops.get(target);
+          if (!group) continue;
+          group.visible = visible;
+          for (const animation of group.animations) syncLoop(animation, visible);
+        }
+      }
+    },
+    { threshold: [0, 0.001] }
+  );
+  customElements.define(
+    "formicand-spinner",
+    class extends HTMLElement {
+      connectedCallback() {
+        viewport.observe(this);
+      }
+      disconnectedCallback() {
+        viewport.unobserve(this);
+        this.removeAttribute("data-in-viewport");
+      }
+    }
+  );
+
+  const watch = (animation) => {
+    if (!animation.animationName || animation.effect.getTiming().iterations <= 1) return;
+    const element = animation.effect.target;
+    if (!element || element.localName === "formicand-spinner") return;
+    const host = element.closest(".ant-mark") || element;
+    let group = loops.get(host);
+    if (!group) {
+      group = { visible: false, animations: new Set() };
+      loops.set(host, group);
+      viewport.observe(host);
+    }
+    if (group.animations.has(animation)) return;
+    group.animations.add(animation);
+    syncLoop(animation, group.visible);
+    const release = () => {
+      group.animations.delete(animation);
+      if (!group.animations.size) {
+        viewport.unobserve(host);
+        loops.delete(host);
+      }
+    };
+    animation.finished.then(release, release);
+  };
+  document.addEventListener("animationstart", (event) => {
+    const element = event.target;
+    if (element.localName === "formicand-spinner") return;
+    for (const animation of element.getAnimations({ subtree: Boolean(event.pseudoElement) })) {
+      if (animation.animationName === event.animationName) watch(animation);
+    }
+  });
+  for (const animation of document.getAnimations()) watch(animation);
+  const settle = () => {
+    for (const animation of activeTransitions) {
+      if (animation.playState !== "idle") animation.finish();
+    }
+  };
+  const syncPage = () => {
+    document.documentElement.classList.toggle("is-page-hidden", document.hidden);
+    if (document.hidden) settle();
+    for (const group of loops.values()) {
+      for (const animation of group.animations) syncLoop(animation, group.visible);
+    }
+  };
+  nativeSymbol = installNativeMotion(
+    window.formicandDesktop?.motion,
+    reducedMotion,
+    onMotionPreferenceChange
+  );
+  syncPage();
+  document.addEventListener("visibilitychange", syncPage);
+  onMotionPreferenceChange((reduce) => {
+    if (reduce) settle();
+  });
+}
+
+const entrance = (transform) => [
+  { opacity: 0, transform },
+  { opacity: 1, transform: "none" }
+];
+const check = (start, opacity, peak) => [
+  { transform: `scale(${start})`, opacity },
+  { transform: `scale(${peak})`, opacity: 1, offset: 0.6 },
+  { transform: "scale(1)" }
+];
+const effects = {
+  fade: { duration: "fade", easing: "out", frames: [{ opacity: 0 }, { opacity: 1 }] },
+  message: { duration: "arrival", frames: entrance("translateY(6px)") },
+  dialog: { duration: "base", frames: entrance("translateY(6px) scale(0.97)") },
+  usage: { duration: "base", frames: entrance("translateY(6px) scale(0.98)") },
+  copied: { duration: "copy", easing: "out", frames: check(0.6, 0.4, 1.12) },
+  checked: { duration: "check", easing: "out", frames: check(0.5, 0.3, 1.15), fill: "backwards" },
+  fold: { duration: "base" },
+  move: { duration: "layout" },
+  selection: { duration: "glide", easing: "glide", fill: "both" },
+  scrollShow: { duration: "fast", easing: "out" },
+  scrollHide: { duration: "scroll-hide", easing: "out" }
+};
+
+/** Components supply measured geometry and logical order. Timing, curves and
+ * reduced-motion completion are shared with the declarative CSS effects. */
+export function playMotion(node, name, { frames, fill, order = 0, distance = 1 } = {}) {
+  if (typeof node.animate !== "function" || document.hidden || reducedMotion()) return STILL;
+  const effect = effects[name];
+  const style = getComputedStyle(document.documentElement);
+  const glyph =
+    nativeSymbol &&
+    !frames &&
+    (name === "copied" || name === "checked") &&
+    node.matches("svg.ui-icon") &&
+    node.querySelector(':scope > use[href="#i-check"]');
+  const animation = (glyph || node).animate(frames ?? effect.frames, {
+    duration: motionDuration("--motion-" + effect.duration, 0, style) * distance,
+    delay: order && motionDuration("--motion-stagger", 0, style) * order,
+    easing: style.getPropertyValue("--ease-" + (effect.easing ?? "standard")).trim(),
+    fill: fill ?? effect.fill ?? "none"
+  });
+  if (glyph) nativeSymbol(animation, name);
+  activeTransitions.add(animation);
+  const release = () => activeTransitions.delete(animation);
+  animation.finished.then(release, release);
+  return animation;
+}
+
+/** Keep a keyed indicator's phase when a rendering replaces its DOM node.
+ * Stable nodes keep advancing (or stay paused) on the browser timeline. */
+export function rememberMotionPhase() {
+  const entries = new Map();
+  return {
+    restore(nodes, keyOf) {
+      const now = performance.now();
+      for (const node of nodes) {
+        const key = keyOf(node);
+        const previous = entries.get(key);
+        if (previous?.node === node) continue;
+        const start = previous?.start ?? now;
+        entries.set(key, { node, start });
+        if (previous) {
+          for (const animation of node.getAnimations?.({ subtree: true }) ?? [])
+            animation.currentTime = now - start;
+        }
+      }
+      for (const [key, entry] of entries) if (!entry.node.isConnected) entries.delete(key);
+    },
+    clear() {
+      entries.clear();
+    }
+  };
 }
 
 /** A token's duration in milliseconds, so scripted motion keeps the CSS timing. */
-export function motionDuration(name, fallback) {
-  const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+function motionDuration(name, fallback, style = getComputedStyle(document.documentElement)) {
+  const value = style.getPropertyValue(name).trim();
   const number = Number.parseFloat(value);
   if (!Number.isFinite(number)) return fallback;
   return value.endsWith("ms") ? number : number * 1000;
@@ -145,6 +318,7 @@ export function installSelectionGlide({ root = document, groups = SELECTION_GROU
     .join("\n");
   document.head.append(style);
   const flights = new Map();
+  const pending = new Map();
   const keyOf = (group, node) => (group.key ? group.key(node) : node);
   const selected = (group, host) =>
     [...host.querySelectorAll(group.item)].find((node) => node.closest(group.host) === host);
@@ -175,16 +349,10 @@ export function installSelectionGlide({ root = document, groups = SELECTION_GROU
     layer.prepend(ghost);
     const origin = ghost.getBoundingClientRect();
     host.dataset.gliding = [host.dataset.gliding, group.name].filter(Boolean).join(" ");
-    const animation = ghost.animate(
-      [frame(from, origin), frame(stretched(from, to), origin), frame(to, origin)],
-      {
-        duration: motionDuration("--motion-glide", 280),
-        easing:
-          getComputedStyle(document.documentElement).getPropertyValue("--ease-glide").trim() || "ease-out",
-        fill: "both"
-      }
-    );
-    flights.set(host, { ghost, animation });
+    const animation = playMotion(ghost, "selection", {
+      frames: [frame(from, origin), frame(stretched(from, to), origin), frame(to, origin)]
+    });
+    flights.set(host, { ghost, animation, group });
     const done = () => {
       if (flights.get(host)?.animation === animation) settle(host, group);
     };
@@ -192,25 +360,38 @@ export function installSelectionGlide({ root = document, groups = SELECTION_GROU
   }
 
   function watch(group, host) {
+    pending.get(host)?.();
     const flight = flights.get(host);
     const current = selected(group, host);
     // A second choice mid-flight starts where the moving surface is now.
     const from = flight ? flight.ghost.getBoundingClientRect() : current?.getBoundingClientRect();
     if (!from || !current) return;
     const before = keyOf(group, current);
-    const until = performance.now() + WATCH_MS;
-    const check = () => {
-      if (!host.isConnected) return;
+    // Watch only the active group while waiting for its selection to change.
+    const observer = new MutationObserver(() => {
+      if (!host.isConnected || document.hidden || reducedMotion()) return stop();
       const next = selected(group, host);
-      if (next && keyOf(group, next) !== before) {
-        if (flights.has(host)) {
-          flights.get(host).animation.cancel();
-          settle(host, group);
-        }
-        glide(group, host, from, next);
-      } else if (performance.now() < until) requestAnimationFrame(check);
+      if (!next || keyOf(group, next) === before) return;
+      stop();
+      if (flights.has(host)) {
+        flights.get(host).animation.cancel();
+        settle(host, group);
+      }
+      glide(group, host, from, next);
+    });
+    const stop = () => {
+      observer.disconnect();
+      clearTimeout(timeout);
+      pending.delete(host);
     };
-    requestAnimationFrame(check);
+    const timeout = setTimeout(stop, WATCH_MS);
+    pending.set(host, stop);
+    observer.observe(host, {
+      subtree: true,
+      childList: true,
+      attributes: true,
+      attributeFilter: ["class", "aria-selected", "aria-checked", "aria-pressed", "aria-current"]
+    });
   }
 
   const start = (event) => {
@@ -228,6 +409,11 @@ export function installSelectionGlide({ root = document, groups = SELECTION_GROU
     destroy() {
       root.removeEventListener("pointerdown", start, true);
       root.removeEventListener("keydown", start, true);
+      for (const stop of pending.values()) stop();
+      for (const [host, { animation, group }] of flights) {
+        animation.cancel();
+        settle(host, group);
+      }
       style.remove();
     }
   };

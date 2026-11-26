@@ -246,7 +246,6 @@ export function createSessionCatalog({
     state.projects = [];
     state.projectsLoaded = false;
     state.localMessages = [];
-    state.previewPath = null;
     state.artifactDrawerOpen = false;
     state.openFiles = [];
     state.artifactCache.clear();
@@ -384,10 +383,8 @@ export function createSessionCatalog({
         state.viewerTaskId = taskId;
         state.openFiles = [];
         state.artifactCache.clear();
-        state.previewPath = null;
         state.drawerTab = null;
         state.drawerFile = null;
-        state.drawerDiff = null;
         state.artifactDrawerOpen = false;
         resetRequirements(taskId);
       }

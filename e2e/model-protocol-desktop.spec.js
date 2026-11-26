@@ -29,6 +29,7 @@ for (const reasoningEffort of ["off", "max"]) {
       FORMICAND_HOME: join(root, "home"),
       PI_CODING_AGENT_DIR: join(root, "pi"),
       FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
+      FORMICAND_DISABLE_SESSION_TITLES: "1",
       PI_OFFLINE: "1"
     };
     for (const name of Object.keys(env))
@@ -39,6 +40,7 @@ for (const reasoningEffort of ["off", "max"]) {
           "FORMICAND_HOME",
           "PI_CODING_AGENT_DIR",
           "FORMICAND_DISABLE_MAIN_GUARDIAN",
+          "FORMICAND_DISABLE_SESSION_TITLES",
           "PI_OFFLINE"
         ].includes(name)
       )

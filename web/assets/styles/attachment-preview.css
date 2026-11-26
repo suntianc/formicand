@@ -126,7 +126,7 @@ html[data-theme] .attachment-preview[data-kind="image"] [data-preview-content] {
   user-select: none;
 }
 .attachment-preview[data-kind="image"] [data-preview-content] img.is-easing {
-  transition: transform var(--motion-base, 200ms) var(--ease-standard, ease-out);
+  transition: transform var(--motion-base) var(--ease-standard);
 }
 .attachment-preview[data-kind="image"][data-zoomed="true"] [data-preview-content] img {
   cursor: grab;

@@ -115,6 +115,8 @@ export interface RunServicePorts {
    * fixed for the life of the process.
    */
   resolveMainModel(request: ModelRoleRequest): ResolvedModelRole;
+  /** The host's model for context summaries; absent, or returning undefined, uses Main's. */
+  resolveUtilityModel?: () => ResolvedModelRole | undefined;
   /** The chosen model's own limits from its connection's `/models` entry, when listed (#27). */
   endpointLimits?: (selection: ResolvedModelRole) => Promise<EndpointLimits | undefined>;
   /**
@@ -126,6 +128,8 @@ export interface RunServicePorts {
    * process exits. The process exit calls it again as a fallback.
    */
   onRunSettled?: (taskId: string) => void;
+  /** A resident Main's turn ended, whether its Run goes on waiting or is done. */
+  onTurnSettled?: (location: TaskLocation) => void;
   onRunExit?: (taskId: string) => void;
   onRunFinalized?: (location: TaskLocation, runId: string, status: FinalizedRunStatus) => Promise<void>;
   onTaskCancelling?: (taskId: string) => void;

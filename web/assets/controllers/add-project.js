@@ -91,7 +91,7 @@ export function createAddProjectController({
     row.hidden = false;
     row.className = `add-project-state is-${kind}`;
     row.setAttribute("role", kind === "error" ? "alert" : "status");
-    row.innerHTML = `${icon(kind === "progress" ? "loader-circle" : "circle-alert")}<span>${esc(message)}</span>`;
+    row.innerHTML = `${kind === "progress" ? `<i class="project-progress-icon">${icon("loader-circle")}</i>` : icon("circle-alert")}<span>${esc(message)}</span>`;
   }
 
   function showProgress(progress) {

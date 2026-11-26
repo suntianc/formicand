@@ -273,13 +273,3 @@ html[data-theme] .observe-header {
 }
 
 /* The reduced-motion path keeps the fade and drops the displacement. */
-@media (prefers-reduced-motion: reduce) {
-  :root:not([data-reduced-motion="off"]) body.output-collapsed .agent-pane,
-  :root:not([data-reduced-motion="off"]) body:not(.sidebar-drawer-open) .conversation-sidebar {
-    transform: none;
-  }
-}
-:root[data-reduced-motion="reduce"] body.output-collapsed .agent-pane,
-:root[data-reduced-motion="reduce"] body:not(.sidebar-drawer-open) .conversation-sidebar {
-  transform: none;
-}

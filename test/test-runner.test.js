@@ -129,6 +129,7 @@ test("the shared Dashboard fixture keeps the Main guardian off unless a test opt
   const off = await startDashboard({ defaultProject: false });
   t.after(() => off.stop());
   assert.equal(off.env.FORMICAND_DISABLE_MAIN_GUARDIAN, "1");
+  assert.equal(off.env.FORMICAND_DISABLE_SESSION_TITLES, "1");
 
   const on = await startDashboard({ defaultProject: false, mainGuardian: true });
   t.after(() => on.stop());

@@ -26,7 +26,6 @@ html[data-theme] :is(.thinking-spinner, .workflow-progress-spinner).ant-mark {
   color: var(--color-text-2);
   overflow: hidden;
   /* The wrapper stays still while the strip advances inside it. */
-  animation: none;
 }
 .ant-mark::after {
   content: none !important;
@@ -49,20 +48,6 @@ html[data-theme] :is(.thinking-spinner, .workflow-progress-spinner).ant-mark {
   width: 2400%;
   background: currentColor;
   mask: url("../brand/working-ant-20fps.png") center / 100% 100% no-repeat;
-  animation: ant-frames 1.2s steps(24, end) infinite;
-}
-@keyframes ant-frames {
-  to {
-    transform: translateX(-100%);
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .ant-mark > .ant-frames {
-    animation: none;
-  }
-}
-html.is-page-hidden :is(.ant-mark, .ant-mark *, .shimmer-text, .conversation-activity) {
-  animation-play-state: paused !important;
 }
 
 /* A label that is working gets a light swept across it twice, then rests:
@@ -81,15 +66,6 @@ html.is-page-hidden :is(.ant-mark, .ant-mark *, .shimmer-text, .conversation-act
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent !important;
-  animation: shimmer-sweep 2.2s linear 2;
-}
-@keyframes shimmer-sweep {
-  from {
-    background-position: 100% 0;
-  }
-  to {
-    background-position: -150% 0;
-  }
 }
 
 /* ------------------------------------------------------------ composer */
@@ -104,8 +80,8 @@ html[data-theme] .composer {
     inset 0 1px 0 var(--composer-highlight),
     var(--composer-lift);
   transition:
-    border-color var(--motion-fast, 0.15s),
-    box-shadow var(--motion-fast, 0.15s);
+    border-color var(--motion-fast),
+    box-shadow var(--motion-fast);
 }
 html[data-theme] .composer:focus-within {
   border-color: color-mix(in srgb, var(--color-text) 28%, transparent);
@@ -207,6 +183,10 @@ html[data-theme] .composer .model-logo {
   height: 18px;
   /* The name's lowercase letters sit below its line box's middle; meet them there. */
   transform: translateY(1px);
+}
+html[data-theme] .composer .model-logo .provider-logo-mono {
+  width: 100%;
+  height: 100%;
 }
 html[data-theme] .composer .reasoning-label {
   flex: none;
@@ -332,6 +312,9 @@ html[data-theme] .tool-step .activity-status {
   place-items: center;
   flex: 0 0 16px;
   width: 16px;
+  /* The hidden status words still take a grid row: no gap, or the mark
+     sits above the words' middle. */
+  gap: 0;
   font-size: 0;
 }
 html[data-theme] .tool-step.is-failed .activity-status {
@@ -424,13 +407,39 @@ html[data-theme] .tool-group-body > .tool-step {
 }
 
 /* A thought renders directly as muted narrative prose inside the workflow rail
-   without a secondary fold; interrupted thoughts keep a quiet amber marker. */
+   without a secondary fold, behind the thought mark in the same column as a
+   tool's status; interrupted thoughts keep a quiet amber marker instead. */
+html[data-theme] .workflow-rail > .reasoning-step .reasoning-body {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+html[data-theme] .workflow-rail > .reasoning-step .reasoning-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 16px;
+  /* As tall as the first line, padding included, so the mark sits on it. */
+  height: calc(var(--ui-type-control) * 1.65 + 4px);
+  color: var(--color-text-3);
+}
+html[data-theme] .workflow-rail > .reasoning-step .reasoning-mark .ui-icon {
+  width: 14px;
+  height: 14px;
+}
 html[data-theme] .workflow-rail > .reasoning-step .reasoning-copy.markdown-body {
+  flex: 1 1 auto;
+  min-width: 0;
   margin: 0;
   padding: 2px 0;
   color: var(--color-text-3);
   font-size: var(--ui-type-control);
   line-height: 1.65;
+}
+/* The last paragraph's gap would sit under the thought and widen the rail's
+   rhythm there. */
+html[data-theme] .workflow-rail > .reasoning-step .reasoning-copy.markdown-body > :last-child {
+  margin-bottom: 0;
 }
 html[data-theme] .workflow-rail > .reasoning-step .reasoning-copy.markdown-body strong {
   color: var(--color-text-2);
@@ -493,9 +502,9 @@ html[data-theme] .process-segment > summary .process-chevron {
   flex: 0 0 auto;
   color: var(--color-text-3);
   transition:
-    color 0.14s ease,
-    opacity 0.14s ease,
-    transform 0.15s;
+    color var(--motion-hover) var(--ease-default),
+    opacity var(--motion-hover) var(--ease-default),
+    transform var(--motion-disclosure);
 }
 html[data-theme] .execution-history:not([open]) > summary .history-chevron,
 html[data-theme] .process-segment:not([open]) > summary .process-chevron {
@@ -543,7 +552,7 @@ html[data-theme] .process-segment > summary {
   font-size: var(--ui-type-control);
   cursor: pointer;
   list-style: none;
-  transition: color 0.14s ease;
+  transition: color var(--motion-hover) var(--ease-default);
 }
 html[data-theme] .process-segment > summary::-webkit-details-marker {
   display: none;
@@ -571,7 +580,7 @@ html[data-theme] .process-segment.is-live > summary .process-live-state {
   color: var(--color-text-2);
   font-size: var(--ui-type-control);
   font-weight: 500;
-  transition: color 0.14s ease;
+  transition: color var(--motion-hover) var(--ease-default);
 }
 html[data-theme] .process-segment.is-thought-only {
   display: flex;
@@ -591,7 +600,7 @@ html[data-theme] :is(.process-segment > summary, .process-segment.is-thought-onl
   width: 15px;
   height: 15px;
   color: var(--color-text-3);
-  transition: color 0.14s ease;
+  transition: color var(--motion-hover) var(--ease-default);
 }
 html[data-theme]
   :is(.process-segment > summary, .process-segment.is-thought-only)
@@ -655,8 +664,8 @@ html[data-theme] .context-window-divider::after {
   border-top: 1px dashed var(--color-line);
 }
 
-/* Subagents a step sent out: one row for the dispatch, then each Subagent
-   indented under it with its role, its task (its result once done) and state. */
+/* Subagents a step sent out: one row each with its avatar, name, role, task
+   and state. */
 html[data-theme] .subagent-group .activity-step-head,
 html[data-theme] .turn-stopped .activity-step-head {
   display: flex;
@@ -664,15 +673,11 @@ html[data-theme] .turn-stopped .activity-step-head {
   gap: 8px;
   min-height: 26px;
 }
-html[data-theme] :is(.subagent-group, .turn-stopped) .activity-step-head > strong {
+html[data-theme] .turn-stopped .activity-step-head > strong {
   color: var(--color-text-2);
   font-weight: 500;
 }
-html[data-theme]
-  :is(.subagent-group, .turn-stopped)
-  > .activity-step-content
-  > .activity-step-head
-  > .tool-status-dot,
+html[data-theme] .turn-stopped > .activity-step-content > .activity-step-head > .tool-status-dot,
 html[data-theme] .subagent-step .tool-status-dot {
   /* The legacy sheet pushes a head's spans to the right edge. */
   margin-left: 0;
@@ -682,7 +687,6 @@ html[data-theme] .subagent-step .tool-status-dot {
   border-radius: 0;
   background: radial-gradient(circle closest-side, var(--dot, var(--mark-idle)) 2.5px, transparent 3.2px);
 }
-html[data-theme] .subagent-group,
 html[data-theme] .subagent-step.is-running {
   --dot: var(--mark-batch);
 }
@@ -697,11 +701,6 @@ html[data-theme] .turn-stopped {
 }
 html[data-theme] .subagent-step.is-failed {
   --dot: var(--mark-failed);
-}
-html[data-theme] .subagent-nest {
-  margin-left: 7px;
-  padding-left: 14px;
-  border-left: 1px solid var(--color-line);
 }
 html[data-theme] .subagent-step .tool-action {
   display: flex;

@@ -450,9 +450,14 @@ html[data-theme="light"] .add-project-state {
   width: 15px;
   height: 15px;
 }
+.project-progress-icon {
+  display: grid;
+  isolation: isolate;
+  overflow: hidden;
+  flex: 0 0 15px;
+}
 .add-project-state.is-progress .ui-icon {
   color: var(--color-accent);
-  animation: ui-spin 1s linear infinite;
 }
 .add-project-state.is-error .ui-icon {
   color: var(--ui-danger);
@@ -487,9 +492,4 @@ html[data-theme="light"] .add-project-state {
 .add-project-button:disabled {
   cursor: default;
   opacity: 0.6;
-}
-@media (prefers-reduced-motion: reduce) {
-  .add-project-state.is-progress .ui-icon {
-    animation: none;
-  }
 }

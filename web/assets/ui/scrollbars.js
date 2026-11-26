@@ -1,4 +1,4 @@
-import { animate } from "./motion.js";
+import { playMotion } from "./motion.js";
 
 /**
  * Shows an area's scrollbar while the person scrolls it and fades it out a
@@ -17,8 +17,6 @@ import { animate } from "./motion.js";
  */
 const SETTLE_MS = 900;
 const INPUT_MS = 1000;
-const FADE_IN_MS = 120;
-const FADE_OUT_MS = 360;
 const SCROLL_KEYS = new Set(["ArrowUp", "ArrowDown", "PageUp", "PageDown", "Home", "End", " "]);
 
 export function revealScrollbarsWhileScrolling(doc = document) {
@@ -28,7 +26,7 @@ export function revealScrollbarsWhileScrolling(doc = document) {
   let inputAt = -Infinity;
   let pressed = false;
 
-  const fade = (area, to, duration) => {
+  const fade = (area, to) => {
     const from = Number(view.getComputedStyle(area).getPropertyValue("--scroll-reveal")) || 0;
     fades.get(area)?.cancel();
     if (from === to) {
@@ -38,9 +36,9 @@ export function revealScrollbarsWhileScrolling(doc = document) {
     area.style.setProperty("--scroll-reveal", String(to));
     fades.set(
       area,
-      animate(area, [{ "--scroll-reveal": from }, { "--scroll-reveal": to }], {
-        duration: duration * Math.abs(to - from),
-        easing: "ease-out"
+      playMotion(area, to ? "scrollShow" : "scrollHide", {
+        frames: [{ "--scroll-reveal": from }, { "--scroll-reveal": to }],
+        distance: Math.abs(to - from)
       })
     );
   };
@@ -70,13 +68,13 @@ export function revealScrollbarsWhileScrolling(doc = document) {
       if (!(area instanceof view.Element)) return;
       const byPerson = pressed || view.performance.now() - inputAt < INPUT_MS;
       if (!byPerson && !timers.has(area)) return;
-      if (!timers.has(area)) fade(area, 1, FADE_IN_MS);
+      if (!timers.has(area)) fade(area, 1);
       clearTimeout(timers.get(area));
       timers.set(
         area,
         setTimeout(() => {
           timers.delete(area);
-          fade(area, 0, FADE_OUT_MS);
+          fade(area, 0);
         }, SETTLE_MS)
       );
     },

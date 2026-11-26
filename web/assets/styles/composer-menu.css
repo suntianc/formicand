@@ -139,7 +139,7 @@ html[data-theme="light"] {
   font-weight: 450;
   line-height: 1.35;
   vertical-align: baseline;
-  transition: background-color 0.12s ease;
+  transition: background-color var(--motion-fast) var(--ease-default);
 }
 .reference-chip:hover {
   background: var(--ref-chip-hover);

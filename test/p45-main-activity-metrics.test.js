@@ -127,7 +127,8 @@ test(
     let detail;
     while (Date.now() < until) {
       detail = await api(dashboard, "/api/tasks/activity-run");
-      if (!detail.runtime.active) break;
+      // Main waits between turns while its delegate runs; the callback wakes it.
+      if (!detail.runtime.active && detail.task.status === "completed") break;
       await delay(50);
     }
     assert.equal(detail?.runtime.active, false, "Main must settle for the metrics to be frozen");

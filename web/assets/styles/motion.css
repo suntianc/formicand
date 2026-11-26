@@ -1,5 +1,4 @@
-/* Motion (#12). Durations and curves are the tokens in ui.css; the reduced
-   motion rules in formicand.css stop every animation and transition here. */
+/* Shared keyframes, playback rules and reduced-motion overrides. Timing tokens live in ui.css. */
 
 /* A selection's background on its way to the next option (ui/motion.js). It
    takes the selected option's own look and sits under the options' text in
@@ -117,4 +116,264 @@ details:not(
 /* A conversation row on its way out of the sidebar (project-controller.js). */
 .conversation-row.is-leaving {
   pointer-events: none;
+}
+
+/* Status indicators and surface entrances. */
+
+:root:not(.is-page-hidden) formicand-spinner[data-in-viewport]:not([inert] *)::before {
+  animation: var(--spinner-animation, ui-spin) var(--spinner-duration, var(--motion-spin)) linear infinite;
+}
+/* Keep each layout box and hit target while its drawing plays in the desktop compositor. */
+formicand-spinner[data-native-motion]::before,
+[data-native-motion="ant"] > .ant-frames,
+[data-native-motion="head"]::before,
+[data-native-motion="loader"] > svg,
+:is([data-native-motion="checked"], [data-native-motion="copied"]) > use {
+  opacity: 0 !important;
+}
+.ui-icon > use[href="#i-check"] {
+  transform-box: view-box;
+  transform-origin: center;
+}
+@keyframes ui-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.thinking-spinner,
+.workflow-progress-spinner {
+  animation: ui-spin var(--motion-spin-thinking) linear infinite;
+}
+
+.ui-status[data-state="saving"]::before,
+.provider-dialog .app-button[aria-busy="true"]::before,
+.app-dialog .dialog-actions button[aria-busy="true"]::before {
+  animation: ui-spin var(--motion-spin) linear infinite;
+}
+/* Busy actions expose their generated slot as a measurable spinner on desktop. */
+formicand-spinner.action-spinner {
+  display: none;
+}
+:is(.provider-dialog .app-button, .app-dialog .dialog-actions button)[aria-busy="true"] > .action-spinner,
+.ui-status[data-state="saving"] > .action-spinner {
+  display: inline-grid;
+  width: var(--action-spinner-size);
+  height: var(--action-spinner-size);
+  /* Pseudo-elements use content-box in this shell. Preserve the original flex
+     item's border box, including the narrow saving dot and the button gap. */
+  box-sizing: content-box;
+  position: relative;
+  border: var(--action-spinner-stroke) solid transparent;
+  flex: 0 1 auto;
+}
+.provider-dialog .app-button[aria-busy="true"] > .action-spinner {
+  flex: 0 0 auto;
+}
+.ui-status[data-state="saving"] > .action-spinner {
+  flex: 0 0 5px;
+}
+.app-dialog .dialog-actions button {
+  --action-spinner-size: 10px;
+  --action-spinner-stroke: 1px;
+}
+.provider-dialog .app-button {
+  --action-spinner-size: 12px;
+  --action-spinner-stroke: 2px;
+}
+.ui-status {
+  --action-spinner-size: 8px;
+  --action-spinner-stroke: 1px;
+  --action-spinner-ink: var(--ui-muted);
+}
+.action-spinner::before {
+  position: absolute;
+  inset: calc(-1 * var(--action-spinner-stroke));
+  border: var(--action-spinner-stroke) solid var(--action-spinner-ink, currentColor);
+  border-right-color: transparent;
+}
+:is(.provider-dialog .app-button, .app-dialog .dialog-actions button)[aria-busy="true"]:has(
+    > .action-spinner
+  )::before,
+.ui-status[data-state="saving"]:has(> .action-spinner)::before {
+  display: none;
+  animation: none;
+}
+@keyframes formicand-panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes formicand-drawer-in {
+  from {
+    opacity: 0;
+    transform: translateX(18px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes formicand-list-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.ui-panel {
+  animation: formicand-panel-in var(--motion-enter);
+}
+.artifact-drawer,
+.ui-drawer {
+  animation: formicand-drawer-in var(--motion-base) var(--ease-standard);
+}
+.project-list,
+.ui-list {
+  animation: formicand-list-in var(--motion-base) var(--ease-standard);
+}
+.add-project-state.is-progress .ui-icon {
+  animation: ui-spin var(--motion-spin-status) linear infinite;
+}
+
+@media (min-width: 640px) and (max-width: 1023px) {
+  html[data-theme] .work-sidebar .project-list {
+    animation: none;
+  }
+}
+
+.runs-head::before {
+  content: "";
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--runs-head-color);
+  animation: runs-head-pulse var(--motion-sweep) var(--ease-in-out) infinite;
+}
+@keyframes runs-head-pulse {
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: scale(0.82);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.12);
+  }
+}
+html[data-theme] :is(.thinking-spinner, .workflow-progress-spinner).ant-mark {
+  animation: none;
+}
+.ant-mark > .ant-frames {
+  animation: ant-frames var(--motion-ant) steps(24, end) infinite;
+}
+@keyframes ant-frames {
+  to {
+    transform: translateX(-100%);
+  }
+}
+
+.shimmer-text {
+  animation: shimmer-sweep var(--motion-sweep) linear 2;
+}
+@keyframes shimmer-sweep {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -150% 0;
+  }
+}
+
+/* Apply before scripts load. An explicit app preference overrides the OS. */
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-reduced-motion="off"]) {
+    & body *,
+    & body *::before,
+    & body *::after {
+      animation: none !important;
+      transition-property: opacity !important;
+    }
+    & details::details-content,
+    &
+      :is(
+        .app-button,
+        .composer,
+        .reasoning-chevron,
+        .tool-chevron,
+        .history-chevron,
+        .settings-card *,
+        .effort-fill,
+        .effort-knob,
+        .reply-actions,
+        .reply-time-full,
+        .diff-collapse .ui-icon,
+        .markdown-body .table-block .code-block-head > .code-block-action
+      ) {
+      transition-duration: 0s;
+    }
+    & body.output-collapsed .agent-pane,
+    & body:not(.sidebar-drawer-open) .conversation-sidebar,
+    & .toast-card {
+      transform: none;
+    }
+    & :is(.thinking-spinner, .workflow-progress-spinner) {
+      width: auto;
+      height: auto;
+      flex-basis: auto;
+      border: 0;
+    }
+    & :is(.thinking-spinner, .workflow-progress-spinner)::after {
+      content: "…";
+    }
+  }
+}
+:root[data-reduced-motion="reduce"] {
+  & body *,
+  & body *::before,
+  & body *::after {
+    animation: none !important;
+    transition-property: opacity !important;
+  }
+  & details::details-content,
+  &
+    :is(
+      .app-button,
+      .composer,
+      .reasoning-chevron,
+      .tool-chevron,
+      .history-chevron,
+      .settings-card *,
+      .effort-fill,
+      .effort-knob,
+      .reply-actions,
+      .reply-time-full,
+      .diff-collapse .ui-icon,
+      .markdown-body .table-block .code-block-head > .code-block-action
+    ) {
+    transition-duration: 0s;
+  }
+  & body.output-collapsed .agent-pane,
+  & body:not(.sidebar-drawer-open) .conversation-sidebar,
+  & .toast-card {
+    transform: none;
+  }
+  & :is(.thinking-spinner, .workflow-progress-spinner) {
+    width: auto;
+    height: auto;
+    flex-basis: auto;
+    border: 0;
+  }
+  & :is(.thinking-spinner, .workflow-progress-spinner)::after {
+    content: "…";
+  }
 }

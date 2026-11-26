@@ -36,7 +36,7 @@ import { createAddProjectController } from "./assets/controllers/add-project.js"
 import { createHumanQuestions } from "./assets/human-questions.js";
 import { installComputerUse } from "./assets/controllers/computer-use.js";
 import { installCodeBlockActions } from "./assets/ui/code-blocks.js";
-import { installSelectionGlide } from "./assets/ui/motion.js";
+import { installSelectionGlide, installMotion } from "./assets/ui/motion.js";
 import { createComposerMenu } from "./assets/controllers/composer-menu.js";
 
 import { showToast } from "./assets/ui/toast.js";
@@ -73,11 +73,9 @@ const state = {
   collapsedSessions: new Set(),
   selected: null,
   detail: null,
-  previewPath: null,
   drawerTab: null,
   drawerFile: null,
   drawerLine: null,
-  drawerDiff: null,
   drawerTrigger: null,
   artifactDrawerOpen: false,
   openFiles: [],
@@ -331,6 +329,7 @@ const artifacts = createArtifactController({
   renderRightPanel: () => workView.renderRightPanel(),
   mediaUrl: (path) => backendFiles.mediaUrl(path),
   openArtifactViewer: (path) => artifactViewer.open(path),
+  previewImage: (image) => composerAttachments.previewImage(image),
   getDelivery: () => requirementPanel?.records()
 });
 const {
@@ -369,6 +368,7 @@ const conversationView = createConversationView({
   hydrateImages: (roots) => backendFiles.hydrateImages(roots),
   showToast
 });
+installMotion();
 installSelectionGlide();
 installCodeBlockActions(document, {
   showToast,
@@ -389,10 +389,6 @@ const runControl = createRunControl({
 function renderConversation(messages, task, options) {
   conversationView.renderConversation(messages, task, options);
 }
-const syncPageVisibility = () =>
-  document.documentElement.classList.toggle("is-page-hidden", Boolean(document.hidden));
-syncPageVisibility();
-document.addEventListener("visibilitychange", syncPageVisibility);
 const connection = createConnectionController({
   state,
   renderConversation,

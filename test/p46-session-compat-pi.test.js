@@ -127,6 +127,7 @@ async function sessionHarness(t) {
       FORMICAND_TASK_ID: "session-compat-task",
       FORMICAND_RUN_ID: "session-compat-run",
       FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
+      FORMICAND_DISABLE_SESSION_TITLES: "1",
       FORMICAND_API_BASE: baseUrl,
       FORMICAND_API_KEY: "fixture-key",
       FORMICAND_MODEL: MODEL,

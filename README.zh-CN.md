@@ -146,7 +146,7 @@ formicand update
 - 只填域名的地址会自动补 `/v1`，带路径的地址原样使用。`anthropic-messages` 不补路径。
 - 模型行的参数按钮可以改上下文窗口、输出上限、推理档位和图片输入。标“自动”的值来自服务商接口或内置目录。
 - 改了名称、地址、密钥或接口格式后要点“保存”。
-- 正被某个 Agent 使用的模型或供应商不能删除或停用，先在“设置 → Agent”里换掉。
+- 正被某个 Agent 或辅助模型使用的模型或供应商不能删除或停用，先在“设置 → Agent”或“设置 → 通用”里换掉。
 
 “设置 → Agent”的“内置”分组有三个 Agent：Main（主控）、Executor（执行）、Reviewer（审查）。它们的职责、权限和工具是固定的，可以改的是模型、推理强度、技能、MCP 服务和附加提示词。“项目”页可以给单个项目单独设置，没单独设置的项跟随全局。
 
@@ -157,6 +157,8 @@ formicand update
 | Reviewer | 跟 Main 一样                   | `code-review`、`domain-modeling`、`codebase-design`、`cua`                                        | 不用             |
 
 生效时机：Main 的设置从下一轮对话开始生效；Executor 和 Reviewer 的技能、MCP、附加提示词在派单时定下来，模型在工作项真正启动时读取，已经在跑的工作项不受之后修改的影响；切换模型会保留会话，下一轮把历史发给新的服务。
+
+“设置 → 通用”的“辅助模型”选一个便宜的模型，用来写换窗口时的摘要和新会话的标题。不选时这两件事用会话自己的模型；辅助模型请求失败时也退回会话自己的模型。新会话的第一轮回复完成后自动起标题，手动改过名的会话不会被覆盖。改动从下一次换窗口、下一个新会话开始生效，运行中的 Main 不用重启。
 
 ### 配置文件
 
@@ -208,7 +210,7 @@ formicand init --base-url https://your-service.example/v1 --model your-model-id 
 
 多个供应商和模型写在 `modelProviders` 里，模型用 `<供应商 ID>#<模型 ID>` 引用；`preset` 只影响界面上的图标和预置地址。同时有 `modelProviders` 和顶层单连接字段时，以 `modelProviders` 为准。
 
-“设置 → Agent”写入 `roleModels`。`host` 是本机的默认值，`projects` 按项目目录覆盖；每项都可以省略，`skills` 和 `mcp` 写名称列表或 `"all"`。引用的模型找不到时会报错并拒绝启动，不会悄悄换成别的模型。
+“设置 → 通用”的辅助模型写入 `utilityModel`，形如 `{ "profileId": "<供应商 ID>#<模型 ID>" }`。“设置 → Agent”写入 `roleModels`。`host` 是本机的默认值，`projects` 按项目目录覆盖；每项都可以省略，`skills` 和 `mcp` 写名称列表或 `"all"`。引用的模型找不到时会报错并拒绝启动，不会悄悄换成别的模型。
 
 ```json
 {

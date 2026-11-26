@@ -84,7 +84,6 @@
   --type-panel-title: 15px;
   --type-nav: 13px;
   --type-caption: 12px;
-  --motion-enter: var(--motion-base) var(--ease-standard);
 }
 
 html[data-theme="light"] {
@@ -536,94 +535,12 @@ html[data-theme] .toast {
   background: var(--color-on-accent);
 }
 
-/* Motion: entrances move; the reduced-motion path keeps only opacity. */
-@keyframes formicand-panel-in {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-@keyframes formicand-drawer-in {
-  from {
-    opacity: 0;
-    transform: translateX(18px);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-@keyframes formicand-list-in {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-/* The side panel is a layout column, not an entrance: opening it is the
-   grid's motion (styles/motion.css), and a keyframe here would replay once
-   that motion ends (#22). */
-.ui-panel {
-  animation: formicand-panel-in var(--motion-enter);
-}
-.artifact-drawer,
-.ui-drawer {
-  animation: formicand-drawer-in var(--motion-base) var(--ease-standard);
-}
-.project-list,
-.ui-list {
-  animation: formicand-list-in var(--motion-base) var(--ease-standard);
-}
 .ui-panel,
 .ui-drawer,
 .ui-list {
   transition:
     opacity var(--motion-base) var(--ease-standard),
     transform var(--motion-base) var(--ease-standard);
-}
-
-/* Every rendered animation stops, including indicators added later; transitions
-   are limited to opacity and no entrance keyframe moves the layout. The system
-   preference applies unless settings explicitly turn it off, and settings can
-   ask for it on a system that has no preference. */
-@media (prefers-reduced-motion: reduce) {
-  :root:not([data-reduced-motion="off"]) body *,
-  :root:not([data-reduced-motion="off"]) body *::before,
-  :root:not([data-reduced-motion="off"]) body *::after {
-    animation: none !important;
-    transition-property: opacity !important;
-  }
-  :root:not([data-reduced-motion="off"]) :is(.thinking-spinner, .workflow-progress-spinner) {
-    width: auto;
-    height: auto;
-    flex-basis: auto;
-    border: 0;
-  }
-  :root:not([data-reduced-motion="off"]) :is(.thinking-spinner, .workflow-progress-spinner)::after {
-    content: "…";
-  }
-}
-:root[data-reduced-motion="reduce"] body *,
-:root[data-reduced-motion="reduce"] body *::before,
-:root[data-reduced-motion="reduce"] body *::after {
-  animation: none !important;
-  transition-property: opacity !important;
-}
-:root[data-reduced-motion="reduce"] :is(.thinking-spinner, .workflow-progress-spinner) {
-  width: auto;
-  height: auto;
-  flex-basis: auto;
-  border: 0;
-}
-:root[data-reduced-motion="reduce"] :is(.thinking-spinner, .workflow-progress-spinner)::after {
-  content: "…";
 }
 
 @media (prefers-reduced-transparency: reduce) {

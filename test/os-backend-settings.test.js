@@ -341,6 +341,7 @@ test("session export redacts host-stored connection and search keys", async (t) 
     FORMICAND_HOME: join(root, "home"),
     FORMICAND_CONFIG: configPath,
     FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
+    FORMICAND_DISABLE_SESSION_TITLES: "1",
     PI_OFFLINE: "1"
   });
   const exportSession = async (args) => {

@@ -215,7 +215,10 @@ test("runs renders Main lanes, Subagent branches and the stage colouring", async
   const reviewBranch = card.querySelector('[data-runs-agent="subagent_3"]');
   assert.match(reviewBranch.textContent, /Reviewer/);
   assert.match(reviewBranch.textContent, /Messor/);
-  assert.ok(reviewBranch.querySelector(".runs-head"));
+  const liveHead = reviewBranch.querySelector(".runs-head");
+  assert.ok(liveHead);
+  view.controller.render();
+  assert.equal(view.root.querySelector('[data-runs-agent="subagent_3"] .runs-head'), liveHead);
 
   // The window narrows the drawn range as well as the axis labels.
   view.header.querySelector('[data-runs-window="5"]').click();

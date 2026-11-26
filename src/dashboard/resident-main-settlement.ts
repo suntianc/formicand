@@ -39,7 +39,8 @@ export function createResidentMainSettlement({
   humanWakeups,
   resumeHumanAnswers,
   subagents,
-  onRunSettled
+  onRunSettled,
+  onTurnSettled
 }: {
   onRunFinalized: NonNullable<RunServicePorts["onRunFinalized"]>;
   activeRunIds: Map<string, string>;
@@ -60,6 +61,7 @@ export function createResidentMainSettlement({
   resumeHumanAnswers: ResumeHumanAnswers;
   subagents: RunServicePorts["subagents"];
   onRunSettled: NonNullable<RunServicePorts["onRunSettled"]>;
+  onTurnSettled: NonNullable<RunServicePorts["onTurnSettled"]>;
 }) {
   async function finalizeSessionRun(
     location: TaskLocation,
@@ -387,6 +389,7 @@ export function createResidentMainSettlement({
     // eslint-disable-next-line no-restricted-syntax -- 回合结束的记账失败只影响这一个回合；进程退出与下一次回合边界仍会结算
     const task = await resident.location.store.readTask(resident.taskId).catch(() => undefined);
     if (!task || task.activeRunId !== resident.runId) return;
+    onTurnSettled({ ...resident.location, task });
     if (task.status === "completed" || task.status === "failed")
       await finalizeSessionRun({ ...resident.location, task }, resident.runId, task.status);
     // A waiting Task still has delegated work to run; a running one has not
