@@ -36,6 +36,7 @@ export function parseSearchToolArguments(tool, args, cwd = process.cwd()) {
       if (flag === "--no-require-git") continue;
       else if (flag === "--glob") parameters.glob = true;
       else if (flag === "--full-path") parameters.fullPath = true;
+      else if (flag === "--ignore-case") parameters.ignoreCase = true;
       else if (flag === "--follow") parameters.follow = true;
       else if (flag === "--base-directory") parameters.path = resolve(cwd, value());
       else if (flag === "--max-results") parameters.limit = Number(value());

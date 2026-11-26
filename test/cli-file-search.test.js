@@ -180,6 +180,7 @@ test(
     const project = join(f.root, "project");
     await f.put("project/hello.txt", "hello fixture\nsecond line\n");
     await f.put("project/nested/deep.txt", "deep fixture\n");
+    await f.put("project/pkg/nested/other.txt", "other fixture\n");
     await f.put("project/.git/hidden", "ignored");
     await symlink(project, join(project, "loop"));
     await installSearchToolAdapters(agent);
@@ -206,7 +207,7 @@ test(
       "1"
     ];
     const completed = await exec(fd, actualAutocomplete, { cwd: project, env: f.env });
-    assert.deepEqual(completed.stdout.trim().split("\n"), ["hello.txt", "loop/", "nested/"]);
+    assert.deepEqual(completed.stdout.trim().split("\n"), ["hello.txt", "loop/", "nested/", "pkg/"]);
     const paths = await exec(
       fd,
       [
@@ -223,7 +224,28 @@ test(
       ],
       { cwd: project, env: f.env }
     );
-    assert.equal(paths.stdout.trim(), "nested/deep.txt");
+    assert.equal(paths.stdout.trim(), "nested/deep.txt\npkg/nested/other.txt");
+    // Pi 1.6.1 anchors relative path globs at the search path (upstream #12066):
+    // it prefixes the escaped absolute root and passes --ignore-case for a
+    // lowercase pattern, so the adapter must match the absolute candidate.
+    const anchored = await exec(
+      fd,
+      [
+        "--glob",
+        "--color=never",
+        "--hidden",
+        "--no-require-git",
+        "--max-results",
+        "10",
+        "--full-path",
+        "--ignore-case",
+        "--",
+        `${project}/nested/*.txt`,
+        project
+      ],
+      { cwd: project, env: f.env }
+    );
+    assert.equal(anchored.stdout.trim(), "nested/deep.txt");
     const content = await exec(
       rg,
       [
@@ -253,9 +275,10 @@ test(
       import { createFindTool, createGrepTool } from "@earendil-works/pi-coding-agent";
       const root = process.env.FORMICAND_SEARCH_FIXTURE_PROJECT;
       const found = await createFindTool(root).execute("find-fixture", {pattern:"*.txt"});
+      const anchored = await createFindTool(root).execute("find-anchored", {pattern:"nested/*.txt"});
       const searched = await createGrepTool(root).execute("grep-fixture", {pattern:"fixture",glob:"hello.txt",literal:true});
       const contextual = await createGrepTool(root).execute("grep-context", {pattern:"fixture",glob:"hello.txt",literal:true,context:1});
-      console.log(JSON.stringify({found,searched,contextual}));
+      console.log(JSON.stringify({found,anchored,searched,contextual}));
     `
       ],
       {
@@ -265,7 +288,12 @@ test(
       }
     );
     const tools = JSON.parse(pi.stdout);
-    assert.equal(tools.found.content[0].text, "hello.txt\nnested/deep.txt");
+    assert.equal(tools.found.content[0].text, "hello.txt\nnested/deep.txt\npkg/nested/other.txt");
+    assert.equal(
+      tools.anchored.content[0].text,
+      "nested/deep.txt",
+      "Pi 1.6.1's relative path glob stays anchored at the search directory"
+    );
     assert.equal(tools.searched.content[0].text, "hello.txt:1: hello fixture");
     assert.equal(
       tools.contextual.content[0].text,
@@ -280,6 +308,40 @@ test(
       exec(fd, ["--unknown"], { env: f.env }),
       (error) => error.code === 2 && /does not support/.test(error.stderr)
     );
+  }
+);
+
+test(
+  "real Pi find treats glob-like characters in the project root literally",
+  { skip: !portable },
+  async (t) => {
+    const f = await fixture(t);
+    const agent = join(f.root, "agent");
+    // Pi 1.6.1 prefixes the absolute search path to a relative path glob. fd
+    // treats the directory name literally, so `@(dev)` must not become a
+    // minimatch extglob and hide an existing file.
+    const project = join(f.root, "app@(dev)");
+    await f.put("app@(dev)/nested/file.txt", "fixture\n");
+    await installSearchToolAdapters(agent);
+    const pi = await exec(
+      process.execPath,
+      [
+        "--input-type=module",
+        "-e",
+        `
+      import { createFindTool } from "@earendil-works/pi-coding-agent";
+      const found = await createFindTool(process.env.FORMICAND_SEARCH_FIXTURE_PROJECT).execute("find-literal", {pattern:"nested/*.txt"});
+      console.log(JSON.stringify(found));
+    `
+      ],
+      {
+        cwd: resolve("."),
+        env: { ...f.env, PI_CODING_AGENT_DIR: agent, FORMICAND_SEARCH_FIXTURE_PROJECT: project },
+        timeout: 10_000
+      }
+    );
+    const found = JSON.parse(pi.stdout);
+    assert.equal(found.content[0].text, "nested/file.txt");
   }
 );
 

@@ -21,8 +21,33 @@ const harness = resolve(".");
  * English base prompt): an intended change to the tool table or the prompt's
  * sections is either listed here or recorded again with
  * `node test/p46-pi-upgrade-capture.mjs --record`.
+ *
+ * Pi 1.6.1 (2026-11-26) changed only the built-in find/grep descriptions for
+ * the path semantics in upstream #12066: path globs are now relative to the
+ * search directory, and a pattern without "/" matches file names at any depth.
+ * Formicand's find override already implements those semantics; its portable
+ * fd adapter now accepts the absolute pattern and --ignore-case flag Pi sends.
  */
-const EXPECTED_BASELINE_DIFFERENCES = [];
+const EXPECTED_BASELINE_DIFFERENCES = [
+  {
+    path: "tools.find.parameters.properties.pattern.description",
+    change:
+      "\"Glob pattern to match files, e.g. '*.ts', '**/*.json', or 'src/**/*.spec.ts'\" -> \"Glob pattern relative to the search directory, e.g. 'src/**/*.ts'. Without '/', e.g. '*.ts', it matches file names at any depth\"",
+    reason:
+      "Pi 1.6.0 anchors relative path globs at the search directory (upstream #12066). The option name, type, required list and JSON Schema shape are unchanged.",
+    current:
+      "Glob pattern relative to the search directory, e.g. 'src/**/*.ts'. Without '/', e.g. '*.ts', it matches file names at any depth"
+  },
+  {
+    path: "tools.grep.parameters.properties.glob.description",
+    change:
+      "\"Filter files by glob pattern, relative to path, e.g. '*.ts', 'src/**/*.ts' or '**/*.spec.ts'. A pattern without '/' matches file names at any depth\" -> \"Filter files by glob pattern relative to path, e.g. 'src/**/*.ts'. Without '/', e.g. '*.ts', it matches file names at any depth\"",
+    reason:
+      "Pi 1.6.0 rewords the same path-glob rule to match find (upstream #12066). The option name, type, required list and JSON Schema shape are unchanged.",
+    current:
+      "Filter files by glob pattern relative to path, e.g. 'src/**/*.ts'. Without '/', e.g. '*.ts', it matches file names at any depth"
+  }
+];
 
 const TOOL_DIFFERENCE_PATHS = EXPECTED_BASELINE_DIFFERENCES.map((entry) => entry.path);
 

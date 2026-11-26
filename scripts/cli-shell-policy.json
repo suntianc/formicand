@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "sdkVersion": "1.5.2",
+  "sdkVersion": "1.6.1",
   "entry": "dist/bundle/cli.js",
   "files": {
-    "dist/bundle/cli-runtime.js": "8fdd4161be64f4aadb8bec47ae77b56dcbeab288da6e55dcab3e0243e50f80fc",
-    "dist/bundle/chunks/chunk-VEJDBY3O.js": "effbbd5d6247983dc11c7ae5796eb24bda88f9ebf78c707d3f92ca73cbb8b51e"
+    "dist/bundle/cli-runtime.js": "0a95531f552d2bed286a8731517bd05b4c3d0c85849b089f21bb7508e09d7c1d",
+    "dist/bundle/chunks/chunk-ORY5MLDF.js": "969756eea20f331cfde2aed70ecd1deb4c78df5ac678715180d0ce4a5d65093e"
   },
   "changes": [
     {
@@ -15,13 +15,13 @@
     },
     {
       "id": "agent-bash-output",
-      "file": "dist/bundle/chunks/chunk-VEJDBY3O.js",
+      "file": "dist/bundle/chunks/chunk-ORY5MLDF.js",
       "original": "tempFilePrefix:\"pi-bash\"",
       "replacement": "tempFilePrefix:\"formicand-bash\""
     },
     {
       "id": "manual-bash-output",
-      "file": "dist/bundle/chunks/chunk-VEJDBY3O.js",
+      "file": "dist/bundle/chunks/chunk-ORY5MLDF.js",
       "original": "createOutputFileStream(\"pi-bash\",\".log\")",
       "replacement": "createOutputFileStream(\"formicand-bash\",\".log\")"
     }
