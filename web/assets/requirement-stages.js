@@ -175,7 +175,7 @@ function workStage(input) {
 export function requirementStage(input = {}) {
   const stage = stageOf(input);
   const paused = input.development?.status === "paused";
-  const waiting = !paused && Boolean(input.waitingForReply);
+  const waiting = !paused && stage !== "withdrawn" && Boolean(input.waitingForReply);
   return {
     stage,
     label: paused ? PAUSED_LABEL : waiting ? WAITING_FOR_REPLY_LABEL : REQUIREMENT_STAGE_LABELS[stage],

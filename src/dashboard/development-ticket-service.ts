@@ -10,7 +10,7 @@ import {
   type TicketSet,
   type TicketWork
 } from "../domain/development-ticket.js";
-import { type DevelopmentRecord } from "../domain/project-development.js";
+import { developmentNotActive, type DevelopmentRecord } from "../domain/project-development.js";
 import { now } from "../domain/types.js";
 import type { ProjectDataGateway } from "../workspace/project-data-service.js";
 import { git, gitPaths, gitProbe, onlyTargetMergedSince } from "../workspace/development-workspace.js";
@@ -335,6 +335,7 @@ export function createDevelopmentTicketService({
   ) {
     const found = await taskProject(taskId);
     const record = await (await gateway()).getDevelopment(found.projectId, developmentId, ports.backendId);
+    if (record.status !== "active") throw conflict(developmentNotActive(record.status), "development_closed");
     if (!ticketRoute(record)) throw conflict("quick 路线没有票", "ticket_missing");
     const { set, ticket } = await requireTicket(found.projectId, developmentId, ticketIdValue);
     const criteria = ticket.criteria.map((criterion) => criterion.criterionId);

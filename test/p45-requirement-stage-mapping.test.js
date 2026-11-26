@@ -353,9 +353,9 @@ test("tab counts add up to the whole list and a delivered need never counts as i
     developing,
     { board: { state: "pending" } },
     { ...developing, reviews: [review("in_review")], waitingForReply: true },
-    // Paused stays in progress even while its Main waits; withdrawn has its own tab.
+    // Paused stays in progress even while its Main waits; withdrawn has its own tab, waiting or not.
     { ...developing, development: development({ status: "paused" }), waitingForReply: true },
-    { ...developing, development: development({ status: "withdrawn" }) }
+    { ...developing, development: development({ status: "withdrawn" }), waitingForReply: true }
   ]);
   assert.deepEqual(counts, {
     all: 6,

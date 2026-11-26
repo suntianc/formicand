@@ -709,6 +709,8 @@ export function createRequirementPanel({
     const signature = JSON.stringify([
       state.selected,
       progress?.steps,
+      progress?.label,
+      progress?.paused,
       loaded?.error ?? null,
       loaded?.session ?? null,
       loaded?.requirement ?? null,
@@ -721,6 +723,8 @@ export function createRequirementPanel({
             loaded.view.roles,
             loaded.view.tickets,
             loaded.view.development?.route,
+            loaded.view.development?.status,
+            loaded.view.development?.reason,
             loaded.view.board?.assignment
           ]
         : null,
@@ -752,7 +756,7 @@ export function createRequirementPanel({
     refreshVisibleDevelopment() {
       if (
         loaded?.taskId === state.selected &&
-        loaded?.view?.development?.status === "active" &&
+        ["active", "paused"].includes(loaded?.view?.development?.status) &&
         $("[data-requirement-panel]")?.getClientRects().length &&
         !document.body.classList.contains("output-collapsed")
       )

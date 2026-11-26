@@ -153,8 +153,9 @@ export function createObserveRequirements({
     }
   }
 
-  /** What the ledger detail was read at: a merge bumps the revision, a new development does not. */
-  const contextStamp = (row) => `${row.revision}|${row.view?.development?.developmentId ?? ""}`;
+  /** What the ledger detail was read at: a merge bumps the revision; a new, paused or withdrawn development does not. */
+  const contextStamp = (row) =>
+    `${row.revision}|${row.view?.development?.developmentId ?? ""}|${row.view?.development?.revision ?? ""}`;
 
   /** The opened requirement's ledger: one context read per revision and development. */
   async function loadContext(row) {

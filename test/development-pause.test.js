@@ -89,6 +89,25 @@ test("pausing keeps the development and its card; resuming puts both back", asyn
     (await service.findDevelopmentByRequirement(projectId, card.requirementId)).developmentId,
     development.developmentId
   );
+  // Nor does it take new tickets, an Executor's start or a merge.
+  await assert.rejects(
+    service.writeTickets(projectId, development.developmentId, { op: "propose", tickets: [] }),
+    {
+      code: "development_paused"
+    }
+  );
+  const commit = "1".repeat(40);
+  await assert.rejects(
+    service.createMerge(projectId, development.developmentId, {
+      candidate: { commit, tree: "2".repeat(40), branch: "dev", workspace: "/tmp/dev" },
+      acceptance: { channel: "self", approvedCommit: commit, approvedTree: "2".repeat(40) },
+      checks: [{ name: "测试", command: "npm test" }],
+      requestedBy: BACKEND,
+      executionBackendId: BACKEND,
+      targetBranch: "main"
+    }),
+    { code: "development_closed" }
+  );
   assert.match(
     developmentNext({
       route: "quick",
@@ -107,6 +126,20 @@ test("pausing keeps the development and its card; resuming puts both back", asyn
   assert.equal((await service.boardEntry(projectId, card.boardId)).state, claimed.state);
   const kinds = (await service.boardEvents(projectId, card.boardId)).map((event) => event.kind);
   assert.deepEqual(kinds, ["published", "claimed", "paused", "resumed"]);
+
+  // A card its owner paused stays paused through the development's pause and resume.
+  const card2 = await service.boardEntry(projectId, card.boardId);
+  const held = await service.boardAction(
+    projectId,
+    card.boardId,
+    "pause",
+    { expectedRevision: card2.revision, requestId: "owner-pause" },
+    HOST
+  );
+  assert.equal(held.state, "paused");
+  const again = await update(service, projectId, resumed, { status: "paused", reason: "再等等" });
+  await update(service, projectId, again, { status: "active" });
+  assert.equal((await service.boardEntry(projectId, card.boardId)).state, "paused");
 });
 
 test("withdrawing a feature that never merged retires it; picking it up brings it back", async (t) => {

@@ -522,8 +522,14 @@ export function createProjectDevelopmentTool(options: ProjectDevelopmentToolOpti
       const directory = (created.development as { workspace?: { directory?: string } } | undefined)?.workspace
         ?.directory;
       const pitfalls = directory ? await pitfallsHint(directory) : undefined;
+      // The development already exists; a failed read only loses the branch hint.
       const picked =
-        typeof input.continues === "string" ? await pickedUp(request, input.continues) : undefined;
+        typeof input.continues === "string"
+          ? await pickedUp(request, input.continues).catch((error: unknown) => ({
+              developmentId: input.continues,
+              note: `Could not read the withdrawn development (${error instanceof Error ? error.message : String(error)}); find_by_requirement shows its branch.`
+            }))
+          : undefined;
       return { ...created, ...(pitfalls ? { pitfalls } : {}), ...(picked ? { continues: picked } : {}) };
     }
     if (action === "get") return request({ action, developmentId: input.developmentId });

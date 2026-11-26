@@ -442,7 +442,7 @@ export class ProjectBoardRepository {
     projectId: string,
     requirementId: string,
     action: "pause" | "resume" | "cancel",
-    input: { requestId: string; backendId: unknown }
+    input: { developmentId: string; requestId: string; backendId: unknown }
   ): Promise<void> {
     const open = await this.rows(
       `SELECT * FROM project_data_board_entries
@@ -457,13 +457,15 @@ export class ProjectBoardRepository {
     let kind: BoardEventKind;
     if (action === "resume") {
       if (current.state !== "paused") return;
-      const paused = await this.transaction.query<{ from_state: string | null }>(
-        `SELECT from_state FROM project_data_board_events
+      const paused = await this.transaction.query<{ from_state: string | null; request_id: string }>(
+        `SELECT from_state, request_id FROM project_data_board_events
           WHERE project_id = ? AND board_id = ? AND kind = 'paused'
           ORDER BY revision DESC LIMIT 1`,
         [projectId, current.board_id]
       );
-      to = (paused[0]?.from_state as BoardState | null) ?? "in_progress";
+      // A card its owner paused stays paused until the owner resumes it.
+      if (!paused[0]?.request_id.startsWith(`development-${input.developmentId}-`)) return;
+      to = (paused[0].from_state as BoardState | null) ?? "in_progress";
       kind = "resumed";
     } else {
       const spec = TRANSITIONS[action];

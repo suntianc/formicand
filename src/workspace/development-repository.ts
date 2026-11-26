@@ -21,6 +21,7 @@ import {
   developmentCompletionCriteria,
   developmentGoal,
   developmentIdentifier,
+  developmentNotActive,
   developmentReason,
   developmentRoute,
   developmentStatus,
@@ -350,12 +351,15 @@ export class DevelopmentRepository {
     backendIdValue: unknown
   ): Promise<void> {
     const action = status === "paused" ? "pause" : status === "withdrawn" ? "cancel" : "resume";
+    // The requirement lock comes first, as it does when a card is published, so
+    // a card published meanwhile is seen and cancelled with the rest.
+    const requirement = await this.ledger.requireRequirement(projectId, current.requirement_id);
     await this.ledger.board().followDevelopment(projectId, current.requirement_id, action, {
+      developmentId: current.development_id,
       requestId: `development-${current.development_id}-r${revision}`,
       backendId: backendIdValue
     });
     if (status !== "withdrawn") return;
-    const requirement = await this.ledger.requireRequirement(projectId, current.requirement_id);
     if (requirement.kind === "misc" || requirement.status !== "active") return;
     const merged = await this.transaction.query<{ development_id: string }>(
       "SELECT development_id FROM project_data_developments WHERE project_id = ? AND requirement_id = ? AND status = 'merged' LIMIT 1",
@@ -505,6 +509,15 @@ export class DevelopmentRepository {
     const projectId = ledgerProjectId(projectIdValue);
     const developmentId = developmentIdentifier(developmentIdValue, "开发记录 ID");
     const development = await this.requireDevelopment(projectId, developmentId);
+    // Main's writes and an Executor's start are new work; a review or verdict
+    // already under way may still land on a paused development.
+    const status = developmentStatus(development.status);
+    if (status !== "active" && ["propose", "confirm", "revise", "start"].includes(write.op))
+      throw new ProjectDataConflictError(
+        developmentNotActive(status),
+        undefined,
+        status === "paused" ? "development_paused" : "development_closed"
+      );
     const current = await this.tickets(projectId, developmentId);
     const timestamp = now();
     const next = applyTicketWrite(current, write, developmentRoute(development.route), timestamp);

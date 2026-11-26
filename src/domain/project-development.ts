@@ -118,7 +118,7 @@ export function developmentNotActive(status: DevelopmentStatus): string {
 export function developmentReason(value: unknown): string {
   if (value === undefined || value === null)
     throw new ProjectDataInvalidError("暂停或撤回需要 reason：用户为什么停下");
-  return bounded(value, "暂停或撤回原因", 1000);
+  return bounded(value, "暂停或撤回原因", 2000);
 }
 
 export function developmentGoal(value: unknown): string {
