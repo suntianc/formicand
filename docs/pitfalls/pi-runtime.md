@@ -19,10 +19,10 @@
 ## 只降级 Pi 包无法回滚
 
 - **Trigger：** Pi 升级后出现问题，准备把三个包降回旧版本。
-- **What happens：** 升级提交同时改了启动参数、策略哈希和直接依赖。只降级包时旧版 Pi 以 `Error: Unknown option: --no-mcp` 退出，策略哈希也不匹配。
-- **Confirm：** 用旧版 bundle `cli.js` 加 `--no-mcp --mode rpc` 启动，观察退出信息；`git diff <升级提交>^ <升级提交> | git apply -R --check -` 确认整体撤销可以干净应用。
-- **Avoid：** 按 [运行参考](../development.md#终端界面适配) 的回滚步骤撤销整个升级提交后 `npm ci`、构建、`npm run verify`。会话文件两个方向都能续用（`test/p46-session-compat-pi.test.js`）；之后再次升级不能只改 `package.json`。
-- **Sources：** 2026-11-13 [P4.6 摘录](evidence/os-p46/retro.md#pi-升级与回滚第二轮)。
+- **What happens：** Pi 版本须与启动参数和两份 CLI 策略匹配。升级后若又添加了依赖，恢复整份旧清单会一起移除这些依赖，`npm ci` 仍可能成功，构建才报告缺包。
+- **Confirm：** 对照升级前后的策略版本，再用 `git diff <升级提交>..HEAD -- package.json package-lock.json` 检查后续修改。在临时工作树回滚后构建并运行一个依赖后续改动的入口。
+- **Avoid：** 在升级合并点按保留侧父提交回退。已有后续依赖变更时，从当前清单调整 Pi 版本，恢复对应策略，执行 `npm ci` 并验证 CLI、扩展和搜索。[回滚步骤](../development.md#终端界面适配)
+- **Sources：** 2026-11-26《Pi 运行时兼容与文件搜索》，2026-11-13 [P4.6 摘录](evidence/os-p46/retro.md#pi-升级与回滚第二轮)。
 
 ## 依赖文件事件送达消息或唤醒
 
