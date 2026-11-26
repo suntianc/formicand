@@ -97,3 +97,46 @@ test("returned async tools retain real work status through progress, callbacks a
     await dashboard.stop();
   }
 });
+
+test("Main sitting in a wait for its Subagents leaves the transcript row as done", async ({ page }) => {
+  const dashboard = await startDashboard();
+  try {
+    await page.route("**/app.js", (route) =>
+      route.fulfill({ contentType: "application/javascript", body: "// Isolated UI state fixture" })
+    );
+    await page.goto(dashboard.base);
+    await page.evaluate(async () => {
+      const { createConversationView } = await import("/assets/controllers/conversation-view.js");
+      const user = { role: "user", content: "并行升级两个依赖", timestamp: 1 };
+      const runtimeEvents = [
+        { type: "turn_start" },
+        { type: "message_start", message: user },
+        { type: "tool_execution_start", toolCallId: "status", toolName: "get_subagent_status", args: {} },
+        { type: "tool_execution_end", toolCallId: "status", toolName: "get_subagent_status", result: {} },
+        { type: "tool_execution_start", toolCallId: "wait", toolName: "wait_for_subagents", args: {} }
+      ];
+      const state = {
+        selected: "fixture",
+        localMessages: [],
+        executionHistoryOpen: new Map(),
+        detail: { task: { taskId: "fixture", status: "running" }, runtime: { active: true }, runtimeEvents }
+      };
+      const view = createConversationView({
+        state,
+        $: (selector) => document.querySelector(selector),
+        bindStarterPrompts() {},
+        textContent: (value) => (typeof value === "string" ? value : "")
+      });
+      view.renderConversation([user], state.detail.task);
+    });
+    // The run strip says Main waits; the row reads as the steps it took.
+    const row = page.locator(".process-segment").last();
+    await expect(row).toContainText("协调了 2 次任务");
+    await expect(row).not.toHaveClass(/is-live/);
+    await expect(page.locator(".thinking-spinner")).toHaveCount(0);
+    await expect(page.getByText("等待协作结果中")).toHaveCount(0);
+    await expect(page.getByText("思考中")).toHaveCount(0);
+  } finally {
+    await dashboard.stop();
+  }
+});
