@@ -111,7 +111,7 @@ test(
       assert.ok(response.ok, `${path} ${response.status} ${JSON.stringify(json)}`);
       return json;
     };
-    const open = async (name, files) => {
+    const open = async (name, files, route) => {
       const root = await mkdtemp(join(tmpdir(), "pitfalls-project-"));
       t.after(() => rm(root, { recursive: true, force: true }));
       const directory = await repository(root, files);
@@ -129,20 +129,26 @@ test(
         requirementId: requirement.requirementId,
         goal: "list 分页正确",
         completionCriteria: ["第二页从第 11 条开始"],
-        route: "quick"
+        ...(route ? { route } : {})
       });
     };
 
-    const kept = await open("有坑点", {
-      "README.md": "# fixture\n",
-      [PITFALLS_INDEX]: "# Pitfalls\n\n| Trigger | Entry |\n"
-    });
+    const kept = await open(
+      "有坑点",
+      {
+        "README.md": "# fixture\n",
+        [PITFALLS_INDEX]: "# Pitfalls\n\n| Trigger | Entry |\n"
+      },
+      "quick"
+    );
     assert.equal(kept.development.workspace.state, "ready");
     assert.match(kept.pitfalls, /docs\/pitfalls\/README\.md/);
 
     const none = await open("无坑点", { "README.md": "# fixture\n" });
     assert.equal(none.development.workspace.state, "ready");
     assert.equal("pitfalls" in none, false);
+    // Main may leave the route out: the default route is quick.
+    assert.equal(none.development.route, "quick");
   }
 );
 
