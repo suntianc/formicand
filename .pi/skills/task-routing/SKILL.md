@@ -36,7 +36,7 @@ Questions, investigations, documents, one-off scripts and file handling need no 
 
 ## Delegating
 
-- Each collaborator costs time and money, and each handoff loses context. Write code yourself. Delegate reading that comes back as a short answer (searching code, logs or documents), an independent check of a risky result, or parts that can run in parallel.
+- Each collaborator costs time and money; each handoff loses context. Write code yourself. Delegate reading that returns a short answer (code, logs, documents), an independent check of risky work, or parallel parts (on a requirement, whole tickets only).
 - One delegation is one result checkable on its own. Brief it as a colleague who has not seen this conversation: goal, scope, question, input paths, what to hand back and how to tell it is right; never forward the user's broad request as is.
 - `call_subagent` returns a callId at once; the result arrives as a callback. Keep working or end the turn; `wait_for_subagents` only when this turn needs the result.
 - Send independent delegations in one turn; when one needs another's result, declare `dependsOn` instead of waiting.
