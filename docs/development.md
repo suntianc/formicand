@@ -203,9 +203,11 @@ Main 按 Workloop 式的流程交付需求，代码默认由 Main 自己写，�
 
 ## 终端界面适配
 
-CLI 的交互界面直接使用原版 Pi 1.5.2，不改依赖文件。启动时只在交互子进程里对一个经过审核的代码块做六处界面文字替换（重启提示、tmux 提示、反馈和崩溃提示等改成 Formicand 的说法），另有三处让命令行工具的身份变成 `AI_AGENT=formicand`、长输出文件名变成 `formicand-bash-*.log`。
+CLI 的交互界面直接使用原版 Pi 1.6.1，不改依赖文件。启动时只在交互子进程里对一个经过审核的代码块做六处界面文字替换（重启提示、tmux 提示、反馈和崩溃提示等改成 Formicand 的说法），另有三处让命令行工具的身份变成 `AI_AGENT=formicand`、长输出文件名变成 `formicand-bash-*.log`。
 
-替换内容固定在 [cli-ui-policy.json](../scripts/cli-ui-policy.json) 和 [cli-shell-policy.json](../scripts/cli-shell-policy.json)。构建和启动时都会核对 Pi 版本、文件 hash 和替换位置，对不上就报错，不会带着没适配的界面运行。升级 Pi 时要重新生成和核对这两份策略。
+替换内容固定在 [cli-ui-policy.json](../scripts/cli-ui-policy.json) 和 [cli-shell-policy.json](../scripts/cli-shell-policy.json)。构建和启动时都会核对 Pi 版本、文件 hash 和替换位置，对不上就报错，不会带着没适配的界面运行。升级 Pi 时要按新 bundle 重新生成和核对这两份策略，并逐条复核六处 UI 与三处 shell 差异的替换文本。
+
+回滚按升级提交整体撤销，不要只把三个 Pi 包降回旧版：两份策略仍锁着新 bundle 的版本和 hash，只降包会在启动前的校验被拒绝。撤销整个提交后 `npm ci`、重新构建并运行 `npm run verify`。相邻版本的会话文件都是 v3，`test/p46-session-compat-pi.test.js` 用真实 1.5.2 与 1.6.1 进程实测两个方向续跑；跳过不构成兼容结论。
 
 ## 信任边界
 

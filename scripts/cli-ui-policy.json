@@ -1,14 +1,14 @@
 {
   "schemaVersion": 1,
-  "sdkVersion": "1.5.2",
+  "sdkVersion": "1.6.1",
   "className": "_InteractiveMode",
   "entry": "dist/bundle/cli.js",
-  "target": "dist/bundle/chunks/chunk-VEJDBY3O.js",
-  "spansSha256": "ab291b4ab3c0aed3071eb29d59b4591e50a5019eabbc359f3d17a790b66022e0",
+  "target": "dist/bundle/chunks/chunk-ORY5MLDF.js",
+  "spansSha256": "ac0190ab2f3f2c2227f153630dba267899b9de9c57dd921900146cffb2b872d9",
   "files": {
     "dist/bundle/cli.js": "e79626f2dd6f94aa45d30f3fa63cd84319a6eefcd150b353cfaf274366926774",
-    "dist/bundle/cli-runtime.js": "8fdd4161be64f4aadb8bec47ae77b56dcbeab288da6e55dcab3e0243e50f80fc",
-    "dist/bundle/chunks/chunk-VEJDBY3O.js": "effbbd5d6247983dc11c7ae5796eb24bda88f9ebf78c707d3f92ca73cbb8b51e"
+    "dist/bundle/cli-runtime.js": "0a95531f552d2bed286a8731517bd05b4c3d0c85849b089f21bb7508e09d7c1d",
+    "dist/bundle/chunks/chunk-ORY5MLDF.js": "969756eea20f331cfde2aed70ecd1deb4c78df5ac678715180d0ce4a5d65093e"
   },
   "methods": [
     "renderProjectTrustWarningIfNeeded",

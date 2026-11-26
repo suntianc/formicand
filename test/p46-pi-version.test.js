@@ -11,12 +11,12 @@ async function readJson(path) {
   return JSON.parse(await readFile(path, "utf8"));
 }
 
-test("the three Pi packages resolve to the same reviewed 1.5.x release", async () => {
+test("the three Pi packages resolve to the same reviewed 1.6.1 release", async () => {
   const packageJson = await readJson(packagePath);
   const versions = PI_PACKAGES.map((name) => packageJson.dependencies[`@earendil-works/${name}`]);
   assert.deepEqual(new Set(versions).size, 1, `pinned versions differ: ${JSON.stringify(versions)}`);
   const [version] = versions;
-  assert.match(version, /^1\.5\.\d+$/, "the upgrade targets the reviewed 1.5.x line");
+  assert.equal(version, "1.6.1", "the upgrade targets the reviewed 1.6.1 release");
   for (const name of PI_PACKAGES) {
     const metadata = await readJson(
       new URL(`../node_modules/@earendil-works/${name}/package.json`, import.meta.url)

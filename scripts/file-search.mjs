@@ -132,7 +132,7 @@ export async function autocompleteFiles(parameters, cwd = process.cwd()) {
   const { root, info } = await searchRoot(parameters.path, cwd);
   if (!info.isDirectory()) throw new Error(`Search path must be a directory: ${root}`);
   const pattern = assertPattern(parameters.pattern ?? "");
-  const expression = parameters.glob ? undefined : new RegExp(pattern, "u");
+  const expression = parameters.glob ? undefined : new RegExp(pattern, parameters.ignoreCase ? "iu" : "u");
   const types = parameters.types ?? ["f", "d"];
   if (types.some((type) => !["f", "d"].includes(type)))
     throw new Error("Only file and directory search is supported.");
@@ -145,8 +145,19 @@ export async function autocompleteFiles(parameters, cwd = process.cwd()) {
   for await (const entry of entriesIn(root, await ancestorRules(root), { ...parameters, root })) {
     if (!types.includes(entry.directory ? "d" : "f")) continue;
     const local = normalize(relative(root, entry.path));
-    const candidate = parameters.fullPath ? local : basename(local);
-    if (parameters.glob ? !minimatch(candidate, pattern, { dot: true }) : !expression.test(candidate))
+    // Pi 1.6.1 prefixes relative path globs with the search path and passes
+    // --ignore-case when the user's pattern is lowercase; fd then matches the
+    // absolute candidate. Keep fd's full-path and smart-case behavior.
+    const candidate = parameters.fullPath
+      ? isAbsolute(pattern)
+        ? normalize(entry.path)
+        : local
+      : basename(local);
+    if (
+      parameters.glob
+        ? !minimatch(candidate, pattern, { dot: true, nocase: parameters.ignoreCase === true })
+        : !expression.test(candidate)
+    )
       continue;
     if (paths.length === limit) return { paths, limitReached: true };
     paths.push(local + (entry.directory ? "/" : ""));

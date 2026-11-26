@@ -67,9 +67,9 @@
     "typescript-eslint": "8.70.1"
   },
   "dependencies": {
-    "@earendil-works/pi-agent-core": "1.5.2",
-    "@earendil-works/pi-ai": "1.5.2",
-    "@earendil-works/pi-coding-agent": "1.5.2",
+    "@earendil-works/pi-agent-core": "1.6.1",
+    "@earendil-works/pi-ai": "1.6.1",
+    "@earendil-works/pi-coding-agent": "1.6.1",
     "@jitl/quickjs-singlefile-browser-release-sync": "0.32.0",
     "@modelcontextprotocol/sdk": "1.31.0",
     "dompurify": "^3.4.17",
