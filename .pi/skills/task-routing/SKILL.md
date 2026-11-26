@@ -18,7 +18,7 @@ The method runs along these skills:
 1. **`grill-with-docs`** interviews to settle open questions on goal, scope and acceptance, and records the project's terms; a decision hard to reverse becomes an ADR in the development's first commit. Skip it when the request settles them.
 2. On the `full` route, **`to-spec`** turns the outcome into a spec, then **`to-tickets`** splits it into tickets.
 3. **`implement`** builds each ticket, driving **`tdd`** and closing with a self-review by **`code-review`**. An Executor runs it per ticket; on `quick`, you do.
-4. On the `direct` and `full` routes, an independent Reviewer reviews with **`code-review`**.
+4. On `full`, and on `quick` when the program or you call for one, an independent Reviewer reviews with **`code-review`**.
 5. Before the last merge, **`retro`** turns its lessons into environment improvements and pitfalls.
 
 ## Something is broken

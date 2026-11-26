@@ -67,7 +67,7 @@ const develop = (service, projectId, requirementId) =>
     requirementId,
     goal: "做这次改动",
     completionCriteria: ["测试通过"],
-    route: "direct",
+    route: "full",
     baseline: { branch: "main", commit: "0".repeat(40) }
   });
 
@@ -400,7 +400,7 @@ test("a version 9 ledger gains the tidy mark and each requirement a description"
 
   const again = await openLedger(t, root);
   t.after(() => again.runtime.close());
-  assert.equal(again.service.description.schemaVersion, 14);
+  assert.equal(again.service.description.schemaVersion, 15);
   // A version 9 requirement takes its summary's first sentence as its description.
   const upgraded = await again.service.getRequirement(project.projectId, exported.requirementId);
   assert.equal(upgraded.description, "export 输出 CSV。");
@@ -432,7 +432,7 @@ test("a version 12 ledger drops the per-project tidy read time", async (t) => {
 
   const again = await openLedger(t, root);
   t.after(() => again.runtime.close());
-  assert.equal(again.service.description.schemaVersion, 14);
+  assert.equal(again.service.description.schemaVersion, 15);
   const reopened = await SqliteDatabase.open(join(root, "project-data.sqlite"));
   const columns = await reopened.query("PRAGMA table_info(project_data_projects)");
   await reopened.close();
@@ -459,7 +459,7 @@ for (const completed of [false, true])
       completed ? at : null,
       projectId
     ]);
-    await database.execute("UPDATE project_data_migrations SET version = 13 WHERE version = 14");
+    await database.execute("UPDATE project_data_migrations SET version = 13 WHERE version = 15");
     await database.close();
 
     const upgraded = await openLedger(t, root);

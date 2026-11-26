@@ -25,6 +25,7 @@ export function createDevelopmentReadinessService({
   inspectWorkspace,
   ticketRoute,
   lastIntegration,
+  fromIntegration,
   ports,
   requiredMergeConfig
 }: {
@@ -33,6 +34,7 @@ export function createDevelopmentReadinessService({
   inspectWorkspace: ReturnType<typeof createDevelopmentWorkspaceService>["inspectWorkspace"];
   ticketRoute: ReturnType<typeof createDevelopmentTicketService>["ticketRoute"];
   lastIntegration: ReturnType<typeof createDevelopmentTicketService>["lastIntegration"];
+  fromIntegration: ReturnType<typeof createDevelopmentTicketService>["fromIntegration"];
   ports: Pick<ProjectDevelopmentPorts, "backendId">;
   requiredMergeConfig: ReturnType<typeof createDevelopmentWorkspaceService>["requiredMergeConfig"];
 }) {
@@ -89,9 +91,17 @@ export function createDevelopmentReadinessService({
       const last = lastIntegration(tickets);
       qualification.channel = "independent";
       qualification.independentReview = tickets.length > 0;
-      if (last && !(await carries(last))) reasons.push("candidate_changed");
-      // The full route also needs a passed review of the whole requirement on this version.
-      if (record.route === "full" && !reasons.length) {
+      const directory = record.workspace!.directory;
+      // The version the program produced: the last ticket brought in, perhaps
+      // with the target branch merged in after it by sync_target.
+      if (
+        last &&
+        !(await carries(last)) &&
+        !(await fromIntegration(projectId, directory, last.commit, current.commit))
+      )
+        reasons.push("candidate_changed");
+      // It also needs a passed review of the whole requirement on this version.
+      if (!reasons.length) {
         const final = finalReviews(tickets, reviews).at(-1);
         if (!final) reasons.push("final_review_missing");
         else {
@@ -99,9 +109,9 @@ export function createDevelopmentReadinessService({
           qualification.independentReview = Boolean(final.reviewer);
           if (!reviewApproved(final)) reasons.push(`review_${final.state}`);
           else if (!(await carries(final.candidate))) reasons.push("candidate_changed");
+          else qualification.approved = approvedAs(final.candidate);
         }
       }
-      if (last && !reasons.length) qualification.approved = approvedAs(last);
     } else if (!plan) reasons.push("review_plan_missing");
     else if (plan.channel === "self") {
       const aligned = await carries(plan.candidate);
@@ -151,7 +161,7 @@ export function createDevelopmentReadinessService({
       service.queryDeliveries(projectId, developmentId)
     ]);
     const review = reviews.at(-1);
-    const final = record.route === "full" ? finalReviews(tickets.tickets, reviews).at(-1) : undefined;
+    const final = ticketRoute(record) ? finalReviews(tickets.tickets, reviews).at(-1) : undefined;
     const merge = merges.at(-1);
     // A failed review whose chain used its rounds and has no change of approach yet.
     const atLimit = (chain: DevelopmentReview[]) => {
@@ -248,17 +258,16 @@ export function createDevelopmentReadinessService({
       if (!tickets.length || tickets.some((ticket) => ticket.state !== "merged"))
         reasons.push("tickets_pending");
       const last = lastIntegration(tickets);
-      if (last?.commit !== approved.commit) reasons.push("candidate_changed");
-      const record = await service.getDevelopment(projectId, merge.developmentId, ports.backendId);
-      if (record.route === "full") {
-        const final = finalReviews(tickets, reviews).find(
-          (entry) => entry.reviewId === merge.acceptance.reviewId
-        );
-        if (!final) reasons.push("final_review_missing");
-        else {
-          if (!reviewApproved(final)) reasons.push(`review_${final.state}`);
-          if (final.candidate.commit !== approved.commit) reasons.push("candidate_changed");
-        }
+      const target = await requiredMergeConfig(projectId);
+      if (!last || !(await fromIntegration(projectId, target.repository, last.commit, approved.commit)))
+        reasons.push("candidate_changed");
+      const final = finalReviews(tickets, reviews).find(
+        (entry) => entry.reviewId === merge.acceptance.reviewId
+      );
+      if (!final) reasons.push("final_review_missing");
+      else {
+        if (!reviewApproved(final)) reasons.push(`review_${final.state}`);
+        if (final.candidate.commit !== approved.commit) reasons.push("candidate_changed");
       }
       const unresolved = reviews
         .flatMap((entry) => entry.findings)

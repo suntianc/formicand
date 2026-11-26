@@ -258,6 +258,21 @@ export class HumanRequestStore {
     });
   }
 
+  /**
+   * Close a question a newer one replaces, whether or not it timed out: an
+   * unanswered card stays answerable, so a replaced one must leave the page.
+   */
+  async withdraw(taskId: string, requestId: string): Promise<HumanRequest> {
+    const path = this.path(taskId, requestId);
+    return withFileLock(path, async () => {
+      const request = await this.read(taskId, requestId);
+      if (request.status !== "pending" && request.status !== "unanswered") return request;
+      const next: HumanRequest = { ...request, status: "cancelled", closedAt: now() };
+      await atomicWrite(path, json(next));
+      return next;
+    });
+  }
+
   /** Questions in a replaced message's tail cannot accept decisions for the new branch. */
   async supersede(taskId: string, requestId: string, runId: string): Promise<void> {
     const path = this.path(taskId, requestId);

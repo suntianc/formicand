@@ -129,7 +129,7 @@ const develop = (service, projectId, requirementId, request) =>
     request,
     goal: "做这次改动",
     completionCriteria: ["测试通过"],
-    route: "direct",
+    route: "full",
     baseline: { branch: "main", commit: "0".repeat(40) }
   });
 
