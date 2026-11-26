@@ -238,10 +238,10 @@ html[data-desktop-platform] :is(.app-shell, .app-layout) {
   user-select: none;
 }
 html[data-desktop-platform] .conversation-sidebar,
-html[data-desktop-platform] :is(.chat-pane, .observe-pane, .agent-pane) {
+html[data-desktop-platform] :is(.chat-pane, .observe-pane, .observe-detail, .agent-pane) {
   -webkit-app-region: no-drag;
 }
-html[data-desktop-platform] :is(.chat-pane, .observe-pane, .agent-pane) {
+html[data-desktop-platform] :is(.chat-pane, .observe-pane, .observe-detail, .agent-pane) {
   user-select: text;
 }
 html[data-desktop-platform] :is(.app-titlebar, .observe-header, .requirement-panel-head) {
@@ -256,7 +256,7 @@ html[data-desktop-platform] :is(button, a, input, select, textarea, [role="butto
    therefore punched no-drag holes in it. The pane box alone keeps its content
    out of the drag; nothing inside adds a rectangle, apart from the panel heads. */
 html[data-desktop-platform]
-  :is(.conversation-sidebar, .chat-pane, .observe-pane, .agent-pane)
+  :is(.conversation-sidebar, .chat-pane, .observe-pane, .observe-detail, .agent-pane)
   :not(:is(.observe-header, .requirement-panel-head), :is(.observe-header, .requirement-panel-head) *) {
   -webkit-app-region: initial;
 }
