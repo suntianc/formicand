@@ -312,6 +312,9 @@ html[data-theme] .tool-step .activity-status {
   place-items: center;
   flex: 0 0 16px;
   width: 16px;
+  /* The hidden status words still take a grid row: no gap, or the mark
+     sits above the words' middle. */
+  gap: 0;
   font-size: 0;
 }
 html[data-theme] .tool-step.is-failed .activity-status {
@@ -404,13 +407,39 @@ html[data-theme] .tool-group-body > .tool-step {
 }
 
 /* A thought renders directly as muted narrative prose inside the workflow rail
-   without a secondary fold; interrupted thoughts keep a quiet amber marker. */
+   without a secondary fold, behind the thought mark in the same column as a
+   tool's status; interrupted thoughts keep a quiet amber marker instead. */
+html[data-theme] .workflow-rail > .reasoning-step .reasoning-body {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+html[data-theme] .workflow-rail > .reasoning-step .reasoning-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 16px;
+  /* As tall as the first line, padding included, so the mark sits on it. */
+  height: calc(var(--ui-type-control) * 1.65 + 4px);
+  color: var(--color-text-3);
+}
+html[data-theme] .workflow-rail > .reasoning-step .reasoning-mark .ui-icon {
+  width: 14px;
+  height: 14px;
+}
 html[data-theme] .workflow-rail > .reasoning-step .reasoning-copy.markdown-body {
+  flex: 1 1 auto;
+  min-width: 0;
   margin: 0;
   padding: 2px 0;
   color: var(--color-text-3);
   font-size: var(--ui-type-control);
   line-height: 1.65;
+}
+/* The last paragraph's gap would sit under the thought and widen the rail's
+   rhythm there. */
+html[data-theme] .workflow-rail > .reasoning-step .reasoning-copy.markdown-body > :last-child {
+  margin-bottom: 0;
 }
 html[data-theme] .workflow-rail > .reasoning-step .reasoning-copy.markdown-body strong {
   color: var(--color-text-2);
@@ -635,8 +664,8 @@ html[data-theme] .context-window-divider::after {
   border-top: 1px dashed var(--color-line);
 }
 
-/* Subagents a step sent out: one row for the dispatch, then each Subagent
-   indented under it with its role, its task (its result once done) and state. */
+/* Subagents a step sent out: one row each with its avatar, name, role, task
+   and state. */
 html[data-theme] .subagent-group .activity-step-head,
 html[data-theme] .turn-stopped .activity-step-head {
   display: flex;
@@ -644,15 +673,11 @@ html[data-theme] .turn-stopped .activity-step-head {
   gap: 8px;
   min-height: 26px;
 }
-html[data-theme] :is(.subagent-group, .turn-stopped) .activity-step-head > strong {
+html[data-theme] .turn-stopped .activity-step-head > strong {
   color: var(--color-text-2);
   font-weight: 500;
 }
-html[data-theme]
-  :is(.subagent-group, .turn-stopped)
-  > .activity-step-content
-  > .activity-step-head
-  > .tool-status-dot,
+html[data-theme] .turn-stopped > .activity-step-content > .activity-step-head > .tool-status-dot,
 html[data-theme] .subagent-step .tool-status-dot {
   /* The legacy sheet pushes a head's spans to the right edge. */
   margin-left: 0;
@@ -662,7 +687,6 @@ html[data-theme] .subagent-step .tool-status-dot {
   border-radius: 0;
   background: radial-gradient(circle closest-side, var(--dot, var(--mark-idle)) 2.5px, transparent 3.2px);
 }
-html[data-theme] .subagent-group,
 html[data-theme] .subagent-step.is-running {
   --dot: var(--mark-batch);
 }
@@ -677,11 +701,6 @@ html[data-theme] .turn-stopped {
 }
 html[data-theme] .subagent-step.is-failed {
   --dot: var(--mark-failed);
-}
-html[data-theme] .subagent-nest {
-  margin-left: 7px;
-  padding-left: 14px;
-  border-left: 1px solid var(--color-line);
 }
 html[data-theme] .subagent-step .tool-action {
   display: flex;

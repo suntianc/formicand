@@ -226,6 +226,15 @@ export function createConversationActivityView({
     // is still catching up with the final stream.
     const activity = [];
     for (const item of visibleItems) {
+      // A Subagent row shows up whole: the dispatch result names who took the
+      // task, so until it returns Main's own row keeps saying it is working.
+      if (
+        item.type === "tool" &&
+        item.call.name === "call_subagent" &&
+        !item.call.completed &&
+        presentations.get(item.call).status === "running"
+      )
+        continue;
       const previous = activity.at(-1);
       if (item.type === "answer" && previous?.type === "answer" && previous.messageKey === item.messageKey)
         previous.text += item.text;
@@ -389,7 +398,28 @@ export function createConversationActivityView({
           } else {
             let leadIcon = "activity";
             let titleText;
-            if (segmentCalls.length) {
+            // The latest steps of a round that now waits read as what it waits
+            // for; a count of what was done says nothing about where it stands.
+            const inWaitTool =
+              lastItem?.type === "tool" &&
+              waitingTools.has(lastItem.call.name) &&
+              presentations.get(lastItem.call)?.status === "running";
+            const waitingText =
+              !isCurrent || !isLastSegment || (active && !inWaitTool)
+                ? ""
+                : pendingWork.agents
+                  ? ui`等待 ${pendingWork.agents} 个子助手的结果`
+                  : pendingWork.callbacks || inWaitTool
+                    ? ui("等待子助手的结果")
+                    : pendingWork.jobs
+                      ? ui("等待后台任务")
+                      : detail?.parked
+                        ? ui("等待新的进展")
+                        : "";
+            if (waitingText) {
+              leadIcon = "history";
+              titleText = waitingText;
+            } else if (segmentCalls.length) {
               const counts = new Map();
               for (const call of segmentCalls) {
                 const kind = toolCategory(call);
@@ -498,7 +528,7 @@ export function createConversationActivityView({
       const mark = agentAvatar(agent.agentId) || '<span class="tool-status-dot" aria-hidden="true"></span>';
       return `<div class="subagent-step is-${finished ? "done" : status === "failed" ? "failed" : running ? "running" : "waiting"}" data-view-key="${esc(item.key)}"><div class="activity-step-head">${mark}<span class="tool-action"><strong>${esc(agent.name)}</strong><span class="subagent-role-tag">${esc(agent.role)}</span>${agent.task ? `<span class="tool-subject" title="${esc(agent.task)}">${esc(agent.task)}</span>` : ""}</span><span class="subagent-status">${esc(statusText)}</span></div></div>`;
     });
-    return `<div class="activity-step subagent-group" data-view-key="${esc(group.key)}"><div class="activity-step-content"><div class="activity-step-head"><span class="tool-status-dot" aria-hidden="true"></span><strong>${esc(ui`派出 ${group.items.length} 个子助手`)}</strong></div><div class="subagent-nest">${rows.join("")}</div></div></div>`;
+    return `<div class="activity-step subagent-group" data-view-key="${esc(group.key)}">${rows.join("")}</div>`;
   }
 
   function renderReasoningStep(reasoning, turn, key) {
@@ -517,7 +547,11 @@ export function createConversationActivityView({
     const stoppedHead = turn.interrupted
       ? `<div class="activity-step-head"><span class="reasoning-state">${esc(ui("思考已停止"))}</span></div>`
       : "";
-    return `<div class="activity-step reasoning-step${turn.interrupted ? " is-interrupted" : ""}" data-view-key="${esc(key)}"><div class="activity-step-content">${stoppedHead}<div class="reasoning-copy markdown-body" data-reading-key="${esc(key)}">${markdown(normalized)}</div></div></div>`;
+    // A stopped thought already wears the stopped mark on its head line.
+    const mark = turn.interrupted
+      ? ""
+      : `<span class="reasoning-mark" aria-hidden="true">${icon("activity")}</span>`;
+    return `<div class="activity-step reasoning-step${turn.interrupted ? " is-interrupted" : ""}" data-view-key="${esc(key)}"><div class="activity-step-content">${stoppedHead}<div class="reasoning-body">${mark}<div class="reasoning-copy markdown-body" data-reading-key="${esc(key)}">${markdown(normalized)}</div></div></div></div>`;
   }
 
   // Before the first token, the turn shows the row its first thought will
