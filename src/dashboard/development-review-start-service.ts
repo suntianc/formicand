@@ -213,18 +213,26 @@ export function createDevelopmentReviewStartService({
     const service = await gateway();
     const developmentId = record.developmentId;
     const { ticket } = await requireTicket(projectId, developmentId, input.ticketId);
-    if (!ticket.work) throw conflict(`票 ${ticket.ticketId} 还没有派给 Executor`, "ticket_not_started");
+    if (!ticket.work)
+      throw conflict(
+        `票 ${ticket.ticketId} 还没有开工：start_ticket 自己写，或派给 Executor`,
+        "ticket_not_started"
+      );
     if (ticket.state !== "in_progress" && ticket.state !== "rework")
       throw conflict(`票 ${ticket.ticketId} 现在不能送审`, "ticket_state_conflict");
-    const fact = await requireCall(taskId, ticket.work.callId);
-    if (fact.status !== "completed")
+    // A ticket Main writes itself has no Executor call to wait for.
+    const fact = ticket.work.callId ? await requireCall(taskId, ticket.work.callId) : undefined;
+    if (fact && fact.status !== "completed")
       throw conflict(
         `票 ${ticket.ticketId} 的 Executor ${fact.callId} 还没有完成（${fact.status}）`,
         "ticket_work_running"
       );
     const current = await inspectDirectory(ticket.work.workspace);
     if (current.changes)
-      throw conflict("票的现场有未提交改动；让 Executor 提交后再冻结", "review_candidate_dirty");
+      throw conflict(
+        fact ? "票的现场有未提交改动；让 Executor 提交后再冻结" : "票的现场有未提交改动；提交后再冻结",
+        "review_candidate_dirty"
+      );
     const integration = await inspectWorkspace(record);
     const changed = await ticketChangedPaths(record.workspace!.directory, integration.commit, current.commit);
     if (!changed.length) throw conflict(`票 ${ticket.ticketId} 的现场没有新提交`, "ticket_no_changes");
@@ -249,12 +257,16 @@ export function createDevelopmentReviewStartService({
         branch: current.branch,
         workspace: current.workspace
       },
-      author: {
-        role: "executor",
-        callId: fact.callId,
-        agentId: fact.agentId,
-        workspace: ticket.work.workspace
-      },
+      ...(fact
+        ? {
+            author: {
+              role: "executor" as const,
+              callId: fact.callId,
+              agentId: fact.agentId,
+              workspace: ticket.work.workspace
+            }
+          }
+        : {}),
       ...(previous
         ? {
             previousReviewId: previous.reviewId,

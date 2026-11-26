@@ -1,3 +1,4 @@
+import { join } from "node:path";
 import { conflict } from "./development-errors.js";
 import { chainOf, checkRound } from "./development-review-rounds.js";
 import { mergeCheckCommands } from "../domain/development-merge.js";
@@ -14,6 +15,7 @@ import { now } from "../domain/types.js";
 import type { ProjectDataGateway } from "../workspace/project-data-service.js";
 import { git, gitPaths, gitProbe, onlyTargetMergedSince } from "../workspace/development-workspace.js";
 import { runMergeChecks } from "../workspace/project-merge.js";
+import { prepareWorkItemSite } from "../workspace/work-item-workspace.js";
 import type { ProjectDevelopmentPorts } from "./project-development-service.js";
 import type { createDevelopmentWorkspaceService } from "./development-workspace-service.js";
 
@@ -373,6 +375,34 @@ export function createDevelopmentTicketService({
     await (await gateway()).writeTickets(found.projectId, developmentId, { op: "start", ticketId, work });
   }
 
+  /**
+   * Main writes a ticket itself. The program opens the ticket's own checkout,
+   * forked from the requirement checkout as an Executor's is, so review,
+   * rework and integration take it the same way; starting it again after a
+   * failed review reopens the same checkout with its commits.
+   */
+  async function startTicket(taskId: string, input: Record<string, unknown>) {
+    const found = await taskProject(taskId);
+    return inDevelopment(found.projectId, input, async (record) => {
+      const checked = await ticketForDispatch(taskId, record.developmentId, input.ticketId);
+      const name = `main-${record.developmentId}-${checked.ticketId}`;
+      const site = {
+        developmentDirectory: record.workspace!.directory,
+        directory: join(record.workspace!.directory, "..", "work-items", name),
+        branch: `formicand/work/${name}`
+      };
+      await prepareWorkItemSite(site);
+      await ticketStarted(taskId, record.developmentId, checked.ticketId, { workspace: site.directory });
+      return {
+        developmentId: record.developmentId,
+        ticketId: checked.ticketId,
+        workspace: site.directory,
+        branch: site.branch,
+        ...(checked.brief ? { brief: checked.brief } : {})
+      };
+    });
+  }
+
   return {
     ticketRoute,
     fromIntegration,
@@ -384,6 +414,7 @@ export function createDevelopmentTicketService({
     integrateTicket,
     integrateTicketInBackground,
     ticketForDispatch,
-    ticketStarted
+    ticketStarted,
+    startTicket
   };
 }

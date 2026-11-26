@@ -182,7 +182,11 @@ test("the next step follows the records", () => {
   const confirmed = { ...base, tickets: [at("confirmed")] };
   assert.match(
     developmentNext(confirmed),
-    /Tickets 01 can start: call_subagent with developmentId and ticketId/
+    /Tickets 01 can start: start_ticket opens a ticket's checkout for you to write it/
+  );
+  assert.match(
+    developmentNext({ ...base, tickets: [at("in_progress", { work: { workspace: "/w/main-01" } })] }),
+    /^Ticket 01 is yours: write it in \/w\/main-01, commit, then freeze_candidate with ticketId/
   );
   assert.match(
     developmentNext({

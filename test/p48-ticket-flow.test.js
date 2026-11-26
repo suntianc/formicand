@@ -895,3 +895,131 @@ test(
     );
   }
 );
+
+test("Main writes a ticket itself in a checkout the program opens", { timeout: 120_000 }, async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "formicand-p48-main-ticket-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const repo = await repository(join(root, "repository"));
+  const runtime = new ProjectDataRuntime({
+    config: { sqlite: { path: join(root, "project-data.sqlite") } },
+    configPath: join(root, "config.json"),
+    dataRoot: root,
+    env: {}
+  });
+  t.after(() => runtime.close());
+  const gateway = await runtime.service();
+  const projectId = "project_main_ticket";
+  await gateway.ensureProject({
+    projectId,
+    projectName: "Main 写票",
+    projectDirectory: repo,
+    backendId: "backend_flow"
+  });
+  const requirement = await gateway.createRequirement(projectId, { title: "分页", summary: "两张票" });
+  const projectInfo = { projectId, projectName: "Main 写票", projectDirectory: repo };
+  const calls = {};
+  const developmentRoot = join(root, "development-workspaces");
+  const service = createProjectDevelopmentService({
+    runtime: { service: async () => gateway },
+    backendId: "backend_flow",
+    developmentRoot,
+    project: async (id) => (id === projectId ? projectInfo : undefined),
+    taskProject: async (id) => (id === "task-flow" ? projectInfo : undefined),
+    call: async (_taskId, callId) => calls[callId]
+  });
+  await service.setMergeConfig(projectId, { repository: repo, targetBranch: "main" });
+  const development = await service.create(projectId, {
+    requirementId: requirement.requirementId,
+    goal: "两个文件",
+    completionCriteria: ["两个文件都在"],
+    route: "full"
+  });
+  const developmentId = development.developmentId;
+  let set = await service.writeTickets(projectId, developmentId, {
+    op: "propose",
+    tickets: [ticket("01", "src/a.txt"), ticket("02", "src/b.txt", { dependsOn: ["01"] })]
+  });
+  await service.writeTickets(projectId, developmentId, { op: "confirm", expectedRevision: set.revision });
+  assert.match(await service.next(projectId, developmentId), /Tickets 01 can start: start_ticket/);
+  await assert.rejects(
+    service.startTicketForTask("task-flow", { developmentId, ticketId: "02" }),
+    /依赖的票 01 还没有合入/
+  );
+
+  // The program opens the ticket's own checkout; no Executor call holds it.
+  const started = await service.startTicketForTask("task-flow", { developmentId, ticketId: "01" });
+  assert.equal(started.workspace, join(developmentRoot, "work-items", `main-${developmentId}-01`));
+  assert.match(started.brief, /^Ticket 01: 写 src\/a\.txt/);
+  set = await service.tickets(projectId, developmentId);
+  assert.equal(set.tickets[0].state, "in_progress");
+  assert.deepEqual(set.tickets[0].work, { workspace: started.workspace });
+  assert.match(await service.next(projectId, developmentId), /Ticket 01 is yours: write it in/);
+
+  await assert.rejects(
+    service.startReview(projectId, "task-flow", { developmentId, ticketId: "01" }),
+    /现场没有新提交/
+  );
+  await writeFile(join(started.workspace, "src", "a.txt"), "a\n");
+  await assert.rejects(
+    service.startReview(projectId, "task-flow", { developmentId, ticketId: "01" }),
+    /票的现场有未提交改动；提交后再冻结/
+  );
+  await commit(started.workspace, {}, "ticket 01");
+  let review = await service.startReview(projectId, "task-flow", { developmentId, ticketId: "01" });
+  assert.equal(review.author, undefined, "Main wrote it: no Executor to continue");
+  assert.equal(review.candidate.workspace, started.workspace);
+
+  const reviewer = async (callId) => {
+    const directory = join(developmentRoot, "work-items", callId);
+    await git(development.workspace.directory, [
+      "worktree",
+      "add",
+      "--detach",
+      directory,
+      review.candidate.commit
+    ]);
+    calls[callId] = {
+      callId,
+      agentId: `agent-${callId}`,
+      role: "reviewer",
+      workspace: directory,
+      developmentId,
+      status: "completed"
+    };
+    return service.attachReviewer(projectId, "task-flow", { reviewId: review.reviewId, callId });
+  };
+
+  // A failed review: Main fixes it in the same checkout and freezes again.
+  review = await reviewer("call-r1");
+  await service.completeReview(projectId, {
+    reviewId: review.reviewId,
+    verdict: "failed",
+    summary: "内容要两行",
+    checks: []
+  });
+  assert.equal((await service.tickets(projectId, developmentId)).tickets[0].state, "rework");
+  assert.match(await service.next(projectId, developmentId), /fix them yourself in the ticket's checkout/);
+  await commit(started.workspace, { "src/a.txt": "a\nsecond\n" }, "rework");
+  review = await service.startReview(projectId, "task-flow", {
+    developmentId,
+    ticketId: "01",
+    previousReviewId: review.reviewId
+  });
+  review = await reviewer("call-r2");
+  await service.completeReview(projectId, {
+    reviewId: review.reviewId,
+    verdict: "passed",
+    summary: "可以",
+    checks: [{ name: "存在", command: "ls src", exitCode: 0, output: "a.txt" }]
+  });
+  const integrated = await service.integrateTicket(projectId, {
+    developmentId,
+    ticketId: "01",
+    checks: [{ name: "存在", command: "test -f src/a.txt" }]
+  });
+  assert.equal(integrated.integrated, true);
+  assert.equal(await readFile(join(development.workspace.directory, "src", "a.txt"), "utf8"), "a\nsecond\n");
+  // The dependent ticket can start now, in a checkout that already holds 01.
+  const second = await service.startTicketForTask("task-flow", { developmentId, ticketId: "02" });
+  assert.equal(await readFile(join(second.workspace, "src", "a.txt"), "utf8"), "a\nsecond\n");
+});

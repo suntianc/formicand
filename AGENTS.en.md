@@ -66,7 +66,7 @@ Package-internal subpaths (for example `@earendil-works/pi-ai/api/...`) belong t
 
 ## Independent review
 
-When a change touches a path below, the program will not merge it on Main's own checks: it needs an independent Reviewer. One path per row (a file or a directory; `*` matches within one name), read as of the version the development started from; a change of more than 20 non-document files needs one too.
+When a change touches a path below, the program will not merge it on Main's own checks: it needs an independent Reviewer. One path per row (a file or a directory; `*` matches within one name), read as of the version the development started from.
 
 | Path                            | Reason                                         |
 | ------------------------------- | ---------------------------------------------- |

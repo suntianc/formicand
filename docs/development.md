@@ -118,19 +118,19 @@ Main 和子代理都是独立的 Pi coding agent（`@earendil-works/pi-coding-ag
 
 ## 需求交付流程
 
-Main 可以把一个需求按 Workloop 式的流程交给子代理完成，状态和规则由程序保存和执行：
+Main 按 Workloop 式的流程交付需求，代码默认由 Main 自己写，状态和规则由程序保存和执行：
 
 1. **需求台账**（`project_ledger`）：每个项目的长期需求、现状和历史。
 2. **需求开发记录**（`project_development`）：为需求建一个独立的 `git worktree` 现场，放在 `~/.formicand/runtime/development-workspaces/` 下，不碰用户自己的工作目录。
 3. **票**：范围、带检查方式的验收标准、保留不变的部分、本次不做的事和依赖。用户确认后冻结。
-4. **派单**：Executor 在需求现场分出的自己的 worktree 里工作，交回时用 `submit_report` 逐条报告验收标准。
+4. **写票**：Main 用 `start_ticket` 开工，程序从需求现场分出这张票自己的 worktree，Main 在里面写、提交后送审。能和 Main 并行、互不干扰的票才派给 Executor，它在自己的 worktree 里工作，交回时用 `submit_report` 逐条报告验收标准。
 5. **审查**：Reviewer 审一个冻结的候选提交，用 `submit_review` 交回 `pass` 或 `changes_requested`。拦截的发现必须引用验收标准，或属于回归、数据丢失、安全、项目规则四类底线之一。
-6. **返修**：票回到返修状态后，派发前先检查剩余轮数。还有轮数时，用 `continueCallId` 在原 Executor 的会话和工作区继续。用尽轮数时，Main 在最近一次失败的审查上记录下一步做法；若选择更换 Executor，票留在返修状态，供新的 Executor 接手。
+6. **返修**：票回到返修状态后先检查剩余轮数。Main 写的票由 Main 在原 worktree 里改好再送审；Executor 写的票用 `continueCallId` 在原 Executor 的会话和工作区继续。用尽轮数时，Main 在最近一次失败的审查上记录下一步做法；若选择更换 Executor，票留在返修状态，供新的 Executor 接手。
 7. **并入需求现场**：每张票审查通过后由程序并进需求现场（`integrate_ticket`），先跑项目检查，再跑本票的验收命令；`full` 的整体终审只在全部票并入之后冻结。
 8. **终审**：`full` 路线冻结整体终审时必须先写对照表（`mapping`，每行一条要求和证明它的测试、命令或文件），程序编行号，拦截发现可以直接引用行号。冻结前程序还检查项目 `AGENTS.md` 的文档登记表：还没有表就要求建表并登记现有文档，新加或改名的 Markdown 没登记、登记行指向已删文档、同类同领域出现两份时拒绝冻结，用修复票改好。
 9. **合入目标分支**：满足这条路线的验收后，才在临时组合现场合并到配置的目标分支并跑项目检查；`full` 路线还要求同一版本通过整体终审。
 
-路线分两种：`quick` 是默认路线，由 Main 自己改、自己检查；改动碰到项目 `AGENTS.md`“独立审查”表里的路径，或非文档文件超过 20 个时，程序拒绝只靠自查（`review_plan` 的 `self`），要求独立审查。`full` 按票冻结、审查后再并入；目标分支有新提交时，`sync_target` 把它们干净地合进需求现场，不用另开票。票改到范围以外的文件不拦截，交给 Reviewer 判断。
+路线分两种：`quick` 是默认路线，由 Main 自己改、自己检查；改动碰到项目 `AGENTS.md`“独立审查”表里的路径时，程序拒绝只靠自查（`review_plan` 的 `self`），要求独立审查。`full` 按票冻结、审查后再并入；目标分支有新提交时，`sync_target` 把它们干净地合进需求现场，不用另开票。票改到范围以外的文件不拦截，交给 Reviewer 判断。
 
 ## 数据布局
 

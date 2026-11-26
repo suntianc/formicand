@@ -146,7 +146,8 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
     integrateTicket,
     integrateTicketInBackground,
     ticketForDispatch,
-    ticketStarted
+    ticketStarted,
+    startTicket
   } = createDevelopmentTicketService({
     gateway,
     inDevelopment,
@@ -603,6 +604,7 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
 
     ticketForDispatch,
     ticketStarted,
+    startTicketForTask: startTicket,
 
     async next(projectId: string, developmentId: string) {
       await project(projectId);

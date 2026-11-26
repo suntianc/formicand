@@ -67,11 +67,19 @@ export interface TicketContent {
   dependsOn: string[];
 }
 
-/** The Executor work item that implements a ticket, in its own checkout. */
+/**
+ * Who implements a ticket, in its own checkout: an Executor work item, or Main
+ * itself when the call and agent are absent.
+ */
 export interface TicketWork {
-  callId: string;
-  agentId: string;
+  callId?: string;
+  agentId?: string;
   workspace: string;
+}
+
+/** Main writes this ticket itself rather than through an Executor. */
+export function mainWritesTicket(ticket: { work?: TicketWork }): boolean {
+  return Boolean(ticket.work && !ticket.work.callId);
 }
 
 /** One check the program ran when it brought a ticket into the requirement checkout. */
@@ -101,7 +109,7 @@ export interface DevelopmentTicket extends TicketContent {
   changes: TicketChange[];
   confirmedAt?: string;
   confirmationId?: string;
-  /** The Executor call currently implementing it; a rework replaces it with the continuation. */
+  /** Who is implementing it now; an Executor's rework replaces it with the continuation. */
   work?: TicketWork;
   /** Reviews of this ticket's checkout, oldest first. */
   reviewIds: string[];
@@ -739,7 +747,7 @@ export function developmentNext(facts: NextStepFacts): string {
   if (review?.state === "failed" && review.atLimit)
     return `${mergeNote}Review ${review.reviewId} ${LIMIT} new_plan (rework with a different approach), or deliver_partial (dismiss what stays unfixed with category=deferred first).`;
   if (review?.state === "failed" || review?.state === "drifted")
-    return `${mergeNote}Review ${review.reviewId} ${review.state}: rule its blocking findings (fix, or dismiss with a basis), rework through the original Executor (continueCallId and reviewId), then freeze_candidate with previousReviewId.`;
+    return `${mergeNote}Review ${review.reviewId} ${review.state}: rule its blocking findings (fix, or dismiss with a basis), fix them yourself in the checkout and commit, then freeze_candidate with previousReviewId.`;
   const reasons = qualification?.reasons ?? [];
   const work =
     "Make the change in the checkout, run its checks, then record review_plan channel=self; if the program refuses self, record channel=independent and freeze_candidate.";
@@ -802,19 +810,33 @@ function ticketSteps(facts: NextStepFacts): string {
   const rework = by("rework").filter(
     (ticket) => !atLimit.some((entry) => entry.ticketId === ticket.ticketId)
   );
-  if (rework.length)
+  const ownRework = rework.filter(mainWritesTicket);
+  const delegatedRework = rework.filter((ticket) => !mainWritesTicket(ticket));
+  if (ownRework.length)
     steps.push(
-      `Tickets ${ids(rework)} need rework: rule the blocking findings (fix, or dismiss with a basis), continue the original Executor with continueCallId and reviewId, then freeze_candidate with ticketId and previousReviewId.`
+      `Tickets ${ids(ownRework)} need rework: rule the blocking findings (fix, or dismiss with a basis), fix them yourself in the ticket's checkout and commit, then freeze_candidate with ticketId and previousReviewId.`
+    );
+  if (delegatedRework.length)
+    steps.push(
+      `Tickets ${ids(delegatedRework)} need rework: rule the blocking findings (fix, or dismiss with a basis), continue the original Executor with continueCallId and reviewId, then freeze_candidate with ticketId and previousReviewId.`
     );
   const working = by("in_progress");
-  if (working.length)
+  const own = working.filter(mainWritesTicket);
+  const delegated = working.filter((ticket) => !mainWritesTicket(ticket));
+  for (const ticket of own)
     steps.push(
-      `Tickets ${ids(working)} are being implemented: when the Executor finishes, freeze_candidate with ticketId and authorCallId.`
+      `Ticket ${ticket.ticketId} is yours: write it in ${ticket.work!.workspace}, commit, then freeze_candidate with ticketId.`
+    );
+  if (delegated.length)
+    steps.push(
+      `Tickets ${ids(delegated)} are being implemented: when the Executor finishes, freeze_candidate with ticketId and authorCallId.`
     );
   const confirmed = by("confirmed");
   const ready = confirmed.filter((ticket) => ticketReady(ticket, tickets));
   if (ready.length)
-    steps.push(`Tickets ${ids(ready)} can start: call_subagent with developmentId and ticketId.`);
+    steps.push(
+      `Tickets ${ids(ready)} can start: start_ticket opens a ticket's checkout for you to write it, one ticket at a time; give a part that runs beside yours to an Executor with call_subagent, developmentId and ticketId.`
+    );
   const waiting = confirmed.filter((ticket) => !ready.includes(ticket));
   if (waiting.length && !steps.length)
     steps.push(`Tickets ${ids(waiting)} wait for their dependencies to be merged.`);

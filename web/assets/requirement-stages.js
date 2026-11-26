@@ -220,13 +220,15 @@ function executorLabel(input) {
     [...live.map((agent) => agent.agentId), ...assigned.map((ticket) => ticket.work?.agentId)].filter(Boolean)
   );
   if (executors.size) return `Executor ${[...executors].map(agentDisplayName).join("、")}`;
+  // A ticket held without an Executor call is one Main writes itself.
+  if (assigned.some((ticket) => ticket.work && !ticket.work.callId)) return "Main";
   const review = lastReview(input.reviews);
   const agentId = roleAgent(input.roles, "executor") ?? review?.author?.agentId;
   if (agentId) return `Executor ${agentDisplayName(agentId)}`;
   const previous =
     tickets.filter((ticket) => ticket.work && ticket.state !== "merged").at(-1) ??
     tickets.findLast((ticket) => ticket.work);
-  if (previous) return `Executor ${agentDisplayName(previous.work.agentId)}`;
+  if (previous) return previous.work.agentId ? `Executor ${agentDisplayName(previous.work.agentId)}` : "Main";
   // Before a delegated Executor is recorded, the session's own Main does the work.
   return input.development ? "Main" : "";
 }

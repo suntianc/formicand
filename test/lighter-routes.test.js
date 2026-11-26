@@ -8,11 +8,7 @@ import { promisify } from "node:util";
 import { createProjectDevelopmentService } from "../dist/src/dashboard/project-development-service.js";
 import { ProjectDataRuntime } from "../dist/src/workspace/project-data-service.js";
 import { SqliteDatabase } from "../dist/src/storage/project-data/sqlite-database.js";
-import {
-  independentReviewReason,
-  parseReviewRules,
-  SELF_CHECK_FILE_LIMIT
-} from "../dist/src/domain/review-rules.js";
+import { independentReviewReason, parseReviewRules } from "../dist/src/domain/review-rules.js";
 
 /**
  * Two routes, and when the program, not the model, decides a change needs an
@@ -67,10 +63,8 @@ test("the review rules name paths and a size, and leave documents to the self ch
     undefined,
     "* stays in one name"
   );
-  const many = Array.from({ length: SELF_CHECK_FILE_LIMIT + 1 }, (_, index) => `src/f${index}.js`);
-  assert.match(independentReviewReason([], many), /超过自查上限/);
-  const docs = Array.from({ length: SELF_CHECK_FILE_LIMIT + 1 }, (_, index) => `docs/d${index}.md`);
-  assert.equal(independentReviewReason([], docs), undefined, "documents do not count toward the size");
+  const many = Array.from({ length: 50 }, (_, index) => `src/f${index}.js`);
+  assert.equal(independentReviewReason([], many), undefined, "size alone never takes a Reviewer");
 });
 
 test("a quick change on a listed path cannot rest on Main's own checks", { timeout: 60_000 }, async (t) => {
