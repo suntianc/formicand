@@ -93,7 +93,7 @@ export function registerSearchTools(pi: ExtensionAPI, cwd: string): void {
       const limit = resultLimit(params.limit, 1000);
       if (
         !pattern.trim() ||
-        /[\\/*?[{]/.test(pattern) ||
+        /[\\/*?[{]|[!+@]\(/.test(pattern) ||
         (params.path && !(await stat(resolve(cwd, params.path))).isDirectory())
       ) {
         const result = await runDiskSearch("find", params, { cwd, signal });
@@ -150,7 +150,10 @@ export function registerSearchTools(pi: ExtensionAPI, cwd: string): void {
         });
       }
       const result = await index.content(pattern, limit, params.path, signal);
-      return output(result.text, result.truncated ? { matchLimitReached: limit } : {});
+      return output(result.text, {
+        ...(result.truncated ? { matchLimitReached: limit } : {}),
+        ...(result.linesTruncated ? { linesTruncated: true } : {})
+      });
     }
   });
 }

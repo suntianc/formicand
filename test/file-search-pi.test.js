@@ -146,7 +146,10 @@ function searchProvider(directory, role) {
           {
             name: "grep",
             arguments: { pattern: "createHttpTransp(ort|rt)", path: "src", literal: false, mode: "exact" }
-          }
+          },
+          { name: "find", arguments: { pattern: "@(other|http-transport).ts" } },
+          { name: "grep", arguments: { pattern: "uniqueIgnoredNeedle", path: "src" } },
+          { name: "grep", arguments: { pattern: "longPreviewNeedle" } }
         ]
       : [{ name: "submit_review", arguments: { verdict: "pass", findings: [] } }])
   ];
@@ -176,6 +179,10 @@ async function runMainSearch(t) {
   // model's own search strings and must not become grep matches.
   projectDirectory = join(dashboard.root, "search-project");
   await writeSearchProject(projectDirectory);
+  await git(projectDirectory, ["init", "-b", "main"]);
+  await writeFile(join(projectDirectory, ".gitignore"), "src/generated.txt\n");
+  await writeFile(join(projectDirectory, "src", "generated.txt"), "uniqueIgnoredNeedle\n");
+  await writeFile(join(projectDirectory, "long.txt"), "longPreviewNeedle" + "x".repeat(3000));
   const projectResponse = await fetch(`${dashboard.base}/api/projects`, {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -219,7 +226,7 @@ async function runMainSearch(t) {
   const searchRequests = provider.requests.filter(
     (body) => toolNames(body).includes("find") && toolNames(body).includes("grep")
   );
-  assert.ok(searchRequests.length >= 7, `Main made the scripted search requests (${searchRequests.length})`);
+  assert.ok(searchRequests.length >= 10, `Main made the scripted search requests (${searchRequests.length})`);
   assertSearchTools(searchRequests[0], "Main");
   assert.match(systemText(searchRequests[0]), /Formicand Main Agent/, "Main's production prompt reached it");
   return { searchRequests };
@@ -362,6 +369,12 @@ test("Main's production search tools explore fuzzily and query exactly", { timeo
     /createHttpTransport/,
     "Main's exact grep still honors a regex query"
   );
+  assert.deepEqual(lastToolText(main.searchRequests[7]).split("\n").sort(), [
+    "src/runtime/http-transport.ts",
+    "src/runtime/other.ts"
+  ]);
+  assert.doesNotMatch(lastToolText(main.searchRequests[8]), /generated\.txt/);
+  assert.match(lastToolText(main.searchRequests[9]), /lines truncated/i);
 });
 
 test(
