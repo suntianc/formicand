@@ -193,3 +193,44 @@ test("two nodes' requirements aggregate with phase counts and scope filters", as
     await node.stop();
   }
 });
+
+test("a long list reads each project's phases once and draws more rows as it scrolls", async ({ page }) => {
+  const node = await startDashboard({ defaultProject: false });
+  try {
+    const project = await createProject(page, node, "长列表项目", `${node.root}/long-project`);
+    const path = `/api/projects/${encodeURIComponent(project.projectId)}/ledger`;
+    for (let index = 1; index <= 55; index += 1) {
+      const response = await page.request.post(`${node.base}${path}`, {
+        data: { action: "create", title: `需求 ${index}`, summary: `第 ${index} 条。` }
+      });
+      expect(response.status(), await response.text()).toBeLessThan(300);
+    }
+    const views = [];
+    page.on("request", (request) => {
+      if (request.url().endsWith("/deliveries") && request.postData()?.includes('"view"'))
+        views.push(request);
+    });
+
+    await page.goto(node.base);
+    await page.getByRole("tab", { name: "观测", exact: true }).click();
+    await page.locator('[data-observe-view="requirements"]').click();
+    await expect
+      .poll(async () => Number(await tabCount(page, "all").textContent()))
+      .toBeGreaterThanOrEqual(55);
+    const total = Number(await tabCount(page, "all").textContent());
+    const rows = page.locator("[data-observe-requirement]");
+    await expect(rows).toHaveCount(50);
+    // The phases come from one read per project, not one per requirement.
+    expect(views).toHaveLength(0);
+
+    await page.locator("[data-observe-more]").scrollIntoViewIfNeeded();
+    await expect(rows).toHaveCount(total);
+    await expect(page.locator("[data-observe-more]")).toHaveCount(0);
+
+    // Opening one requirement reads its full view.
+    await rows.first().click();
+    await expect.poll(() => views.length).toBe(1);
+  } finally {
+    await node.stop();
+  }
+});

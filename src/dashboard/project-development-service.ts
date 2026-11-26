@@ -210,13 +210,14 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
     mergeService
   });
 
-  const { deliveryView, deliveryPatch, deliveryFileLocation } = createDevelopmentDeliveryViewService({
-    ports,
-    mergeService,
-    gateway,
-    project,
-    deliveryQualification
-  });
+  const { deliveryView, deliveryPhases, deliveryPatch, deliveryFileLocation } =
+    createDevelopmentDeliveryViewService({
+      ports,
+      mergeService,
+      gateway,
+      project,
+      deliveryQualification
+    });
 
   return {
     async mergeConfig(projectId: string) {
@@ -414,6 +415,10 @@ export function createProjectDevelopmentService(ports: ProjectDevelopmentPorts) 
       options: DevelopmentReadOptions = {}
     ) {
       return deliveryView(projectId, input, options);
+    },
+
+    async deliveryPhases(projectId: string, options: DevelopmentReadOptions = {}) {
+      return deliveryPhases(projectId, options);
     },
 
     async deliveryViewForTask(

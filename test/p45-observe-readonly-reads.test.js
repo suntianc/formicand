@@ -38,7 +38,7 @@ const READ_ONLY = { "x-formicand-read-only": "1" };
  * backend published whose shared delivery has not been accepted yet. Every
  * `syncDelivery` the gateway receives is a replay the read performed.
  */
-async function fixture(t) {
+async function fixture(t, others = []) {
   const root = await mkdtemp(join(tmpdir(), "formicand-observe-reads-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const syncs = [];
@@ -49,6 +49,7 @@ async function fixture(t) {
     projectId: PROJECT.projectId,
     goal: "观测时读取开发记录",
     status: "active",
+    createdAt: "2026-01-02T00:00:00.000Z",
     updatedAt: RECEIPT.mergedAt
   };
   const merge = {
@@ -64,7 +65,7 @@ async function fixture(t) {
   };
   const gateway = {
     mergeConfig: async () => undefined,
-    queryDevelopments: async () => [development],
+    queryDevelopments: async () => [...others, development],
     getDevelopment: async () => development,
     findDevelopmentByRequirement: async () => development,
     queryMerges: async () => [merge],
@@ -172,8 +173,49 @@ test("the observation entry lists developments, merges and deliveries without re
     [RECEIPT.mergeId]
   );
 
+  // The requirement list reads every requirement's phase records in one call.
+  const phases = await read(base, `${PROJECT_PATH}/deliveries`, {
+    headers: READ_ONLY,
+    body: { action: "phases" }
+  });
+  assert.equal(phases.status, 200, JSON.stringify(phases.body));
+  const phase = phases.body.phases[RECEIPT.requirementId];
+  assert.equal(phase.development.developmentId, RECEIPT.developmentId);
+  assert.deepEqual(
+    phase.merges.map((entry) => entry.mergeId),
+    [RECEIPT.mergeId]
+  );
+  assert.equal(phase.diff, undefined, "the diff is read only for the opened requirement");
+
   assert.deepEqual(syncs, [], "a read-only read performs no outbox replay");
   assert.deepEqual(deliveries, [], "the shared delivery records are unchanged");
+});
+
+test("the list's phase of a requirement is its open development, else its latest", async (t) => {
+  const older = (developmentId, status, createdAt, requirementId = RECEIPT.requirementId) => ({
+    developmentId,
+    requirementId,
+    projectId: PROJECT.projectId,
+    goal: "更早的一次",
+    status,
+    createdAt,
+    updatedAt: "2026-03-01T00:00:00.000Z"
+  });
+  const { service } = await fixture(t, [
+    // Newer but closed: the open development still holds the requirement.
+    older("dev_newer_withdrawn", "withdrawn", "2026-02-01T00:00:00.000Z"),
+    // Another requirement with only closed work takes its latest.
+    older("dev_first", "merged", "2026-01-01T00:00:00.000Z", "req_other"),
+    older("dev_second", "withdrawn", "2026-01-05T00:00:00.000Z", "req_other")
+  ]);
+  const base = await serve(t, service);
+  const { body } = await read(base, `${PROJECT_PATH}/deliveries`, {
+    headers: READ_ONLY,
+    body: { action: "phases" }
+  });
+  assert.equal(body.phases[RECEIPT.requirementId].development.developmentId, RECEIPT.developmentId);
+  assert.equal(body.phases.req_other.development.developmentId, "dev_second");
+  assert.deepEqual(body.phases.req_other.merges, []);
 });
 
 test("the same read without the marker still completes the pending delivery", async (t) => {

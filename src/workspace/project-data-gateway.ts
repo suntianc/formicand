@@ -28,6 +28,12 @@ export interface RequirementQuery {
   text?: unknown;
   status?: unknown;
   limit?: unknown;
+  /**
+   * Read the whole ledger page by page: requirements ordered by their fixed
+   * id instead of by update, starting after this id ("" for the first page),
+   * so an update between pages neither skips nor repeats a row.
+   */
+  after?: unknown;
 }
 
 export interface RequirementCreate {

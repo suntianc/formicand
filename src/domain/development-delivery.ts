@@ -144,6 +144,16 @@ export interface DeliveryView {
   retro?: MergeRetro;
 }
 
+/**
+ * One requirement's current development and the records its phase is read
+ * from: what a list of requirements needs, without the diff, role progress or
+ * review report that a single requirement's view adds.
+ */
+export type DeliveryPhase = Pick<
+  DeliveryView,
+  "development" | "plan" | "reviews" | "merges" | "delivery" | "tickets"
+>;
+
 const CONTROL = /[\0-\x08\x0b\x0c\x0e-\x1f\x7f]/;
 const COMMIT = /^[0-9a-f]{7,64}$/;
 const TIME_MAX = 100;

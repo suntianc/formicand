@@ -23,6 +23,8 @@ import { ui } from "../ui/language.js";
  */
 
 const LEDGER_PATH = (projectId) => `/api/projects/${encodeURIComponent(projectId)}/ledger`;
+/** The most requirements one ledger read returns. */
+const LEDGER_PAGE = 200;
 
 const ABSOLUTE_URL = /^[a-z][a-z0-9+.-]*:/i;
 /**
@@ -192,8 +194,24 @@ export function createObserveData({
       projects.map(async (project) => {
         if (!project?.projectId) return;
         try {
-          const result = await readEntry(entry, LEDGER_PATH(project.projectId));
-          const requirements = Array.isArray(result?.requirements) ? result.requirements : [];
+          // The ledger answers a page at a time; the list and its counts need every requirement.
+          const requirements = [];
+          const seen = new Set();
+          let after = "";
+          for (;;) {
+            const result = await readEntry(
+              entry,
+              `${LEDGER_PATH(project.projectId)}?limit=${LEDGER_PAGE}&after=${encodeURIComponent(after)}`
+            );
+            const page = Array.isArray(result?.requirements) ? result.requirements : [];
+            const fresh = page.filter((row) => row?.requirementId && !seen.has(row.requirementId));
+            for (const row of fresh) seen.add(row.requirementId);
+            requirements.push(...fresh);
+            // A short page is the last; a page with nothing new means the node
+            // did not page at all, so reading on would only repeat it.
+            if (page.length < LEDGER_PAGE || !fresh.length) break;
+            after = page.at(-1).requirementId;
+          }
           next.set(project.projectId, requirements.filter(observed));
           // eslint-disable-next-line no-restricted-syntax -- one project's ledger may be unavailable on an older node; that project contributes no count and the other nodes still aggregate
         } catch {

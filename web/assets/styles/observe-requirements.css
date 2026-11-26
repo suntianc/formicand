@@ -223,6 +223,10 @@ html[data-theme] .or-empty {
   color: var(--color-text-3);
   font-size: 13px;
 }
+/* The end of the drawn rows: scrolling it into view draws the next ones. */
+html[data-theme] .or-more {
+  height: 1px;
+}
 
 /* The phase pill: green once settled, amber while a person must answer,
    accent while a phase is being worked on. */

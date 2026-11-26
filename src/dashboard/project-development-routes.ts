@@ -355,6 +355,14 @@ async function handleDeliveryRequest(
         : await service.deliveryView(scope.projectId, body, { readOnly: scope.readOnly });
       return reply(response, 200, { view });
     }
+    case "phases": {
+      // The requirement list reads every phase of a project at once; a Task
+      // reads its own requirement through view.
+      if (task) throw new HttpError(400, "phases 读取整个项目，不按会话读取");
+      return reply(response, 200, {
+        phases: await service.deliveryPhases(scope.projectId, { readOnly: scope.readOnly })
+      });
+    }
     case "diff": {
       // The patch is read from the checkout this backend owns. A remote
       // reader asks its own execution host, so the authority never runs Git
