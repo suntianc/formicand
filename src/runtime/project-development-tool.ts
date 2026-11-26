@@ -169,7 +169,7 @@ export function createProjectDevelopmentTool(options: ProjectDevelopmentToolOpti
           type: "string",
           enum: ["quick", "full"],
           description:
-            "quick (the default, also for work in several parts: you write and check the change yourself; the program may require an independent review) or full (work too large to check as one change, or that the user wants to accept part by part: tickets the user confirms, which you write one at a time with start_ticket, each reviewed, then a final review)."
+            "quick (the default when omitted, also for work in several parts: you write and check the change yourself; the program may require an independent review) or full (work too large to check as one change, or that the user wants to accept part by part: tickets the user confirms, which you write one at a time with start_ticket, each reviewed, then a final review)."
         },
         tickets: {
           type: "array",
@@ -506,7 +506,7 @@ export function createProjectDevelopmentTool(options: ProjectDevelopmentToolOpti
         request: input.request,
         goal: input.goal,
         completionCriteria: input.completionCriteria,
-        route: input.route
+        route: input.route ?? "quick"
       });
       // Main is told once, when the requirement's checkout opens, to read its pitfalls.
       const directory = (created.development as { workspace?: { directory?: string } } | undefined)?.workspace
