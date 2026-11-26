@@ -391,6 +391,11 @@ export function createHumanQuestions(root, { submit, resume, onVisibility, onErr
     const error = errors.get(key) || (storageErrors.has(key) ? storageMessage : "");
     const next = JSON.stringify([taskId, pending, resumeNeeded, index, busy.has(key), error]);
     const ownedFocus = displayedKey === key && root.contains(document.activeElement);
+    // A newly shown card hides the composer; unless the person is typing
+    // elsewhere, its first answer control takes focus so Enter answers it.
+    const active = document.activeElement;
+    const takeFocus =
+      displayedKey !== key && (!active || active === document.body || Boolean(active.closest(".composer")));
     const leavingQuestion = !visible && displayedTaskId === taskId && root.contains(document.activeElement);
     if (signature !== next) rememberFocus(displayedKey);
     root.hidden = !visible;
@@ -504,6 +509,9 @@ export function createHumanQuestions(root, { submit, resume, onVisibility, onErr
       event.preventDefault();
       const forward = form.querySelector('[data-human-move="1"]');
       if (forward) forward.click();
+      // A proposal with nothing typed has one answer to Enter: confirm it.
+      else if (request.proposal && !humanAnswer(request, draftFor(key)))
+        form.querySelector(".human-submit[data-human-answer]")?.click();
       else form.requestSubmit();
     });
     // A proposal's buttons answer directly: confirm, reject, or edit it in settings.
@@ -518,6 +526,11 @@ export function createHumanQuestions(root, { submit, resume, onVisibility, onErr
     });
     tick();
     restoreFocus(key, ownedFocus);
+    if (takeFocus)
+      (request.proposal
+        ? form.querySelector(".human-submit[data-human-answer]")
+        : form.querySelector('input[name="human-choice"]:checked, input[name="human-choice"], textarea')
+      )?.focus({ preventScroll: true });
   }
   async function send(taskId, key, request, chosen) {
     if (busy.has(key)) return;
