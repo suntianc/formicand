@@ -450,6 +450,12 @@ html[data-theme="light"] .add-project-state {
   width: 15px;
   height: 15px;
 }
+.project-progress-icon {
+  display: grid;
+  isolation: isolate;
+  overflow: hidden;
+  flex: 0 0 15px;
+}
 .add-project-state.is-progress .ui-icon {
   color: var(--color-accent);
 }

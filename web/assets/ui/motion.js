@@ -1,4 +1,7 @@
+import { installNativeMotion } from "./native-motion.js";
+
 /** Shared playback for the browser and Electron renderer. */
+let nativeSymbol;
 const activeTransitions = new Set();
 const STILL = Object.freeze({ finished: Promise.resolve(), cancel() {} });
 
@@ -32,8 +35,10 @@ export function onMotionPreferenceChange(callback) {
 export function installMotion() {
   const loops = new Map();
   function syncLoop(animation, visible) {
-    if (animation.playState === "idle" || animation.playState === "finished") return;
-    if (visible && !document.hidden) animation.play();
+    if (!animation.effect.target || animation.playState === "idle" || animation.playState === "finished")
+      return;
+    if (visible && !document.hidden && !animation.effect.target.closest("[data-native-motion]"))
+      animation.play();
     else animation.pause();
   }
   const viewport = new IntersectionObserver(
@@ -108,6 +113,11 @@ export function installMotion() {
       for (const animation of group.animations) syncLoop(animation, group.visible);
     }
   };
+  nativeSymbol = installNativeMotion(
+    window.formicandDesktop?.motion,
+    reducedMotion,
+    onMotionPreferenceChange
+  );
   syncPage();
   document.addEventListener("visibilitychange", syncPage);
   onMotionPreferenceChange((reduce) => {
@@ -144,12 +154,19 @@ export function playMotion(node, name, { frames, fill, order = 0, distance = 1 }
   if (typeof node.animate !== "function" || document.hidden || reducedMotion()) return STILL;
   const effect = effects[name];
   const style = getComputedStyle(document.documentElement);
-  const animation = node.animate(frames ?? effect.frames, {
+  const glyph =
+    nativeSymbol &&
+    !frames &&
+    (name === "copied" || name === "checked") &&
+    node.matches("svg.ui-icon") &&
+    node.querySelector(':scope > use[href="#i-check"]');
+  const animation = (glyph || node).animate(frames ?? effect.frames, {
     duration: motionDuration("--motion-" + effect.duration, 0, style) * distance,
     delay: order && motionDuration("--motion-stagger", 0, style) * order,
     easing: style.getPropertyValue("--ease-" + (effect.easing ?? "standard")).trim(),
     fill: fill ?? effect.fill ?? "none"
   });
+  if (glyph) nativeSymbol(animation, name);
   activeTransitions.add(animation);
   const release = () => activeTransitions.delete(animation);
   animation.finished.then(release, release);

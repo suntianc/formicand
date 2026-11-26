@@ -24,6 +24,7 @@ const {
   Tray,
   nativeImage
 } = require("electron");
+const { installDesktopMotion } = require("./motion.cjs");
 const { createAppearanceHost } = require("./appearance.cjs");
 const { createLanguageHost } = require("./language.cjs");
 const { createFileOpener } = require("./file-open.cjs");
@@ -213,6 +214,8 @@ async function launchBackend({ computerTransitionHeld = false } = {}) {
     computerTargets.endSwitch();
   }
 }
+const desktopMotion = installDesktopMotion(ipcMain, () => mainWindow, trust);
+
 function createWindow() {
   const icon = applicationIcon();
   mainWindow = new BrowserWindow({
@@ -235,6 +238,7 @@ function createWindow() {
       sandbox: true
     }
   });
+  desktopMotion.follow(mainWindow);
   if (background) showInBackground(mainWindow);
   installEditContextMenu(mainWindow, {
     Menu,
@@ -451,7 +455,11 @@ ipcMain.on("formicand:transport-nonce", (event) => {
 ipcMain.on("formicand:capabilities", (event) => {
   try {
     trust(event);
-    event.returnValue = { notifications: Notification.isSupported(), tray: desktopTray?.supported === true };
+    event.returnValue = {
+      nativeMotion: desktopMotion.supported,
+      notifications: Notification.isSupported(),
+      tray: desktopTray?.supported === true
+    };
     // eslint-disable-next-line no-restricted-syntax -- trust() throws deliberately for untrusted senders; capabilities stay null for them
   } catch {
     event.returnValue = null;

@@ -214,6 +214,14 @@ try {
 }
 contextBridge.exposeInMainWorld("formicandDesktop", {
   capabilities,
+  motion: capabilities?.nativeMotion
+    ? {
+        update: (scene) => ipcRenderer.sendSync("formicand:motion", scene),
+        onRefresh: (handler) => {
+          ipcRenderer.on("formicand:motion-refresh", () => handler());
+        }
+      }
+    : undefined,
   windowMaterial: initialWindowMaterial,
   transportNonce,
   language: {

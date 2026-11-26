@@ -12,6 +12,7 @@ module.exports = {
   electronDist: "node_modules/electron/dist",
   files: [
     "desktop/**/*.cjs",
+    "dist/desktop/motion.node",
     "dist/src/**/*",
     "!dist/src/tools/science/**/*",
     "!dist/src/tools/science-tools.*",

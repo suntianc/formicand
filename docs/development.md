@@ -61,6 +61,7 @@ e2e/                    浏览器和 Electron 用户流程测试
 | HTTP 接口                  | [routes](../src/dashboard/routes.ts) 和对应的 `*-routes.ts`、`*-service.ts`                                                                                                            |
 | 页面                       | [app](../web/app.js)、[controllers](../web/assets/controllers/)、[ui](../web/assets/ui/)                                                                                               |
 | 运行指示与动效             | [motion](../web/assets/ui/motion.js)、[CSS 动效](../web/assets/styles/motion.css)、[时长与缓动](../web/assets/ui.css)                                                                  |
+| 桌面动效                   | [播放选择](../web/assets/ui/native-motion.js)、[动效桥](../desktop/motion.cjs)、[系统图层](../desktop/motion.mm)                                                                       |
 | 桌面窗口、IPC、退出        | [main](../desktop/main.cjs)、[preload](../desktop/preload.cjs)                                                                                                                         |
 | CLI 命令                   | [formicand.mjs](../scripts/formicand.mjs)、[src/cli/](../src/cli/)                                                                                                                     |
 | 浏览器和窗口操作           | [browser-use](../src/gui/browser-use.ts)、[computer-use](../src/gui/computer-use.ts)、[输入格式](../src/gui/browser-contracts.ts)、[Pi 工具](../.pi/runtime/tools/browser-use.ts)      |

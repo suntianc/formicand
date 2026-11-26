@@ -439,19 +439,19 @@ html[data-theme="light"] .observe-view[data-observe-panel="runs"] {
 }
 
 .runs-head.is-dev {
-  background: var(--color-accent);
+  --runs-head-color: var(--color-accent);
 }
 
 .runs-head.is-review {
-  background: var(--color-review);
+  --runs-head-color: var(--color-review);
 }
 
 .runs-head.is-merge {
-  background: var(--color-ok);
+  --runs-head-color: var(--color-ok);
 }
 
 .runs-head.is-wait {
-  background: var(--color-warn);
+  --runs-head-color: var(--color-warn);
 }
 
 .runs-sublane .runs-head {

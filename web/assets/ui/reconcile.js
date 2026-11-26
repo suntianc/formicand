@@ -45,6 +45,7 @@ function patchNode(node, source) {
   const uploadSrc = node.nodeName === "IMG" ? node.getAttribute("data-upload-src") : null;
   const keepUploadImage = Boolean(uploadSrc) && uploadSrc === source.getAttribute("data-upload-src");
   for (const attribute of [...node.attributes]) {
+    if (attribute.name === "data-native-motion" || attribute.name === "data-in-viewport") continue;
     if (keepOpen && attribute.name === "open") continue;
     if (keepUploadImage && (attribute.name === "src" || attribute.name === "data-upload-loaded")) continue;
     if (!source.hasAttribute(attribute.name)) node.removeAttribute(attribute.name);
