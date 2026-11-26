@@ -384,7 +384,7 @@ test("a confirmed timed wait survives reload and the next user turn resumes thin
     await expect(label).toHaveText("等待唤醒");
     await expect(thinking).toHaveCount(0);
     await page.locator("#conversation .process-segment > summary").click();
-    await expect(page.locator("#conversation")).toContainText("稍后继续");
+    await expect(page.locator("#conversation")).toContainText("等待新的进展");
     await expect(thinking).toHaveCount(0);
     await input.fill("继续处理");
     await input.press("Enter");

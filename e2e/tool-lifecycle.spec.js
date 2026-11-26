@@ -111,7 +111,7 @@ test("returned async tools retain real work status through progress, callbacks a
   }
 });
 
-test("Main sitting in a wait for its Subagents leaves the transcript row as done", async ({ page }) => {
+test("Main sitting in a wait for its Subagents titles the transcript row with the wait", async ({ page }) => {
   const dashboard = await startDashboard();
   try {
     await page.route("**/app.js", (route) =>
@@ -142,9 +142,9 @@ test("Main sitting in a wait for its Subagents leaves the transcript row as done
       });
       view.renderConversation([user], state.detail.task);
     });
-    // The run strip says Main waits; the row reads as the steps it took.
+    // The row says what Main waits for, without the live spinner of work.
     const row = page.locator(".process-segment").last();
-    await expect(row).toContainText("协调了 2 次任务");
+    await expect(row.locator("summary .process-segment-label")).toHaveText("等待子助手的结果");
     await expect(row).not.toHaveClass(/is-live/);
     await expect(page.locator(".thinking-spinner")).toHaveCount(0);
     await expect(page.getByText("等待协作结果中")).toHaveCount(0);

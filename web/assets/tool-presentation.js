@@ -19,7 +19,7 @@ const titles = {
   clear_context: ui("整理工作上下文"),
   enable_tools: ui("启用所需工具"),
   grant_capabilities: ui("授权执行能力"),
-  sleep_until: ui("稍后继续"),
+  sleep_until: ui("等待新的进展"),
   browse_workspace: ui("查看任务文件"),
   read_attachment: ui("读取附件"),
   read: ui("读取文件"),
@@ -171,13 +171,6 @@ function durationText(duration) {
   return ui`${Math.floor(duration / 60_000)} 分 ${Math.floor((duration % 60_000) / 1000)} 秒`;
 }
 
-/** When a parked Task resumes, as the person would say it. */
-function wakeText(seconds) {
-  if (typeof seconds !== "number" || !Number.isFinite(seconds)) return "";
-  const minutes = Math.max(1, Math.round(seconds / 60));
-  return minutes < 120 ? ui`${minutes} 分钟后` : ui`${Math.round(minutes / 60)} 小时后`;
-}
-
 function resultSummary(name, data, completed, failed) {
   if (!completed || failed) return "";
   if (commands.has(name))
@@ -251,7 +244,6 @@ export function presentToolCall(call = {}, options = {}) {
   }
   if (name === "browse_workspace" && args.mode === "search") subject ||= ui("任务文件");
   if (name === "wait_for_subagents" && !subject) subject = ui("已委派的任务");
-  if (name === "sleep_until") subject = wakeText(args.wakeInSeconds);
   if (name === "computer_act" && record(args.action))
     subject =
       {

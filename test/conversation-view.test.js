@@ -1882,6 +1882,23 @@ test("a person's message keeps its own lines instead of being read as Markdown",
   );
 });
 
+test("a round waiting on its Subagents titles its last steps with the wait, then with what was done", () => {
+  const { document, state, render } = fixture("waiting-summary", "");
+  for (const [index, id] of ["one", "two"].entries())
+    state.detail.runtimeEvents.push(
+      update("toolcall_end", index + 1, { toolCall: { id, name: "get_task_status", arguments: {} } }),
+      { type: "tool_execution_end", toolCallId: id, toolName: "get_task_status", result: { content: [] } }
+    );
+  state.detail.runtime.active = false;
+  state.detail.coordination = { calls: [], pending: ["a", "b"], callbackPending: [] };
+  render();
+  const label = () => document.querySelector(".process-segment > summary .process-segment-label").textContent;
+  assert.equal(label(), "等待 2 个子助手的结果");
+  state.detail.coordination = { calls: [], pending: [], callbackPending: [] };
+  render();
+  assert.equal(label(), "执行了 2 项操作");
+});
+
 test("parking hides the pending thought until the next turn starts", () => {
   const { state, document, render } = fixture("parked");
   state.detail.parked = { wakeAt: "2026-11-23T03:06:21Z" };
@@ -1902,7 +1919,12 @@ test("parking hides the pending thought until the next turn starts", () => {
   render();
   assert.doesNotMatch(document.querySelector("#conversation").textContent, /思考中/);
   expandDetails(document, ".process-segment", render);
-  assert.match(document.querySelector("#conversation").textContent, /稍后继续5 分钟后/);
+  assert.match(document.querySelector("#conversation").textContent, /等待新的进展/);
+  assert.equal(
+    document.querySelector(".process-segment > summary .process-segment-label").textContent,
+    "等待新的进展",
+    "the parked round's summary says what it waits for"
+  );
   assert.doesNotMatch(document.querySelector("#conversation").textContent, /思考中/);
   delete state.detail.parked;
   state.detail.runtimeEvents.push({ type: "turn_start" });

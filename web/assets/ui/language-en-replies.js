@@ -52,7 +52,7 @@ export default {
   动态: "Activity",
   新进展: "New update",
   进展: "Progress",
-  稍后继续: "Continue later",
+  等待新的进展: "Waiting for updates",
   一: "Monday",
   二: "Tuesday",
   三: "Wednesday",

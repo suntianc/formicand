@@ -398,7 +398,28 @@ export function createConversationActivityView({
           } else {
             let leadIcon = "activity";
             let titleText;
-            if (segmentCalls.length) {
+            // The latest steps of a round that now waits read as what it waits
+            // for; a count of what was done says nothing about where it stands.
+            const inWaitTool =
+              lastItem?.type === "tool" &&
+              waitingTools.has(lastItem.call.name) &&
+              presentations.get(lastItem.call)?.status === "running";
+            const waitingText =
+              !isCurrent || !isLastSegment || (active && !inWaitTool)
+                ? ""
+                : pendingWork.agents
+                  ? ui`等待 ${pendingWork.agents} 个子助手的结果`
+                  : pendingWork.callbacks || inWaitTool
+                    ? ui("等待子助手的结果")
+                    : pendingWork.jobs
+                      ? ui("等待后台任务")
+                      : detail?.parked
+                        ? ui("等待新的进展")
+                        : "";
+            if (waitingText) {
+              leadIcon = "history";
+              titleText = waitingText;
+            } else if (segmentCalls.length) {
               const counts = new Map();
               for (const call of segmentCalls) {
                 const kind = toolCategory(call);
