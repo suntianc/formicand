@@ -172,30 +172,23 @@ static CALayer *drawing(NSDictionary *item, CGFloat scale, NSImage *strip) {
           kCAMediaTimingFunctionEaseInEaseOut);
     pulse(layer, @"opacity", @[ @.55, @1, @.55 ], item,
           kCAMediaTimingFunctionEaseInEaseOut);
-  } else {
-    // Only the shadow moves. Keep the centre dot in the document.
-    CGFloat spread = [item[@"spread"] doubleValue];
-    CAShapeLayer *halo = [CAShapeLayer layer];
-    halo.frame = layer.bounds;
-    halo.contentsScale = scale;
-    halo.fillColor = NSColor.whiteColor.CGColor;
-    halo.fillRule = kCAFillRuleEvenOdd;
-    NSMutableArray *paths = [NSMutableArray array];
-    for (NSNumber *extent in @[ @(spread), @(spread * 2), @(spread) ]) {
-      CGFloat inset = -extent.doubleValue;
-      CGMutablePathRef path = CGPathCreateMutable();
-      CGPathAddEllipseInRect(path, nil,
-                             CGRectInset(layer.bounds, inset, inset));
-      CGPathAddEllipseInRect(path, nil, layer.bounds);
-      [paths addObject:(__bridge_transfer id)path];
-    }
-    halo.path = (__bridge CGPathRef)paths.firstObject;
-    [layer addSublayer:halo];
-    pulse(halo, @"path", paths, item, kCAMediaTimingFunctionDefault);
-    pulse(halo, @"opacity", @[ @.08, @0, @.08 ], item,
-          kCAMediaTimingFunctionDefault);
   }
   return layer;
+}
+
+// A drawing kept while the page played it starts again from the page's phase.
+static void retime(CALayer *layer, double phase) {
+  NSMutableArray *layers = [NSMutableArray arrayWithObject:layer];
+  [layers addObjectsFromArray:layer.sublayers ?: @[]];
+  if (layer.mask)
+    [layers addObject:layer.mask];
+  for (CALayer *part in layers)
+    for (NSString *key in part.animationKeys ?: @[]) {
+      CAAnimation *animation = [[part animationForKey:key] copy];
+      animation.beginTime = [part convertTime:CACurrentMediaTime() fromLayer:nil] -
+                            animation.duration * phase;
+      [part addAnimation:animation forKey:key];
+    }
 }
 
 static NSString *stringArg(napi_env env, napi_value value, size_t limit) {
@@ -243,17 +236,26 @@ static napi_value update(napi_env env, napi_callback_info info) {
         view = (FormicandMotionView *)child;
         break;
       }
-    if (!scene.count)
-      [view removeFromSuperview];
-    else {
+    // An empty scene hides the layers instead of dropping them: scrolling hands
+    // drawings to the page and back many times, and the same drawing comes back
+    // with its layer and phase. Drawings left out of the next scene go then.
+    BOOL resumed = view.hidden && scene.count;
+    view.hidden = !scene.count;
+    if (scene.count) {
       if (!view) {
         view = [[FormicandMotionView alloc] initWithFrame:root.bounds];
-        view.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
         view.wantsLayer = YES;
         view.items = [NSMutableDictionary dictionary];
         view.appearances = [NSMutableDictionary dictionary];
         [root addSubview:view positioned:NSWindowAbove relativeTo:nil];
       }
+      // Pin the layers to the top edge, as the page lays them out, so a window
+      // being resized does not drag them with its bottom edge before the page
+      // reports the new positions.
+      view.autoresizingMask = NSViewWidthSizable |
+                              (root.isFlipped ? NSViewMaxYMargin : NSViewMinYMargin);
+      if (!NSEqualRects(view.frame, root.bounds))
+        view.frame = root.bounds;
       [CATransaction begin];
       [CATransaction setDisableActions:YES];
       NSMutableSet *stale = [NSMutableSet setWithArray:view.items.allKeys];
@@ -273,7 +275,8 @@ static napi_value update(napi_env env, napi_callback_info info) {
           view.appearances[key] = appearance;
           view.items[key] = layer;
           [view.layer addSublayer:layer];
-        }
+        } else if (resumed)
+          retime(layer, [item[@"phase"] doubleValue]);
         CGFloat radius = [item[@"size"] doubleValue] / 2;
         layer.position =
             CGPointMake([item[@"x"] doubleValue] + radius,

@@ -132,6 +132,24 @@ test("running conversation plays the ring and working ant in the desktop window 
     await expect(ring).not.toHaveAttribute("data-native-motion", "ring");
     await page.emulateMedia({ reducedMotion: "no-preference" });
     await expect(ring).toHaveAttribute("data-native-motion", "ring");
+    // A wheel hands the ring to the page at once; the hidden layer comes back after.
+    await page.mouse.move(box.x + 100, box.y);
+    await page.mouse.wheel(0, 40);
+    await expect(ring).not.toHaveAttribute("data-native-motion", "ring");
+    await expect(ring).toHaveAttribute("data-native-motion", "ring");
+    // The layers follow the top edge when the window changes height.
+    await app.evaluate(({ BrowserWindow }) => {
+      const win = BrowserWindow.getAllWindows()[0];
+      const [width, height] = win.getSize();
+      win.setSize(width, height - 120);
+    });
+    await expect
+      .poll(async () => {
+        const now = await ring.boundingBox();
+        const layer = (await presentation()).find((entry) => entry.spin);
+        return Boolean(layer) && Math.abs(layer.x - now.x) < 1 && Math.abs(layer.y - now.y) < 1;
+      })
+      .toBe(true);
     release();
     await expect(ring).toHaveCount(0);
     await expect(page.locator("#conversation")).toContainText("完成。");
@@ -145,7 +163,6 @@ test("running conversation plays the ring and working ant in the desktop window 
         "position:fixed;top:100px;left:400px;background:white;padding:20px;z-index:10000;display:grid;gap:10px";
       states.innerHTML =
         '<div style="position:relative;width:30px;height:20px"><span class="runs-head is-dev"></span></div>' +
-        '<div class="agent-card running"><span class="agent-live-dot" style="display:block"></span></div>' +
         '<p class="add-project-state is-progress"><i class="project-progress-icon"><svg class="ui-icon"><use href="#i-loader-circle"/></svg></i></p>' +
         '<span class="ui-status" data-state="saving"><span data-label>保存中</span></span>' +
         '<div class="app-dialog" style="position:static;display:block;min-width:0"><div class="dialog-actions"><button class="app-button" aria-busy="true"><span data-label>确认</span></button></div></div>' +
@@ -156,22 +173,11 @@ test("running conversation plays the ring and working ant in the desktop window 
         return [box.x, box.y, box.width, box.height];
       });
     });
-    for (const kind of ["head", "halo", "loader", "ring"]) {
+    for (const kind of ["head", "loader", "ring"]) {
       await expect(page.locator(`#motion-states [data-native-motion="${kind}"]`)).toHaveCount(
         kind === "ring" ? 3 : 1
       );
     }
-    const dot = page.locator("#motion-states .agent-live-dot");
-    await dot.evaluate((node) => {
-      const box = node.getBoundingClientRect();
-      const strip = document.createElement("i");
-      strip.id = "halo-edge-cover";
-      strip.style.cssText = `position:fixed;pointer-events:none;z-index:2147483647;background:white;left:${box.right + 0.25}px;top:${box.top}px;width:3px;height:${box.height}px`;
-      document.body.append(strip);
-    });
-    await expect(dot).not.toHaveAttribute("data-native-motion", "halo");
-    await page.locator("#halo-edge-cover").evaluate((node) => node.remove());
-    await expect(dot).toHaveAttribute("data-native-motion", "halo");
     const nativeLabels = await page.locator("#motion-states [data-label]").evaluateAll((labels) =>
       labels.map((label) => {
         const box = label.getBoundingClientRect();

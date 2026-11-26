@@ -28,7 +28,6 @@
   --motion-scroll-hide: 360ms;
   --motion-spin-thinking: 850ms;
   --motion-ant: 1.2s;
-  --motion-agent-pulse: 1.8s;
   --motion-sweep: 2.2s;
   --motion-enter: var(--motion-base) var(--ease-standard);
   --ease-default: ease;
