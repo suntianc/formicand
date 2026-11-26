@@ -411,6 +411,9 @@ body {
   min-height: 0;
   padding-bottom: 26px;
   scroll-padding-bottom: 26px;
+  /* Text scrolling under the composer row fades out instead of being cut at
+     the edge; the bottom padding keeps the last line clear of the fade. */
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 28px), transparent);
 }
 /* Composer controls share an open surface instead of individual boxes. */
 
