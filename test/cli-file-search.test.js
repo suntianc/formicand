@@ -460,6 +460,28 @@ test("doctor exercises offline search and reports missing or failing search modu
   );
 });
 
+test("an explicit relative glob anchors find and grep at the search root", async (t) => {
+  const f = await fixture(t);
+  await f.put("README.md", "needle\n");
+  await f.put("src/README.md", "needle\n");
+  for (const tools of [realPaths, join(f.root, "missing-tools")]) {
+    setTestPath(t, tools);
+    for (const pattern of ["./README.md", "./*.md", "README.md"]) {
+      const expected = pattern.startsWith("./") ? ["README.md"] : ["README.md", "src/README.md"];
+      assert.deepEqual(sortedPaths(await runDiskSearch("find", { pattern }, { cwd: f.root })), expected);
+      const result = await runDiskSearch(
+        "grep",
+        { pattern: "needle", literal: true, glob: pattern },
+        { cwd: f.root }
+      );
+      assert.deepEqual(
+        result.matches.map((hit) => hit.path).sort(),
+        expected.map((file) => join(f.root, file))
+      );
+    }
+  }
+});
+
 test(
   "disk search prefers real fd and rg while matching portable results",
   { skip: !portable || !nativeTools.fd || !nativeTools.rg },

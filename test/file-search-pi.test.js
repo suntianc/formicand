@@ -459,6 +459,30 @@ test(
   }
 );
 
+test("scoped index pagination allows cancellation and subsequent searches", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "formicand-index-abort-"));
+  const index = new IndexedFileSearch(root);
+  t.after(async () => {
+    await index.close();
+    await rm(root, { recursive: true, force: true });
+  });
+  await mkdir(join(root, "scope"));
+  await Promise.all(
+    Array.from({ length: 200 }, (_, i) =>
+      writeFile(join(root, `outside-${i}.txt`), "searchneedle\n".repeat(40))
+    )
+  );
+  await writeFile(join(root, "scope", "inside.txt"), "insidequery");
+  assert.equal((await index.names("inside", 1)).paths[0], "scope/inside.txt");
+  for (const search of [
+    () => index.content("searchneedle", 1, "scope", AbortSignal.timeout(5)),
+    () => index.names("outside", 1, "scope", AbortSignal.timeout(1))
+  ]) {
+    await assert.rejects(search, { name: "TimeoutError" });
+  }
+  assert.match((await index.content("insidequery", 1, "scope")).text, /inside.txt:1: insidequery/);
+});
+
 test("Main's production search tools explore fuzzily and query exactly", { timeout: 180_000 }, async (t) => {
   const main = await runMainSearch(t);
   assertExploration(main.searchRequests, "Main");
