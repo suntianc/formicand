@@ -300,22 +300,27 @@ export function createDevelopmentDeliveryViewService({
           `${record.createdAt}|${record.developmentId}` > `${held.createdAt}|${held.developmentId}`);
       if (newer) current.set(record.requirementId, record);
     }
-    const phases: Record<string, DeliveryPhase> = {};
-    for (const [requirementId, development] of current) {
-      const id = development.developmentId;
-      const plan = await service.reviewPlan(projectId, id);
-      const { tickets } = await service.tickets(projectId, id);
-      const delivery = deliveries.filter((entry) => entry.developmentId === id).at(-1);
-      phases[requirementId] = {
-        development,
-        ...(plan ? { plan } : {}),
-        reviews: reviews.filter((entry) => entry.developmentId === id),
-        merges: merges.filter((entry) => entry.developmentId === id),
-        ...(delivery ? { delivery } : {}),
-        tickets
-      };
-    }
-    return phases;
+    // Plans and tickets are kept per development; their reads run side by side.
+    const entries = await Promise.all(
+      [...current].map(async ([requirementId, development]) => {
+        const id = development.developmentId;
+        const [plan, { tickets }] = await Promise.all([
+          service.reviewPlan(projectId, id),
+          service.tickets(projectId, id)
+        ]);
+        const delivery = deliveries.filter((entry) => entry.developmentId === id).at(-1);
+        const phase: DeliveryPhase = {
+          development,
+          ...(plan ? { plan } : {}),
+          reviews: reviews.filter((entry) => entry.developmentId === id),
+          merges: merges.filter((entry) => entry.developmentId === id),
+          ...(delivery ? { delivery } : {}),
+          tickets
+        };
+        return [requirementId, phase] as const;
+      })
+    );
+    return Object.fromEntries(entries);
   }
 
   /**

@@ -81,9 +81,14 @@ export function createObserveRequirements({
 
   const viewKey = (row) => `${row.origin}|${row.projectId}|${row.requirementId}`;
   const phaseKey = (row) => `${row.origin}|${row.projectId}`;
-  /** The opened requirement's full view once read, else its phase records. */
+  /**
+   * The opened requirement's full view once read, else its phase records. A
+   * closed one always takes the latest phases: its full view stops refreshing
+   * once the detail closes.
+   */
   const viewOf = (row) =>
-    details.get(viewKey(row))?.view ?? phases.get(phaseKey(row))?.phases?.[row.requirementId];
+    (viewKey(row) === selected ? details.get(viewKey(row))?.view : undefined) ??
+    phases.get(phaseKey(row))?.phases?.[row.requirementId];
   // Only the visible view reads: the entry switch hides the pane and the view
   // switch hides this section, and a hidden list must not keep reading the
   // nodes it was showing.
@@ -166,7 +171,9 @@ export function createObserveRequirements({
     } finally {
       pending.delete(key);
     }
-    render();
+    // A reply that arrives after the view was left or another row was opened
+    // only fills the cache.
+    if (active() && selected === viewKey(row)) render();
   }
 
   /** What the ledger detail was read at: a merge bumps the revision; a new, paused or withdrawn development does not. */

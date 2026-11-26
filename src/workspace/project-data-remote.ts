@@ -218,7 +218,13 @@ export class RemoteProjectDataService implements ProjectDataGateway {
 
   async queryRequirements(projectId: unknown, query: RequirementQuery = {}): Promise<RequirementSummary[]> {
     const result = await this.request(projectPath(projectId, "/ledger"), {
-      body: { action: "query", q: query.text, status: query.status, limit: query.limit }
+      body: {
+        action: "query",
+        q: query.text,
+        status: query.status,
+        limit: query.limit,
+        ...(query.after === undefined ? {} : { after: query.after })
+      }
     });
     return (result.requirements as RequirementSummary[] | undefined) ?? [];
   }

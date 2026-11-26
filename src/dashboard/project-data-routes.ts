@@ -309,14 +309,14 @@ export async function handleProjectDataRequest(
         requirement: await service.getRequirement(project.projectId, itemId)
       });
     const limit = url.searchParams.get("limit");
-    const offset = url.searchParams.get("offset");
+    const after = url.searchParams.get("after");
     return reply(response, 200, {
       projectId: project.projectId,
       requirements: await service.queryRequirements(project.projectId, {
         text: url.searchParams.get("q") ?? undefined,
         status: url.searchParams.get("status") ?? undefined,
         limit: limit === null || limit === "" ? undefined : Number(limit),
-        offset: offset === null || offset === "" ? undefined : Number(offset)
+        ...(after === null ? {} : { after })
       })
     });
   }
@@ -330,7 +330,8 @@ export async function handleProjectDataRequest(
         requirements: await service.queryRequirements(project.projectId, {
           text: body.q,
           status: body.status,
-          limit: body.limit
+          limit: body.limit,
+          ...(body.after === undefined ? {} : { after: body.after })
         })
       });
     case "lookup":
