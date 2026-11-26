@@ -378,14 +378,22 @@ test("the tabs are the design's six, in order", () => {
   );
 });
 
-test("with tickets the phase and criteria follow the tickets, not the last review", () => {
-  const ticket = (ticketId, state) => ({ ticketId, title: `票 ${ticketId}`, state, dependsOn: [] });
-  // Ticket 01's review passed, but ticket 02 is still being written.
+test("with tickets the phase is the requirement's, and finishing a ticket never moves it back", () => {
+  const ticket = (ticketId, state, reviewIds = []) => ({
+    ticketId,
+    title: `票 ${ticketId}`,
+    state,
+    dependsOn: [],
+    reviewIds
+  });
+  // Ticket 01 passed its own review and is in; ticket 02 is still being written.
   const working = {
     development: development(),
-    reviews: [review("passed")],
-    tickets: [ticket("01", "merged"), ticket("02", "in_progress")]
+    reviews: [review("passed", { reviewId: "review-01" })],
+    tickets: [ticket("01", "merged", ["review-01"]), ticket("02", "in_progress")]
   };
+  const stageWith = (tickets, reviews = working.reviews) =>
+    requirementStage({ ...working, tickets, reviews }).stage;
   assert.equal(requirementStage(working).stage, "development");
   const progress = requirementProgress(working);
   assert.deepEqual(
@@ -393,21 +401,58 @@ test("with tickets the phase and criteria follow the tickets, not the last revie
     [false, false]
   );
   assert.equal(progress.steps.find((step) => step.id === "review").state, "pending");
-  assert.equal(
-    requirementStage({ ...working, tickets: [ticket("01", "merged"), ticket("02", "in_review")] }).stage,
-    "review"
-  );
-  assert.equal(
-    requirementStage({ ...working, tickets: [ticket("01", "rework"), ticket("02", "in_review")] }).stage,
-    "rework"
-  );
-  const allIn = { ...working, tickets: [ticket("01", "merged"), ticket("02", "merged")] };
-  assert.equal(requirementStage(allIn).stage, "merge");
+  // One ticket in review while another is written: still development, not review.
+  assert.equal(stageWith([ticket("01", "in_review"), ticket("02", "in_progress")]), "development");
+  assert.equal(stageWith([ticket("01", "merged", ["review-01"]), ticket("02", "in_review")]), "review");
+  assert.equal(stageWith([ticket("01", "rework"), ticket("02", "in_review")]), "rework");
+  // Every ticket in, but the final review has not passed: the requirement is in review.
+  const allIn = [ticket("01", "merged", ["review-01"]), ticket("02", "merged", ["review-02"])];
+  const ticketReviews = [
+    review("passed", { reviewId: "review-01" }),
+    review("passed", { reviewId: "review-02" })
+  ];
+  assert.equal(stageWith(allIn, ticketReviews), "review");
+  assert.equal(stageWith(allIn, [...ticketReviews, review("failed", { reviewId: "final" })]), "rework");
+  const passed = {
+    ...working,
+    tickets: allIn,
+    reviews: [...ticketReviews, review("passed", { reviewId: "final" })]
+  };
+  assert.equal(requirementStage(passed).stage, "merge");
   assert.deepEqual(
-    requirementProgress(allIn).criteria.map((entry) => entry.checked),
+    requirementProgress(passed).criteria.map((entry) => entry.checked),
     [true, true]
   );
-  assert.deepEqual(requirementTickets(allIn.tickets).merged, 2);
+  assert.deepEqual(requirementTickets(allIn).merged, 2);
+});
+
+test("with several tickets, development and review are rings cut one piece per ticket", () => {
+  const ticket = (ticketId, state) => ({
+    ticketId,
+    title: `票 ${ticketId}`,
+    state,
+    dependsOn: [],
+    reviewIds: []
+  });
+  const steps = (tickets) =>
+    Object.fromEntries(
+      requirementSteps({ development: development(), tickets }).map((step) => [
+        step.id,
+        [step.state, step.segments]
+      ])
+    );
+  assert.deepEqual(steps([ticket("01", "merged"), ticket("02", "in_progress"), ticket("03", "confirmed")]), {
+    requirement: ["done", undefined],
+    development: ["current", { done: 1, total: 3 }],
+    review: ["pending", { done: 1, total: 3 }],
+    merge: ["pending", undefined],
+    delivery: ["pending", undefined]
+  });
+  const written = steps([ticket("01", "merged"), ticket("02", "in_review"), ticket("03", "passed")]);
+  assert.deepEqual(written.development, ["done", { done: 3, total: 3 }]);
+  assert.deepEqual(written.review, ["current", { done: 2, total: 3 }]);
+  // One ticket draws a whole ring, as before.
+  assert.equal(steps([ticket("01", "in_progress")]).development[1], undefined);
 });
 
 test("development names its own live Executors and assigned tickets before review", () => {

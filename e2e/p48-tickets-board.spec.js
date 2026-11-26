@@ -13,8 +13,8 @@ import { REMOTE_BACKEND, configureMerge, seedRequirement } from "./p45-requireme
  * checkout, one in review and one waiting for it — is recorded through the same
  * HTTP facts an execution backend relays. The work panel, the observation
  * detail and the overview's phase columns must all show those tickets and the
- * phase they put the requirement in, even though the last review recorded is a
- * passed one.
+ * requirement's own phase: development until every ticket is written, even
+ * though one ticket is in review and the last review recorded passed.
  */
 test.setTimeout(120_000);
 
@@ -88,7 +88,11 @@ test("tickets and the phase they set show in the work panel, the detail and the 
     await tickets({ op: "start", ticketId: "02", work: work("call-2") });
     await tickets({ op: "review", ticketId: "02", reviewId: "review-ticket-02" });
 
-    await expect(panel.locator(".rp-stepper")).toHaveAttribute("data-stage", "review");
+    await expect(panel.locator(".rp-stepper")).toHaveAttribute("data-stage", "development");
+    // Development and review are rings cut per ticket: 01 and 02 are written, 01 passed review.
+    await expect(panel.locator('[data-step="development"] .rp-arc')).toHaveCount(3);
+    await expect(panel.locator('[data-step="development"] .rp-arc.is-done')).toHaveCount(2);
+    await expect(panel.locator('[data-step="review"] .rp-arc.is-done')).toHaveCount(1);
     const rows = panel.locator(".rp-ticket");
     await expect(rows).toHaveCount(3);
     await expect(panel.locator(".rp-section:has(.rp-tickets) .rp-label")).toHaveText("票 1/3 已并入");
@@ -114,18 +118,18 @@ test("tickets and the phase they set show in the work panel, the detail and the 
     await openObservation(page);
     await page.locator('[data-observe-view="requirements"]').click();
     const row = page.locator("[data-observe-requirement]").filter({ hasText: "分三张票的需求" });
-    await expect(row).toContainText("审查中");
+    await expect(row).toContainText("开发中");
     await row.click();
     const section = page.locator('#observe-detail [data-or-section="tickets"]');
     await expect(section.locator(".or-label")).toHaveText("票 1/3 已并入");
     await expect(section.locator("li")).toHaveCount(3);
     await expect(section.locator("li").nth(2)).toContainText("在 02 之后");
 
-    // The overview's phase columns count it under review.
+    // The overview's phase columns count it under development.
     await page.locator('[data-observe-view="overview"]').click();
     const matrix = page.locator(`[data-observe-matrix-project="${project.projectId}"]`);
-    await expect(matrix.locator('[data-matrix-stage="review"]')).toHaveText("1");
-    await expect(matrix.locator('[data-matrix-stage="development"]')).toHaveText("·");
+    await expect(matrix.locator('[data-matrix-stage="development"]')).toHaveText("1");
+    await expect(matrix.locator('[data-matrix-stage="review"]')).toHaveText("·");
   } finally {
     await dashboard.stop();
   }
