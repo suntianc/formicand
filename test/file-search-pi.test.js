@@ -1,11 +1,12 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
-import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, readFile, rm, stat, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { test } from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
 import { promisify } from "node:util";
+import { IndexedFileSearch } from "../dist/src/runtime/indexed-file-search.js";
 import { DurableScheduler } from "../dist/src/runtime/scheduler.js";
 import { SubagentProcessService } from "../dist/src/runtime/subagent-processes.js";
 import { startDashboard } from "./dashboard-fixture.mjs";
@@ -353,6 +354,52 @@ function assertExploration(requests, role) {
   assert.match(typo, /(?:similar|maybe you meant)/i, `${role}'s misspelled grep marks a suggestion`);
   assert.match(typo, /createHttpTransport/, `${role}'s misspelled grep suggests the real symbol`);
 }
+
+test(
+  "exploration find and grep keep a linked or differently spelled directory in scope",
+  { timeout: 60_000 },
+  async (t) => {
+    const root = await mkdtemp(join(tmpdir(), "file-search-alias-"));
+    t.after(() => rm(root, { recursive: true, force: true }));
+    const project = join(root, "project");
+    await mkdir(join(project, "Source"), { recursive: true });
+    await mkdir(join(project, "ignored"), { recursive: true });
+    await mkdir(join(project, ".git"), { recursive: true });
+    await writeFile(join(project, "Source", "literal.ts"), "literalunique\n");
+    await writeFile(join(project, "ignored", "literal.ts"), "literalunique\n");
+    await writeFile(join(project, ".gitignore"), "ignored/\n");
+    // The index stores the on-disk spelling; a caller may reach the same
+    // directory through a link or a differently cased name.
+    await symlink("Source", join(project, "link"));
+    const index = new IndexedFileSearch(project);
+    t.after(() => index.close());
+    const scoped = async (path) => ({
+      names: (await index.names("literal", 10, path)).paths,
+      content: (await index.content("literalunique", 10, path)).text
+    });
+    for (const path of ["Source", "link", join(project, "link"), "Source/literal.ts", "link/literal.ts"]) {
+      const result = await scoped(path);
+      assert.deepEqual(result.names, ["literal.ts"], path);
+      assert.match(result.content, /literal\.ts:1: literalunique/, path);
+    }
+    assert.deepEqual(
+      (await index.names("literal", 10)).paths,
+      ["Source/literal.ts"],
+      "the repository's Git ignore rules still hide ignored/"
+    );
+    const caseInsensitive = await stat(join(project, "source")).then(
+      () => true,
+      () => false
+    );
+    if (caseInsensitive) {
+      const result = await scoped("source");
+      assert.deepEqual(result.names, ["literal.ts"], "the volume's real spelling resolves the scope");
+      assert.match(result.content, /literal\.ts:1: literalunique/);
+    } else {
+      await assert.rejects(scoped("source"), /ENOENT/);
+    }
+  }
+);
 
 test("Main's production search tools explore fuzzily and query exactly", { timeout: 180_000 }, async (t) => {
   const main = await runMainSearch(t);

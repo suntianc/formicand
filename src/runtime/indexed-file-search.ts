@@ -1,7 +1,7 @@
 import type { FileFinder, GrepMode, GrepCursor, GrepResult, Result } from "@ff-labs/fff-node";
-import { existsSync } from "node:fs";
+import { existsSync, readdirSync, realpathSync } from "node:fs";
 import { stat } from "node:fs/promises";
-import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
+import { basename, dirname, isAbsolute, join, parse, relative, resolve, sep } from "node:path";
 
 function unwrap<T>(result: Result<T>): T {
   if (!result.ok) throw new Error(result.error);
@@ -26,6 +26,45 @@ async function openIndex(directory: string): Promise<FileFinder> {
     finder.destroy();
     throw error;
   }
+}
+
+/** The path disappeared while resolving it; the caller still reports its own spelling. */
+function isMissingPath(error: unknown): boolean {
+  const code = (error as NodeJS.ErrnoException).code;
+  return code === "ENOENT" || code === "ENOTDIR";
+}
+
+/**
+ * Return the path the file system actually stored. realpath resolves links but
+ * on macOS keeps the caller's spelling, so restore each existing component
+ * from its directory listing. Only a path that realpath accepted is rewritten,
+ * so a case-sensitive volume keeps reporting a misspelled path as missing.
+ */
+function physicalPath(path: string): string {
+  let resolved: string;
+  try {
+    resolved = realpathSync(path);
+  } catch (error) {
+    if (!isMissingPath(error)) throw error;
+    return path;
+  }
+  const { root } = parse(resolved);
+  let current = root;
+  for (const segment of resolved.slice(root.length).split(sep)) {
+    if (!segment) continue;
+    let name = segment;
+    try {
+      const entries = readdirSync(current);
+      if (!entries.includes(segment)) {
+        const folded = segment.toLowerCase();
+        name = entries.find((entry) => entry.toLowerCase() === folded) ?? segment;
+      }
+    } catch (error) {
+      if (!isMissingPath(error)) throw error;
+    }
+    current = join(current, name);
+  }
+  return current;
 }
 
 type ScopedPath = (indexedPath: string) => string | undefined;
@@ -84,20 +123,25 @@ export class IndexedFileSearch {
     signal?.throwIfAborted();
     const target = resolve(this.directory, path ?? ".");
     const file = path && (await stat(target)).isFile();
-    const folder = file ? dirname(target) : target;
-    const local = relative(this.root, folder);
+    // The index stores the directory names it read from disk. A caller may name
+    // the same directory through a link or a different letter case, so compare
+    // physical paths instead of the strings the request happened to use.
+    const folder = physicalPath(file ? dirname(target) : target);
+    const root = physicalPath(this.root);
+    const local = relative(root, folder);
     const external = local === ".." || local.startsWith(".." + sep) || isAbsolute(local);
-    const root = external ? indexRoot(folder) : this.root;
-    const prefix = relative(root, folder).split(sep).join("/");
+    const base = external ? physicalPath(indexRoot(folder)) : root;
+    const prefix = relative(base, folder).split(sep).join("/");
+    const name = file ? basename(physicalPath(target)) : undefined;
     const scopedPath: ScopedPath = (indexedPath) => {
-      const name = indexedPath.split(sep).join("/");
-      if (prefix && !name.startsWith(prefix + "/")) return undefined;
-      const scoped = prefix ? name.slice(prefix.length + 1) : name;
-      return file && scoped !== basename(target) ? undefined : scoped;
+      const indexed = indexedPath.split(sep).join("/");
+      if (prefix && !indexed.startsWith(prefix + "/")) return undefined;
+      const scoped = prefix ? indexed.slice(prefix.length + 1) : indexed;
+      return name !== undefined && scoped !== name ? undefined : scoped;
     };
     const index = await (external
-      ? openIndex(root)
-      : (this.index ??= openIndex(root).catch((error: unknown) => {
+      ? openIndex(base)
+      : (this.index ??= openIndex(base).catch((error: unknown) => {
           this.index = undefined;
           throw error;
         })));

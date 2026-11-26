@@ -503,13 +503,17 @@ async function grepFilePaths({ root, isDirectory, paths, options, signal, deadli
   };
 }
 
-/** Portable content search. Regex patterns use JavaScript regular expressions. */
-export async function grepFiles(parameters, cwd = process.cwd()) {
+/**
+ * Portable content search. Regex patterns use JavaScript regular expressions.
+ * A native lister may hand in the files it found, so the matcher runs on the
+ * same scope in a worker; without it the portable ignore-aware walk decides.
+ */
+export async function grepFiles(parameters, cwd = process.cwd(), listed) {
   const options = grepOptions(parameters);
   const { root, info } = await searchRoot(parameters.path, cwd);
   if (!info.isDirectory() && !info.isFile())
     throw new Error(`Search path must be a file or directory: ${root}`);
-  const candidates = info.isDirectory() ? files(root, await ancestorRules(root)) : [root];
+  const candidates = listed ?? (info.isDirectory() ? files(root, await ancestorRules(root)) : [root]);
   return grepFilePaths({ root, isDirectory: info.isDirectory(), paths: candidates, options });
 }
 
@@ -607,6 +611,42 @@ async function nativeGrepCandidates({ rg, root, isDirectory, pattern, signal, de
     nul: true,
     onLine(line) {
       found.push(resolve(isDirectory ? root : dirname(root), line));
+      return false;
+    }
+  });
+  if (code !== 0 && code !== 1 && !stopped) throw new NativeFallback(stderr);
+  return found.sort(comparePaths);
+}
+
+/**
+ * List the files the native tool considers in scope. Regex and ignore-case
+ * requests use this instead of the portable walk so the search mode never
+ * changes ignore rules: rg applies .gitignore, .ignore, .rgignore and
+ * .git/info/exclude, and the JavaScript matcher only sees those files.
+ */
+async function nativeFiles({ rg, root, signal, deadline }) {
+  const insideRepository = await isInsideRepository(root);
+  const args = [
+    "--no-config",
+    "--files",
+    "--null",
+    "--color=never",
+    "--hidden",
+    "--glob=!.git",
+    "--glob=!node_modules"
+  ];
+  if (!insideRepository) args.push("--no-require-git");
+  args.push("--", ".");
+  const found = [];
+  const { code, stderr, stopped } = await runNativeLines({
+    command: rg,
+    args,
+    cwd: root,
+    signal,
+    deadline,
+    nul: true,
+    onLine(line) {
+      found.push(resolve(root, line));
       return false;
     }
   });
@@ -747,18 +787,18 @@ export async function runDiskSearch(
   }
   const rg = await findNativeTool("rg");
   const glob = normalized.glob;
-  // rg matches Unicode case folds and its Rust regex classes differ from JS.
-  // Only case-sensitive literal searches can reuse rg as a candidate lister;
-  // every other request keeps the JavaScript matcher that portable installs use.
-  const nativeUnsupported =
-    !rg ||
-    !normalized.literal ||
-    normalized.ignoreCase ||
-    normalized.pattern === "" ||
-    normalized.pattern.includes("\0") ||
-    normalized.pattern.includes("\n") ||
-    normalized.pattern.includes("\r");
-  if (!nativeUnsupported) {
+  // rg matches Unicode case folds and its Rust regex classes differ from JS,
+  // so the JavaScript matcher always decides hits. rg only chooses the files:
+  // a case-sensitive literal ask it for matching files, every other pattern
+  // asks for the files in scope. Discovery never depends on the pattern, so
+  // .gitignore, .ignore, .rgignore and .git/info/exclude keep one meaning.
+  const expressible =
+    !normalized.pattern.includes("\0") &&
+    !normalized.pattern.includes("\n") &&
+    !normalized.pattern.includes("\r");
+  const literalCandidates =
+    Boolean(rg) && expressible && normalized.pattern !== "" && normalized.literal && !normalized.ignoreCase;
+  if (literalCandidates) {
     const fd = info.isDirectory() ? await findNativeTool("fd") : undefined;
     const controller = new AbortController();
     const scanSignal = signal ? AbortSignal.any([signal, controller.signal]) : controller.signal;
@@ -803,6 +843,22 @@ export async function runDiskSearch(
       if (isTerminalSearchError(scan.error, signal)) throw scan.error;
     }
   }
+  if (!literalCandidates && rg && expressible && info.isDirectory()) {
+    let listed;
+    try {
+      listed = await nativeFiles({ rg, root, signal, deadline });
+    } catch (error) {
+      if (!(error instanceof NativeFallback)) throw error;
+    }
+    if (listed) {
+      return runFileSearch("grep", normalized, {
+        cwd,
+        signal,
+        timeoutMs: remainingTimeoutMs(deadline),
+        listed
+      });
+    }
+  }
   return runFileSearch("grep", normalized, {
     cwd,
     signal,
@@ -814,7 +870,7 @@ export async function runDiskSearch(
 export function runFileSearch(
   operation,
   parameters,
-  { cwd = process.cwd(), signal, timeoutMs = 30_000 } = {}
+  { cwd = process.cwd(), signal, timeoutMs = 30_000, listed } = {}
 ) {
   if (!["find", "grep", "autocomplete"].includes(operation))
     return Promise.reject(new Error("Unknown file search operation."));
@@ -823,7 +879,7 @@ export function runFileSearch(
     return Promise.reject(new Error("Invalid file search timeout."));
   return new Promise((done, reject) => {
     const worker = new Worker(new URL(import.meta.url), {
-      workerData: { formicandFileSearch: true, operation, parameters, cwd }
+      workerData: { formicandFileSearch: true, operation, parameters, cwd, listed }
     });
     let settled = false;
     const finish = (error, result) => {
@@ -849,14 +905,15 @@ export function runFileSearch(
 }
 
 if (!isMainThread && workerData?.formicandFileSearch) {
+  const { operation, parameters, cwd, listed } = workerData;
+  const run =
+    operation === "find"
+      ? () => findFiles(parameters, cwd)
+      : operation === "autocomplete"
+        ? () => autocompleteFiles(parameters, cwd)
+        : () => grepFiles(parameters, cwd, listed);
   try {
-    const search =
-      workerData.operation === "find"
-        ? findFiles
-        : workerData.operation === "autocomplete"
-          ? autocompleteFiles
-          : grepFiles;
-    parentPort.postMessage({ result: await search(workerData.parameters, workerData.cwd) });
+    parentPort.postMessage({ result: await run() });
   } catch (error) {
     parentPort.postMessage({ error: error.message });
   }

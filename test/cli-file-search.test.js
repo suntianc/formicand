@@ -794,6 +794,51 @@ test(
 );
 
 test(
+  "disk search cancels the rg discovery that regex and ignore-case patterns share",
+  { skip: !portable },
+  async (t) => {
+    const f = await fixture(t);
+    await f.put("hello.txt", "Hello fixture\n");
+    const bin = join(f.root, "slow-rg-bin");
+    const pidFile = join(f.root, "slow-rg.pid");
+    await mkdir(bin, { recursive: true });
+    await writeFile(join(bin, "rg"), `#!/bin/sh\necho $$ > ${shellQuote(pidFile)}\nexec /bin/sleep 37\n`, {
+      mode: 0o755
+    });
+    setTestPath(t, bin);
+    const waitForPid = async () => {
+      for (let attempt = 0; attempt < 200; attempt++) {
+        try {
+          return Number(await readFile(pidFile, "utf8"));
+        } catch (error) {
+          if (error.code !== "ENOENT") throw error;
+        }
+        await delay(10);
+      }
+      throw new Error("slow rg discovery did not start");
+    };
+    const assertGone = (pid) => {
+      assert.throws(() => process.kill(pid, 0), /ESRCH|no such process/i);
+    };
+    const abort = new AbortController();
+    const aborted = runDiskSearch(
+      "grep",
+      { pattern: "^Hello", ignoreCase: true },
+      { cwd: f.root, signal: abort.signal }
+    );
+    const abortedPid = await waitForPid();
+    abort.abort();
+    await assert.rejects(aborted, /aborted/);
+    assertGone(abortedPid);
+    await rm(pidFile, { force: true });
+    const timed = runDiskSearch("grep", { pattern: "^Hello$" }, { cwd: f.root, timeoutMs: 500 });
+    const timeoutPid = await waitForPid();
+    await assert.rejects(timed, /timed out/);
+    assertGone(timeoutPid);
+  }
+);
+
+test(
   "disk search keeps grep context, limits, truncation and skip notices on the native path",
   { skip: !portable || !nativeTools.fd || !nativeTools.rg },
   async (t) => {
@@ -879,6 +924,55 @@ test(
       await runDiskSearch("grep", parameters, { cwd: f.root }),
       await grepFiles(parameters, f.root)
     );
+  }
+);
+
+test(
+  "disk search keeps rg-only ignore files in scope for every pattern",
+  { skip: !portable || !nativeTools.rg },
+  async (t) => {
+    const f = await fixture(t);
+    await exec("git", ["init", "-b", "main", f.root]);
+    await f.put(".git/info/exclude", "local.txt\n");
+    await f.put(".rgignore", "generated.txt\n");
+    await f.put(".gitignore", "*.log\n!keep.log\nnested/\n");
+    await f.put(".ignore", "private.txt\n");
+    for (const path of [
+      "included.txt",
+      "local.txt",
+      "generated.txt",
+      "dropped.log",
+      "keep.log",
+      "private.txt",
+      "nested/hidden.txt",
+      "deep/kept.txt"
+    ])
+      await f.put(path, "uniquemarker\n");
+    const scope = async (parameters) =>
+      (await runDiskSearch("grep", parameters, { cwd: f.root })).matches
+        .map((match) => match.path.slice(f.root.length + 1))
+        .sort();
+    setTestPath(t, realPaths);
+    // Regex and ignore-case patterns ask rg for the files in scope; they must
+    // not widen it to files .git/info/exclude or .rgignore keep out.
+    const expected = ["deep/kept.txt", "included.txt", "keep.log"];
+    for (const parameters of [
+      { pattern: "^uniquemarker$" },
+      { pattern: "UNIQUEMARKER", literal: true, ignoreCase: true },
+      { pattern: "uniquemarker", literal: true }
+    ])
+      assert.deepEqual(await scope(parameters), expected, JSON.stringify(parameters));
+    assert.deepEqual(await scope({ pattern: "UNIQUEMARKER", literal: true }), []);
+    // Offline installs keep the portable scope: .gitignore/.ignore with
+    // negation and no knowledge of rg's additional ignore files.
+    setTestPath(t, join(f.root, "missing-tools"));
+    assert.deepEqual(await scope({ pattern: "^uniquemarker$" }), [
+      "deep/kept.txt",
+      "generated.txt",
+      "included.txt",
+      "keep.log",
+      "local.txt"
+    ]);
   }
 );
 
