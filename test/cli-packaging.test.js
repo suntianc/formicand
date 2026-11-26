@@ -6,6 +6,7 @@ import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { delimiter, dirname, join, relative, sep } from "node:path";
 import { test } from "node:test";
+import { markdownAnchors, markdownLinks } from "../scripts/check-docs.mjs";
 import {
   assertArchiveIntegrity,
   cliDependencies,
@@ -254,6 +255,49 @@ test("the actual CLI packer excludes retained Mac helpers and tolerates optional
     // installed CLI resolves them against the same tree, so the targets ship too.
     assert.ok(files.includes("package/docs/en/README.md"), "CLI archive carries the CUA guide");
     assert.ok(files.includes("package/GLOSSARY.md"), "CLI archive carries the product glossary");
+
+    // The product, development and evaluation entries form one chain, and an
+    // install follows it from the same tree: every page it reaches has to travel,
+    // while the evaluation harness stays a checkout-only tool.
+    const entries = [
+      "README.md",
+      "README.zh-CN.md",
+      "docs/README.md",
+      "docs/en/README.md",
+      "docs/development.md",
+      "scripts/eval/README.md"
+    ];
+    const archivePaths = new Set(files.map((path) => path.replace(/^package\//, "")));
+    for (const file of [...entries, "AGENTS.md", "AGENTS.en.md"])
+      assert.ok(archivePaths.has(file), `CLI archive carries ${file}`);
+    for (const file of [
+      "scripts/eval/run.mjs",
+      "scripts/eval/tasks.mjs",
+      "scripts/eval/history.mjs",
+      "scripts/eval/repo/README.md"
+    ])
+      assert.equal(archivePaths.has(file), false, `CLI archive leaves out ${file}`);
+    const unpacked = join(root, "unpacked");
+    await mkdir(unpacked, { recursive: true });
+    execFileSync("tar", ["-xzf", archive, "-C", unpacked]);
+    for (const file of entries) {
+      const text = await readFile(join(unpacked, "package", file), "utf8");
+      for (const { destination, line } of markdownLinks(text)) {
+        if (!destination || /^(?:[a-z][a-z\d+.-]*:|\/\/|#)/i.test(destination)) continue;
+        const [path, anchor] = decodeURIComponent(destination).split("#");
+        if (!path?.endsWith(".md")) continue;
+        const target = join(dirname(file), path).split(sep).join("/");
+        assert.ok(
+          archivePaths.has(target),
+          `${file}:${line} links ${destination}, which the CLI archive does not carry`
+        );
+        if (anchor)
+          assert.ok(
+            markdownAnchors(await readFile(join(unpacked, "package", target), "utf8")).has(anchor),
+            `${target} has the #${anchor} anchor ${file}:${line} cites`
+          );
+      }
+    }
 
     assert.equal(
       files.some((path) => /formicand-(?:speech-input|computer-use)(?:\.sha256)?$/.test(path)),

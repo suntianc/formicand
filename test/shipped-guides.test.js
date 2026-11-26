@@ -67,6 +67,64 @@ test("a shipped statement only links guides the desktop package ships", async ()
   }
 });
 
+/**
+ * The entries a reader of an install follows: the root README pair, the docs
+ * index in both languages, the development guide and the evaluation page. The
+ * per-directory AGENTS.md files stay beside sources an install never carries, so
+ * only the root guides are part of this chain.
+ */
+const ENTRY_DOCUMENTS = [
+  "README.md",
+  "README.zh-CN.md",
+  "docs/README.md",
+  "docs/en/README.md",
+  "docs/development.md",
+  "scripts/eval/README.md"
+];
+
+test("the bilingual product, development and evaluation entries travel together", async () => {
+  for (const file of [...ENTRY_DOCUMENTS, "AGENTS.md", "AGENTS.en.md"])
+    assert.equal(await shipped(file), true, `${file} ships with the desktop package`);
+  // Each entry links the next page of the chain; dropping any one leaves a dead end.
+  for (const file of ENTRY_DOCUMENTS) {
+    const text = await readFile(file, "utf8");
+    for (const { destination, line } of markdownLinks(text)) {
+      if (!destination || /^(?:[a-z][a-z\d+.-]*:|\/\/|#)/i.test(destination)) continue;
+      const [path, anchor] = decodeURIComponent(destination).split("#");
+      if (!path?.endsWith(".md")) continue;
+      const target = resolve(dirname(resolve(root, file)), path);
+      const rest = relative(root, target);
+      assert.equal(
+        await shipped(rest),
+        true,
+        `${file}:${line} links ${destination}, which the desktop package does not ship`
+      );
+      if (anchor)
+        assert.ok(
+          markdownAnchors(await readFile(target, "utf8")).has(anchor),
+          `${rest} has the #${anchor} anchor ${file}:${line} cites`
+        );
+    }
+  }
+  // The development guide sends readers to these rules, so the section and its
+  // anchor have to survive in the packaged copy of AGENTS.md.
+  const agents = await readFile("AGENTS.md", "utf8");
+  assert.ok(
+    markdownAnchors(agents).has("pi-依赖边界"),
+    "AGENTS.md keeps the Pi dependency-boundary section the development guide cites"
+  );
+  // The evaluation entry is a page. The harness, sample repository and hidden
+  // checks beside it run from a checkout and must not travel with an install.
+  for (const file of [
+    "scripts/eval/run.mjs",
+    "scripts/eval/tasks.mjs",
+    "scripts/eval/history.mjs",
+    "scripts/eval/repo/README.md",
+    "scripts/eval/hidden"
+  ])
+    assert.equal(await shipped(file), false, `${file} stays out of the desktop package`);
+});
+
 test("the CUA guide carries the browser, window and script text an install can read", async () => {
   const guideFile = "docs/en/README.md";
   assert.equal(await shipped(guideFile), true, "the desktop package ships the guide");

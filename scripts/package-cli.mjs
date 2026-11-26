@@ -55,6 +55,9 @@ try {
     "scripts/main-worker.mjs",
     "scripts/main-capacity-gate.mjs",
     "scripts/read-attachment.py",
+    // The product entry links the evaluation guide; only the page travels, never
+    // the harness, sample repository or hidden checks beside it.
+    "scripts/eval/README.md",
     "README.md",
     "README.zh-CN.md",
     "AGENTS.md",
