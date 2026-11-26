@@ -573,8 +573,14 @@ test(
       assert.ok(fdArgs.includes(flag), `fd receives ${flag}`);
     assert.ok(fdArgs.includes("--exclude"));
     const rgArgs = (await readFile(rgLog, "utf8")).split("\n").filter(Boolean);
-    for (const flag of ["--json", "--crlf", "--fixed-strings", "--context", "--max-filesize"])
+    for (const flag of ["--files-with-matches", "--null", "--fixed-strings", "--max-filesize"])
       assert.ok(rgArgs.includes(flag), `rg receives ${flag}`);
+    for (const flag of ["--json", "--crlf", "--line-number", "--context"])
+      assert.equal(
+        rgArgs.includes(flag),
+        false,
+        `rg lists candidate files and the Node matcher handles ${flag}`
+      );
     assert.ok(rgArgs.includes("--glob=!.git"));
     assert.equal(
       rgArgs.includes("--glob=hello.txt"),
@@ -582,6 +588,91 @@ test(
       "a positive glob is filtered in JavaScript instead of overriding .gitignore"
     );
     assert.ok(rgArgs.includes("--no-require-git"));
+  }
+);
+
+test(
+  "disk search keeps portable ignore-case literal and whitespace regex matching with native tools",
+  { skip: !portable || !nativeTools.rg },
+  async (t) => {
+    const f = await fixture(t);
+    setTestPath(t, realPaths);
+    await f.put("case.txt", "s\nſ\ni\nİ\n\u0085\n\ufeff\n");
+    const cases = [
+      [{ pattern: "s", literal: true, ignoreCase: true }, [1]],
+      [{ pattern: "i", literal: true, ignoreCase: true }, [3, 4]],
+      [{ pattern: "^\\s$" }, [6]],
+      [{ pattern: "^\\S$" }, [1, 2, 3, 4, 5]]
+    ];
+    for (const [parameters, lineNumbers] of cases) {
+      const disk = await runDiskSearch("grep", parameters, { cwd: f.root });
+      assert.deepEqual(disk, await grepFiles(parameters, f.root), JSON.stringify(parameters));
+      assert.deepEqual(
+        disk.matches.map((match) => match.lineNumber),
+        lineNumbers,
+        JSON.stringify(parameters)
+      );
+    }
+  }
+);
+
+test(
+  "disk search keeps carriage-return line numbers and trailing empty lines with native tools",
+  { skip: !portable || !nativeTools.rg },
+  async (t) => {
+    const f = await fixture(t);
+    setTestPath(t, realPaths);
+    await f.put("lines.txt", "a\rb\rc\n");
+    const cases = [
+      [{ pattern: "b" }, 2],
+      [{ pattern: "c" }, 3],
+      [{ pattern: "b", literal: true }, 2],
+      [{ pattern: "c", literal: true }, 3],
+      [{ pattern: "^b$" }, 2],
+      [{ pattern: "^$" }, 4]
+    ];
+    for (const [parameters, lineNumber] of cases) {
+      const disk = await runDiskSearch("grep", parameters, { cwd: f.root });
+      assert.deepEqual(disk, await grepFiles(parameters, f.root), JSON.stringify(parameters));
+      assert.deepEqual(
+        disk.matches.map((match) => match.lineNumber),
+        [lineNumber],
+        JSON.stringify(parameters)
+      );
+    }
+  }
+);
+
+test(
+  "disk search stops the oversized scan on abort and timeout when only rg is available",
+  { skip: !portable || !nativeTools.rg },
+  async (t) => {
+    const f = await fixture(t);
+    const bin = join(f.root, "rg-only-bin");
+    await mkdir(bin, { recursive: true });
+    await symlink(nativeTools.rg, join(bin, "rg"));
+    for (let directory = 0; directory < 200; directory++) {
+      const path = join(f.root, `group-${String(directory).padStart(3, "0")}`);
+      await mkdir(path);
+      await Promise.all(
+        Array.from({ length: 50 }, (_, index) => writeFile(join(path, `file-${index}.txt`), "word\n"))
+      );
+    }
+    setTestPath(t, bin);
+    const parameters = { pattern: "word", literal: true, limit: 1 };
+    const abort = new AbortController();
+    const aborted = runDiskSearch("grep", parameters, { cwd: f.root, signal: abort.signal });
+    const timer = setTimeout(() => abort.abort(), 80);
+    try {
+      await assert.rejects(aborted, /aborted/);
+    } finally {
+      clearTimeout(timer);
+    }
+    await assert.rejects(runDiskSearch("grep", parameters, { cwd: f.root, timeoutMs: 60 }), /timed out/);
+    assert.deepEqual(
+      await runDiskSearch("grep", parameters, { cwd: f.root, timeoutMs: 10_000 }),
+      await grepFiles(parameters, f.root)
+    );
   }
 );
 
