@@ -283,22 +283,25 @@ export function createConversationActivityView({
       return `<div class="live-answer" data-activity-key="${esc(item.key)}"><div class="markdown-body">${markdown(item.text)}</div></div>`;
     };
 
-    const renderProcessItems = (segmentItems, showWaitingRow) => {
+    // The segment's own summary says it is thinking, so its open body lists
+    // only the steps: no waiting row and no thought that has no words yet.
+    const renderProcessItems = (segmentItems) => {
       const rows = segmentItems
         .map((item) =>
           item.type === "reasoning"
-            ? renderReasoningStep(
-                item.text,
-                { done: !active || item.done, interrupted: (!active || item.done) && !item.complete },
-                item.key
-              )
+            ? active &&
+              !item.done &&
+              !reasoningPreview(normalizeReasoningDisplay(item.text, { streaming: true }))
+              ? ""
+              : renderReasoningStep(
+                  item.text,
+                  { done: !active || item.done, interrupted: (!active || item.done) && !item.complete },
+                  item.key
+                )
             : renderToolStep(item.call, active, item.key, taskId, detail, presentations.get(item.call))
         )
         .join("");
-      const waitingRow = showWaitingRow
-        ? thinkingRow(historyKey, retry ? ui("正在恢复模型连接…") : undefined, !retry)
-        : "";
-      return `${rows}${waitingRow}`;
+      return rows;
     };
 
     const renderL1 = () => {
@@ -366,24 +369,18 @@ export function createConversationActivityView({
           const segmentOpen = Boolean(isActivityOpen(segmentKey));
           let summary;
           if (segmentLive) {
-            let spinner = `<span class="thinking-spinner ant-mark" data-thinking-key="${esc(`${segmentKey}:live`)}" aria-hidden="true">${antMarkSvg}</span>`;
-            let stateText;
-            let shimmer = false;
-            if (isLastSegment && retry) {
-              stateText = ui("正在恢复模型连接…");
-            } else if (runningToolItem) {
-              // A call in flight shows what kind of call it is, still; the ant
-              // is kept for Main's own thinking.
-              const meta = categoryMeta[toolCategory(runningToolItem.call)];
-              spinner = `<span class="process-segment-icon" aria-hidden="true">${icon(meta.icon)}</span>`;
-              stateText = meta.live();
-            } else {
-              stateText = ui("思考中");
-              shimmer = true;
-            }
+            // Whatever Main is doing, the live row keeps the same ant and sweep;
+            // only the words say whether it is thinking or which call runs.
+            const spinner = `<span class="thinking-spinner ant-mark" data-thinking-key="${esc(`${segmentKey}:live`)}" aria-hidden="true">${antMarkSvg}</span>`;
+            const stateText =
+              isLastSegment && retry
+                ? ui("正在恢复模型连接…")
+                : runningToolItem
+                  ? categoryMeta[toolCategory(runningToolItem.call)].live()
+                  : ui("思考中");
             const countText = segmentCalls.length ? ui`${segmentCalls.length} 项操作` : "";
             const label = [stateText, countText].filter(Boolean).join(" · ");
-            summary = `<summary aria-label="${esc(label)}">${spinner}<strong class="process-live-state${shimmer ? " shimmer-text" : ""}"${shimmer ? ` data-thinking-key="${esc(`${segmentKey}:label`)}"` : ""}>${esc(stateText)}</strong>${countText ? `<small>${esc(countText)}</small>` : ""}${segmentFailed ? ui`<em class="history-failures">${segmentFailed} 次调用未成功</em>` : ""}<span class="process-chevron" aria-hidden="true">${icon("chevron-down")}</span></summary>`;
+            summary = `<summary aria-label="${esc(label)}">${spinner}<strong class="process-live-state shimmer-text" data-thinking-key="${esc(`${segmentKey}:label`)}">${esc(stateText)}</strong>${countText ? `<small>${esc(countText)}</small>` : ""}${segmentFailed ? ui`<em class="history-failures">${segmentFailed} 次调用未成功</em>` : ""}<span class="process-chevron" aria-hidden="true">${icon("chevron-down")}</span></summary>`;
           } else {
             let leadIcon = "activity";
             let titleText;
@@ -416,7 +413,7 @@ export function createConversationActivityView({
             summary = `<summary aria-label="${esc(label)}"><span class="process-segment-icon" aria-hidden="true">${icon(leadIcon)}</span><span class="process-segment-label">${esc(titleText)}</span>${showFailed ? ui`<em class="history-failures">${segmentFailed} 次调用未成功</em>` : ""}<span class="process-chevron" aria-hidden="true">${icon("chevron-down")}</span></summary>`;
           }
           const body = segmentOpen
-            ? `<section class="live-workflow ${segmentLive ? "is-active" : "is-complete"}"${segmentLive ? ' aria-live="polite"' : ""}><div class="workflow-rail">${renderProcessItems(segmentItems, waitingNext)}</div></section>`
+            ? `<section class="live-workflow ${segmentLive ? "is-active" : "is-complete"}"${segmentLive ? ' aria-live="polite"' : ""}><div class="workflow-rail">${renderProcessItems(segmentItems)}</div></section>`
             : "";
           return `<details class="process-segment${segmentLive ? " is-live" : ""}" data-activity-key="${esc(segmentKey)}" data-view-key="${esc(segmentKey)}"${segmentOpen ? " open" : ""}>${summary}${body}</details>`;
         })

@@ -474,14 +474,18 @@ test("continuous thought deltas retain the disclosure, spinner and existing para
   assert.match(paragraph.textContent, /然后读取约束，继续检查。/);
 });
 
-test("between steps the next step's thinking row waits at the end of the steps", () => {
+test("between steps the segment's own summary says it is thinking, with one ant whatever runs", () => {
   const { document, state, render } = fixture("model-gaps");
   expandHistory(document, render);
   const waiting = () =>
     document.querySelector(".workflow-rail > .reasoning-step:last-child .assistant-thinking");
+  const summary = () => document.querySelector(".process-segment > summary");
   state.detail.runtimeEvents.push(update("thinking_end", 0, { content: "先核对第一部分。" }));
   render();
-  assert.match(waiting()?.textContent || "", /思考中/);
+  // The open segment lists its steps only; its summary already says 思考中.
+  assert.equal(waiting(), null);
+  assert.match(summary().textContent, /思考中/);
+  assert.equal(summary().querySelectorAll(".ant-mark").length, 1);
   assert.equal(document.querySelectorAll(".live-workflow-head").length, 0);
   state.detail.runtimeEvents.push(
     update("toolcall_end", 1, {
@@ -490,14 +494,15 @@ test("between steps the next step's thinking row waits at the end of the steps",
     { type: "tool_execution_start", toolCallId: "attachment", toolName: "read_attachment" }
   );
   render();
-  // A running tool is the moving row; nothing waits after it.
+  // A running tool changes only the words; nothing waits after it.
   assert.equal(waiting(), null);
-  assert.match(document.querySelector(".process-segment > summary").textContent, /读取文件中/);
+  assert.match(summary().textContent, /读取文件中/);
   assert.match(document.querySelector(".tool-action").textContent, /读取附件/);
   // The running call shows a still dot beside its status, not the working ant.
   assert.equal(document.querySelectorAll(".tool-step .ant-mark").length, 0);
   assert.equal(document.querySelectorAll(".tool-step.is-running .tool-status-dot").length, 1);
-  assert.equal(document.querySelectorAll(".process-segment > summary .ant-mark").length, 0);
+  assert.equal(summary().querySelectorAll(".ant-mark").length, 1);
+  assert.equal(summary().querySelectorAll(".process-segment-icon").length, 0);
   state.detail.runtimeEvents.push({
     type: "tool_execution_end",
     toolCallId: "attachment",
@@ -505,7 +510,8 @@ test("between steps the next step's thinking row waits at the end of the steps",
     result: { content: [] }
   });
   render();
-  assert.match(waiting()?.textContent || "", /思考中/);
+  assert.equal(waiting(), null);
+  assert.match(summary().textContent, /思考中/);
   state.detail.runtime.active = false;
   state.detail.task.status = "cancelled";
   render();
@@ -535,7 +541,7 @@ test("a parked or unfinished round folds its steps without a turn endline or act
   state.detail.runtimeEvents.push(wake);
   assert.ok(applyMainParkEvent(state.detail, wake));
   render();
-  assert.match(document.querySelector(".assistant-thinking").textContent, /思考中/);
+  assert.match(document.querySelector(".process-segment.is-live > summary").textContent, /思考中/);
 });
 
 test("no first token and an automatic retry both keep a visible waiting animation", () => {
@@ -669,7 +675,8 @@ test("compaction does not hide running commands or merge calls across reasoning"
   expandHistory(document, render);
   assert.equal(document.querySelectorAll(".workflow-rail > .tool-step").length, 3);
   assert.equal(document.querySelectorAll(".workflow-rail > .tool-step.is-running").length, 1);
-  assert.equal(document.querySelectorAll(".reasoning-step").length, 2);
+  // The thought between them; no waiting row under the live summary.
+  assert.equal(document.querySelectorAll(".reasoning-step").length, 1);
 });
 
 test("a collapsed multi-sentence thought uses its first sentence as the single-layer summary and renders flat prose on open", () => {
