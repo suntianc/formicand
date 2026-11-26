@@ -555,6 +555,22 @@ html[data-theme] .process-segment > summary {
   list-style: none;
   transition: color var(--motion-hover) var(--ease-default);
 }
+/* Before the first token the waiting row stands where the live summary will. */
+html[data-theme] .chat-message[data-answer-kind="pending"] .message-copy > .live-workflow {
+  margin: 0;
+}
+html[data-theme] .chat-message[data-answer-kind="pending"] .message-copy > .live-workflow .reasoning-step {
+  padding: 2px 0;
+}
+html[data-theme]
+  .chat-message[data-answer-kind="pending"]
+  .message-copy
+  > .live-workflow
+  .reasoning-step
+  .activity-step-head {
+  gap: 7px;
+  min-height: 0;
+}
 html[data-theme] .process-segment > summary::-webkit-details-marker {
   display: none;
 }
