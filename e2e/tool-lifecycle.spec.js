@@ -29,6 +29,12 @@ test("returned async tools retain real work status through progress, callbacks a
           { accepted: true, callId: "one", name: "Ara" }
         ],
         [
+          "dispatch-two",
+          "call_subagent",
+          { task: "核对点火顺序" },
+          { accepted: true, callId: "two", name: "Bea" }
+        ],
+        [
           "message",
           "send_subagent_message",
           { callId: "one", message: "补充核对凸轮间隙" },
@@ -48,8 +54,11 @@ test("returned async tools retain real work status through progress, callbacks a
           runtime: { active: true },
           runtimeEvents,
           coordination: {
-            calls: [{ callId: "one", status: "running" }],
-            pending: ["one"],
+            calls: [
+              { callId: "one", status: "running" },
+              { callId: "two", status: "running" }
+            ],
+            pending: ["one", "two"],
             callbackPending: []
           }
         }
@@ -65,8 +74,14 @@ test("returned async tools retain real work status through progress, callbacks a
     });
     // A running subagent row stays directly visible in L1, one line with no disclosure, while
     // ordinary tools fold into .process-segment.
-    const agent = page.locator(".subagent-step");
-    await expect(page.locator(".subagent-group > .subagent-step")).toHaveCount(1);
+    const agent = page.locator(".subagent-step").first();
+    await expect(page.locator(".subagent-group > .subagent-step")).toHaveCount(2);
+    // Each dispatched Subagent takes its own line under the one before.
+    const [first, second] = await page.$$eval(".subagent-group > .subagent-step", (rows) =>
+      rows.map((row) => row.getBoundingClientRect().toJSON())
+    );
+    expect(second.top).toBeGreaterThanOrEqual(first.bottom - 0.5);
+    expect(second.left).toBe(first.left);
     await expect(agent.locator(".subagent-status")).toHaveText("运行中");
     await expect(agent.locator(".ant-mark")).toHaveCount(0);
     await expect(agent.locator(".tool-status-dot")).toHaveCount(1);
