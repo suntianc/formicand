@@ -37,8 +37,6 @@ export default {
   本机节点已重新连接: "Local node reconnected",
   "本机节点连接中断，正在重连…": "Local node disconnected, reconnecting…",
   "Main 有问题等你回答": "Main has a question for you",
-  已切换到: "Switched to ",
-  " 仍在后台运行": " is still running in the background",
   "继续失败：": "Could not continue: ",
   检查模型连接: "Check model connection",
   模型连接异常: "Model connection error",

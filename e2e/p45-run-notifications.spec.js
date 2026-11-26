@@ -4,7 +4,7 @@ import { createTask, markTaskRunning, writeHumanQuestion } from "./p45-work-help
 
 const toast = (page, text) => page.locator(".toast-card").filter({ hasText: text }).last();
 
-test("switching conversations, a Main question and a node reconnect each notify once", async ({
+test("switching conversations stays quiet; a Main question and a node reconnect each notify once", async ({
   page
 }, testInfo) => {
   test.setTimeout(90_000);
@@ -25,11 +25,7 @@ test("switching conversations, a Main question and a node reconnect each notify 
     await page.goto(`${dashboard.base}?task=notice-report`);
     await page.locator('.conversation-item[data-task="notice-report"]').click();
     await page.locator('.conversation-item[data-task="notice-login"]').click();
-    const switched = toast(page, "已切换到");
-    await expect(switched).toBeVisible();
-    await expect(switched).toContainText("修复登录超时");
-    await expect(switched).toContainText("评分汇总验收");
-    await expect(switched).toContainText("仍在后台运行");
+    await expect(toast(page, "评分汇总验收")).toHaveCount(0);
     expect(
       (await (await page.request.get(`${dashboard.base}/api/tasks/notice-report`)).json()).task.status
     ).toBe("running");
