@@ -677,7 +677,7 @@
           "request": {
             "type": "string",
             "maxLength": 2000,
-            "description": "lookup: the user's request in their own words. The result says whether one feature is likely, several look alike or none fits, with the whole catalog when it is not sure or the ledger is small."
+            "description": "lookup: the user's request in their own words. The result says whether one feature is likely, several look alike or none fits, with the whole catalog when it is not sure or the ledger is small. A candidate marked retired is a feature the user dropped before, with why: tell the user it was dropped and why, and ask whether this is the same work before picking it up."
           },
           "q": {
             "type": "string",
@@ -816,6 +816,8 @@
               "query",
               "find_by_requirement",
               "update",
+              "pause",
+              "resume",
               "withdraw",
               "ensure_workspace",
               "tickets",
@@ -1063,12 +1065,18 @@
           "reason": {
             "type": "string",
             "maxLength": 2000,
-            "description": "revise_ticket: why the confirmed ticket must change."
+            "description": "revise_ticket: why the confirmed ticket must change. pause/withdraw: why the user stopped the work, in their terms; shown to the user and when the feature comes up again."
+          },
+          "continues": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300,
+            "description": "create: a withdrawn development of this requirement that the user wants back; a retired requirement becomes active again. Use it when lookup finds the feature retired or find_by_requirement returns a withdrawn development, after the user confirms it is the same work."
           },
           "expectedRevision": {
             "type": "integer",
             "minimum": 1,
-            "description": "update: the revision returned by the last read; a stale value is refused."
+            "description": "update/pause/resume/withdraw: the revision returned by the last read; a stale value is refused."
           },
           "channel": {
             "type": "string",

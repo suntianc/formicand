@@ -260,7 +260,8 @@ html[data-theme] :is(.or-pill, .or-tag)[data-waiting="true"] {
   background: var(--color-warn-soft);
   color: var(--color-warn);
 }
-html[data-theme] :is(.or-pill, .or-tag)[data-stage="withdrawn"] {
+html[data-theme] :is(.or-pill, .or-tag)[data-stage="withdrawn"],
+html[data-theme] :is(.or-pill, .or-tag)[data-paused="true"] {
   background: var(--color-surface-3);
   color: var(--color-text-3);
 }

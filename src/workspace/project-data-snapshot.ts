@@ -150,6 +150,8 @@ const TABLE_COLUMNS: Record<SnapshotTable, readonly string[]> = {
     "completion_criteria",
     "route",
     "status",
+    "status_reason",
+    "continues_development_id",
     "revision",
     "baseline_branch",
     "baseline_commit",

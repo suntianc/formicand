@@ -113,7 +113,7 @@ export function createProjectDevelopmentTool(options: ProjectDevelopmentToolOpti
     name: "project_development",
     label: "Project Development",
     description:
-      "The current project's requirement development records: create one with its isolated Git checkout, read and revise it, propose its tickets for the user to confirm, review a fixed candidate (the Reviewer's findings are imported by the program; a review chain has two rework rounds before Main must change approach), merge an accepted candidate through the project's shared entry, and read delivery status. Load the requirement-delivery skill for the order of these steps. A requirement is a long-lived feature with one development per piece of work and at most one active: find_by_requirement returns the active one (or the latest), so continue it rather than creating another; withdraw stops one that will not be finished. update and withdraw carry the revision you last read. Each result's next field says what to do next. The project and Task come from this conversation, so no project id or path is accepted.",
+      "The current project's requirement development records: create one with its isolated Git checkout, read and revise it, propose its tickets for the user to confirm, review a fixed candidate (the Reviewer's findings are imported by the program; a review chain has two rework rounds before Main must change approach), merge an accepted candidate through the project's shared entry, and read delivery status. Load the requirement-delivery skill for the order of these steps. A requirement is a long-lived feature with one development per piece of work and at most one open (active or paused): find_by_requirement returns the open one (or the latest), so continue it, not a new one. When the user stops, pause work they may come back to, withdraw work they drop (a feature that never merged is then retired); ask if unsure. update, pause, resume and withdraw carry the revision you last read. Each result's next field says what to do next. The project and Task come from this conversation, so no project id or path is accepted.",
     parameters: {
       type: "object",
       properties: {
@@ -125,6 +125,8 @@ export function createProjectDevelopmentTool(options: ProjectDevelopmentToolOpti
             "query",
             "find_by_requirement",
             "update",
+            "pause",
+            "resume",
             "withdraw",
             "ensure_workspace",
             "tickets",
@@ -200,12 +202,19 @@ export function createProjectDevelopmentTool(options: ProjectDevelopmentToolOpti
         reason: {
           type: "string",
           maxLength: 2000,
-          description: "revise_ticket: why the confirmed ticket must change."
+          description:
+            "revise_ticket: why the confirmed ticket must change. pause/withdraw: why the user stopped the work, in their terms; shown to the user and when the feature comes up again."
+        },
+        continues: {
+          ...ID,
+          description:
+            "create: a withdrawn development of this requirement that the user wants back; a retired requirement becomes active again. Use it when lookup finds the feature retired or find_by_requirement returns a withdrawn development, after the user confirms it is the same work."
         },
         expectedRevision: {
           type: "integer",
           minimum: 1,
-          description: "update: the revision returned by the last read; a stale value is refused."
+          description:
+            "update/pause/resume/withdraw: the revision returned by the last read; a stale value is refused."
         },
         channel: {
           type: "string",
@@ -506,13 +515,22 @@ export function createProjectDevelopmentTool(options: ProjectDevelopmentToolOpti
         request: input.request,
         goal: input.goal,
         completionCriteria: input.completionCriteria,
-        route: input.route ?? "quick"
+        route: input.route ?? "quick",
+        ...(input.continues === undefined ? {} : { continues: input.continues })
       });
       // Main is told once, when the requirement's checkout opens, to read its pitfalls.
       const directory = (created.development as { workspace?: { directory?: string } } | undefined)?.workspace
         ?.directory;
       const pitfalls = directory ? await pitfallsHint(directory) : undefined;
-      return pitfalls ? { ...created, pitfalls } : created;
+      // The development already exists; a failed read only loses the branch hint.
+      const picked =
+        typeof input.continues === "string"
+          ? await pickedUp(request, input.continues).catch((error: unknown) => ({
+              developmentId: input.continues,
+              note: `Could not read the withdrawn development (${error instanceof Error ? error.message : String(error)}); find_by_requirement shows its branch.`
+            }))
+          : undefined;
+      return { ...created, ...(pitfalls ? { pitfalls } : {}), ...(picked ? { continues: picked } : {}) };
     }
     if (action === "get") return request({ action, developmentId: input.developmentId });
     if (action === "query") return request({ action });
@@ -526,13 +544,26 @@ export function createProjectDevelopmentTool(options: ProjectDevelopmentToolOpti
         ...(input.completionCriteria === undefined ? {} : { completionCriteria: input.completionCriteria }),
         ...(input.route === undefined ? {} : { route: input.route })
       });
-    if (action === "withdraw")
+    if (action === "pause" || action === "withdraw")
       return request({
         action: "update",
         developmentId: input.developmentId,
         expectedRevision: input.expectedRevision,
-        status: "withdrawn"
+        status: action === "pause" ? "paused" : "withdrawn",
+        reason: input.reason
       });
+    if (action === "resume") {
+      const resumed = await request({
+        action: "update",
+        developmentId: input.developmentId,
+        expectedRevision: input.expectedRevision,
+        status: "active"
+      });
+      return {
+        ...resumed,
+        note: "The target branch may have moved while this was paused: merge its new commits into the checkout (sync_target on the full route) and rerun the checks before continuing."
+      };
+    }
     if (action === "ensure_workspace") return request({ action, developmentId: input.developmentId });
     if (action === "tickets") return request({ action, developmentId: input.developmentId });
     if (action === "propose_tickets") return proposeTickets(request, input, confirm);
@@ -672,6 +703,21 @@ function unconfirmed(answer: TicketConfirmation, tickets: TicketSetView, unchang
 }
 
 /** The development a call acted on, from its arguments or from what it returned. */
+/** What a new development picks up: the withdrawn one's reason and the branch that still holds its work. */
+async function pickedUp(request: ProjectDevelopmentClient, developmentId: string) {
+  const { development } = (await request({ action: "get", developmentId })) as {
+    development: { reason?: string; workspace?: { branch?: string } };
+  };
+  const branch = development.workspace?.branch;
+  return {
+    developmentId,
+    ...(development.reason ? { reason: development.reason } : {}),
+    note: branch
+      ? `Branch ${branch} still holds the withdrawn work: merge in what the user still wants rather than writing it again.`
+      : "The withdrawn work has no checkout on this machine; start from the target branch."
+  };
+}
+
 function developmentOf(input: Record<string, unknown>, result: Record<string, unknown>): string | undefined {
   if (typeof input.developmentId === "string" && input.developmentId) return input.developmentId;
   for (const key of ["development", "review", "merge", "tickets", "plan", "qualification", "view"]) {

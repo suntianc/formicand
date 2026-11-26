@@ -23,6 +23,8 @@ export interface LookupEntry {
   aliases: string[];
   summary: string;
   history: string[];
+  /** Why its latest withdrawn development was dropped, when it has one. */
+  withdrawnReason?: string;
 }
 
 export type LookupVerdict = "likely" | "several" | "none";
@@ -33,6 +35,8 @@ export interface LookupCandidate {
   score: number;
   /** The words and two-character pieces of the request this requirement contains. */
   matched: string[];
+  /** Present on a retired feature: the user dropped it before. */
+  retired?: { withdrawnReason?: string };
 }
 
 export interface CatalogEntry {
@@ -130,13 +134,14 @@ export function catalogOf(entries: LookupEntry[]): CatalogEntry[] {
 }
 
 /**
- * Score every active requirement against the request.
+ * Score every requirement against the request.
  *
- * Retired requirements are not candidates, since no development may start on
- * one, but they stay in the catalog so Main can see a feature was dropped.
+ * A retired one is a candidate too, marked with why it was withdrawn, so a
+ * feature the user dropped and now wants back is found instead of recorded
+ * again; Main asks the user before picking it up.
  */
 export function lookupRequirements(entries: LookupEntry[], request: string): LookupResult {
-  const documents = entries.filter((entry) => entry.status === "active").map(documentOf);
+  const documents = entries.map(documentOf);
   const count = documents.length;
   const average = count ? documents.reduce((sum, document) => sum + document.length, 0) / count : 0;
   const query = new Map<string, Term>();
@@ -192,7 +197,14 @@ export function lookupRequirements(entries: LookupEntry[], request: string): Loo
     requirementId: item.document.entry.requirementId,
     title: item.document.entry.title,
     score: Math.round(item.score * 100) / 100,
-    matched: item.matched
+    matched: item.matched,
+    ...(item.document.entry.status === "retired"
+      ? {
+          retired: item.document.entry.withdrawnReason
+            ? { withdrawnReason: item.document.entry.withdrawnReason }
+            : {}
+        }
+      : {})
   }));
   return verdict !== "likely" || entries.length <= SMALL_LEDGER
     ? { verdict, candidates, catalog: catalogOf(entries) }

@@ -17,15 +17,17 @@ import {
  */
 export type DevelopmentRoute = "quick" | "full";
 /**
- * `active` while the work goes on; `merged` once its merge was delivered;
- * `withdrawn` when Main stops it. A requirement has at most one active
- * development, so the next one starts after the last is merged or withdrawn.
+ * `active` while the work goes on; `paused` when the user stops it for now and
+ * it keeps its checkout to resume; `merged` once its merge was delivered;
+ * `withdrawn` when the user drops it. A requirement has at most one open
+ * (active or paused) development, so the next one starts after the last is
+ * merged or withdrawn.
  */
-export type DevelopmentStatus = "active" | "merged" | "withdrawn";
+export type DevelopmentStatus = "active" | "paused" | "merged" | "withdrawn";
 export type DevelopmentWorkspaceState = "ready" | "failed";
 
 export const DEVELOPMENT_ROUTES: readonly DevelopmentRoute[] = ["quick", "full"];
-export const DEVELOPMENT_STATUSES: readonly DevelopmentStatus[] = ["active", "merged", "withdrawn"];
+export const DEVELOPMENT_STATUSES: readonly DevelopmentStatus[] = ["active", "paused", "merged", "withdrawn"];
 export const DEVELOPMENT_WORKSPACE_STATES: readonly DevelopmentWorkspaceState[] = ["ready", "failed"];
 
 export interface DevelopmentBaseline {
@@ -56,6 +58,10 @@ export interface DevelopmentRecord {
   completionCriteria: string[];
   route: DevelopmentRoute;
   status: DevelopmentStatus;
+  /** Why the user paused or withdrew it, as Main recorded it. */
+  reason?: string;
+  /** The withdrawn development of the same requirement this one picks up again. */
+  continues?: string;
   revision: number;
   baseline: DevelopmentBaseline;
   /** The Main session and Task container that recorded this development. */
@@ -100,6 +106,19 @@ function bounded(value: unknown, label: string, max: number): string {
   if (!text || text.length > max || CONTROL.test(text))
     throw new ProjectDataInvalidError(`${label}须为 1–${max} 个可打印字符`);
   return text;
+}
+
+/** Why a write refuses a development that is not active, and what to do instead. */
+export function developmentNotActive(status: DevelopmentStatus): string {
+  if (status === "paused") return "这次开发已暂停；用户要继续时先 resume";
+  return `这次开发已${status === "merged" ? "合入" : "撤回"}；同一需求的新工作新建一次开发`;
+}
+
+/** Why the user paused or withdrew a development: required with either. */
+export function developmentReason(value: unknown): string {
+  if (value === undefined || value === null)
+    throw new ProjectDataInvalidError("暂停或撤回需要 reason：用户为什么停下");
+  return bounded(value, "暂停或撤回原因", 2000);
 }
 
 export function developmentGoal(value: unknown): string {

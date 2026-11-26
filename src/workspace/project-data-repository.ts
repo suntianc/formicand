@@ -28,7 +28,9 @@ export class ProjectDataRepository extends ProjectLedgerRepository {
     requireProject: this.requireProject.bind(this),
     requireRequirement: this.requireRequirement.bind(this),
     lookupEntries: this.maintenance.lookupEntries.bind(this.maintenance),
-    insertAlias: this.insertAlias.bind(this)
+    insertAlias: this.insertAlias.bind(this),
+    updateRequirement: this.updateRequirement.bind(this),
+    board: () => this.board()
   });
   private readonly reviews = new DevelopmentReviewRepository(
     this.transaction,

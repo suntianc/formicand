@@ -286,10 +286,13 @@ test("merging moves everything to the feature that stays and deletes the duplica
     }),
     { code: "requirement_merge_busy" }
   );
-  await service.updateDevelopment(projectId, busy.developmentId, {
-    expectedRevision: busy.revision,
-    status: "withdrawn"
-  });
+  // It merges, which frees the slot. (Withdrawing would retire a feature that never merged.)
+  await service.transaction((repository) =>
+    repository.transaction.execute(
+      "UPDATE project_data_developments SET status = 'merged' WHERE development_id = ?",
+      [busy.developmentId]
+    )
+  );
   // A stale revision of either side, or a missing summary, is refused: a merge
   // written from the duplicate's old text would drop what changed since.
   await assert.rejects(
@@ -392,6 +395,10 @@ test("a version 9 ledger gains the tidy mark and each requirement a description"
     await database.execute(`ALTER TABLE ${table} DROP COLUMN description`);
   await database.execute("ALTER TABLE project_data_development_reviews DROP COLUMN mapping");
   await database.execute("ALTER TABLE project_data_projects DROP COLUMN ledger_clock");
+  // Without version 16's development pause columns and open index.
+  await database.execute("DROP INDEX project_data_developments_open");
+  await database.execute("ALTER TABLE project_data_developments DROP COLUMN status_reason");
+  await database.execute("ALTER TABLE project_data_developments DROP COLUMN continues_development_id");
   await database.execute("DELETE FROM project_data_migrations");
   await database.execute("INSERT INTO project_data_migrations (version, applied_at) VALUES (9, ?)", [
     new Date().toISOString()
@@ -400,7 +407,7 @@ test("a version 9 ledger gains the tidy mark and each requirement a description"
 
   const again = await openLedger(t, root);
   t.after(() => again.runtime.close());
-  assert.equal(again.service.description.schemaVersion, 15);
+  assert.equal(again.service.description.schemaVersion, 16);
   // A version 9 requirement takes its summary's first sentence as its description.
   const upgraded = await again.service.getRequirement(project.projectId, exported.requirementId);
   assert.equal(upgraded.description, "export 输出 CSV。");
@@ -424,6 +431,10 @@ test("a version 12 ledger drops the per-project tidy read time", async (t) => {
   const database = await SqliteDatabase.open(join(root, "project-data.sqlite"));
   await database.execute("ALTER TABLE project_data_projects ADD COLUMN ledger_tidy_read_at TEXT");
   await database.execute("ALTER TABLE project_data_projects DROP COLUMN ledger_clock");
+  // Without version 16's development pause columns and open index.
+  await database.execute("DROP INDEX project_data_developments_open");
+  await database.execute("ALTER TABLE project_data_developments DROP COLUMN status_reason");
+  await database.execute("ALTER TABLE project_data_developments DROP COLUMN continues_development_id");
   await database.execute("DELETE FROM project_data_migrations");
   await database.execute("INSERT INTO project_data_migrations (version, applied_at) VALUES (12, ?)", [
     new Date().toISOString()
@@ -432,7 +443,7 @@ test("a version 12 ledger drops the per-project tidy read time", async (t) => {
 
   const again = await openLedger(t, root);
   t.after(() => again.runtime.close());
-  assert.equal(again.service.description.schemaVersion, 15);
+  assert.equal(again.service.description.schemaVersion, 16);
   const reopened = await SqliteDatabase.open(join(root, "project-data.sqlite"));
   const columns = await reopened.query("PRAGMA table_info(project_data_projects)");
   await reopened.close();
@@ -459,7 +470,11 @@ for (const completed of [false, true])
       completed ? at : null,
       projectId
     ]);
-    await database.execute("UPDATE project_data_migrations SET version = 13 WHERE version = 15");
+    // Back to version 15's developments table before claiming that version.
+    await database.execute("DROP INDEX project_data_developments_open");
+    await database.execute("ALTER TABLE project_data_developments DROP COLUMN status_reason");
+    await database.execute("ALTER TABLE project_data_developments DROP COLUMN continues_development_id");
+    await database.execute("UPDATE project_data_migrations SET version = 13 WHERE version = 16");
     await database.close();
 
     const upgraded = await openLedger(t, root);

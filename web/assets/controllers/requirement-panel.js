@@ -249,12 +249,14 @@ export function createRequirementPanel({
   /** The phase in words over a row of dots, one per step. */
   function renderStepper(progress) {
     const current = progress.steps.find((step) => step.state === "current" || step.state === "blocked");
-    const tone = progress.waiting ? "waiting" : (current?.state ?? "settled");
+    const tone = progress.paused ? "paused" : progress.waiting ? "waiting" : (current?.state ?? "settled");
     const meta = current?.meta ?? "";
     const status = `<div class="rp-status" data-tone="${esc(tone)}"><span class="rp-status-dot" aria-hidden="true"></span><span class="rp-status-label">${esc(
       ui(progress.label)
     )}</span>${meta ? `<span class="rp-status-meta" title="${esc(meta)}">${esc(meta)}</span>` : ""}</div>`;
-    return `<div class="rp-phase">${status}<ol class="rp-stepper" data-stage="${esc(progress.stage)}" aria-label="${ui("需求阶段")}">${progress.steps
+    return `<div class="rp-phase">${status}<ol class="rp-stepper" data-stage="${esc(progress.stage)}"${
+      progress.paused ? ' data-paused="true"' : ""
+    } aria-label="${ui("需求阶段")}">${progress.steps
       .map((step) => {
         const ring = step.segments && step.state !== "done" ? segmentRing(step.segments) : "";
         const node =
@@ -707,6 +709,8 @@ export function createRequirementPanel({
     const signature = JSON.stringify([
       state.selected,
       progress?.steps,
+      progress?.label,
+      progress?.paused,
       loaded?.error ?? null,
       loaded?.session ?? null,
       loaded?.requirement ?? null,
@@ -719,6 +723,8 @@ export function createRequirementPanel({
             loaded.view.roles,
             loaded.view.tickets,
             loaded.view.development?.route,
+            loaded.view.development?.status,
+            loaded.view.development?.reason,
             loaded.view.board?.assignment
           ]
         : null,
@@ -750,7 +756,7 @@ export function createRequirementPanel({
     refreshVisibleDevelopment() {
       if (
         loaded?.taskId === state.selected &&
-        loaded?.view?.development?.status === "active" &&
+        ["active", "paused"].includes(loaded?.view?.development?.status) &&
         $("[data-requirement-panel]")?.getClientRects().length &&
         !document.body.classList.contains("output-collapsed")
       )

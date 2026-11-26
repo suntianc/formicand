@@ -157,6 +157,13 @@ html[data-theme] .agent-pane {
 .rp-status[data-tone="settled"] .rp-status-dot {
   background: var(--color-ok);
 }
+.rp-status[data-tone="paused"] .rp-status-dot {
+  background: var(--color-text-3);
+}
+.rp-stepper[data-paused="true"] {
+  opacity: 0.5;
+  filter: grayscale(1);
+}
 .rp-status-label {
   flex: none;
   color: var(--color-text);

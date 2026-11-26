@@ -2,6 +2,7 @@ import {
   BoardAssignment,
   BoardEntry,
   BoardEvent,
+  type BoardEventKind,
   BoardHandler,
   BoardState,
   boardActorId,
@@ -19,6 +20,7 @@ import {
   ProjectDataInvalidError,
   ProjectDataNotFoundError,
   ledgerContent,
+  ledgerIdentifier,
   ledgerRevision,
   ledgerTitle,
   type LedgerSource
@@ -427,6 +429,75 @@ export class ProjectBoardRepository {
     context: BoardActionContext
   ): Promise<BoardEntry> {
     return this.transition("cancel", projectId, boardId, input, context);
+  }
+
+  /**
+   * Move the requirement's open card along with its development: pausing the
+   * development pauses a card being worked on, resuming returns it to the state
+   * it was paused from, and withdrawing cancels it. A requirement without an
+   * open card, or a card already where the development puts it, is left alone.
+   * The development's revision names the event, so a repeat is a no-op.
+   */
+  async followDevelopment(
+    projectId: string,
+    requirementId: string,
+    action: "pause" | "resume" | "cancel",
+    input: { developmentId: string; requestId: string; backendId: unknown }
+  ): Promise<void> {
+    const open = await this.rows(
+      `SELECT * FROM project_data_board_entries
+        WHERE project_id = ? AND requirement_id = ? AND state NOT IN ('cancelled', 'pending_release')${
+          this.lockRows ? " FOR UPDATE" : ""
+        }`,
+      [projectId, requirementId]
+    );
+    if (!open.length) return;
+    const current = open[0];
+    let to: BoardState;
+    let kind: BoardEventKind;
+    if (action === "resume") {
+      if (current.state !== "paused") return;
+      const paused = await this.transaction.query<{ from_state: string | null; request_id: string }>(
+        `SELECT from_state, request_id FROM project_data_board_events
+          WHERE project_id = ? AND board_id = ? AND kind = 'paused'
+          ORDER BY revision DESC LIMIT 1`,
+        [projectId, current.board_id]
+      );
+      // A card its owner paused stays paused until the owner resumes it.
+      if (!paused[0]?.request_id.startsWith(`development-${input.developmentId}-`)) return;
+      to = (paused[0].from_state as BoardState | null) ?? "in_progress";
+      kind = "resumed";
+    } else {
+      const spec = TRANSITIONS[action];
+      if (!spec.from.includes(current.state as BoardState)) return;
+      to = spec.to;
+      kind = spec.kind;
+    }
+    if (await this.replay(projectId, current.board_id, input.requestId, kind)) return;
+    // Only a card to move needs the backend that moves it.
+    const backendId = ledgerIdentifier(input.backendId, "执行后端");
+    const expectedRevision = Number(current.revision);
+    const revision = expectedRevision + 1;
+    const timestamp = now();
+    const changed = await this.transaction.execute(
+      `UPDATE project_data_board_entries SET state = ?, revision = ?, updated_at = ?
+        WHERE project_id = ? AND board_id = ? AND revision = ? AND state = ?`,
+      [to, revision, timestamp, projectId, current.board_id, expectedRevision, current.state]
+    );
+    if (changed !== 1) throw this.stale(current);
+    const handler = handlerOf(current);
+    await this.insertEvent({
+      projectId,
+      boardId: current.board_id,
+      kind,
+      requestId: input.requestId,
+      context: { backendId, actor: { id: `backend:${backendId}:host`, host: true } },
+      ...(handler ? { handler } : {}),
+      fromState: current.state as BoardState,
+      toState: to,
+      revision,
+      createdAt: timestamp
+    });
   }
 
   private async transition(

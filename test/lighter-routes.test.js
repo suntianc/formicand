@@ -177,12 +177,16 @@ test("a version 14 database reads its direct developments as full", async (t) =>
      VALUES (?, ?, ?, ?, ?, 'direct', 'merged', 1, 'main', ?, ?, ?)`,
     ["project_v14", "development_old", requirement.requirementId, "旧", '["做完"]', "0".repeat(40), at, at]
   );
-  await database.execute("UPDATE project_data_migrations SET version = 14 WHERE version = 15");
+  // Back to version 15's developments table before claiming that version.
+  await database.execute("DROP INDEX project_data_developments_open");
+  await database.execute("ALTER TABLE project_data_developments DROP COLUMN status_reason");
+  await database.execute("ALTER TABLE project_data_developments DROP COLUMN continues_development_id");
+  await database.execute("UPDATE project_data_migrations SET version = 14 WHERE version = 16");
   await database.close();
 
   const again = await open();
   t.after(() => again.runtime.close());
-  assert.equal(again.service.description.schemaVersion, 15);
+  assert.equal(again.service.description.schemaVersion, 16);
   const reopened = await SqliteDatabase.open(join(root, "project-data.sqlite"));
   const rows = await reopened.query("SELECT route FROM project_data_developments WHERE development_id = ?", [
     "development_old"

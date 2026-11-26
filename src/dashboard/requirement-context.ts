@@ -43,6 +43,10 @@ export interface RequirementContext {
 export interface ContextDevelopment {
   developmentId: string;
   status: DevelopmentStatus;
+  /** Why the user paused or withdrew it. */
+  reason?: string;
+  /** The withdrawn development this one picks up again. */
+  continues?: string;
   goal: string;
   completionCriteria: string[];
   createdAt: string;
@@ -148,6 +152,8 @@ export async function requirementContext(
       return {
         developmentId: development.developmentId,
         status: development.status,
+        ...(development.reason ? { reason: development.reason } : {}),
+        ...(development.continues ? { continues: development.continues } : {}),
         goal: shortGoal(development.goal),
         completionCriteria: development.completionCriteria,
         createdAt: development.createdAt,

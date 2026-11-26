@@ -91,6 +91,11 @@ html[data-theme] .or-tags {
 }
 
 /* The five phases laid out across the card, connector between each pair. */
+/* A paused development keeps its progress, greyed as a whole until it resumes. */
+html[data-theme] .or-stepper[data-paused="true"] {
+  opacity: 0.5;
+  filter: grayscale(1);
+}
 html[data-theme] .or-stepper {
   display: flex;
   align-items: center;
@@ -535,7 +540,8 @@ html[data-theme] .or-developments li {
   line-height: 18px;
 }
 html[data-theme] .or-history-day,
-html[data-theme] .or-development-state {
+html[data-theme] .or-development-state,
+html[data-theme] .or-development-link {
   flex: 0 0 auto;
   color: var(--color-text-3);
   font-size: 12px;

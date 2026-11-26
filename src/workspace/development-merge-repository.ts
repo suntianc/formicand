@@ -22,6 +22,8 @@ import {
 } from "../domain/development-merge.js";
 import {
   developmentIdentifier,
+  developmentNotActive,
+  developmentStatus,
   mergeExecutionBackendId,
   mergeRepository,
   mergeTargetBranch,
@@ -196,6 +198,11 @@ export class DevelopmentMergeRepository {
       .map(mergeOf)
       .find((entry) => entry.candidate.commit === input.candidate.commit);
     if (duplicate) return duplicate;
+    // Read under the same lock a pause or withdrawal takes: a development that
+    // stopped after the caller read it as active takes no new merge.
+    const status = developmentStatus(development.status);
+    if (status !== "active")
+      throw new ProjectDataConflictError(developmentNotActive(status), undefined, "development_closed");
     const mergeId = id("merge");
     const timestamp = now();
     await this.transaction.execute(

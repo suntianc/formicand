@@ -97,6 +97,8 @@ export interface DevelopmentCreate {
   baseline?: unknown;
   sessionId?: unknown;
   taskId?: unknown;
+  /** A withdrawn development of this requirement that the new one picks up again. */
+  continues?: unknown;
 }
 
 export interface DevelopmentUpdate {
@@ -104,8 +106,10 @@ export interface DevelopmentUpdate {
   goal?: unknown;
   completionCriteria?: unknown;
   route?: unknown;
-  /** Only `withdrawn`: Main stops this development. */
+  /** `paused`, `active` (resume a paused one) or `withdrawn`. */
   status?: unknown;
+  /** Why the user paused or withdrew it; required with those two. */
+  reason?: unknown;
 }
 
 export interface MergeConfigInput {

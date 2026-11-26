@@ -182,6 +182,8 @@ export function createDevelopmentReadinessService({
     });
     return developmentNext({
       route: record.route,
+      status: record.status,
+      ...(record.reason ? { reason: record.reason } : {}),
       workspaceReady,
       tickets: tickets.tickets,
       ...(final ? { finalReview: fact(final, finalReviews(tickets.tickets, reviews)) } : {}),

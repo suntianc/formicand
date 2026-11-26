@@ -21,6 +21,8 @@ import {
   developmentCompletionCriteria,
   developmentGoal,
   developmentIdentifier,
+  developmentNotActive,
+  developmentReason,
   developmentRoute,
   developmentStatus,
   developmentWorkspace,
@@ -31,8 +33,9 @@ import { id, now } from "../domain/types.js";
 import type { SqlTransaction } from "../storage/project-data/database.js";
 import { lookupRequirements, type LookupEntry } from "../domain/ledger-lookup.js";
 
-import type { DevelopmentCreate, DevelopmentUpdate } from "./project-data-gateway.js";
+import type { DevelopmentCreate, DevelopmentUpdate, RequirementUpdate } from "./project-data-gateway.js";
 import type { RequirementRow } from "./project-ledger-repository.js";
+import type { ProjectBoardRepository } from "./project-board.js";
 import { storedJson } from "./project-data-json.js";
 
 interface DevelopmentLedger {
@@ -46,6 +49,8 @@ interface DevelopmentLedger {
     developmentId: string,
     timestamp: string
   ): Promise<void>;
+  updateRequirement(projectId: string, requirementId: string, input: RequirementUpdate): Promise<unknown>;
+  board(): ProjectBoardRepository;
 }
 
 interface DevelopmentRow {
@@ -56,6 +61,8 @@ interface DevelopmentRow {
   completion_criteria: string;
   route: string;
   status: string;
+  status_reason: string | null;
+  continues_development_id: string | null;
   revision: number;
   baseline_branch: string;
   baseline_commit: string;
@@ -106,6 +113,8 @@ function developmentOf(row: DevelopmentRow, workspace?: DevelopmentWorkspace): D
     completionCriteria: criteriaOf(row.completion_criteria),
     route: developmentRoute(row.route),
     status: developmentStatus(row.status),
+    ...(row.status_reason ? { reason: row.status_reason } : {}),
+    ...(row.continues_development_id ? { continues: row.continues_development_id } : {}),
     revision: Number(row.revision),
     baseline: developmentBaseline({ branch: row.baseline_branch, commit: row.baseline_commit }),
     ...(row.session_id ? { sessionId: row.session_id } : {}),
@@ -144,13 +153,23 @@ export class DevelopmentRepository {
     await this.ledger.requireProject(projectId);
     const requirementId = ledgerIdentifier(input.requirementId, "需求 ID");
     const requirement = await this.ledger.requireRequirement(projectId, requirementId);
-    if (requirement.status !== "active")
-      throw new ProjectDataConflictError("需求已停用，不能再开发", undefined, "requirement_retired");
     const existing = await this.developmentByRequirement(projectId, requirementId);
-    if (existing?.status === "active")
+    if (existing?.status === "active" || existing?.status === "paused")
       throw new DevelopmentExistsError(
-        `该需求有一次开发还在进行（${existing.development_id}）；继续这次开发，或等它合入、撤回后再新建`,
+        existing.status === "paused"
+          ? `该需求有一次开发已暂停（${existing.development_id}）；用户要继续时 resume 它`
+          : `该需求有一次开发还在进行（${existing.development_id}）；继续这次开发，或等它合入、撤回后再新建`,
         existing.development_id
+      );
+    const continues =
+      input.continues === undefined || input.continues === null
+        ? undefined
+        : await this.withdrawnOf(projectId, requirementId, input.continues);
+    if (requirement.status !== "active" && !continues)
+      throw new ProjectDataConflictError(
+        "需求已停用，不能再开发；要拿回之前撤回的开发，create 带 continues",
+        undefined,
+        "requirement_retired"
       );
     const goal = developmentGoal(input.goal);
     const completionCriteria = developmentCompletionCriteria(input.completionCriteria);
@@ -168,11 +187,19 @@ export class DevelopmentRepository {
       input.request === undefined || input.request === null ? undefined : ledgerAlias(input.request);
     const timestamp = now();
     const developmentId = id("development");
+    // Picking up a withdrawn development brings its retired feature back.
+    if (continues && requirement.status !== "active")
+      await this.ledger.updateRequirement(projectId, requirementId, {
+        expectedRevision: Number(requirement.revision),
+        status: "active",
+        note: `接续撤回的开发 ${continues}`
+      });
     await this.transaction.execute(
       `INSERT INTO project_data_developments
-         (project_id, development_id, requirement_id, goal, completion_criteria, route, status, revision,
-          baseline_branch, baseline_commit, session_id, task_id, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         (project_id, development_id, requirement_id, goal, completion_criteria, route, status,
+          continues_development_id, revision, baseline_branch, baseline_commit, session_id, task_id,
+          created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         projectId,
         developmentId,
@@ -181,6 +208,7 @@ export class DevelopmentRepository {
         JSON.stringify(completionCriteria),
         route,
         "active",
+        continues ?? null,
         1,
         baseline.branch,
         baseline.commit,
@@ -232,23 +260,41 @@ export class DevelopmentRepository {
         Number(current.revision),
         "revision_conflict"
       );
-    if (current.status !== "active")
+    if (current.status === "merged" || current.status === "withdrawn")
       throw new ProjectDataConflictError(
         `这次开发已${current.status === "merged" ? "合入" : "撤回"}，不能再改；同一需求的新工作新建一次开发`,
         undefined,
         "development_closed"
       );
-    const status = input.status === undefined ? "active" : developmentStatus(input.status);
+    const status = input.status === undefined ? current.status : developmentStatus(input.status);
     if (status === "merged")
-      throw new ProjectDataInvalidError("开发记录只能改为 withdrawn；合入由交付记录写");
-    if (status === "withdrawn") {
+      throw new ProjectDataInvalidError("开发记录只能改为 paused、active 或 withdrawn；合入由交付记录写");
+    if (current.status === "paused" && status === "paused")
+      throw new ProjectDataConflictError(
+        "这次开发已暂停；用户要继续时 resume",
+        undefined,
+        "development_paused"
+      );
+    if (
+      current.status === "paused" &&
+      status !== "withdrawn" &&
+      (input.goal !== undefined || input.completionCriteria !== undefined || input.route !== undefined)
+    )
+      throw new ProjectDataConflictError("这次开发已暂停，先 resume 再改", undefined, "development_paused");
+    const reason =
+      status === "paused" || status === "withdrawn"
+        ? developmentReason(input.reason)
+        : status === current.status
+          ? current.status_reason
+          : null;
+    if (status === "paused" || status === "withdrawn") {
       const pending = await this.transaction.query<{ merge_id: string }>(
         "SELECT merge_id FROM project_data_development_merges WHERE project_id = ? AND development_id = ? AND state IN ('waiting', 'applying', 'merged')",
         [projectId, developmentId]
       );
       if (pending.length)
         throw new ProjectDataConflictError(
-          `这次开发有合入（${pending[0].merge_id}）在排队或已合入，不能撤回`,
+          `这次开发有合入（${pending[0].merge_id}）在排队或已合入，不能${status === "paused" ? "暂停" : "撤回"}`,
           undefined,
           "development_merge_pending"
         );
@@ -265,13 +311,15 @@ export class DevelopmentRepository {
     const timestamp = now();
     const changed = await this.transaction.execute(
       `UPDATE project_data_developments
-          SET goal = ?, completion_criteria = ?, route = ?, status = ?, revision = ?, updated_at = ?
+          SET goal = ?, completion_criteria = ?, route = ?, status = ?, status_reason = ?, revision = ?,
+              updated_at = ?
         WHERE project_id = ? AND development_id = ? AND revision = ?`,
       [
         goal,
         JSON.stringify(completionCriteria),
         route,
         status,
+        reason,
         revision,
         timestamp,
         projectId,
@@ -285,7 +333,53 @@ export class DevelopmentRepository {
         undefined,
         "revision_conflict"
       );
+    if (status !== current.status)
+      await this.followStatus(projectId, current, status, revision, backendIdValue);
     return this.getDevelopment(projectId, developmentId, backendIdValue);
+  }
+
+  /**
+   * What a pause, resume or withdrawal changes beside the development: the
+   * requirement's board card follows it, and withdrawing a feature that never
+   * had a merged development retires it, since nothing of it exists.
+   */
+  private async followStatus(
+    projectId: string,
+    current: DevelopmentRow,
+    status: string,
+    revision: number,
+    backendIdValue: unknown
+  ): Promise<void> {
+    const action = status === "paused" ? "pause" : status === "withdrawn" ? "cancel" : "resume";
+    // The requirement lock comes first, as it does when a card is published, so
+    // a card published meanwhile is seen and cancelled with the rest.
+    const requirement = await this.ledger.requireRequirement(projectId, current.requirement_id);
+    await this.ledger.board().followDevelopment(projectId, current.requirement_id, action, {
+      developmentId: current.development_id,
+      requestId: `development-${current.development_id}-r${revision}`,
+      backendId: backendIdValue
+    });
+    if (status !== "withdrawn") return;
+    if (requirement.kind === "misc" || requirement.status !== "active") return;
+    const merged = await this.transaction.query<{ development_id: string }>(
+      "SELECT development_id FROM project_data_developments WHERE project_id = ? AND requirement_id = ? AND status = 'merged' LIMIT 1",
+      [projectId, current.requirement_id]
+    );
+    if (merged.length) return;
+    await this.ledger.updateRequirement(projectId, current.requirement_id, {
+      expectedRevision: Number(requirement.revision),
+      status: "retired",
+      note: `开发 ${current.development_id} 撤回，功能从未合入，随之停用`
+    });
+  }
+
+  /** A withdrawn development of this requirement, for a new one to pick up again. */
+  private async withdrawnOf(projectId: string, requirementId: string, value: unknown): Promise<string> {
+    const developmentId = developmentIdentifier(value, "接续的开发记录 ID");
+    const row = await this.requireDevelopment(projectId, developmentId);
+    if (row.requirement_id !== requirementId || row.status !== "withdrawn")
+      throw new ProjectDataInvalidError("continues 须是同一需求里一次已撤回的开发");
+    return developmentId;
   }
 
   async getDevelopment(
@@ -415,6 +509,15 @@ export class DevelopmentRepository {
     const projectId = ledgerProjectId(projectIdValue);
     const developmentId = developmentIdentifier(developmentIdValue, "开发记录 ID");
     const development = await this.requireDevelopment(projectId, developmentId);
+    // Main's writes and an Executor's start are new work; a review or verdict
+    // already under way may still land on a paused development.
+    const status = developmentStatus(development.status);
+    if (status !== "active" && ["propose", "confirm", "revise", "start"].includes(write.op))
+      throw new ProjectDataConflictError(
+        developmentNotActive(status),
+        undefined,
+        status === "paused" ? "development_paused" : "development_closed"
+      );
     const current = await this.tickets(projectId, developmentId);
     const timestamp = now();
     const next = applyTicketWrite(current, write, developmentRoute(development.route), timestamp);
@@ -453,7 +556,7 @@ export class DevelopmentRepository {
          LEFT JOIN project_data_requirements r
            ON r.project_id = d.project_id AND r.requirement_id = d.requirement_id
         WHERE d.project_id = ? AND d.requirement_id = ?
-        ORDER BY CASE WHEN d.status = 'active' THEN 0 ELSE 1 END, d.created_at DESC, d.development_id DESC
+        ORDER BY CASE WHEN d.status IN ('active', 'paused') THEN 0 ELSE 1 END, d.created_at DESC, d.development_id DESC
         LIMIT 1`,
       [projectId, requirementId]
     );
