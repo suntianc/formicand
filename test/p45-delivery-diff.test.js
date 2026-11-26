@@ -37,6 +37,7 @@ async function makeRepository(directory) {
     "## 文档\n\n| 路径 | 类型 | 领域 |\n| --- | --- | --- |\n| AGENTS.md | instructions | global |\n"
   );
   await writeFile(join(directory, "baseline.txt"), "baseline\n");
+  await writeFile(join(directory, "retired.txt"), "retired\n");
   await git(directory, ["add", "."]);
   await git(directory, ["commit", "-m", "baseline"]);
   return directory;
@@ -123,6 +124,12 @@ test(
       "#!/usr/bin/env bash\nset -euo pipefail\n"
     );
     await commitFile(development.workspace.directory, "notes.txt", "# 验收记录\n");
+    // A long text file, an image and a deletion each preview in their own way.
+    await commitFile(development.workspace.directory, "big.txt", `${"a".repeat(99)}\n`.repeat(1300));
+    const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0]);
+    await commitFile(development.workspace.directory, "logo.png", png);
+    await rm(join(development.workspace.directory, "retired.txt"));
+    await commitFile(development.workspace.directory, "notes.txt", "# 验收记录\n更新\n");
     await execution.setReviewPlan(project.projectId, {
       developmentId: development.developmentId,
       channel: "self",
@@ -157,8 +164,28 @@ test(
     assert.equal(patch.candidateCommit, merge.candidate.commit);
     assert.deepEqual(
       patch.files.map((file) => file.path),
-      ["notes.txt", "summarize.sh"]
+      ["big.txt", "logo.png", "notes.txt", "retired.txt", "summarize.sh"]
     );
+    const kinds = Object.fromEntries(patch.contents.map((entry) => [entry.path, entry]));
+    assert.equal(kinds["big.txt"].kind, "text");
+    assert.equal(kinds["big.txt"].truncated, true);
+    assert.equal(kinds["big.txt"].content.length, 120_000);
+    assert.deepEqual(kinds["logo.png"], { path: "logo.png", kind: "image", mimeType: "image/png" });
+    assert.deepEqual(kinds["retired.txt"], { path: "retired.txt", kind: "deleted" });
+    assert.deepEqual(kinds["notes.txt"], {
+      path: "notes.txt",
+      kind: "text",
+      content: "# 验收记录\n更新\n",
+      truncated: false
+    });
+
+    // Only a request for the image itself carries its bytes.
+    const image = await request(projectPath(project.projectId, "/deliveries"), {
+      action: "diff",
+      developmentId: development.developmentId,
+      path: "logo.png"
+    });
+    assert.equal(image.body.diff.contents[0].data, png.toString("base64"));
 
     const one = await request(projectPath(project.projectId, "/deliveries"), {
       action: "diff",

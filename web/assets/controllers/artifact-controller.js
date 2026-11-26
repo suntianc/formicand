@@ -7,7 +7,7 @@ import {
   projectFileUrls,
   renderArtifactMedia
 } from "../artifacts.js";
-import { filePatchText, parseUnifiedDiff } from "../diff-view.js";
+import { parseUnifiedDiff } from "../diff-view.js";
 import { renderMarkdown } from "../markdown.js";
 import { icon } from "../ui/icons.js";
 import { ui } from "../ui/language.js";
@@ -27,6 +27,7 @@ export function createArtifactController({
   renderRightPanel,
   mediaUrl,
   openArtifactViewer,
+  previewImage,
   getDelivery = () => undefined
 }) {
   /** Types the preview endpoint renders in place; everything else downloads. */
@@ -52,9 +53,7 @@ export function createArtifactController({
     );
   }
 
-  /** Files of the project folder opened in each session, in opening order. */
-  const projectTabs = new Map();
-  /** Their previews, by session and path. */
+  /** Previews of project files, by session and path. */
   const projectCache = new Map();
   /** Rendered PDF pages, and the page each PDF shows. */
   const pdfPages = new Map();
@@ -118,46 +117,97 @@ export function createArtifactController({
     return agentName(agent);
   }
 
+  /** Images open in the full-screen viewer, never as a drawer tab. */
+  const IMAGE_EXTENSIONS = new Set(["png", "jpg", "jpeg", "gif", "webp", "avif", "bmp", "ico", "svg"]);
+  function isImagePath(path) {
+    return IMAGE_EXTENSIONS.has(fileBaseName(path).split(".").at(-1)?.toLowerCase() ?? "");
+  }
+
   function openArtifact(path) {
     if (!path) return;
     const artifact = state.detail?.artifacts?.find((entry) => entry.relativePath === path);
     if (!artifact) return;
+    if (String(artifact.mimeType || "").startsWith("image/")) {
+      const urls = artifactRequestUrls(state.selected, path, artifactVersion(artifact));
+      previewImage({
+        name: artifact.displayName || fileBaseName(path),
+        source: urls.rawUrl,
+        download: urls.downloadUrl
+      });
+      return;
+    }
     // A file the preview cannot show is offered as a download instead of an
     // empty pane.
     if (!previewable(artifact)) return downloadArtifact(artifact);
-    if (!state.openFiles.includes(path)) state.openFiles.push(path);
-    state.previewPath = path;
-    state.drawerTab = { kind: "attachment", path };
-    rememberDrawerTrigger();
-    state.artifactDrawerOpen = true;
-    renderRightPanel();
+    showTab(`attachment:${path}`);
     ensureArtifactLoaded(path);
   }
 
+  /** A tab's id names what it shows: `diff`, `choose`, or `<kind>:<path>`. */
+  function parseTab(id) {
+    if (id === "diff" || id === "choose") return { id, kind: id };
+    const split = id.indexOf(":");
+    return { id, kind: id.slice(0, split), path: id.slice(split + 1) };
+  }
+
   /**
-   * Open the side preview on one of the change's tabs.
+   * Shows `id` in the drawer, after the tabs already open. Only what the
+   * reader opened gets a tab; opening it again selects the same tab.
    *
    * The drawer is the work entry's own preview, so opening it never navigates
    * away from the conversation and closing it returns to the same reading
    * position.
    */
+  function showTab(id) {
+    rememberDrawerTrigger();
+    if (!state.openFiles.includes(id)) state.openFiles.push(id);
+    state.drawerTab = id;
+    state.artifactDrawerOpen = true;
+    renderRightPanel();
+  }
+
+  function closeTab(id) {
+    const index = state.openFiles.indexOf(id);
+    state.openFiles = state.openFiles.filter((entry) => entry !== id);
+    if (id === "choose") choosing = null;
+    if (state.drawerTab === id)
+      state.drawerTab = state.openFiles[Math.min(index, state.openFiles.length - 1)] ?? null;
+    if (state.openFiles.length) renderRightPanel();
+    else closeArtifactDrawer(true);
+  }
+
+  /** The panel's change: the whole change, or one file of it opened on its diff. */
   function openPreview({ tab, path } = {}) {
     if (!state.selected) return;
-    rememberDrawerTrigger();
-    state.artifactDrawerOpen = true;
-    if (tab === "diff") state.drawerTab = { kind: "diff" };
-    else if (tab === "file") {
-      if (path) state.drawerFile = path;
-      state.drawerTab = { kind: "file" };
-    } else if (tab === "attachment" && path) {
-      state.previewPath = path;
-      state.drawerTab = { kind: "attachment", path };
-      ensureArtifactLoaded(path);
-    } else if (tab === "project" && path) {
-      state.drawerTab = { kind: "project", path };
-      ensureProjectLoaded(path);
-    } else if (tab === "choose") state.drawerTab = { kind: "choose" };
-    renderRightPanel();
+    if (tab === "diff") showTab("diff");
+    else if (tab === "file" && path) openChangeFile(path, { view: "diff" });
+  }
+
+  /** One file of the change in its own tab, on its content or its diff. */
+  function openChangeFile(path, { view, line } = {}) {
+    if (isImagePath(path)) return previewChangeImage(path);
+    state.drawerLine = line ? { path, line } : null;
+    if (view) changeViews.set(projectKey(path), view);
+    showTab(`change:${path}`);
+  }
+
+  /** A changed image opens in the viewer as the change left it. */
+  function previewChangeImage(path) {
+    const entry = loadChangeFile(path);
+    if (!entry) return;
+    const show = () => {
+      if (entry.status === "error") return showToast(entry.error);
+      const content = entry.content;
+      if (content?.kind === "image" && content.data)
+        previewImage({
+          name: fileBaseName(path),
+          source: `data:${content.mimeType};base64,${content.data}`
+        });
+      else
+        showToast(content?.kind === "deleted" ? ui("这张图片在这次改动里已删除") : ui("图片太大，无法预览"));
+    };
+    if (entry.status === "loading") void entry.done.then(show);
+    else show();
   }
 
   /** A file a reply names that this page already knows: an artifact, or a file of the change. */
@@ -189,7 +239,7 @@ export function createArtifactController({
     if (target) {
       state.drawerLine = line ? { path: target.path, line } : null;
       if (target.kind === "attachment") openArtifact(target.path);
-      else openPreview({ tab: "file", path: target.path });
+      else openChangeFile(target.path, { view: "content", line });
       revealLine();
       return true;
     }
@@ -203,10 +253,7 @@ export function createArtifactController({
         if (!matches?.length) return showToast(ui("项目里找不到这个文件"));
         if (matches.length === 1) return openProjectFile(matches[0], line);
         choosing = { taskId, reference: String(path), line, matches };
-        rememberDrawerTrigger();
-        state.drawerTab = { kind: "choose" };
-        state.artifactDrawerOpen = true;
-        renderRightPanel();
+        showTab("choose");
       })
       .catch((error) => showToast(error.message));
     return true;
@@ -216,16 +263,18 @@ export function createArtifactController({
   function openProjectFile(path, line) {
     const taskId = state.selected;
     if (!taskId || !path) return;
-    const opened = projectTabs.get(taskId) ?? [];
-    if (!opened.includes(path)) opened.push(path);
-    projectTabs.set(taskId, opened);
+    if (choosing) {
+      choosing = null;
+      state.openFiles = state.openFiles.filter((entry) => entry !== "choose");
+    }
+    if (isImagePath(path)) {
+      const urls = projectFileUrls(taskId, path);
+      previewImage({ name: fileBaseName(path), source: urls.rawUrl, download: urls.downloadUrl });
+      return;
+    }
     projectCache.delete(projectKey(path));
-    choosing = null;
     state.drawerLine = line ? { path, line } : null;
-    rememberDrawerTrigger();
-    state.drawerTab = { kind: "project", path };
-    state.artifactDrawerOpen = true;
-    renderRightPanel();
+    showTab(`project:${path}`);
     ensureProjectLoaded(path);
   }
 
@@ -279,13 +328,6 @@ export function createArtifactController({
     if (trigger?.isConnected) trigger.focus();
   }
 
-  function closeArtifact(path) {
-    state.openFiles = state.openFiles.filter((entry) => entry !== path);
-    state.artifactCache.delete(path);
-    if (state.previewPath === path) state.previewPath = state.openFiles.at(-1) || null;
-    renderRightPanel();
-  }
-
   /**
    * Binary previews are fetched through the bound backend, which may be another
    * local origin the page's own URL cannot reach. The bytes become one object
@@ -336,12 +378,12 @@ export function createArtifactController({
         if (state.selected !== taskId || state.artifactCache.get(path) !== pending) return;
         state.artifactCache.set(path, { ...normalizeArtifactPreview(result), status: "ready", signature });
         loadMedia(state.artifactCache, path, artifactRequestUrls(taskId, path, signature));
-        if (state.previewPath === path) renderArtifactDrawer();
+        if (state.drawerTab === `attachment:${path}`) renderArtifactDrawer();
       })
       .catch((error) => {
         if (state.selected !== taskId || state.artifactCache.get(path) !== pending) return;
         state.artifactCache.set(path, { status: "error", signature, error: error.message });
-        if (state.previewPath === path) renderArtifactDrawer();
+        if (state.drawerTab === `attachment:${path}`) renderArtifactDrawer();
       });
   }
 
@@ -349,39 +391,89 @@ export function createArtifactController({
     return getDelivery()?.view?.diff?.files || [];
   }
 
+  /** The file the whole-change tab shows. */
   function selectedFile() {
     const files = changedFiles();
     return files.find((file) => file.path === state.drawerFile)?.path ?? files[0]?.path;
   }
 
-  function drawerTabs(attachments) {
-    const tabs = [];
-    if (changedFiles().length) {
-      tabs.push({ id: "diff", kind: "diff", label: "diff" });
-      tabs.push({ id: "file", kind: "file", label: ui("文件"), path: selectedFile() });
-    }
-    for (const entry of attachments)
-      tabs.push({
-        id: `attachment:${entry.relativePath}`,
-        kind: "attachment",
-        path: entry.relativePath,
-        label: entry.displayName || fileBaseName(entry.relativePath)
-      });
-    for (const path of projectTabs.get(state.selected) ?? [])
-      tabs.push({ id: `project:${path}`, kind: "project", path, label: fileBaseName(path) });
-    if (choosing?.taskId === state.selected)
-      tabs.push({ id: "choose", kind: "choose", label: fileBaseName(choosing.reference) });
-    return tabs;
+  /** The tabs the reader opened that still have something to show, in opening order. */
+  function drawerTabs() {
+    const artifacts = state.detail?.artifacts || [];
+    const changed = new Set(changedFiles().map((file) => file.path));
+    return state.openFiles
+      .map(parseTab)
+      .filter((tab) => {
+        if (tab.kind === "diff") return changed.size > 0;
+        if (tab.kind === "change") return changed.has(tab.path);
+        if (tab.kind === "attachment") return artifacts.some((entry) => entry.relativePath === tab.path);
+        if (tab.kind === "choose") return choosing?.taskId === state.selected;
+        return true;
+      })
+      .map((tab) => ({
+        ...tab,
+        label:
+          tab.kind === "diff"
+            ? ui("改动")
+            : tab.kind === "choose"
+              ? fileBaseName(choosing.reference)
+              : tab.kind === "attachment"
+                ? artifacts.find((entry) => entry.relativePath === tab.path)?.displayName ||
+                  fileBaseName(tab.path)
+                : fileBaseName(tab.path)
+      }));
   }
 
   function currentTab(tabs) {
-    // An attachment picked without naming a tab opens its own preview.
-    const tab =
-      state.drawerTab ?? (state.previewPath ? { kind: "attachment", path: state.previewPath } : undefined);
-    if (!tab) return undefined;
-    if (tab.kind === "attachment") return tabs.find((entry) => entry.id === `attachment:${tab.path}`);
-    if (tab.kind === "project") return tabs.find((entry) => entry.id === `project:${tab.path}`);
-    return tabs.find((entry) => entry.kind === tab.kind);
+    return tabs.find((entry) => entry.id === state.drawerTab) ?? tabs.at(-1);
+  }
+
+  /**
+   * One file of the change: its patch and what it holds at the candidate,
+   * read once per candidate. Each file is read on its own, so a large change
+   * never has to arrive whole before one file can be shown.
+   */
+  const changeFiles = new Map();
+  /** Whether each opened file of the change shows its content or its diff. */
+  const changeViews = new Map();
+  function changeRequest(path) {
+    const developmentId = getDelivery()?.view?.development?.developmentId;
+    return api(`/api/tasks/${encodeURIComponent(state.selected)}/deliveries`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ action: "diff", developmentId, ...(path === undefined ? {} : { path }) })
+    });
+  }
+  function changeKey(path) {
+    const view = getDelivery()?.view;
+    const developmentId = view?.development?.developmentId;
+    if (!developmentId || !view?.diff) return undefined;
+    return `${state.selected}\0${developmentId}\0${view.diff.candidateCommit}\0${path}`;
+  }
+  function loadChangeFile(path) {
+    const key = changeKey(path);
+    if (!key) return undefined;
+    const existing = changeFiles.get(key);
+    if (existing) return existing;
+    const entry = { key, status: "loading" };
+    changeFiles.set(key, entry);
+    entry.done = changeRequest(path)
+      .then((result) => {
+        Object.assign(entry, {
+          status: "ready",
+          file: parseUnifiedDiff(result.diff.patch)[0],
+          content: result.diff.contents?.[0],
+          patch: result.diff.patch,
+          truncated: Boolean(result.diff.truncated)
+        });
+      })
+      .catch((error) => {
+        Object.assign(entry, { status: "error", error: error.message });
+      })
+      .then(() => {
+        if (changeFiles.get(key) === entry) renderArtifactDrawer();
+      });
+    return entry;
   }
 
   /** The preview entry behind a file tab, with the URLs its source serves it from. */
@@ -417,8 +509,7 @@ export function createArtifactController({
     if (tab.kind === "attachment") return { source: "artifact", path: tab.path };
     if (tab.kind === "project") return { source: "project", path: tab.path };
     const developmentId = getDelivery()?.view?.development?.developmentId;
-    if (tab.kind === "file" && tab.path && developmentId)
-      return { source: "change", path: tab.path, developmentId };
+    if (tab.kind === "change" && developmentId) return { source: "change", path: tab.path, developmentId };
     return undefined;
   }
 
@@ -483,58 +574,18 @@ export function createArtifactController({
       .join("")}</div>`;
   }
 
-  /** The committed change behind the panel's diff; fetched once per candidate. */
-  function ensureDiffLoaded() {
-    const view = getDelivery()?.view;
-    const development = view?.development;
-    if (!development || !view?.diff) return;
-    const key = `${state.selected}:${development.developmentId}:${view.diff.candidateCommit}`;
-    if (state.drawerDiff?.key === key) return;
-    const pending = { key, status: "loading" };
-    state.drawerDiff = pending;
-    api(`/api/tasks/${encodeURIComponent(state.selected)}/deliveries`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ action: "diff", developmentId: development.developmentId })
-    })
-      .then((result) => {
-        if (state.drawerDiff !== pending) return;
-        state.drawerDiff = {
-          key,
-          status: "ready",
-          files: parseUnifiedDiff(result.diff.patch),
-          contents: new Map((result.diff.contents || []).map((entry) => [entry.path, entry.content])),
-          patch: result.diff.patch,
-          truncated: Boolean(result.diff.truncated)
-        };
-        renderArtifactDrawer();
-      })
-      .catch((error) => {
-        if (state.drawerDiff !== pending) return;
-        state.drawerDiff = { key, status: "error", error: error.message };
-        renderArtifactDrawer();
-      });
-  }
-
-  function renderDiffLines(files) {
-    return files
+  function renderDiffLines(file) {
+    return file.lines
       .map(
-        (file) =>
-          `<section class="drawer-diff-file" data-diff-file="${esc(file.path)}"><header>${esc(
-            file.path
-          )}</header>${file.lines
+        (hunk) =>
+          `${file.lines.length > 1 ? `<div class="drawer-hunk">${esc(hunk.header)}</div>` : ""}${hunk.lines
             .map(
-              (hunk) =>
-                `${file.lines.length > 1 ? `<div class="drawer-hunk">${esc(hunk.header)}</div>` : ""}${hunk.lines
-                  .map(
-                    (line) =>
-                      `<div class="drawer-line" data-kind="${line.kind}"><span class="drawer-line-number">${line.number}</span><span class="drawer-line-sign">${
-                        line.kind === "add" ? "+" : line.kind === "delete" ? "−" : ""
-                      }</span><code>${esc(line.text) || " "}</code></div>`
-                  )
-                  .join("")}`
+              (line) =>
+                `<div class="drawer-line" data-kind="${line.kind}"><span class="drawer-line-number">${line.number}</span><span class="drawer-line-sign">${
+                  line.kind === "add" ? "+" : line.kind === "delete" ? "−" : ""
+                }</span><code>${esc(line.text) || " "}</code></div>`
             )
-            .join("")}</section>`
+            .join("")}`
       )
       .join("");
   }
@@ -551,68 +602,129 @@ export function createArtifactController({
     setTimeout(() => URL.revokeObjectURL(url), 0);
   }
 
-  function renderDiffBody(tab, files) {
-    if (state.drawerDiff?.status === "error")
+  const drawerState = (title, detail = "") =>
+    `<div class="drawer-state"><strong>${title}</strong>${detail ? `<p>${detail}</p>` : ""}</div>`;
+
+  /** A changed file still being read, or the reason it could not be. */
+  function changeFileState(entry, name) {
+    if (!entry || entry.status === "loading")
+      return `<div class="drawer-state"><formicand-spinner class="editor-spinner" aria-hidden="true"></formicand-spinner><strong>${ui`正在打开 ${esc(
+        name
+      )}`}</strong></div>`;
+    if (entry.status === "error")
       return `<div class="drawer-state is-error"><strong>${ui("无法显示改动")}</strong><p>${esc(
-        state.drawerDiff.error
-      )}</p></div>`;
-    if (!state.drawerDiff || state.drawerDiff.status === "loading") {
-      ensureDiffLoaded();
-      return `<div class="drawer-state"><span class="editor-spinner"></span><strong>${ui(
-        "正在读取改动"
-      )}</strong></div>`;
-    }
-    if (tab.kind === "file") {
-      const file = files.find((entry) => entry.path === tab.path) || files[0];
-      const list =
-        files.length > 1
-          ? `<nav class="drawer-file-picker" aria-label="${ui("改动文件")}">${files
-              .map(
-                (entry) =>
-                  `<button type="button" class="drawer-file${
-                    entry.path === file?.path ? " active" : ""
-                  }" data-diff-select="${esc(entry.path)}" aria-current="${
-                    entry.path === file?.path ? "true" : "false"
-                  }">${esc(entry.path)}</button>`
-              )
-              .join("")}</nav>`
-          : "";
-      const content = file ? state.drawerDiff.contents?.get(file.path) : undefined;
-      if (content === undefined)
-        return `${list}<div class="drawer-state"><strong>${ui("这个文件以二进制保存")}</strong><p>${ui(
-          "请用 diff 或下载查看。"
-        )}</p></div>`;
-      const lines = content
-        .split("\n")
-        .map(
-          (line, index) =>
-            `<div class="drawer-file-line"><span class="drawer-line-number">${index + 1}</span><code>${
-              esc(line) || " "
-            }</code></div>`
-        );
-      return `${list}<div class="drawer-lines">${lines.join("")}</div>`;
-    }
-    return `<div class="drawer-lines">${renderDiffLines(state.drawerDiff.files)}</div>`;
+        entry.error
+      )}</p><button class="drawer-action" data-retry-change>${ui("重新加载")}</button></div>`;
+    return undefined;
+  }
+
+  function renderFileDiff(entry) {
+    if (entry.file?.lines.length) return `<div class="drawer-lines">${renderDiffLines(entry.file)}</div>`;
+    return ["binary", "image", "large"].includes(entry.content?.kind)
+      ? drawerState(ui("二进制文件，没有文字改动"))
+      : drawerState(ui("没有文字改动"), ui("可能只改了文件名或权限。"));
+  }
+
+  function renderFileContent(entry) {
+    const content = entry.content;
+    if (content?.kind === "deleted") return drawerState(ui("这个文件在这次改动里已删除"));
+    if (content?.kind === "binary") return drawerState(ui("二进制文件，不能预览"));
+    if (content?.kind === "large") return drawerState(ui("文件太大，不能预览"), ui("可以切到“改动”查看。"));
+    if (content?.kind !== "text") return drawerState(ui("读不到这个文件"));
+    // A final newline ends the last line; it does not start another.
+    return `<div class="drawer-lines">${content.content
+      .replace(/\n$/, "")
+      .split("\n")
+      .map(
+        (line, index) =>
+          `<div class="drawer-file-line"><span class="drawer-line-number">${index + 1}</span><code>${
+            esc(line) || " "
+          }</code></div>`
+      )
+      .join("")}</div>`;
+  }
+
+  /** One file of the change; a file the change deleted has only its diff. */
+  function changeView(tab, entry) {
+    if (entry?.content?.kind === "deleted") return "diff";
+    return changeViews.get(projectKey(tab.path)) ?? "content";
+  }
+
+  function renderChangeTab(tab, entry) {
+    const waiting = changeFileState(entry, fileBaseName(tab.path));
+    if (waiting) return waiting;
+    const view = changeView(tab, entry);
+    const toggle =
+      entry.content?.kind === "deleted"
+        ? ""
+        : `<div class="drawer-view-toggle" role="group" aria-label="${ui("查看方式")}">${[
+            ["content", ui("内容")],
+            ["diff", ui("改动")]
+          ]
+            .map(
+              ([id, label]) =>
+                `<button type="button" data-change-view="${id}" aria-pressed="${view === id}">${label}</button>`
+            )
+            .join("")}</div>`;
+    return `${toggle}${view === "diff" ? renderFileDiff(entry) : renderFileContent(entry)}`;
+  }
+
+  /** The whole change: its files on the left, the chosen file's diff beside them. */
+  function renderWholeChange(files, entry) {
+    const selected = selectedFile();
+    const counts = (file) =>
+      `<span class="rp-add">+${Number(file.additions)}</span><span class="rp-del">−${Number(file.deletions)}</span>`;
+    const list = files
+      .map((file) => {
+        const name = fileBaseName(file.path);
+        const folder = file.path.slice(0, -name.length).replace(/\/$/, "");
+        return `<button type="button" class="drawer-change-file${
+          file.path === selected ? " active" : ""
+        }" data-change-select="${esc(file.path)}" aria-current="${file.path === selected}" title="${esc(
+          file.path
+        )}"><span class="drawer-change-name">${esc(name)}${
+          folder ? `<small>${esc(folder)}</small>` : ""
+        }</span>${counts(file)}</button>`;
+      })
+      .join("");
+    const picker = `<select class="drawer-change-picker" data-change-pick aria-label="${ui("改动文件")}">${files
+      .map(
+        (file) =>
+          `<option value="${esc(file.path)}"${file.path === selected ? " selected" : ""}>${esc(file.path)}</option>`
+      )
+      .join("")}</select>`;
+    const main = isImagePath(selected)
+      ? `<div class="drawer-state"><strong>${esc(fileBaseName(selected))}</strong><button type="button" class="drawer-action" data-change-image="${esc(
+          selected
+        )}">${ui("查看图片")}</button></div>`
+      : (changeFileState(entry, fileBaseName(selected)) ?? renderFileDiff(entry));
+    return `<div class="drawer-change"><nav class="drawer-change-files" aria-label="${ui(
+      "改动文件"
+    )}">${list}</nav><div class="drawer-change-main">${picker}${main}</div></div>`;
   }
 
   function renderArtifactDrawer() {
     const drawer = $("#artifact-drawer");
     if (!drawer) return;
     const attachments = state.detail?.artifacts || [];
-    const tabs = drawerTabs(attachments);
+    const tabs = drawerTabs();
     const tab = currentTab(tabs);
-    if (!state.artifactDrawerOpen || !tabs.length || !tab) {
+    if (!state.artifactDrawerOpen || !tab) {
       drawer.hidden = true;
       drawer.innerHTML = "";
       delete drawer.dataset.signature;
       delete drawer.dataset.tab;
       return;
     }
-    const isChange = tab.kind === "diff" || tab.kind === "file";
+    const isChange = tab.kind === "diff" || tab.kind === "change";
     const isFile = tab.kind === "attachment" || tab.kind === "project";
     const artifact = attachments.find((entry) => entry.relativePath === tab.path) || {};
     const file = isFile ? fileEntry(tab) : undefined;
     const cached = file?.cached;
+    const changePath = tab.kind === "diff" ? selectedFile() : tab.path;
+    const change =
+      isChange && !(tab.kind === "diff" && isImagePath(changePath)) ? loadChangeFile(changePath) : undefined;
+    const view = tab.kind === "change" ? changeView(tab, change) : undefined;
     const target = openTarget(tab);
     const pdf = cached?.status === "ready" && cached.previewKind === "pdf";
     const pdfState = pdf
@@ -620,19 +732,19 @@ export function createArtifactController({
       : undefined;
     const signature = JSON.stringify([
       state.selected,
+      tabs.map((entry) => [entry.id, entry.label]),
       tab.id,
-      tab.path,
-      selectedFile(),
-      attachments.map((entry) => [entry.relativePath, entry.displayName, artifactVersion(entry)]),
+      changePath,
+      change?.key,
+      change?.status,
+      view,
       cached?.status,
       cached?.version,
       cached?.mediaHref,
       cached?.error,
       pdf ? [pdfPage.get(file.key) ?? 1, pdfState?.status] : null,
       tab.kind === "choose" ? choosing?.matches : null,
-      openWith.signature(state.selected, target),
-      state.drawerDiff?.key,
-      state.drawerDiff?.status
+      openWith.signature(state.selected, target)
     ]);
     // Polling task status must not reload a PDF or reset the reader every 3.5 s.
     if (drawer.dataset.signature === signature) return;
@@ -641,26 +753,29 @@ export function createArtifactController({
     drawer.dataset.signature = signature;
     drawer.dataset.tab = tab.id;
     const files = changedFiles();
-    const change = files.find((entry) => entry.path === tab.path);
+    const changed = files.find((entry) => entry.path === tab.path);
     const totalAdds = files.reduce((sum, entry) => sum + Number(entry.additions || 0), 0);
     const totalDels = files.reduce((sum, entry) => sum + Number(entry.deletions || 0), 0);
     const commit = String(getDelivery()?.view?.diff?.candidateCommit || "").slice(0, 8);
-    const changeMeta = commit
-      ? ui`候选 ${commit} · +${totalAdds} −${totalDels}`
-      : ui`+${totalAdds} −${totalDels}`;
     const title =
       tab.kind === "diff"
         ? ui("改动")
-        : tab.kind === "choose"
-          ? fileBaseName(choosing.reference)
-          : tab.kind === "attachment"
-            ? artifact.displayName || fileBaseName(tab.path)
-            : fileBaseName(tab.path);
-    const meta = isChange
-      ? `${changeMeta}${change ? ` · +${change.additions} −${change.deletions}` : ""}`
-      : tab.kind === "choose"
-        ? ui`${choosing.matches.length} 个同名文件`
-        : `${tab.kind === "project" ? `${tab.path} · ` : ""}${fileLanguage(tab.path)} · ${formatArtifactSize(file.size)}`;
+        : tab.kind === "attachment"
+          ? artifact.displayName || tab.label
+          : tab.label;
+    const meta =
+      tab.kind === "diff"
+        ? `${commit ? ui`候选 ${commit} · ` : ""}${ui`${files.length} 个文件`} · +${totalAdds} −${totalDels}`
+        : tab.kind === "change"
+          ? [
+              tab.path === tab.label ? "" : tab.path,
+              changed ? `+${changed.additions} −${changed.deletions}` : ""
+            ]
+              .filter(Boolean)
+              .join(" · ")
+          : tab.kind === "choose"
+            ? ui`${choosing.matches.length} 个同名文件`
+            : `${tab.kind === "project" ? `${tab.path} · ` : ""}${fileLanguage(tab.path)} · ${formatArtifactSize(file.size)}`;
     const urls = file?.urls ?? { previewUrl: "", rawUrl: "", downloadUrl: "" };
     const downloadHref = pdf && cached.mediaHref ? cached.mediaHref : urls.downloadUrl;
     const canCopy = isFile && cached?.status === "ready" && ["text", "office"].includes(cached.previewKind);
@@ -686,10 +801,11 @@ export function createArtifactController({
           )}" aria-label="${ui("下载")}" title="${ui("下载")}">${icon("download")}</a>`
         : "";
     let content;
-    if (isChange) content = renderDiffBody(tab, files);
+    if (tab.kind === "diff") content = renderWholeChange(files, change);
+    else if (tab.kind === "change") content = renderChangeTab(tab, change);
     else if (tab.kind === "choose") content = renderChoices();
     else if (!cached || cached.status === "loading")
-      content = `<div class="drawer-state"><span class="editor-spinner"></span><strong>${ui`正在打开 ${esc(
+      content = `<div class="drawer-state"><formicand-spinner class="editor-spinner" aria-hidden="true"></formicand-spinner><strong>${ui`正在打开 ${esc(
         title
       )}`}</strong></div>`;
     else if (cached.status === "error")
@@ -702,15 +818,18 @@ export function createArtifactController({
         ...urls,
         rawUrl: cached.mediaHref || (mediaUrl ? "" : urls.rawUrl)
       });
-    const previewNote = isChange
-      ? state.drawerDiff?.truncated
-        ? `<div class="artifact-preview-note" role="status">${ui("改动较大，仅显示前部分内容。下载可查看完整改动。")}</div>`
-        : ""
-      : cached?.truncated
-        ? `<div class="artifact-preview-note" role="status">${ui(
-            "文件较大，仅显示前部分内容。下载可查看完整文件。"
-          )}</div>`
-        : "";
+    const partial = isChange
+      ? view === "content"
+        ? change?.content?.truncated
+        : change?.status === "ready" && change.truncated
+      : cached?.truncated;
+    const previewNote = partial
+      ? `<div class="artifact-preview-note" role="status">${
+          view === "content" || !isChange
+            ? ui("文件较大，仅显示前部分内容。下载可查看完整文件。")
+            : ui("改动较大，仅显示前部分内容。下载可查看完整改动。")
+        }</div>`
+      : "";
     drawer.hidden = false;
     drawer.innerHTML = `<header class="artifact-drawer-head">${icon(
       isChange ? "git-commit" : "file"
@@ -726,32 +845,62 @@ export function createArtifactController({
     )}">${tabs
       .map(
         (entry) =>
-          `<button type="button" role="tab" class="drawer-tab${
-            entry.id === tab.id ? " active" : ""
-          }" aria-selected="${entry.id === tab.id}" data-drawer-tab="${esc(entry.id)}" ${
-            entry.kind === "attachment" || entry.kind === "project"
+          `<span class="drawer-tab${entry.id === tab.id ? " active" : ""}"><button type="button" role="tab" aria-selected="${
+            entry.id === tab.id
+          }" data-drawer-tab="${esc(entry.id)}" ${
+            entry.kind === "attachment" || entry.kind === "project" || entry.kind === "change"
               ? `data-drawer-file="${esc(entry.path)}"`
               : ""
-          } title="${esc(entry.path ?? entry.label)}">${esc(entry.label)}</button>`
+          } title="${esc(entry.path ?? entry.label)}">${esc(entry.label)}</button><button type="button" class="drawer-tab-close" data-close-tab="${esc(
+            entry.id
+          )}" aria-label="${esc(ui`关闭 ${entry.label}`)}" title="${ui("关闭")}">${icon("close")}</button></span>`
       )
       .join("")}</nav><div class="artifact-drawer-body"><div class="drawer-content ${
       pdf ? "is-pdf" : ""
     }">${previewNote}${content}</div></div>`;
     drawer.querySelector(".drawer-content").scrollTop = scrollTop;
-    revealLine();
+    if (view === "content" || isFile) revealLine();
     openWith.bind(drawer, state.selected, target);
     for (const node of drawer.querySelectorAll("[data-drawer-tab]"))
       node.addEventListener("click", () => {
-        const id = node.dataset.drawerTab;
-        if (id === "diff") openPreview({ tab: "diff" });
-        else if (id === "file") openPreview({ tab: "file" });
-        else if (id === "choose") openPreview({ tab: "choose" });
-        else if (id.startsWith("project:"))
-          openPreview({ tab: "project", path: id.slice("project:".length) });
-        else openPreview({ tab: "attachment", path: id.slice("attachment:".length) });
+        state.drawerTab = node.dataset.drawerTab;
+        renderArtifactDrawer();
       });
-    for (const node of drawer.querySelectorAll("[data-diff-select]"))
-      node.addEventListener("click", () => openPreview({ tab: "file", path: node.dataset.diffSelect }));
+    for (const node of drawer.querySelectorAll("[data-close-tab]"))
+      node.addEventListener("click", () => closeTab(node.dataset.closeTab));
+    const pick = (path) => {
+      if (isImagePath(path)) return previewChangeImage(path);
+      state.drawerFile = path;
+      renderArtifactDrawer();
+      drawer.querySelector(`[data-change-select="${CSS.escape(path)}"]`)?.focus();
+    };
+    for (const node of drawer.querySelectorAll("[data-change-select]"))
+      node.addEventListener("click", () => pick(node.dataset.changeSelect));
+    drawer.querySelector(".drawer-change-files")?.addEventListener("keydown", (event) => {
+      if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+      event.preventDefault();
+      const index = files.findIndex((entry) => entry.path === selectedFile());
+      const next = files[index + (event.key === "ArrowDown" ? 1 : -1)];
+      if (!next) return;
+      state.drawerFile = next.path;
+      renderArtifactDrawer();
+      drawer.querySelector(`[data-change-select="${CSS.escape(next.path)}"]`)?.focus();
+    });
+    drawer
+      .querySelector("[data-change-pick]")
+      ?.addEventListener("change", (event) => pick(event.target.value));
+    drawer
+      .querySelector("[data-change-image]")
+      ?.addEventListener("click", (event) => previewChangeImage(event.currentTarget.dataset.changeImage));
+    for (const node of drawer.querySelectorAll("[data-change-view]"))
+      node.addEventListener("click", () => {
+        changeViews.set(projectKey(tab.path), node.dataset.changeView);
+        renderArtifactDrawer();
+      });
+    drawer.querySelector("[data-retry-change]")?.addEventListener("click", () => {
+      changeFiles.delete(change.key);
+      renderArtifactDrawer();
+    });
     for (const node of drawer.querySelectorAll("[data-choose-file]"))
       node.addEventListener("click", () => openProjectFile(node.dataset.chooseFile, choosing?.line));
     for (const node of drawer.querySelectorAll("[data-pdf-page]"))
@@ -760,11 +909,13 @@ export function createArtifactController({
         renderArtifactDrawer();
       });
     drawer.querySelector("[data-download-diff]")?.addEventListener("click", () => {
-      const data = state.drawerDiff;
-      if (data?.status !== "ready") return;
-      const selected = tab.kind === "file" ? tab.path : undefined;
-      const text = selected ? filePatchText(data.files, selected) : data.patch;
-      downloadText(text, selected ? `${fileBaseName(selected)}.diff` : "changes.diff");
+      if (tab.kind === "change") {
+        if (change?.status === "ready") downloadText(change.patch, `${fileBaseName(tab.path)}.diff`);
+        return;
+      }
+      changeRequest()
+        .then((result) => downloadText(result.diff.patch, "changes.diff"))
+        .catch((error) => showToast(error.message));
     });
     drawer.querySelector("[data-close-drawer]")?.addEventListener("click", () => closeArtifactDrawer(true));
     drawer.querySelector("[data-open-artifact-viewer]")?.addEventListener("click", (event) => {
@@ -838,12 +989,13 @@ export function createArtifactController({
     openArtifact,
     downloadArtifact,
     closeArtifactDrawer,
-    closeArtifact,
     ensureArtifactLoaded,
     renderArtifactDrawer,
     openPreview,
     resetMedia() {
       mediaUrls.clear();
+      changeFiles.clear();
+      changeViews.clear();
       projectCache.clear();
       pdfPages.clear();
       openWith.clear();

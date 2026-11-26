@@ -59,9 +59,10 @@ export function createWorkView({
     const artifacts = state.detail?.artifacts || [];
     const artifactPaths = new Set(artifacts.map((artifact) => artifact.relativePath));
     invalidateArtifactCache(state.artifactCache, artifacts);
-    state.openFiles = state.openFiles.filter((path) => artifactPaths.has(path));
-    if (state.previewPath && !artifactPaths.has(state.previewPath))
-      state.previewPath = state.openFiles.at(-1) || null;
+    // A tab of an attachment the session no longer has closes with it.
+    state.openFiles = state.openFiles.filter(
+      (id) => !id.startsWith("attachment:") || artifactPaths.has(id.slice("attachment:".length))
+    );
     requirementPanel.render();
     renderArtifactDrawer();
   }

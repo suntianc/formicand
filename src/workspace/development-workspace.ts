@@ -50,6 +50,37 @@ export async function gitProbe(repository: string, args: string[]): Promise<stri
   }
 }
 
+/** The size in bytes of a file at a revision, or undefined when that revision has no such file. */
+export async function gitFileSize(
+  repository: string,
+  revision: string,
+  path: string
+): Promise<number | undefined> {
+  const entry = await git(repository, ["--literal-pathspecs", "ls-tree", "-z", "-l", revision, "--", path]);
+  const match = /^\d+ blob [0-9a-f]+\s+(\d+)\t/.exec(entry);
+  return match ? Number(match[1]) : undefined;
+}
+
+/** The bytes of a file at a revision; the caller checks its size first. */
+export async function gitFileBytes(
+  repository: string,
+  revision: string,
+  path: string,
+  size: number
+): Promise<Buffer> {
+  try {
+    const { stdout } = await execute("git", ["-C", repository, "cat-file", "blob", `${revision}:${path}`], {
+      encoding: "buffer",
+      timeout: GIT_TIMEOUT_MS,
+      maxBuffer: size + 1024,
+      windowsHide: true
+    });
+    return stdout;
+  } catch (error) {
+    throw gitFailure(repository, error);
+  }
+}
+
 export function gitCommit(repository: string, revision: string): Promise<string | undefined> {
   return gitProbe(repository, [
     "rev-parse",

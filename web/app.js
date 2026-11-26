@@ -73,11 +73,9 @@ const state = {
   collapsedSessions: new Set(),
   selected: null,
   detail: null,
-  previewPath: null,
   drawerTab: null,
   drawerFile: null,
   drawerLine: null,
-  drawerDiff: null,
   drawerTrigger: null,
   artifactDrawerOpen: false,
   openFiles: [],
@@ -331,6 +329,7 @@ const artifacts = createArtifactController({
   renderRightPanel: () => workView.renderRightPanel(),
   mediaUrl: (path) => backendFiles.mediaUrl(path),
   openArtifactViewer: (path) => artifactViewer.open(path),
+  previewImage: (image) => composerAttachments.previewImage(image),
   getDelivery: () => requirementPanel?.records()
 });
 const {
