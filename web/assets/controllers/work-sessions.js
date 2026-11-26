@@ -26,30 +26,11 @@ export function createWorkSessions({
 }) {
   const creatingTasks = new Map();
 
-  /**
-   * Switching away never stops the previous Main; say so once so the choice is
-   * not mistaken for a cancellation.
-   */
-  function announceBackgroundRun(previousTaskId, nextTitle) {
-    if (!previousTaskId || previousTaskId === state.selected) return;
-    const previous = state.tasks.find((task) => task.taskId === previousTaskId);
-    if (!previous || !["running", "waiting"].includes(previous.status)) return;
-    showToast(`${ui("已切换到")}“${nextTitle}”`, {
-      detail: `“${conversationTitle(previous)}”${ui(" 仍在后台运行")}`,
-      tone: "success"
-    });
-  }
-
   function selectConversation(taskId) {
-    const previousTaskId = state.selected;
     closeSessionMenu();
     markRead(taskId);
     document.body.classList.remove("sidebar-mobile-open");
     state.selected = taskId;
-    if (taskId !== previousTaskId) {
-      const next = state.tasks.find((task) => task.taskId === taskId);
-      announceBackgroundRun(previousTaskId, next ? conversationTitle(next) : ui("新的对话"));
-    }
     state.composingNew = false;
     state.previewPath = null;
     state.drawerTab = null;
