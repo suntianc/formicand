@@ -311,6 +311,40 @@ test(
   }
 );
 
+test(
+  "real Pi find treats glob-like characters in the project root literally",
+  { skip: !portable },
+  async (t) => {
+    const f = await fixture(t);
+    const agent = join(f.root, "agent");
+    // Pi 1.6.1 prefixes the absolute search path to a relative path glob. fd
+    // treats the directory name literally, so `@(dev)` must not become a
+    // minimatch extglob and hide an existing file.
+    const project = join(f.root, "app@(dev)");
+    await f.put("app@(dev)/nested/file.txt", "fixture\n");
+    await installSearchToolAdapters(agent);
+    const pi = await exec(
+      process.execPath,
+      [
+        "--input-type=module",
+        "-e",
+        `
+      import { createFindTool } from "@earendil-works/pi-coding-agent";
+      const found = await createFindTool(process.env.FORMICAND_SEARCH_FIXTURE_PROJECT).execute("find-literal", {pattern:"nested/*.txt"});
+      console.log(JSON.stringify(found));
+    `
+      ],
+      {
+        cwd: resolve("."),
+        env: { ...f.env, PI_CODING_AGENT_DIR: agent, FORMICAND_SEARCH_FIXTURE_PROJECT: project },
+        timeout: 10_000
+      }
+    );
+    const found = JSON.parse(pi.stdout);
+    assert.equal(found.content[0].text, "nested/file.txt");
+  }
+);
+
 test("doctor exercises offline search and reports missing or failing search modules", async (t) => {
   const f = await fixture(t);
   await f.put(

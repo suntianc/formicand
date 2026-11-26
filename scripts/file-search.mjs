@@ -155,7 +155,16 @@ export async function autocompleteFiles(parameters, cwd = process.cwd()) {
       : basename(local);
     if (
       parameters.glob
-        ? !minimatch(candidate, pattern, { dot: true, nocase: parameters.ignoreCase === true })
+        ? !minimatch(candidate, pattern, {
+            dot: true,
+            nocase: parameters.ignoreCase === true,
+            // fd's globset has literal @(...)/+(...)/!(...) text instead of
+            // minimatch's extglob, and treats leading #/! literally. Without
+            // noext, an unescaped @(dev) in Pi's absolute prefix hides files.
+            noext: true,
+            nocomment: true,
+            nonegate: true
+          })
         : !expression.test(candidate)
     )
       continue;

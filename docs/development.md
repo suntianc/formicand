@@ -207,7 +207,7 @@ CLI 的交互界面直接使用原版 Pi 1.6.1，不改依赖文件。启动时�
 
 替换内容固定在 [cli-ui-policy.json](../scripts/cli-ui-policy.json) 和 [cli-shell-policy.json](../scripts/cli-shell-policy.json)。构建和启动时都会核对 Pi 版本、文件 hash 和替换位置，对不上就报错，不会带着没适配的界面运行。升级 Pi 时要按新 bundle 重新生成和核对这两份策略，并逐条复核六处 UI 与三处 shell 差异的替换文本。
 
-回滚按升级提交整体撤销，不要只把三个 Pi 包降回旧版：两份策略仍锁着新 bundle 的版本和 hash，只降包会在启动前的校验被拒绝。撤销整个提交后 `npm ci`、重新构建并运行 `npm run verify`。相邻版本的会话文件都是 v3，`test/p46-session-compat-pi.test.js` 用真实 1.5.2 与 1.6.1 进程实测两个方向续跑；跳过不构成兼容结论。
+回滚按升级提交整体撤销，不要只把三个 Pi 包降回旧版：两份策略仍锁着新 bundle 的版本和 hash，只降包会在启动前的校验被拒绝。升级是普通提交时直接 `git revert <升级提交>`；如果升级与已集成的其它改动在同一个合并提交里（例如同时带着 undici 8.13.1），普通 revert 会在 `package-lock.json` 冲突。先用 `git show --no-patch --format='%P' <合并提交>` 列出父提交：`^1` 是合并时所在的工作分支，`^2` 是被合入的需求分支。保留哪一侧，就用该侧序号执行 `git revert --no-commit -m <保留侧> <合并提交>`；例如保留需求分支的 undici 升级、只撤销 Pi 1.6.1 时用 `-m 2`。在合并提交处撤销后，`git diff --cached <保留侧父提交>` 和 `git diff <保留侧父提交>` 都应为空。如果合并提交之后还有改动，撤销会在重叠文件上冲突：按普通冲突解决并保留后续改动，再确认 `package.json`、`package-lock.json` 和两份策略与保留侧父提交一致（`git diff <保留侧父提交> -- package.json package-lock.json scripts/cli-ui-policy.json scripts/cli-shell-policy.json` 为空）。随后 `npm ci`，确认三个直接 Pi 包为 1.5.2、`node_modules/undici` 为 8.13.1，再重新构建并运行 `npm run verify`。相邻版本的会话文件都是 v3，`test/p46-session-compat-pi.test.js` 用真实 1.5.2 与 1.6.1 进程实测两个方向续跑；跳过不构成兼容结论。
 
 ## 信任边界
 
