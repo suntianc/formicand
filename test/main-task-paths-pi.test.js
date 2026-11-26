@@ -221,6 +221,7 @@ const footer = "draft";
           FORMICAND_MODEL: "task-path-fixture",
           FORMICAND_DASHBOARD_URL: "",
           FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
+          FORMICAND_DISABLE_SESSION_TITLES: "1",
           FORMICAND_REASONING_EFFORT: "off",
           FORMICAND_SUPPORTS_REASONING_EFFORT: "0",
           FORMICAND_WEB_TOOLS: "0",

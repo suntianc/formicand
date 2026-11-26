@@ -109,6 +109,7 @@ test("real Main launcher sends the connection's GLM format", { timeout: 45000 },
         FORMICAND_RUN_ID: "format-run",
         PI_CODING_AGENT_DIR: join(root, "pi"),
         FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
+        FORMICAND_DISABLE_SESSION_TITLES: "1",
         PI_OFFLINE: "1"
       }
     }

@@ -221,6 +221,7 @@ test(
           FORMICAND_RUN_ID: "proxy-run",
           PI_CODING_AGENT_DIR: join(root, "pi"),
           FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
+          FORMICAND_DISABLE_SESSION_TITLES: "1",
           PI_OFFLINE: "1",
           PI_TELEMETRY: "0"
         }

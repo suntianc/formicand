@@ -144,7 +144,7 @@ Settings → Models manages providers and models; Settings → Agents decides wh
 - A bare domain gets `/v1` appended; an address with a path is used as written. `anthropic-messages` never gets a path appended.
 - The parameter button on a model row adjusts context window, output limit, reasoning effort and image input. Values marked "auto" come from the provider API or the built-in catalogue.
 - After changing a name, address, key or format, click Save.
-- A model or provider in use by an Agent cannot be deleted or disabled; switch it under Settings → Agents first.
+- A model or provider in use by an Agent or as the utility model cannot be deleted or disabled; switch it under Settings → Agents or Settings → General first.
 
 The "Built-in" group under Settings → Agents has three Agents: Main, Executor and Reviewer. Their duties, permissions and tools are fixed; models, reasoning effort, skills, MCP servers and extra prompts are yours to set. The Projects page overrides any of it per project, and anything unset follows the global value.
 
@@ -155,6 +155,8 @@ The "Built-in" group under Settings → Agents has three Agents: Main, Executor 
 | Reviewer | Same as Main                                  | `code-review`, `domain-modeling`, `codebase-design`, `cua`                                        | None                 |
 
 When it applies: Main's settings take effect on its next turn; Executor and Reviewer skills, MCP and extra prompts are fixed when work is dispatched and read when the work item actually starts, so running items ignore later edits; switching a model keeps the session and sends its history to the new service on the next turn.
+
+Settings → General → Utility model picks a cheaper model for the summary written when a context window changes and for new conversation titles. Without one, both use the session's own model, which also takes over when a utility request fails. A new conversation is titled once its first reply is done, and a conversation you renamed keeps its name. Changes apply from the next window change or new conversation; a running Main needs no restart.
 
 ### Configuration file
 
@@ -206,7 +208,7 @@ On a connection without image support the image tools answer "the current model 
 
 Providers and models go under `modelProviders`; models are referenced as `<provider ID>#<model ID>`, and `preset` only picks the icon and preset address. When both `modelProviders` and top-level single-connection fields exist, `modelProviders` wins.
 
-Settings → Agents writes `roleModels`. `host` holds this machine's defaults and `projects` overrides them by project folder; every entry is optional, and `skills` and `mcp` take name lists or `"all"`. A referenced model that cannot be found fails startup instead of silently falling back.
+Settings → General writes the utility model to `utilityModel`, as `{ "profileId": "<provider ID>#<model ID>" }`. Settings → Agents writes `roleModels`. `host` holds this machine's defaults and `projects` overrides them by project folder; every entry is optional, and `skills` and `mcp` take name lists or `"all"`. A referenced model that cannot be found fails startup instead of silently falling back.
 
 ```json
 {

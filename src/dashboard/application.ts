@@ -32,6 +32,9 @@ import { readJsonFile } from "./event-stream.js";
 import { readHeartbeat } from "../runtime/main-heartbeat.js";
 import { createModelSettings } from "./model-settings.js";
 import { resolveModelRole } from "../runtime/role-models.js";
+import { resolveUtilityModel } from "../runtime/utility-model.js";
+import { createSessionTitles } from "./session-titles.js";
+import { publishTask } from "./catalog-publication.js";
 import { createDashboardHandler, type DashboardRoutePorts } from "./routes.js";
 import { createDashboardRunService } from "./run-service.js";
 import { LocalAccess } from "./local-access.js";
@@ -39,7 +42,7 @@ import { FileCommandRunner } from "./management-commands.js";
 import { createCatalogEvents } from "./catalog-events.js";
 import { createProjectCloneService } from "./project-clone-service.js";
 import { EventLedger } from "./event-ledger.js";
-import { createWorkspaceDirectory } from "./workspace-directory.js";
+import { createWorkspaceDirectory, type TaskLocation } from "./workspace-directory.js";
 import { createMainSessionService } from "./main-session-service.js";
 import { createMainCapacityService } from "./main-capacity-service.js";
 import { hasUnfinishedSubagentWork } from "../runtime/subagent-work.js";
@@ -392,8 +395,31 @@ export function createDashboardApplication(
       ? { pollMs: Number(process.env.FORMICAND_SUBAGENT_POLL_MS) }
       : {})
   });
+  const sessionTitles = createSessionTitles({
+    utilityModel: () => resolveUtilityModel(runtimeConfig),
+    mainModel: ({ task }) =>
+      resolveModelRole(runtimeConfig, {
+        ...(task.projectDirectory ? { projectDirectory: task.projectDirectory } : {}),
+        taskModel: task.model
+      }),
+    saveTitle: async (taskId, title) => {
+      // A title the user gave while the request ran is theirs to keep.
+      if ((await locateTask(taskId)).task.title) return;
+      await publishTask(
+        catalogEvents,
+        await taskListItem(await runs.taskLifecycle.updateTask(taskId, { title }))
+      );
+    }
+  });
+  // A test fixture that counts model requests switches the extra one off.
+  const nameConversation =
+    process.env.FORMICAND_DISABLE_SESSION_TITLES === "1"
+      ? () => {}
+      : (location: TaskLocation) => sessionTitles.afterRun(location);
   const runs = createDashboardRunService({
+    onTurnSettled: nameConversation,
     onRunFinalized: async (location, runId, status) => {
+      nameConversation(location);
       if (!location.projectId) return;
       // A Run keeps the session that owned it after it settles.
       await mainSessions.settle(location.projectId, location.task.taskId, runId, status);
@@ -419,6 +445,7 @@ export function createDashboardApplication(
     },
     withTaskProjectLock: workspaces.withTaskProjectLock,
     resolveMainModel: (request) => resolveModelRole(runtimeConfig, request),
+    resolveUtilityModel: () => resolveUtilityModel(runtimeConfig),
     endpointLimits: (selection) => selectionLimits(selection, runtimeConfig),
     // The Run's work ended: release what it held, though its process lives on.
     onRunSettled: (taskId) => computer.finishTask(taskId),

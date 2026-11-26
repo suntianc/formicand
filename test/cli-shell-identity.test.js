@@ -79,6 +79,7 @@ async function fixture(t, command) {
     FORMICAND_HARNESS_ROOT: harness,
     FORMICAND_WORKSPACE: join(root, "workspace"),
     FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
+    FORMICAND_DISABLE_SESSION_TITLES: "1",
     FORMICAND_API_BASE: baseUrl,
     FORMICAND_API_KEY: "fixture-local",
     FORMICAND_MODEL: "fixture",

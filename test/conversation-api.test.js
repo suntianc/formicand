@@ -87,6 +87,7 @@ test(
           FORMICAND_SUPPORTS_REASONING_EFFORT: "true",
           PI_CODING_AGENT_DIR: join(root, "pi-agent"),
           FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
+          FORMICAND_DISABLE_SESSION_TITLES: "1",
           // The second request must start a new Main so the test covers
           // reopening the saved Pi session; a resident Main keeps it in memory.
           FORMICAND_MAIN_IDLE_TIMEOUT_MS: "800",

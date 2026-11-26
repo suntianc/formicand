@@ -256,7 +256,7 @@ export function withActiveConnection(config: FormicandConfig): FormicandConfig {
   return { ...rest, ...connection };
 }
 
-/** Built-in Agents that chose a model, globally or in a project; deleting or disabling it is refused. */
+/** Built-in Agents and the utility model that chose a model; deleting or disabling it is refused. */
 function usedBy(config: FormicandConfig, match: (profileId: string) => boolean): string[] {
   const uses: string[] = [];
   const roles = config.roleModels;
@@ -265,12 +265,14 @@ function usedBy(config: FormicandConfig, match: (profileId: string) => boolean):
   for (const [directory, project] of Object.entries(roles?.projects ?? {}))
     for (const [role, settings] of Object.entries(project))
       if (settings.profileId && match(settings.profileId)) uses.push(`${role}（${directory}）`);
+  const utility = config.utilityModel?.profileId;
+  if (utility && match(utility)) uses.push("辅助模型");
   return uses;
 }
 
 function assertUnused(config: FormicandConfig, match: (profileId: string) => boolean, what: string) {
   const uses = usedBy(config, match);
-  if (uses.length) throw new Error(`${what}正被 Agent 使用：${uses.join("、")}。请先在 Agent 页改选其他模型`);
+  if (uses.length) throw new Error(`${what}正被使用：${uses.join("、")}。请先改选其他模型`);
 }
 
 function withProviders(config: FormicandConfig, providers: ModelProvider[]): FormicandConfig {

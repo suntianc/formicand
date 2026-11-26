@@ -22,7 +22,8 @@ test("host authorization recovery preserves drafts through backend switches and 
     FORMICAND_DESKTOP_DATA: profile,
     PI_OFFLINE: "1",
     PI_TELEMETRY: "0",
-    FORMICAND_DISABLE_MAIN_GUARDIAN: "1"
+    FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
+    FORMICAND_DISABLE_SESSION_TITLES: "1"
   };
   const otherEnv = {
     ...inherited,
@@ -34,7 +35,8 @@ test("host authorization recovery preserves drafts through backend switches and 
     FORMICAND_HARNESS_ROOT: resolve("."),
     FORMICAND_WORKSPACE: join(root, "other-workspace"),
     FORMICAND_CONFIG: join(root, "other-config.json"),
-    FORMICAND_DISABLE_MAIN_GUARDIAN: "1"
+    FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
+    FORMICAND_DISABLE_SESSION_TITLES: "1"
   };
   await mkdir(env.HOME, { recursive: true });
   await mkdir(otherEnv.FORMICAND_WORKSPACE, { recursive: true });

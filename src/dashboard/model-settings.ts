@@ -17,6 +17,7 @@ import { NEW_CONNECTION_PROFILE } from "../runtime/model-profile.js";
 import { availableModels as catalogModels } from "../runtime/model-catalog.js";
 import { isOfficialAddress, modelLevels, officialModel } from "../runtime/model-levels.js";
 import { publicModelRoles, saveRoleSettings } from "../runtime/role-models.js";
+import { saveUtilityModel } from "../runtime/utility-model.js";
 import {
   applyHostCredentials,
   hasHostCredentials,
@@ -67,7 +68,8 @@ export function createModelSettings(
       ),
       managedByEnvironment: managed(),
       ...(error ? { credentialError: error } : {}),
-      modelRoles: publicModelRoles(config)
+      modelRoles: publicModelRoles(config),
+      utilityModel: config.utilityModel?.profileId ?? null
     };
   };
   /**
@@ -91,6 +93,7 @@ export function createModelSettings(
     Object.assign(config, persisted);
     if (persisted.roleModels) config.roleModels = persisted.roleModels;
     else delete config.roleModels;
+    if (!persisted.utilityModel) delete config.utilityModel;
     applyHostCredentials(config, credentials);
   };
   /**
@@ -228,6 +231,11 @@ export function createModelSettings(
      */
     async saveRole(value: { role: unknown; projectDirectory?: string; settings: unknown }) {
       await update((previous) => withActiveConnection(saveRoleSettings(previous, value)));
+      return status();
+    },
+    /** Choose the model for context summaries and conversation titles; empty follows each session's. */
+    async saveUtility(value: Record<string, unknown>) {
+      await update((previous) => saveUtilityModel(previous, value));
       return status();
     },
     /** The configuration this host runs with, for views that resolve built-in Agent settings. */

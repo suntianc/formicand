@@ -6,6 +6,7 @@ import { modelProviders, type ModelProviders } from "./model-providers.js";
 import { parseReasoningLevels } from "./model-profile.js";
 import { parseAutoLimits } from "./model-limits.js";
 import { validateRoleModelConfig, type RoleModelConfig } from "./role-models.js";
+import { parseUtilityModel, type UtilityModelSettings } from "./utility-model.js";
 import {
   normalizeModelApi,
   normalizeThinkingFormat,
@@ -25,6 +26,8 @@ export interface FormicandConfig extends RuntimeSettingsConfig, WebSearchConfig 
   modelProviders?: ModelProviders;
   /** Execution-host role bindings; project overrides stay in this local file. */
   roleModels?: RoleModelConfig;
+  /** The host's model for context summaries and conversation titles; absent follows each session's model. */
+  utilityModel?: UtilityModelSettings;
   baseUrl?: string;
   apiBase?: string;
   apiKey?: string;
@@ -85,6 +88,7 @@ export function readFormicandConfig(
   // would silently change how many Mains this host runs.
   if (config.mainCapacity !== undefined) config.mainCapacity = mainCapacitySettings(config.mainCapacity);
   validateRoleModelConfig(config.roleModels);
+  parseUtilityModel(config.utilityModel);
   if (config.supportsImages !== undefined && typeof config.supportsImages !== "boolean")
     throw new Error("模型配置 supportsImages 必须为布尔值");
   if (config.supportsPromptCacheKey !== undefined && typeof config.supportsPromptCacheKey !== "boolean")

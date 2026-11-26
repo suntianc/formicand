@@ -26,7 +26,8 @@ async function fixture(t) {
   Object.assign(env, {
     FORMICAND_HOME: join(root, "user"),
     PI_OFFLINE: "1",
-    FORMICAND_DISABLE_MAIN_GUARDIAN: "1"
+    FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
+    FORMICAND_DISABLE_SESSION_TITLES: "1"
   });
   return { root, put, env };
 }

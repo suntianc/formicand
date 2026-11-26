@@ -388,7 +388,8 @@ test(
       FORMICAND_WORKSPACE: join(root, "workspace"),
       FORMICAND_GLOBAL_INDEX: join(root, "global.json"),
       FORMICAND_PROJECT_DIR: projectDirectory,
-      FORMICAND_DISABLE_MAIN_GUARDIAN: "1"
+      FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
+      FORMICAND_DISABLE_SESSION_TITLES: "1"
     });
     const child = spawn(
       process.execPath,
@@ -453,7 +454,8 @@ test(
       FORMICAND_WORKSPACE: join(root, "workspace"),
       FORMICAND_GLOBAL_INDEX: join(root, "global.json"),
       FORMICAND_PROJECT_DIR: join(root, "project"),
-      FORMICAND_DISABLE_MAIN_GUARDIAN: "1"
+      FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
+      FORMICAND_DISABLE_SESSION_TITLES: "1"
     });
     const child = spawn(process.execPath, ["scripts/start-pi.mjs", "--print", "--no-session", "不应启动"], {
       cwd: resolve("."),

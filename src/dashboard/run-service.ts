@@ -40,8 +40,10 @@ export function createDashboardRunService({
   locateTask,
   readWindowDevelopment,
   resolveMainModel,
+  resolveUtilityModel = () => undefined,
   endpointLimits = async () => undefined,
   onRunSettled = () => {},
+  onTurnSettled = () => {},
   onRunExit = () => {},
   onRunFinalized = async () => {},
   onTaskCancelling = () => {},
@@ -110,7 +112,8 @@ export function createDashboardRunService({
       humanWakeups,
       resumeHumanAnswers: (taskId) => resumeHumanAnswers(taskId),
       subagents,
-      onRunSettled
+      onRunSettled,
+      onTurnSettled
     });
 
   const {
@@ -331,6 +334,7 @@ export function createDashboardRunService({
     withTaskProjectLock,
     readJsonFile,
     resolveMainModel,
+    resolveUtilityModel,
     readWindowDevelopment,
     appendRunEvent,
     subagents,

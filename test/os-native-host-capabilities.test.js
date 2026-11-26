@@ -40,6 +40,7 @@ async function dashboardFixture(t, options = {}, envOverrides = {}) {
     FORMICAND_CONFIG: join(root, "config.json"),
     FORMICAND_API_TOKEN: hostToken,
     FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
+    FORMICAND_DISABLE_SESSION_TITLES: "1",
     PI_OFFLINE: "1",
     ...envOverrides
   });
@@ -557,6 +558,7 @@ test(
       FORMICAND_GLOBAL_INDEX: join(home, "runtime/workspaces.json"),
       FORMICAND_CONFIG: config,
       FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
+      FORMICAND_DISABLE_SESSION_TITLES: "1",
       FORMICAND_COMPUTER_USE_EXECUTABLE: executable,
       FORMICAND_API_BASE: model.baseUrl,
       FORMICAND_API_KEY: "local-fixture",

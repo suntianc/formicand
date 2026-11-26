@@ -72,6 +72,7 @@ function spawnMain({ root, project, workspace, taskId, runId, prompt, env = {} }
         FORMICAND_GLOBAL_INDEX: join(root, "index.json"),
         FORMICAND_DASHBOARD_URL: "",
         FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
+        FORMICAND_DISABLE_SESSION_TITLES: "1",
         FORMICAND_MODEL_API: "openai-completions",
         FORMICAND_REASONING_EFFORT: "off",
         FORMICAND_SUPPORTS_REASONING_EFFORT: "0",

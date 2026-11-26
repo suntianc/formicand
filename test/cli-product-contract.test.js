@@ -180,6 +180,7 @@ async function fixture(t) {
     FORMICAND_API_KEY: apiKey,
     FORMICAND_EXA_API_KEY: searchKey,
     FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
+    FORMICAND_DISABLE_SESSION_TITLES: "1",
     PI_OFFLINE: "1"
   });
   const run = (args, options = {}) => {

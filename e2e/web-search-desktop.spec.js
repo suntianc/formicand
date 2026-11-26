@@ -24,6 +24,7 @@ test("native App after normal model setup performs anonymous search and source f
     PI_CODING_AGENT_DIR: join(root, "pi"),
     FORMICAND_EXA_MCP_ENDPOINT: exa.endpoint,
     FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
+    FORMICAND_DISABLE_SESSION_TITLES: "1",
     PI_OFFLINE: "1",
     PI_TELEMETRY: "0"
   });

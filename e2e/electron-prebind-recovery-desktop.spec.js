@@ -21,7 +21,8 @@ test("desktop restores drafts saved before the first backend binding", async () 
     FORMICAND_DESKTOP_DATA: profile,
     PI_OFFLINE: "1",
     PI_TELEMETRY: "0",
-    FORMICAND_DISABLE_MAIN_GUARDIAN: "1"
+    FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
+    FORMICAND_DISABLE_SESSION_TITLES: "1"
   };
   await mkdir(env.HOME, { recursive: true });
   const { stopBackend } = await import("../dist/src/cli/backend.js");

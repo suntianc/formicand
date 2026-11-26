@@ -248,6 +248,7 @@ async function delegatedCall(
       FORMICAND_HARNESS_ROOT: harness,
       FORMICAND_WORKSPACE: workspace,
       FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
+      FORMICAND_DISABLE_SESSION_TITLES: "1",
       FORMICAND_API_BASE: provider.baseUrl,
       FORMICAND_API_KEY: API_KEY,
       FORMICAND_MODEL: MODEL,

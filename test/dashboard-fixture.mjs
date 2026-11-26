@@ -39,6 +39,7 @@ export async function startDashboard({
   supportsImages = false,
   workspace: existingWorkspace,
   mainGuardian = false,
+  sessionTitles = false,
   config = {},
   env = {},
   port: requestedPort,
@@ -68,6 +69,8 @@ export async function startDashboard({
       FORMICAND_UI_PORT: String(port),
       // Recovery is guardian-driven: only a fixture that tests it may relaunch a parked Task.
       FORMICAND_DISABLE_MAIN_GUARDIAN: mainGuardian ? "0" : "1",
+      // Naming a conversation is one more model request; only a fixture that tests it asks for it.
+      FORMICAND_DISABLE_SESSION_TITLES: sessionTitles ? "0" : "1",
       ...(blenderExecutable ? { FORMICAND_BLENDER_EXECUTABLE: blenderExecutable } : {}),
       ...(webSearchEndpoint ? { FORMICAND_EXA_MCP_ENDPOINT: webSearchEndpoint } : {}),
       FORMICAND_API_BASE: modelEndpoint ?? "",

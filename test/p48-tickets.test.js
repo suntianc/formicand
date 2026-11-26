@@ -524,6 +524,7 @@ for (const late of [false, true])
         model: "protocol-fixture",
         env: {
           FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
+          FORMICAND_DISABLE_SESSION_TITLES: "1",
           ...(late ? { FORMICAND_HUMAN_ANSWER_TIMEOUT_MS: "150" } : {})
         }
       });
@@ -766,7 +767,11 @@ test(
       defaultProject: false,
       modelEndpoint: provider.baseUrl,
       model: "protocol-fixture",
-      env: { FORMICAND_DISABLE_MAIN_GUARDIAN: "1", FORMICAND_HUMAN_ANSWER_TIMEOUT_MS: "150" }
+      env: {
+        FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
+        FORMICAND_DISABLE_SESSION_TITLES: "1",
+        FORMICAND_HUMAN_ANSWER_TIMEOUT_MS: "150"
+      }
     });
     t.after(() => dashboard.stop());
     const setup = await project(dashboard, directory, "Main 票项目");
