@@ -26,7 +26,6 @@ html[data-theme] :is(.thinking-spinner, .workflow-progress-spinner).ant-mark {
   color: var(--color-text-2);
   overflow: hidden;
   /* The wrapper stays still while the strip advances inside it. */
-  animation: none;
 }
 .ant-mark::after {
   content: none !important;
@@ -49,20 +48,6 @@ html[data-theme] :is(.thinking-spinner, .workflow-progress-spinner).ant-mark {
   width: 2400%;
   background: currentColor;
   mask: url("../brand/working-ant-20fps.png") center / 100% 100% no-repeat;
-  animation: ant-frames 1.2s steps(24, end) infinite;
-}
-@keyframes ant-frames {
-  to {
-    transform: translateX(-100%);
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .ant-mark > .ant-frames {
-    animation: none;
-  }
-}
-html.is-page-hidden :is(.ant-mark, .ant-mark *, .shimmer-text, .conversation-activity) {
-  animation-play-state: paused !important;
 }
 
 /* A label that is working gets a light swept across it twice, then rests:
@@ -81,15 +66,6 @@ html.is-page-hidden :is(.ant-mark, .ant-mark *, .shimmer-text, .conversation-act
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent !important;
-  animation: shimmer-sweep 2.2s linear 2;
-}
-@keyframes shimmer-sweep {
-  from {
-    background-position: 100% 0;
-  }
-  to {
-    background-position: -150% 0;
-  }
 }
 
 /* ------------------------------------------------------------ composer */
@@ -104,8 +80,8 @@ html[data-theme] .composer {
     inset 0 1px 0 var(--composer-highlight),
     var(--composer-lift);
   transition:
-    border-color var(--motion-fast, 0.15s),
-    box-shadow var(--motion-fast, 0.15s);
+    border-color var(--motion-fast),
+    box-shadow var(--motion-fast);
 }
 html[data-theme] .composer:focus-within {
   border-color: color-mix(in srgb, var(--color-text) 28%, transparent);
@@ -493,9 +469,9 @@ html[data-theme] .process-segment > summary .process-chevron {
   flex: 0 0 auto;
   color: var(--color-text-3);
   transition:
-    color 0.14s ease,
-    opacity 0.14s ease,
-    transform 0.15s;
+    color var(--motion-hover) var(--ease-default),
+    opacity var(--motion-hover) var(--ease-default),
+    transform var(--motion-disclosure);
 }
 html[data-theme] .execution-history:not([open]) > summary .history-chevron,
 html[data-theme] .process-segment:not([open]) > summary .process-chevron {
@@ -543,7 +519,7 @@ html[data-theme] .process-segment > summary {
   font-size: var(--ui-type-control);
   cursor: pointer;
   list-style: none;
-  transition: color 0.14s ease;
+  transition: color var(--motion-hover) var(--ease-default);
 }
 html[data-theme] .process-segment > summary::-webkit-details-marker {
   display: none;
@@ -571,7 +547,7 @@ html[data-theme] .process-segment.is-live > summary .process-live-state {
   color: var(--color-text-2);
   font-size: var(--ui-type-control);
   font-weight: 500;
-  transition: color 0.14s ease;
+  transition: color var(--motion-hover) var(--ease-default);
 }
 html[data-theme] .process-segment.is-thought-only {
   display: flex;
@@ -591,7 +567,7 @@ html[data-theme] :is(.process-segment > summary, .process-segment.is-thought-onl
   width: 15px;
   height: 15px;
   color: var(--color-text-3);
-  transition: color 0.14s ease;
+  transition: color var(--motion-hover) var(--ease-default);
 }
 html[data-theme]
   :is(.process-segment > summary, .process-segment.is-thought-only)

@@ -351,7 +351,7 @@
 .provider-advanced summary .ui-icon {
   width: 14px;
   height: 14px;
-  transition: transform var(--motion-fast, 120ms);
+  transition: transform var(--motion-fast);
 }
 .provider-advanced[open] summary .ui-icon {
   transform: rotate(180deg);

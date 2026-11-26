@@ -20,6 +20,9 @@ function browserEnvironment() {
         "document",
         "window",
         "NodeFilter",
+        "customElements",
+        "HTMLElement",
+        "HTMLTextAreaElement",
         "CSS",
         "EventSource",
         "ResizeObserver",
@@ -43,6 +46,23 @@ function browserEnvironment() {
   globalThis.document = document;
   globalThis.window = window;
   globalThis.NodeFilter = NodeFilter;
+  globalThis.customElements = window.customElements;
+  globalThis.HTMLElement = window.HTMLElement;
+  globalThis.HTMLTextAreaElement = window.HTMLTextAreaElement;
+  // Linkedom has no animation timeline and omits the reflected readOnly property.
+  document.getAnimations = () => [];
+  const textarea = window.HTMLTextAreaElement.prototype;
+  const readOnly = Object.getOwnPropertyDescriptor(textarea, "readOnly");
+  if (!readOnly)
+    Object.defineProperty(textarea, "readOnly", {
+      configurable: true,
+      get() {
+        return this.hasAttribute("readonly");
+      },
+      set(value) {
+        this.toggleAttribute("readonly", Boolean(value));
+      }
+    });
   const location = new URL("http://formicand.invalid/");
   const historyCalls = [];
   globalThis.location = window.location = location;
@@ -138,6 +158,7 @@ function browserEnvironment() {
       timeouts.clear();
       intervals.clear();
       Object.assign(globalThis, realTimers);
+      if (!readOnly) delete textarea.readOnly;
       for (const [key, value] of Object.entries(previous)) {
         if (value === undefined) delete globalThis[key];
         else globalThis[key] = value;

@@ -447,7 +447,7 @@ export function createArtifactController({
     const page = pdfPage.get(file.key) ?? 1;
     const entry = pdfPageEntry(file, page);
     if (entry.status === "loading")
-      return `<div class="drawer-state"><span class="editor-spinner"></span><strong>${ui`正在打开 ${esc(
+      return `<div class="drawer-state"><formicand-spinner class="editor-spinner" aria-hidden="true"></formicand-spinner><strong>${ui`正在打开 ${esc(
         name
       )}`}</strong></div>`;
     // Without a rendered page (no PDF parser here, or a damaged file) the
@@ -558,7 +558,7 @@ export function createArtifactController({
       )}</p></div>`;
     if (!state.drawerDiff || state.drawerDiff.status === "loading") {
       ensureDiffLoaded();
-      return `<div class="drawer-state"><span class="editor-spinner"></span><strong>${ui(
+      return `<div class="drawer-state"><formicand-spinner class="editor-spinner" aria-hidden="true"></formicand-spinner><strong>${ui(
         "正在读取改动"
       )}</strong></div>`;
     }
@@ -689,7 +689,7 @@ export function createArtifactController({
     if (isChange) content = renderDiffBody(tab, files);
     else if (tab.kind === "choose") content = renderChoices();
     else if (!cached || cached.status === "loading")
-      content = `<div class="drawer-state"><span class="editor-spinner"></span><strong>${ui`正在打开 ${esc(
+      content = `<div class="drawer-state"><formicand-spinner class="editor-spinner" aria-hidden="true"></formicand-spinner><strong>${ui`正在打开 ${esc(
         title
       )}`}</strong></div>`;
     else if (cached.status === "error")

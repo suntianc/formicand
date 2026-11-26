@@ -362,15 +362,6 @@ html[data-theme] #toast.toast {
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  :root:not([data-reduced-motion="off"]) .run-control-dot {
-    animation: none;
-  }
-  .toast-card {
-    transform: none;
-  }
-}
-
 @media (max-width: 520px) {
   .run-control {
     gap: 6px;
@@ -388,10 +379,6 @@ html[data-theme] #toast.toast {
     width: 14px;
     height: 14px;
   }
-}
-
-:root[data-reduced-motion="reduce"] .run-control-dot {
-  animation: none;
 }
 
 /* Queued messages: one row each in the tray, sent when the round ends, with

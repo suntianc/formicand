@@ -319,7 +319,7 @@ export function installModelProviders({
           (filter.kind === "images" && model.images))
     );
     fetchDialog.body.querySelector("[data-fetch-list]").innerHTML = listingLoading
-      ? `<div class="fetch-loading" role="status"><span class="ui-spinner" aria-hidden="true"></span><span>${ui("正在读取模型列表…")}</span></div>`
+      ? `<div class="fetch-loading" role="status"><formicand-spinner class="ui-spinner" aria-hidden="true"></formicand-spinner><span>${ui("正在读取模型列表…")}</span></div>`
       : shown.length
         ? shown
             .map(

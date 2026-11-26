@@ -21,7 +21,7 @@ import { escapeHtml as esc } from "../ui/html.js";
 import { icon } from "../ui/icons.js";
 import { executionElapsedMs } from "../execution-time.js";
 import { reconcileMarkup, reconcileParts, reconcileRange } from "../ui/reconcile.js";
-import { animate } from "../ui/motion.js";
+import { playMotion, reducedMotion, rememberMotionPhase } from "../ui/motion.js";
 import { createStreamReveal } from "../ui/stream-reveal.js";
 import { contextWindowDividers } from "../ui/context-window.js";
 import { fingerprint } from "../ui/fingerprint.js";
@@ -63,13 +63,6 @@ function sameSingleExchange(left, right) {
     sameRefArray(left.events, right.events)
   );
 }
-
-const reducedMotion = () => {
-  const preference = globalThis.window?.formicandPreferences?.motion?.();
-  if (preference === "on") return true;
-  if (preference === "off") return false;
-  return Boolean(globalThis.window?.matchMedia?.("(prefers-reduced-motion: reduce)").matches);
-};
 
 const replyClock = new Intl.DateTimeFormat(language, {
   hour: "2-digit",
@@ -355,13 +348,15 @@ export function createConversationView({
    */
   // Under a sent message, as Codex shows it: when it was sent, copy, and edit
   // for the one message that can still be edited.
+  // The copy button owns its temporary checkmark across catalog and stream refreshes.
+  const copyKey = (message) => esc(`copy:${language}:${message.id ?? message.timestamp ?? ""}`);
   const userActions = (message, editable) => {
     const time = Number.isFinite(message.timestamp) ? replyTime(message.timestamp) : undefined;
     return `<div class="user-message-actions" role="toolbar" aria-label="${ui("消息操作")}">${
       time
         ? `<time class="user-message-time" datetime="${esc(time.iso)}" title="${esc(time.full)}">${esc(time.short)}</time>`
         : ""
-    }<button type="button" class="app-button" data-user-copy aria-label="${ui("复制消息")}" title="${ui("复制消息")}">${icon("copy")}</button>${
+    }<button type="button" class="app-button" data-user-copy data-ui-owned="${copyKey(message)}" aria-label="${ui("复制消息")}" title="${ui("复制消息")}">${icon("copy")}</button>${
       editable
         ? `<button type="button" class="app-button" data-edit-message="${esc(message.id)}" aria-label="${ui("编辑消息")}" title="${ui("编辑消息")}">${icon("pencil")}</button>`
         : ""
@@ -369,7 +364,7 @@ export function createConversationView({
   };
   const replyActions = (message, latest) => {
     const time = Number.isFinite(message.timestamp) ? replyTime(message.timestamp) : undefined;
-    return `<div class="reply-actions${latest ? " is-latest" : ""}" role="toolbar" aria-label="${ui("回复操作")}"><button type="button" class="reply-action" data-reply-copy title="${ui("复制回复")}" aria-label="${ui("复制回复")}">${icon("copy")}</button>${
+    return `<div class="reply-actions${latest ? " is-latest" : ""}" role="toolbar" aria-label="${ui("回复操作")}"><button type="button" class="reply-action" data-reply-copy data-ui-owned="${copyKey(message)}" title="${ui("复制回复")}" aria-label="${ui("复制回复")}">${icon("copy")}</button>${
       message.id && fork
         ? `<button type="button" class="reply-action" data-reply-fork="${esc(message.id)}" title="${ui("从这条回复 Fork 出新会话")}">${icon("git-branch")}<span>Fork</span></button>`
         : ""
@@ -390,29 +385,26 @@ export function createConversationView({
   // fades it in as a whole instead of replaying every message.
   let shownMessages = { taskId: undefined, keys: new Set(), count: 0 };
   function animateArrivals(scroll, taskId, historyPrepend) {
-    const articles = [...scroll.querySelectorAll(".chat-message[data-view-key]")];
-    const keys = articles.map((article) => article.dataset.viewKey);
+    // Settled replies and their virtual shells carry a history key. Counting
+    // them keeps the next arrival in the same slot when a placeholder settles.
+    const articles = [
+      ...scroll.querySelectorAll(".chat-message:is([data-view-key], [data-history-message])")
+    ];
+    // Optimistic user messages already have a positional view key before
+    // their durable history id arrives.
+    const keyOf = (article) => article.dataset.viewKey || article.dataset.historyMessage;
+    const keys = articles.map(keyOf);
     const opened = shownMessages.taskId !== taskId;
     const grew = !opened && articles.length > shownMessages.count;
     const arrived = opened
       ? []
-      : articles.filter((article) => !shownMessages.keys.has(article.dataset.viewKey));
+      : articles.slice(shownMessages.count).filter((article) => !shownMessages.keys.has(keyOf(article)));
     shownMessages = { taskId, keys: new Set(keys), count: articles.length };
     if (historyPrepend || reducedMotion()) return;
-    if (opened && articles.length)
-      animate(scroll, [{ opacity: 0 }, { opacity: 1 }], { duration: 160, easing: "ease-out" });
+    if (opened && articles.length) playMotion(scroll, "fade");
     // A message whose key changed in place (a local message confirmed by the
     // server) does not add to the count and stays still.
-    if (grew)
-      for (const article of arrived)
-        animate(
-          article,
-          [
-            { opacity: 0, transform: "translateY(6px)" },
-            { opacity: 1, transform: "none" }
-          ],
-          { duration: 180, easing: "cubic-bezier(0.2, 0, 0, 1)" }
-        );
+    if (grew) for (const article of arrived) playMotion(article, "message");
   }
   let historyMarkup = new Map();
   let virtualShellCache = new Map();
@@ -597,23 +589,7 @@ export function createConversationView({
   // to. Sending scrolls to the end once; after that the reader's position
   // decides, so scrolling up while a reply streams is not pulled back (#24).
   let followedLocal;
-  const thinkingStartedAt = new Map();
-  const resumeThinkingAnimations = (scroll, roots = [scroll]) => {
-    const now = performance.now();
-    for (const node of queryInRoots(roots, "[data-thinking-key]")) {
-      const key = node.dataset.thinkingKey;
-      const existing = thinkingStartedAt.get(key);
-      const startedAt = existing?.startedAt ?? now;
-      thinkingStartedAt.set(key, { startedAt, node });
-      // innerHTML replaces the spinner on new deltas. Reuse its elapsed time
-      // without adding style attributes that would invalidate markup equality.
-      for (const animation of node.getAnimations?.({ subtree: true }) || [])
-        animation.currentTime = now - startedAt;
-    }
-    for (const [key, entry] of thinkingStartedAt) {
-      if (!entry?.node?.isConnected) thinkingStartedAt.delete(key);
-    }
-  };
+  const thinkingPhase = rememberMotionPhase();
   const detailsOpen = (node) => (typeof node.open === "boolean" ? node.open : node.hasAttribute("open"));
   const readable = (node) => {
     if (!detailsOpen(node)) return false;
@@ -975,7 +951,7 @@ export function createConversationView({
       $("#conversation").innerHTML = ui(
         `<div class="welcome-empty"><div class="welcome-symbol"><svg class="welcome-mark" aria-hidden="true"><use href="#i-formicand-mark" /></svg></div><h2>有什么可以帮忙的？</h2></div>`
       );
-      thinkingStartedAt.clear();
+      thinkingPhase.clear();
       lastRender = undefined;
       historyMarkup.clear();
       virtualShellCache.clear();
@@ -1553,7 +1529,11 @@ export function createConversationView({
     messageEdit?.bind(scroll, task.taskId);
     if (preserveScroll) scroll.scrollTop = previousScrollTop;
     renderedEditTask = editing ? task.taskId : undefined;
-    if (changed) resumeThinkingAnimations(scroll, bindRoots);
+    if (changed)
+      thinkingPhase.restore(
+        queryInRoots(bindRoots, "[data-thinking-key]"),
+        (node) => node.dataset.thinkingKey
+      );
     const tailRecord = state.detail?.runtimeEvents?.at(-1);
     const activeOwnsGlobalTail =
       Boolean(activeStreamingCandidate) &&

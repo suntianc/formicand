@@ -16,6 +16,24 @@
   --motion-base: 200ms;
   --motion-layout: 240ms;
   --motion-glide: 300ms;
+  --motion-spin: 800ms;
+  --motion-spin-status: 1s;
+  --motion-hover: 140ms;
+  --motion-disclosure: 150ms;
+  --motion-fade: 160ms;
+  --motion-arrival: 180ms;
+  --motion-copy: 220ms;
+  --motion-check: 260ms;
+  --motion-stagger: 70ms;
+  --motion-scroll-hide: 360ms;
+  --motion-spin-thinking: 850ms;
+  --motion-ant: 1.2s;
+  --motion-agent-pulse: 1.8s;
+  --motion-sweep: 2.2s;
+  --motion-enter: var(--motion-base) var(--ease-standard);
+  --ease-default: ease;
+  --ease-in-out: ease-in-out;
+  --ease-out: ease-out;
   --ease-standard: cubic-bezier(0.2, 0, 0, 1);
   --ease-exit: cubic-bezier(0.4, 0, 1, 1);
   --ease-glide: cubic-bezier(0.32, 0.72, 0, 1);
@@ -63,6 +81,15 @@
   --ui-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   --ui-popup-shadow: 0 10px 32px #00000026, 0 2px 6px #00000014;
   --ui-composer-shadow: 0 8px 28px #00000033, 0 2px 6px #0000001a;
+}
+/* Rotate the drawing inside a stationary box so scrolling and layout always
+   see the same bounds. The static drawing also carries the reduced-motion state. */
+formicand-spinner {
+  display: inline-grid;
+}
+formicand-spinner::before {
+  content: "";
+  border-radius: 50%;
 }
 body {
   font-family: var(--ui-font);
@@ -266,7 +293,6 @@ body {
   background: transparent;
   width: 8px;
   height: 8px;
-  animation: ui-spin 0.8s linear infinite;
 }
 :where(
     .app-topbar,

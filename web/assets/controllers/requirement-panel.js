@@ -4,7 +4,7 @@ import { requirementProgress, requirementTickets } from "../requirement-stages.j
 import { fileIcon } from "../ui/file-icons.js";
 import { icon } from "../ui/icons.js";
 import { ui } from "../ui/language.js";
-import { animate, motionDuration } from "../ui/motion.js";
+import { playMotion } from "../ui/motion.js";
 import { escapeHtml as esc } from "../ui/html.js";
 
 const SOURCE_LABELS = { internal: "内部", external: "外部", legacy: "遗留" };
@@ -614,20 +614,7 @@ export function createRequirementPanel({
     render();
     if (focus) $("[data-requirement-usage] [data-usage-toggle]")?.focus();
     const card = $("[data-requirement-usage] .rp-usage-card");
-    if (card)
-      animate(
-        card,
-        [
-          { opacity: 0, transform: "translateY(6px) scale(0.98)" },
-          { opacity: 1, transform: "none" }
-        ],
-        {
-          duration: motionDuration("--motion-base", 200),
-          easing:
-            getComputedStyle(document.documentElement).getPropertyValue("--ease-standard").trim() ||
-            "ease-out"
-        }
-      );
+    if (card) playMotion(card, "usage");
   }
 
   // The open card closes on Escape or a press anywhere outside it.
@@ -664,26 +651,16 @@ export function createRequirementPanel({
   function animateBody(body, before) {
     const after = bodyMarks(body);
     if (after.kind !== before.kind) {
-      animate(body, [{ opacity: 0 }, { opacity: 1 }], { duration: 160, easing: "ease-out" });
+      playMotion(body, "fade");
       return;
     }
-    const pop = (node, delay = 0) =>
-      node &&
-      animate(
-        node,
-        [
-          { transform: "scale(0.5)", opacity: 0.3 },
-          { transform: "scale(1.15)", opacity: 1, offset: 0.6 },
-          { transform: "scale(1)" }
-        ],
-        { duration: 260, delay, easing: "ease-out", fill: "backwards" }
-      );
+    const pop = (node, order = 0) => node && playMotion(node, "checked", { order });
     for (const step of body.querySelectorAll('.rp-step[data-state="done"]'))
       if (!before.done.has(step.dataset.step)) pop(step.querySelector(".rp-node"));
     let order = 0;
     body.querySelectorAll(".rp-check").forEach((check, index) => {
       if (check.dataset.checked === "true" && before.checked[index] === false)
-        pop(check.querySelector(".ui-icon"), 70 * order++);
+        pop(check.querySelector(".ui-icon"), order++);
     });
   }
 

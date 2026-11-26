@@ -20,7 +20,6 @@
   border: 1px solid light-dark(var(--ui-border), #444);
   border-bottom: 0;
   box-shadow: 0 0 42px rgba(0, 0, 0, 0.42);
-  animation: artifact-drawer-in var(--motion-base) var(--ease-standard);
 }
 .artifact-drawer-head {
   display: flex;
@@ -283,16 +282,6 @@
 }
 .drawer-state.is-error {
   color: light-dark(var(--ui-danger), #c49b97);
-}
-@keyframes artifact-drawer-in {
-  from {
-    opacity: 0;
-    transform: translateX(18px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
 }
 @media (min-width: 901px) and (max-width: 1200px) {
   .artifact-drawer-scrim {

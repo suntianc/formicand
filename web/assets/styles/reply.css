@@ -150,12 +150,6 @@
 .reply-time:focus-visible .reply-time-full {
   opacity: 1;
 }
-@media (prefers-reduced-motion: reduce) {
-  .reply-actions,
-  .reply-time-full {
-    transition: none;
-  }
-}
 
 /* Rich blocks in replies (#18). Shared head: .code-block-head. */
 .markdown-body :is(.table-block, .diff-block, .terminal-block, .diagram-block) {
@@ -721,12 +715,6 @@
 }
 .markdown-body .callout-body > :last-child {
   margin-bottom: 0;
-}
-@media (prefers-reduced-motion: reduce) {
-  .diff-collapse .ui-icon,
-  .markdown-body .table-block .code-block-head > .code-block-action {
-    transition: none;
-  }
 }
 .markdown-body .table-block :is(th, td),
 .chat-pane .markdown-body .table-block :is(th, td) {

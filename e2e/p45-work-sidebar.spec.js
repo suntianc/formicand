@@ -157,3 +157,58 @@ test("running indicator sits in the left indent without shifting session titles"
     await dashboard.stop();
   }
 });
+
+test("running motion follows the viewport, page visibility and the effective motion preference", async ({
+  page
+}) => {
+  const dashboard = await startDashboard();
+  try {
+    await createTask(page, dashboard, {
+      taskId: "motion-task",
+      goal: "观察运行状态",
+      projectId: dashboard.projectId
+    });
+    await markTaskRunning(dashboard, { taskId: "motion-task", runId: "motion-run" });
+    await page.goto(dashboard.base);
+    const ring = page.locator('[data-task="motion-task"] .conversation-activity');
+    const rotations = () =>
+      ring.evaluate(
+        (node) => node.getAnimations({ subtree: true }).filter((a) => a.animationName === "ui-spin").length
+      );
+    await expect.poll(rotations).toBe(1);
+    const scroll = page.locator("[data-sidebar-scroll]");
+    await scroll.evaluate((node) => {
+      const spacer = document.createElement("div");
+      spacer.style.minHeight = "150vh";
+      node.append(spacer);
+      node.scrollTop = node.scrollHeight;
+    });
+    await expect(ring).not.toBeInViewport();
+    await expect.poll(rotations).toBe(0);
+    await scroll.evaluate((node) => {
+      node.scrollTop = 0;
+    });
+    await expect.poll(rotations).toBe(1);
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await expect.poll(rotations).toBe(0);
+    await expect(ring).toHaveAccessibleName("运行中");
+    await page.evaluate(() => {
+      document.documentElement.dataset.reducedMotion = "off";
+    });
+    await expect.poll(rotations).toBe(1);
+    // Headless tabs don't consistently background one another. Dispatch the
+    // browser visibility event through the same listener used by the app.
+    await page.evaluate(() => {
+      Object.defineProperty(document, "hidden", { value: true, configurable: true });
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+    await expect.poll(rotations).toBe(0);
+    await page.evaluate(() => {
+      delete document.hidden;
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+    await expect.poll(rotations).toBe(1);
+  } finally {
+    await dashboard.stop();
+  }
+});

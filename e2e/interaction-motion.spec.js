@@ -15,6 +15,7 @@ const recordAnimations = () => {
     window.__animated.push({
       id: node.id,
       classes: String(node.className?.baseVal ?? node.className ?? ""),
+      key: node.dataset.viewKey,
       href: node.querySelector?.("use")?.getAttribute("href") ?? ""
     });
     return animate.apply(this, args);
@@ -38,6 +39,7 @@ test("interactions move: arrivals, copy, disclosures, dialogs and sidebar rows",
     await page.locator("#composer-input").fill("第一条消息");
     await page.locator("#send-button").click();
     await expect(page.locator(".chat-message.main").last()).toContainText("已经处理完", { timeout: 30000 });
+    await expect(page.locator("#send-button")).toHaveAccessibleName("发送", { timeout: 30000 });
 
     // A new conversation joins the sidebar by growing into place.
     expect((await animated(page)).some((entry) => entry.classes.includes("conversation-row"))).toBe(true);
@@ -50,8 +52,10 @@ test("interactions move: arrivals, copy, disclosures, dialogs and sidebar rows",
     await expect(page.locator(".chat-message.main")).toHaveCount(2, { timeout: 30000 });
     const arrivals = (await animated(page)).filter((entry) => entry.classes.includes("chat-message"));
     expect(arrivals.some((entry) => entry.classes.includes("user"))).toBe(true);
-    expect(arrivals.length).toBeLessThanOrEqual(3);
+    expect(arrivals.length, JSON.stringify(arrivals)).toBeLessThanOrEqual(3);
 
+    await expect(page.locator(".chat-message.main").last()).toContainText("已经处理完", { timeout: 30000 });
+    await expect(page.locator("#send-button")).toHaveAccessibleName("发送", { timeout: 30000 });
     // Copying a message turns its icon into a check that pops, then back.
     await reset(page);
     const message = page.locator(".chat-message.user").last();
@@ -68,7 +72,10 @@ test("interactions move: arrivals, copy, disclosures, dialogs and sidebar rows",
       const details = document.createElement("details");
       details.id = "motion-details";
       details.innerHTML = '<summary>展开</summary><div style="height:200px">内容</div>';
-      document.querySelector("#conversation").append(details);
+      // This generic disclosure is independent of the live transcript, whose
+      // next backend refresh owns and reconciles all of its children.
+      details.style.cssText = "position:fixed;inset:0 auto auto 0;z-index:10000";
+      document.body.append(details);
     });
     const details = page.locator("#motion-details");
     const closed = (await details.boundingBox()).height;
@@ -80,6 +87,8 @@ test("interactions move: arrivals, copy, disclosures, dialogs and sidebar rows",
     }
     await expect.poll(async () => (await details.boundingBox()).height).toBeGreaterThan(closed + 190);
     expect(heights.some((height) => height > closed + 1 && height < closed + 199)).toBe(true);
+
+    await details.evaluate((node) => node.remove());
 
     // A project group folds and unfolds smoothly in the sidebar.
     await reset(page);
@@ -119,6 +128,7 @@ test("reduced motion keeps every interaction still", async ({ page }) => {
     await page.locator("#composer-input").fill("第一条消息");
     await page.locator("#send-button").click();
     await expect(page.locator(".chat-message.main").last()).toContainText("好的", { timeout: 30000 });
+    await expect(page.locator("#send-button")).toHaveAccessibleName("发送", { timeout: 30000 });
     await page.locator("#composer-input").fill("第二条消息");
     await page.locator("#send-button").click();
     await expect(page.locator(".chat-message.main")).toHaveCount(2, { timeout: 30000 });
@@ -135,5 +145,53 @@ test("reduced motion keeps every interaction still", async ({ page }) => {
   } finally {
     await dashboard.stop();
     await provider.close();
+  }
+});
+
+test("looping CSS effects sleep offscreen and the app motion setting overrides the OS", async ({ page }) => {
+  const dashboard = await startDashboard();
+  try {
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.goto(dashboard.base);
+    await page.evaluate(() => {
+      window.formicandPreferences.setMotion("off");
+      const host = document.createElement("div");
+      host.id = "motion-probe";
+      host.style.cssText = "position:fixed;top:0;left:0;width:100px;height:50px;overflow:auto";
+      host.innerHTML =
+        '<div class="ant-mark thinking-spinner"><span class="ant-frames"></span></div><div class="app-dialog"><div class="dialog-actions"><button aria-busy="true">保存</button></div></div><div style="height:300px"></div>';
+      document.body.append(host);
+    });
+    const host = page.locator("#motion-probe");
+    const states = () =>
+      host.evaluate((node) =>
+        node
+          .getAnimations({ subtree: true })
+          .filter((a) => ["ant-frames", "ui-spin"].includes(a.animationName))
+          .map((a) => a.playState)
+          .sort()
+      );
+    await expect.poll(states).toEqual(["running", "running"]);
+    await host.evaluate((node) => {
+      node.scrollTop = node.scrollHeight;
+    });
+    await expect.poll(states).toEqual(["paused", "paused"]);
+    const detached = await host.evaluate(async (node) => {
+      const effects = node.getAnimations({ subtree: true });
+      node.remove();
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+      const states = effects.map((effect) => effect.playState);
+      document.body.append(node);
+      return states;
+    });
+    expect(detached).toEqual(["idle", "idle"]);
+    await host.evaluate((node) => {
+      node.scrollTop = 0;
+    });
+    await expect.poll(states).toEqual(["running", "running"]);
+    await page.evaluate(() => window.formicandPreferences.setMotion("on"));
+    await expect.poll(states).toEqual([]);
+  } finally {
+    await dashboard.stop();
   }
 });

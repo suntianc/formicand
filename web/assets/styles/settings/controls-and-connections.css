@@ -528,11 +528,6 @@
     backdrop-filter: none;
   }
 }
-@media (prefers-reduced-motion: reduce) {
-  .settings-card * {
-    transition: none;
-  }
-}
 @media (forced-colors: active) {
   .settings-backdrop .settings-card.modal-card {
     background: Canvas;

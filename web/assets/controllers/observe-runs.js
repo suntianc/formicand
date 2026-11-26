@@ -1,6 +1,7 @@
+import { reconcileMarkup } from "../ui/reconcile.js";
 import { escapeHtml as esc } from "../ui/html.js";
 import { ui } from "../ui/language.js";
-import { animate } from "../ui/motion.js";
+import { playMotion, reducedMotion, onMotionPreferenceChange } from "../ui/motion.js";
 import {
   STALL_THRESHOLD_MS,
   SLICE_MS,
@@ -392,7 +393,7 @@ export function createObserveRuns({
     root.dataset.renderedAt = String(plan.at);
     root.dataset.motion = motion ? "reduced" : "live";
     root.dataset.refreshMs = String(motion ? reducedRefreshMs : refreshMs);
-    root.innerHTML = runsMarkup(plan, minutes, empty);
+    reconcileMarkup(root, runsMarkup(plan, minutes, empty));
   }
 
   async function hydrate() {
@@ -402,16 +403,18 @@ export function createObserveRuns({
       return;
     }
     hydrating = true;
+    let updated = false;
     try {
       for (let round = 0; round < 5; round += 1) {
         const reads = pendingReads(collect());
         if (!reads.length) break;
         await Promise.all(reads);
+        updated = true;
       }
     } finally {
       hydrating = false;
     }
-    if (!disposed) paint(collect());
+    if (updated && !disposed && visible()) paint(collect());
     if (dirty) {
       dirty = false;
       void hydrate();
@@ -426,29 +429,17 @@ export function createObserveRuns({
   }
 
   function visible() {
-    return !root.closest("[hidden]");
+    return !root.ownerDocument.hidden && !root.closest("[hidden]");
   }
 
   function restartTimer() {
-    if (timer) clearInterval(timer);
-    timer = setInterval(
-      () => {
-        if (visible()) render();
-      },
-      motion ? reducedRefreshMs : refreshMs
-    );
+    clearInterval(timer);
+    if (!visible()) return;
+    timer = setInterval(render, motion ? reducedRefreshMs : refreshMs);
     timer?.unref?.();
   }
 
-  function reducedMotion() {
-    const preference = globalThis.window?.formicandPreferences?.motion?.();
-    if (preference === "on") return true;
-    if (preference === "off") return false;
-    return Boolean(globalThis.window?.matchMedia?.("(prefers-reduced-motion: reduce)").matches);
-  }
-
-  function applyMotion() {
-    motion = reducedMotion();
+  function syncView() {
     restartTimer();
     render();
   }
@@ -510,16 +501,13 @@ export function createObserveRuns({
   };
   // Folding eases the rows' height instead of jumping: closing shrinks them
   // before the render drops them, opening grows the rows the render added.
-  const FOLD_MS = 200;
-  const FOLD_EASE = "cubic-bezier(0.2, 0, 0, 1)";
   const fold = (row, open) => {
     const height = `${row.getBoundingClientRect().height}px`;
     const shut = { height: "0px", marginTop: "0px", opacity: 0 };
     const full = { height, marginTop: getComputedStyle(row).marginTop, opacity: 1 };
     row.style.overflow = "hidden";
-    const animation = animate(row, open ? [shut, full] : [full, shut], {
-      duration: FOLD_MS,
-      easing: FOLD_EASE,
+    const animation = playMotion(row, "fold", {
+      frames: open ? [shut, full] : [full, shut],
       fill: "forwards"
     });
     // A Web Animation is cancelled only by this code, so `finished` resolves.
@@ -555,24 +543,20 @@ export function createObserveRuns({
   // A hidden panel does no reads. The store flips the hidden attribute on the
   // pane (entry switch) and on this view (view switch), so watch both.
   const Observer = globalThis.window?.MutationObserver;
-  const visibilityObserver = Observer
-    ? new Observer(() => {
-        if (visible()) render();
-      })
-    : undefined;
+  const visibilityObserver = Observer ? new Observer(syncView) : undefined;
   for (const node of new Set([root, root.closest("[data-entry-panel]")]))
     if (node && visibilityObserver)
       visibilityObserver.observe(node, { attributes: true, attributeFilter: ["hidden"] });
 
-  const media = globalThis.window?.matchMedia?.("(prefers-reduced-motion: reduce)");
-  const onMedia = () => applyMotion();
-  media?.addEventListener?.("change", onMedia);
-  const stopPreferences = globalThis.window?.formicandPreferences?.onChange?.(() => applyMotion());
+  const stopPreferences = onMotionPreferenceChange((reduce) => {
+    motion = reduce;
+    syncView();
+  });
+  root.ownerDocument.addEventListener("visibilitychange", syncView);
 
   buildHeader();
   motion = reducedMotion();
-  restartTimer();
-  render();
+  syncView();
 
   return {
     render,
@@ -582,8 +566,8 @@ export function createObserveRuns({
       visibilityObserver?.disconnect();
       header?.removeEventListener("click", onHeaderClick);
       root.removeEventListener("click", onRootClick);
-      media?.removeEventListener?.("change", onMedia);
-      stopPreferences?.();
+      root.ownerDocument.removeEventListener("visibilitychange", syncView);
+      stopPreferences();
       unsubscribe();
     }
   };

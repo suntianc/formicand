@@ -306,7 +306,7 @@ html[data-theme="light"] .observe-view[data-observe-panel="runs"] {
 .runs-subs-toggle .ui-icon {
   width: 12px;
   height: 12px;
-  transition: transform 120ms ease;
+  transition: transform var(--motion-fast) var(--ease-default);
 }
 .runs-subs-toggle[aria-expanded="true"] .ui-icon {
   transform: rotate(90deg);
@@ -436,7 +436,6 @@ html[data-theme="light"] .observe-view[data-observe-panel="runs"] {
   height: 7px;
   border-radius: 50%;
   transform: translate(0, -50%);
-  animation: runs-head-pulse 2.2s ease-in-out infinite;
 }
 
 .runs-head.is-dev {
@@ -458,34 +457,6 @@ html[data-theme="light"] .observe-view[data-observe-panel="runs"] {
 .runs-sublane .runs-head {
   right: auto;
   transform: translate(-100%, -50%);
-}
-
-@keyframes runs-head-pulse {
-  0%,
-  100% {
-    opacity: 0.55;
-    transform: translate(0, -50%) scale(0.82);
-  }
-  50% {
-    opacity: 1;
-    transform: translate(0, -50%) scale(1.12);
-  }
-}
-
-.runs-sublane .runs-head {
-  animation-name: runs-sub-head-pulse;
-}
-
-@keyframes runs-sub-head-pulse {
-  0%,
-  100% {
-    opacity: 0.55;
-    transform: translate(-100%, -50%) scale(0.82);
-  }
-  50% {
-    opacity: 1;
-    transform: translate(-100%, -50%) scale(1.12);
-  }
 }
 
 .runs-stall {

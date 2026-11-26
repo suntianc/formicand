@@ -112,7 +112,7 @@ html[data-theme] .pinned-chevron {
   align-items: center;
   justify-content: center;
   opacity: 0;
-  transition: opacity var(--motion-fast, 0.14s) ease;
+  transition: opacity var(--motion-fast) var(--ease-default);
 }
 html[data-theme] .pinned-chevron .ui-icon {
   width: 12px;
@@ -432,6 +432,7 @@ html[data-theme]
   .conversation-row:has(> .conversation-toggle:is(:hover, :focus-visible))
   > .conversation-item
   > .conversation-activity {
+  --spinner-animation: none;
   visibility: hidden;
 }
 html[data-theme] .conversation-row:is(:hover, :has(:focus-visible)) .conversation-item,

@@ -1,7 +1,7 @@
 import { icon } from "../ui/icons.js";
 import { ui } from "../ui/language.js";
 import { escapeHtml as esc } from "../ui/html.js";
-import { animate, motionDuration } from "../ui/motion.js";
+import { playMotion } from "../ui/motion.js";
 
 /**
  * The empty work pane for a conversation that does not exist yet.
@@ -78,10 +78,8 @@ export function createNewSessionView({ state, $, onSelectProject = () => {}, onA
     requestAnimationFrame(() => {
       const shift = before.top - composer.getBoundingClientRect().top;
       if (Math.abs(shift) < 2) return;
-      animate(composer, [{ transform: `translateY(${shift}px)` }, { transform: "none" }], {
-        duration: motionDuration("--motion-layout", 240),
-        easing:
-          getComputedStyle(document.documentElement).getPropertyValue("--ease-standard").trim() || "ease-out"
+      playMotion(composer, "move", {
+        frames: [{ transform: `translateY(${shift}px)` }, { transform: "none" }]
       });
     });
   }

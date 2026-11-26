@@ -1,7 +1,7 @@
 import { ui } from "../ui/language.js";
 import { icon } from "../ui/icons.js";
 import { createModal } from "../ui/modal.js";
-import { animate, motionDuration, reducedMotion } from "../ui/motion.js";
+import { playMotion, reducedMotion } from "../ui/motion.js";
 import { createMenu } from "../ui/menu.js";
 import { escapeHtml as esc } from "../ui/html.js";
 import { agentAvatar } from "../agent-names.js";
@@ -96,7 +96,7 @@ export function createProjectController({
     return `<div class="subagent-row" data-agent="${esc(agent.agentId)}" data-state="${esc(paused ? "paused" : agent.state)}"><span class="subagent-guide" aria-hidden="true"></span>${agentAvatar(agent.agentId)}<span class="subagent-name">${esc(agent.name || agent.agentId)}</span>${time}</div>`;
   };
   const taskLabel = (task) =>
-    `${task.status === "running" ? `<span class="conversation-activity" data-state="running" role="img" aria-label="${esc(ui("运行中"))}"></span>` : ""}<span class="conversation-item-title">${task.pendingQuestion ? `<span class="conversation-question" role="img" aria-label="${esc(ui("有待回答的问题"))}"></span>` : ""}<span class="conversation-title-text">${esc(conversationTitle(task))}</span>${isUnread(task.taskId) ? ui('<span class="conversation-unread" role="img" aria-label="未读"></span>') : ""}</span>`;
+    `${task.status === "running" ? `<formicand-spinner class="conversation-activity" data-state="running" role="img" aria-label="${esc(ui("运行中"))}"></formicand-spinner>` : ""}<span class="conversation-item-title">${task.pendingQuestion ? `<span class="conversation-question" role="img" aria-label="${esc(ui("有待回答的问题"))}"></span>` : ""}<span class="conversation-title-text">${esc(conversationTitle(task))}</span>${isUnread(task.taskId) ? ui('<span class="conversation-unread" role="img" aria-label="未读"></span>') : ""}</span>`;
   const taskRow = (task) => {
     const id = esc(task.taskId),
       agents = subagentsOf(task),
@@ -145,8 +145,6 @@ export function createProjectController({
         .filter(([id]) => id)
     );
 
-  const ROW_MS = 200;
-  const ROW_EASE = "cubic-bezier(0.2, 0, 0, 1)";
   const foldAnimations = new Map();
   /** Captures a collapsible list's live height and opacity before a re-render. */
   function captureFold(key, element) {
@@ -182,14 +180,12 @@ export function createProjectController({
       if (toHeight <= 0 || Math.abs(toHeight - fromHeight) < 1) return;
       target.style.overflow = "hidden";
     }
-    const animation = animate(
-      target,
-      [
+    const animation = playMotion(target, "fold", {
+      frames: [
         { height: `${fromHeight}px`, opacity: fromOpacity },
         { height: `${toHeight}px`, opacity: toOpacity }
-      ],
-      { duration: motionDuration("--motion-base", ROW_MS), easing: ROW_EASE }
-    );
+      ]
+    });
     foldAnimations.set(key, animation);
     const clear = () => {
       if (foldAnimations.get(key) === animation) foldAnimations.delete(key);
@@ -220,10 +216,7 @@ export function createProjectController({
         { height: "0px", opacity: 0 },
         { height, opacity: 1 }
       ];
-      const animation = animate(row, open ? frames : frames.reverse(), {
-        duration: ROW_MS,
-        easing: ROW_EASE
-      });
+      const animation = playMotion(row, "fold", { frames: open ? frames : frames.reverse() });
       return animation.finished.then(() => row.style.removeProperty("overflow"));
     };
     for (const id of added) resize(after.get(id), true);

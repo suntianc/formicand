@@ -137,7 +137,7 @@ export function normalizeArtifactPreview(result = {}) {
 export function renderArtifactMedia(preview, { name, typeLabel, rawUrl, downloadUrl }) {
   if (preview.previewKind === "text" || preview.previewKind === "office") return null;
   if ((preview.previewKind === "pdf" || preview.previewKind === "image") && !rawUrl)
-    return '<div class="drawer-state"><span class="editor-spinner"></span><strong>正在读取文件…</strong></div>';
+    return '<div class="drawer-state"><formicand-spinner class="editor-spinner" aria-hidden="true"></formicand-spinner><strong>正在读取文件…</strong></div>';
   if (preview.previewKind === "pdf")
     return `<div class="drawer-state"><strong>${escapeHtml(name)}</strong><p>点击“打开 ↗”查看 PDF。</p></div>`;
   if (preview.previewKind === "image")

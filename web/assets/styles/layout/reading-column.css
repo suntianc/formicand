@@ -384,15 +384,10 @@
 .editor-spinner {
   width: 12px;
   height: 12px;
+}
+.editor-spinner::before {
   border: 2px solid light-dark(var(--ui-border), #555);
   border-top-color: light-dark(var(--ui-border-hover), #ccc);
-  border-radius: 50%;
-  animation: editor-spin 0.8s linear infinite;
-}
-@keyframes editor-spin {
-  to {
-    transform: rotate(360deg);
-  }
 }
 /* Transcript and composer share one reading column, centered in the current
    conversation pane (including split application layouts). Container units
