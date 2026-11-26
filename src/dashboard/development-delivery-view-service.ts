@@ -229,7 +229,7 @@ export function createDevelopmentDeliveryViewService({
     input: { developmentId?: unknown; requirementId?: unknown },
     options: DevelopmentReadOptions = {}
   ): Promise<DeliveryView> {
-    await project(projectId);
+    await project(projectId, options);
     const { record, plan, reviews, merges, delivery, board } = await resolvedDelivery(
       projectId,
       input,
@@ -280,7 +280,7 @@ export function createDevelopmentDeliveryViewService({
     projectId: string,
     options: DevelopmentReadOptions = {}
   ): Promise<Record<string, DeliveryPhase>> {
-    await project(projectId);
+    await project(projectId, options);
     await mergeService.replayBeforeRead(projectId, options);
     const service = await gateway();
     const [developments, reviews, merges, deliveries] = await Promise.all([
@@ -336,7 +336,7 @@ export function createDevelopmentDeliveryViewService({
     input: { developmentId?: unknown; requirementId?: unknown; path?: unknown },
     options: DevelopmentReadOptions = {}
   ): Promise<DeliveryPatch> {
-    await project(projectId);
+    await project(projectId, options);
     const { record, plan, reviews, merges, delivery } = await resolvedDelivery(projectId, input, options);
     const workspace = record.workspace;
     if (!workspace || workspace.state !== "ready")
@@ -380,7 +380,7 @@ export function createDevelopmentDeliveryViewService({
     input: { developmentId?: unknown; requirementId?: unknown; path?: unknown },
     options: DevelopmentReadOptions = {}
   ): Promise<{ absolutePath: string }> {
-    await project(projectId);
+    await project(projectId, options);
     const { record, plan, reviews, merges, delivery } = await resolvedDelivery(projectId, input, options);
     const workspace = record.workspace;
     if (!workspace || workspace.state !== "ready")
