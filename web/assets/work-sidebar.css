@@ -544,7 +544,9 @@ html[data-theme] .subagent-row {
   gap: 8px;
   min-height: 30px;
   margin: 0;
-  padding: 5px 8px 5px 36px;
+  /* The ant starts a few pixels right of its session's title, so the row reads
+     as part of that session; the guide runs just right of the session spinner. */
+  padding: 5px 8px 5px 15px;
   border-radius: 8px;
 }
 html[data-theme] .subagent-guide {

@@ -123,6 +123,8 @@ test("running indicator sits in the left indent without shifting session titles"
         subToggle: box(project.querySelector('[data-session-toggle="with-sub"]')),
         subSpinner: box(project.querySelector('[data-task="with-sub"] .conversation-activity')),
         subTitle: box(project.querySelector('[data-task="with-sub"] .conversation-title-text')),
+        subGuide: box(project.querySelector(".subagent-row .subagent-guide")),
+        subAvatar: box(project.querySelector(".subagent-row .agent-avatar")),
         pinnedRow: box(pinned.querySelector('[data-task="pinned-running"]').closest(".conversation-row")),
         pinnedSpinner: box(pinned.querySelector('[data-task="pinned-running"] .conversation-activity')),
         pinnedTitle: box(pinned.querySelector('[data-task="pinned-running"] .conversation-title-text'))
@@ -143,6 +145,11 @@ test("running indicator sits in the left indent without shifting session titles"
     expect(boxes.subSpinner.right).toBeLessThanOrEqual(boxes.subToggle.right);
     expect(Math.abs(boxes.subTitle.x - boxes.idleTitle.x)).toBeLessThanOrEqual(1);
     expect(Math.abs(boxes.subSpinner.x - boxes.soloSpinner.x)).toBeLessThanOrEqual(1);
+    // A Subagent sits just inside its session: its ant starts a little right of
+    // the title, and the guide that ties them runs clear of the spinner.
+    expect(boxes.subAvatar.x - boxes.subTitle.x).toBeGreaterThanOrEqual(6);
+    expect(boxes.subAvatar.x - boxes.subTitle.x).toBeLessThanOrEqual(14);
+    expect(boxes.subGuide.x).toBeGreaterThan(boxes.subSpinner.right);
     // Pinned rows have no left indent; their spinner stays inside the row before the title.
     expect(boxes.pinnedSpinner.x).toBeGreaterThanOrEqual(boxes.pinnedRow.x);
     expect(boxes.pinnedSpinner.right).toBeLessThanOrEqual(boxes.pinnedTitle.x);
