@@ -121,7 +121,7 @@ test("tickets and the phase they set show in the work panel, the detail and the 
     await expect(row).toContainText("开发中");
     await row.click();
     const section = page.locator('#observe-detail [data-or-section="tickets"]');
-    await expect(section.locator(".or-label")).toHaveText("票 1/3 已并入");
+    await expect(section.locator(".rp-label")).toHaveText("票 1/3 已并入");
     await expect(section.locator("li")).toHaveCount(3);
     await expect(section.locator("li").nth(2)).toContainText("在 02 之后");
 

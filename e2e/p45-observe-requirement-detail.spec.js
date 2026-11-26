@@ -64,20 +64,18 @@ test("the detail shows the recorded requirement and offers no session or diff", 
     await expect(detail.locator('[data-or-section="history"] li')).toHaveCount(1);
     await expect(detail.locator('[data-or-section="history"] li')).toContainText("加了 summarize.sh");
     const developments = detail.locator('[data-or-section="developments"]');
-    await expect(developments.locator(".or-label")).toHaveText("历次开发 1");
+    await expect(developments.locator(".rp-label")).toHaveText("历次开发");
+    await expect(developments.locator(".rp-count")).toHaveText("1");
     await expect(developments.locator(".or-development-state")).toHaveText(/^已合入 · [0-9a-f]{8}$/);
-    const tags = detail.locator(".or-tag");
-    await expect(tags).toHaveCount(3);
-    await expect(tags.nth(0)).toHaveText("已交付");
-    await expect(tags.nth(1)).toHaveText("内部");
-    await expect(tags.nth(2)).toHaveText("Full");
+    await expect(detail.locator(".rp-status-label")).toHaveText("已交付");
+    await expect(detail.locator(".or-tag")).toHaveText(["内部", "Full"]);
 
     // The phase strip highlights the current phase and marks the settled ones.
-    const stepper = detail.locator(".or-stepper");
+    const stepper = detail.locator(".rp-stepper");
     await expect(stepper).toHaveAttribute("data-stage", "delivered");
-    await expect(stepper.locator(".or-step")).toHaveCount(5);
+    await expect(stepper.locator(".rp-step")).toHaveCount(5);
     expect(
-      await stepper.locator(".or-step").evaluateAll((nodes) => nodes.map((node) => node.dataset.state))
+      await stepper.locator(".rp-step").evaluateAll((nodes) => nodes.map((node) => node.dataset.state))
     ).toEqual(["done", "done", "done", "done", "done"]);
 
     // The facts come from the records: the Main session that handled it, the
@@ -92,11 +90,10 @@ test("the detail shows the recorded requirement and offers no session or diff", 
 
     // A passed review and the merge confirm every completion criterion.
     const criteria = detail.locator('[data-or-section="criteria"]');
-    await expect(criteria.locator(".or-label")).toHaveText("完成标准 3/3");
+    await expect(criteria.locator(".rp-label")).toHaveText("完成标准");
+    await expect(criteria.locator(".rp-count")).toHaveText("3 / 3");
     expect(
-      await criteria
-        .locator(".or-checks li")
-        .evaluateAll((nodes) => nodes.map((node) => node.dataset.checked))
+      await criteria.locator(".rp-check").evaluateAll((nodes) => nodes.map((node) => node.dataset.checked))
     ).toEqual(["true", "true", "true"]);
 
     // The review conclusion names the verdict and how many blocking findings
@@ -112,10 +109,10 @@ test("the detail shows the recorded requirement and offers no session or diff", 
 
     // The change is only the file and its line counts.
     const change = detail.locator('[data-or-section="change"]');
-    await expect(change.locator(".or-file")).toHaveCount(2);
-    await expect(change.locator(".or-file").nth(0)).toContainText("notes.md");
-    await expect(change.locator(".or-file").nth(0).locator(".or-add")).toHaveText("+1");
-    await expect(change.locator(".or-file").nth(1).locator(".or-file-name")).toHaveText("summarize.sh");
+    await expect(change.locator(".rp-diff-file")).toHaveCount(2);
+    await expect(change.locator(".rp-diff-file").nth(0)).toContainText("notes.md");
+    await expect(change.locator(".rp-diff-file").nth(0).locator(".rp-add")).toHaveText("+1");
+    await expect(change.locator(".rp-diff-file").nth(1).locator(".rp-file-name")).toHaveText("summarize.sh");
 
     // Observation never opens a session or a diff.
     await expect(page.getByRole("button", { name: "打开会话" })).toHaveCount(0);

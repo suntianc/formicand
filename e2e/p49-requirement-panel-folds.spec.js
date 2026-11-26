@@ -4,7 +4,7 @@ import { test, expect } from "@playwright/test";
 import { startDashboard } from "../test/dashboard-fixture.mjs";
 import { configureMerge, publishNamedArtifact, seedRequirement } from "./p45-requirement-fixture.js";
 
-test("long criteria, changes and attachments fold, and the phase reads as one line over a dot track", async ({
+test("long criteria, changes and attachments fold, the phase reads as one line over a dot track, and the observation detail matches", async ({
   page
 }) => {
   const dashboard = await startDashboard({ defaultProject: false });
@@ -99,6 +99,34 @@ test("long criteria, changes and attachments fold, and the phase reads as one li
     await expect(list.locator('[data-artifact="reports/b.csv"]')).toContainText("b.csv");
     await list.locator('[data-unfold="attachments"]').click();
     await expect(list.locator(".rp-attachment:not(.is-nested)")).toHaveCount(7);
+
+    // ---- the observation detail reads like the panel --------------------------
+    const panelWidth = (await page.locator("#agent-pane").boundingBox()).width;
+    await page.getByRole("tab", { name: "观测", exact: true }).click();
+    await page.locator('[data-observe-view="requirements"]').click();
+    await page.locator("[data-observe-requirement]").filter({ hasText: "折叠" }).click();
+    const detail = page.locator("#observe-detail");
+    await expect(detail.locator(".rp-status-label")).toHaveText("审查中");
+    expect(Math.abs((await detail.boundingBox()).width - panelWidth)).toBeLessThan(1);
+    // The same folds, read-only: the largest files and nothing to open.
+    await expect(detail.locator(".rp-check")).toHaveCount(5);
+    await expect(detail.locator('[data-unfold="criteria"]')).toHaveText("其余 3 条");
+    const observedFiles = detail.locator(".rp-diff-file");
+    await expect(observedFiles).toHaveCount(3);
+    await expect(observedFiles.first()).toContainText("big.ts");
+    await expect(detail.locator("[data-open-file], [data-open-diff]")).toHaveCount(0);
+    await detail.locator('[data-unfold="diff"]').click();
+    expect(await observedFiles.count()).toBeGreaterThan(5);
+    await detail.locator('[data-unfold="criteria"]').click();
+    await expect(detail.locator(".rp-check")).toHaveCount(8);
+    // Only the body scrolls; the header with the close control stays put.
+    const head = detail.locator(".or-detail-head");
+    const top = (await head.boundingBox()).y;
+    const body = detail.locator(".or-detail-body");
+    await body.evaluate((node) => node.scrollTo(0, node.scrollHeight));
+    expect(await body.evaluate((node) => node.scrollTop)).toBeGreaterThan(0);
+    expect(await detail.evaluate((node) => node.scrollTop)).toBe(0);
+    expect((await head.boundingBox()).y).toBe(top);
   } finally {
     await dashboard.stop();
   }

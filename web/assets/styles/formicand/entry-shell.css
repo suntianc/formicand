@@ -27,10 +27,11 @@ html[data-theme] .app-layout[data-entry="observe"] .agent-pane {
     padding-right: 10px;
   }
 }
-/* Two cards side by side read as one pair: the main and requirement panels sit
-   6 px apart, while the window edges and the sidebar side keep 10 px (#23). */
+/* Two cards side by side read as one pair: the main and requirement panels,
+   like the observation list and its detail, sit 6 px apart, while the window
+   edges and the sidebar side keep 10 px (#23). */
 @media (min-width: 1280px) {
-  html[data-theme] .app-layout > .agent-pane {
+  html[data-theme] .app-layout > :is(.agent-pane, .observe-detail) {
     margin-left: -4px;
   }
 }
