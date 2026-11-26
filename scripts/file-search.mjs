@@ -204,18 +204,33 @@ async function isInsideRepository(directory) {
   }
 }
 
+/** Split a stream on NUL bytes so fd --print0 can carry file names containing newlines. */
+async function* nulRecords(stream) {
+  let pending = Buffer.alloc(0);
+  for await (const chunk of stream) {
+    pending = pending.length ? Buffer.concat([pending, chunk]) : chunk;
+    let start = 0;
+    for (let end = pending.indexOf(0, start); end !== -1; end = pending.indexOf(0, start)) {
+      yield pending.toString("utf8", start, end);
+      start = end + 1;
+    }
+    pending = pending.subarray(start);
+  }
+  if (pending.length) yield pending.toString("utf8");
+}
+
 /**
  * Stream a native search tool and stop it as soon as the consumer asks. The
  * child runs in its own process group so a timeout or abort also reaps helpers.
  */
-async function runNativeLines({ command, args, cwd, signal, deadline, onLine }) {
+async function runNativeLines({ command, args, cwd, signal, deadline, nul = false, onLine }) {
   if (signal?.aborted) throw new Error(ABORT_MESSAGE);
   const child = spawn(command, args, {
     cwd,
     stdio: ["ignore", "pipe", "pipe"],
     detached: process.platform !== "win32"
   });
-  const lines = createInterface({ input: child.stdout });
+  const lines = nul ? nulRecords(child.stdout) : createInterface({ input: child.stdout });
   let stderr = "";
   let terminalError;
   let stopped = false;
@@ -284,9 +299,8 @@ async function runNativeLines({ command, args, cwd, signal, deadline, onLine }) 
     stop();
   } finally {
     clearTimeout(deadlineTimer);
-    clearTimeout(killTimer);
     signal?.removeEventListener("abort", onAbort);
-    lines.close();
+    lines.close?.();
     child.stdout?.destroy();
     child.stderr?.destroy();
   }
@@ -295,6 +309,10 @@ async function runNativeLines({ command, args, cwd, signal, deadline, onLine }) 
     exit = await closedPromise;
   } catch (error) {
     throw terminalError ?? error;
+  } finally {
+    // Keep SIGKILL armed until the child has actually closed: a child that
+    // ignores SIGTERM would otherwise leak after an early limit stop.
+    clearTimeout(killTimer);
   }
   if (terminalError) throw terminalError;
   return { ...exit, stderr, stopped };
@@ -485,6 +503,17 @@ export async function grepFiles(parameters, cwd = process.cwd()) {
   };
 }
 
+/** JS defines \w, \d and \b over ASCII while Rust's engine uses Unicode classes,
+ * and Unicode property names differ between the two engines. */
+function usesJavascriptRegexSyntax(pattern) {
+  for (let index = 0; index < pattern.length - 1; index++) {
+    if (pattern[index] !== "\\") continue;
+    if (/[wWdDbBpP]/.test(pattern[index + 1])) return true;
+    index++;
+  }
+  return false;
+}
+
 /** Regex constructs JavaScript accepts but Rust's regex engine (used by ripgrep) rejects. */
 function usesUnsupportedRegexSyntax(pattern) {
   return /\(\?[=!]|\(\?<[=!]|\(\?>|\\[1-9]|\\k</.test(pattern);
@@ -516,19 +545,6 @@ function emptyGrepResult(skippedFiles = []) {
   };
 }
 
-function withSkippedFiles(result, skippedFiles) {
-  return {
-    text: result.text,
-    matchCount: result.matchCount,
-    limitReached: result.limitReached,
-    outputLimitReached: result.outputLimitReached,
-    linesTruncated: result.linesTruncated,
-    skippedFiles,
-    matches: result.matches,
-    lines: result.lines
-  };
-}
-
 async function nativeFind({ fd, root, pattern, limit, signal, deadline }) {
   if (unsupportedGlobSyntax(pattern)) throw new NativeFallback();
   const target = nativeGlobPattern(pattern, root);
@@ -538,6 +554,7 @@ async function nativeFind({ fd, root, pattern, limit, signal, deadline }) {
   const args = [
     "--glob",
     "--hidden",
+    "--print0",
     "--case-sensitive",
     "--type",
     "f",
@@ -558,6 +575,7 @@ async function nativeFind({ fd, root, pattern, limit, signal, deadline }) {
     args,
     signal,
     deadline,
+    nul: true,
     onLine(line) {
       collected.push(line);
       if (collected.length > limit) {
@@ -592,7 +610,8 @@ async function nativeGrep({ rg, root, isDirectory, parameters, glob, limit, cont
     // ripgrep treats the M suffix as MiB, matching the portable backend's 4 MiB cap.
     args.push("--hidden", "--max-filesize", "4M", "--glob=!.git", "--glob=!node_modules");
     if (!insideRepository) args.push("--no-require-git");
-    if (glob) args.push(`--glob=${glob}`);
+    // A positive --glob makes ripgrep search files that .gitignore excludes,
+    // so the portable glob filter below (startFile) keeps ignored files out.
   }
   if (parameters.ignoreCase) args.push("--ignore-case");
   if (parameters.literal) args.push("--fixed-strings");
@@ -612,9 +631,14 @@ async function nativeGrep({ rg, root, isDirectory, parameters, glob, limit, cont
 
   const startFile = (data) => {
     const absolute = resolve(base, decodeRipgrepText(data.path));
+    const local = isDirectory ? normalize(relative(root, absolute)) : basename(root);
+    if (glob !== undefined && !globMatches(local, glob)) {
+      current = { skip: true };
+      return;
+    }
     current = {
       absolute,
-      local: isDirectory ? normalize(relative(root, absolute)) : basename(root),
+      local,
       lineTexts: new Map(),
       matches: [],
       matchLines: new Set(),
@@ -630,7 +654,7 @@ async function nativeGrep({ rg, root, isDirectory, parameters, glob, limit, cont
   const finishFile = async (data) => {
     const file = current;
     current = undefined;
-    if (!file) return false;
+    if (!file || file.skip) return false;
     const binary = data.binary_offset !== null && data.binary_offset !== undefined;
     if (binary || (!file.matches.length && !file.matchLimitReached)) return false;
     let maxIndex = -1;
@@ -703,7 +727,7 @@ async function nativeGrep({ rg, root, isDirectory, parameters, glob, limit, cont
         return false;
       }
       if (event.type === "match") {
-        if (!current) return false;
+        if (!current || current.skip) return false;
         const lineNumber = event.data.line_number;
         const text = ripgrepLine(event.data);
         if (current.matchLimitReached) {
@@ -721,7 +745,7 @@ async function nativeGrep({ rg, root, isDirectory, parameters, glob, limit, cont
         return false;
       }
       if (event.type === "context") {
-        if (!current) return false;
+        if (!current || current.skip) return false;
         const lineNumber = event.data.line_number;
         if (current.matchLimitReached && lineNumber - 1 > current.highestMatchLine - 1 + context)
           return false;
@@ -764,6 +788,7 @@ async function oversizedFiles({ fd, root, glob, signal, deadline }) {
     const insideRepository = await isInsideRepository(root);
     const args = [
       "--hidden",
+      "--print0",
       "--type",
       "f",
       "--size",
@@ -776,23 +801,26 @@ async function oversizedFiles({ fd, root, glob, signal, deadline }) {
     if (!insideRepository) args.push("--no-require-git");
     args.push("--", ".", root);
     const found = [];
+    let scanned = false;
     try {
       const { code, stopped } = await runNativeLines({
         command: fd,
         args,
         signal,
         deadline,
+        nul: true,
         onLine(line) {
           found.push(line);
           return false;
         }
       });
-      if (code === 0 || stopped) {
-        for (const path of found) await add(resolve(path));
-        return oversized.sort(comparePaths);
-      }
+      scanned = code === 0 || stopped;
     } catch (error) {
       if (isTerminalSearchError(error, signal)) throw error;
+    }
+    if (scanned) {
+      for (const path of found) await add(resolve(path));
+      return oversized.sort(comparePaths);
     }
   }
   for await (const path of files(root, await ancestorRules(root))) await add(path);
@@ -854,7 +882,7 @@ export async function runDiskSearch(
           deadline
         });
       } catch (error) {
-        if (isTerminalSearchError(error, signal)) throw error;
+        if (!(error instanceof NativeFallback)) throw error;
       }
     }
     return runFileSearch("find", normalized, {
@@ -878,7 +906,8 @@ export async function runDiskSearch(
     normalized.pattern.includes("\0") ||
     normalized.pattern.includes("\n") ||
     normalized.pattern.includes("\r") ||
-    (!literal && usesUnsupportedRegexSyntax(normalized.pattern)) ||
+    (!literal &&
+      (usesUnsupportedRegexSyntax(normalized.pattern) || usesJavascriptRegexSyntax(normalized.pattern))) ||
     (glob !== undefined && (isAbsolute(glob) || unsupportedGlobSyntax(glob)));
   if (!nativeUnsupported) {
     const fd = info.isDirectory() ? await findNativeTool("fd") : undefined;
@@ -890,8 +919,9 @@ export async function runDiskSearch(
           (error) => ({ error })
         )
       : Promise.resolve({ paths: [] });
+    let result;
     try {
-      const result = await nativeGrep({
+      result = await nativeGrep({
         rg,
         root,
         isDirectory: info.isDirectory(),
@@ -902,16 +932,15 @@ export async function runDiskSearch(
         signal,
         deadline
       });
-      const scan = await scanPromise;
-      if (scan.error) {
-        if (isTerminalSearchError(scan.error, signal)) throw scan.error;
-        return withSkippedFiles(result, []);
-      }
-      return withSkippedFiles(result, scan.paths);
     } catch (error) {
       controller.abort();
       await scanPromise;
-      if (isTerminalSearchError(error, signal)) throw error;
+      if (!(error instanceof NativeFallback)) throw error;
+    }
+    if (result) {
+      const scan = await scanPromise;
+      if (!scan.error) return { ...result, skippedFiles: scan.paths };
+      if (isTerminalSearchError(scan.error, signal)) throw scan.error;
     }
   }
   return runFileSearch("grep", normalized, {
