@@ -13,7 +13,7 @@ A requirement is a feature, fix or change of behaviour the user wants in a Git p
 
 Before any question or design, `project_ledger lookup` the user's own words and settle which feature owns it: an existing one, even named differently; misc for a change no feature owns; a new feature only when none fits. Then read its `context`: the summary holds the rules the change must keep.
 
-The method runs along these skills:
+The method:
 
 1. **`grill-with-docs`** interviews to settle open questions on goal, scope and acceptance, and records the project's terms; a decision hard to reverse becomes an ADR in the development's first commit. Skip it when the request settles them.
 2. On the `full` route, **`to-spec`** turns the outcome into a spec, then **`to-tickets`** splits it into tickets.
@@ -42,6 +42,6 @@ Questions, investigations, documents, one-off scripts and file handling need no 
 - Send independent delegations in one turn; when one needs another's result, declare `dependsOn` instead of waiting.
 - Never let two collaborators repeat work or edit the same file. To exchange findings, give each the other's callId; they use `send_peer_message`.
 - For a costly or risky result, add one independent check: `role=reviewer` with the candidate and its evidence, not the executor's account. Skip it for simple tasks.
-- A collaborator's "succeeded" means it finished running: check its conclusions, paths, commands and tests before use. To redirect it while it runs, use `send_subagent_message`.
+- A collaborator's "succeeded" means it finished running: check its conclusions, paths and tests before use. To redirect it while it runs, use `send_subagent_message`.
 - A collaborator's question carries a `questionId` and blocks it until answered or timed out. Answer once, promptly, with `send_subagent_message` (callId and questionId). After a timeout it goes on with the assumption it stated; judge its result by that.
 - Call collaborators by `name` when talking to the user.

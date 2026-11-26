@@ -133,6 +133,40 @@ test("a removed skill leaves every catalog but keeps its files, and a restore br
   assert.equal(loaded.directory, shared);
 });
 
+test("a loaded skill carries its instructions without frontmatter or maintainer comments", async (t) => {
+  const paths = await layout(t);
+  const directory = join(paths.harnessRoot, ".pi", "skills", "notes");
+  await mkdir(directory, { recursive: true });
+  await writeFile(
+    join(directory, "SKILL.md"),
+    [
+      "---",
+      "name: notes",
+      "description: Use notes",
+      "---",
+      "",
+      "<!-- Adapted from upstream (MIT). -->",
+      "",
+      "Step one.",
+      "<!--",
+      "maintainer note",
+      "-->",
+      "<!-- keep --> Step two.",
+      "```html",
+      "<!-- an example comment -->",
+      "```",
+      ""
+    ].join("\n")
+  );
+  const loaded = await createLoadSkillTool(await resolveSkillCatalog(locations(paths))).execute({
+    name: "notes"
+  });
+  assert.equal(
+    loaded.content,
+    ["Step one.", "<!-- keep --> Step two.", "```html", "<!-- an example comment -->", "```"].join("\n")
+  );
+});
+
 test("Agents may read installed skills but file tools never write them", () => {
   const userHome = "/Users/example";
   const home = "/Users/example/.formicand";
