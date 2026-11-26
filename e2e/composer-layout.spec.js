@@ -1,9 +1,39 @@
 import { test, expect } from "@playwright/test";
-import { startDashboard } from "../test/dashboard-fixture.mjs";
+import { PNG } from "pngjs";
+import { startConfiguredDashboard, startDashboard } from "../test/dashboard-fixture.mjs";
 
 const model = "Example-Model-with-a-very-long-provider-model-identifier";
 const folder = "研究项目与团队协作的超长工作文件夹名称-示例项目";
 const workspacePath = `/tmp/formicand-layout/${folder}`;
+
+test("the composer keeps the visible provider mark when a new conversation uses the same model", async ({
+  page
+}) => {
+  const dashboard = await startConfiguredDashboard({ config: { model: "codex/gpt-fixture" } });
+  try {
+    await page.addInitScript(() => localStorage.setItem("formicand.appearance", "system"));
+    await page.route(/\/api\/models(\?.*)?$/, async (route) => {
+      const response = await route.fetch();
+      await route.fulfill({ response, json: { ...(await response.json()), provider: { preset: "magpie" } } });
+    });
+    await page.goto(dashboard.base);
+    const mark = page.locator('#model-select [data-logo="magpie"] .provider-logo-mono');
+    await expect(mark).toBeVisible();
+    const original = await mark.elementHandle();
+    await page.locator("#new-conversation").click();
+    expect(await original.evaluate((node) => node.isConnected)).toBe(true);
+    for (const colorScheme of ["light", "dark"]) {
+      await page.emulateMedia({ colorScheme });
+      await expect(page.locator("html")).toHaveAttribute("data-theme", colorScheme);
+      await expect(mark).toHaveCSS("width", "16px");
+      const { data } = PNG.sync.read(await mark.screenshot());
+      const reds = data.filter((_, index) => index % 4 === 0);
+      expect(Math.max(...reds) - Math.min(...reds)).toBeGreaterThan(80);
+    }
+  } finally {
+    await dashboard.stop();
+  }
+});
 
 async function configuredModel(page, models = [model]) {
   await page.route(/\/api\/models(\?.*)?$/, (route) =>

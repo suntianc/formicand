@@ -102,12 +102,15 @@ export function createComposerModel({
     paintModelButton();
   }
   /** The composer's model button carries the mark of the provider the models come from. */
-  function paintModelProvider(provider) {
-    if (provider !== undefined) modelState.modelProvider = provider || null;
+  let renderedProviderLogo;
+  function paintModelProvider() {
     const slot = $("#model-select .model-logo");
     const shown = pickedProfile()?.provider || modelState.modelProvider;
     if (!slot) return;
-    slot.innerHTML = providerLogo(shown, 18, modelState.model || modelState.defaultModel);
+    const markup = providerLogo(shown, 18, modelState.model || modelState.defaultModel);
+    if (markup === renderedProviderLogo) return;
+    slot.innerHTML = markup;
+    renderedProviderLogo = markup;
   }
   /** One button names the model and the reasoning level this Run will send. */
   function paintModelButton() {
@@ -226,9 +229,9 @@ export function createComposerModel({
       // Providers first: restoring a remembered provider looks its model up.
       modelState.modelProviders = Array.isArray(data.providers) ? data.providers : [];
       modelState.mainProviderId = typeof data.mainProviderId === "string" ? data.mainProviderId : "";
+      modelState.modelProvider = data.provider ?? null;
       syncModelConnection(defaultModel, data.connectionProfileId, data.reasoningEffort ?? null, scope);
       if (modelState.profileId && !pickedProfile()) modelState.profileId = null;
-      paintModelProvider(data.provider);
       // eslint-disable-next-line no-restricted-syntax -- /api/models is unavailable while the backend restarts or is offline; the picker keeps a usable model instead of an empty list
     } catch {
       modelState.models = modelState.model ? [modelState.model] : ["glm-5.3"];
