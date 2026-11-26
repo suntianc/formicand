@@ -509,3 +509,51 @@ test(
     }
   }
 );
+
+test(
+  "real Formicand CLI completes a fuzzy @ file fragment through the FFF index",
+  { skip: process.platform === "win32", timeout: 60000 },
+  async (t) => {
+    const f = await fixture(t);
+    await mkdir(join(f.project, "plans"), { recursive: true });
+    await mkdir(join(f.project, "src"), { recursive: true });
+    await mkdir(join(f.project, ".git"), { recursive: true });
+    await writeFile(join(f.project, "plans/quarterly-summary.md"), "# quarterly summary\n");
+    await writeFile(join(f.project, "src/app.ts"), "export const app = 1;\n");
+    await writeFile(join(f.project, "README.md"), "# fixture project\n");
+
+    // "qurtly-smry" is a typo subsequence of plans/quarterly-summary.md. Pi's
+    // built-in fd completion filters on a literal substring, so only FFF's
+    // fuzzy index can offer this file; Tab applies the single suggestion or
+    // selects it from the open list, and the mention reaches the model as the
+    // cwd-relative path.
+    const result = await f.run({
+      publicEntry: true,
+      actions: [
+        { text: "@qurtly-smry", seconds: 2 },
+        { text: "\t", waitFor: "@plans/quarterly-summary.md", seconds: 10 },
+        { text: "\r", waitFor: "FIXTURE_TASK_COMPLETED", seconds: 8 },
+        { text: "/quit\r", seconds: 2 }
+      ]
+    });
+    assert.equal(result.exitCode, 0, result.plain.slice(-3000));
+    assert.equal(result.terminalRestored, true);
+    assert.equal(
+      result.actions[1].matched,
+      true,
+      "Tab did not insert the FFF suggestion; tail:\n" + result.plain.slice(-3000)
+    );
+    assert.equal(result.plain.includes(`@${join(f.project, "plans/quarterly-summary.md")}`), false);
+    const userText = f.requests
+      .flatMap((request) => request.messages)
+      .filter((message) => message.role === "user")
+      .map((message) =>
+        typeof message.content === "string"
+          ? message.content
+          : (message.content ?? []).map((part) => part.text ?? "").join("\n")
+      )
+      .join("\n");
+    assert.match(userText, /@plans\/quarterly-summary\.md/);
+    assert.doesNotMatch(userText, /@qurtly-smry|@\//);
+  }
+);

@@ -90,6 +90,8 @@ formicand
 | `formicand --resume`            | Pick one from the conversation history  |
 | `formicand session export <ID>` | Export a conversation as JSON or HTML   |
 
+In the terminal, type `@` and part of a filename to complete a project path. Main and Reviewer use `find` for fuzzy filenames or globs and `grep` for content. To verify a recent edit, `grep` with `mode: "exact"` reads the current files and defaults to case-sensitive literal matches. Offline installations without the optional FFF index library can still use path globs and exact content search.
+
 `formicand --help` lists every command.
 
 ### Update

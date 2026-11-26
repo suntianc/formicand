@@ -68,6 +68,8 @@ npx playwright test e2e/dashboard-polling.spec.js e2e/composer-visibility.spec.j
 
 比较耗时要保持同样的数据、窗口数、冷热状态和负载。
 
+**文件搜索。** `npm run test:unit -- --file test/file-search-pi.test.js --file test/cli-file-search.test.js --file test/cli-ui-pty.test.js` 检查 Main 与 Reviewer 的实际工具表、探索与精确搜索、原生和离线磁盘搜索以及终端 `@` 补全。
+
 **Pi 升级。** 版本、锁文件、工具表、提示结构和六处 UI 与三处 shell 适配用 `npm run test:unit -- --file test/p46-pi-version.test.js --file test/p46-pi-upgrade-pi.test.js --file test/cli-shell-identity.test.js --file test/cli-ui-compatibility.test.js --file test/cli-ui-pty.test.js` 检查。`test/p46-session-compat-pi.test.js` 从本机 npm 缓存离线安装上一版 Pi 并实测两个方向的会话续跑；缓存缺失时会跳过，跳过不算兼容结论。
 
 **打包的 App。** `npm run desktop:pack` 后运行 `npm run test:desktop`。已有候选包时可以直接跑：

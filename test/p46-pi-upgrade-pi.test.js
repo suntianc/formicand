@@ -14,72 +14,7 @@ const baseline = JSON.parse(
 );
 const harness = resolve(".");
 
-/**
- * Reviewed differences against the recorded baseline, each naming the exact
- * path, the change and why it was made; any other difference fails the
- * comparison. The baseline was last recorded on 2026-11-22 (Pi 1.5.x, the
- * English base prompt): an intended change to the tool table or the prompt's
- * sections is either listed here or recorded again with
- * `node test/p46-pi-upgrade-capture.mjs --record`.
- *
- * Pi 1.6.1 (2026-11-26) changed only the built-in find/grep descriptions for
- * the path semantics in upstream #12066: path globs are now relative to the
- * search directory, and a pattern without "/" matches file names at any depth.
- * Formicand's find override already implements those semantics; its portable
- * fd adapter now accepts the absolute pattern and --ignore-case flag Pi sends.
- */
-const EXPECTED_BASELINE_DIFFERENCES = [
-  {
-    path: "tools.find.parameters.properties.pattern.description",
-    change:
-      "\"Glob pattern to match files, e.g. '*.ts', '**/*.json', or 'src/**/*.spec.ts'\" -> \"Glob pattern relative to the search directory, e.g. 'src/**/*.ts'. Without '/', e.g. '*.ts', it matches file names at any depth\"",
-    reason:
-      "Pi 1.6.0 anchors relative path globs at the search directory (upstream #12066). The option name, type, required list and JSON Schema shape are unchanged.",
-    current:
-      "Glob pattern relative to the search directory, e.g. 'src/**/*.ts'. Without '/', e.g. '*.ts', it matches file names at any depth"
-  },
-  {
-    path: "tools.grep.parameters.properties.glob.description",
-    change:
-      "\"Filter files by glob pattern, relative to path, e.g. '*.ts', 'src/**/*.ts' or '**/*.spec.ts'. A pattern without '/' matches file names at any depth\" -> \"Filter files by glob pattern relative to path, e.g. 'src/**/*.ts'. Without '/', e.g. '*.ts', it matches file names at any depth\"",
-    reason:
-      "Pi 1.6.0 rewords the same path-glob rule to match find (upstream #12066). The option name, type, required list and JSON Schema shape are unchanged.",
-    current:
-      "Filter files by glob pattern relative to path, e.g. 'src/**/*.ts'. Without '/', e.g. '*.ts', it matches file names at any depth"
-  }
-];
-
-const TOOL_DIFFERENCE_PATHS = EXPECTED_BASELINE_DIFFERENCES.map((entry) => entry.path);
-
-/** The recorded value of one `tools.<name>.<path>` entry in the current capture. */
-function toolPathValue(summary, path) {
-  const [tools, name, ...rest] = path.split(".");
-  assert.equal(tools, "tools", `unsupported difference path: ${path}`);
-  const tool = summary.tools.find((entry) => entry.name === name);
-  assert.ok(tool, `the current capture has no tool named ${name}`);
-  return rest.reduce((value, key) => value?.[key], tool);
-}
-
-function diffPaths(expected, actual, prefix = "") {
-  if (Object.is(expected, actual)) return [];
-  const bothObjects = expected && actual && typeof expected === "object" && typeof actual === "object";
-  if (!bothObjects || Array.isArray(expected) !== Array.isArray(actual)) return [prefix];
-  if (Array.isArray(expected)) {
-    const paths = [];
-    const length = Math.max(expected.length, actual.length);
-    for (let index = 0; index < length; index += 1)
-      paths.push(...diffPaths(expected[index], actual[index], `${prefix}[${index}]`));
-    return paths;
-  }
-  const paths = [];
-  for (const key of new Set([...Object.keys(expected), ...Object.keys(actual)])) {
-    const keyPath = prefix ? `${prefix}.${key}` : key;
-    if (!(key in expected) || !(key in actual)) paths.push(keyPath);
-    else paths.push(...diffPaths(expected[key], actual[key], keyPath));
-  }
-  return paths;
-}
-
+// Captured from the real Main request on Pi 1.6.1 after adding indexed search.
 test(
   "a standard Main run keeps the recorded tool table, prompt structure and request envelope",
   { timeout: 90_000 },
@@ -103,29 +38,11 @@ test(
       baseline.tools.map((tool) => tool.name),
       "Main offers the same tools in the same order"
     );
-    const toolDifferences = [];
-    for (const [index, tool] of baseline.tools.entries()) {
-      for (const path of diffPaths(tool.parameters, current.tools[index].parameters))
-        toolDifferences.push(`tools.${tool.name}.parameters.${path}`);
-    }
     assert.deepEqual(
-      toolDifferences,
-      TOOL_DIFFERENCE_PATHS,
-      `unexpected tool schema differences; review each one against the upgrade notes:\n${JSON.stringify(
-        EXPECTED_BASELINE_DIFFERENCES,
-        null,
-        2
-      )}`
+      current.tools,
+      baseline.tools,
+      "tool descriptions and schemas match the reviewed request"
     );
-
-    // A path-only allowance would accept any replacement text. Pin the text the
-    // upgrade actually produced, so a later reword is a reviewed change again.
-    for (const entry of EXPECTED_BASELINE_DIFFERENCES)
-      assert.equal(
-        toolPathValue(current, entry.path),
-        entry.current,
-        `the recorded replacement text at ${entry.path}`
-      );
 
     assert.deepEqual(
       current.systemPrompt.structure,

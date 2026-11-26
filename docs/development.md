@@ -54,6 +54,7 @@ e2e/                    浏览器和 Electron 用户流程测试
 | -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Main 的提示词和上下文      | [extension](../.pi/runtime/extension.ts)、`.pi/runtime/` 下的上下文模块                                                                                                                |
 | 新增一个 Main 工具         | 按领域放进 [.pi/runtime/tools/](../.pi/runtime/tools/)，再登记到 [capabilities](../.pi/runtime/tools/capabilities.ts) 的核心工具或某个工具组                                           |
+| 文件搜索与终端 `@` 补全    | [搜索工具](../.pi/runtime/tools/file-search.ts)、[FFF 索引](../src/runtime/indexed-file-search.ts)、[磁盘搜索](../scripts/file-search.mjs)                                             |
 | 派单、子代理角色和工具     | [coordination](../.pi/runtime/tools/coordination.ts)、[子代理后端](../src/dashboard/subagent-backend.ts)、[进程结算](../src/runtime/subagent-processes.ts)                             |
 | 需求台账、开发、审查、合入 | [project_ledger](../.pi/runtime/tools/project-ledger.ts)、[project_development](../.pi/runtime/tools/project-development.ts)、[项目数据服务](../src/workspace/project-data-service.ts) |
 | 模型连接和请求重试         | [model-connection](../src/runtime/model-connection.ts)、[model-profile](../src/runtime/model-profile.ts)、[main-request-retry](../src/runtime/main-request-retry.ts)                   |

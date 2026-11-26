@@ -1603,7 +1603,7 @@
         "properties": {
           "pattern": {
             "type": "string",
-            "description": "Glob pattern to match files, e.g. '*.ts', '**/*.json', or 'src/**/*.spec.ts'"
+            "description": "Fuzzy filename, exact path, or glob such as './src/*.ts'."
           },
           "path": {
             "type": "string",
@@ -1632,7 +1632,7 @@
           },
           "glob": {
             "type": "string",
-            "description": "Filter files by glob pattern, relative to path, e.g. '*.ts', 'src/**/*.ts' or '**/*.spec.ts'. A pattern without '/' matches file names at any depth"
+            "description": "Filter files by glob pattern relative to path, e.g. 'src/**/*.ts'. Without '/', e.g. '*.ts', it matches file names at any depth"
           },
           "ignoreCase": {
             "type": "boolean",
@@ -1640,7 +1640,7 @@
           },
           "literal": {
             "type": "boolean",
-            "description": "Treat pattern as literal string instead of regex (default: false)"
+            "description": "Match literal text (exact mode default). Set false to use a regular expression."
           },
           "context": {
             "type": "number",
@@ -1649,6 +1649,19 @@
           "limit": {
             "type": "number",
             "description": "Maximum number of matches to return (default: 100)"
+          },
+          "mode": {
+            "anyOf": [
+              {
+                "type": "string",
+                "const": "explore"
+              },
+              {
+                "type": "string",
+                "const": "exact"
+              }
+            ],
+            "description": "Choose indexed exploration or exact disk search."
           }
         }
       }

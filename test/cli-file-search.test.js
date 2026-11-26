@@ -1,16 +1,61 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
-import { mkdir, mkdtemp, readFile, rm, stat, symlink, writeFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
+import { chmod, mkdir, mkdtemp, readFile, rm, stat, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { delimiter, dirname, join, resolve } from "node:path";
+import { setTimeout as delay } from "node:timers/promises";
 import { test } from "node:test";
 import { promisify } from "node:util";
-import { findFiles, grepFiles, runFileSearch } from "../scripts/file-search.mjs";
+import { findFiles, grepFiles, runDiskSearch, runFileSearch } from "../scripts/file-search.mjs";
 import { installSearchToolAdapters, parseSearchToolArguments } from "../scripts/search-tool-adapter.mjs";
 
 const exec = promisify(execFile);
 const cli = resolve("scripts/formicand.mjs");
 const portable = ["darwin", "linux"].includes(process.platform);
+const initialPath = process.env.PATH ?? "";
+const adapterHead = /(?:search-tool-adapter\.mjs|Pi (?:fd|rg) adapter)/;
+
+async function findRealTool(name) {
+  for (const directory of initialPath.split(delimiter)) {
+    if (!directory) continue;
+    const candidate = join(directory, name);
+    let head = "";
+    try {
+      head = (await readFile(candidate, "utf8")).slice(0, 4096);
+    } catch (error) {
+      if (error.code !== "EISDIR") continue;
+    }
+    if (adapterHead.test(head)) continue;
+    try {
+      const { stdout } = await exec(candidate, ["--version"], { timeout: 5000 });
+      if (name === "fd" ? /^fd \d+\./.test(stdout) : /^ripgrep \d+\./.test(stdout)) return candidate;
+    } catch (error) {
+      if (error.code !== undefined) continue;
+    }
+  }
+  return undefined;
+}
+
+const nativeTools = { fd: await findRealTool("fd"), rg: await findRealTool("rg") };
+const realPaths = [
+  ...new Set(
+    [
+      nativeTools.fd && dirname(nativeTools.fd),
+      nativeTools.rg && dirname(nativeTools.rg),
+      initialPath
+    ].filter(Boolean)
+  )
+].join(delimiter);
+const shellQuote = (value) => `'${value.replaceAll("'", "'\\''")}'`;
+const sortedPaths = (result) => [...result.paths].sort();
+function setTestPath(t, value) {
+  const previous = process.env.PATH;
+  process.env.PATH = value;
+  t.after(() => {
+    process.env.PATH = previous;
+  });
+}
 
 async function fixture(t) {
   const root = await mkdtemp(join(tmpdir(), "formicand-file-search-"));
@@ -407,9 +452,697 @@ test("doctor exercises offline search and reports missing or failing search modu
   );
   await writeFile(
     join(packageRoot, "scripts/file-search.mjs"),
-    "export async function runFileSearch() { throw new Error('fixture search failed'); }\n"
+    "export const SEARCH_ADAPTER_MARKER = '# Formicand Pi search adapter v1';\nexport async function runFileSearch() { throw new Error('fixture search failed'); }\n"
   );
   await assert.rejects(exec(process.execPath, [brokenCli, "doctor"], { cwd: f.root, env: f.env }), (error) =>
     /FAIL.*离线文件查找与内容搜索.*fixture search failed/.test(error.stderr)
   );
 });
+
+test(
+  "disk search prefers real fd and rg while matching portable results",
+  { skip: !portable || !nativeTools.fd || !nativeTools.rg },
+  async (t) => {
+    const f = await fixture(t);
+    setTestPath(t, realPaths);
+    await f.put(".gitignore", "ignored/\n*.tmp\n");
+    await f.put(".git/marker", "ignored");
+    await f.put("node_modules/not-source.ts", "Hello\n");
+    await f.put("ignored/secret.ts", "Hello\n");
+    await f.put(".hidden.ts", "Hello hidden\n");
+    await f.put("hello.txt", "first\r\nHello [world]\r\nlast\r\nHELLO\r\n");
+    await f.put("src/foo.ts", "Hello source\n");
+    await f.put("src/FILE.TS", "Hello upper\n");
+    await f.put("src/dir/nested.ts", "Hello nested\n");
+    await f.put("binary.txt", Buffer.from("Hello\0binary"));
+    await f.put("large.txt", Buffer.alloc(4 * 1024 * 1024 + 1, "a"));
+    const assertFind = async (parameters) => {
+      const disk = await runDiskSearch("find", parameters, { cwd: f.root });
+      const node = await findFiles(parameters, f.root);
+      assert.deepEqual(sortedPaths(disk), sortedPaths(node), JSON.stringify(parameters));
+      assert.equal(disk.limitReached, node.limitReached);
+    };
+    await assertFind({ pattern: "*.ts" });
+    await assertFind({ pattern: "src/*.ts" });
+    await assertFind({ pattern: "src/*.TS" });
+    await assertFind({ pattern: "**/*.ts" });
+    await assertFind({ pattern: "*.ts", limit: 2 });
+    await assertFind({ pattern: "*.ts", limit: 10 });
+    assert.deepEqual(sortedPaths(await runDiskSearch("find", { pattern: "./src/*.ts" }, { cwd: f.root })), [
+      "src/foo.ts"
+    ]);
+    // The portable backend also receives the normalized pattern, so offline
+    // installs and native installs agree on Pi's leading "./" syntax.
+    const restored = process.env.PATH;
+    process.env.PATH = join(f.root, "missing-tools");
+    assert.deepEqual(sortedPaths(await runDiskSearch("find", { pattern: "./src/*.ts" }, { cwd: f.root })), [
+      "src/foo.ts"
+    ]);
+    process.env.PATH = restored;
+
+    const assertGrep = async (parameters) => {
+      const disk = await runDiskSearch("grep", parameters, { cwd: f.root });
+      const node = await grepFiles(parameters, f.root);
+      assert.deepEqual(disk, node, JSON.stringify(parameters));
+    };
+    await assertGrep({ pattern: "Hello [world]", literal: true, context: 1, path: "hello.txt" });
+    await assertGrep({ pattern: "^hello", ignoreCase: true, glob: "hello.txt" });
+    await assertGrep({ pattern: "Hello$", glob: "hello.txt" });
+    await assertGrep({ pattern: "Hello", literal: false, glob: "hello.txt" });
+    await assertGrep({ pattern: "Hello", literal: true, glob: "src/*.ts" });
+    assert.deepEqual(
+      (await runDiskSearch("grep", { pattern: "Hello", literal: true, glob: "./src/*.ts" }, { cwd: f.root }))
+        .matches,
+      [{ path: join(f.root, "src/foo.ts"), lineNumber: 1, line: "Hello source" }]
+    );
+    await assertGrep({ pattern: "Hello", literal: true, path: "hello.txt", context: 1 });
+    const skipped = await runDiskSearch("grep", { pattern: "Hello", literal: true }, { cwd: f.root });
+    assert.deepEqual(skipped.skippedFiles, ["large.txt"]);
+    assert.equal(
+      skipped.matches.some((match) => match.path.endsWith("binary.txt")),
+      false,
+      "binary files stay skipped like the portable backend"
+    );
+    await f.put("fresh.ts", "Hello fresh\n");
+    assert.ok(
+      (await runDiskSearch("find", { pattern: "fresh*" }, { cwd: f.root })).paths.includes("fresh.ts"),
+      "a just-written file is visible immediately"
+    );
+  }
+);
+
+test(
+  "disk search passes portable arguments to native fd and rg",
+  { skip: !portable || !nativeTools.fd || !nativeTools.rg },
+  async (t) => {
+    const f = await fixture(t);
+    await f.put("hello.txt", "Hello fixture\n");
+    await f.put("src/foo.ts", "Hello source\n");
+    const bin = join(f.root, "bin");
+    const fdLog = join(f.root, "fd.log");
+    const rgLog = join(f.root, "rg.log");
+    await mkdir(bin, { recursive: true });
+    await writeFile(
+      join(bin, "fd"),
+      `#!/bin/sh\nprintf '%s\\n' "$@" >> ${shellQuote(fdLog)}\nexec ${shellQuote(nativeTools.fd)} "$@"\n`,
+      { mode: 0o755 }
+    );
+    await writeFile(
+      join(bin, "rg"),
+      `#!/bin/sh\nprintf '%s\\n' "$@" >> ${shellQuote(rgLog)}\nexec ${shellQuote(nativeTools.rg)} "$@"\n`,
+      { mode: 0o755 }
+    );
+    setTestPath(t, bin);
+    const found = await runDiskSearch("find", { pattern: "src/*.ts" }, { cwd: f.root });
+    assert.deepEqual(found.paths, ["src/foo.ts"]);
+    const searched = await runDiskSearch(
+      "grep",
+      { pattern: "Hello", literal: true, context: 1, glob: "hello.txt" },
+      { cwd: f.root }
+    );
+    assert.equal(searched.matchCount, 1);
+    const fdArgs = (await readFile(fdLog, "utf8")).split("\n").filter(Boolean);
+    for (const flag of [
+      "--glob",
+      "--full-path",
+      "--print0",
+      "--case-sensitive",
+      "--max-results",
+      "--no-require-git"
+    ])
+      assert.ok(fdArgs.includes(flag), `fd receives ${flag}`);
+    assert.ok(fdArgs.includes("--exclude"));
+    const rgArgs = (await readFile(rgLog, "utf8")).split("\n").filter(Boolean);
+    for (const flag of ["--files-with-matches", "--null", "--fixed-strings", "--max-filesize"])
+      assert.ok(rgArgs.includes(flag), `rg receives ${flag}`);
+    for (const flag of ["--json", "--crlf", "--line-number", "--context"])
+      assert.equal(
+        rgArgs.includes(flag),
+        false,
+        `rg lists candidate files and the Node matcher handles ${flag}`
+      );
+    assert.ok(rgArgs.includes("--glob=!.git"));
+    assert.equal(
+      rgArgs.includes("--glob=hello.txt"),
+      false,
+      "a positive glob is filtered in JavaScript instead of overriding .gitignore"
+    );
+    assert.ok(rgArgs.includes("--no-require-git"));
+  }
+);
+
+test(
+  "disk search keeps portable ignore-case literal and whitespace regex matching with native tools",
+  { skip: !portable || !nativeTools.rg },
+  async (t) => {
+    const f = await fixture(t);
+    setTestPath(t, realPaths);
+    await f.put("case.txt", "s\nſ\ni\nİ\n\u0085\n\ufeff\n");
+    const cases = [
+      [{ pattern: "s", literal: true, ignoreCase: true }, [1]],
+      [{ pattern: "i", literal: true, ignoreCase: true }, [3, 4]],
+      [{ pattern: "^\\s$" }, [6]],
+      [{ pattern: "^\\S$" }, [1, 2, 3, 4, 5]]
+    ];
+    for (const [parameters, lineNumbers] of cases) {
+      const disk = await runDiskSearch("grep", parameters, { cwd: f.root });
+      assert.deepEqual(disk, await grepFiles(parameters, f.root), JSON.stringify(parameters));
+      assert.deepEqual(
+        disk.matches.map((match) => match.lineNumber),
+        lineNumbers,
+        JSON.stringify(parameters)
+      );
+    }
+  }
+);
+
+test(
+  "disk search keeps carriage-return line numbers and trailing empty lines with native tools",
+  { skip: !portable || !nativeTools.rg },
+  async (t) => {
+    const f = await fixture(t);
+    setTestPath(t, realPaths);
+    await f.put("lines.txt", "a\rb\rc\n");
+    const cases = [
+      [{ pattern: "b" }, 2],
+      [{ pattern: "c" }, 3],
+      [{ pattern: "b", literal: true }, 2],
+      [{ pattern: "c", literal: true }, 3],
+      [{ pattern: "^b$" }, 2],
+      [{ pattern: "^$" }, 4]
+    ];
+    for (const [parameters, lineNumber] of cases) {
+      const disk = await runDiskSearch("grep", parameters, { cwd: f.root });
+      assert.deepEqual(disk, await grepFiles(parameters, f.root), JSON.stringify(parameters));
+      assert.deepEqual(
+        disk.matches.map((match) => match.lineNumber),
+        [lineNumber],
+        JSON.stringify(parameters)
+      );
+    }
+  }
+);
+
+test(
+  "disk search stops the oversized scan on abort and timeout when only rg is available",
+  { skip: !portable || !nativeTools.rg },
+  async (t) => {
+    const f = await fixture(t);
+    const bin = join(f.root, "rg-only-bin");
+    await mkdir(bin, { recursive: true });
+    await symlink(nativeTools.rg, join(bin, "rg"));
+    for (let directory = 0; directory < 200; directory++) {
+      const path = join(f.root, `group-${String(directory).padStart(3, "0")}`);
+      await mkdir(path);
+      await Promise.all(
+        Array.from({ length: 50 }, (_, index) => writeFile(join(path, `file-${index}.txt`), "word\n"))
+      );
+    }
+    setTestPath(t, bin);
+    const parameters = { pattern: "word", literal: true, limit: 1 };
+    const abort = new AbortController();
+    const aborted = runDiskSearch("grep", parameters, { cwd: f.root, signal: abort.signal });
+    const timer = setTimeout(() => abort.abort(), 80);
+    try {
+      await assert.rejects(aborted, /aborted/);
+    } finally {
+      clearTimeout(timer);
+    }
+    await assert.rejects(runDiskSearch("grep", parameters, { cwd: f.root, timeoutMs: 60 }), /timed out/);
+    assert.deepEqual(
+      await runDiskSearch("grep", parameters, { cwd: f.root, timeoutMs: 10_000 }),
+      await grepFiles(parameters, f.root)
+    );
+  }
+);
+
+test("disk search ignores Formicand search adapters on PATH and stays on the Node backend", async (t) => {
+  if (!portable) return;
+  const f = await fixture(t);
+  await f.put("hello.txt", "Hello fixture\n");
+  await f.put("src/foo.ts", "Hello source\n");
+  const bin = join(f.root, "bin");
+  const fdRan = join(f.root, "fd-ran");
+  const rgRan = join(f.root, "rg-ran");
+  await mkdir(bin, { recursive: true });
+  await writeFile(
+    join(bin, "fd"),
+    `#!/bin/sh\n# Formicand Pi search adapter v1\ntouch ${shellQuote(fdRan)}\nexit 9\n`,
+    { mode: 0o755 }
+  );
+  await writeFile(
+    join(bin, "rg"),
+    `#!/bin/sh\n# CoworkOS Pi search adapter v1\ntouch ${shellQuote(rgRan)}\nexec missing-helper search-tool-adapter.mjs "$@"\n`,
+    { mode: 0o755 }
+  );
+  setTestPath(t, bin);
+  assert.deepEqual(
+    sortedPaths(await runDiskSearch("find", { pattern: "*.ts" }, { cwd: f.root })),
+    sortedPaths(await findFiles({ pattern: "*.ts" }, f.root))
+  );
+  assert.deepEqual(
+    await runDiskSearch("grep", { pattern: "Hello", literal: true }, { cwd: f.root }),
+    await grepFiles({ pattern: "Hello", literal: true }, f.root)
+  );
+  assert.equal(existsSync(fdRan), false, "the fd adapter is never executed as a native tool");
+  assert.equal(existsSync(rgRan), false, "the rg adapter is never executed as a native tool");
+});
+
+test(
+  "disk search falls back for native semantics it cannot express",
+  { skip: !portable || !nativeTools.fd || !nativeTools.rg },
+  async (t) => {
+    const f = await fixture(t);
+    setTestPath(t, realPaths);
+    await f.put("hello.txt", "Hello world\n");
+    await f.put("src/foo.ts", "Hello foo\n");
+    await f.put("src/bar.ts", "Hello bar\n");
+    await f.put("app@(dev)/nested/file.txt", "fixture\n");
+    const assertFind = async (parameters, cwd = f.root) => {
+      assert.deepEqual(
+        sortedPaths(await runDiskSearch("find", parameters, { cwd })),
+        sortedPaths(await findFiles(parameters, cwd)),
+        JSON.stringify(parameters)
+      );
+    };
+    await assertFind({ pattern: "src/@(foo|bar).ts" });
+    await assertFind({ pattern: "nested/*.txt" }, join(f.root, "app@(dev)"));
+    await assertFind({ pattern: join(f.root, "src/*.ts") });
+    await assertFind({ pattern: "" });
+    const assertGrep = async (parameters) => {
+      assert.deepEqual(
+        await runDiskSearch("grep", parameters, { cwd: f.root }),
+        await grepFiles(parameters, f.root),
+        JSON.stringify(parameters)
+      );
+    };
+    await assertGrep({ pattern: "Hello(?= world)" });
+    await assertGrep({ pattern: "Hello", literal: true, glob: "src/@(foo|bar).ts" });
+    await assertGrep({ pattern: "Hello\nworld", literal: true });
+    assert.deepEqual(
+      await runDiskSearch("autocomplete", { pattern: "*.ts", glob: true, types: ["f"] }, { cwd: f.root }),
+      await runFileSearch("autocomplete", { pattern: "*.ts", glob: true, types: ["f"] }, { cwd: f.root })
+    );
+  }
+);
+
+test(
+  "disk search aborts and times out native tools without leaking processes",
+  { skip: !portable },
+  async (t) => {
+    const f = await fixture(t);
+    await f.put("hello.txt", "Hello fixture\n");
+    const bin = join(f.root, "slow-bin");
+    const pidFile = join(f.root, "slow.pid");
+    await mkdir(bin, { recursive: true });
+    await writeFile(join(bin, "fd"), `#!/bin/sh\necho $$ > ${shellQuote(pidFile)}\nexec /bin/sleep 37\n`, {
+      mode: 0o755
+    });
+    setTestPath(t, bin);
+    const waitForPid = async () => {
+      for (let attempt = 0; attempt < 200; attempt++) {
+        try {
+          return Number(await readFile(pidFile, "utf8"));
+        } catch (error) {
+          if (error.code !== "ENOENT") throw error;
+        }
+        await delay(10);
+      }
+      throw new Error("slow native tool did not start");
+    };
+    const assertGone = (pid) => {
+      assert.throws(() => process.kill(pid, 0), /ESRCH|no such process/i);
+    };
+    const abort = new AbortController();
+    const abortedSearch = runDiskSearch("find", { pattern: "*.ts" }, { cwd: f.root, signal: abort.signal });
+    const abortedPid = await waitForPid();
+    abort.abort();
+    await assert.rejects(abortedSearch, /aborted/);
+    assertGone(abortedPid);
+
+    await rm(pidFile, { force: true });
+    await assert.rejects(
+      runDiskSearch("find", { pattern: "*.ts" }, { cwd: f.root, timeoutMs: 150 }),
+      /timed out/
+    );
+    assertGone(await waitForPid());
+    process.env.PATH = join(f.root, "missing-tools");
+    assert.deepEqual((await runDiskSearch("find", { pattern: "*.txt" }, { cwd: f.root })).paths, [
+      "hello.txt"
+    ]);
+  }
+);
+
+test(
+  "disk search cancels the rg discovery that regex and ignore-case patterns share",
+  { skip: !portable },
+  async (t) => {
+    const f = await fixture(t);
+    await f.put("hello.txt", "Hello fixture\n");
+    const bin = join(f.root, "slow-rg-bin");
+    const pidFile = join(f.root, "slow-rg.pid");
+    await mkdir(bin, { recursive: true });
+    await writeFile(join(bin, "rg"), `#!/bin/sh\necho $$ > ${shellQuote(pidFile)}\nexec /bin/sleep 37\n`, {
+      mode: 0o755
+    });
+    setTestPath(t, bin);
+    const waitForPid = async () => {
+      for (let attempt = 0; attempt < 200; attempt++) {
+        try {
+          return Number(await readFile(pidFile, "utf8"));
+        } catch (error) {
+          if (error.code !== "ENOENT") throw error;
+        }
+        await delay(10);
+      }
+      throw new Error("slow rg discovery did not start");
+    };
+    const assertGone = (pid) => {
+      assert.throws(() => process.kill(pid, 0), /ESRCH|no such process/i);
+    };
+    const abort = new AbortController();
+    const aborted = runDiskSearch(
+      "grep",
+      { pattern: "^Hello", ignoreCase: true },
+      { cwd: f.root, signal: abort.signal }
+    );
+    const abortedPid = await waitForPid();
+    abort.abort();
+    await assert.rejects(aborted, /aborted/);
+    assertGone(abortedPid);
+    await rm(pidFile, { force: true });
+    const timed = runDiskSearch("grep", { pattern: "^Hello$" }, { cwd: f.root, timeoutMs: 500 });
+    const timeoutPid = await waitForPid();
+    await assert.rejects(timed, /timed out/);
+    assertGone(timeoutPid);
+  }
+);
+
+test(
+  "disk search keeps grep context, limits, truncation and skip notices on the native path",
+  { skip: !portable || !nativeTools.fd || !nativeTools.rg },
+  async (t) => {
+    const f = await fixture(t);
+    setTestPath(t, realPaths);
+    await f.put("long.txt", `${"Hello" + "x".repeat(2000)}\n`.repeat(100));
+    await f.put("context.txt", "first\nHello\nlast\nHello again\n");
+    await f.put("tail.txt", "Hello\n");
+    await f.put("many.txt", `${"Hello\n".repeat(300)}`);
+    const assertGrep = async (parameters) => {
+      assert.deepEqual(
+        await runDiskSearch("grep", parameters, { cwd: f.root }),
+        await grepFiles(parameters, f.root),
+        JSON.stringify(parameters)
+      );
+    };
+    await assertGrep({ pattern: "Hello", literal: true, path: "long.txt" });
+    await assertGrep({ pattern: "Hello", literal: true, path: "context.txt", context: 1 });
+    await assertGrep({ pattern: "Hello", literal: true, path: "tail.txt", context: 1 });
+    await assertGrep({ pattern: "Hello", literal: true, path: "many.txt", limit: 5 });
+    await assertGrep({ pattern: "Hello", literal: true, path: "many.txt", limit: 100 });
+    const limited = await runDiskSearch(
+      "grep",
+      { pattern: "Hello", literal: true, path: "many.txt", limit: 5 },
+      { cwd: f.root }
+    );
+    assert.equal(limited.limitReached, true);
+    const bounded = await runDiskSearch(
+      "grep",
+      { pattern: "Hello", literal: true, path: "long.txt" },
+      { cwd: f.root }
+    );
+    assert.equal(bounded.outputLimitReached, true);
+    assert.equal(bounded.linesTruncated, true);
+    assert.ok(Buffer.byteLength(bounded.text) <= 64 * 1024);
+    // Native parallel traversal orders files differently from the portable
+    // depth-first walk, so compare aggregate behavior rather than one order.
+    const multi = await grepFiles({ pattern: "Hello", literal: true }, f.root);
+    const native = await runDiskSearch("grep", { pattern: "Hello", literal: true }, { cwd: f.root });
+    assert.equal(native.matchCount, multi.matchCount);
+    assert.equal(native.limitReached, multi.limitReached);
+    assert.ok(Buffer.byteLength(native.text) <= 64 * 1024);
+  }
+);
+
+test("disk search falls back to the portable backend when no native tools are on PATH", async (t) => {
+  const f = await fixture(t);
+  await f.put("hello.txt", "first\nHello\nlast\n");
+  await f.put("src/foo.ts", "Hello source\n");
+  await f.put("src/bar.ts", "Hello bar\n");
+  setTestPath(t, join(f.root, "no-native-tools"));
+  assert.deepEqual(
+    sortedPaths(await runDiskSearch("find", { pattern: "./src/*.ts", limit: 1 }, { cwd: f.root })),
+    ["src/bar.ts"]
+  );
+  assert.deepEqual(
+    await runDiskSearch(
+      "grep",
+      { pattern: "Hello", literal: true, context: 1, glob: "hello.txt" },
+      { cwd: f.root }
+    ),
+    await grepFiles({ pattern: "Hello", literal: true, context: 1, glob: "hello.txt" }, f.root)
+  );
+  await assert.rejects(runDiskSearch("grep", { pattern: "[" }, { cwd: f.root }), /regular expression/);
+  await assert.rejects(
+    runDiskSearch("find", { pattern: "*", path: "missing" }, { cwd: f.root }),
+    /Path not found/
+  );
+});
+
+test(
+  "disk search keeps a positive glob inside .gitignore on the native path",
+  { skip: !portable || !nativeTools.rg },
+  async (t) => {
+    const f = await fixture(t);
+    setTestPath(t, realPaths);
+    await f.put(".gitignore", "ignored.txt\nsaved.txt\n");
+    await f.put("ignored.txt", "Hello ignored\n");
+    await f.put("saved.txt", "Hello saved\n");
+    await f.put("kept.txt", "Hello kept\n");
+    const parameters = { pattern: "Hello", literal: true, glob: "*.txt" };
+    assert.deepEqual(
+      await runDiskSearch("grep", parameters, { cwd: f.root }),
+      await grepFiles(parameters, f.root)
+    );
+  }
+);
+
+test(
+  "disk search keeps rg-only ignore files in scope for every pattern",
+  { skip: !portable || !nativeTools.rg },
+  async (t) => {
+    const f = await fixture(t);
+    await exec("git", ["init", "-b", "main", f.root]);
+    await f.put(".git/info/exclude", "local.txt\n");
+    await f.put(".rgignore", "generated.txt\n");
+    await f.put(".gitignore", "*.log\n!keep.log\nnested/\n");
+    await f.put(".ignore", "private.txt\n");
+    for (const path of [
+      "included.txt",
+      "local.txt",
+      "generated.txt",
+      "dropped.log",
+      "keep.log",
+      "private.txt",
+      "nested/hidden.txt",
+      "deep/kept.txt"
+    ])
+      await f.put(path, "uniquemarker\n");
+    const scope = async (parameters) =>
+      (await runDiskSearch("grep", parameters, { cwd: f.root })).matches
+        .map((match) => match.path.slice(f.root.length + 1))
+        .sort();
+    setTestPath(t, realPaths);
+    // Regex and ignore-case patterns ask rg for the files in scope; they must
+    // not widen it to files .git/info/exclude or .rgignore keep out.
+    const expected = ["deep/kept.txt", "included.txt", "keep.log"];
+    for (const parameters of [
+      { pattern: "^uniquemarker$" },
+      { pattern: "UNIQUEMARKER", literal: true, ignoreCase: true },
+      { pattern: "uniquemarker", literal: true }
+    ])
+      assert.deepEqual(await scope(parameters), expected, JSON.stringify(parameters));
+    assert.deepEqual(await scope({ pattern: "UNIQUEMARKER", literal: true }), []);
+    // Offline installs keep the portable scope: .gitignore/.ignore with
+    // negation and no knowledge of rg's additional ignore files.
+    setTestPath(t, join(f.root, "missing-tools"));
+    assert.deepEqual(await scope({ pattern: "^uniquemarker$" }), [
+      "deep/kept.txt",
+      "generated.txt",
+      "included.txt",
+      "keep.log",
+      "local.txt"
+    ]);
+  }
+);
+
+test(
+  "disk search falls back for JavaScript regex word and digit semantics",
+  { skip: !portable || !nativeTools.rg },
+  async (t) => {
+    const f = await fixture(t);
+    setTestPath(t, realPaths);
+    await f.put("unicode.txt", "café\n١٢٣\né\n");
+    for (const pattern of ["^\\w+$", "^\\d+$", "\\bé", "\\W", "\\D", "\\B"])
+      assert.deepEqual(
+        await runDiskSearch("grep", { pattern }, { cwd: f.root }),
+        await grepFiles({ pattern }, f.root),
+        pattern
+      );
+  }
+);
+
+test(
+  "disk search keeps file names containing newlines on the native fd paths",
+  { skip: !portable || !nativeTools.fd },
+  async (t) => {
+    const f = await fixture(t);
+    setTestPath(t, realPaths);
+    await f.put("line\nbreak.txt", "Hello\n");
+    await f.put("plain.txt", "Hello\n");
+    const parameters = { pattern: "*.txt" };
+    const disk = await runDiskSearch("find", parameters, { cwd: f.root });
+    const node = await findFiles(parameters, f.root);
+    assert.deepEqual(sortedPaths(disk), sortedPaths(node));
+    assert.equal(disk.limitReached, node.limitReached);
+    await f.put("large\nline.txt", Buffer.alloc(4 * 1024 * 1024 + 1, "a"));
+    const skipped = await runDiskSearch(
+      "grep",
+      { pattern: "Hello", literal: true, glob: "*.txt" },
+      { cwd: f.root }
+    );
+    assert.deepEqual(skipped.skippedFiles, ["large\nline.txt"]);
+  }
+);
+
+test(
+  "disk search stops native tools that ignore SIGTERM on abort and timeout",
+  { skip: !portable },
+  async (t) => {
+    const f = await fixture(t);
+    const bin = join(f.root, "stubborn-bin");
+    const pidRoot = await mkdtemp(join(tmpdir(), "formicand-stubborn-"));
+    const pidFile = join(pidRoot, "stubborn.pid");
+    await mkdir(bin, { recursive: true });
+    await writeFile(
+      join(bin, "fd"),
+      `#!/bin/sh\ntrap '' TERM\necho $$ > ${shellQuote(pidFile)}\ncase " $* " in\n  *" --print0 "*) printf '%s\\0' ${shellQuote(join(f.root, "first.txt"))} ${shellQuote(join(f.root, "second.txt"))} ;;\n  *) printf '%s\\n' ${shellQuote(join(f.root, "first.txt"))} ${shellQuote(join(f.root, "second.txt"))} ;;\nesac\nwhile :; do sleep 1; done\n`,
+      { mode: 0o755 }
+    );
+    setTestPath(t, bin);
+    const readPid = async () => {
+      for (let attempt = 0; attempt < 200; attempt++) {
+        try {
+          const pid = Number(await readFile(pidFile, "utf8"));
+          if (Number.isInteger(pid) && pid > 0) return pid;
+        } catch (error) {
+          if (error.code !== "ENOENT") throw error;
+        }
+        await delay(10);
+      }
+      throw new Error("stubborn native tool did not start");
+    };
+    t.after(async () => {
+      try {
+        const pid = Number(await readFile(pidFile, "utf8"));
+        if (!Number.isInteger(pid) || pid <= 0) return;
+        try {
+          process.kill(-pid, "SIGKILL");
+        } catch (error) {
+          if (error.code !== "ESRCH") {
+            try {
+              process.kill(pid, "SIGKILL");
+            } catch {
+              // The child already exited; nothing to clean up.
+            }
+          }
+        }
+      } catch (error) {
+        if (error.code !== "ENOENT") throw error;
+      } finally {
+        await rm(pidRoot, { recursive: true, force: true });
+      }
+    });
+    const assertGone = (pid) => {
+      assert.throws(() => process.kill(pid, 0), /ESRCH|no such process/i);
+    };
+    const outcome = async (search) => {
+      const started = Date.now();
+      try {
+        return { result: await search, elapsed: Date.now() - started };
+      } catch (error) {
+        return { error, elapsed: Date.now() - started };
+      }
+    };
+    const guard = (label) => {
+      let timer;
+      const promise = new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error(`${label} native child survived SIGTERM`)), 8000);
+      });
+      return { promise, cancel: () => clearTimeout(timer) };
+    };
+
+    const abort = new AbortController();
+    const aborted = runDiskSearch("find", { pattern: "*.txt" }, { cwd: f.root, signal: abort.signal });
+    const abortedPid = await readPid();
+    abort.abort();
+    const abortGuard = guard("aborted");
+    const abortOutcome = await Promise.race([outcome(aborted), abortGuard.promise]);
+    abortGuard.cancel();
+    assert.match(String(abortOutcome.error?.message), /aborted/);
+    assert.ok(abortOutcome.elapsed >= 1800, `abort waited ${abortOutcome.elapsed}ms for SIGKILL`);
+    assertGone(abortedPid);
+    await rm(pidFile, { force: true });
+
+    const timeoutGuard = guard("timed out");
+    const timeoutOutcome = await Promise.race([
+      outcome(runDiskSearch("find", { pattern: "*.txt" }, { cwd: f.root, timeoutMs: 100 })),
+      timeoutGuard.promise
+    ]);
+    timeoutGuard.cancel();
+    assert.match(String(timeoutOutcome.error?.message), /timed out/);
+    assert.ok(timeoutOutcome.elapsed >= 1800, `timeout waited ${timeoutOutcome.elapsed}ms for SIGKILL`);
+    assertGone(await readPid());
+    await rm(pidFile, { force: true });
+
+    const limitGuard = guard("limit-stopped");
+    const limitOutcome = await Promise.race([
+      outcome(runDiskSearch("find", { pattern: "*.txt", limit: 1 }, { cwd: f.root, timeoutMs: 10_000 })),
+      limitGuard.promise
+    ]);
+    limitGuard.cancel();
+    assert.equal(limitOutcome.error, undefined);
+    assert.equal(limitOutcome.result.limitReached, true);
+    assert.ok(limitOutcome.elapsed >= 1800, `limit stop waited ${limitOutcome.elapsed}ms for SIGKILL`);
+    assertGone(await readPid());
+    await rm(pidFile, { force: true });
+  }
+);
+
+test(
+  "disk search reports an fd skip-scan failure instead of an empty skip list",
+  { skip: !portable || process.getuid?.() === 0 },
+  async (t) => {
+    const root = await mkdtemp(join(tmpdir(), "formicand-file-search-"));
+    const bin = join(root, "scan-failure-bin");
+    const locked = join(root, "locked");
+    await mkdir(bin, { recursive: true });
+    await mkdir(locked);
+    await writeFile(join(locked, "inside.txt"), "Hello\n");
+    await writeFile(
+      join(bin, "fd"),
+      `#!/bin/sh\nprintf '%s\\0' ${shellQuote(join(locked, "inside.txt"))}\n`,
+      { mode: 0o755 }
+    );
+    await writeFile(join(bin, "rg"), "#!/bin/sh\nexit 1\n", { mode: 0o755 });
+    setTestPath(t, bin);
+    t.after(async () => {
+      await chmod(locked, 0o755).catch(() => {});
+      await rm(root, { recursive: true, force: true });
+    });
+    await chmod(locked, 0o000);
+    await assert.rejects(runDiskSearch("grep", { pattern: "Hello", literal: true }, { cwd: root }), (error) =>
+      /EACCES|permission denied/i.test(String(error.message))
+    );
+  }
+);

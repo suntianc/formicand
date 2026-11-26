@@ -104,5 +104,8 @@
   "overrides": {
     "image-size": "2.0.4"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "optionalDependencies": {
+    "@ff-labs/fff-node": "0.11.0"
+  }
 }

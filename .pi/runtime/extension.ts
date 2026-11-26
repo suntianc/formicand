@@ -115,6 +115,7 @@ export default async function registerFormicandExtension(pi: ExtensionAPI) {
   const role = process.env.FORMICAND_AGENT_ROLE;
   if (role === "executor" || role === "reviewer") {
     registerSessionHistoryTools(pi);
+    if (role === "reviewer") registerSearchTools(pi, process.cwd());
     await registerSubagentAgent(pi, role);
     return;
   }
