@@ -250,8 +250,8 @@ test("opening a PDF reads the bound backend's file through its authorized sessio
     selected: "shared-task",
     detail: { artifacts: [artifact] },
     artifactDrawerOpen: true,
-    previewPath: artifact.relativePath,
-    openFiles: [artifact.relativePath],
+    drawerTab: `attachment:${artifact.relativePath}`,
+    openFiles: [`attachment:${artifact.relativePath}`],
     artifactCache: new Map([
       [artifact.relativePath, { status: "ready", signature: artifactVersion(artifact), previewKind: "pdf" }]
     ])

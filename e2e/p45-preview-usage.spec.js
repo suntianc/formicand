@@ -95,25 +95,40 @@ test("usage stays folded until asked, and diff and attachments preview inside th
     await expect(drawer).toBeVisible();
     const diffTab = drawer.locator('[data-drawer-tab="diff"]');
     await expect(diffTab).toHaveAttribute("aria-selected", "true");
-    const lines = drawer.locator(".drawer-lines");
-    await expect(lines.locator(".drawer-diff-file")).toHaveCount(2);
-    await expect(lines).toContainText("notes.md");
-    await expect(lines).toContainText("summarize.sh");
-    await expect(lines).toContainText("#!/usr/bin/env bash");
-    await expect(drawer.locator(".drawer-line-number").first()).toHaveText("1");
+    // Only what was opened has a tab; the whole change lists its files beside one diff.
+    await expect(drawer.locator("[data-drawer-tab]")).toHaveCount(1);
+    await expect(drawer.locator(".drawer-change-file")).toHaveCount(2);
     await expect(drawer.locator(".artifact-drawer-title")).toContainText("改动");
+    await drawer.locator('[data-change-select="summarize.sh"]').click();
+    await expect(drawer.locator('[data-change-select="summarize.sh"]')).toHaveAttribute(
+      "aria-current",
+      "true"
+    );
+    await expect(drawer.locator(".drawer-change-main .drawer-lines")).toContainText("#!/usr/bin/env bash");
+    await expect(drawer.locator(".drawer-change-main .drawer-lines")).not.toContainText("notes");
+    await expect(drawer.locator(".drawer-line-number").first()).toHaveText("1");
 
-    // The same change can be read one file at a time.
-    await drawer.locator('[data-drawer-tab="file"]').click();
-    await expect(drawer.locator('[data-drawer-tab="file"]')).toHaveAttribute("aria-selected", "true");
-    await drawer.getByRole("button", { name: "summarize.sh" }).click();
-    // The 文件 tab shows the file as committed, not its patch.
+    // A file row of the panel opens that file on its own diff, in its own tab.
+    await panel.locator('[data-open-file="summarize.sh"]').click();
+    const fileTab = drawer.locator('[data-drawer-tab="change:summarize.sh"]');
+    await expect(fileTab).toHaveAttribute("aria-selected", "true");
+    await expect(drawer.locator("[data-drawer-tab]")).toHaveCount(2);
+    await expect(drawer.locator('[data-change-view="diff"]')).toHaveAttribute("aria-pressed", "true");
+    await expect(drawer.locator(".drawer-line").first()).toBeVisible();
+    // 内容 shows the file as committed, not its patch.
+    await drawer.locator('[data-change-view="content"]').click();
     await expect(drawer.locator(".drawer-file-line")).toHaveCount(2);
     await expect(drawer.locator(".drawer-file-line").first()).toContainText("#!/usr/bin/env bash");
     await expect(drawer.locator(".drawer-line")).toHaveCount(0);
+    // Opening the same file again selects its tab instead of adding another.
+    await diffTab.click();
+    await panel.locator('[data-open-file="summarize.sh"]').click();
+    await expect(fileTab).toHaveAttribute("aria-selected", "true");
+    await expect(drawer.locator("[data-drawer-tab]")).toHaveCount(2);
 
-    // The attachment tab previews the file and downloads the original bytes.
-    await drawer.locator('[data-drawer-file="验收记录.md"]').click();
+    // An attachment gets a tab only once it is opened.
+    await expect(drawer.locator('[data-drawer-file="验收记录.md"]')).toHaveCount(0);
+    await panel.locator('[data-artifact="验收记录.md"]').click();
     await expect(drawer.locator('[data-drawer-file="验收记录.md"]')).toHaveAttribute("aria-selected", "true");
     await expect(drawer.locator(".drawer-content")).toContainText("三条完成标准通过。");
     await expect(drawer.getByRole("link", { name: "下载", exact: true })).toBeVisible();
@@ -121,6 +136,11 @@ test("usage stays folded until asked, and diff and attachments preview inside th
     await drawer.getByRole("link", { name: "下载", exact: true }).click();
     const file = await download;
     expect(file.suggestedFilename()).toBe("验收记录.md");
+
+    // A tab closes on its own; the neighbour takes its place.
+    await drawer.getByRole("button", { name: "关闭 验收记录.md" }).click();
+    await expect(drawer.locator("[data-drawer-tab]")).toHaveCount(2);
+    await expect(fileTab).toHaveAttribute("aria-selected", "true");
 
     // Closing returns to the same conversation position and the trigger.
     await drawer.getByRole("button", { name: "关闭预览" }).click();
@@ -141,6 +161,49 @@ test("usage stays folded until asked, and diff and attachments preview inside th
     await expect(drawer).toBeVisible();
     await expect(drawer.locator('[data-drawer-file="验收记录.md"]')).toHaveAttribute("aria-selected", "true");
     await expect(drawer.locator(".drawer-content")).toContainText("验收记录");
+  } finally {
+    await dashboard.stop();
+  }
+});
+
+test("a changed image opens in the image viewer, from its row and from the whole change", async ({
+  page
+}) => {
+  const dashboard = await startDashboard({ defaultProject: false });
+  try {
+    const directory = join(dashboard.root, "project");
+    await mkdir(directory, { recursive: true });
+    const created = await page.request.post(`${dashboard.base}/api/projects`, {
+      data: { projectName: "图片改动", projectDirectory: directory }
+    });
+    expect(created.status()).toBeLessThan(300);
+    const project = (await created.json()).project;
+    await configureMerge(page, dashboard, project, directory);
+    const pixel = Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+      "base64"
+    );
+    const records = await seedRequirement(page, dashboard, project, {
+      phase: "review",
+      title: "图片改动",
+      files: { "logo.png": pixel }
+    });
+    await page.goto(`${dashboard.base}/?task=${encodeURIComponent(records.session.taskId)}`);
+    await page.locator("#output-pane-toggle").click();
+    const panel = page.locator("[data-requirement-panel]");
+    await panel.locator('[data-open-file="logo.png"]').click();
+    const viewer = page.locator(".attachment-preview");
+    await expect(viewer.locator("img")).toBeVisible();
+    await expect.poll(() => viewer.locator("img").evaluate((image) => image.naturalWidth)).toBe(1);
+    await expect(page.locator("#artifact-drawer")).toBeHidden();
+    await page.keyboard.press("Escape");
+    await expect(viewer).toBeHidden();
+
+    // In the whole change the image row opens the same viewer.
+    await panel.getByRole("button", { name: "查看 diff" }).click();
+    const drawer = page.locator("#artifact-drawer");
+    await drawer.locator('[data-change-select="logo.png"]').click();
+    await expect(viewer.locator("img")).toBeVisible();
   } finally {
     await dashboard.stop();
   }

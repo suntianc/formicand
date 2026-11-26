@@ -132,6 +132,7 @@ export function createComposerAttachments({
   }
   return {
     setDraft,
+    previewImage: attachmentPreview.openImage,
     clear: clearAttachments,
     get busy() {
       return readingAttachments;

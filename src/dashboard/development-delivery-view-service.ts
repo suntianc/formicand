@@ -3,6 +3,7 @@ import { reviewReport, type DevelopmentReview, type ReviewPlan } from "../domain
 import { type DevelopmentMerge } from "../domain/development-merge.js";
 import {
   type DeliveryDiff,
+  type DeliveryFileContent,
   type DeliveryPatch,
   type DeliveryPhase,
   type DeliveryRoleProgress,
@@ -14,7 +15,7 @@ import { ticketOfReview } from "../domain/development-ticket.js";
 import { developmentIdentifier, type DevelopmentRecord } from "../domain/project-development.js";
 import { ProjectDataNotFoundError } from "../domain/project-ledger.js";
 import type { ProjectDataGateway } from "../workspace/project-data-service.js";
-import { git } from "../workspace/development-workspace.js";
+import { git, gitFileBytes, gitFileSize } from "../workspace/development-workspace.js";
 import { createDevelopmentMergeService } from "./project-development-merge-service.js";
 import type { DevelopmentReadOptions, ProjectDevelopmentPorts } from "./project-development-service.js";
 import type { createDevelopmentWorkspaceService } from "./development-workspace-service.js";
@@ -22,8 +23,21 @@ import { ProjectFileMissing, resolveProjectFile } from "../workspace/project-fil
 import type { createDevelopmentReadinessService } from "./development-readiness-service.js";
 /** Longest patch text one preview reads; a larger change is cut and marked truncated. */
 const DELIVERY_PATCH_LIMIT = 200_000;
-/** Longest single file the preview renders as content; a larger file is read from its patch. */
+/** Longest text the preview renders of one file; a longer file shows its beginning. */
 const DELIVERY_FILE_LIMIT = 120_000;
+/** Largest file the preview reads at all; a larger one is shown through its patch only. */
+const DELIVERY_READ_LIMIT = 8 * 1024 * 1024;
+const IMAGE_TYPES: Record<string, string> = {
+  png: "image/png",
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  gif: "image/gif",
+  webp: "image/webp",
+  avif: "image/avif",
+  bmp: "image/bmp",
+  ico: "image/x-icon",
+  svg: "image/svg+xml"
+};
 
 export function createDevelopmentDeliveryViewService({
   ports,
@@ -331,6 +345,34 @@ export function createDevelopmentDeliveryViewService({
    * a file on the machine. A workspace this host no longer has reports that
    * instead of returning an empty patch that looks like "no changes".
    */
+  /** What one changed file holds at `head`; image bytes are read only when asked for that file. */
+  async function fileContent(
+    directory: string,
+    head: string,
+    path: string,
+    withImage: boolean
+  ): Promise<DeliveryFileContent> {
+    const size = await gitFileSize(directory, head, path);
+    if (size === undefined) return { path, kind: "deleted" };
+    const mimeType = IMAGE_TYPES[path.split(".").at(-1)?.toLowerCase() ?? ""];
+    if (size > DELIVERY_READ_LIMIT)
+      return mimeType ? { path, kind: "image", mimeType } : { path, kind: "large" };
+    if (mimeType) {
+      if (!withImage) return { path, kind: "image", mimeType };
+      const bytes = await gitFileBytes(directory, head, path, size);
+      return { path, kind: "image", mimeType, data: bytes.toString("base64") };
+    }
+    const bytes = await gitFileBytes(directory, head, path, size);
+    if (bytes.includes(0)) return { path, kind: "binary" };
+    const text = bytes.toString("utf8");
+    return {
+      path,
+      kind: "text",
+      content: text.length > DELIVERY_FILE_LIMIT ? text.slice(0, DELIVERY_FILE_LIMIT) : text,
+      truncated: text.length > DELIVERY_FILE_LIMIT
+    };
+  }
+
   async function deliveryPatch(
     projectId: string,
     input: { developmentId?: unknown; requirementId?: unknown; path?: unknown },
@@ -354,14 +396,9 @@ export function createDevelopmentDeliveryViewService({
       ...(path === undefined ? [] : ["--", path])
     ]);
     const truncated = raw.length > DELIVERY_PATCH_LIMIT;
-    const contents: Array<{ path: string; content: string }> = [];
-    for (const file of path === undefined ? diff.files : diff.files.filter((entry) => entry.path === path)) {
-      const text = await git(workspace.directory, ["show", `${diff.head}:${file.path}`])
-        // eslint-disable-next-line no-restricted-syntax -- 该提交里读不到这个文件（例如二进制或被删除）时省略它的正文，diff 本身仍然完整
-        .catch(() => undefined);
-      if (text === undefined || text.includes("\0") || text.length > DELIVERY_FILE_LIMIT) continue;
-      contents.push({ path: file.path, content: text });
-    }
+    const contents: DeliveryFileContent[] = [];
+    for (const file of path === undefined ? diff.files : diff.files.filter((entry) => entry.path === path))
+      contents.push(await fileContent(workspace.directory, diff.head, file.path, path !== undefined));
     return {
       ...diff,
       ...(path === undefined ? {} : { path }),

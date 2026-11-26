@@ -32,10 +32,8 @@ export function createWorkSessions({
     document.body.classList.remove("sidebar-mobile-open");
     state.selected = taskId;
     state.composingNew = false;
-    state.previewPath = null;
     state.drawerTab = null;
     state.drawerFile = null;
-    state.drawerDiff = null;
     state.artifactDrawerOpen = false;
     state.openFiles = [];
     state.artifactCache.clear();
@@ -74,10 +72,8 @@ export function createWorkSessions({
     resetRunControl();
     composerModel.beginNew();
     state.localMessages = [];
-    state.previewPath = null;
     state.drawerTab = null;
     state.drawerFile = null;
-    state.drawerDiff = null;
     state.artifactDrawerOpen = false;
     state.openFiles = [];
     state.artifactCache.clear();
@@ -190,7 +186,6 @@ export function createWorkSessions({
     state.composingNew = false;
     state.detail = { task, messages: [] };
     state.localMessages = [];
-    state.previewPath = null;
     state.artifactDrawerOpen = false;
     state.openFiles = [];
     state.artifactCache.clear();

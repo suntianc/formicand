@@ -103,6 +103,37 @@ export function installAttachmentPreview({ api, mediaUrl } = {}) {
         body.innerHTML = `<p class="attachment-preview-message" role="alert">${esc(error.message)}。可下载原文件查看。</p>`;
     }
   }
+  /**
+   * Shows an image that is not an upload: a session file, a project file or
+   * one file of a change. `source` is a backend path read through the bound
+   * backend, or a data URL that already holds the bytes.
+   */
+  function openImage({ name, source, download }) {
+    request?.abort();
+    const current = ++sequence;
+    previewId = undefined;
+    pages.hidden = true;
+    panel.querySelector("#attachment-preview-title").textContent = name;
+    const link = panel.querySelector("[data-preview-download]");
+    link.href = download || source;
+    link.download = name;
+    panel.dataset.kind = "image";
+    const inline = source.startsWith("data:") || !mediaUrl;
+    body.innerHTML = inline
+      ? `<img src="${esc(source)}" alt="${esc(name)}" draggable="false" />`
+      : `<img alt="${esc(name)}" draggable="false" />`;
+    viewer.reset();
+    modal.open();
+    if (inline) return;
+    void mediaUrl(source)
+      .then((href) => {
+        if (current !== sequence) return;
+        const image = body.querySelector("img");
+        if (image) image.src = href;
+      })
+      // eslint-disable-next-line no-restricted-syntax -- when the image bytes cannot be read the preview keeps its name and download link
+      .catch(() => undefined);
+  }
   // The whole attachment chip opens it, not only its name; its remove key
   // stays a remove key. The name remains the button keyboards reach.
   document.addEventListener("click", (event) => {
@@ -115,7 +146,7 @@ export function installAttachmentPreview({ api, mediaUrl } = {}) {
     if (button && /^upload-[a-f0-9-]{36}$/.test(button.dataset.uploadPreview))
       void open(button.dataset.uploadPreview);
   });
-  return { close: modal.close };
+  return { close: modal.close, openImage };
 }
 
 const MIN_SCALE = 0.25;
