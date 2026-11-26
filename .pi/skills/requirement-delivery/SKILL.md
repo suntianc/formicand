@@ -13,11 +13,10 @@ The method itself lives in the skills `task-routing` names (`grill-with-docs`, `
 
 ## Choosing the route
 
-- `quick`: a small, clear change you can make and check yourself in a few files. No tickets and no independent review; your own checks gate the merge. Most fixes and small features belong here.
-- `direct`: one coherent change worth an independent Executor and Reviewer, because it touches behaviour others rely on or you cannot fully check it yourself.
-- `full`: several parts that can be built and accepted separately, or an approach that needs agreeing first. The spec goes into the requirement and splits into tickets; once every ticket is in, an independent final review looks at the whole requirement.
+- `quick`, the default: you make the change in the checkout and check it, then record `review_plan` with `self` and your checks. The program refuses `self` when the change touches a path in the project's `AGENTS.md` independent-review table, or more files than one person can check; then record `independent` and `freeze_candidate`, and an independent Reviewer looks at it. Record `independent` yourself when you cannot fully check the change. A change of documents only is quick.
+- `full`: only when the user wants parts accepted one by one, or the work splits into parts that can each be built and accepted alone. The spec goes into the requirement and splits into tickets the user confirms; once every ticket is in, an independent final review looks at the whole requirement.
 
-Pick the smallest route that keeps the result trustworthy. A route is cheaper to raise later than to carry unused.
+When the target branch moves on, a quick change merges it in its checkout and checks again; on `full`, `sync_target` merges it in without a ticket.
 
 ## Writing acceptance criteria
 

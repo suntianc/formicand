@@ -15,7 +15,7 @@ import {
  * only the backend that created the checkout reports that directory. Delivery
  * is recorded by later tickets; this record stays `active` until then.
  */
-export type DevelopmentRoute = "quick" | "direct" | "full";
+export type DevelopmentRoute = "quick" | "full";
 /**
  * `active` while the work goes on; `merged` once its merge was delivered;
  * `withdrawn` when Main stops it. A requirement has at most one active
@@ -24,7 +24,7 @@ export type DevelopmentRoute = "quick" | "direct" | "full";
 export type DevelopmentStatus = "active" | "merged" | "withdrawn";
 export type DevelopmentWorkspaceState = "ready" | "failed";
 
-export const DEVELOPMENT_ROUTES: readonly DevelopmentRoute[] = ["quick", "direct", "full"];
+export const DEVELOPMENT_ROUTES: readonly DevelopmentRoute[] = ["quick", "full"];
 export const DEVELOPMENT_STATUSES: readonly DevelopmentStatus[] = ["active", "merged", "withdrawn"];
 export const DEVELOPMENT_WORKSPACE_STATES: readonly DevelopmentWorkspaceState[] = ["ready", "failed"];
 

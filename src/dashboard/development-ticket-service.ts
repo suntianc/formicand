@@ -2,7 +2,6 @@ import { conflict } from "./development-errors.js";
 import { chainOf, checkRound } from "./development-review-rounds.js";
 import { mergeCheckCommands } from "../domain/development-merge.js";
 import {
-  outsideScope,
   ticketBrief,
   ticketIdentifier,
   type DevelopmentTicket,
@@ -13,7 +12,7 @@ import {
 import { type DevelopmentRecord } from "../domain/project-development.js";
 import { now } from "../domain/types.js";
 import type { ProjectDataGateway } from "../workspace/project-data-service.js";
-import { git, gitPaths } from "../workspace/development-workspace.js";
+import { git, gitPaths, gitProbe, onlyTargetMergedSince } from "../workspace/development-workspace.js";
 import { runMergeChecks } from "../workspace/project-merge.js";
 import type { ProjectDevelopmentPorts } from "./project-development-service.js";
 import type { createDevelopmentWorkspaceService } from "./development-workspace-service.js";
@@ -27,6 +26,7 @@ export function createDevelopmentTicketService({
   integrating,
   inspectWorkspace,
   taskProject,
+  requiredMergeConfig,
   ports
 }: {
   gateway: () => Promise<ProjectDataGateway>;
@@ -34,9 +34,10 @@ export function createDevelopmentTicketService({
   integrating: ReturnType<typeof createDevelopmentWorkspaceService>["integrating"];
   inspectWorkspace: ReturnType<typeof createDevelopmentWorkspaceService>["inspectWorkspace"];
   taskProject: ReturnType<typeof createDevelopmentWorkspaceService>["taskProject"];
+  requiredMergeConfig: ReturnType<typeof createDevelopmentWorkspaceService>["requiredMergeConfig"];
   ports: Pick<ProjectDevelopmentPorts, "backendId">;
 }) {
-  /** Whether a development is split into tickets: the direct and full routes. */
+  /** Whether a development is split into tickets: the full route. */
   function ticketRoute(record: DevelopmentRecord): boolean {
     return record.route !== "quick";
   }
@@ -79,26 +80,79 @@ export function createDevelopmentTicketService({
       .at(-1);
   }
 
-  async function ticketChangedPaths(
-    directory: string,
-    integration: string,
-    candidate: string,
-    ticket: DevelopmentTicket
-  ) {
+  /** The target branch's tip as `repository` sees it, or undefined when it has no such branch. */
+  async function targetTip(projectId: string, repository: string) {
+    const { targetBranch } = await requiredMergeConfig(projectId);
+    return gitProbe(repository, ["rev-parse", "--verify", "--quiet", `refs/heads/${targetBranch}`]);
+  }
+
+  /**
+   * Whether `commit` is the version the program last integrated, or that
+   * version with only the target branch merged in by sync_target.
+   */
+  async function fromIntegration(projectId: string, repository: string, integration: string, commit: string) {
+    if (integration === commit) return true;
+    const target = await targetTip(projectId, repository);
+    return target !== undefined && (await onlyTargetMergedSince(repository, integration, commit, target));
+  }
+
+  /**
+   * Merge the target branch's new commits into a ticketed requirement's
+   * checkout, so the tickets after it and the final review build on them
+   * without a ticket of their own. Git must merge it cleanly; a conflict needs
+   * a person's judgment, so it goes back to Main as a fix ticket.
+   */
+  function syncTarget(projectId: string, input: Record<string, unknown>) {
+    return inDevelopment(projectId, input, async (record) => {
+      if (!ticketRoute(record))
+        throw conflict("quick 路线在需求现场里自己合并目标分支，再重新自查或送审", "sync_target_unneeded");
+      const directory = record.workspace!.directory;
+      const before = await inspectWorkspace(record);
+      if (before.changes) throw conflict("需求现场有未提交改动；先提交或清理", "review_candidate_dirty");
+      const { targetBranch } = await requiredMergeConfig(projectId);
+      const target = await targetTip(projectId, directory);
+      if (target === undefined)
+        throw conflict(`需求现场看不到目标分支 ${targetBranch}`, "sync_target_unavailable");
+      if ((await gitProbe(directory, ["merge-base", "--is-ancestor", target, before.commit])) !== undefined)
+        return {
+          synced: false,
+          developmentId: record.developmentId,
+          detail: `已包含 ${targetBranch} 的最新提交`
+        };
+      try {
+        await git(directory, [
+          "merge",
+          "--no-ff",
+          "-m",
+          `Merge ${targetBranch} into the requirement`,
+          target
+        ]);
+      } catch (error) {
+        const paths = await gitPaths(directory, ["diff", "--name-only", "--diff-filter=U"])
+          // eslint-disable-next-line no-restricted-syntax -- 冲突文件列表读不到时仍按合并失败处理，原始 git 错误随后报告
+          .catch(() => [] as string[]);
+        // eslint-disable-next-line no-restricted-syntax -- 合并已失败，可能没有可中止的合并；中止失败不改变下面的拒绝结果
+        await git(directory, ["merge", "--abort"]).catch(() => undefined);
+        throw conflict(
+          paths.length
+            ? `需求现场与 ${targetBranch} 冲突：${paths.join("、")}。提一张修复票，让 Executor 在它的现场合并 ${targetBranch} 并解决冲突`
+            : `无法把 ${targetBranch} 合并进需求现场：${error instanceof Error ? error.message : String(error)}`,
+          "sync_target_conflict"
+        );
+      }
+      const after = await inspectWorkspace(record);
+      return { synced: true, developmentId: record.developmentId, commit: after.commit, target };
+    });
+  }
+
+  /**
+   * The files a ticket's checkout changed since it forked. A file outside the
+   * ticket's scope is the Reviewer's question, not a refusal: the ticket may
+   * have needed it, and asking the user to widen the scope costs a card.
+   */
+  function ticketChangedPaths(directory: string, integration: string, candidate: string) {
     // A rename changes both paths. Ask Git for the deletion and addition separately.
-    const changed = await gitPaths(directory, [
-      "diff",
-      "--name-only",
-      "--no-renames",
-      `${integration}...${candidate}`
-    ]);
-    const outside = ticket.scope.length ? outsideScope(ticket.scope, changed) : [];
-    if (outside.length)
-      throw conflict(
-        `票 ${ticket.ticketId} 改动了范围以外的文件：${outside.slice(0, 20).join("、")}。让 Executor 撤回这些改动，或经用户确认用 revise_ticket 扩大范围`,
-        "ticket_scope_exceeded"
-      );
-    return changed;
+    return gitPaths(directory, ["diff", "--name-only", "--no-renames", `${integration}...${candidate}`]);
   }
 
   /**
@@ -201,7 +255,6 @@ export function createDevelopmentTicketService({
         }
       }
     }
-    await ticketChangedPaths(directory, before.commit, item.commit, ticket);
     const checks = [
       ...(input.checks === undefined ? [] : mergeCheckCommands(input.checks)),
       ...ticket.criteria.flatMap((criterion) =>
@@ -322,6 +375,8 @@ export function createDevelopmentTicketService({
 
   return {
     ticketRoute,
+    fromIntegration,
+    syncTarget,
     requireTicket,
     inspectDirectory,
     lastIntegration,

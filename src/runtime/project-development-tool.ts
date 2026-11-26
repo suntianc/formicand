@@ -63,7 +63,9 @@ const PATHS = (description: string) =>
 
 const TICKET_FIELDS = {
   title: { type: "string", minLength: 1, maxLength: 200 },
-  scope: PATHS("Relative paths or directories the ticket may change; required on the direct route."),
+  scope: PATHS(
+    "Relative paths or directories the ticket is meant to change; the Reviewer judges any file changed outside them."
+  ),
   criteria: {
     type: "array",
     minItems: 1,
@@ -129,6 +131,7 @@ export function createProjectDevelopmentTool(options: ProjectDevelopmentToolOpti
             "propose_tickets",
             "revise_ticket",
             "integrate_ticket",
+            "sync_target",
             ...REVIEW_ACTIONS,
             ...MERGE_ACTIONS,
             "delivery_status"
@@ -140,7 +143,8 @@ export function createProjectDevelopmentTool(options: ProjectDevelopmentToolOpti
         },
         developmentId: {
           ...ID,
-          description: "get/update/ensure_workspace/review/merge/delivery_status target."
+          description:
+            "get/update/ensure_workspace/sync_target/review/merge/delivery_status target. sync_target merges the target branch's new commits into a full route's requirement checkout, with no ticket of its own."
         },
         request: {
           type: "string",
@@ -162,8 +166,9 @@ export function createProjectDevelopmentTool(options: ProjectDevelopmentToolOpti
         },
         route: {
           type: "string",
-          enum: ["quick", "direct", "full"],
-          description: "The suggested path: quick, direct or full. A suggestion, not a quota."
+          enum: ["quick", "full"],
+          description:
+            "quick (the default: you make the change; your checks, or an independent review the program requires, gate the merge) or full (tickets the user confirms, each reviewed, then a final review)."
         },
         tickets: {
           type: "array",
@@ -183,7 +188,7 @@ export function createProjectDevelopmentTool(options: ProjectDevelopmentToolOpti
           minLength: 1,
           maxLength: 20,
           description:
-            "revise_ticket/integrate_ticket target. freeze_candidate: review this ticket's own checkout (direct and full routes); on full, without it once every ticket is in, the final review of the whole requirement."
+            "revise_ticket/integrate_ticket target. freeze_candidate: review this ticket's own checkout; without it once every ticket is in, the final review of the whole requirement."
         },
         changes: {
           type: "object",
@@ -205,7 +210,7 @@ export function createProjectDevelopmentTool(options: ProjectDevelopmentToolOpti
           type: "string",
           enum: ["self", "independent", "combined"],
           description:
-            "review_plan: self (Main verified a small change), independent, or combined for a final version. self checks bind to the current commit/tree; record them again after the checkout moves."
+            "review_plan: self (Main verified a small change), independent, or combined for a final version. self checks bind to the current commit/tree; record them again after the checkout moves. The program refuses self when the change touches a path in the project's AGENTS.md independent-review table or too many files; use independent then."
         },
         basis: {
           type: "string",
@@ -531,6 +536,7 @@ export function createProjectDevelopmentTool(options: ProjectDevelopmentToolOpti
     if (action === "tickets") return request({ action, developmentId: input.developmentId });
     if (action === "propose_tickets") return proposeTickets(request, input, confirm);
     if (action === "revise_ticket") return reviseTicket(request, input, confirm);
+    if (action === "sync_target") return request({ action, developmentId: input.developmentId });
     if (action === "integrate_ticket")
       return request({
         action,

@@ -36,6 +36,15 @@ export function registerProjectDevelopmentTool(pi: ExtensionAPI, context: Formic
           ])
         ]);
         const requestId = "human_" + createHash("sha256").update(identity).digest("hex");
+        // This card replaces any earlier open card for the same development's
+        // tickets; left open, a timed-out one would still offer a stale decision.
+        for (const open of await context.humanStore.list(context.taskId))
+          if (
+            open.requestId !== requestId &&
+            open.proposal?.kind === "tickets" &&
+            open.proposal.developmentId === proposal.developmentId
+          )
+            await context.humanStore.withdraw(context.taskId, open.requestId);
         const { settled } = await askHumanAndWait(
           context,
           {

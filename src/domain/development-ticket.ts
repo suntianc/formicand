@@ -56,7 +56,7 @@ export interface TicketChange {
 
 export interface TicketContent {
   title: string;
-  /** Paths the ticket may change; required on the direct route. */
+  /** Paths the ticket is meant to change; a change outside them is shown to the Reviewer. */
   scope: string[];
   criteria: TicketCriterion[];
   /** Nearby behaviour that must keep working. */
@@ -225,13 +225,8 @@ function content(value: unknown, base?: TicketContent): TicketContent {
 /** Route, dependency and size rules that hold for every stored set. */
 export function checkTicketSet(tickets: DevelopmentTicket[], route: DevelopmentRoute): void {
   if (route === "quick" && tickets.length)
-    throw new ProjectDataInvalidError("quick 路线不建票；需要票时先把路线改为 direct 或 full");
+    throw new ProjectDataInvalidError("quick 路线不建票；需要票时先把路线改为 full");
   if (tickets.length > MAX_TICKETS) throw new ProjectDataInvalidError(`一个需求最多 ${MAX_TICKETS} 张票`);
-  if (route === "direct") {
-    if (tickets.length > 1) throw new ProjectDataInvalidError("direct 路线只有一张票；需要多张票时改为 full");
-    if (tickets.some((ticket) => !ticket.scope.length))
-      throw new ProjectDataInvalidError("direct 路线的票必须写明改动范围");
-  }
   const byId = new Map(tickets.map((ticket) => [ticket.ticketId, ticket]));
   for (const ticket of tickets)
     for (const dependency of ticket.dependsOn) {
@@ -503,14 +498,6 @@ export function ticketOfReview(
   return tickets.find((ticket) => ticket.reviewIds.includes(reviewId));
 }
 
-/** Files outside the ticket's scope; a scope entry is a file or a directory. */
-export function outsideScope(scope: string[], files: string[]): string[] {
-  const entries = scope.map((entry) => entry.replace(/\/+$/, ""));
-  return files.filter(
-    (file) => !entries.some((entry) => entry === "." || file === entry || file.startsWith(`${entry}/`))
-  );
-}
-
 /**
  * What the Executor is told about its ticket, written by the program so Main
  * only adds the background. English, like every other model-facing text.
@@ -582,7 +569,12 @@ export function reviewBrief(input: {
   const body = input.ticket
     ? [
         `You review ticket ${input.ticket.ticketId}: ${input.ticket.title}. Part of the requirement: ${input.goal}`,
-        ...ticketDetails(input.ticket)
+        ...ticketDetails(input.ticket),
+        ...(input.ticket.scope.length
+          ? [
+              "A change outside these paths is not refused by the program: for each such file, judge whether the ticket needed it; one it did not need is a finding."
+            ]
+          : [])
       ]
     : !input.tickets.length
       ? [`You review this change.`, ...requirement]
@@ -701,7 +693,7 @@ export interface ReviewFact {
 
 /** The final review's freeze: Main maps the plan onto the integrated tree first. */
 const FINAL_FREEZE =
-  "Write the acceptance mapping, then freeze it for the final review of the whole requirement: freeze_candidate without ticketId and with mapping, one row per completion criterion or plan requirement with the test, command or file on this checkout that shows it holds; then delegate role=reviewer with that reviewId.";
+  "To build on the target branch's new commits, sync_target merges them in first, with no ticket. Write the acceptance mapping, then freeze it for the final review of the whole requirement: freeze_candidate without ticketId and with mapping, one row per completion criterion or plan requirement with the test, command or file on this checkout that shows it holds; then delegate role=reviewer with that reviewId.";
 
 /** How a fix ticket for a defect on the integrated tree is written, so it stands on its own. */
 const REPAIR_TICKET =
@@ -731,9 +723,7 @@ export function developmentNext(facts: NextStepFacts): string {
   if (!facts.workspaceReady) return "Run ensure_workspace to prepare the requirement checkout.";
   if (facts.route !== "quick") {
     if (!tickets.length)
-      return facts.route === "direct"
-        ? "Propose the ticket with propose_tickets (one ticket, with its scope) and wait for the user's confirmation."
-        : "Propose the tickets with propose_tickets and wait for the user's confirmation.";
+      return "Propose the tickets with propose_tickets and wait for the user's confirmation.";
     const drafts = tickets.filter((ticket) => ticket.state === "draft");
     if (drafts.length)
       return `Tickets ${ids(drafts)} are drafts the user has not confirmed. Revise them from the user's answer and propose_tickets again.`;
@@ -751,7 +741,8 @@ export function developmentNext(facts: NextStepFacts): string {
   if (review?.state === "failed" || review?.state === "drifted")
     return `${mergeNote}Review ${review.reviewId} ${review.state}: rule its blocking findings (fix, or dismiss with a basis), rework through the original Executor (continueCallId and reviewId), then freeze_candidate with previousReviewId.`;
   const reasons = qualification?.reasons ?? [];
-  const work = "Make the change in the checkout, run its checks, then record review_plan channel=self.";
+  const work =
+    "Make the change in the checkout, run its checks, then record review_plan channel=self; if the program refuses self, record channel=independent and freeze_candidate.";
   if (reasons.includes("review_plan_missing")) return `${mergeNote}${work}`;
   return `${mergeNote}Not yet qualified (${reasons.join(", ") || "unknown"}). ${work}`;
 }
@@ -836,6 +827,8 @@ function ticketSteps(facts: NextStepFacts): string {
       return `Final review ${final.reviewId} ${LIMIT} new_plan (propose new fix tickets on a different approach), or deliver_partial (dismiss what stays unfixed with category=deferred first).`;
     if (final.state === "failed" || final.state === "drifted")
       return `Final review ${final.reviewId} ${final.state}: rule its blocking findings. A defect becomes a new fix ticket (propose_tickets). ${REPAIR_TICKET} Once the fix tickets are integrated, freeze_candidate again with previousReviewId and a mapping rewritten for the new checkout.`;
+    if (final.state === "passed" && facts.qualification?.reasons.includes("candidate_changed"))
+      return `The requirement checkout moved after final review ${final.reviewId} passed: freeze_candidate again with previousReviewId and a mapping rewritten for the new checkout.`;
   }
   const reasons = facts.qualification?.reasons ?? [];
   return `Every ticket is in the requirement checkout, but it does not qualify yet (${reasons.join(", ") || "unknown"}).`;
