@@ -60,7 +60,17 @@ export function createModal(panel, closeButton, { onClose = () => {}, animateCar
       // Disabling a focused button can move focus to body, so the panel alone
       // cannot receive the next Tab or Escape. Listen while this dialog is open.
       document.addEventListener("keydown", keys, true);
-      controls()[0]?.focus();
+      // A text field takes focus first; without one, the primary action does,
+      // so Enter confirms instead of pressing the leading Cancel.
+      (
+        panel.querySelector("[autofocus]:not(:disabled)") ||
+        panel.querySelector(
+          'input:not(:disabled):not([type="hidden"]):not([type="checkbox"]):not([type="radio"]), textarea:not(:disabled)'
+        ) ||
+        panel.querySelector('.dialog-actions [type="submit"]:not(:disabled)') ||
+        panel.querySelector(".dialog-actions :is(.is-primary, .is-danger):not(:disabled)") ||
+        controls()[0]
+      )?.focus();
       // The backdrop fades in and the card rises a little as it grows to size.
       // Closing stays instant, so focus returns at once.
       animate(panel, [{ opacity: 0 }, { opacity: 1 }], { duration: 160, easing: "ease-out" });

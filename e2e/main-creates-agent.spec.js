@@ -64,7 +64,9 @@ test("Main drafts an Agent, the user confirms it on the card, and Main delegates
     const file = join(dashboard.env.FORMICAND_HOME, "agents", "db-migrator.md");
     expect(existsSync(file), "nothing is written before the user confirms").toBe(false);
 
-    await card.getByRole("button", { name: "确认创建" }).click();
+    // The card takes focus from the hidden composer, so Enter alone confirms it.
+    await expect(card.getByRole("button", { name: "确认创建" })).toBeFocused();
+    await page.keyboard.press("Enter");
     await expect(page.locator(".chat-message.main").last()).toContainText("AGENT_USED", { timeout: 60_000 });
     expect(await readFile(file, "utf8")).toContain("name: db-migrator");
   } finally {

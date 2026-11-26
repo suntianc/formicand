@@ -60,6 +60,27 @@ test("completion notices follow the selected backend across replay and recovery"
   assert.equal(sent[1].backendId, "backend-b");
 });
 
+test("failures and new questions are noticed once, like completions", async () => {
+  const { createTaskNotifications } = await import("../web/assets/controllers/task-notifications.js");
+  const sent = [];
+  const notices = createTaskNotifications({ notify: (notice) => sent.push(notice) });
+  const running = { taskId: "task-one", status: "running", title: "Report", updatedAt: "t0" };
+  notices.snapshot({ backendId: "backend-a", tasks: [running] });
+  const asking = { ...running, status: "waiting", pendingQuestion: true, updatedAt: "t1" };
+  notices.snapshot({ backendId: "backend-a", tasks: [asking] });
+  notices.snapshot({ backendId: "backend-a", tasks: [asking] });
+  const failed = { ...running, status: "failed", updatedAt: "t2" };
+  notices.snapshot({ backendId: "backend-a", tasks: [failed] });
+  notices.snapshot({ backendId: "backend-a", tasks: [{ ...failed, updatedAt: "t3" }] });
+  assert.deepEqual(
+    sent.map(({ title, taskId, completionId }) => [title, taskId, completionId]),
+    [
+      ["Main 有问题等你回答", "task-one", "question:t1"],
+      ["任务失败", "task-one", "failed:t2"]
+    ]
+  );
+});
+
 test("desktop suppresses repeated or foreign completion notices across window recreation", () => {
   const { createDesktopNotifications } = require("../desktop/notifications.cjs");
   let selected = "backend-a";
@@ -82,6 +103,9 @@ test("desktop suppresses repeated or foreign completion notices across window re
   assert.equal(notices.notify(notice), false);
   assert.equal(notices.notify({ ...notice, backendId: "backend-b" }), true);
   assert.equal(shown.length, 2);
+  // The shown notice keeps what a click needs to open its conversation.
+  assert.equal(shown[1].taskId, "task-one");
+  assert.equal(shown[1].backendId, "backend-b");
   selected = "backend-a";
   assert.equal(notices.notify(notice), false);
 });
