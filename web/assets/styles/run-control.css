@@ -131,12 +131,12 @@ html[data-theme] .run-control[data-state="waiting"] .run-control-dot {
 }
 .run-control .run-control-button.is-primary {
   padding: 3px 10px;
-  background: var(--color-warn);
-  color: #17130a;
+  background: var(--color-warn-soft);
+  color: var(--color-warn);
   font-weight: 600;
 }
 .run-control .run-control-button.is-primary:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--color-warn) 86%, #fff);
+  background: color-mix(in srgb, var(--color-warn) 18%, transparent);
 }
 .run-control-button[hidden] {
   display: none;
