@@ -199,6 +199,15 @@ test("completed tool batches are compact, keyboard accessible, and keep failures
       const segment = page.locator(".process-segment.is-live");
       await expect(segment.locator(":scope > summary")).toContainText("运行命令中");
       await expect(segment.locator(":scope > summary")).toContainText("1 次调用未成功");
+      // The failure count reads in the title's own size, not a smaller note.
+      const sizes = await segment
+        .locator(":scope > summary")
+        .evaluate((summary) =>
+          [summary.querySelector(".process-live-state"), summary.querySelector(".history-failures")].map(
+            (node) => getComputedStyle(node).fontSize
+          )
+        );
+      expect(sizes[1]).toBe(sizes[0]);
       await expect(segment).not.toHaveAttribute("open", "");
       await expect(segment.locator(".tool-step")).toHaveCount(0);
       await page.screenshot({ path: test.info().outputPath(`tool-group-${width}.png`) });

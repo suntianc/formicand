@@ -481,13 +481,14 @@ html[data-theme] .execution-history > summary strong {
   flex: 0 0 auto;
   font-weight: 500;
 }
+/* The failure count reads as part of the title: same size and colour. */
 html[data-theme] .execution-history > summary .history-failures,
 html[data-theme] .process-segment > summary .history-failures {
   order: 2;
   flex: 0 0 auto;
   margin: 0;
-  color: var(--color-text-3);
-  font-size: 12px;
+  color: inherit;
+  font-size: inherit;
   font-style: normal;
 }
 html[data-theme] .execution-history > summary .history-failures::before,
