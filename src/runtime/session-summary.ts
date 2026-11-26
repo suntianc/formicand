@@ -99,3 +99,38 @@ export async function writeHandoffSummary(
     );
   }
 }
+
+/** A model to ask for a summary, with the window its request must fit. */
+export interface SummaryModel {
+  complete: SummaryCompletion;
+  contextWindow: number;
+}
+
+/**
+ * Ask the utility model first and the session's own model if it fails.
+ *
+ * The request is cut to the smaller window so the same text fits either. A
+ * request the caller aborted is not repeated.
+ */
+export function withFallbackModel(first: SummaryModel | undefined, second: SummaryModel): SummaryModel {
+  if (!first) return second;
+  return {
+    contextWindow: Math.min(first.contextWindow, second.contextWindow),
+    complete: async (context, signal) => {
+      try {
+        const reply = await first.complete(context, signal);
+        const text = reply.content.some((block) => block.type === "text" && block.text.trim());
+        if (reply.stopReason !== "error" && reply.stopReason !== "aborted" && text) return reply;
+        if (signal.aborted) return reply;
+        console.warn("[Formicand] The utility model gave no reply; using the session's model");
+      } catch (error) {
+        if (signal.aborted) throw error;
+        console.warn(
+          "[Formicand] The utility model failed; using the session's model:",
+          error instanceof Error ? error.message : String(error)
+        );
+      }
+      return second.complete(context, signal);
+    }
+  };
+}

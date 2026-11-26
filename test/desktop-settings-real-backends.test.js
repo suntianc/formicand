@@ -33,6 +33,7 @@ async function setup() {
     FORMICAND_WORKSPACE: workspace,
     FORMICAND_CONFIG: config,
     FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
+    FORMICAND_DISABLE_SESSION_TITLES: "1",
     PI_OFFLINE: "1",
     PI_TELEMETRY: "0"
   };

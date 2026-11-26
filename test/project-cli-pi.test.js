@@ -116,6 +116,7 @@ test(
       FORMICAND_REASONING_EFFORT: "off",
       FORMICAND_SUPPORTS_REASONING_EFFORT: "0",
       FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
+      FORMICAND_DISABLE_SESSION_TITLES: "1",
       PI_CODING_AGENT_DIR: join(dashboard.root, "cli-pi"),
       PI_OFFLINE: "1"
     });

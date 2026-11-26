@@ -247,6 +247,7 @@ ${state === "confirmed" ? `- confirmed: ${operation} saved; evidence ${download.
         FORMICAND_SUPPORTS_REASONING_EFFORT: "0",
         FORMICAND_BROWSER_EXECUTABLE: chromium.executablePath(),
         FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
+        FORMICAND_DISABLE_SESSION_TITLES: "1",
         FORMICAND_WEB_TOOLS: "0",
         PI_CODING_AGENT_DIR: join(root, "pi"),
         PI_OFFLINE: "1"

@@ -49,6 +49,7 @@ console.log(JSON.stringify({
         FORMICAND_GLOBAL_INDEX: join(root, "global.json"),
         FORMICAND_CONFIG: configPath,
         FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
+        FORMICAND_DISABLE_SESSION_TITLES: "1",
         ...env
       }
     });

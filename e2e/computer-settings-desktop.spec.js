@@ -30,6 +30,7 @@ async function isolatedBackend(data, helper) {
     FORMICAND_API_TOKEN: "isolated-settings-fixture",
     FORMICAND_COMPUTER_USE_EXECUTABLE: helper,
     FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
+    FORMICAND_DISABLE_SESSION_TITLES: "1",
     PI_OFFLINE: "1"
   });
   await writeFile(process.env.FORMICAND_CONFIG, "{}\n");

@@ -131,6 +131,7 @@ function startBackend(f, provider) {
     FORMICAND_HARNESS_ROOT: harness,
     FORMICAND_WORKSPACE: f.workspace,
     FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
+    FORMICAND_DISABLE_SESSION_TITLES: "1",
     FORMICAND_API_BASE: provider.baseUrl,
     FORMICAND_API_KEY: "fixture-key",
     FORMICAND_MODEL: "p46-subagent-model",

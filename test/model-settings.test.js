@@ -164,9 +164,9 @@ test("models keep their own settings, and what a role uses cannot disappear", as
   assert.equal(f.config.model, "deep");
   assert.equal(resolveModelRole(f.config).thinkingLevel, "high");
 
-  await assert.rejects(f.settings.saveModels({ providerId: id, remove: ["deep"] }), /Agent 使用/);
-  await assert.rejects(f.settings.deleteProvider({ id }), /Agent 使用/);
-  await assert.rejects(f.settings.saveProvider({ id, enabled: false }), /Agent 使用/);
+  await assert.rejects(f.settings.saveModels({ providerId: id, remove: ["deep"] }), /正被使用/);
+  await assert.rejects(f.settings.deleteProvider({ id }), /正被使用/);
+  await assert.rejects(f.settings.saveProvider({ id, enabled: false }), /正被使用/);
   await f.settings.saveModels({ providerId: id, remove: ["fast"] });
   assert.deepEqual(
     f.settings.status().providers[0].models.map((model) => model.id),

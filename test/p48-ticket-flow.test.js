@@ -607,7 +607,7 @@ test(
       defaultProject: false,
       modelEndpoint: provider.baseUrl,
       model: "protocol-fixture",
-      env: { FORMICAND_DISABLE_MAIN_GUARDIAN: "1" }
+      env: { FORMICAND_DISABLE_MAIN_GUARDIAN: "1", FORMICAND_DISABLE_SESSION_TITLES: "1" }
     });
     t.after(() => dashboard.stop());
     const token = await servingToken(dashboard.root);

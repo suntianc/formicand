@@ -20,7 +20,8 @@ test("Electron editable context menu uses native clipboard editing and saves the
     FORMICAND_HOME: join(root, "home"),
     PI_CODING_AGENT_DIR: join(root, "pi"),
     PI_OFFLINE: "1",
-    FORMICAND_DISABLE_MAIN_GUARDIAN: "1"
+    FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
+    FORMICAND_DISABLE_SESSION_TITLES: "1"
   });
   let native;
   const errors = [];

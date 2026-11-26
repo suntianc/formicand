@@ -62,6 +62,7 @@ async function createRoot(prefix, extra = {}) {
     FORMICAND_GLOBAL_INDEX: join(home, "runtime", "workspaces.json"),
     FORMICAND_CONFIG: configPath,
     FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
+    FORMICAND_DISABLE_SESSION_TITLES: "1",
     FORMICAND_SUPERVISOR_INTERVAL_MS: "1000",
     ...extra
   });

@@ -124,6 +124,7 @@ async function fixture(t, handle, maxTurns = 20, env = {}) {
       FORMICAND_MODEL: "glm-5.3",
       PI_CODING_AGENT_DIR: join(root, "pi-agent"),
       FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
+      FORMICAND_DISABLE_SESSION_TITLES: "1",
       FORMICAND_WEB_TOOLS: "0",
       FORMICAND_MAIN_MAX_TURNS: String(maxTurns),
       ...env

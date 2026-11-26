@@ -25,6 +25,7 @@ async function fixture(t) {
     FORMICAND_HOME: user,
     FORMICAND_API_KEY: "private-cli-fixture-key",
     FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
+    FORMICAND_DISABLE_SESSION_TITLES: "1",
     PI_OFFLINE: "1",
     PI_TELEMETRY: "0"
   });

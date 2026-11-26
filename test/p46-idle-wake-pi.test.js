@@ -144,6 +144,7 @@ async function fixture(t, { handle, env = {} }) {
     FORMICAND_HARNESS_ROOT: harness,
     FORMICAND_WORKSPACE: workspace,
     FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
+    FORMICAND_DISABLE_SESSION_TITLES: "1",
     // The seam this file exists for: no OS directory event can wake anything.
     FORMICAND_DISABLE_FILE_WATCH: "1",
     FORMICAND_API_BASE: provider.baseUrl,

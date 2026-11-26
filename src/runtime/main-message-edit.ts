@@ -276,6 +276,31 @@ function userText(entry: SessionEntry): string | undefined {
           .join(""))
   );
 }
+/**
+ * The conversation's first user message and the reply that ended its first
+ * turn, or undefined while that turn has no reply.
+ */
+export async function firstMainExchange(
+  root: string,
+  taskId: string
+): Promise<{ user: string; assistant: string } | undefined> {
+  const { session } = await currentMainSession(root, taskId);
+  if (!session) return undefined;
+  let user: string | undefined;
+  let assistant = "";
+  for (const entry of session.getBranch()) {
+    const text = userText(entry);
+    if (text !== undefined) {
+      if (user !== undefined) break;
+      user = stripReferencesBlock(text).trim();
+      continue;
+    }
+    if (user === undefined || entry.type !== "message" || entry.message.role !== "assistant") continue;
+    const reply = entry.message.content.flatMap((part) => (part.type === "text" ? [part.text] : [])).join("");
+    if (reply.trim()) assistant = reply.trim();
+  }
+  return user && assistant ? { user, assistant } : undefined;
+}
 /** The Pi session the next Main run continues: the edited version, else the most recent file. */
 export async function currentMainSession(root: string, taskId: string) {
   const versions = await readMessageVersions(root, taskId);

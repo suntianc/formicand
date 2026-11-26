@@ -224,6 +224,7 @@ test(
       ...process.env,
       FORMICAND_DESKTOP_DATA: directory,
       FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
+      FORMICAND_DISABLE_SESSION_TITLES: "1",
       PI_OFFLINE: "1"
     };
     for (const name of [

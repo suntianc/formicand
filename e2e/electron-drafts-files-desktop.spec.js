@@ -25,7 +25,8 @@ test("desktop keeps drafts and selected file bytes with their backend", async ()
     FORMICAND_DESKTOP_DATA: profile,
     PI_OFFLINE: "1",
     PI_TELEMETRY: "0",
-    FORMICAND_DISABLE_MAIN_GUARDIAN: "1"
+    FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
+    FORMICAND_DISABLE_SESSION_TITLES: "1"
   };
   const otherEnv = {
     ...inherited,
@@ -37,7 +38,8 @@ test("desktop keeps drafts and selected file bytes with their backend", async ()
     FORMICAND_HARNESS_ROOT: resolve("."),
     FORMICAND_WORKSPACE: otherWorkspace,
     FORMICAND_CONFIG: join(root, "other-config.json"),
-    FORMICAND_DISABLE_MAIN_GUARDIAN: "1"
+    FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
+    FORMICAND_DISABLE_SESSION_TITLES: "1"
   };
   const { startBackend, stopBackend } = await import("../dist/src/cli/backend.js");
   await mkdir(env.HOME, { recursive: true });

@@ -12,6 +12,7 @@ import { mainIsAlive, readHeartbeat } from "../runtime/main-heartbeat.js";
 import { projectExecutionIsAlive } from "../workspace/project-execution.js";
 import { ProjectCatalogError } from "../workspace/project-catalog.js";
 import { roleCompletion } from "../runtime/model-connection.js";
+import { withFallbackModel, type SummaryModel } from "../runtime/session-summary.js";
 import { stripReferencesBlock } from "../runtime/composer-references.js";
 import { now, type TaskRecord } from "../domain/types.js";
 import { type RunServicePorts, type SerializeTask } from "./run-service-contracts.js";
@@ -32,6 +33,7 @@ export function createTaskRunControl({
   withTaskProjectLock,
   readJsonFile,
   resolveMainModel,
+  resolveUtilityModel,
   readWindowDevelopment,
   appendRunEvent,
   subagents,
@@ -55,6 +57,7 @@ export function createTaskRunControl({
   withTaskProjectLock: NonNullable<RunServicePorts["withTaskProjectLock"]>;
   readJsonFile: RunServicePorts["readJsonFile"];
   resolveMainModel: RunServicePorts["resolveMainModel"];
+  resolveUtilityModel: NonNullable<RunServicePorts["resolveUtilityModel"]>;
   readWindowDevelopment: RunServicePorts["readWindowDevelopment"];
   appendRunEvent: RunServicePorts["appendRunEvent"];
   subagents: RunServicePorts["subagents"];
@@ -66,6 +69,20 @@ export function createTaskRunControl({
   activeRunIds: Map<string, string>;
   prepareRunTransition: ReturnType<typeof createResidentMainSettlement>["prepareRunTransition"];
 }) {
+  /** The utility model for a summary; an unusable one leaves the summary to Main's. */
+  function utilitySummaryModel(): SummaryModel | undefined {
+    try {
+      const selection = resolveUtilityModel();
+      return (
+        selection && { complete: roleCompletion(selection), contextWindow: selection.profile.contextWindow }
+      );
+    } catch (error) {
+      console.warn(
+        "[Formicand] The utility model is unusable; using Main's:",
+        error instanceof Error ? error.message : String(error)
+      );
+    }
+  }
   /** `change` names what waits for the project to be idle, for the refusal. */
   function withIdleProjectTasks<T>(
     taskIds: string[],
@@ -202,7 +219,10 @@ export function createTaskRunControl({
               readWindowDevelopment && { readDevelopment: () => readWindowDevelopment(taskId) })
           },
           usage && file && usage.sessionFile === basename(file) ? usage.contextWindow : undefined,
-          { complete: roleCompletion(selection), contextWindow: selection.profile.contextWindow }
+          withFallbackModel(utilitySummaryModel(), {
+            complete: roleCompletion(selection),
+            contextWindow: selection.profile.contextWindow
+          })
         );
         return compacted ? { queued: false } : { error: "发送第一条消息后可换窗口。" };
       })

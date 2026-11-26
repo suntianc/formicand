@@ -1892,6 +1892,7 @@ test("selected bytes and artifacts stay with their authorized backend", { timeou
       FORMICAND_GLOBAL_INDEX: join(home, "runtime", "workspaces.json"),
       FORMICAND_CONFIG: config,
       FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
+      FORMICAND_DISABLE_SESSION_TITLES: "1",
       FORMICAND_API_BASE: model.baseUrl,
       FORMICAND_API_KEY: "local-fixture",
       FORMICAND_MODEL: "protocol-fixture",

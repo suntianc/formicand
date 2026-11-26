@@ -154,6 +154,7 @@ for (const globalPolicy of [false, true, "run-exit"])
           FORMICAND_MODEL: "computer-fixture",
           FORMICAND_SUPPORTS_IMAGES: "1",
           FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
+          FORMICAND_DISABLE_SESSION_TITLES: "1",
           FORMICAND_REASONING_EFFORT: "off",
           FORMICAND_SUPPORTS_REASONING_EFFORT: "0",
           PI_CODING_AGENT_DIR: join(root, "pi"),

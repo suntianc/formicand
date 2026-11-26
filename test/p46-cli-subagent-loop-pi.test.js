@@ -106,6 +106,7 @@ test(
           FORMICAND_TASK_ID: taskId,
           FORMICAND_RUN_ID: runId,
           FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
+          FORMICAND_DISABLE_SESSION_TITLES: "1",
           PI_CODING_AGENT_DIR: join(root, "pi"),
           PI_OFFLINE: "1"
         }

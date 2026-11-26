@@ -19,18 +19,48 @@ import {
   type HandoffScope,
   type WindowDetails
 } from "../../dist/src/runtime/session-handoff.js";
-import { writeHandoffSummary } from "../../dist/src/runtime/session-summary.js";
+import {
+  withFallbackModel,
+  writeHandoffSummary,
+  type SummaryModel
+} from "../../dist/src/runtime/session-summary.js";
+import { roleCompletion } from "../../dist/src/runtime/model-connection.js";
+import { resolveUtilityModel } from "../../dist/src/runtime/utility-model.js";
+import { loadConfig } from "./helpers.ts";
 
 const NOTICE_THRESHOLD = 0.75;
-/** The model's summary of the window being left, through the session's own model. */
+
+/**
+ * The host's utility model, read from the saved settings at each window
+ * change so a resident process follows a change without restarting.
+ */
+function utilityModel(): SummaryModel | undefined {
+  try {
+    const selection = resolveUtilityModel(loadConfig());
+    return (
+      selection && { complete: roleCompletion(selection), contextWindow: selection.profile.contextWindow }
+    );
+  } catch (error) {
+    console.warn(
+      "[Formicand] The utility model is unusable; using the session's model:",
+      error instanceof Error ? error.message : String(error)
+    );
+  }
+}
+
+/** The model's summary of the window being left: the utility model's, else the session's own. */
 function summarizeWindow(ctx: ExtensionContext, signal?: AbortSignal): Promise<string | undefined> {
   const model = ctx.model;
   if (!model) return Promise.resolve(undefined);
+  const summarizer = withFallbackModel(utilityModel(), {
+    contextWindow: ctx.getContextUsage()?.contextWindow ?? model.contextWindow,
+    complete: (context, abort) =>
+      ctx.modelRegistry.streamSimple(model, context, { signal: abort, cacheRetention: "none" }).result()
+  });
   return writeHandoffSummary(
     serializeConversation(convertToLlm(ctx.sessionManager.buildSessionProjection().messages)),
-    ctx.getContextUsage()?.contextWindow ?? model.contextWindow,
-    (context, abort) =>
-      ctx.modelRegistry.streamSimple(model, context, { signal: abort, cacheRetention: "none" }).result(),
+    summarizer.contextWindow,
+    summarizer.complete,
     signal
   );
 }

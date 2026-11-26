@@ -82,6 +82,7 @@ test("artifact open displays authorized bytes for each isolated backend", async 
         FORMICAND_WORKSPACE: join(base, "workspace"),
         FORMICAND_CONFIG: config,
         FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
+        FORMICAND_DISABLE_SESSION_TITLES: "1",
         PI_CODING_AGENT_DIR: join(base, "pi"),
         PI_OFFLINE: "1",
         PI_TELEMETRY: "0",

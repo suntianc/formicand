@@ -61,6 +61,7 @@ test(
       FORMICAND_API_KEY: "resume-fixture-key",
       FORMICAND_MODEL_API: "openai-completions",
       FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
+      FORMICAND_DISABLE_SESSION_TITLES: "1",
       PI_OFFLINE: "1",
       PI_TELEMETRY: "0"
     });

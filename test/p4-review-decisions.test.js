@@ -85,7 +85,11 @@ test(
     await mkdir(join(root, "project-b"), { recursive: true });
     const dashboard = await startDashboard({
       defaultProject: false,
-      env: { FORMICAND_PROJECT_WRITE: "1", FORMICAND_DISABLE_MAIN_GUARDIAN: "1" }
+      env: {
+        FORMICAND_PROJECT_WRITE: "1",
+        FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
+        FORMICAND_DISABLE_SESSION_TITLES: "1"
+      }
     });
     t.after(async () => {
       await dashboard.stop();
