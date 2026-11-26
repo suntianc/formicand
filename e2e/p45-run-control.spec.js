@@ -124,6 +124,11 @@ test("the run bar pauses at the step boundary and continues from that point", as
     await page.screenshot({ path: testInfo.outputPath("run-active-1440.png") });
 
     await bar.getByRole("button", { name: "暂停" }).click();
+    // Until the step ends the strip stays, saying it is pausing; stop still works.
+    await expect(bar).toHaveAttribute("data-state", "pausing");
+    await expect(bar.locator("[data-run-label]")).toHaveText("正在暂停");
+    await expect(bar.getByRole("button", { name: "暂停中" })).toBeDisabled();
+    await expect(bar.getByRole("button", { name: "停止" })).toBeVisible();
     // The paused round keeps the strip, amber, with 继续 as its one action.
     const paused = page.locator("#run-control[data-run-paused]");
     await expect(paused).toBeVisible({ timeout: 30_000 });
