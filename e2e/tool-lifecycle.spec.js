@@ -66,7 +66,7 @@ test("returned async tools retain real work status through progress, callbacks a
     // A running subagent row stays directly visible in L1, one line with no disclosure, while
     // ordinary tools fold into .process-segment.
     const agent = page.locator(".subagent-step");
-    await expect(page.locator(".subagent-group")).toContainText("派出 1 个子助手");
+    await expect(page.locator(".subagent-group > .subagent-step")).toHaveCount(1);
     await expect(agent.locator(".subagent-status")).toHaveText("运行中");
     await expect(agent.locator(".ant-mark")).toHaveCount(0);
     await expect(agent.locator(".tool-status-dot")).toHaveCount(1);

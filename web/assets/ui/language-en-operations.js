@@ -78,8 +78,6 @@ export default {
   " 个在工作": " working",
   "Main 在问你": "Main is asking you",
   模型重连中: "Reconnecting to the model",
-  "派出 ": "Sent out ",
-  " 个子助手": " Subagents",
   子助手运行中: "Subagent running",
   " 个子助手运行中": " Subagents running",
   子助手: "Subagent",

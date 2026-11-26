@@ -734,7 +734,11 @@ test("tool rows show delegation purpose and avoid repeating an already visible s
   assert.equal(document.querySelectorAll(".tool-step").length, 1);
   assert.equal(document.querySelector(".tool-step .tool-context"), null);
   const group = document.querySelector(".subagent-group");
-  assert.match(group.querySelector(".activity-step-head").textContent, /派出 1 个子助手/);
+  assert.deepEqual(
+    [...group.children].map((node) => node.className),
+    ["subagent-step is-done"],
+    "the row is the whole group, with no dispatch header above it"
+  );
   const agent = group.querySelector(".subagent-step > .activity-step-head");
   assert.equal(agent.querySelector("strong").textContent, "Ara");
   assert.equal(agent.querySelector(".subagent-role-tag").textContent, "执行");
@@ -765,6 +769,30 @@ test("a delegate row wears its genus's ant once the agent is known", () => {
     row.querySelector(".agent-avatar").getAttribute("style"),
     /ant-02-light\.webp.*ant-02-dark\.webp/
   );
+});
+
+test("a delegate row waits for its dispatch to return and then appears whole", () => {
+  const { document, state, render } = fixture("delegate-pending", "");
+  state.detail.runtimeEvents.push(
+    update("toolcall_end", 1, {
+      toolCall: { id: "dispatch", name: "call_subagent", arguments: { role: "reviewer", task: "复审返修" } }
+    }),
+    { type: "tool_execution_start", toolCallId: "dispatch", toolName: "call_subagent" }
+  );
+  render();
+  assert.equal(document.querySelector(".subagent-group"), null);
+  assert.ok(document.querySelector(".thinking-spinner"), "Main still reads as working meanwhile");
+  state.detail.runtimeEvents.push({
+    type: "tool_execution_end",
+    toolCallId: "dispatch",
+    result: { details: { accepted: true, callId: "call-one", agentId: "subagent_2", name: "Lasius" } }
+  });
+  render();
+  const head = document.querySelector(".subagent-group > .subagent-step > .activity-step-head");
+  assert.ok(head.querySelector(".agent-avatar"));
+  assert.equal(head.querySelector("strong").textContent, "Lasius");
+  assert.equal(head.querySelector(".subagent-role-tag").textContent, "审查");
+  assert.equal(head.querySelector(".tool-subject").textContent, "复审返修");
 });
 
 test("all tool diagnostic sections retain independent reading positions through updates and collapse", () => {
@@ -1432,7 +1460,10 @@ test("a finished round folds into a top 用时 summary without a bottom endline 
     "读取了 1 个文件 · 运行了 1 条命令"
   );
   assert.equal(document.querySelector(".process-segment .tool-step"), null);
-  assert.match(document.querySelector(".subagent-group").textContent, /派出 2 个子助手/);
+  assert.deepEqual(
+    [...document.querySelectorAll(".subagent-step strong")].map((node) => node.textContent),
+    ["Apus", "Pavo"]
+  );
   // Expand L1 process segment -> L2 mounts individual tool rows.
   expandDetails(document, ".process-segment", render, [user, answer]);
   assert.equal(document.querySelectorAll(".process-segment .tool-step").length, 2);

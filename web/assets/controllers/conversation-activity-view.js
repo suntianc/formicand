@@ -226,6 +226,15 @@ export function createConversationActivityView({
     // is still catching up with the final stream.
     const activity = [];
     for (const item of visibleItems) {
+      // A Subagent row shows up whole: the dispatch result names who took the
+      // task, so until it returns Main's own row keeps saying it is working.
+      if (
+        item.type === "tool" &&
+        item.call.name === "call_subagent" &&
+        !item.call.completed &&
+        presentations.get(item.call).status === "running"
+      )
+        continue;
       const previous = activity.at(-1);
       if (item.type === "answer" && previous?.type === "answer" && previous.messageKey === item.messageKey)
         previous.text += item.text;
@@ -498,7 +507,7 @@ export function createConversationActivityView({
       const mark = agentAvatar(agent.agentId) || '<span class="tool-status-dot" aria-hidden="true"></span>';
       return `<div class="subagent-step is-${finished ? "done" : status === "failed" ? "failed" : running ? "running" : "waiting"}" data-view-key="${esc(item.key)}"><div class="activity-step-head">${mark}<span class="tool-action"><strong>${esc(agent.name)}</strong><span class="subagent-role-tag">${esc(agent.role)}</span>${agent.task ? `<span class="tool-subject" title="${esc(agent.task)}">${esc(agent.task)}</span>` : ""}</span><span class="subagent-status">${esc(statusText)}</span></div></div>`;
     });
-    return `<div class="activity-step subagent-group" data-view-key="${esc(group.key)}"><div class="activity-step-content"><div class="activity-step-head"><span class="tool-status-dot" aria-hidden="true"></span><strong>${esc(ui`派出 ${group.items.length} 个子助手`)}</strong></div><div class="subagent-nest">${rows.join("")}</div></div></div>`;
+    return `<div class="activity-step subagent-group" data-view-key="${esc(group.key)}">${rows.join("")}</div>`;
   }
 
   function renderReasoningStep(reasoning, turn, key) {

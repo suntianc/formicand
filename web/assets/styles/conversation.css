@@ -635,8 +635,8 @@ html[data-theme] .context-window-divider::after {
   border-top: 1px dashed var(--color-line);
 }
 
-/* Subagents a step sent out: one row for the dispatch, then each Subagent
-   indented under it with its role, its task (its result once done) and state. */
+/* Subagents a step sent out: one row each with its avatar, name, role, task
+   and state. */
 html[data-theme] .subagent-group .activity-step-head,
 html[data-theme] .turn-stopped .activity-step-head {
   display: flex;
@@ -644,15 +644,11 @@ html[data-theme] .turn-stopped .activity-step-head {
   gap: 8px;
   min-height: 26px;
 }
-html[data-theme] :is(.subagent-group, .turn-stopped) .activity-step-head > strong {
+html[data-theme] .turn-stopped .activity-step-head > strong {
   color: var(--color-text-2);
   font-weight: 500;
 }
-html[data-theme]
-  :is(.subagent-group, .turn-stopped)
-  > .activity-step-content
-  > .activity-step-head
-  > .tool-status-dot,
+html[data-theme] .turn-stopped > .activity-step-content > .activity-step-head > .tool-status-dot,
 html[data-theme] .subagent-step .tool-status-dot {
   /* The legacy sheet pushes a head's spans to the right edge. */
   margin-left: 0;
@@ -662,7 +658,6 @@ html[data-theme] .subagent-step .tool-status-dot {
   border-radius: 0;
   background: radial-gradient(circle closest-side, var(--dot, var(--mark-idle)) 2.5px, transparent 3.2px);
 }
-html[data-theme] .subagent-group,
 html[data-theme] .subagent-step.is-running {
   --dot: var(--mark-batch);
 }
@@ -677,11 +672,6 @@ html[data-theme] .turn-stopped {
 }
 html[data-theme] .subagent-step.is-failed {
   --dot: var(--mark-failed);
-}
-html[data-theme] .subagent-nest {
-  margin-left: 7px;
-  padding-left: 14px;
-  border-left: 1px solid var(--color-line);
 }
 html[data-theme] .subagent-step .tool-action {
   display: flex;
