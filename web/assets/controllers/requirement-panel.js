@@ -1,7 +1,6 @@
 import { agentDisplayName } from "../agent-names.js";
 import { artifactRequestUrls, artifactVersion } from "../artifacts.js";
 import { requirementProgress, requirementTickets } from "../requirement-stages.js";
-import { formatRunDuration, runElapsed } from "../run-overview.js";
 import { fileIcon } from "../ui/file-icons.js";
 import { icon } from "../ui/icons.js";
 import { ui } from "../ui/language.js";
@@ -509,7 +508,6 @@ export function createRequirementPanel({
     return {
       available: Boolean(statistics),
       total: usage?.totalTokens ?? null,
-      elapsed: formatRunDuration(runElapsed(statistics)),
       split,
       roles,
       largest,
@@ -522,8 +520,8 @@ export function createRequirementPanel({
   }
 
   function usageText(model) {
-    const tokens = model.total === null ? ui("Token 未知") : `${compactTokens(model.total)} tokens`;
-    return `${model.elapsed} · ${tokens}`;
+    // Elapsed time belongs to the run bar, which counts it live.
+    return model.total === null ? ui("Token 未知") : `${compactTokens(model.total)} tokens`;
   }
 
   /** The usage row; opened, a card above it splits the tokens by kind and by role. */

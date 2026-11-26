@@ -55,7 +55,7 @@ test("usage stays folded until asked, and diff and attachments preview inside th
     await expect(panel.locator(".rp-usage[data-expanded='false']")).toHaveCount(1);
     await expect(panel.locator(".rp-role")).toHaveCount(0);
     await expect(panel.locator(".rp-usage-card")).toHaveCount(0);
-    await expect(toggle.locator(".rp-usage-value")).toHaveText(/\d\d:\d\d · 2\.98M tokens/);
+    await expect(toggle.locator(".rp-usage-value")).toHaveText("2.98M tokens");
 
     await toggle.click();
     await expect(toggle).toHaveAttribute("aria-expanded", "true");
