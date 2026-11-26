@@ -420,6 +420,7 @@ html[data-theme] .agent-pane {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.rp-ticket-after,
 .rp-ticket-state {
   flex: none;
   color: var(--color-text-3);
@@ -482,6 +483,14 @@ html[data-theme] .agent-pane {
 .rp-diff-file:hover .rp-file-name {
   color: var(--color-text);
   text-decoration: underline;
+}
+/* A read-only change (observation) lists its files without opening them. */
+.rp-diff-file.is-static {
+  cursor: default;
+}
+.rp-diff-file.is-static:hover .rp-file-name {
+  color: inherit;
+  text-decoration: none;
 }
 .rp-file {
   display: flex;

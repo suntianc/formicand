@@ -10,7 +10,11 @@ import { createModal } from "../ui/modal.js";
 import { formatStamp } from "../ui/time-format.js";
 import { createVisiblePoll } from "../ui/visible-poll.js";
 import { escapeHtml as esc } from "../ui/html.js";
-import { requirementDetailMarkup, shortCommit } from "./observe-requirement-detail.js";
+import {
+  requirementDetailMarkup,
+  requirementDetailShell,
+  shortCommit
+} from "./observe-requirement-detail.js";
 
 /**
  * The observation requirement view: every connected node's requirements in one
@@ -76,6 +80,10 @@ export function createObserveRequirements({
   let tab = "all";
   let query = "";
   let selected = null;
+  // The lists the reader unfolded in the open detail, and the body last drawn.
+  let unfolded = new Set();
+  let drawnDetail = "";
+  let drawnKey = null;
   let shown = PAGE_ROWS;
   let refreshTimer;
 
@@ -432,16 +440,33 @@ export function createObserveRequirements({
     detail.hidden = !row;
     if (!row) {
       detail.replaceChildren();
+      drawnDetail = "";
+      drawnKey = null;
       return;
     }
     if (!details.has(row.key)) void loadDetail(row);
     if (contexts.get(row.key)?.stamp !== contextStamp(row)) void loadContext(row);
-    detail.innerHTML = requirementDetailMarkup(row, contexts.get(row.key));
+    // The header stays and only the body is redrawn, and only when it changed,
+    // so a refresh keeps the reader's scroll position.
+    let content = detail.querySelector(".or-detail-body");
+    if (!content) {
+      detail.innerHTML = requirementDetailShell();
+      content = detail.querySelector(".or-detail-body");
+      drawnDetail = "";
+    }
+    const markup = requirementDetailMarkup(row, contexts.get(row.key), unfolded);
+    if (markup === drawnDetail) return;
+    drawnDetail = markup;
+    content.innerHTML = markup;
+    // Another requirement starts at its top.
+    if (drawnKey !== row.key) content.scrollTop = 0;
+    drawnKey = row.key;
   }
 
   /* ---------------------------------------------------------------- actions */
 
   function select(key) {
+    if (key !== selected) unfolded = new Set();
     selected = key;
     render();
     body.querySelector(`[data-observe-requirement="${CSS.escape(key)}"]`)?.focus();
@@ -593,14 +618,13 @@ export function createObserveRequirements({
       render();
       return;
     }
-    const review = event.target.closest("[data-observe-review]");
-    if (!review) return;
-    const list = detail.querySelector(".or-findings");
-    if (!list) return;
-    const expanded = review.getAttribute("aria-expanded") === "true";
-    review.setAttribute("aria-expanded", String(!expanded));
-    review.querySelector(".or-chevron")?.classList.toggle("is-open", !expanded);
-    list.hidden = expanded;
+    const fold = event.target.closest("[data-unfold]");
+    if (!fold) return;
+    const key = fold.dataset.unfold;
+    if (unfolded.has(key)) unfolded.delete(key);
+    else unfolded.add(key);
+    render();
+    detail.querySelector(`[data-unfold="${CSS.escape(key)}"]`)?.focus();
   };
   detail.addEventListener("click", onDetailClick);
 

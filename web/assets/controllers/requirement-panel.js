@@ -1,10 +1,20 @@
 import { agentDisplayName } from "../agent-names.js";
 import { artifactRequestUrls, artifactVersion } from "../artifacts.js";
-import { requirementProgress, requirementTickets } from "../requirement-stages.js";
+import { requirementProgress } from "../requirement-stages.js";
 import { fileIcon } from "../ui/file-icons.js";
 import { icon } from "../ui/icons.js";
 import { ui } from "../ui/language.js";
 import { playMotion } from "../ui/motion.js";
+import {
+  FLAT_LIMIT,
+  FOLDED_ROWS,
+  changesMarkup,
+  criteriaMarkup,
+  foldRow,
+  phaseMarkup,
+  shortCommit,
+  ticketsMarkup
+} from "./requirement-sections.js";
 import { escapeHtml as esc } from "../ui/html.js";
 
 const SOURCE_LABELS = { internal: "内部", external: "外部", legacy: "遗留" };
@@ -22,11 +32,6 @@ function compactTokens(value) {
   return String(tokens);
 }
 
-// A list longer than this shows its first few rows and folds the rest.
-const FLAT_LIMIT = 5;
-const FOLDED_ROWS = 3;
-
-const shortCommit = (commit) => (typeof commit === "string" ? commit.slice(0, 8) : "");
 const baseName = (path) =>
   String(path || "")
     .split("/")
@@ -229,141 +234,17 @@ export function createRequirementPanel({
     return values;
   }
 
-  /** A step's ring cut into one arc per ticket; finished tickets' arcs are green. */
-  function segmentRing({ done, total }) {
-    const radius = 8.25;
-    const circumference = 2 * Math.PI * radius;
-    const gap = total > 8 ? 1.2 : 2.4;
-    const length = circumference / total - gap;
-    const arcs = Array.from(
-      { length: total },
-      (_, index) =>
-        `<circle class="rp-arc${index < done ? " is-done" : ""}" cx="9" cy="9" r="${radius}" stroke-dasharray="${length.toFixed(
-          2
-        )} ${(circumference - length).toFixed(2)}" stroke-dashoffset="${(-(index * circumference) / total - gap / 2).toFixed(2)}"/>`
-    ).join("");
-    return `<svg class="rp-ring" viewBox="0 0 18 18" aria-hidden="true">${arcs}</svg>`;
-  }
-
-  /** The phase in words over a row of dots, one per step. */
-  function renderStepper(progress) {
-    const current = progress.steps.find((step) => step.state === "current" || step.state === "blocked");
-    const tone = progress.paused ? "paused" : progress.waiting ? "waiting" : (current?.state ?? "settled");
-    const meta = current?.meta ?? "";
-    const status = `<div class="rp-status" data-tone="${esc(tone)}"><span class="rp-status-dot" aria-hidden="true"></span><span class="rp-status-label">${esc(
-      ui(progress.label)
-    )}</span>${meta ? `<span class="rp-status-meta" title="${esc(meta)}">${esc(meta)}</span>` : ""}</div>`;
-    return `<div class="rp-phase">${status}<ol class="rp-stepper" data-stage="${esc(progress.stage)}"${
-      progress.paused ? ' data-paused="true"' : ""
-    } aria-label="${ui("需求阶段")}">${progress.steps
-      .map((step) => {
-        const ring = step.segments && step.state !== "done" ? segmentRing(step.segments) : "";
-        const node =
-          step.state === "done"
-            ? `<span class="rp-node">${icon("check")}</span>`
-            : step.state === "pending"
-              ? `<span class="rp-node is-pending${ring ? " is-segmented" : ""}">${ring}</span>`
-              : `<span class="rp-node is-current${ring ? " is-segmented" : ""}">${ring}<span class="rp-pulse"></span></span>`;
-        const active = step.state === "current" || step.state === "blocked";
-        const label = ui(step.label);
-        return `<li class="rp-step" data-step="${esc(step.id)}" data-state="${esc(step.state)}"${
-          active ? ' aria-current="step"' : ""
-        } title="${esc(
-          [label, step.segments ? ui`票 ${step.segments.done}/${step.segments.total}` : "", step.meta]
-            .filter(Boolean)
-            .join(" · ")
-        )}">${node}<span class="rp-step-label">${esc(
-          label
-        )}</span><span class="rp-step-meta">${esc(step.meta)}</span></li>`;
-      })
-      .join("")}</ol></div>`;
-  }
-
-  /** The row that unfolds the rest of a list. */
-  const foldRow = (key, label, hidden) => {
-    const open = unfolded.has(key);
-    return `<button type="button" class="rp-fold" data-unfold="${esc(key)}" aria-expanded="${open}">${icon(
-      open ? "chevron-up" : "chevron-down"
-    )}<span>${esc(open ? ui("收起") : label.replace("{count}", String(hidden)))}</span></button>`;
-  };
-
-  function renderCriteria(criteria) {
-    if (!criteria.length) return "";
-    const met = criteria.filter((entry) => entry.checked).length;
-    const long = criteria.length > FLAT_LIMIT;
-    const shown = long && !unfolded.has("criteria") ? criteria.slice(0, FLAT_LIMIT) : criteria;
-    return `<section class="rp-section"><div class="rp-section-head"><h3 class="rp-label">${ui(
-      "完成标准"
-    )}</h3><span class="rp-count is-end${met === criteria.length ? " is-done" : ""}">${met} / ${
-      criteria.length
-    }</span></div><ul class="rp-checks">${shown
-      .map(
-        (entry) =>
-          `<li class="rp-check" data-checked="${entry.checked}" title="${esc(entry.text)}">${icon(
-            "circle-check"
-          )}<span>${esc(entry.text)}</span></li>`
-      )
-      .join(
-        ""
-      )}</ul>${long ? foldRow("criteria", ui("其余 {count} 条"), criteria.length - FLAT_LIMIT) : ""}</section>`;
-  }
-
-  function renderTickets(view) {
-    const { rows, merged } = requirementTickets(view?.tickets);
-    if (!rows.length) return "";
-    return `<section class="rp-section"><h3 class="rp-label">${ui`票 ${merged}/${rows.length} 已并入`}</h3><ul class="rp-tickets">${rows
-      .map(
-        (ticket) =>
-          `<li class="rp-ticket" data-ticket-state="${esc(ticket.state)}"><span class="rp-ticket-id">${esc(
-            ticket.ticketId
-          )}</span><span class="rp-ticket-title" title="${esc(ticket.title)}">${esc(
-            ticket.title
-          )}</span><span class="rp-spacer"></span><span class="rp-ticket-state">${esc(ui(ticket.label))}</span></li>`
-      )
-      .join("")}</ul></section>`;
-  }
-
   function renderChanges(view) {
     const diff = view?.diff;
     const merge = [...(view?.merges || [])].reverse().find((entry) => entry.state === "merged");
     if (!diff && !merge) return "";
-    const commit = shortCommit(diff?.candidateCommit ?? merge?.candidate?.commit);
-    const files = diff?.files || [];
-    // A long change leads with the files that changed most.
-    const long = files.length > FLAT_LIMIT;
-    const folded = long && !unfolded.has("diff");
-    const shown = folded
-      ? [...files]
-          .sort(
-            (a, b) => Number(b.additions) + Number(b.deletions) - (Number(a.additions) + Number(a.deletions))
-          )
-          .slice(0, FOLDED_ROWS)
-      : files;
-    return `<section class="rp-section"><div class="rp-section-head"><h3 class="rp-label">${ui("改动")}</h3>${
-      files.length ? `<span class="rp-count">${files.length}</span>` : ""
-    }</div><div class="rp-diff-card">${
-      commit
-        ? `<div class="rp-diff-commit">${icon("git-commit")}<span>${ui`候选 ${commit}`}</span><span class="rp-spacer"></span>${
-            files.length
-              ? `<button type="button" class="rp-link" data-open-diff>${ui("查看 diff")}</button>`
-              : ""
-          }</div>`
-        : ""
-    }${shown
-      .map(
-        (file) =>
-          `<button type="button" class="rp-diff-file" data-open-file="${esc(file.path)}" title="${esc(
-            file.path
-          )}"><span class="rp-file">${fileIcon(file.path)}<span class="rp-file-name">${esc(
-            file.path
-          )}</span></span><span class="rp-spacer"></span><span class="rp-add">+${Number(
-            file.additions
-          )}</span><span class="rp-del">−${Number(file.deletions)}</span></button>`
-      )
-      .join(
-        ""
-      )}${long ? foldRow("diff", ui("其余 {count} 个"), files.length - FOLDED_ROWS) : ""}</div></section>`;
+    return changesMarkup({
+      files: diff?.files || [],
+      commit: shortCommit(diff?.candidateCommit ?? merge?.candidate?.commit),
+      unfolded
+    });
   }
+  const foldRowFor = (key, label, hidden) => foldRow(unfolded, key, label, hidden);
 
   function attachmentRow(artifact, label, nested = false) {
     const path = artifact.relativePath;
@@ -402,7 +283,7 @@ export function createRequirementPanel({
     const long = loose.length > FLAT_LIMIT;
     const looseShown = long && !unfolded.has("attachments") ? loose.slice(0, FOLDED_ROWS) : loose;
     rows.push(...looseShown.map((artifact) => attachmentRow(artifact)));
-    if (long) rows.push(foldRow("attachments", ui("其余 {count} 个"), loose.length - FOLDED_ROWS));
+    if (long) rows.push(foldRowFor("attachments", ui("其余 {count} 个"), loose.length - FOLDED_ROWS));
     for (const [folder, entries] of folders) {
       const open = unfolded.has(`folder:${folder}`);
       rows.push(
@@ -446,7 +327,7 @@ export function createRequirementPanel({
       values.length
         ? `<div class="rp-tags">${values.map((value) => `<span class="rp-tag">${esc(value)}</span>`).join("")}</div>`
         : ""
-    }</div>${renderStepper(progress)}${renderCriteria(progress.criteria)}${renderTickets(loaded.view)}${renderChanges(loaded.view)}${attachments}`;
+    }</div>${phaseMarkup(progress)}${criteriaMarkup(progress.criteria, unfolded)}${ticketsMarkup(loaded.view?.tickets)}${renderChanges(loaded.view)}${attachments}`;
   }
 
   function modelName() {
