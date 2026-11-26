@@ -15,7 +15,7 @@ function createDesktopNotifications({ getBackendId, supported, show }) {
         return false;
       const key = JSON.stringify([backendId, taskId, completionId]);
       if (delivered.has(key)) return false;
-      show({ title, body });
+      show({ title, body, backendId, taskId });
       delivered.add(key);
       return true;
     }

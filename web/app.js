@@ -109,13 +109,14 @@ const conversationHistory = createConversationHistory({
   back: $("#history-back"),
   forward: $("#history-forward"),
   exists: (taskId) => state.tasks.some((task) => task.taskId === taskId),
-  open: (taskId) => {
-    const task = state.tasks.find((entry) => entry.taskId === taskId);
-    if (entryController.state().mode !== "work") entryController.setMode("work");
-    if (task) projectController.selectTask(task);
-    selectConversation(taskId);
-  }
+  open: openConversation
 });
+function openConversation(taskId) {
+  const task = state.tasks.find((entry) => entry.taskId === taskId);
+  if (entryController.state().mode !== "work") entryController.setMode("work");
+  if (task) projectController.selectTask(task);
+  selectConversation(taskId);
+}
 let draftStorage;
 let browserSessionStorage;
 try {
@@ -786,6 +787,12 @@ backendConnection = createBackendConnection({
   }
 });
 window.formicandDesktop?.onPrepareClose(prepareInterfaceClose);
+// A clicked system notification leaves settings for the conversation it named.
+window.formicandDesktop?.onOpenTask?.((taskId) => {
+  if (!state.tasks.some((task) => task.taskId === taskId)) return;
+  observation.settingsPages.close({ restoreFocus: false });
+  openConversation(taskId);
+});
 installLanguageSettings({ prepareClose: prepareInterfaceClose, storage: draftStorage });
 installSelectMenus();
 installDesktopUpdates({ host: observation.settingsPages.host });

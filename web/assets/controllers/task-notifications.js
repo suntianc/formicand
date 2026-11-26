@@ -1,6 +1,17 @@
 import { ui } from "../ui/language.js";
 import { taskGoalText } from "./work-title.js";
 
+/** What changed between two catalog states that a person away from the window should hear about. */
+function noticeFor(previous, task) {
+  const active = ["running", "waiting"].includes(previous.status);
+  if (active && task.status === "completed")
+    return { id: task.completedAt || previous.activeRunId, title: "任务已完成" };
+  if (active && task.status === "failed") return { id: `failed:${task.updatedAt}`, title: "任务失败" };
+  if (task.pendingQuestion && !previous.pendingQuestion)
+    return { id: `question:${task.updatedAt}`, title: "Main 有问题等你回答" };
+  return undefined;
+}
+
 /** Observe the existing catalog subscription; snapshots establish and repair the baseline. */
 export function createTaskNotifications({ notify }) {
   let backendId;
@@ -9,15 +20,14 @@ export function createTaskNotifications({ notify }) {
     if (!task || typeof task.taskId !== "string") return;
     const previous = tasks.get(task.taskId);
     tasks.set(task.taskId, task);
-    if (!previous || !["running", "waiting"].includes(previous.status) || task.status !== "completed") return;
-    const completionId = task.completedAt || previous.activeRunId;
-    if (!completionId || !notify) return;
+    const notice = previous && noticeFor(previous, task);
+    if (!notice?.id || !notify) return;
     try {
       const pending = notify({
         backendId,
         taskId: task.taskId,
-        completionId,
-        title: ui("任务已完成"),
+        completionId: notice.id,
+        title: ui(notice.title),
         body: task.title || taskGoalText(task.goal) || task.taskId
       });
       // eslint-disable-next-line no-restricted-syntax -- the desktop host may refuse the notification (permission or focus rules); task state updates continue regardless

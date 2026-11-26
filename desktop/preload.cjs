@@ -291,5 +291,14 @@ contextBridge.exposeInMainWorld("formicandDesktop", {
     apps: (taskId, target) => ipcRenderer.invoke("formicand:file-apps", taskId, target),
     open: (taskId, target, appId) => ipcRenderer.invoke("formicand:open-file", taskId, target, appId)
   },
-  notify: (notice) => ipcRenderer.invoke("formicand:notify", notice)
+  notify: (notice) => ipcRenderer.invoke("formicand:notify", notice),
+  // A clicked system notification names the conversation to open.
+  onOpenTask: (handler) => {
+    if (typeof handler !== "function") return () => {};
+    const listener = (_event, taskId) => {
+      if (typeof taskId === "string") handler(taskId);
+    };
+    ipcRenderer.on("formicand:open-task", listener);
+    return () => ipcRenderer.removeListener("formicand:open-task", listener);
+  }
 });

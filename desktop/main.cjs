@@ -413,10 +413,31 @@ ipcMain.handle("formicand:open-artifact-viewer", async (event, value, pdf) => {
     throw error;
   }
 });
+// Electron loses the click of a collected notification, so each is held until it is clicked or dismissed.
+const shownNotices = new Set();
+/** A clicked notice brings the window forward on the conversation it is about. */
+function openNoticedTask(backendId, taskId) {
+  if (!mainWindow) {
+    app.emit("activate");
+    return;
+  }
+  if (mainWindow.isMinimized()) mainWindow.restore();
+  revealWindow(mainWindow, background);
+  if (backendId === selectedBackend?.backendId) mainWindow.webContents.send("formicand:open-task", taskId);
+}
 const desktopNotifications = createDesktopNotifications({
   getBackendId: () => selectedBackend?.backendId,
   supported: () => Notification.isSupported(),
-  show: (value) => new Notification(value).show()
+  show: ({ title, body, backendId, taskId }) => {
+    const notice = new Notification({ title, body });
+    shownNotices.add(notice);
+    notice.on("click", () => {
+      shownNotices.delete(notice);
+      openNoticedTask(backendId, taskId);
+    });
+    notice.on("close", () => shownNotices.delete(notice));
+    notice.show();
+  }
 });
 ipcMain.on("formicand:transport-nonce", (event) => {
   try {
