@@ -349,6 +349,80 @@ test("AC2: a pending delegated call keeps the idle Main alive", { timeout: 180_0
 });
 
 test(
+  "AC2: a turn that ends with delegated work outstanding settles as waiting until the callback wakes it",
+  { timeout: 180_000 },
+  async (t) => {
+    let runId;
+    const started = new Promise((done) => {
+      runId = done;
+    });
+    let scheduler;
+    const f = await fixture(t, {
+      handle: async ({ response, requests }) => {
+        if (requests.length === 1) {
+          // The delegation is accepted inside the turn, so it is still
+          // outstanding when Main gives its answer.
+          const id = await started;
+          const { DurableScheduler } = await import("../dist/src/runtime/scheduler.js");
+          scheduler = new DurableScheduler(
+            join(f.dashboard.workspaceRoot, "resident-async", "runs", id, "queue.json")
+          );
+          await scheduler.enqueue({
+            stepId: "async-call",
+            taskId: "resident-async",
+            runId: id,
+            agentId: "subagent_1",
+            importance: "normal",
+            payload: {
+              task: "work on while Main waits",
+              projectDirectory: f.dashboard.workspaceRoot,
+              dependsOn: ["async-prerequisite"]
+            },
+            maxAttempts: 1
+          });
+          return complete(response, "dispatched, waiting for the result");
+        }
+        return complete(response, "read the delegated result");
+      }
+    });
+    await f.createTask("resident-async", "Async delegation");
+    const run = await f.api("/api/tasks/resident-async/run", { prompt: "ASYNC_INPUT" });
+    runId(run.runId);
+
+    // Main is waiting, not working, while its delegated call runs.
+    const waiting = await waitFor(
+      async () => {
+        const value = await f.detail("resident-async");
+        return !value.runtime.active && value.task.status === "waiting" ? value : undefined;
+      },
+      "the turn to settle as waiting",
+      60_000
+    );
+    assert.equal(waiting.runtime.active, false);
+    assert.equal(f.requests.length, 1);
+    const record = await f.mainRecord("resident-async");
+
+    await scheduler.cancel("async-call");
+    await f.enqueue("resident-async", run.runId, {
+      messageId: "async-callback",
+      callId: "async-call",
+      payload: { type: "callback", callId: "async-call", status: "succeeded", response: "ASYNC_RESULT" }
+    });
+    await waitFor(
+      async () => {
+        const value = await f.detail("resident-async");
+        return value.task.status === "completed" && !value.runtime.active ? value : undefined;
+      },
+      "the callback turn to complete",
+      60_000
+    );
+    assert.equal(f.requests.length, 2);
+    assert.match(JSON.stringify(f.requests[1].messages), /ASYNC_RESULT/);
+    assert.equal((await f.mainRecord("resident-async")).pid, record.pid, "the same process woke");
+  }
+);
+
+test(
   "AC3: pause stops new turns, keeps the process, and queued work waits for the resume",
   { timeout: 180_000 },
   async (t) => {
