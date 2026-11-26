@@ -186,21 +186,12 @@ test(
       /还没有并进需求现场；整体终审在全部票并入之后/,
       "before every ticket is in, the full route reviews tickets, not the requirement checkout"
     );
-    await assert.rejects(
-      service.startReview(projectId, "task-flow", { developmentId, ticketId: "01" }),
-      /范围以外的文件：notes\.txt/
-    );
-    await git(site, ["rm", "-q", "notes.txt"]);
-    await git(site, ["commit", "-m", "keep to the ticket"]);
-    // Rename detection normally reports only the in-scope destination.
-    await git(site, ["mv", "-f", "src/cli.js", "src/a.txt"]);
-    await git(site, ["commit", "-m", "rename from outside the ticket"]);
-    await assert.rejects(
-      service.startReview(projectId, "task-flow", { developmentId, ticketId: "01" }),
-      /范围以外的文件：src\/cli\.js/
-    );
-    await git(site, ["revert", "--no-edit", "HEAD"]);
+    // A file outside the ticket's scope is not refused; the Reviewer is told to judge it.
     let review = await service.startReview(projectId, "task-flow", { developmentId, ticketId: "01" });
+    assert.match(
+      (await service.frozenCandidateForTask("task-flow", developmentId, review.reviewId)).brief,
+      /A change outside these paths is not refused/
+    );
     assert.equal(review.candidate.workspace, site, "the ticket's own checkout is frozen");
     assert.equal(review.author.callId, "call-e1");
     assert.equal((await service.tickets(projectId, developmentId)).tickets[0].state, "in_review");
@@ -226,6 +217,7 @@ test(
       workspace: site
     });
     calls["call-e1b"] = { ...calls["call-e1"], callId: "call-e1b", status: "completed" };
+    await git(site, ["rm", "-q", "notes.txt"]);
     await commit(site, { "src/a.txt": "a\nsecond\n" }, "rework");
     review = await service.startReview(projectId, "task-flow", {
       developmentId,
@@ -389,6 +381,25 @@ test(
     qualification = await service.delivery(projectId, developmentId);
     assert.ok(qualification.reasons.includes("candidate_changed"));
     await git(integration, ["reset", "-q", "--hard", "HEAD~1"]);
+
+    // The target branch moves on. A merge of it with a hand edit riding along
+    // is not the tickets' version; sync_target's clean merge is, with no ticket.
+    await commit(repo, { "upstream.txt": "u\n" }, "upstream");
+    await git(integration, ["merge", "--no-ff", "--no-commit", "main"]);
+    await writeFile(join(integration, "src", "extra.txt"), "x\n");
+    await git(integration, ["add", "-A"]);
+    await git(integration, ["commit", "-q", "-m", "merge with a hand edit"]);
+    qualification = await service.delivery(projectId, developmentId);
+    assert.ok(qualification.reasons.includes("candidate_changed"));
+    await git(integration, ["reset", "-q", "--hard", "HEAD~1"]);
+    const synced = await service.syncTargetForTask("task-flow", { developmentId });
+    assert.equal(synced.synced, true, JSON.stringify(synced));
+    assert.equal(await readFile(join(integration, "upstream.txt"), "utf8"), "u\n");
+    assert.equal(
+      (await service.syncTarget(projectId, { developmentId })).synced,
+      false,
+      "nothing new to merge"
+    );
 
     // Every ticket is in: the full route still needs one review of the whole requirement.
     qualification = await service.delivery(projectId, developmentId);
@@ -627,7 +638,7 @@ test(
         requirementId: requirement.requirementId,
         goal: "一个文件",
         completionCriteria: ["文件在"],
-        route: "direct"
+        route: "full"
       },
       true
     );
@@ -718,7 +729,7 @@ test(
       requirementId: requirement.requirementId,
       goal: "一个文件",
       completionCriteria: ["文件在"],
-      route: "direct"
+      route: "full"
     });
     const developmentId = development.developmentId;
     const integration = development.workspace.directory;

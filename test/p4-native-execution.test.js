@@ -166,7 +166,7 @@ test(
                 request: "报表页加个导出按钮",
                 goal: "报表页提供导出当前报表的入口",
                 completionCriteria: ["点击导出得到当前报表文件"],
-                route: "direct"
+                route: "full"
               }
             };
           }

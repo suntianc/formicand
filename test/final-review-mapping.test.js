@@ -78,7 +78,7 @@ test("a version 10 ledger gains the review mapping", async (t) => {
 
   const again = await open();
   t.after(() => again.runtime.close());
-  assert.equal(again.service.description.schemaVersion, 14);
+  assert.equal(again.service.description.schemaVersion, 15);
   const reopened = await SqliteDatabase.open(join(root, "project-data.sqlite"));
   const columns = await reopened.query("PRAGMA table_info(project_data_development_reviews)");
   await reopened.close();

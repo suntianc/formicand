@@ -623,6 +623,19 @@ export async function handleDevelopmentRequest(
             : await ports.service.integrateTicket(projectId, body)
         );
       }
+      case "sync_target": {
+        if (declared)
+          throw new HttpError(403, "目标分支只能在需求现场所在后端合并", "development_workspace_owner_only");
+        if (typeof body.developmentId !== "string")
+          throw new HttpError(400, "sync_target 需要 developmentId");
+        return reply(
+          response,
+          200,
+          taskId
+            ? await ports.service.syncTargetForTask(taskId, body)
+            : await ports.service.syncTarget(projectId, body)
+        );
+      }
       case "next": {
         if (typeof body.developmentId !== "string") throw new HttpError(400, "next 需要 developmentId");
         return reply(response, 200, {

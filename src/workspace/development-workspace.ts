@@ -108,6 +108,32 @@ export async function onlyChangesUnder(
   return files.length > 0 && files.every((file) => file.startsWith(directory));
 }
 
+/**
+ * Whether `to` is `from` with only the target branch merged in: each step a
+ * two-parent merge whose second parent is on `target` and whose tree is what
+ * Git's own merge of the two gives, so no hand edit rides along.
+ */
+export async function onlyTargetMergedSince(
+  repository: string,
+  from: string,
+  to: string,
+  target: string
+): Promise<boolean> {
+  let commit = to;
+  for (let step = 0; step < 20 && commit !== from; step += 1) {
+    const parents = (await git(repository, ["rev-list", "--parents", "-n", "1", commit])).split(" ").slice(1);
+    if (parents.length !== 2) return false;
+    const [first, second] = parents as [string, string];
+    if ((await gitProbe(repository, ["merge-base", "--is-ancestor", second, target])) === undefined)
+      return false;
+    // Exit 1 means the merge conflicts, which a clean sync never does.
+    const merged = await gitProbe(repository, ["merge-tree", "--write-tree", first, second]);
+    if (merged?.split("\n")[0] !== (await git(repository, ["rev-parse", `${commit}^{tree}`]))) return false;
+    commit = first;
+  }
+  return commit === from;
+}
+
 /** Every Markdown document a commit holds. */
 export async function documentsAt(repository: string, commit: string): Promise<string[]> {
   return (await gitPaths(repository, ["ls-tree", "-r", "--name-only", commit])).filter(isDocument);

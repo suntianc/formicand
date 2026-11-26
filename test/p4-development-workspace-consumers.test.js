@@ -148,7 +148,7 @@ test("the Main tool records and reads developments only for its own project", as
       requirementId: f.requirementA.requirementId,
       goal: "同一设备 30 天内免验证",
       completionCriteria: ["同一设备第二次登录不再要求验证码", "敏感操作仍需验证"],
-      route: "direct"
+      route: "full"
     })
   );
   const development = created.development;
@@ -329,7 +329,7 @@ test("a failed record with an intact checkout returns to ready without a second 
     requirementId: requirement.requirementId,
     goal: "恢复同一现场",
     completionCriteria: ["恢复后不创建第二个 checkout"],
-    route: "direct"
+    route: "full"
   });
   assert.equal(created.workspace.state, "failed", JSON.stringify(created.workspace));
   assert.match(created.workspace.error, /ready write failed/, "the first failure receipt is kept");

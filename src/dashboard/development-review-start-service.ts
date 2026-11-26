@@ -16,9 +16,16 @@ import {
   REGISTRY_FILE,
   registryProblems
 } from "../domain/project-documents.js";
+import { independentReviewReason, parseReviewRules } from "../domain/review-rules.js";
 import { now } from "../domain/types.js";
 import type { ProjectDataGateway } from "../workspace/project-data-service.js";
-import { gitPaths, documentsAdded, documentsAt, fileAt } from "../workspace/development-workspace.js";
+import {
+  gitPaths,
+  gitProbe,
+  documentsAdded,
+  documentsAt,
+  fileAt
+} from "../workspace/development-workspace.js";
 import type { createDevelopmentWorkspaceService } from "./development-workspace-service.js";
 import { chainOf, roundBudget, checkRound, previousRound } from "./development-review-rounds.js";
 import type { createDevelopmentTicketService } from "./development-ticket-service.js";
@@ -34,7 +41,8 @@ export function createDevelopmentReviewStartService({
   ticketChangedPaths,
   openDevelopment,
   inDevelopment,
-  ticketRoute
+  requiredMergeConfig,
+  fromIntegration
 }: {
   gateway: () => Promise<ProjectDataGateway>;
   currentCandidate: ReturnType<typeof createDevelopmentWorkspaceService>["currentCandidate"];
@@ -46,7 +54,8 @@ export function createDevelopmentReviewStartService({
   ticketChangedPaths: ReturnType<typeof createDevelopmentTicketService>["ticketChangedPaths"];
   openDevelopment: ReturnType<typeof createDevelopmentWorkspaceService>["openDevelopment"];
   inDevelopment: ReturnType<typeof createDevelopmentWorkspaceService>["inDevelopment"];
-  ticketRoute: ReturnType<typeof createDevelopmentTicketService>["ticketRoute"];
+  requiredMergeConfig: ReturnType<typeof createDevelopmentWorkspaceService>["requiredMergeConfig"];
+  fromIntegration: ReturnType<typeof createDevelopmentTicketService>["fromIntegration"];
 }) {
   /**
    * Change approach on a failed review whose chain used its rounds.
@@ -146,8 +155,14 @@ export function createDevelopmentReviewStartService({
       );
     const candidate = await currentCandidate(record);
     const last = lastIntegration(tickets);
-    if (last?.commit !== candidate.commit)
-      throw conflict("需求现场不是最后一次并入票的版本；不要在现场直接提交改动", "candidate_changed");
+    if (
+      !last ||
+      !(await fromIntegration(projectId, record.workspace!.directory, last.commit, candidate.commit))
+    )
+      throw conflict(
+        "需求现场不是最后一次并入票的版本；不要在现场直接提交改动，目标分支的新提交用 sync_target 合并",
+        "candidate_changed"
+      );
     const finals = finalReviews(tickets, await service.queryReviews(projectId, developmentId));
     if (finals.some((review) => review.state === "in_review"))
       throw conflict("已有一份进行中的整体终审", "review_open");
@@ -186,8 +201,8 @@ export function createDevelopmentReviewStartService({
    * Freeze one ticket's own checkout for review.
    *
    * The candidate is the Executor's committed work, not the requirement
-   * checkout, so each ticket is reviewed on its own; the files it changed since
-   * it forked must all be inside the ticket's scope.
+   * checkout, so each ticket is reviewed on its own; a file it changed outside
+   * the ticket's scope is left to the Reviewer to judge.
    */
   async function startTicketReview(
     projectId: string,
@@ -211,12 +226,7 @@ export function createDevelopmentReviewStartService({
     if (current.changes)
       throw conflict("票的现场有未提交改动；让 Executor 提交后再冻结", "review_candidate_dirty");
     const integration = await inspectWorkspace(record);
-    const changed = await ticketChangedPaths(
-      record.workspace!.directory,
-      integration.commit,
-      current.commit,
-      ticket
-    );
+    const changed = await ticketChangedPaths(record.workspace!.directory, integration.commit, current.commit);
     if (!changed.length) throw conflict(`票 ${ticket.ticketId} 的现场没有新提交`, "ticket_no_changes");
     const { tickets } = await service.tickets(projectId, developmentId);
     const chain = chainOf(tickets, await service.queryReviews(projectId, developmentId), ticket);
@@ -288,8 +298,40 @@ export function createDevelopmentReviewStartService({
       const existing = await (await gateway()).queryReviews(projectId, developmentId);
       if (existing.length)
         throw conflict("该需求已有候选审查，不能改为无独立审查的通道", "review_channel_downgrade");
+      const reason = await selfCheckRefusal(projectId, record, current.commit);
+      if (reason)
+        throw conflict(
+          `这次改动须独立审查，不能只靠自查：${reason}。改用 review_plan channel=independent，再 freeze_candidate`,
+          "independent_review_required"
+        );
     }
     return (await gateway()).setReviewPlan(projectId, developmentId, plan);
+  }
+
+  /**
+   * Why this change may not rest on Main's own checks. The rules are read at
+   * the development's baseline, so the change cannot loosen its own; the files
+   * are the ones it changed since the target branch, so target commits merged
+   * into the checkout do not count as its own. A target that lives in another
+   * repository is not visible here; the baseline stands in for it.
+   */
+  async function selfCheckRefusal(projectId: string, record: DevelopmentRecord, commit: string) {
+    const directory = record.workspace!.directory;
+    const { targetBranch } = await requiredMergeConfig(projectId);
+    const target = await gitProbe(directory, [
+      "rev-parse",
+      "--verify",
+      "--quiet",
+      `refs/heads/${targetBranch}`
+    ]);
+    const rules = parseReviewRules(await fileAt(directory, record.baseline.commit, REGISTRY_FILE));
+    const changed = await gitPaths(directory, [
+      "diff",
+      "--name-only",
+      "--no-renames",
+      `${target ?? record.baseline.commit}...${commit}`
+    ]);
+    return independentReviewReason(rules, changed);
   }
 
   function startReview(projectId: string, taskId: string | undefined, input: Record<string, unknown>) {
@@ -308,11 +350,6 @@ export function createDevelopmentReviewStartService({
       throw conflict("只有 full 路线的整体终审带对照表", "review_mapping_unexpected");
     if (input.ticketId !== undefined) return startTicketReview(projectId, taskId, record, input);
     if (final) return startFinalReview(projectId, record, input);
-    if (ticketRoute(record))
-      throw conflict(
-        `${record.route} 路线按票审查：freeze_candidate 须带 ticketId，审查票自己的现场`,
-        "ticket_required"
-      );
     const kind = reviewKind(input.kind);
     const service = await gateway();
     const plan = await service.reviewPlan(projectId, developmentId);

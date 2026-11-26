@@ -173,7 +173,7 @@ test("a project folder that is a Git repository merges into the branch it has ch
     requirementId: requirement.requirementId,
     goal: "不设置合入入口也能开发",
     completionCriteria: ["开发记录建立在当前分支上"],
-    route: "direct"
+    route: "full"
   });
   assert.equal(created.status, 201, JSON.stringify(created.body));
   const config = (await request(path)).body.mergeConfig;
@@ -201,7 +201,7 @@ for (const engine of PROJECT_DATA_ENGINES) {
       requirementId: otherRequirement.requirementId,
       goal: "同一设备 30 天内免验证",
       completionCriteria: ["同一设备第二次登录不再要求验证码"],
-      route: "direct"
+      route: "full"
     });
     assert.equal(missing.status, 409, JSON.stringify(missing.body));
     assert.equal(missing.body.code, "project_git_missing");
@@ -313,7 +313,7 @@ for (const engine of PROJECT_DATA_ENGINES) {
       requirementId: first.requirementId,
       goal: "另一份目标",
       completionCriteria: ["另一份标准"],
-      route: "direct"
+      route: "full"
     });
     assert.equal(duplicate.status, 409, JSON.stringify(duplicate.body));
     assert.equal(duplicate.body.code, "development_exists");
@@ -360,7 +360,7 @@ for (const engine of PROJECT_DATA_ENGINES) {
       requirementId: third.requirementId,
       goal: "备份之后新增",
       completionCriteria: ["恢复后不应存在"],
-      route: "direct"
+      route: "full"
     });
     assert.equal(createdThird.status, 201, JSON.stringify(createdThird.body));
     assert.equal((await service.service.queryDevelopments(project.projectId)).length, 3);
@@ -418,7 +418,7 @@ for (const engine of PROJECT_DATA_ENGINES) {
       requirementId: first.requirementId,
       goal: "公共设备每次验证",
       completionCriteria: ["公共设备每次登录都要求验证码"],
-      route: "direct"
+      route: "full"
     });
     assert.equal(next.status, 201, JSON.stringify(next.body));
     assert.notEqual(next.body.development.developmentId, one.developmentId);
@@ -485,7 +485,7 @@ for (const engine of PROJECT_DATA_ENGINES) {
       requirementId: remoteRequirement.requirementId,
       goal: "secondary 在自己的检出中开发",
       completionCriteria: ["记录和现场只出现一次"],
-      route: "direct"
+      route: "full"
     });
     const development = created.development;
     assert.equal(development.workspace.state, "ready", JSON.stringify(development.workspace));
@@ -518,7 +518,7 @@ for (const engine of PROJECT_DATA_ENGINES) {
         requirementId: remoteRequirement.requirementId,
         goal: "重复创建",
         completionCriteria: ["应返回原记录"],
-        route: "direct"
+        route: "full"
       }),
       (error) => {
         assert.equal(error.code, "development_exists");

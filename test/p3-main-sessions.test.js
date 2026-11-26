@@ -475,7 +475,7 @@ for (const engine of PROJECT_DATA_ENGINES) {
     const b = await createProject(request, f, `other-${engine}`);
     const info = await request("/api/project-data");
     assert.equal(info.status, 200);
-    assert.equal(info.body.schemaVersion, 14);
+    assert.equal(info.body.schemaVersion, 15);
     const opened = await openService(f, engine, info.body);
     t.after(() => opened.close());
 
