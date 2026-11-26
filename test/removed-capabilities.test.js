@@ -445,7 +445,9 @@ const DOCUMENTED = [
     patterns: [/pi_version_missing|model-request-retry|retry-request\.json|legacyPending/]
   },
   {
-    files: ["README.zh-CN.md", "README.md"],
+    // The retired product guide split into the Chinese pair and the English
+    // entry; both English bodies carry the same constraint.
+    files: ["README.zh-CN.md", "README.md", "docs/en/README.md"],
     phrases: ["结果缓存"],
     patterns: [/analysis[- ]result cache/i]
   }

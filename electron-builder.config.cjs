@@ -53,9 +53,15 @@ module.exports = {
     "LICENSE",
     "THIRD_PARTY_NOTICES.md",
     "README.md",
+    "README.zh-CN.md",
+    "AGENTS.md",
+    "AGENTS.en.md",
     "CONTRIBUTING.md",
     "CONTRIBUTING.en.md",
     "GLOSSARY.md",
+    // The product and development entries cite the evaluation guide, which is a
+    // document only: the harness beside it runs from a checkout, not an install.
+    "scripts/eval/README.md",
     // Every maintained guide travels with the app: the bundled skills and the
     // English entry link these pages, and an install may read .pi/skills and docs only.
     "docs/**/*.md",
