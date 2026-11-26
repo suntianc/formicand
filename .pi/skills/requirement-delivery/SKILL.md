@@ -11,8 +11,8 @@ Start with `find_by_requirement` for the feature `project_ledger lookup` settled
 
 ## Choosing the route
 
-- `quick`, the default: you make the change in the checkout and check it, then record `review_plan` with `self` and your checks. When the program refuses `self` (a path in the project's `AGENTS.md` review table, or too many files), record `independent` and `freeze_candidate` for an independent Reviewer. Record `independent` yourself when you cannot fully check the change. A change of documents only is quick.
-- `full`: only when the user wants parts accepted one by one, or the work splits into parts that can each be built and accepted alone. Its spec splits into tickets the user confirms; a final independent review covers the whole requirement.
+- `quick`, the default, also for work in several parts: you write the change in the checkout yourself, check it, and record `review_plan` with `self` and your checks. When the program refuses `self` (a path in the project's `AGENTS.md` review table, or too many files), record `independent` and `freeze_candidate`; a Reviewer only checks, and you fix what it finds.
+- `full`: only when the user asks for parts accepted one by one, or the work splits into parts with settled interfaces that Executors can build in parallel. Its spec splits into tickets the user confirms; a final independent review covers the whole requirement.
 
 When the target branch moves on, merge it into the checkout and check again; on `full`, `sync_target` does this without a ticket.
 
@@ -29,7 +29,7 @@ When the target branch moves on, merge it into the checkout and check again; on 
 
 `attach_reviewer` imports a finished Reviewer's findings; only those citing a criterion or a floor class (regression, data loss, security, project rules) block.
 
-- `fix` a right blocking finding through the Executor that made the change (`continueCallId` and `reviewId`). In code nobody asked for, the fix is removing that code.
+- `fix` a right blocking finding yourself on `quick`, or through the ticket's Executor (`continueCallId` and `reviewId`). In code nobody asked for, the fix is removing that code.
 - `dismiss` a wrong one (`false_positive`), one outside the ask (`out_of_scope`) or one left for later (`deferred`); the user reads the basis.
 - Take a suggestion only when cheap and inside the ticket; else it becomes a new ticket or a note to the user.
 - A change to the agreed goal, criteria or trade-offs goes to the user first.

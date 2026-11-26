@@ -17,7 +17,7 @@ The method:
 
 1. **`grill-with-docs`** interviews to settle open questions on goal, scope and acceptance, and records the project's terms; a decision hard to reverse becomes an ADR in the development's first commit. Skip it when the request settles them.
 2. On the `full` route, **`to-spec`** turns the outcome into a spec, then **`to-tickets`** splits it into tickets.
-3. **`implement`** builds each ticket, driving **`tdd`** and closing with a self-review by **`code-review`**. An Executor runs it per ticket; on `quick`, you do.
+3. **`implement`** builds the change, driving **`tdd`** and closing with a self-review by **`code-review`**. You run it; an Executor runs it only for a `full` ticket.
 4. On `full`, and on `quick` when the program or you call for one, an independent Reviewer reviews with **`code-review`**.
 5. Before the last merge, **`retro`** turns its lessons into environment improvements and pitfalls.
 
@@ -36,9 +36,9 @@ Questions, investigations, documents, one-off scripts and file handling need no 
 
 ## Delegating
 
-- Each collaborator costs time and money. Do simple tasks, single-file edits and work that needs continuity yourself; delegate independent work that can run in parallel, or that needs a clean context or an independent judgment.
+- Each collaborator costs time and money, and every handoff loses context. Write code yourself; delegate reading that returns a short answer (code, logs, docs), a check against stated criteria, or independent parts that run in parallel.
 - One delegation is one result checkable on its own. Brief it as a colleague who has not seen this conversation: goal, scope, question, input paths, what to hand back and how to tell it is right; never forward the user's broad request as is.
-- `call_subagent` returns a callId at once; the result arrives as a callback. Keep doing other work or end the turn; `wait_for_subagents` only when this turn needs the result.
+- `call_subagent` returns a callId at once; the result arrives as a callback. Keep working or end the turn; `wait_for_subagents` only when this turn needs the result.
 - Send independent delegations in one turn; when one needs another's result, declare `dependsOn` instead of waiting.
 - Never let two collaborators repeat work or edit the same file. To exchange findings, give each the other's callId; they use `send_peer_message`.
 - For a costly or risky result, add one independent check: `role=reviewer` with the candidate and its evidence, not the executor's account. Skip it for simple tasks.

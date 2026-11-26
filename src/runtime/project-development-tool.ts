@@ -168,7 +168,7 @@ export function createProjectDevelopmentTool(options: ProjectDevelopmentToolOpti
           type: "string",
           enum: ["quick", "full"],
           description:
-            "quick (the default: you make the change; your checks, or an independent review the program requires, gate the merge) or full (tickets the user confirms, each reviewed, then a final review)."
+            "quick (the default, also for work in several parts: you write the change; your checks, or an independent review the program requires, gate the merge) or full (only for parts with settled interfaces that Executors build in parallel: tickets the user confirms, each reviewed, then a final review)."
         },
         tickets: {
           type: "array",
