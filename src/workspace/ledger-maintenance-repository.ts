@@ -201,7 +201,7 @@ export class LedgerMaintenanceRepository {
       );
       return rows.length === 2;
     };
-    if (await busy("project_data_developments", "status = 'active'"))
+    if (await busy("project_data_developments", "status IN ('active', 'paused')"))
       throw new ProjectDataConflictError(
         "两条需求都有进行中的开发，等其中一条合入或撤回后再合并",
         undefined,
@@ -299,6 +299,14 @@ export class LedgerMaintenanceRepository {
       [projectId]
     ))
       history.set(row.requirement_id, [...(history.get(row.requirement_id) ?? []), row.text]);
+    // The latest withdrawal of each feature says why the user dropped it.
+    const withdrawn = new Map<string, string>();
+    for (const row of await this.transaction.query<{ requirement_id: string; status_reason: string | null }>(
+      `SELECT requirement_id, status_reason FROM project_data_developments
+        WHERE project_id = ? AND status = 'withdrawn' ORDER BY updated_at ASC, development_id ASC`,
+      [projectId]
+    ))
+      if (row.status_reason) withdrawn.set(row.requirement_id, row.status_reason);
     return rows.map((row) => ({
       requirementId: row.requirement_id,
       kind: row.kind as RequirementKind,
@@ -307,7 +315,8 @@ export class LedgerMaintenanceRepository {
       description: row.description,
       aliases: (aliases.get(row.requirement_id) ?? []).map((alias) => alias.alias),
       summary: row.summary,
-      history: history.get(row.requirement_id) ?? []
+      history: history.get(row.requirement_id) ?? [],
+      ...(withdrawn.has(row.requirement_id) ? { withdrawnReason: withdrawn.get(row.requirement_id) } : {})
     }));
   }
 }

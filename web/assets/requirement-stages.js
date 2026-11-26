@@ -23,8 +23,11 @@ export const REQUIREMENT_STAGE_LABELS = {
   merged: "已合入",
   release: "待发布",
   delivered: "已交付",
-  withdrawn: "已停用"
+  withdrawn: "已撤回"
 };
+
+/** A paused development keeps its phase; the label says it is stopped for now. */
+export const PAUSED_LABEL = "已暂停";
 
 /** A Main that is waiting on a person: the phase is unchanged, its wording is not. */
 export const WAITING_FOR_REPLY_LABEL = "等待回复";
@@ -33,8 +36,8 @@ export const WAITING_FOR_REPLY_LABEL = "等待回复";
  * The observation list's tabs, in the design's order.
  *
  * `all` holds every requirement; the rest split it by the phase above, so a
- * requirement appears in exactly one of them. A retired requirement is kept
- * in the list and in `all` without a tab of its own.
+ * requirement appears in exactly one of them. A paused one stays in 进行中; a
+ * withdrawn development or a retired feature is 已撤回.
  */
 export const REQUIREMENT_TABS = [
   { id: "all", label: "全部" },
@@ -42,7 +45,8 @@ export const REQUIREMENT_TABS = [
   { id: "active", label: "进行中" },
   { id: "waiting", label: "等待回复" },
   { id: "release", label: "待发布" },
-  { id: "delivered", label: "已交付" }
+  { id: "delivered", label: "已交付" },
+  { id: "withdrawn", label: "已撤回" }
 ];
 
 const STEPS = [
@@ -125,10 +129,16 @@ export function requirementCriteria(criteria, met) {
 }
 
 function stageOf(input) {
+  if (input.requirement?.status === "retired" || input.development?.status === "withdrawn")
+    return "withdrawn";
+  return workStage(input);
+}
+
+/** How far the work got, read from its records; a withdrawal keeps this as its progress. */
+function workStage(input) {
   const { requirement, board, development, plan, reviews, merges, delivery } = input;
   const review = lastReview(reviews);
   const merged = mergedOperation(merges);
-  if (requirement?.status === "retired") return "withdrawn";
   // A board need merged into the target still awaits release to its customer;
   // publishing is the later phase, so the requirement is not delivered yet.
   if (board?.state === "pending_release") return "release";
@@ -164,11 +174,13 @@ function stageOf(input) {
  */
 export function requirementStage(input = {}) {
   const stage = stageOf(input);
-  const waiting = Boolean(input.waitingForReply);
+  const paused = input.development?.status === "paused";
+  const waiting = !paused && Boolean(input.waitingForReply);
   return {
     stage,
-    label: waiting ? WAITING_FOR_REPLY_LABEL : REQUIREMENT_STAGE_LABELS[stage],
-    waiting
+    label: paused ? PAUSED_LABEL : waiting ? WAITING_FOR_REPLY_LABEL : REQUIREMENT_STAGE_LABELS[stage],
+    waiting,
+    paused
   };
 }
 
@@ -246,7 +258,9 @@ function reviewerLabel(input) {
  * came back for a fix, and `done` steps are settled facts.
  */
 export function requirementSteps(input = {}) {
-  const { stage } = requirementStage(input);
+  const withdrawn = stageOf(input) === "withdrawn";
+  // A withdrawal keeps what was done; the step it stopped at turns back to pending.
+  const stage = workStage(input);
   const development = input.development;
   const review = lastReview(input.reviews);
   const merged = mergedOperation(input.merges);
@@ -298,13 +312,14 @@ export function requirementSteps(input = {}) {
       id: step.id,
       label: step.label,
       ...(segments[step.id] ? { segments: segments[step.id] } : {}),
-      state: current
-        ? stage === "rework" && step.id === "review"
-          ? "blocked"
-          : "current"
-        : done
-          ? "done"
-          : "pending",
+      state:
+        current && !withdrawn
+          ? stage === "rework" && step.id === "review"
+            ? "blocked"
+            : "current"
+          : done && !(current && withdrawn)
+            ? "done"
+            : "pending",
       meta: meta[step.id]
     };
   });

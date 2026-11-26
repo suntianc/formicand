@@ -670,6 +670,10 @@ export function ticketWrite(value: unknown, { progress = false } = {}): TicketWr
 /** The facts the next step is worked out from; each comes from a stored record. */
 export interface NextStepFacts {
   route: DevelopmentRoute;
+  /** Absent reads as active. */
+  status?: "active" | "paused" | "merged" | "withdrawn";
+  /** Why the user paused or withdrew it. */
+  reason?: string;
   workspaceReady: boolean;
   tickets: DevelopmentTicket[];
   qualification?: { eligible: boolean; reasons: string[] };
@@ -728,6 +732,10 @@ export function developmentNext(facts: NextStepFacts): string {
     );
   if (merge?.state === "waiting" || merge?.state === "applying")
     return `Merge ${merge.mergeId} is ${merge.state}. Read merge_status; do not request it again.`;
+  if (facts.status === "paused")
+    return `Paused by the user (${facts.reason ?? "no reason recorded"}). Do no work on it; resume it only when the user says to continue.`;
+  if (facts.status === "withdrawn")
+    return `Withdrawn (${facts.reason ?? "no reason recorded"}). Nothing to do; if the user wants it back, create a new development with continues set to this one.`;
   if (!facts.workspaceReady) return "Run ensure_workspace to prepare the requirement checkout.";
   if (facts.route !== "quick") {
     if (!tickets.length)

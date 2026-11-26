@@ -352,19 +352,23 @@ test("tab counts add up to the whole list and a delivered need never counts as i
     delivered,
     developing,
     { board: { state: "pending" } },
-    { ...developing, reviews: [review("in_review")], waitingForReply: true }
+    { ...developing, reviews: [review("in_review")], waitingForReply: true },
+    // Paused stays in progress even while its Main waits; withdrawn has its own tab.
+    { ...developing, development: development({ status: "paused" }), waitingForReply: true },
+    { ...developing, development: development({ status: "withdrawn" }) }
   ]);
   assert.deepEqual(counts, {
-    all: 4,
+    all: 6,
     pending: 1,
-    active: 1,
+    active: 2,
     waiting: 1,
     release: 0,
-    delivered: 1
+    delivered: 1,
+    withdrawn: 1
   });
 });
 
-test("the tabs are the design's six, in order", () => {
+test("the tabs are the design's seven, in order", () => {
   assert.deepEqual(
     REQUIREMENT_TABS.map((tab) => [tab.id, tab.label]),
     [
@@ -373,9 +377,40 @@ test("the tabs are the design's six, in order", () => {
       ["active", "进行中"],
       ["waiting", "等待回复"],
       ["release", "待发布"],
-      ["delivered", "已交付"]
+      ["delivered", "已交付"],
+      ["withdrawn", "已撤回"]
     ]
   );
+});
+
+test("a paused development keeps its progress under 已暂停; a withdrawn one keeps what was done", () => {
+  const paused = requirementProgress({ development: development({ status: "paused" }), roles });
+  assert.equal(paused.stage, "development");
+  assert.equal(paused.label, "已暂停");
+  assert.equal(paused.paused, true);
+  assert.equal(paused.steps.find((step) => step.id === "development").state, "current");
+
+  const reviewing = {
+    development: development({ status: "withdrawn" }),
+    roles,
+    reviews: [review("in_review")]
+  };
+  const withdrawn = requirementProgress(reviewing);
+  assert.equal(withdrawn.stage, "withdrawn");
+  assert.equal(withdrawn.label, "已撤回");
+  // Done steps stay done; the step it stopped at and the rest are pending, none current.
+  assert.deepEqual(
+    withdrawn.steps.map((step) => [step.id, step.state]),
+    [
+      ["requirement", "done"],
+      ["development", "done"],
+      ["review", "pending"],
+      ["merge", "pending"],
+      ["delivery", "pending"]
+    ]
+  );
+  // A retired feature without a development reads the same.
+  assert.equal(requirementProgress({ requirement: { revision: 2, status: "retired" } }).label, "已撤回");
 });
 
 test("with tickets the phase is the requirement's, and finishing a ticket never moves it back", () => {

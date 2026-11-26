@@ -418,6 +418,8 @@ export default {
   别名: "Aliases",
   "历史 最近 ": "History, latest ",
   "历次开发 ": "Developments ",
+  接续撤回的开发: "Picks up a withdrawn one",
+  已被接续: "Picked up later",
   在用: "In use",
   停用: "Retired"
 };

@@ -6,12 +6,12 @@ import type { SqlDatabase, SqlTransaction } from "./database.js";
  * The project data schema this build writes.
  *
  * A new database is created at this version. A database at an earlier
- * version this build knows (8 to 14) is converted in the same transaction that
+ * version this build knows (8 to 15) is converted in the same transaction that
  * records the new version; any other version is refused with its location and
  * version, without being rewritten. Date/time values are ISO text and booleans
  * are integers so one business query serves both engines.
  */
-export const PROJECT_DATA_SCHEMA_VERSION = 15;
+export const PROJECT_DATA_SCHEMA_VERSION = 16;
 
 /** The title of the requirement every project keeps for changes no feature owns. */
 export const MISC_REQUIREMENT_TITLE = "杂项";
@@ -220,6 +220,8 @@ const PROJECT_DATA_SCHEMA: readonly string[] = [
      completion_criteria TEXT NOT NULL,
      route TEXT NOT NULL,
      status TEXT NOT NULL,
+     status_reason TEXT,
+     continues_development_id TEXT,
      revision INTEGER NOT NULL,
      baseline_branch TEXT NOT NULL,
      baseline_commit TEXT NOT NULL,
@@ -231,8 +233,8 @@ const PROJECT_DATA_SCHEMA: readonly string[] = [
      FOREIGN KEY (project_id, requirement_id)
        REFERENCES project_data_requirements(project_id, requirement_id) ON DELETE CASCADE
    )`,
-  `CREATE UNIQUE INDEX IF NOT EXISTS project_data_developments_active
-     ON project_data_developments(project_id, requirement_id) WHERE status = 'active'`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS project_data_developments_open
+     ON project_data_developments(project_id, requirement_id) WHERE status IN ('active', 'paused')`,
   `CREATE TABLE IF NOT EXISTS project_data_development_workspaces (
      project_id TEXT NOT NULL,
      development_id TEXT NOT NULL,
@@ -396,7 +398,7 @@ const PROJECT_DATA_SCHEMA: readonly string[] = [
 /**
  * Create this build's schema in one transaction, add version 11's final review
  * mapping to a version 10 database, version 10's tidy mark too to a version 9
- * one, drop version 12's tidy read time, fold version 14's direct route into full, convert a version 8 database, or refuse a file recorded at a version this build does not know.
+ * one, drop version 12's tidy read time, fold version 14's direct route into full, add version 16's paused developments, convert a version 8 database, or refuse a file recorded at a version this build does not know.
  *
  * The version row is written in the same transaction as the tables, so a
  * database is either empty or complete at the current version. A file at an
@@ -416,7 +418,8 @@ export async function migrateProjectData(database: SqlDatabase): Promise<number>
     );
     const version = Number(rows[0]?.version ?? 0);
     if (version === PROJECT_DATA_SCHEMA_VERSION) return version;
-    if (![0, 8, 9, 10, 11, 12, 13, 14].includes(version)) throw incompatibleVersion(database.label, version);
+    if (![0, 8, 9, 10, 11, 12, 13, 14, 15].includes(version))
+      throw incompatibleVersion(database.label, version);
     if (version === 9) await upgradeVersion9(transaction);
     if (version === 9 || version === 10) await upgradeVersion10(transaction);
     if (version === 12) await upgradeVersion12(transaction);
@@ -429,6 +432,7 @@ export async function migrateProjectData(database: SqlDatabase): Promise<number>
     }
     if (version > 0 && version < 14) await initializeLedgerClocks(transaction);
     if (version > 0) await upgradeVersion14(transaction);
+    if (version >= 9) await upgradeVersion15(transaction);
     await transaction.execute("INSERT INTO project_data_migrations (version, applied_at) VALUES (?, ?)", [
       PROJECT_DATA_SCHEMA_VERSION,
       now()
@@ -499,6 +503,21 @@ async function upgradeVersion12(transaction: SqlTransaction): Promise<void> {
  */
 async function upgradeVersion14(transaction: SqlTransaction): Promise<void> {
   await transaction.execute("UPDATE project_data_developments SET route = 'full' WHERE route = 'direct'");
+}
+
+/**
+ * Version 16 lets a development pause: a paused one still holds the
+ * requirement's single open slot, and a paused or withdrawn one keeps why, and
+ * a new one names the withdrawn development it picks up again.
+ */
+async function upgradeVersion15(transaction: SqlTransaction): Promise<void> {
+  await transaction.execute("ALTER TABLE project_data_developments ADD COLUMN status_reason TEXT");
+  await transaction.execute("ALTER TABLE project_data_developments ADD COLUMN continues_development_id TEXT");
+  await transaction.execute("DROP INDEX IF EXISTS project_data_developments_active");
+  await transaction.execute(
+    `CREATE UNIQUE INDEX project_data_developments_open
+       ON project_data_developments(project_id, requirement_id) WHERE status IN ('active', 'paused')`
+  );
 }
 
 /** Version 8's tables, parents before children. */

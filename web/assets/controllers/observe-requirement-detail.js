@@ -39,7 +39,9 @@ function detailTags(row) {
         `<span class="or-tag"${
           index
             ? ""
-            : ` data-stage="${esc(row.progress.stage)}"${row.progress.waiting ? ' data-waiting="true"' : ""}`
+            : ` data-stage="${esc(row.progress.stage)}"${row.progress.waiting ? ' data-waiting="true"' : ""}${
+                row.progress.paused ? ' data-paused="true"' : ""
+              }`
         }>${esc(ui(value))}</span>`
     )
     .join("");
@@ -47,9 +49,9 @@ function detailTags(row) {
 
 /** The five steps with the connector between each pair, as the design draws them. */
 function stepperMarkup(row) {
-  return `<div class="or-stepper" role="list" data-stage="${esc(row.progress.stage)}" aria-label="${esc(
-    ui("需求阶段")
-  )}">${row.progress.steps
+  return `<div class="or-stepper" role="list" data-stage="${esc(row.progress.stage)}"${
+    row.progress.paused ? ' data-paused="true"' : ""
+  } aria-label="${esc(ui("需求阶段"))}">${row.progress.steps
     .map((step, index) => {
       const node =
         step.state === "done"
@@ -100,7 +102,7 @@ function ledgerSection(entry) {
   }`;
 }
 
-const DEVELOPMENT_STATUS = { active: "进行中", merged: "已合入", withdrawn: "已撤回" };
+const DEVELOPMENT_STATUS = { active: "进行中", paused: "已暂停", merged: "已合入", withdrawn: "已撤回" };
 
 /** What each development changed, and every development of this feature, newest first. */
 function pastSection(context) {
@@ -130,15 +132,28 @@ function pastSection(context) {
             (development) =>
               `<li data-status="${esc(development.status)}"><span class="or-development-goal" title="${esc(
                 development.goal
-              )}">${esc(development.goal.split("\n")[0])}</span><span class="or-spacer"></span><span class="or-development-state">${esc(
+              )}">${esc(development.goal.split("\n")[0])}</span><span class="or-spacer"></span><span class="or-development-state"${
+                development.reason ? ` title="${esc(development.reason)}"` : ""
+              }>${esc(
                 development.merged
                   ? `${ui("已合入")} · ${shortCommit(development.merged.commit)}`
                   : ui(DEVELOPMENT_STATUS[development.status] ?? development.status)
-              )}</span></li>`
+              )}</span>${developmentLinks(development, developments)}</li>`
           )
           .join("")}</ul></section>`
       : ""
   }`;
+}
+
+/**
+ * A development that picks up a withdrawn one, and the withdrawn one picked up
+ * later, name each other, so the two halves of the same work read as one.
+ */
+function developmentLinks(development, developments) {
+  const links = [];
+  if (development.continues) links.push(ui("接续撤回的开发"));
+  if (developments.some((entry) => entry.continues === development.developmentId)) links.push(ui("已被接续"));
+  return links.map((text) => `<span class="or-development-link">${esc(text)}</span>`).join("");
 }
 
 function criteriaSection(row) {

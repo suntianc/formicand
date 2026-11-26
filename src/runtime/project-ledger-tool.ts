@@ -53,7 +53,7 @@ export function createProjectLedgerTool(options: ProjectLedgerToolOptions) {
           type: "string",
           maxLength: 2000,
           description:
-            "lookup: the user's request in their own words. The result says whether one feature is likely, several look alike or none fits, with the whole catalog when it is not sure or the ledger is small."
+            "lookup: the user's request in their own words. The result says whether one feature is likely, several look alike or none fits, with the whole catalog when it is not sure or the ledger is small. A candidate marked retired is a feature the user dropped before, with why: tell the user it was dropped and why, and ask whether this is the same work before picking it up."
         },
         q: { type: "string", description: "query: match requirement title, summary or aliases." },
         status: { type: "string", enum: ["active", "retired"] },

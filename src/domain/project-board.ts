@@ -31,7 +31,8 @@ export type BoardState =
   | "pending_release";
 export type BoardEntryKind = "external";
 export type BoardAssignmentKind = "user" | "main";
-export type BoardEventKind = "published" | "claimed" | "paused" | "released" | "cancelled" | "delivered";
+export type BoardEventKind =
+  "published" | "claimed" | "paused" | "resumed" | "released" | "cancelled" | "delivered";
 export type BoardTransitionAction = "pause" | "release" | "cancel";
 export type BoardAction = "claim" | BoardTransitionAction;
 
@@ -47,6 +48,7 @@ export const BOARD_EVENT_KINDS: readonly BoardEventKind[] = [
   "published",
   "claimed",
   "paused",
+  "resumed",
   "released",
   "cancelled",
   "delivered"

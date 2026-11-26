@@ -15,7 +15,11 @@ import {
   type MergeRetro
 } from "../domain/development-merge.js";
 import { PITFALLS_INDEX_PAGE, pitfallProblems } from "../domain/pitfall-entries.js";
-import { developmentIdentifier, type DevelopmentRecord } from "../domain/project-development.js";
+import {
+  developmentIdentifier,
+  developmentNotActive,
+  type DevelopmentRecord
+} from "../domain/project-development.js";
 import { now } from "../domain/types.js";
 import type { ProjectDataGateway } from "../workspace/project-data-service.js";
 import { changedPagesUnder, fileAt } from "../workspace/development-workspace.js";
@@ -250,11 +254,7 @@ export function createDevelopmentMergeRequestService({
       .reverse()
       .find((entry) => entry.state === "merged" && entry.candidate.commit === candidate.commit);
     if (merged) return merged;
-    if (record.status !== "active")
-      throw conflict(
-        `这次开发已${record.status === "merged" ? "合入" : "撤回"}；同一需求的新工作新建一次开发`,
-        "development_closed"
-      );
+    if (record.status !== "active") throw conflict(developmentNotActive(record.status), "development_closed");
     // Registered only once the merge is about to be recorded, so a refused
     // request leaves no requirement behind.
     if (improvements.length)

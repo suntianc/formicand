@@ -7,14 +7,18 @@ description: Develop a requirement in the user's Git project through an isolated
 
 `project_development` keeps the record, tickets, reviews and merge; every result carries `next`, the step the program expects. Follow it.
 
-Start with `find_by_requirement` for the feature `project_ledger lookup` settled, and continue its active record if there is one; `create` takes `request`, the user's own words. Work happens in the record's checkout, never the user's working tree.
+Start with `find_by_requirement` for the feature `project_ledger lookup` settled, and continue its open record if there is one; `create` takes `request`, the user's own words. Work happens in the record's checkout, never the user's working tree.
 
 ## Choosing the route
 
 - `quick` is the default, also when the work has several parts. You write the whole change in the checkout yourself, check it, and record `review_plan` with `self` and the checks you ran. If the program refuses `self`, it says why; then record `independent` and `freeze_candidate`. The Reviewer only checks the candidate against the criteria; you fix what it finds.
 - `full` is for work too large to check as one change, or that the user wants to accept part by part. The spec becomes tickets the user confirms. You write them yourself, one at a time: `start_ticket` opens a ticket's own checkout. Give an Executor only a ticket that can be built beside yours without touching it. Each ticket is reviewed, then a final review covers the whole requirement.
 
-When the target branch moves on, merge it into the checkout and check again; on `full`, `sync_target` does this.
+When the target branch moves on, merge it in and check again (`sync_target` on `full`).
+
+## When the user stops
+
+`pause` work they may come back to and `withdraw` work they drop, each with their reason; ask when unclear. When lookup marks a feature retired or the record is withdrawn, tell the user why it was dropped; once they confirm it is the same work, `create` with `continues`.
 
 ## Scope and acceptance criteria
 
@@ -34,7 +38,7 @@ When the target branch moves on, merge it into the checkout and check again; on 
 - Take a suggestion only when it is cheap and inside the scope; otherwise mention it to the user.
 - A change to the agreed goal, criteria or trade-offs goes to the user first.
 
-After two failed rework rounds, the program asks for `change_approach` on the failed review. Choose it yourself and give the reason: `fresh_executor` (a ticket restarts with a new Executor), `revised_ticket` (the ticket was wrong or too big), `new_plan` (new fix tickets for the final review) or `deliver_partial` (deliver what is done; first dismiss the rest as `deferred`).
+After two failed rework rounds, the program asks for `change_approach` on the failed review; choose it yourself and give the reason.
 
 ## Merging and reporting
 

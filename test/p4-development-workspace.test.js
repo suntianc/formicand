@@ -395,13 +395,15 @@ for (const engine of PROJECT_DATA_ENGINES) {
     assert.equal(crossProject.status, 404, JSON.stringify(crossProject.body));
 
     // A requirement is a long-lived feature: once its development is
-    // withdrawn, the next piece of work on it is a new development, and the
-    // withdrawn one takes no more writes.
+    // withdrawn, the withdrawn one takes no more writes. This feature never
+    // merged, so withdrawing retires it and the next development picks the
+    // withdrawn one up.
     const withdrawn = await request(developmentPath(project.projectId), {
       action: "update",
       developmentId: one.developmentId,
       expectedRevision: 2,
-      status: "withdrawn"
+      status: "withdrawn",
+      reason: "用户不做了"
     });
     assert.equal(withdrawn.status, 200, JSON.stringify(withdrawn.body));
     assert.equal(withdrawn.body.development.status, "withdrawn");
@@ -418,9 +420,11 @@ for (const engine of PROJECT_DATA_ENGINES) {
       requirementId: first.requirementId,
       goal: "公共设备每次验证",
       completionCriteria: ["公共设备每次登录都要求验证码"],
-      route: "full"
+      route: "full",
+      continues: one.developmentId
     });
     assert.equal(next.status, 201, JSON.stringify(next.body));
+    assert.equal(next.body.development.continues, one.developmentId);
     assert.notEqual(next.body.development.developmentId, one.developmentId);
     const found = await request(developmentPath(project.projectId), {
       action: "find_by_requirement",

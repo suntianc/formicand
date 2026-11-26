@@ -66,8 +66,19 @@ test("lookup says how sure it is, and lists the catalog when it is not", () => {
     ["r_columns", "r_export"]
   );
 
-  // A retired feature is never a candidate, even by its exact title.
-  assert.equal(lookupRequirements(ledger, "到期提醒").verdict, "none");
+  // A retired feature is still found, marked retired with why it was withdrawn.
+  const dropped = lookupRequirements(ledger, "到期提醒");
+  assert.equal(dropped.candidates[0].requirementId, "r_remind");
+  assert.deepEqual(dropped.candidates[0].retired, {});
+  const withdrawn = lookupRequirements(
+    ledger.map((entry) =>
+      entry.requirementId === "r_remind" ? { ...entry, withdrawnReason: "客户不要提醒了" } : entry
+    ),
+    "到期提醒"
+  );
+  assert.deepEqual(withdrawn.candidates[0].retired, { withdrawnReason: "客户不要提醒了" });
+  // An active feature carries no mark.
+  assert.equal("retired" in likely.candidates[0], false);
 });
 
 test("an English word next to Chinese is still a word", () => {
@@ -123,10 +134,11 @@ async function openLedger(t) {
   return { service, projectId: project.projectId, root };
 }
 
-const develop = (service, projectId, requirementId, request) =>
+const develop = (service, projectId, requirementId, request, continues) =>
   service.createDevelopment(projectId, {
     requirementId,
     request,
+    ...(continues ? { continues } : {}),
     goal: "做这次改动",
     completionCriteria: ["测试通过"],
     route: "full",
@@ -147,7 +159,8 @@ test("a development keeps the user's words as an alias only when lookup would mi
   assert.deepEqual((await service.getRequirement(projectId, exported.requirementId)).aliases, []);
   await service.updateDevelopment(projectId, first.developmentId, {
     expectedRevision: first.revision,
-    status: "withdrawn"
+    status: "withdrawn",
+    reason: "用户不做了"
   });
 
   // Words lookup does not tie to this feature become its alias, naming the development.
@@ -166,12 +179,17 @@ test("a development keeps the user's words as an alias only when lookup would mi
   // A development without the user's words learns nothing; too long words are refused.
   await service.updateDevelopment(projectId, second.developmentId, {
     expectedRevision: second.revision,
-    status: "withdrawn"
+    status: "withdrawn",
+    reason: "用户不做了"
   });
-  await assert.rejects(develop(service, projectId, created.requirementId, "字".repeat(101)), {
-    code: "invalid_project_data"
-  });
-  await develop(service, projectId, created.requirementId, undefined);
+  // That withdrawal retired the feature, which never merged; picking it up names the withdrawn one.
+  await assert.rejects(
+    develop(service, projectId, created.requirementId, "字".repeat(101), second.developmentId),
+    {
+      code: "invalid_project_data"
+    }
+  );
+  await develop(service, projectId, created.requirementId, undefined, second.developmentId);
   assert.equal((await service.getRequirement(projectId, created.requirementId)).aliases.length, 1);
 });
 

@@ -323,7 +323,9 @@ export function createObserveRequirements({
       }</span>
       <span class="or-cell or-col-stage" role="cell"><span class="or-pill" data-stage="${esc(
         row.progress.stage
-      )}"${row.progress.waiting ? ' data-waiting="true"' : ""}>${esc(ui(row.progress.label))}</span></span>
+      )}"${row.progress.waiting ? ' data-waiting="true"' : ""}${
+        row.progress.paused ? ' data-paused="true"' : ""
+      }>${esc(ui(row.progress.label))}</span></span>
       <span class="or-cell or-col-session" role="cell" title="${esc(row.session)}">${dash(row.session)}</span>
       <span class="or-cell or-col-owner" role="cell">${dash(row.owner)}</span>
       <span class="or-cell or-col-commit" role="cell">${dash(row.merge?.commit ? shortCommit(row.merge.commit) : "")}</span>

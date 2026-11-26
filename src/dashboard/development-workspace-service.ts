@@ -5,6 +5,7 @@ import { type ReviewCandidate } from "../domain/development-review.js";
 import {
   DevelopmentExistsError,
   developmentIdentifier,
+  developmentNotActive,
   mergeExecutionBackendId,
   mergeRepository,
   mergeTargetBranch,
@@ -189,9 +190,11 @@ export function createDevelopmentWorkspaceService({
     // Resolve the requirement before any record or checkout exists.
     await service.getRequirement(projectId, requirementId);
     const existing = await service.findDevelopmentByRequirement(projectId, requirementId, ports.backendId);
-    if (existing?.status === "active")
+    if (existing?.status === "active" || existing?.status === "paused")
       throw new DevelopmentExistsError(
-        `该需求有一次开发还在进行（${existing.developmentId}）；继续这次开发，或等它合入、撤回后再新建`,
+        existing.status === "paused"
+          ? `该需求有一次开发已暂停（${existing.developmentId}）；用户要继续时 resume 它`
+          : `该需求有一次开发还在进行（${existing.developmentId}）；继续这次开发，或等它合入、撤回后再新建`,
         existing.developmentId
       );
     let sessionId = input.sessionId;
@@ -213,7 +216,8 @@ export function createDevelopmentWorkspaceService({
       route: input.route,
       baseline,
       sessionId,
-      taskId
+      taskId,
+      ...(input.continues === undefined ? {} : { continues: input.continues })
     });
     return prepare(projectId, record, config.repository);
   }
@@ -268,14 +272,10 @@ export function createDevelopmentWorkspaceService({
     return record;
   }
 
-  /** A development still being worked on: the writes below refuse a merged or withdrawn one. */
+  /** A development still being worked on: the writes below refuse a paused, merged or withdrawn one. */
   async function openDevelopment(projectId: string, developmentIdValue: unknown): Promise<DevelopmentRecord> {
     const record = await reviewDevelopment(projectId, developmentIdValue);
-    if (record.status !== "active")
-      throw conflict(
-        `这次开发已${record.status === "merged" ? "合入" : "撤回"}；同一需求的新工作新建一次开发`,
-        "development_closed"
-      );
+    if (record.status !== "active") throw conflict(developmentNotActive(record.status), "development_closed");
     return record;
   }
 
