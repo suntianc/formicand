@@ -28,6 +28,9 @@ const collabTools = new Set([
   "sleep_until"
 ]);
 
+/** Tools in which Main only waits for its Subagents. */
+const waitingTools = new Set(["wait_for_subagents"]);
+
 const categoryMeta = {
   read: {
     icon: "book-open",
@@ -319,8 +322,10 @@ export function createConversationActivityView({
           const segmentFailed = segmentCalls.filter(
             (call) => presentations.get(call)?.status === "failed"
           ).length;
+          // Main sitting in a wait for its Subagents is not working: the run
+          // strip says it waits, and the row reads as the steps it finished.
           const runningToolItem = segmentCallItems.findLast(
-            (item) => presentations.get(item.call)?.status === "running"
+            (item) => presentations.get(item.call)?.status === "running" && !waitingTools.has(item.call.name)
           );
           const lastItem = segmentItems.at(-1);
           const activeReasoning =

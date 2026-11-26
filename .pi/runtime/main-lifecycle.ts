@@ -538,6 +538,11 @@ export function registerMainLifecycle(
         return;
       }
       if (!last || ["error", "aborted", "length"].includes(last.stopReason)) return;
+      // A resident Main settles here and waits between turns: the settlement
+      // records the Task as waiting, and a callback wakes the next turn
+      // through the Inbox. Holding the turn open would report Main as working
+      // for as long as its Subagents run.
+      if (resident) return;
       // Pi awaits this hook before settling --print. Keep the Main session
       // alive for outstanding one-shot work and let queued callbacks trigger
       // another turn before a final answer is accepted.
