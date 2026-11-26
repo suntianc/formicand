@@ -12,6 +12,7 @@ import { backendPaths, readBackendInstance } from "../dist/src/dashboard/backend
 import { HumanRequestStore } from "../dist/src/runtime/human.js";
 import { applyTicketWrite, developmentNext } from "../dist/src/domain/development-ticket.js";
 import { createProjectDevelopmentTool } from "../dist/src/runtime/project-development-tool.js";
+import { applyTicketAnswer } from "../dist/src/dashboard/ticket-answer.js";
 import { renderHumanQuestion } from "../web/assets/human-questions.js";
 
 /**
@@ -644,3 +645,137 @@ test("retrying the same proposal preserves the card revision and reuses the appr
   );
   assert.throws(() => applyTicketWrite(changed, decision, "direct", later), /票已更新/);
 });
+
+test("a late confirmation still applies after another ticket moved on, and only while its tickets are as shown", async () => {
+  const confirmOne = (set, id) =>
+    applyTicketWrite(set, { op: "confirm", expectedRevision: set.revision, decisionId: id }, "full", at);
+  let set = confirmOne(
+    applyTicketWrite(emptySet, { op: "propose", tickets: [ticket("01")] }, "full", at),
+    "h-01"
+  );
+  set = applyTicketWrite(set, { op: "propose", tickets: [ticket("02", { dependsOn: ["01"] })] }, "full", at);
+  // The card is stored as a file, so its tickets come back from JSON.
+  const card = {
+    kind: "tickets",
+    action: "propose",
+    developmentId: "d",
+    requirementTitle: "分页",
+    expectedRevision: set.revision,
+    tickets: JSON.parse(JSON.stringify(set.tickets.filter((entry) => entry.state === "draft")))
+  };
+  const request = { taskId: "t", requestId: "h-02", options: ["确认这些票", "拒绝"], proposal: card };
+  const service = (current) => ({
+    set: current,
+    async ticketsForTask() {
+      return this.set;
+    },
+    async writeTicketsForTask(_taskId, _developmentId, write) {
+      this.set = applyTicketWrite(this.set, write, "full", at);
+      return this.set;
+    }
+  });
+
+  // Ticket 01 moves on while the card for 02 waits, as an integration would.
+  const moved = applyTicketWrite(
+    set,
+    {
+      op: "revise",
+      ticketId: "01",
+      expectedRevision: set.revision,
+      changes: { title: "票 01 改名" },
+      reason: "并入时更名",
+      decision: "确认修改",
+      decisionId: "h-01-rename"
+    },
+    "full",
+    at
+  );
+  const late = service(moved);
+  await applyTicketAnswer(late, request, "确认这些票");
+  assert.equal(late.set.tickets.find((entry) => entry.ticketId === "02").state, "confirmed");
+
+  // Drafts that changed after the card was shown are not what the user approved.
+  const redrafted = service(
+    applyTicketWrite(
+      moved,
+      { op: "propose", tickets: [ticket("02", { title: "改过的 02", dependsOn: ["01"] })] },
+      "full",
+      at
+    )
+  );
+  await assert.rejects(applyTicketAnswer(redrafted, request, "确认这些票"), /票已更新/);
+  assert.equal(redrafted.set.tickets.find((entry) => entry.ticketId === "02").state, "draft");
+});
+
+test(
+  "a new ticket card for the same development withdraws the earlier one",
+  { timeout: 120_000 },
+  async (t) => {
+    const root = await mkdtemp(join(tmpdir(), "formicand-p48-tickets-replaced-"));
+    t.after(() => rm(root, { recursive: true, force: true }));
+    const directory = await repository(root);
+    let developmentId = "";
+    let requirementId = "";
+    const results = [];
+    const provider = await modelProtocolFixture("openai-completions", (body) => {
+      const tool = body.messages.findLast((message) => message.role === "tool");
+      const text =
+        typeof tool?.content === "string"
+          ? tool.content
+          : (tool?.content ?? []).map((part) => part.text).join("");
+      if (text) results.push(JSON.parse(text));
+      const step = results.length;
+      if (step === 0)
+        return {
+          name: "project_development",
+          arguments: {
+            action: "create",
+            requirementId,
+            request: "列表分页",
+            goal: "list 分页正确",
+            completionCriteria: ["第二页从第 11 条开始"],
+            route: "direct"
+          }
+        };
+      if (step === 1 || step === 2) {
+        developmentId = results[0].development.developmentId;
+        // The second proposal differs, so it is a new card rather than the same one reopened.
+        return {
+          name: "project_development",
+          arguments: {
+            action: "propose_tickets",
+            developmentId,
+            tickets: [ticket("01", step === 2 ? { title: "票 01 第二版" } : {})]
+          }
+        };
+      }
+      return { text: "等用户确认。" };
+    });
+    t.after(() => provider.close());
+    const dashboard = await startDashboard({
+      defaultProject: false,
+      modelEndpoint: provider.baseUrl,
+      model: "protocol-fixture",
+      env: { FORMICAND_DISABLE_MAIN_GUARDIAN: "1", FORMICAND_HUMAN_ANSWER_TIMEOUT_MS: "150" }
+    });
+    t.after(() => dashboard.stop());
+    const setup = await project(dashboard, directory, "Main 票项目");
+    requirementId = setup.requirementId;
+    await setup.post(`/api/tasks/${setup.taskId}/run`, { prompt: "修分页" });
+    for (let attempt = 0; attempt < 600 && results.length < 3; attempt++) await delay(100);
+    assert.deepEqual(
+      results.slice(1, 3).map((result) => result.status),
+      ["timeout", "timeout"]
+    );
+    const cards = (await new HumanRequestStore(dashboard.workspaceRoot).list(setup.taskId))
+      .filter((request) => request.proposal?.kind === "tickets")
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+    assert.deepEqual(
+      cards.map((card) => [card.proposal.tickets[0].title, card.status]),
+      [
+        ["票 01", "cancelled"],
+        ["票 01 第二版", "unanswered"]
+      ]
+    );
+  }
+);

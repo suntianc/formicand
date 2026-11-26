@@ -73,8 +73,7 @@ export async function applyTicketAnswer(
       return;
     write = legacyWrite(card, await service.ticketsForTask(taskId, card.developmentId), decisionId, answer);
   } else {
-    const expectedRevision = card.expectedRevision;
-    write =
+    const at = (expectedRevision: number): TicketWrite =>
       card.action === "propose"
         ? { op: "confirm", expectedRevision, decisionId }
         : {
@@ -86,6 +85,29 @@ export async function applyTicketAnswer(
             reason: card.reason,
             decision: answer
           };
+    try {
+      await service.writeTicketsForTask(taskId, card.developmentId, at(card.expectedRevision));
+      return;
+    } catch (error) {
+      // Another ticket of the set moved on after the card was shown (one was
+      // integrated, say). What the user approved still stands as displayed, so
+      // the decision applies at the current revision; any other change refuses it.
+      if (!(error instanceof ProjectDataConflictError)) throw error;
+      const current = await service.ticketsForTask(taskId, card.developmentId);
+      if (!stillAsShown(card, current)) throw error;
+      write = at(current.revision);
+    }
   }
   await service.writeTicketsForTask(taskId, card.developmentId, write);
+}
+
+/** The tickets the card asks about are as it showed them. */
+function stillAsShown(card: TicketsProposal, current: TicketSet): boolean {
+  if (card.action === "propose")
+    return isDeepStrictEqual(
+      current.tickets.filter((ticket) => ticket.state === "draft"),
+      card.tickets
+    );
+  const ticket = current.tickets.find((item) => item.ticketId === card.tickets[0]?.ticketId);
+  return card.previous !== undefined && isDeepStrictEqual(ticket, card.previous);
 }
