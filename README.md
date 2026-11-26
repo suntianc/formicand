@@ -349,14 +349,14 @@ Check again afterwards: the App's "Check" on the provider, or `formicand doctor 
 
 Tools Main always has:
 
-| Kind            | Tools                                                                                                    |
-| --------------- | -------------------------------------------------------------------------------------------------------- |
-| Files and shell | Pi's own read, write, edit and bash                                                                      |
-| Delegation      | `call_subagent`, `send_subagent_message`, `cancel_subagent`, `get_subagent_status`, `wait_for_subagents` |
-| Tasks           | `get_task_status`, `finish_task`, `sleep_until`, `askhuman` (ask the user)                               |
-| History         | `session_notes`, `search_history`, `read_history`, `clear_context`                                       |
-| Projects        | `project_ledger`, `project_development`, `browse_workspace`                                              |
-| Other           | `load_skill`, `manage_agent`, `grant_capabilities`, `enable_tools`, plus web search and page reading     |
+| Kind            | Tools                                                                                                                            |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| Files and shell | Pi's own read, write, edit and bash                                                                                              |
+| Delegation      | `call_subagent`, `send_subagent_message`, `cancel_subagent`, `get_subagent_status`, `wait_for_subagents`                         |
+| Tasks           | `get_task_status`, `finish_task`, `sleep_until`, `askhuman` (ask the user)                                                       |
+| History         | `session_notes`, `search_history`, `read_history` (Main can also search and read this project's other sessions), `clear_context` |
+| Projects        | `project_ledger`, `project_development`, `browse_workspace`                                                                      |
+| Other           | `load_skill`, `manage_agent`, `grant_capabilities`, `enable_tools`, plus web search and page reading                             |
 
 Subagents have their own tools: `submit_report` and `submit_review` return conclusions, `ask_main` asks Main and `send_peer_message` reaches a peer.
 

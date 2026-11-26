@@ -16,6 +16,8 @@ export interface ProjectLedgerClient {
   request(input: Record<string, unknown>): Promise<Record<string, unknown>>;
   board(input?: Record<string, unknown>, method?: "GET" | "POST"): Promise<Record<string, unknown>>;
   memory(input?: Record<string, unknown>, method?: "GET" | "POST"): Promise<Record<string, unknown>>;
+  /** Search or read the other sessions of this Task's project. */
+  history(input: Record<string, unknown>): Promise<Record<string, unknown>>;
 }
 
 const TASK_ID = /^[A-Za-z0-9._-]+$/;
@@ -44,7 +46,7 @@ export function createProjectLedgerClient(options: {
   dashboardUrl: string;
   taskId: string;
   token?: string;
-  /** Names the tool in errors; the same Task-scoped bridge serves the ledger and memory. */
+  /** Names the tool in errors; the same Task-scoped bridge serves the ledger, memory and history. */
   label?: string;
 }): ProjectLedgerClient {
   const label = options.label ?? "项目台账工具";
@@ -86,6 +88,7 @@ export function createProjectLedgerClient(options: {
   return {
     request: (input) => send(`${origin}${taskPath}/ledger`, input, "POST"),
     board: (input, method = "POST") => send(`${origin}${taskPath}/board`, input, method),
-    memory: (input, method = "POST") => send(`${origin}${taskPath}/memory`, input, method)
+    memory: (input, method = "POST") => send(`${origin}${taskPath}/memory`, input, method),
+    history: (input) => send(`${origin}${taskPath}/history`, input, "POST")
   };
 }

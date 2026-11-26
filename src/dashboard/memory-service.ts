@@ -1,6 +1,7 @@
 import {
   deleteMemory,
   listMemories,
+  MEMORY_LIMITS,
   memoryIndex,
   MemoryError,
   projectMemoryEnabled,
@@ -158,8 +159,11 @@ export function createMemoryService(options: {
         );
       }
       const memoryTarget = await taskTarget(taskId, action.scope);
-      if (action.action === "write")
-        return { memory: await guard(() => writeMemory(home, memoryTarget, action.memory)) };
+      if (action.action === "write") {
+        const memory = await guard(() => writeMemory(home, memoryTarget, action.memory));
+        const count = (await listMemories(home, memoryTarget)).length;
+        return { memory, usage: `${count}/${MEMORY_LIMITS.entries}` };
+      }
       return { deleted: await guard(() => deleteMemory(home, memoryTarget, action.name)) };
     }
   };
