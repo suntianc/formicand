@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
-import { mkdir, mkdtemp, readdir, readFile, rm, stat, symlink, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readdir, readFile, rm, stat, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { test } from "node:test";
@@ -371,8 +371,31 @@ test(
     // The index stores the on-disk spelling; a caller may reach the same
     // directory through a link or a differently cased name.
     await symlink("Source", join(project, "link"));
+    // A file link crosses into another directory; its scope must stay the one
+    // canonical target instead of mixing the link's directory with the
+    // target's name, which would select a different same-named file.
+    await mkdir(join(project, "src"), { recursive: true });
+    await mkdir(join(project, "deep"), { recursive: true });
+    await writeFile(join(project, "deep", "target.ts"), "expectedresult\n");
+    await writeFile(join(project, "src", "target.ts"), "wrongsecret\n");
+    await symlink("../deep/target.ts", join(project, "src", "alias.ts"));
     const index = new IndexedFileSearch(project);
     t.after(() => index.close());
+    assert.equal(
+      (await index.content("wrongsecret", 10, "src/alias.ts")).text,
+      "No matches found",
+      "a linked file must not resolve to another same-named file"
+    );
+    assert.equal(
+      (await index.content("expectedresult", 10, "src/alias.ts")).text,
+      "target.ts:1: expectedresult",
+      "the linked file searches the one canonical target"
+    );
+    await assert.rejects(
+      index.names("literal", 10, "src/missing.ts"),
+      /ENOENT/,
+      "a missing path reports the file system error instead of a guess"
+    );
     const scoped = async (path) => ({
       names: (await index.names("literal", 10, path)).paths,
       content: (await index.content("literalunique", 10, path)).text
@@ -398,6 +421,41 @@ test(
     } else {
       await assert.rejects(scoped("source"), /ENOENT/);
     }
+  }
+);
+
+test(
+  "exploration search keeps a readable project below an unreadable ancestor",
+  {
+    timeout: 60_000,
+    skip: !["darwin", "linux"].includes(process.platform) || process.getuid?.() === 0
+  },
+  async (t) => {
+    const root = await mkdtemp(join(tmpdir(), "file-search-parent-"));
+    const parent = join(root, "parent");
+    const project = join(parent, "project");
+    await mkdir(join(project, ".git"), { recursive: true });
+    await writeFile(join(project, "allowed.txt"), "accessible\n");
+    let index;
+    t.after(async () => {
+      await index?.close().catch(() => {});
+      await chmod(parent, 0o755).catch(() => {});
+      await rm(root, { recursive: true, force: true });
+    });
+    // Executing (x) without reading (r) still allows traversal by path, which
+    // is all a search of the readable project needs.
+    await chmod(parent, 0o111);
+    assert.equal(
+      await readdir(parent).then(
+        () => "readable",
+        (error) => error.code
+      ),
+      "EACCES",
+      "the fixture denies listing the ancestor"
+    );
+    index = new IndexedFileSearch(project);
+    assert.deepEqual((await index.names("allowed", 10)).paths, ["allowed.txt"]);
+    assert.equal((await index.content("accessible", 10)).text, "allowed.txt:1: accessible");
   }
 );
 
