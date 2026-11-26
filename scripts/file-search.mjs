@@ -118,7 +118,10 @@ async function* files(directory, rules = [], options = {}) {
 }
 
 function globMatches(path, pattern) {
-  return minimatch(pattern.includes("/") ? path : basename(path), normalizedPattern(pattern), { dot: true });
+  const glob = normalizedPattern(pattern);
+  // Scope a root-level negation before applying its complement to the filename.
+  if (glob !== pattern && glob.startsWith("!") && !glob.includes("/") && path.includes("/")) return false;
+  return minimatch(pattern.includes("/") ? path : basename(path), glob, { dot: true });
 }
 
 /** Pi accepts a leading "./" in relative globs; fd and ripgrep anchor patterns elsewhere. */
@@ -544,7 +547,7 @@ function emptyGrepResult(skippedFiles = []) {
 }
 
 async function nativeFind({ fd, root, pattern, limit, signal, deadline }) {
-  if (unsupportedGlobSyntax(pattern)) throw new NativeFallback();
+  if (unsupportedGlobSyntax(normalizedPattern(pattern))) throw new NativeFallback();
   const target = nativeGlobPattern(pattern, root);
   if (!target) throw new NativeFallback();
   if (!target.pattern) return { paths: [], limitReached: false };

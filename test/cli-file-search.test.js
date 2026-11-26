@@ -464,9 +464,11 @@ test("an explicit relative glob anchors find and grep at the search root", async
   const f = await fixture(t);
   await f.put("README.md", "needle\n");
   await f.put("src/README.md", "needle\n");
+  await f.put("drop.tmp", "needle\n");
+  await f.put("src/nested.tmp", "needle\n");
   for (const tools of [realPaths, join(f.root, "missing-tools")]) {
     setTestPath(t, tools);
-    for (const pattern of ["./README.md", "./*.md", "README.md"]) {
+    for (const pattern of ["./README.md", "./*.md", "./!*.tmp", "README.md"]) {
       const expected = pattern.startsWith("./") ? ["README.md"] : ["README.md", "src/README.md"];
       assert.deepEqual(sortedPaths(await runDiskSearch("find", { pattern }, { cwd: f.root })), expected);
       const result = await runDiskSearch(
