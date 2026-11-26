@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join, resolve, relative, sep } from "node:path";
 import { createHash } from "node:crypto";
 import {
+  cliBundleDependencies,
   cliDependencies,
   cliShrinkwrap,
   productionPackages,
@@ -19,6 +20,8 @@ try {
   const pkg = JSON.parse(await readFile("package.json", "utf8"));
   const lock = JSON.parse(await readFile("package-lock.json", "utf8"));
   const dependencies = cliDependencies(pkg, lock);
+  const optionalDependencies = pkg.optionalDependencies;
+  const packages = productionPackages(lock, { ...dependencies, ...optionalDependencies });
   const files = [
     "dist/src",
     "dist/cli-ui-manifest.json",
@@ -101,9 +104,12 @@ try {
   await chmod(join(stage, "scripts/formicand.mjs"), 0o755);
   // Local tgz consumers do not consistently honor registry shrinkwrap metadata.
   // Bundle the portable tested tree. esbuild's pristine JS installer downloads
-  // its exact, hash-checked native runtime for the consumer's OS/CPU.
+  // its exact, hash-checked native runtime for the consumer's OS/CPU. Platform
+  // packages (fff-node's binaries, ffi-rs's bindings) stay out of the archive:
+  // the shrinkwrap pins them and the consumer's npm installs the matching
+  // OS/CPU archive instead of receiving this build host's native library.
   // Nested production packages are copied from their own lock entries.
-  for (const path of productionPackages(lock)) {
+  for (const path of packages) {
     const source = resolve(path);
     await mkdir(join(stage, path, ".."), { recursive: true });
     if (path === "node_modules/esbuild") {
@@ -151,8 +157,9 @@ try {
       formicand: "scripts/formicand.mjs"
     },
     dependencies,
+    optionalDependencies,
     overrides: pkg.overrides,
-    bundleDependencies: Object.keys(dependencies),
+    bundleDependencies: cliBundleDependencies(dependencies, packages),
     files: [
       "dist",
       ".pi",

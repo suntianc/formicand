@@ -90,7 +90,7 @@ formicand
 | `formicand --resume`            | 从历史对话里选一个           |
 | `formicand session export <ID>` | 把对话导出成 JSON 或 HTML    |
 
-终端输入 `@` 加部分文件名即可补全项目路径。Main 和 Reviewer 用 `find` 模糊定位文件或按 glob 查找，用 `grep` 探索正文。核对刚写入的内容时，`grep` 的 `mode: "exact"` 会直接读盘，默认按字面量匹配并区分大小写。
+终端输入 `@` 加部分文件名即可补全项目路径。Main 和 Reviewer 用 `find` 模糊定位文件或按 glob 查找，用 `grep` 探索正文。核对刚写入的内容时，`grep` 的 `mode: "exact"` 会直接读盘，默认按字面量匹配并区分大小写。离线安装缺少可选的 FFF 索引库时，仍可使用路径 glob 和精确正文搜索。
 
 `formicand --help` 列出全部命令。
 
