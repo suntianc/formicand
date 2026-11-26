@@ -120,10 +120,6 @@
 .activity-step-head > span.thinking-spinner:first-child {
   margin-left: 0;
 }
-.chat-message[data-answer-kind="pending"] .live-workflow {
-  margin-top: 8px;
-  margin-bottom: 0;
-}
 .live-workflow {
   white-space: normal;
 }

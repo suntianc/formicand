@@ -241,6 +241,13 @@ test("progress animates before tokens, during retries and between tools until co
       const placeholder = page.locator(".assistant-thinking");
       await expect(placeholder).toBeVisible();
       await expect(placeholder).toContainText("思考中");
+      const spot = (locator) =>
+        locator.evaluate((node) => {
+          const { left, top } = node.getBoundingClientRect();
+          return { left, top };
+        });
+      const waitingMark = await spot(placeholder.locator(".thinking-spinner"));
+      const waitingWords = await spot(placeholder.locator(".reasoning-state"));
       await page.evaluate(() => window.thoughtFixture.retryBeforeToken());
       await expect(placeholder).toContainText("恢复模型连接");
       await expect(placeholder.locator(".thinking-spinner")).toBeVisible();
@@ -248,6 +255,9 @@ test("progress animates before tokens, during retries and between tools until co
       // Collapsed live process shows the coarse waiting status in place.
       const summary = page.locator(".process-segment.is-live > summary");
       await expect(summary).toContainText("思考中");
+      // The first thought takes the waiting row's place: its mark and words do not move.
+      expect(await spot(summary.locator(".thinking-spinner"))).toEqual(waitingMark);
+      expect(await spot(summary.locator(".process-live-state"))).toEqual(waitingWords);
       await expect(page.locator(".live-workflow-head")).toHaveCount(0);
       const progress = summary.locator(".thinking-spinner");
       expect(await progress.evaluate((node) => getComputedStyle(node).animationName)).toBe("none");
