@@ -543,9 +543,9 @@ test("reduced motion retains actual busy state and tool progress without rotatin
     await page.locator(".process-segment > summary").click();
     await expect(page.locator(".process-live-state")).toHaveText("运行命令中");
     await expect(page.locator(".tool-step .activity-status").first()).toHaveText("执行中");
-    // A running command shows its kind with a still icon; the ant is only for thinking.
-    await expect(page.locator(".thinking-spinner")).toHaveCount(0);
-    await expect(page.locator(".process-segment.is-live > summary .process-segment-icon")).toHaveCount(1);
+    // A running command keeps the same ant as thinking; only the words change.
+    await expect(page.locator(".process-segment.is-live > summary .thinking-spinner")).toHaveCount(1);
+    await expect(page.locator(".process-segment.is-live > summary .process-segment-icon")).toHaveCount(0);
     await page.evaluate(() => window.executionFixture.append());
     await expect(page.locator(".reasoning-copy > p").first()).toHaveText(headings[0]);
     await expect(page.locator('[data-answer-kind="pending"]')).toHaveAttribute("aria-busy", "true");

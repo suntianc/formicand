@@ -126,11 +126,14 @@ test("follow-up opens an assistant message before inference and animates each th
     await expect(pending.locator(".reasoning-step")).toContainText("先查看可用工具。", { timeout: 30_000 });
     await expect(liveProcess.locator(":scope > summary .thinking-spinner")).toHaveCount(1);
     gates[0].release();
-    await expect(pending.locator(".reasoning-step")).toHaveCount(2, { timeout: 30_000 });
+    // While the next thought has no words, only the summary says 思考中.
+    await expect(pending.locator(".tool-step")).toHaveCount(1, { timeout: 30_000 });
+    await expect(pending.locator(".reasoning-step")).toHaveCount(1);
     await expect(pending.locator(".reasoning-step").first()).toContainText("先查看可用工具。");
-    await expect(pending.locator(".reasoning-step").first().locator(".thinking-spinner")).toHaveCount(0);
-    await expect(pending.locator(".reasoning-step").last().locator(".thinking-spinner")).toBeVisible();
+    await expect(pending.locator(".reasoning-step .thinking-spinner")).toHaveCount(0);
+    await expect(liveProcess.locator(":scope > summary .thinking-spinner")).toHaveCount(1);
     gates[3].release();
+    await expect(pending.locator(".reasoning-step")).toHaveCount(2, { timeout: 30_000 });
     await expect(pending.locator(".reasoning-step").last()).toContainText("根据工具信息继续思考。");
     await expect(liveProcess.locator(":scope > summary .thinking-spinner")).toHaveCount(1);
     gates[1].release();
