@@ -80,6 +80,7 @@ import { registerJobsTools } from "./tools/jobs.ts";
 import { registerProjectLedgerTool } from "./tools/project-ledger.ts";
 import { registerProjectDevelopmentTool } from "./tools/project-development.ts";
 import { registerMemoryTool } from "./tools/memory.ts";
+import { createProjectLedgerClient } from "../../dist/src/runtime/project-ledger-client.js";
 import { registerWorkspaceTools } from "./tools/workspace.ts";
 import { registerComputerTools } from "./tools/computer-use.ts";
 import { registerBrowserTools } from "./tools/browser-use.ts";
@@ -111,9 +112,9 @@ import { mainContextUsagePath } from "../../dist/src/runtime/session-context-usa
  * than a second extension that would drift from Main's.
  */
 export default async function registerFormicandExtension(pi: ExtensionAPI) {
-  registerSessionHistoryTools(pi);
   const role = process.env.FORMICAND_AGENT_ROLE;
   if (role === "executor" || role === "reviewer") {
+    registerSessionHistoryTools(pi);
     await registerSubagentAgent(pi, role);
     return;
   }
@@ -138,11 +139,22 @@ async function registerMainExtension(pi: ExtensionAPI) {
   let memoryTool: ReturnType<typeof registerMemoryTool>;
   const workspaceRoot = configuredWorkspaceRoot(config);
   const taskId = process.env.FORMICAND_TASK_ID ?? config.taskId ?? `task-${randomUUID()}`;
+  const dashboardUrl = process.env.FORMICAND_DASHBOARD_URL;
+  let historyBridge: ReturnType<typeof createProjectLedgerClient> | undefined;
+  // The other sessions of this project, through the Dashboard that owns the catalog.
+  registerSessionHistoryTools(
+    pi,
+    dashboardUrl
+      ? (input) =>
+          (historyBridge ??= createProjectLedgerClient({ dashboardUrl, taskId, label: "历史搜索" })).history(
+            input
+          )
+      : undefined
+  );
   registerSessionContext(pi, mainContextUsagePath(workspaceRoot, taskId));
   // A stable task id gives the Main Run a stable Inbox across Pi restarts.
   // Override either value when deliberately starting a fresh run.
   const mainRunId = process.env.FORMICAND_RUN_ID ?? `main-${taskId}`;
-  const dashboardUrl = process.env.FORMICAND_DASHBOARD_URL;
   const windows = registerContextWindows(pi, {
     workspaceRoot,
     taskId,

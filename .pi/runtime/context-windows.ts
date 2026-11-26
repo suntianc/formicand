@@ -168,7 +168,7 @@ export function registerContextWindows(pi: ExtensionAPI, scope: HandoffScope) {
         {
           type: "custom_message",
           customType: CONTEXT_CAPACITY_NOTICE,
-          content: `Context capacity: about ${Math.max(0, usage.contextWindow - tokens)} tokens remain. Use session_notes to save constraints, progress and next steps before the window changes.`,
+          content: `Context capacity: about ${Math.max(0, usage.contextWindow - tokens)} tokens remain. Use session_notes to save constraints, progress and next steps before the window changes.${pi.getActiveTools().includes("memory") ? " Save to memory what a later session would still need." : ""}`,
           display: false
         }
       ]

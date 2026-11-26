@@ -350,7 +350,7 @@ Main 一直可用的工具：
 | 文件与命令 | Pi 自带的读、写、改文件和 bash                                                                           |
 | 派单       | `call_subagent`、`send_subagent_message`、`cancel_subagent`、`get_subagent_status`、`wait_for_subagents` |
 | 任务       | `get_task_status`、`finish_task`、`sleep_until`、`askhuman`（向用户提问）                                |
-| 会话历史   | `session_notes`、`search_history`、`read_history`、`clear_context`                                       |
+| 会话历史   | `session_notes`、`search_history`、`read_history`（Main 还能搜、读本项目的其他会话）、`clear_context`    |
 | 项目       | `project_ledger`（需求台账）、`project_development`（需求开发与合入）、`browse_workspace`                |
 | 其他       | `load_skill`、`manage_agent`（自定义 Agent）、`grant_capabilities`、`enable_tools`，以及联网搜索和读网页 |
 

@@ -156,6 +156,18 @@
             "minLength": 1,
             "maxLength": 300
           },
+          "scope": {
+            "anyOf": [
+              {
+                "type": "string",
+                "const": "session"
+              },
+              {
+                "type": "string",
+                "const": "project"
+              }
+            ]
+          },
           "role": {
             "anyOf": [
               {
@@ -182,7 +194,7 @@
           },
           "before": {
             "type": "string",
-            "description": "Only search entries before this entry ID."
+            "description": "Only search entries before this entry ID of this session."
           },
           "limit": {
             "type": "integer",
@@ -201,6 +213,11 @@
           "id": {
             "type": "string",
             "minLength": 1
+          },
+          "session": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Another session's ID."
           },
           "start": {
             "type": "integer",
