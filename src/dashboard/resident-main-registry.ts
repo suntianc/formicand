@@ -208,10 +208,12 @@ export function createResidentMainRegistry({
     const task = await location.store.readTask(taskId).catch(() => location.task);
     const runId = task.activeRunId ?? resident?.runId;
     if (!runId) return false;
-    // A paused Task is not running a turn: the pause stops new turns, so the
-    // Task view and the interrupt must not report the turn the record still
-    // describes while the pause is being written.
-    if (task.pause || task.status === "paused") return false;
+    // A paused Task is not running a turn. The extension writes `pausedAt` at
+    // the boundary before anything else, so from then on the Task view and the
+    // interrupt must not report the turn the record still describes while the
+    // pause is being written. A pause only asked for leaves the turn running
+    // until that boundary: the page shows it as pausing, and stop still works.
+    if (task.pause?.pausedAt || task.status === "paused") return false;
     const state = await mainTurnState(location, taskId, runId);
     if (state) {
       // A record that says "running" stays the answer while this backend is
