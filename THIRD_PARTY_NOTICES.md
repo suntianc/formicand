@@ -46,6 +46,12 @@ Web/App math uses pinned [KaTeX 0.19.0](https://github.com/KaTeX/KaTeX/tree/v0.1
 
 ## Dependencies and external runtimes
 
+文件搜索与终端路径补全使用 FFF 0.11.0 的 Node 绑定和平台原生库，通过 ffi-rs 1.3.7 加载。两者均采用 MIT 许可证。File search and terminal path completion use the FFF 0.11.0 Node binding and platform library, loaded with ffi-rs 1.3.7. Both use the MIT license. [FFF](https://github.com/dmtrKovalenko/fff) · [ffi-rs](https://github.com/zhangyuang/node-ffi-rs)
+
+HTTP 代理传输使用 `undici` 8.13.1（MIT）。[该版本的许可证](https://github.com/nodejs/undici/blob/v8.13.1/LICENSE)
+
+HTTP proxy transport uses `undici` 8.13.1 under the [MIT license](https://github.com/nodejs/undici/blob/v8.13.1/LICENSE).
+
 视觉观察的 PNG 裁剪与缩放使用纯 JavaScript 的 `pngjs` `7.0.0`，随 CLI/App 生产依赖分发，保留其完整 [MIT 许可证](https://registry.npmjs.org/pngjs/-/pngjs-7.0.0.tgz)。来源为 [pngjs v7.0.0](https://github.com/pngjs/pngjs/tree/v7.0.0)。类型依赖 `@types/pngjs` `6.0.5` 仅用于开发。
 
 PNG cropping and resizing use the pure JavaScript `pngjs` `7.0.0` package, distributed as a CLI/App production dependency with its complete [MIT license](https://registry.npmjs.org/pngjs/-/pngjs-7.0.0.tgz). Source: [pngjs v7.0.0](https://github.com/pngjs/pngjs/tree/v7.0.0). `@types/pngjs` `6.0.5` is a development-only type dependency.
@@ -58,9 +64,9 @@ Browser Use 使用 `playwright-core` `1.63.0`，保留 [Apache-2.0 许可证](ht
 
 Browser Use uses `playwright-core` `1.63.0` with its [Apache-2.0 license](https://registry.npmjs.org/playwright-core/-/playwright-core-1.63.0.tgz) and [NOTICE](https://registry.npmjs.org/playwright-core/-/playwright-core-1.63.0.tgz), from [Playwright v1.63.0](https://github.com/microsoft/playwright/tree/v1.63.0). Browser binaries are installed separately and are absent from the CLI/App archive; their distribution licenses and installation checks are independent.
 
-Pi 的 `@earendil-works/pi-agent-core`、`pi-ai`、`pi-coding-agent`、`pi-tui`、`pi-telemetry`、`pi-schema`、`pi-codemode` 与 `pi-mcp` 随当前 CLI/App 以 `1.5.2` 分发（`chord` 自上游 1.2.0 起不再依赖）。两种包均携带[该版本上游完整 MIT 许可证及 Mario Zechner 版权声明](https://github.com/earendil-works/pi/blob/v1.5.2/LICENSE)，来源为 [Pi v1.5.2 的 LICENSE](https://github.com/earendil-works/pi/blob/v1.5.2/LICENSE)。
+Pi 的 `@earendil-works/pi-agent-core`、`pi-ai`、`pi-coding-agent`、`pi-tui`、`pi-telemetry`、`pi-schema`、`pi-codemode` 与 `pi-mcp` 随当前 CLI/App 以 `1.6.1` 分发（`chord` 自上游 1.2.0 起不再依赖）。两种包均携带[该版本上游完整 MIT 许可证及 Mario Zechner 版权声明](https://github.com/earendil-works/pi/blob/v1.6.1/LICENSE)，来源为 [Pi v1.6.1 的 LICENSE](https://github.com/earendil-works/pi/blob/v1.6.1/LICENSE)。
 
-The CLI/App distributes Pi's `@earendil-works/pi-agent-core`, `pi-ai`, `pi-coding-agent`, `pi-tui`, `pi-telemetry`, `pi-schema`, `pi-codemode`, and `pi-mcp` at `1.5.2` (`chord` is no longer a dependency since upstream 1.2.0). Both packages carry the [complete upstream MIT license and Mario Zechner copyright notice](https://github.com/earendil-works/pi/blob/v1.5.2/LICENSE), from [Pi v1.5.2's LICENSE](https://github.com/earendil-works/pi/blob/v1.5.2/LICENSE).
+The CLI/App distributes Pi's `@earendil-works/pi-agent-core`, `pi-ai`, `pi-coding-agent`, `pi-tui`, `pi-telemetry`, `pi-schema`, `pi-codemode`, and `pi-mcp` at `1.6.1` (`chord` is no longer a dependency since upstream 1.2.0). Both packages carry the [complete upstream MIT license and Mario Zechner copyright notice](https://github.com/earendil-works/pi/blob/v1.6.1/LICENSE), from [Pi v1.6.1's LICENSE](https://github.com/earendil-works/pi/blob/v1.6.1/LICENSE).
 
 CLI 的交互界面通过 Pi 公开的 `PI_PACKAGE_DIR`、`piConfig.name` 与扩展 UI API 显示 Formicand 品牌。适配器在 CLI 数据目录生成独立运行时元数据，保留 Pi 原始代码、资源、文档、版权及许可证；不会修改安装依赖。实现见 [CLI 品牌适配器](scripts/cli-branding.mjs)。
 
@@ -76,9 +82,9 @@ Node dependencies are pinned by the root `package-lock.json`. The CLI bundles pr
 
 ## Formicand terminal UI compatibility adapter
 
-Formicand 使用原始 Pi coding agent 1.5.2，在交互子进程加载时应用六处受限 UI 差异；各 CLI 模式另有三处命令身份/输出路径差异，使新命令的 `AI_AGENT=formicand`、完整输出文件为 `formicand-bash-*.log`。不改写依赖文件、许可、历史内容、恢复格式或 RPC 协议结构；模型/工具记录仍保存实际内容与真实输出路径。具体来源、固定 hash、差异和升级门槛见 [终端适配说明](docs/development.md#终端界面适配)。
+Formicand 使用原始 Pi coding agent 1.6.1，在交互子进程加载时应用六处受限 UI 差异；各 CLI 模式另有三处命令身份/输出路径差异，使新命令的 `AI_AGENT=formicand`、完整输出文件为 `formicand-bash-*.log`。不改写依赖文件、许可、历史内容、恢复格式或 RPC 协议结构；模型/工具记录仍保存实际内容与真实输出路径。具体来源、固定 hash、差异和升级门槛见 [终端适配说明](docs/development.md#终端界面适配)。
 
-Formicand uses the original Pi coding agent 1.5.2 with six bounded UI differences applied at load time in the interactive subprocess and three shell identity/output-path differences across CLI modes. New commands use `AI_AGENT=formicand` and `formicand-bash-*.log` for full output. Dependency files, licenses, historical content, recovery formats and RPC protocol structure remain intact; model/tool records retain actual content and real output paths. Source, pinned hashes, differences and upgrade gates are documented in the [terminal adapter guide](docs/development.md#终端界面适配) (Chinese).
+Formicand uses the original Pi coding agent 1.6.1 with six bounded UI differences applied at load time in the interactive subprocess and three shell identity/output-path differences across CLI modes. New commands use `AI_AGENT=formicand` and `formicand-bash-*.log` for full output. Dependency files, licenses, historical content, recovery formats and RPC protocol structure remain intact; model/tool records retain actual content and real output paths. Source, pinned hashes, differences and upgrade gates are documented in the [terminal adapter guide](docs/development.md#终端界面适配) (Chinese).
 
 ## 工程方法技能 / Engineering method skills
 

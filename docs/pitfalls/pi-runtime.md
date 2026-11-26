@@ -3,10 +3,10 @@
 ## 升级 Pi 后新版默认开启的能力改变行为
 
 - **Trigger：** 升级 `@earendil-works/pi-coding-agent`、`pi-ai`、`pi-agent-core`，或调整启动器 `scripts/start-pi-runtime.mjs` 的参数。
-- **What happens：** 新版可能默认开启新能力。1.5.2 中内置 MCP 会读取用户的 `mcp.json`，给 Main 增加 `mcp__*` 工具；交互 TUI 默认全屏；`cacheWarming` 默认开启。工具表和用户可见行为因此在用户不知情时改变。
+- **What happens：** 新版默认值可能改变工具表和终端行为。例如内置 MCP 会读取用户的 `mcp.json` 并增加 `mcp__*` 工具，交互 TUI 和 `cacheWarming` 的默认设置也会变化。
 - **Confirm：** 用 `node scripts/test.mjs --skip-build --file test/p46-pi-upgrade-pi.test.js` 对比请求结构、工具表与系统提示段落和冻结基线 `test/fixtures/p46-pi-upgrade-baseline.json`；逐条阅读 `node_modules/@earendil-works/pi-coding-agent/CHANGELOG.md` 两个版本之间的条目，找出「默认」变化。
-- **Avoid：** 行为不变的升级中，新版默认开启的能力一律显式关闭，不以「当前连接上不生效」为由保留；现有关闭点为启动器的 `--no-mcp`、`--tui-mode regular` 与 Main 扩展的 `cache_warming_decision`。派单与审查清单同时列出这一条。确需采用的新能力单独开票。
-- **Sources：** 2026-11-13 [P4.6 摘录](evidence/os-p46/retro.md#pi-升级与回滚第二轮)。
+- **Avoid：** 在派单和审查时核对 `--no-mcp`、`--tui-mode regular` 与 `cache_warming_decision`，把需要保持的行为写成显式设置。需要启用的新能力单独验收。
+- **Sources：** 2026-11-13《P4.6 Pi 升级与回滚》。
 
 ## 升级后 CLI 策略哈希与深路径导入失效
 
@@ -14,15 +14,15 @@
 - **What happens：** `scripts/cli-ui-policy.json` 与 `scripts/cli-shell-policy.json` 锁定包内 `dist/bundle/` 文件的 SHA-256 和补丁锚点，新版 bundle 不匹配时检查失败；直接引用包内部文件的导入（例如 `pi-agent-core/harness/*`）可能已被移除，TypeBox 也不再由 `pi-ai` 重导出。
 - **Confirm：** `node scripts/test.mjs --skip-build --file test/cli-ui-compatibility.test.js`；`shasum -a 256` 对照策略文件中的 bundle 哈希；`rg "@earendil-works/pi-(ai|agent-core)/" src .pi scripts` 列出深路径导入，逐个确认新版仍存在。
 - **Avoid：** 升级时同步重新生成两份策略文件（由 `build-cli-ui.mjs` 的同一选择逻辑生成，逐处复核 UI 差异），`Type`/`Static`/`TSchema` 从与 Pi 同版本的直接依赖 `typebox` 导入。
-- **Sources：** 2026-11-13 [P4.6 摘录](evidence/os-p46/retro.md#pi-升级与回滚第二轮)。
+- **Sources：** 2026-11-13《P4.6 Pi 升级与回滚》。
 
 ## 只降级 Pi 包无法回滚
 
 - **Trigger：** Pi 升级后出现问题，准备把三个包降回旧版本。
-- **What happens：** 升级提交同时改了启动参数、策略哈希和直接依赖。只降级包时旧版 Pi 以 `Error: Unknown option: --no-mcp` 退出，策略哈希也不匹配。
-- **Confirm：** 用旧版 bundle `cli.js` 加 `--no-mcp --mode rpc` 启动，观察退出信息；`git diff <升级提交>^ <升级提交> | git apply -R --check -` 确认整体撤销可以干净应用。
-- **Avoid：** 按 [运行参考](../development.md#终端界面适配) 的回滚步骤撤销整个升级提交后 `npm ci`、构建、`npm run verify`。会话文件两个方向都能续用（`test/p46-session-compat-pi.test.js`）；之后再次升级不能只改 `package.json`。
-- **Sources：** 2026-11-13 [P4.6 摘录](evidence/os-p46/retro.md#pi-升级与回滚第二轮)。
+- **What happens：** Pi 版本须与启动参数和两份 CLI 策略匹配。升级后若又添加了依赖，恢复整份旧清单会一起移除这些依赖，`npm ci` 仍可能成功，构建才报告缺包。
+- **Confirm：** 对照升级前后的策略版本，再用 `git diff <升级提交>..HEAD -- package.json package-lock.json` 检查后续修改。在临时工作树回滚后构建并运行一个依赖后续改动的入口。
+- **Avoid：** 在升级合并点按保留侧父提交回退。已有后续依赖变更时，从当前清单调整 Pi 版本，恢复对应策略，执行 `npm ci` 并验证 CLI、扩展和搜索。[回滚步骤](../development.md#终端界面适配)
+- **Sources：** 2026-11-26《Pi 运行时兼容与文件搜索》，2026-11-13《P4.6 Pi 升级与回滚》。
 
 ## 依赖文件事件送达消息或唤醒
 
@@ -30,7 +30,7 @@
 - **What happens：** 本机 `fseventsd` 长期约 100% CPU 时，文件事件迟到或丢失是常态，空闲的 Main 或子代理收不到消息，测试偶发超时。
 - **Confirm：** `ps -Ao pcpu,command -r | head` 看 `fseventsd` 占用；关闭文件监听（`FORMICAND_DISABLE_FILE_WATCH=1`）后相关真实进程测试仍应通过。
 - **Avoid：** 送达以回合边界重读收件箱（`turn_end`）和写入方直接唤醒（`src/runtime/agent-wake.ts`，`FORMICAND_WAKE_ENDPOINT`）为准，文件监听只作补充；不要新增只靠文件事件的路径。
-- **Sources：** 2026-11-16 [P4.6 摘录](evidence/os-p46/retro.md#文件事件不可靠第三轮)。
+- **Sources：** 2026-11-16《P4.6 子代理独立进程》。
 
 ## Unix socket 路径超过 sun_path 上限
 
@@ -38,4 +38,4 @@
 - **What happens：** macOS 的 `sun_path` 上限为 104 字节（含结尾）。Electron 内置的 Node 上 `listen` 报 `EINVAL`；普通 Node 上 `listen` 报成功但静默截断，socket 不在预期路径上，写入方若连同一截断名也能连上，因此 Node 测试看起来正常，只有桌面应用里失效。
 - **Confirm：** 打印端点并 `Buffer.byteLength(path)`，超过 103 即越界；在 Electron 运行时下实际 `listen` 一次，并确认 socket 文件在记录路径上。
 - **Avoid：** 端点在一处计算并写入进程记录，读取方用记录值不重算；长度越界时退到固定短目录（现行做法见 `src/runtime/agent-wake.ts` 与 `test/agent-wake.test.js`）。新增 socket 时复用这一处，不要另拼路径。
-- **Sources：** 2026-11-17 [测试精简摘录](evidence/os-test-trim/retro.md#唤醒-socket-路径超过-sun_path-上限)。
+- **Sources：** 2026-11-17《测试精简》。

@@ -10,14 +10,16 @@ import { formicandProviderId } from "../dist/src/runtime/model-profile.js";
 
 /**
  * A Main session written by one Pi runtime must stay usable after switching
- * between 0.87.1 and 1.5.x. Both directions run the real Pi CLI with the real
+ * between 1.5.2 and 1.6.x. Both directions run the real Pi CLI with the real
  * Formicand Main extension against a recorded local provider, so the session file
  * is written by Pi itself and the model request is inspected at the provider
- * seam. 0.87.1 is installed from the local npm cache into a temporary directory;
- * the project dependencies stay on 1.5.x.
+ * seam. 1.5.2 is installed from the local npm cache into a temporary directory;
+ * the project dependencies stay on 1.6.x. The install resolves as of the day
+ * before 1.6.0 shipped, so cached npm metadata cannot pull newer transitive
+ * versions than the rollback runtime was published with.
  */
 
-const OLD_PI_VERSION = "0.87.1";
+const OLD_PI_VERSION = "1.5.2";
 const repositoryRoot = resolve(".");
 const currentPiVersion = JSON.parse(
   await readFile(
@@ -60,6 +62,7 @@ function installOldPi() {
       [
         "install",
         "--offline",
+        "--before=2026-11-20T00:00:00.000Z",
         "--no-audit",
         "--no-fund",
         "--no-package-lock",
@@ -310,7 +313,7 @@ function assertSessionContents(entries, { label }) {
 }
 
 test(
-  "a Main session written by Pi 0.87.1 continues under 1.5.x with its tool history intact",
+  "a Main session written by Pi 1.5.2 continues under 1.6.x with its tool history intact",
   { timeout: 180_000 },
   async (t) => {
     const oldPi = await installOldPi();
@@ -320,7 +323,7 @@ test(
     }
     assert.match(
       currentPiVersion,
-      /^1\.5\./,
+      /^1\.6\./,
       "the current runtime is the version the rollback target is measured against"
     );
     const h = await sessionHarness(t);
@@ -335,12 +338,12 @@ test(
     );
 
     const writeRequests = await runTurn(h, { bundleEntry: oldPi.entry, prompt: PROMPT });
-    assert.equal(writeRequests.length, 2, "0.87.1 answered the tool call in a second request");
-    assert.match(systemText(writeRequests[0]), /<current_workspace>/, "0.87.1 ran the real Main extension");
+    assert.equal(writeRequests.length, 2, "1.5.2 answered the tool call in a second request");
+    assert.match(systemText(writeRequests[0]), /<current_workspace>/, "1.5.2 ran the real Main extension");
     const [oldSession] = await sessionFiles(h.sessions);
-    assert.ok(oldSession, "0.87.1 wrote a session file");
+    assert.ok(oldSession, "1.5.2 wrote a session file");
     const written = await readSession(oldSession);
-    assertSessionContents(written, { label: "0.87.1 session" });
+    assertSessionContents(written, { label: "1.5.2 session" });
     const sessionId = written.find((entry) => entry.type === "session").id;
 
     const [continuation] = await runTurn(h, {
@@ -348,13 +351,13 @@ test(
       session: oldSession,
       prompt: FOLLOW_UP
     });
-    assertHistorySurvived(continuation, { label: "1.5.x reading 0.87.1" });
+    assertHistorySurvived(continuation, { label: "1.6.x reading 1.5.2" });
 
     const continued = await readSession(oldSession);
     assert.equal(
       continued.find((entry) => entry.type === "session").id,
       sessionId,
-      "1.5.x continued the same session file instead of starting another"
+      "1.6.x continued the same session file instead of starting another"
     );
     assert.ok(continued.length > written.length, "the continuation appended to that file");
     const appended = continued.slice(written.length).filter((entry) => entry.type === "message");
@@ -368,7 +371,7 @@ test(
 );
 
 test(
-  "a Main session written by 1.5.x is read back by Pi 0.87.1 and continues",
+  "a Main session written by 1.6.x is read back by Pi 1.5.2 and continues",
   { timeout: 180_000 },
   async (t) => {
     const oldPi = await installOldPi();
@@ -378,7 +381,7 @@ test(
     }
     assert.match(
       currentPiVersion,
-      /^1\.5\./,
+      /^1\.6\./,
       "the current runtime is the version the rollback target is measured against"
     );
     const h = await sessionHarness(t);
@@ -393,27 +396,27 @@ test(
     );
 
     const writeRequests = await runTurn(h, { bundleEntry: currentEntry, prompt: PROMPT });
-    assert.equal(writeRequests.length, 2, "1.5.x answered the tool call in a second request");
-    assert.match(systemText(writeRequests[0]), /<current_workspace>/, "1.5.x ran the real Main extension");
+    assert.equal(writeRequests.length, 2, "1.6.x answered the tool call in a second request");
+    assert.match(systemText(writeRequests[0]), /<current_workspace>/, "1.6.x ran the real Main extension");
     const [newSession] = await sessionFiles(h.sessions);
-    assert.ok(newSession, "1.5.x wrote a session file");
+    assert.ok(newSession, "1.6.x wrote a session file");
     const written = await readSession(newSession);
-    assertSessionContents(written, { label: "1.5.x session" });
+    assertSessionContents(written, { label: "1.6.x session" });
     const sessionId = written.find((entry) => entry.type === "session").id;
 
-    // The measured result: 0.87.1 reads the newer file and continues it.
+    // The measured result: 1.5.2 reads the newer file and continues it.
     const [continuation] = await runTurn(h, {
       bundleEntry: oldPi.entry,
       session: newSession,
       prompt: FOLLOW_UP
     });
-    assertHistorySurvived(continuation, { label: "0.87.1 reading 1.5.x" });
+    assertHistorySurvived(continuation, { label: "1.5.2 reading 1.6.x" });
 
     const continued = await readSession(newSession);
     assert.equal(
       continued.find((entry) => entry.type === "session").id,
       sessionId,
-      "0.87.1 continued the same session file instead of starting another"
+      "1.5.2 continued the same session file instead of starting another"
     );
     assert.ok(continued.length > written.length, "the rollback runtime appended to that file");
   }

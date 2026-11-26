@@ -9,6 +9,7 @@ import { test } from "node:test";
 import { markdownAnchors, markdownLinks } from "../scripts/check-docs.mjs";
 import {
   assertArchiveIntegrity,
+  cliBundleDependencies,
   cliDependencies,
   cliShrinkwrap,
   productionPackages
@@ -66,7 +67,7 @@ test("CLI lock pins tested direct/platform versions and retains only production 
   assert.equal(shrinkwrap.packages[`node_modules/${childName}`].integrity, "sha512-tested-override");
   assert.ok(shrinkwrap.packages["node_modules/@esbuild/fake-platform"].optional);
   assert.ok(!Object.keys(shrinkwrap.packages).some((path) => path.includes("dev-sentinel")));
-  assert.deepEqual(productionPackages(lock), [
+  assert.deepEqual(productionPackages(lock, dependencies), [
     `node_modules/${parentName}`,
     `node_modules/${childName}`,
     "node_modules/esbuild",
@@ -88,6 +89,67 @@ test("pristine runtime archives reject corruption, missing integrity and unsuppo
     assert.throws(() => assertArchiveIntegrity(bytes, integrity), /integrity/);
 });
 
+test("platform-restricted roots stay pinned in the shrinkwrap and out of the bundled tree", () => {
+  const lock = packageLock();
+  const fffNode = "fixture-fff-node";
+  const ffiRs = "fixture-ffi-rs";
+  const darwinArm64 = "@fixture/fff-bin-darwin-arm64";
+  const linuxX64 = "@fixture/fff-bin-linux-x64-gnu";
+  lock.packages[`node_modules/${fffNode}`] = {
+    version: "0.11.0",
+    os: ["darwin", "linux"],
+    cpu: ["x64", "arm64"],
+    dependencies: { [ffiRs]: "1.3.7" },
+    optionalDependencies: { [darwinArm64]: "0.11.0", [linuxX64]: "0.11.0" }
+  };
+  lock.packages[`node_modules/${ffiRs}`] = {
+    version: "1.3.7",
+    optionalDependencies: { [darwinArm64]: "0.11.0" }
+  };
+  lock.packages[`node_modules/${darwinArm64}`] = {
+    version: "0.11.0",
+    optional: true,
+    os: ["darwin"],
+    cpu: ["arm64"]
+  };
+  lock.packages[`node_modules/${linuxX64}`] = {
+    version: "0.11.0",
+    optional: true,
+    os: ["linux"],
+    cpu: ["x64"]
+  };
+  const source = { dependencies: { [parentName]: "^1.0.0", [fffNode]: "0.11.0" } };
+  const dependencies = cliDependencies(source, lock);
+  const packages = productionPackages(lock, dependencies);
+  assert.deepEqual(packages, [
+    `node_modules/${parentName}`,
+    `node_modules/${childName}`,
+    "node_modules/esbuild",
+    `node_modules/${parentName}/node_modules/${nestedName}`
+  ]);
+  // The platform wrapper, its loader and the native archives are installed by
+  // the consumer's npm; only portable direct dependencies are bundled.
+  assert.deepEqual(cliBundleDependencies(dependencies, packages), [parentName, "esbuild"]);
+  const manifest = {
+    name: "formicand-packaging-fixture-cli",
+    version: "1.0.0",
+    license: "MIT",
+    engines: { node: ">=22.19.0" },
+    bin: { "formicand-packaging-fixture": "cli.cjs" },
+    dependencies
+  };
+  const shrinkwrap = cliShrinkwrap(manifest, lock);
+  assert.equal(shrinkwrap.packages[`node_modules/${fffNode}`].version, "0.11.0");
+  assert.equal(shrinkwrap.packages[`node_modules/${ffiRs}`].version, "1.3.7");
+  for (const [name, platform] of [
+    [darwinArm64, { os: ["darwin"], cpu: ["arm64"] }],
+    [linuxX64, { os: ["linux"], cpu: ["x64"] }]
+  ]) {
+    assert.deepEqual(shrinkwrap.packages[`node_modules/${name}`].os, platform.os);
+    assert.deepEqual(shrinkwrap.packages[`node_modules/${name}`].cpu, platform.cpu);
+  }
+});
+
 test("CLI packaging rejects unsupported locks, missing direct dependencies and unsafe/platform bundle entries", () => {
   const source = { dependencies: { [parentName]: "^1.0.0" } };
   for (const lock of [{ lockfileVersion: 1 }, { lockfileVersion: 3 }]) {
@@ -104,14 +166,28 @@ test("CLI packaging rejects unsupported locks, missing direct dependencies and u
   for (const [path, entry] of [
     ["outside", { version: "1.0.0" }],
     ["node_modules/../private", { version: "1.0.0" }],
-    ["node_modules/linked", { version: "1.0.0", link: true }],
-    ["node_modules/unknown-native", { version: "1.0.0", os: ["darwin"] }],
-    ["node_modules/unknown-native", { version: "1.0.0", cpu: ["arm64"] }]
+    ["node_modules/linked", { version: "1.0.0", link: true }]
   ]) {
     const lock = packageLock();
     lock.packages[path] = entry;
-    assert.throws(() => productionPackages(lock), /Cannot bundle|explicit portable packaging/);
+    assert.throws(() => productionPackages(lock, source.dependencies), /Cannot bundle/);
   }
+  assert.throws(() => productionPackages(packageLock()), /production dependencies/);
+  // A platform-restricted root is left for the consumer's npm, not bundled.
+  for (const platform of [{ os: ["darwin"] }, { cpu: ["arm64"] }]) {
+    const lock = packageLock();
+    lock.packages["node_modules/unknown-native"] = { version: "1.0.0", ...platform };
+    assert.ok(!productionPackages(lock, source.dependencies).includes("node_modules/unknown-native"));
+  }
+  // A bundled package cannot delegate a *required* platform dependency to the
+  // consumer: npm treats the bundle as complete, so such a tree needs a strategy.
+  const requiredPlatform = packageLock();
+  requiredPlatform.packages[`node_modules/${parentName}`].dependencies["unknown-native"] = "1.0.0";
+  requiredPlatform.packages["node_modules/unknown-native"] = { version: "1.0.0", os: ["darwin"] };
+  assert.throws(
+    () => productionPackages(requiredPlatform, source.dependencies),
+    /explicit portable packaging/
+  );
 });
 
 async function npmCliPath() {
@@ -132,29 +208,41 @@ async function put(root, file, content) {
   await writeFile(join(root, file), typeof content === "string" ? content : JSON.stringify(content));
 }
 
+// Minimal source tree the actual packer accepts: the public directories it
+// copies plus the built portable files it expects. No build output, installed
+// dependencies, model configuration or user data.
+async function writeCliSource(root) {
+  for (const directory of ["scripts", ".pi/extensions", ".pi/runtime", ".pi/prompts", ".pi/skills", "docs"])
+    await cp(new URL(`../${directory}/`, import.meta.url), join(root, directory), { recursive: true });
+  for (const file of [
+    "README.md",
+    "README.zh-CN.md",
+    "AGENTS.md",
+    "AGENTS.en.md",
+    "CLAUDE.md",
+    "LICENSE",
+    "THIRD_PARTY_NOTICES.md",
+    "GLOSSARY.md",
+    "CONTRIBUTING.md",
+    "CONTRIBUTING.en.md",
+    "config.example.json"
+  ]) {
+    await mkdir(dirname(join(root, file)), { recursive: true });
+    await cp(new URL(`../${file}`, import.meta.url), join(root, file));
+  }
+  for (const file of [
+    "dist/cli-ui-manifest.json",
+    "dist/src/gui/driver.js",
+    "dist/scripts/data-home.cjs",
+    "dist/web/assets/agent-names.js"
+  ])
+    await put(root, file, "// portable source fixture\n");
+}
+
 test("the actual CLI packer excludes retained Mac helpers and tolerates optional source resources", async () => {
   const root = await mkdtemp(join(tmpdir(), "formicand-cli-content-"));
   try {
-    // Copy only public source directories used by the actual packer. No build,
-    // installed production dependencies, model configuration or user data.
-    for (const directory of ["scripts", ".pi/extensions", ".pi/runtime", ".pi/prompts", ".pi/skills", "docs"])
-      await cp(new URL(`../${directory}/`, import.meta.url), join(root, directory), { recursive: true });
-    for (const file of [
-      "README.md",
-      "README.zh-CN.md",
-      "AGENTS.md",
-      "AGENTS.en.md",
-      "CLAUDE.md",
-      "LICENSE",
-      "THIRD_PARTY_NOTICES.md",
-      "GLOSSARY.md",
-      "CONTRIBUTING.md",
-      "CONTRIBUTING.en.md",
-      "config.example.json"
-    ]) {
-      await mkdir(dirname(join(root, file)), { recursive: true });
-      await cp(new URL(`../${file}`, import.meta.url), join(root, file));
-    }
+    await writeCliSource(root);
     await put(root, "desktop/main.cjs", "// Desktop entrypoint must not enter the CLI package.\n");
     await put(
       root,
@@ -184,13 +272,6 @@ test("the actual CLI packer excludes retained Mac helpers and tolerates optional
       "dist/src/gui/driver.js.map"
     ])
       await put(root, file, "Mac/generated sentinel excluded from portable CLI");
-    for (const file of [
-      "dist/cli-ui-manifest.json",
-      "dist/src/gui/driver.js",
-      "dist/scripts/data-home.cjs",
-      "dist/web/assets/agent-names.js"
-    ])
-      await put(root, file, "// portable source fixture\n");
     await put(root, "dist/src/tools/science/runner.py", "retired runtime sentinel");
     for (const name of ["npmrc", "global-npmrc"]) await put(root, name, "");
     const env = Object.fromEntries(
@@ -473,7 +554,8 @@ test(
       assertArchiveIntegrity(await readFile(join(archive, pristinePack.filename)), pristinePack.integrity);
       await put(source, "node_modules/esbuild/package.json", esbuild);
       await put(source, "node_modules/esbuild/bin/esbuild", "builder-native-sentinel");
-      for (const path of productionPackages(lock)) {
+      const dependencies = cliDependencies({ dependencies: { [parentName]: "^1.0.0" } }, lock);
+      for (const path of productionPackages(lock, dependencies)) {
         if (path === "node_modules/esbuild") continue;
         const from = join(source, path);
         await mkdir(dirname(join(stage, path)), { recursive: true });
@@ -490,7 +572,6 @@ test(
         "-C",
         join(stage, "node_modules/esbuild")
       ]);
-      const dependencies = cliDependencies({ dependencies: { [parentName]: "^1.0.0" } }, lock);
       const manifest = {
         name: "formicand-packaging-fixture-cli",
         version: "1.0.0",
@@ -562,6 +643,257 @@ test(
         await assert.rejects(
           access(join(installed, `node_modules/${parentName}/node_modules/dev-sentinel`)),
           { code: "ENOENT" }
+        );
+      }
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  }
+);
+
+const fffNodeName = "@ff-labs/fff-node";
+const ffiRsName = "ffi-rs";
+
+// The FFF/ffi-rs shape: a platform-restricted wrapper whose optional native
+// archives exist for every supported OS/CPU, but only the build host's one is
+// installed. The packer must not copy that host tree into the archive.
+test(
+  "the actual CLI archive leaves native platform packages to the consumer's npm",
+  { timeout: 120000 },
+  async () => {
+    const root = await mkdtemp(join(tmpdir(), "formicand-cli-platform-"));
+    try {
+      const npmCli = await npmCliPath();
+      const cache = join(root, "cache");
+      const tarballs = join(root, "tarballs");
+      await mkdir(tarballs, { recursive: true });
+      await put(root, "npmrc", "");
+      await put(root, "global-npmrc", "");
+      const env = Object.fromEntries(
+        Object.entries(process.env).filter(([key]) => !/^(?:npm_config_|FORMICAND_|PI_)/i.test(key))
+      );
+      const npm = (cwd, args) =>
+        execFileSync(
+          process.execPath,
+          [
+            npmCli,
+            "--offline",
+            "--no-audit",
+            "--no-fund",
+            "--update-notifier=false",
+            "--registry=https://registry.invalid",
+            `--userconfig=${join(root, "npmrc")}`,
+            `--globalconfig=${join(root, "global-npmrc")}`,
+            `--cache=${cache}`,
+            ...args
+          ],
+          { cwd, env, encoding: "utf8", timeout: 60000, maxBuffer: 4 * 1024 * 1024 }
+        );
+
+      const host = { os: process.platform, cpu: process.arch };
+      const other = host.os === "darwin" ? { os: "linux", cpu: "x64" } : { os: "darwin", cpu: "arm64" };
+      const fffBin = ({ os, cpu }) => `@ff-labs/fff-bin-${os}-${cpu}`;
+      const ffiBin = ({ os, cpu }) => `@yuuang/ffi-rs-${os}-${cpu}`;
+      const packages = [
+        {
+          name: fffNodeName,
+          version: "0.11.0",
+          main: "index.cjs",
+          os: [host.os],
+          cpu: [host.cpu],
+          dependencies: { [ffiRsName]: "1.3.7" },
+          optionalDependencies: { [fffBin(host)]: "0.11.0", [fffBin(other)]: "0.11.0" }
+        },
+        {
+          name: ffiRsName,
+          version: "1.3.7",
+          main: "index.cjs",
+          optionalDependencies: { [ffiBin(host)]: "1.3.7", [ffiBin(other)]: "1.3.7" }
+        },
+        ...[host, other].flatMap((platform) => [
+          {
+            name: fffBin(platform),
+            version: "0.11.0",
+            main: "native.cjs",
+            os: [platform.os],
+            cpu: [platform.cpu]
+          },
+          {
+            name: ffiBin(platform),
+            version: "1.3.7",
+            main: "native.cjs",
+            os: [platform.os],
+            cpu: [platform.cpu]
+          }
+        ])
+      ];
+      const resolved = new Map();
+      for (const packageManifest of packages) {
+        const directory = join(root, "registry", packageManifest.name.replace("/", "+"));
+        await put(directory, "package.json", packageManifest);
+        if (packageManifest.name === fffNodeName)
+          await put(
+            directory,
+            "index.cjs",
+            [
+              "const fff = require(`@ff-labs/fff-bin-${process.platform}-${process.arch}`);",
+              `const ffi = require(${JSON.stringify(ffiRsName)});`,
+              "module.exports = `${fff}|${ffi}`;"
+            ].join("\n") + "\n"
+          );
+        else if (packageManifest.name === ffiRsName)
+          await put(
+            directory,
+            "index.cjs",
+            "module.exports = require(`@yuuang/ffi-rs-${process.platform}-${process.arch}`);\n"
+          );
+        else
+          await put(
+            directory,
+            "native.cjs",
+            `module.exports = ${JSON.stringify(`fixture-native-${packageManifest.name}`)};\n`
+          );
+        const [packed] = JSON.parse(
+          npm(directory, ["pack", "--ignore-scripts", "--json", "--pack-destination", tarballs])
+        );
+        const cached = await cachePackage(
+          npmCli,
+          cache,
+          packageManifest,
+          await readFile(join(tarballs, packed.filename))
+        );
+        resolved.set(packageManifest.name, cached);
+        await rm(join(tarballs, packed.filename));
+      }
+
+      const hostPlatform = `${host.os} ${host.cpu}`;
+      const lock = {
+        lockfileVersion: 3,
+        packages: {
+          "": {
+            name: "cli-source-fixture",
+            version: "0.1.3",
+            optionalDependencies: { [fffNodeName]: "0.11.0" }
+          },
+          [`node_modules/${fffNodeName}`]: {
+            version: "0.11.0",
+            os: [host.os],
+            cpu: [host.cpu],
+            dependencies: { [ffiRsName]: "1.3.7" },
+            optionalDependencies: { [fffBin(host)]: "0.11.0", [fffBin(other)]: "0.11.0" },
+            ...resolved.get(fffNodeName)
+          },
+          [`node_modules/${ffiRsName}`]: {
+            version: "1.3.7",
+            optionalDependencies: { [ffiBin(host)]: "1.3.7", [ffiBin(other)]: "1.3.7" },
+            ...resolved.get(ffiRsName)
+          },
+          ...Object.fromEntries(
+            [
+              [fffBin(host), { optional: true, os: [host.os], cpu: [host.cpu] }],
+              [fffBin(other), { optional: true, os: [other.os], cpu: [other.cpu] }],
+              [ffiBin(host), { optional: true, os: [host.os], cpu: [host.cpu] }],
+              [ffiBin(other), { optional: true, os: [other.os], cpu: [other.cpu] }]
+            ].map(([name, platform]) => [
+              `node_modules/${name}`,
+              {
+                version: name === fffBin(host) || name === fffBin(other) ? "0.11.0" : "1.3.7",
+                ...platform,
+                ...resolved.get(name)
+              }
+            ])
+          )
+        }
+      };
+      await writeCliSource(root);
+      await put(root, "package.json", {
+        name: "cli-source-fixture",
+        version: "0.1.3",
+        dependencies: {},
+        optionalDependencies: { [fffNodeName]: "0.11.0" },
+        engines: { node: ">=22.19.0" },
+        license: "MIT"
+      });
+      await put(root, "package-lock.json", lock);
+      const packEnv = Object.assign({}, env, {
+        FORMICAND_PACKAGE_DIR: tarballs,
+        npm_config_userconfig: join(root, "npmrc"),
+        npm_config_globalconfig: join(root, "global-npmrc"),
+        npm_config_cache: cache,
+        npm_config_offline: "true",
+        npm_config_registry: "https://registry.invalid",
+        npm_config_update_notifier: "false"
+      });
+      execFileSync(process.execPath, [join(root, "scripts/package-cli.mjs")], {
+        cwd: root,
+        env: packEnv,
+        encoding: "utf8",
+        timeout: 120000,
+        maxBuffer: 4 * 1024 * 1024
+      });
+      const archive = join(tarballs, "formicand-cli-0.1.3.tgz");
+      const manifest = JSON.parse(
+        execFileSync("tar", ["-xOf", archive, "package/package.json"], { encoding: "utf8" })
+      );
+      assert.deepEqual(manifest.dependencies ?? {}, {});
+      assert.deepEqual(manifest.optionalDependencies, { [fffNodeName]: "0.11.0" });
+      assert.deepEqual(manifest.bundleDependencies, []);
+      const files = execFileSync("tar", ["-tzf", archive], { encoding: "utf8" }).trim().split("\n");
+      assert.equal(
+        files.some((path) => path.startsWith("package/node_modules/")),
+        false,
+        `the archive must not ship ${hostPlatform}'s native tree`
+      );
+      const shrinkwrap = JSON.parse(
+        execFileSync("tar", ["-xOf", archive, "package/npm-shrinkwrap.json"], { encoding: "utf8" })
+      );
+      for (const platform of [host, other]) {
+        assert.deepEqual(shrinkwrap.packages[`node_modules/${fffBin(platform)}`].os, [platform.os]);
+        assert.deepEqual(shrinkwrap.packages[`node_modules/${fffBin(platform)}`].cpu, [platform.cpu]);
+        assert.deepEqual(shrinkwrap.packages[`node_modules/${ffiBin(platform)}`].os, [platform.os]);
+      }
+
+      assert.deepEqual(shrinkwrap.packages[""].optionalDependencies, manifest.optionalDependencies);
+      const offline = join(root, "no-fff");
+      await put(offline, "package.json", { name: "offline-consumer", version: "1.0.0" });
+      npm(offline, ["install", archive, "--cache", join(root, "empty-consumer-cache"), "--offline"]);
+      await access(join(offline, "node_modules/formicand-cli/package.json"));
+      await assert.rejects(access(join(offline, "node_modules", fffNodeName)), { code: "ENOENT" });
+
+      for (const mode of ["local", "global"]) {
+        const consumer = join(root, mode);
+        const prefix = join(root, "prefix");
+        await put(consumer, "package.json", { name: `platform-consumer-${mode}`, version: "1.0.0" });
+        npm(consumer, ["install", archive, ...(mode === "global" ? ["--global", "--prefix", prefix] : [])]);
+        const modules =
+          mode === "local"
+            ? join(consumer, "node_modules")
+            : join(prefix, process.platform === "win32" ? "node_modules" : "lib/node_modules");
+        const installed =
+          mode === "local" ? join(consumer, "node_modules") : join(modules, "formicand-cli", "node_modules");
+        await access(join(installed, fffBin(host)));
+        await access(join(installed, ffiBin(host)));
+        if (mode === "local") {
+          await assert.rejects(access(join(installed, fffBin(other))), { code: "ENOENT" });
+          await assert.rejects(access(join(installed, ffiBin(other))), { code: "ENOENT" });
+        }
+        // npm 10 global installs also unpack other platforms' optional archives
+        // beside a bundled package; the runtime still resolves the host archive.
+        assert.equal(
+          execFileSync(
+            process.execPath,
+            [
+              "-e",
+              [
+                'const { createRequire } = require("node:module");',
+                `const req = createRequire(${JSON.stringify(join(modules, "formicand-cli/package.json"))});`,
+                `console.log(req(${JSON.stringify(fffNodeName)}));`
+              ].join("\n")
+            ],
+            { cwd: consumer, env, encoding: "utf8" }
+          ).trim(),
+          `fixture-native-${fffBin(host)}|fixture-native-${ffiBin(host)}`,
+          mode
         );
       }
     } finally {

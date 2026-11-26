@@ -1,0 +1,167 @@
+import type { FileFinder, GrepMode, GrepCursor, GrepResult, Result } from "@ff-labs/fff-node";
+import { setImmediate as nextTurn } from "node:timers/promises";
+import { existsSync, realpathSync } from "node:fs";
+import { stat } from "node:fs/promises";
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
+
+function unwrap<T>(result: Result<T>): T {
+  if (!result.ok) throw new Error(result.error);
+  return result.value;
+}
+
+function indexRoot(directory: string): string {
+  for (let path = directory; ; path = dirname(path)) {
+    if (existsSync(join(path, ".git"))) return path;
+    if (dirname(path) === path) return directory;
+  }
+}
+
+async function openIndex(directory: string): Promise<FileFinder> {
+  const { FileFinder } = await import("@ff-labs/fff-node");
+  const finder = unwrap(FileFinder.create({ basePath: directory, aiMode: true, followSymlinks: false }));
+  try {
+    if (!unwrap(await finder.waitForScan(30_000)))
+      throw new Error(`File index is still scanning ${directory}`);
+    return finder;
+  } catch (error) {
+    finder.destroy();
+    throw error;
+  }
+}
+
+/**
+ * The path the operating system resolved, with links followed and the volume's
+ * real spelling applied. `fs.realpathSync.native` asks the OS; the portable
+ * variant keeps the caller's letter case on macOS. Only traversal rights are
+ * needed, so a project below an execute-only ancestor stays searchable, and a
+ * failure on an existing path is reported instead of silently replaced.
+ */
+function physicalPath(path: string): string {
+  return realpathSync.native(path);
+}
+
+type ScopedPath = (indexedPath: string) => string | undefined;
+
+async function searchLines(
+  index: FileFinder,
+  pattern: string,
+  mode: GrepMode,
+  limit: number,
+  scopedPath: ScopedPath,
+  signal?: AbortSignal
+) {
+  const lines: string[] = [];
+  let linesTruncated = false;
+  let cursor: GrepCursor | null = null;
+  do {
+    const page: GrepResult = unwrap(
+      index.grep(pattern, { mode, smartCase: true, pageSize: limit + 1, cursor })
+    );
+    for (const hit of page.items) {
+      const path = scopedPath(hit.relativePath);
+      if (path === undefined) continue;
+      if (lines.length === limit) return { lines, truncated: true, linesTruncated };
+      // Keep our displayed preview below FFF 0.11's 512-byte window so the tool can report truncation.
+      const preview = Buffer.from(hit.lineContent);
+      const clipped = preview.length > 480;
+      const content = clipped
+        ? new TextDecoder().decode(preview.subarray(0, 480), { stream: true })
+        : hit.lineContent;
+      linesTruncated ||= clipped;
+      lines.push(`${path}:${hit.lineNumber}: ${content.trimEnd()}`);
+    }
+    cursor = page.nextCursor;
+    if (cursor) {
+      await nextTurn();
+      signal?.throwIfAborted();
+    }
+  } while (cursor);
+  return { lines, truncated: false, linesTruncated };
+}
+
+/** Scope results within one repository index so a narrower path inherits the same ignore rules. */
+export class IndexedFileSearch {
+  private index?: Promise<FileFinder>;
+  private readonly root: string;
+  constructor(private readonly directory: string) {
+    this.root = indexRoot(directory);
+  }
+
+  async close(): Promise<void> {
+    const index = this.index;
+    this.index = undefined;
+    if (index) (await index).destroy();
+  }
+
+  private async search<T>(
+    path: string | undefined,
+    signal: AbortSignal | undefined,
+    query: (index: FileFinder, scopedPath: ScopedPath) => Promise<T>
+  ): Promise<T> {
+    signal?.throwIfAborted();
+    const target = resolve(this.directory, path ?? ".");
+    const file = path && (await stat(target)).isFile();
+    // One canonical path decides both the folder searched and the file
+    // selected: a link is physicalized once, so a file link's folder and name
+    // never mix with a different same-named file next to the link.
+    const physical = physicalPath(target);
+    const folder = file ? dirname(physical) : physical;
+    const root = physicalPath(this.root);
+    const local = relative(root, folder);
+    const external = local === ".." || local.startsWith(".." + sep) || isAbsolute(local);
+    const base = external ? indexRoot(folder) : root;
+    const prefix = relative(base, folder).split(sep).join("/");
+    const name = file ? basename(physical) : undefined;
+    const scopedPath: ScopedPath = (indexedPath) => {
+      const indexed = indexedPath.split(sep).join("/");
+      if (prefix && !indexed.startsWith(prefix + "/")) return undefined;
+      const scoped = prefix ? indexed.slice(prefix.length + 1) : indexed;
+      return name !== undefined && scoped !== name ? undefined : scoped;
+    };
+    const index = await (external
+      ? openIndex(base)
+      : (this.index ??= openIndex(base).catch((error: unknown) => {
+          this.index = undefined;
+          throw error;
+        })));
+    try {
+      signal?.throwIfAborted();
+      return await query(index, scopedPath);
+    } finally {
+      if (external) index.destroy();
+    }
+  }
+
+  async names(pattern: string, limit: number, path?: string, signal?: AbortSignal) {
+    return this.search(path, signal, async (index, scopedPath) => {
+      const paths: string[] = [];
+      const pageSize = limit + 1;
+      for (let pageIndex = 0; ; pageIndex++) {
+        const { items, totalMatched } = unwrap(index.fileSearch(pattern, { pageSize, pageIndex }));
+        for (const hit of items) {
+          const name = scopedPath(hit.relativePath);
+          if (name === undefined) continue;
+          if (paths.length === limit) return { paths, truncated: true };
+          paths.push(name);
+        }
+        if (!items.length || (pageIndex + 1) * pageSize >= totalMatched) return { paths, truncated: false };
+        await nextTurn();
+        signal?.throwIfAborted();
+      }
+    });
+  }
+
+  async content(pattern: string, limit: number, path?: string, signal?: AbortSignal) {
+    return this.search(path, signal, async (index, scopedPath) => {
+      const exact = await searchLines(index, pattern, "plain", limit, scopedPath, signal);
+      if (exact.lines.length) return { ...exact, text: exact.lines.join("\n") };
+      const similar = await searchLines(index, pattern, "fuzzy", limit, scopedPath, signal);
+      return {
+        ...similar,
+        text: similar.lines.length
+          ? `0 exact matches. Similar results:\n${similar.lines.join("\n")}`
+          : "No matches found"
+      };
+    });
+  }
+}

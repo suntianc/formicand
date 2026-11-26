@@ -54,6 +54,7 @@ e2e/                    浏览器和 Electron 用户流程测试
 | -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Main 的提示词和上下文      | [extension](../.pi/runtime/extension.ts)、`.pi/runtime/` 下的上下文模块                                                                                                                |
 | 新增一个 Main 工具         | 按领域放进 [.pi/runtime/tools/](../.pi/runtime/tools/)，再登记到 [capabilities](../.pi/runtime/tools/capabilities.ts) 的核心工具或某个工具组                                           |
+| 文件搜索与终端 `@` 补全    | [搜索工具](../.pi/runtime/tools/file-search.ts)、[FFF 索引](../src/runtime/indexed-file-search.ts)、[磁盘搜索](../scripts/file-search.mjs)                                             |
 | 派单、子代理角色和工具     | [coordination](../.pi/runtime/tools/coordination.ts)、[子代理后端](../src/dashboard/subagent-backend.ts)、[进程结算](../src/runtime/subagent-processes.ts)                             |
 | 需求台账、开发、审查、合入 | [project_ledger](../.pi/runtime/tools/project-ledger.ts)、[project_development](../.pi/runtime/tools/project-development.ts)、[项目数据服务](../src/workspace/project-data-service.ts) |
 | 模型连接和请求重试         | [model-connection](../src/runtime/model-connection.ts)、[model-profile](../src/runtime/model-profile.ts)、[main-request-retry](../src/runtime/main-request-retry.ts)                   |
@@ -205,9 +206,13 @@ Main 按 Workloop 式的流程交付需求，代码默认由 Main 自己写，�
 
 ## 终端界面适配
 
-CLI 的交互界面直接使用原版 Pi 1.5.2，不改依赖文件。启动时只在交互子进程里对一个经过审核的代码块做六处界面文字替换（重启提示、tmux 提示、反馈和崩溃提示等改成 Formicand 的说法），另有三处让命令行工具的身份变成 `AI_AGENT=formicand`、长输出文件名变成 `formicand-bash-*.log`。
+CLI 的交互界面直接使用原版 Pi 1.6.1，不改依赖文件。启动时只在交互子进程里对一个经过审核的代码块做六处界面文字替换（重启提示、tmux 提示、反馈和崩溃提示等改成 Formicand 的说法），另有三处让命令行工具的身份变成 `AI_AGENT=formicand`、长输出文件名变成 `formicand-bash-*.log`。
 
-替换内容固定在 [cli-ui-policy.json](../scripts/cli-ui-policy.json) 和 [cli-shell-policy.json](../scripts/cli-shell-policy.json)。构建和启动时都会核对 Pi 版本、文件 hash 和替换位置，对不上就报错，不会带着没适配的界面运行。升级 Pi 时要重新生成和核对这两份策略。
+替换内容固定在 [cli-ui-policy.json](../scripts/cli-ui-policy.json) 和 [cli-shell-policy.json](../scripts/cli-shell-policy.json)。构建和启动时都会核对 Pi 版本、文件 hash 和替换位置，对不上就报错，不会带着没适配的界面运行。升级 Pi 时要按新 bundle 重新生成和核对这两份策略，并逐条复核六处 UI 与三处 shell 差异的替换文本。
+
+回滚要让三个 Pi 包和两份策略一起回到旧版本；只降包而保留新策略会在启动前的校验被拒绝。在升级合并点撤销时，按升级提交整体回退：升级是普通提交时直接 `git revert <升级提交>`；如果升级与已集成的其它改动在同一个合并提交里（例如同时带着 undici 8.13.1），普通 revert 会在 `package-lock.json` 冲突。先用 `git show --no-patch --format='%P' <合并提交>` 列出父提交：`^1` 是合并时所在的工作分支，`^2` 是被合入的需求分支。保留哪一侧，就用该侧序号执行 `git revert --no-commit -m <保留侧> <合并提交>`；例如保留需求分支的 undici 升级、只撤销 Pi 1.6.1 时用 `-m 2`。在合并提交处撤销后，`git diff --cached <保留侧父提交>` 和 `git diff <保留侧父提交>` 都应为空。随后 `npm ci`，确认三个直接 Pi 包为 1.5.2、`node_modules/undici` 为 8.13.1，再重新构建并运行 `npm run verify`。
+
+如果升级合并之后依赖或脚本又变了（例如后来加入可选依赖 `@ff-labs/fff-node`、把文件搜索换成索引实现），不要用升级前的提交整体覆盖 `package.json`、`package-lock.json` 和两份策略：后续依赖会被一起撤掉，`tsc --noEmit -p tsconfig.json` 会报 `TS2307` 找不到 `@ff-labs/fff-node`。这时只回退 Pi 和两份策略：用 `git checkout <升级提交>^ -- scripts/cli-ui-policy.json scripts/cli-shell-policy.json` 取回旧策略（`sdkVersion` 回到 1.5.2），再执行 `npm install --package-lock-only --save-exact @earendil-works/pi-agent-core@1.5.2 @earendil-works/pi-ai@1.5.2 @earendil-works/pi-coding-agent@1.5.2` 同步锁文件。`package.json` 只应改这三个 Pi 版本，锁文件里只应改 Pi 及其传递依赖，`@ff-labs/*` 和顶层 undici 的锁条目保留。随后 `npm ci`、`npm run build:cli`、`npm run check:extensions`，并确认三个直接 Pi 包为 1.5.2、`node_modules/undici` 仍为 8.13.1、`@ff-labs/fff-node` 及其平台二进制仍为 0.11.0。版本基线测试（`test/p46-pi-version.test.js` 等）仍按 1.6.1 断言；永久回滚要连同这些基线和升级时改过的测试一起回退，再跑 `npm run verify`。相邻版本的会话文件都是 v3，`test/p46-session-compat-pi.test.js` 用真实 1.5.2 与 1.6.1 进程实测两个方向续跑；跳过不构成兼容结论。
 
 ## 信任边界
 

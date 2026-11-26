@@ -14,47 +14,7 @@ const baseline = JSON.parse(
 );
 const harness = resolve(".");
 
-/**
- * Reviewed differences against the recorded baseline, each naming the exact
- * path, the change and why it was made; any other difference fails the
- * comparison. The baseline was last recorded on 2026-11-22 (Pi 1.5.x, the
- * English base prompt): an intended change to the tool table or the prompt's
- * sections is either listed here or recorded again with
- * `node test/p46-pi-upgrade-capture.mjs --record`.
- */
-const EXPECTED_BASELINE_DIFFERENCES = [];
-
-const TOOL_DIFFERENCE_PATHS = EXPECTED_BASELINE_DIFFERENCES.map((entry) => entry.path);
-
-/** The recorded value of one `tools.<name>.<path>` entry in the current capture. */
-function toolPathValue(summary, path) {
-  const [tools, name, ...rest] = path.split(".");
-  assert.equal(tools, "tools", `unsupported difference path: ${path}`);
-  const tool = summary.tools.find((entry) => entry.name === name);
-  assert.ok(tool, `the current capture has no tool named ${name}`);
-  return rest.reduce((value, key) => value?.[key], tool);
-}
-
-function diffPaths(expected, actual, prefix = "") {
-  if (Object.is(expected, actual)) return [];
-  const bothObjects = expected && actual && typeof expected === "object" && typeof actual === "object";
-  if (!bothObjects || Array.isArray(expected) !== Array.isArray(actual)) return [prefix];
-  if (Array.isArray(expected)) {
-    const paths = [];
-    const length = Math.max(expected.length, actual.length);
-    for (let index = 0; index < length; index += 1)
-      paths.push(...diffPaths(expected[index], actual[index], `${prefix}[${index}]`));
-    return paths;
-  }
-  const paths = [];
-  for (const key of new Set([...Object.keys(expected), ...Object.keys(actual)])) {
-    const keyPath = prefix ? `${prefix}.${key}` : key;
-    if (!(key in expected) || !(key in actual)) paths.push(keyPath);
-    else paths.push(...diffPaths(expected[key], actual[key], keyPath));
-  }
-  return paths;
-}
-
+// Captured from the real Main request on Pi 1.6.1 after adding indexed search.
 test(
   "a standard Main run keeps the recorded tool table, prompt structure and request envelope",
   { timeout: 90_000 },
@@ -78,29 +38,11 @@ test(
       baseline.tools.map((tool) => tool.name),
       "Main offers the same tools in the same order"
     );
-    const toolDifferences = [];
-    for (const [index, tool] of baseline.tools.entries()) {
-      for (const path of diffPaths(tool.parameters, current.tools[index].parameters))
-        toolDifferences.push(`tools.${tool.name}.parameters.${path}`);
-    }
     assert.deepEqual(
-      toolDifferences,
-      TOOL_DIFFERENCE_PATHS,
-      `unexpected tool schema differences; review each one against the upgrade notes:\n${JSON.stringify(
-        EXPECTED_BASELINE_DIFFERENCES,
-        null,
-        2
-      )}`
+      current.tools,
+      baseline.tools,
+      "tool descriptions and schemas match the reviewed request"
     );
-
-    // A path-only allowance would accept any replacement text. Pin the text the
-    // upgrade actually produced, so a later reword is a reviewed change again.
-    for (const entry of EXPECTED_BASELINE_DIFFERENCES)
-      assert.equal(
-        toolPathValue(current, entry.path),
-        entry.current,
-        `the recorded replacement text at ${entry.path}`
-      );
 
     assert.deepEqual(
       current.systemPrompt.structure,
