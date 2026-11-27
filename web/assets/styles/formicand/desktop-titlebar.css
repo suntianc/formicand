@@ -1,0 +1,38 @@
+/* Linux native chrome, fullscreen and browser windows use the base shell layout. */
+html[data-title-bar="inset"]:not([data-desktop-fullscreen="true"]) {
+  --shell-toolbar-height: 64px;
+
+  & .titlebar-lead {
+    padding-left: 84px;
+  }
+  & .app-topbar {
+    padding-left: 104px;
+    grid-template-columns: 100px minmax(0, 1fr) 180px;
+  }
+  & .settings-nav {
+    position: relative;
+    padding-top: 44px;
+  }
+  /* The empty band beside the macOS traffic lights remains draggable. */
+  & .settings-nav::before {
+    position: absolute;
+    inset: 0 0 auto;
+    height: 44px;
+    content: "";
+    pointer-events: none;
+    -webkit-app-region: drag;
+  }
+}
+
+html[data-title-bar="overlay"]:not([data-desktop-fullscreen="true"]) {
+  & .app-titlebar {
+    max-width: env(titlebar-area-width, 100%);
+    /* Windows fixes the title row's right edge at the caption buttons. */
+    @media (min-width: 1280px) {
+      padding-right: 10px;
+    }
+  }
+  & .settings-entry {
+    padding-top: calc(env(titlebar-area-height, 44px) + 10px);
+  }
+}

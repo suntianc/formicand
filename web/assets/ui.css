@@ -329,20 +329,12 @@ body {
   opacity: 0.35;
   cursor: default;
 }
-/* Only the native host supplies this state. Browser previews have no OS chrome. */
-html[data-title-bar="inset"]:not([data-desktop-fullscreen="true"]) {
-  --shell-toolbar-height: 64px;
-}
 html[data-desktop-platform] .app-topbar {
   -webkit-app-region: drag;
   user-select: none;
 }
 html[data-desktop-platform] .app-topbar :is(button, a, input, select, textarea, [role="button"]) {
   -webkit-app-region: no-drag;
-}
-html[data-title-bar="inset"]:not([data-desktop-fullscreen="true"]) .app-topbar {
-  padding-left: 104px;
-  grid-template-columns: 100px minmax(0, 1fr) 180px;
 }
 .app-topbar .topbar-context {
   position: static;

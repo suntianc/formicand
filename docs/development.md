@@ -77,7 +77,7 @@ e2e/                    浏览器和 Electron 用户流程测试
 
 ### 跨平台行为
 
-桌面主窗口从[窗口策略](../desktop/window-policy.cjs)取得标题栏、菜单和材质。主进程据此创建窗口；preload 通过已校验的 capabilities 获取标题栏模式，写入 `data-title-bar`，页面按该模式为系统按钮留位。
+桌面主窗口从[窗口策略](../desktop/window-policy.cjs)取得标题栏、菜单和材质。preload 从宿主读取标题栏模式并写入 `data-title-bar`。[桌面标题栏布局](../web/assets/styles/formicand/desktop-titlebar.css)集中管理工作区和设置页给系统按钮预留的空间。Windows 宽屏下，面板开关相对系统按钮保持固定间距。Linux 原生标题栏和全屏窗口沿用基础布局。
 
 | 主窗口  | 标题栏模式            | 菜单栏           | 窗口材质                                             |
 | ------- | --------------------- | ---------------- | ---------------------------------------------------- |

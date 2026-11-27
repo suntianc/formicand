@@ -65,6 +65,15 @@ test("Windows integrates native caption buttons, theme and the material setting"
     expect(geometry.visible).toBe(true);
     expect(geometry.toolbar).toBeGreaterThan(0);
     expect(geometry.toolbar).toBeLessThanOrEqual(geometry.available + 1);
+    const panelToggle = page.locator("#output-pane-toggle");
+    const initialBox = await panelToggle.boundingBox();
+    await expect(panelToggle).toHaveAttribute("aria-expanded", "false");
+    for (const expanded of ["true", "false"]) {
+      await panelToggle.click();
+      await expect(panelToggle).toHaveAttribute("aria-expanded", expanded);
+      await page.waitForFunction(() => !document.body.hasAttribute("data-layout-animating"));
+      expect(await panelToggle.boundingBox()).toEqual(initialBox);
+    }
     await page.locator("#user-menu-button").click();
     await page.locator('[data-settings-section="general"]').click();
     expect(

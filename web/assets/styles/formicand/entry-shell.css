@@ -76,15 +76,6 @@ html[data-theme] .sidebar-header {
   width: var(--sidebar-width, 248px);
   padding-left: 12px;
 }
-html[data-title-bar="overlay"]:not([data-desktop-fullscreen="true"]) .app-titlebar {
-  max-width: env(titlebar-area-width, 100%);
-}
-html[data-title-bar="overlay"]:not([data-desktop-fullscreen="true"]) .settings-entry {
-  padding-top: calc(env(titlebar-area-height, 44px) + 10px);
-}
-html[data-title-bar="inset"]:not([data-desktop-fullscreen="true"]) .titlebar-lead {
-  padding-left: 84px;
-}
 .titlebar-spacer {
   flex: 1 1 auto;
   min-width: 14px;
