@@ -27,6 +27,16 @@ test("macOS windows use the native material with a clear painted canvas", () => 
   assert.equal(windowBackground({ shouldUseDarkColors: false }, "darwin"), "#00000000");
 });
 
+test("Windows offers acrylic starting with Windows 11 22H2", () => {
+  assert.deepEqual(windowMaterial("win32", "10.0.22621"), {
+    material: "acrylic",
+    options: { backgroundMaterial: "acrylic", backgroundColor: "#00000000" }
+  });
+  for (const release of ["10.0.22000", "10.0.19045"]) {
+    assert.deepEqual(windowMaterial("win32", release), { material: "none", options: {} });
+  }
+});
+
 test("painted platforms keep the themed background and refresh it", () => {
   assert.deepEqual(windowMaterial("linux"), { material: "none", options: {} });
   assert.equal(windowBackground({ shouldUseDarkColors: true }, "linux"), DARK_BACKGROUND);

@@ -1,6 +1,7 @@
 import { test, expect, _electron as electron } from "@playwright/test";
 import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { release, tmpdir } from "node:os";
+import { createRequire } from "node:module";
 import { join, resolve } from "node:path";
 import { developmentExecutable } from "./desktop-runtime-helper.js";
 import { startDashboard } from "../test/dashboard-fixture.mjs";
@@ -19,28 +20,99 @@ async function bootDesktop() {
   );
   Object.assign(env, {
     FORMICAND_DESKTOP_DATA: root,
+    FORMICAND_DESKTOP_BACKGROUND: process.env.FORMICAND_DESKTOP_BACKGROUND ?? "1",
     FORMICAND_HOME: join(root, "home"),
     PI_CODING_AGENT_DIR: join(root, "pi"),
     FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
     FORMICAND_DISABLE_SESSION_TITLES: "1",
     PI_OFFLINE: "1"
   });
-  const executablePath = await developmentExecutable();
+  const executablePath =
+    process.platform === "win32" ? createRequire(import.meta.url)("electron") : await developmentExecutable();
   const native = await electron.launch({
     executablePath,
     args: ["--use-mock-keychain", resolve(".")],
     env,
     timeout: 90_000
   });
-  await native.evaluate(({ app, BrowserWindow }) => {
-    app.hide();
-    BrowserWindow.getAllWindows().forEach((window) => window.hide());
-  });
+  if (env.FORMICAND_DESKTOP_BACKGROUND === "1" && process.platform === "darwin") {
+    await native.evaluate(({ app, BrowserWindow }) => {
+      app.hide();
+      BrowserWindow.getAllWindows().forEach((window) => window.hide());
+    });
+  }
   const page = await native.firstWindow();
   await expect(page.locator("#composer-input")).toBeAttached();
   await dismissModelSetup(page, { wait: 5_000 });
   return { native, page, root };
 }
+
+test("Windows integrates native caption buttons, theme and the material setting", async () => {
+  test.skip(process.platform !== "win32", "Requires the Windows window manager");
+  test.setTimeout(120_000);
+  const { native, page, root } = await bootDesktop();
+  try {
+    await page.keyboard.press("Alt");
+    expect(
+      await native.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].isMenuBarVisible())
+    ).toBe(false);
+    const geometry = await page.evaluate(() => ({
+      visible: navigator.windowControlsOverlay.visible,
+      available: navigator.windowControlsOverlay.getTitlebarAreaRect().right,
+      toolbar: document.querySelector(".app-titlebar").getBoundingClientRect().right
+    }));
+    expect(geometry.visible).toBe(true);
+    expect(geometry.toolbar).toBeGreaterThan(0);
+    expect(geometry.toolbar).toBeLessThanOrEqual(geometry.available + 1);
+    await page.locator("#user-menu-button").click();
+    await page.locator('[data-settings-section="general"]').click();
+    expect(
+      await page
+        .locator(".settings-content")
+        .evaluate(
+          (panel) =>
+            panel.getBoundingClientRect().top >= navigator.windowControlsOverlay.getTitlebarAreaRect().bottom
+        )
+    ).toBe(true);
+    const acrylic = Number(release().split(".")[2]) >= 22621;
+    const tint = { light: "rgba(247, 247, 248, 0.75)", dark: "rgba(16, 16, 18, 0.68)" };
+    for (const theme of ["light", "dark"]) {
+      await page.locator(`[data-appearance-value="${theme}"]`).click();
+      await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
+      if (acrylic) {
+        await expect(page.locator("html")).toHaveCSS("background-color", tint[theme]);
+        // Composite a pixel from the empty title band over the same neutral grey in both themes.
+        const brightness = await native.evaluate(async ({ BrowserWindow }) => {
+          const image = await BrowserWindow.getAllWindows()[0].webContents.capturePage({
+            x: 120,
+            y: 8,
+            width: 1,
+            height: 1
+          });
+          const [blue, green, red, alpha] = image.toBitmap();
+          return (red + green + blue) / 3 + 128 * (1 - alpha / 255);
+        });
+        if (theme === "light") expect(brightness).toBeGreaterThan(175);
+        else expect(brightness).toBeLessThan(80);
+      }
+    }
+    if (acrylic) {
+      const toggle = page.locator("#window-material-toggle");
+      await expect(page.locator("html")).toHaveAttribute("data-window-material", "acrylic");
+      await toggle.click();
+      await expect(page.locator("html")).toHaveAttribute("data-window-material", "none");
+      await expect(page.locator("html")).toHaveCSS("background-color", "rgb(11, 11, 12)");
+      await toggle.click();
+      await expect(page.locator("html")).toHaveCSS("background-color", tint.dark);
+    } else {
+      await expect(page.locator("#window-material-row")).toBeHidden();
+    }
+  } finally {
+    await native.close();
+    await stopNativeBackend(root);
+    await rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  }
+});
 
 async function createTaskThroughHost(page) {
   // The host attaches its session through the window capability once the

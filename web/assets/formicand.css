@@ -7,6 +7,7 @@
 :root {
   color-scheme: dark;
   --color-bg: #0b0b0c;
+  --acrylic-tint: rgb(16 16 18 / 68%);
   --color-surface: #ffffff0a;
   --color-surface-2: #ffffff0f;
   --color-surface-3: #ffffff1a;
@@ -89,6 +90,7 @@
 html[data-theme="light"] {
   color-scheme: light;
   --color-bg: #f2f2f4;
+  --acrylic-tint: rgb(247 247 248 / 75%);
   --color-surface: #ffffff8c;
   --color-surface-2: #0000000a;
   --color-surface-3: #00000012;
@@ -204,6 +206,10 @@ html[data-window-material]:not([data-window-material="none"]),
 html[data-window-material]:not([data-window-material="none"]) body {
   background-color: transparent;
   background-image: none;
+}
+/* Tint the native Windows blur once, beneath both the title bar and sidebar. */
+html[data-theme][data-window-material="acrylic"] {
+  background-color: var(--acrylic-tint);
 }
 
 /* The page paints the backdrop; the shell only forwards it while chrome and the

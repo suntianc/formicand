@@ -28,7 +28,7 @@ const { installDesktopMotion } = require("./motion.cjs");
 const { createAppearanceHost } = require("./appearance.cjs");
 const { createLanguageHost } = require("./language.cjs");
 const { createFileOpener } = require("./file-open.cjs");
-const { windowBackground, followNativeTheme } = require("./system-theme.cjs");
+const { windowBackground, titleBarOverlay, followNativeTheme } = require("./system-theme.cjs");
 const { PRODUCT_NAME } = require("./product-name.cjs");
 const { windowMaterial } = require("./window-material.cjs");
 const {
@@ -218,6 +218,7 @@ const desktopMotion = installDesktopMotion(ipcMain, () => mainWindow, trust);
 
 function createWindow() {
   const icon = applicationIcon();
+  const windowsOverlay = process.platform === "win32";
   mainWindow = new BrowserWindow({
     width: 1560,
     height: 980,
@@ -231,6 +232,7 @@ function createWindow() {
       ? { titleBarStyle: "hiddenInset", trafficLightPosition: { x: 18, y: 16 } }
       : {}),
     ...material.options,
+    ...(windowsOverlay ? { titleBarStyle: "hidden", titleBarOverlay: titleBarOverlay(nativeTheme) } : {}),
     webPreferences: {
       preload: path.join(__dirname, "preload.cjs"),
       contextIsolation: true,
@@ -238,6 +240,7 @@ function createWindow() {
       sandbox: true
     }
   });
+  if (windowsOverlay) mainWindow.setMenuBarVisibility(false);
   desktopMotion.follow(mainWindow);
   if (background) showInBackground(mainWindow);
   installEditContextMenu(mainWindow, {
@@ -251,7 +254,7 @@ function createWindow() {
   mainWindow.on("leave-full-screen", publishWindowState);
   mainWindow.on("focus", refreshApplicationIcon);
   mainWindow.webContents.on("did-finish-load", publishWindowState);
-  followNativeTheme(mainWindow, nativeTheme, { transparent: material.material !== "none" });
+  followNativeTheme(mainWindow, nativeTheme, { transparent: material.material !== "none", windowsOverlay });
   mainWindow.webContents.on("will-navigate", (event, url) => {
     if (!isDashboardUrl(url, selectedBackend?.url || backend?.url)) {
       event.preventDefault();

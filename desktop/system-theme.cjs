@@ -7,14 +7,23 @@ function windowBackground(nativeTheme, platform = process.platform) {
   if (platform === "darwin") return "#00000000";
   return nativeTheme.shouldUseDarkColors ? DARK_BACKGROUND : LIGHT_BACKGROUND;
 }
-function followNativeTheme(window, nativeTheme, { transparent = false } = {}) {
-  if (transparent) return;
+function titleBarOverlay(nativeTheme) {
+  return {
+    height: 44,
+    color: "#00000000",
+    symbolColor: nativeTheme.shouldUseDarkColors ? "#ffffff" : "#171717"
+  };
+}
+function followNativeTheme(window, nativeTheme, { transparent = false, windowsOverlay = false } = {}) {
+  if (transparent && !windowsOverlay) return;
   const update = () => {
-    if (!window.isDestroyed())
+    if (window.isDestroyed()) return;
+    if (windowsOverlay) window.setTitleBarOverlay(titleBarOverlay(nativeTheme));
+    if (!transparent)
       window.setBackgroundColor(nativeTheme.shouldUseDarkColors ? DARK_BACKGROUND : LIGHT_BACKGROUND);
   };
   nativeTheme.on("updated", update);
   window.once("closed", () => nativeTheme.removeListener("updated", update));
   update();
 }
-module.exports = { DARK_BACKGROUND, LIGHT_BACKGROUND, windowBackground, followNativeTheme };
+module.exports = { DARK_BACKGROUND, LIGHT_BACKGROUND, windowBackground, titleBarOverlay, followNativeTheme };
