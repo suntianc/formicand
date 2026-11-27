@@ -486,6 +486,28 @@ export function createConversationDelivery({
     }
   }
 
+  /** Apply skills, MCP servers, Agents and memory saved since the conversation began. */
+  async function reloadConversation() {
+    const taskId = state.selected;
+    if (!taskId) return showToast(ui("发送第一条消息后可重新加载。"));
+    if (!state.online) return;
+    try {
+      await api(`/api/tasks/${encodeURIComponent(taskId)}/action`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action: "reload" })
+      });
+      const input = $("#composer-input");
+      if (state.selected === taskId && input.value.trim() === "/reload") {
+        input.value = "";
+        composerSession.save();
+      }
+      showToast(ui("已重新加载，下一轮起生效。"));
+    } catch (error) {
+      showToast(requestErrorMessage(error));
+    }
+  }
+
   async function sendMessage({ queue = false } = {}) {
     if (!$("#human-questions").hidden) return;
     if (firstUse.blocksSending()) return;
@@ -501,6 +523,10 @@ export function createConversationDelivery({
     if (text === "/compact") {
       composerMenu.close();
       return compactConversation();
+    }
+    if (text === "/reload") {
+      composerMenu.close();
+      return reloadConversation();
     }
     if (composerModel.configured === false) return void openModelSettings();
     composerMenu.close();

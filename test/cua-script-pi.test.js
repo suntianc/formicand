@@ -9,6 +9,7 @@ import { setTimeout as delay } from "node:timers/promises";
 import { createDashboardApplication } from "../dist/src/dashboard/application.js";
 import { createImageArchive } from "../dist/src/tools/image-archive.js";
 import { endAgentProcesses } from "./dashboard-fixture.mjs";
+import { withoutMainState } from "./fixtures/main-state.mjs";
 
 test(
   "real Pi loads CUA skill and runs persistent JavaScript cells through native HTTP with cancellation",
@@ -181,7 +182,9 @@ test(
       assert.equal(task.status, "completed");
       assert.equal(requests.length, steps.length + 1);
       const payload = (index) =>
-        JSON.parse(requests[index].messages.findLast((message) => message.role === "tool").content);
+        JSON.parse(
+          withoutMainState(requests[index].messages.findLast((message) => message.role === "tool").content)
+        );
       const loaded = payload(1);
       assert.ok(
         JSON.stringify(loaded).includes("## Scripts"),

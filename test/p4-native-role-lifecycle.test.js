@@ -14,6 +14,7 @@ import { CoordinatorRuntime } from "../dist/src/runtime/coordinator-runtime.js";
 import { DurableScheduler } from "../dist/src/runtime/scheduler.js";
 import { providerConfig } from "./model-provider-fixture.mjs";
 import { waitForMarkedDelegations } from "./fixtures/delegation-wait.mjs";
+import { withoutMainState } from "./fixtures/main-state.mjs";
 
 const run = promisify(execFile);
 const messageText = (message) =>
@@ -22,7 +23,7 @@ const messageText = (message) =>
     : (message.content ?? []).map((part) => part.text ?? "").join("");
 const lastToolText = (body) => messageText(body.messages.findLast((message) => message.role === "tool"));
 const toolJson = (body) =>
-  JSON.parse(messageText(body.messages.findLast((message) => message.role === "tool")));
+  JSON.parse(withoutMainState(messageText(body.messages.findLast((message) => message.role === "tool"))));
 const userText = (body) =>
   body.messages
     .filter((message) => message.role === "user")

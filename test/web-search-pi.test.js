@@ -9,6 +9,7 @@ import { join, resolve } from "node:path";
 import { LocalWorkspaceStore } from "../dist/src/workspace/workspace-store.js";
 import { modelProtocolFixture } from "./model-protocol-fixture.mjs";
 import { waitForMarkedDelegations } from "./fixtures/delegation-wait.mjs";
+import { withoutMainState } from "./fixtures/main-state.mjs";
 
 async function searchFixture(t) {
   const calls = [];
@@ -94,7 +95,7 @@ test(
               if (step === 0) return { name: "search", arguments: { query: `${phase} main public paper` } };
               if (step === 1) {
                 const result = JSON.parse(
-                  body.messages.findLast((message) => message.role === "tool").content
+                  withoutMainState(body.messages.findLast((message) => message.role === "tool").content)
                 );
                 assert.equal(result.sources[0].url, "https://example.org/paper");
                 return { name: "visit", arguments: { url: result.sources[0].url } };

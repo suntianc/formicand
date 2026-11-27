@@ -10,6 +10,7 @@ import { chromium } from "playwright-core";
 import { modelProtocolFixture } from "./model-protocol-fixture.mjs";
 import { browserFixture, browserTestOptions } from "./browser-fixture.mjs";
 import { createImageArchive } from "../dist/src/tools/image-archive.js";
+import { withoutMainState } from "./fixtures/main-state.mjs";
 
 const exec = promisify(execFile);
 test(
@@ -30,7 +31,7 @@ test(
     let pageId, download, imageRef, observationId;
     const provider = await modelProtocolFixture("openai-completions", (body, requests) => {
       const last = body.messages.findLast((message) => message.role === "tool");
-      const result = last?.content.startsWith("{") ? JSON.parse(last.content) : undefined;
+      const result = last?.content.startsWith("{") ? JSON.parse(withoutMainState(last.content)) : undefined;
       if (result?.pageId) pageId = result.pageId;
       if (result?.download) download = result.download;
       if (result?.observationId) observationId = result.observationId;
@@ -161,7 +162,7 @@ test(
     assert.equal(provider.requests.length, 13);
     const results = provider.requests.slice(1).map((request) => {
       const message = request.body.messages.findLast((entry) => entry.role === "tool");
-      return message?.content.startsWith("{") ? JSON.parse(message.content) : undefined;
+      return message?.content.startsWith("{") ? JSON.parse(withoutMainState(message.content)) : undefined;
     });
     assert.equal(results[2].observationStatus, "omitted");
     assert.equal(results[2].observation, undefined);
@@ -172,7 +173,9 @@ test(
     assert.ok(results[9].observationId);
     assert.match(results[10].observation.ariaSnapshot, /Canvas clicked/);
     const waited = JSON.parse(
-      provider.requests[5].body.messages.findLast((message) => message.role === "tool").content
+      withoutMainState(
+        provider.requests[5].body.messages.findLast((message) => message.role === "tool").content
+      )
     );
     assert.equal(waited.status, "condition_met");
     assert.match(waited.observation.ariaSnapshot, /Saved Pi Chromium/);

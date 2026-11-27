@@ -2,7 +2,7 @@ import { ui } from "../ui/language.js";
 import { installWebSearchSettings } from "./web-search-settings.js";
 import { createSettingsBackend } from "./settings-backend.js";
 import { installModelProviders } from "./model-providers.js";
-import { installUtilityModelSettings } from "./utility-model-settings.js";
+import { installContextTrimSettings, installUtilityModelSettings } from "./utility-model-settings.js";
 
 /** Both hosts share one settings UI; keys are submitted once and never read back. */
 export function installDesktopSettings({ showToast, onSaved, host, api, identity = () => location.origin }) {
@@ -62,6 +62,20 @@ export function installDesktopSettings({ showToast, onSaved, host, api, identity
       errorMessage
     });
     host?.onSection?.("general", () => void utility.refresh());
+  }
+  const trimToggle = document.querySelector("#context-trim-toggle");
+  if (trimToggle) {
+    const trim = installContextTrimSettings({
+      toggle: trimToggle,
+      request,
+      status: () => {
+        settingsBackend.bind();
+        return request("GET");
+      },
+      showToast,
+      errorMessage
+    });
+    host?.onSection?.("general", () => void trim.refresh());
   }
   installWebSearchSettings({ showToast, host, api, identity });
   return {

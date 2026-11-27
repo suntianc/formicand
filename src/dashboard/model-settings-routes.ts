@@ -23,7 +23,8 @@ export async function handleModelSettingsRequest(
     "/api/model-settings/providers/delete": "deleteProvider",
     "/api/model-settings/models": "saveModels",
     "/api/model-settings/models/list": "listModels",
-    "/api/model-settings/utility": "saveUtility"
+    "/api/model-settings/utility": "saveUtility",
+    "/api/model-settings/context-trim": "saveContextTrim"
   } as const;
   const modelSettingsAction = Object.hasOwn(modelSettingsActions, url.pathname)
     ? modelSettingsActions[url.pathname as keyof typeof modelSettingsActions]

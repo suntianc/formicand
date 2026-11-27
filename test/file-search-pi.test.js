@@ -11,6 +11,7 @@ import { DurableScheduler } from "../dist/src/runtime/scheduler.js";
 import { SubagentProcessService } from "../dist/src/runtime/subagent-processes.js";
 import { startDashboard } from "./dashboard-fixture.mjs";
 import { isolatedPiEnvironment, startLocalProvider } from "./fixtures/pi-process-fixture.mjs";
+import { withoutMainState } from "./fixtures/main-state.mjs";
 
 /**
  * File search as Main and a Reviewer actually receive it.
@@ -46,7 +47,7 @@ function lastToolText(body) {
   const last = (body.messages ?? []).findLast(
     (message) => message.role === "tool" || message.role === "toolResult"
   );
-  return last ? messageText(last) : "";
+  return last ? withoutMainState(messageText(last)) : "";
 }
 
 function systemText(body) {

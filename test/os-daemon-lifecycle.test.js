@@ -7,6 +7,7 @@ import { pathToFileURL } from "node:url";
 import { setTimeout as delay } from "node:timers/promises";
 import { test } from "node:test";
 import { modelProtocolFixture } from "./model-protocol-fixture.mjs";
+import { withoutMainState } from "./fixtures/main-state.mjs";
 
 /**
  * The standalone backend, driven the way a client drives it.
@@ -596,7 +597,7 @@ test("jobs close normally and survive an explicit backend stop", { timeout: 150_
       const toolText = Array.isArray(last?.content)
         ? last.content.map((part) => part.text ?? "").join("")
         : String(last?.content ?? "");
-      const result = toolText ? JSON.parse(toolText) : {};
+      const result = toolText ? JSON.parse(withoutMainState(toolText)) : {};
       switch (step++) {
         case 0:
           return { name: "grant_capabilities", arguments: { longRunning: true, reason: "夹具长时间任务" } };

@@ -73,6 +73,13 @@ import {
 import { piSkill } from "./skills.ts";
 import { attachmentCapabilityProvider } from "../../dist/src/workspace/attachment-capabilities.js";
 import { withMainRuntimeContext } from "./main-context-prompt.ts";
+import {
+  MAIN_PROMPT_REUSE,
+  readMainPromptSnapshot,
+  takeMainPromptRefresh,
+  writeMainPromptSnapshot,
+  type MainPromptSnapshot
+} from "../../dist/src/runtime/main-prompt-snapshot.js";
 import { errorMessage, loadConfig, textFromMessage } from "./helpers.ts";
 import { registerCoordinationTools } from "./tools/coordination.ts";
 import { registerAgentTools } from "./tools/agents.ts";
@@ -133,9 +140,8 @@ async function registerMainExtension(pi: ExtensionAPI) {
   const baseUrl = process.env.FORMICAND_API_BASE ?? config.baseUrl ?? config.apiBase;
   const apiKey = process.env.FORMICAND_API_KEY ?? config.apiKey;
   const modelId = process.env.FORMICAND_MODEL ?? config.model ?? "glm-5.3";
-  // Main is resident, so the search choice saved in the settings page must reach
-  // this process's next turn rather than wait for a new process; the turn
-  // boundary below re-reads it and keeps `search`/`visit` in step.
+  // The search choice is read again whenever the prompt is generated, which
+  // keeps `search`/`visit` in step with what the prompt offers.
   let web = configuredWebTools(config);
   let memoryTool: ReturnType<typeof registerMemoryTool>;
   const workspaceRoot = configuredWorkspaceRoot(config);
@@ -199,7 +205,7 @@ async function registerMainExtension(pi: ExtensionAPI) {
    * resolves the sources, the trust decision and the removed index itself, so
    * a Subagent in the same project sees the same list.
    */
-  // What the user set for Main in the Agent page, read again at every turn.
+  // What the user set for Main in the Agent page, read again whenever the prompt is generated.
   let mainSettings = builtinAgentSettings(config, "main", projectDirectory);
   const skillCatalogNow = async () => {
     const allowed = mainSettings.skills;
@@ -212,13 +218,18 @@ async function registerMainExtension(pi: ExtensionAPI) {
     const catalog = skillCatalogPrompt(skills);
     return catalog ? `<skills>\n${catalog}\n</skills>` : undefined;
   };
+  // The prompt this conversation was given; see MainPromptSnapshot.
+  let promptSnapshot: MainPromptSnapshot | undefined;
+  // The turn that is starting and the connection it moves onto (set once the model is known).
+  let beforeTurnEvent: BeforeAgentStartEvent | undefined;
+  let beforeTurnModel: (() => Promise<void>) | undefined;
   // Servers registered while the extension loads connect when the session
-  // starts; each turn re-reads the configuration (see createMcpRegistration).
+  // starts; the configuration is read again only when the prompt is generated,
+  // and a reused prompt keeps the servers it named.
   const mcpServers = createMcpRegistration(pi, undefined, () =>
-    mainSettings.mcp === "all" ? undefined : mainSettings.mcp
+    promptSnapshot ? promptSnapshot.mcpServers : mainSettings.mcp === "all" ? undefined : mainSettings.mcp
   );
   await mcpServers.sync();
-  let mcpProblem: string | undefined;
   const capabilityProviders = capabilityProvider(
     new Map([["attachments", attachmentCapabilityProvider(harnessRoot)]])
   );
@@ -359,15 +370,15 @@ async function registerMainExtension(pi: ExtensionAPI) {
   });
 
   /**
-   * Apply the search configuration saved since the last turn.
+   * Apply the saved search configuration when the prompt is generated.
    *
-   * A resident Main outlives the settings page that saved it, so the choice has
-   * to reach this process at its next turn: a changed provider replaces the two
-   * tool definitions, and turning search off removes them from the active
-   * loadout so the model is not offered a provider the user switched off.
+   * A changed provider replaces the two tool definitions, and turning search
+   * off removes them from the active loadout so the model is not offered a
+   * provider the user switched off. `enabled: false` keeps a reused prompt's
+   * choice to have no search.
    */
-  const syncWebToolLoadout = () => {
-    const latest = configuredWebTools(loadConfig());
+  const syncWebToolLoadout = (enabled = true) => {
+    const latest = enabled ? configuredWebTools(loadConfig()) : undefined;
     // These three are everything `configuredWebTools` derives a provider from, so
     // an unchanged turn does not rebuild the tool definitions.
     const unchanged =
@@ -386,9 +397,8 @@ async function registerMainExtension(pi: ExtensionAPI) {
   };
 
   /**
-   * The memory index, read again every turn so a memory saved or edited in
-   * settings applies to the next turn. Memory adds to the conversation and
-   * never gates it: a failed read is stated in the section instead.
+   * The memory index, read when the prompt is generated. Memory adds to the
+   * conversation and never gates it: a failed read is stated in the section instead.
    */
   const memoryIndexSection = async (): Promise<string> => {
     if (!memoryTool) return "";
@@ -400,49 +410,103 @@ async function registerMainExtension(pi: ExtensionAPI) {
     }
   };
 
-  const prepareMainTurnSections = async () => {
-    // Real Pi assembles this hook before the per-request context hook, so tool
-    // discovery must finish here to exist on the first model request. A resident
-    // Main also reads the search choice saved since its last turn here.
-    syncWebToolLoadout();
-    mainSettings = builtinAgentSettings(loadConfig(), "main", projectDirectory);
-    await capabilityTools.refresh();
-    const workspace = [
+  const workspaceSection = () =>
+    [
       `Project directory: ${projectDirectory}`,
       `Task workspace: ${taskWorkspace}`,
       `work/: ${join(taskWorkspace, "agents", "main", "work")}`,
       `artifacts/: ${join(taskWorkspace, "artifacts")}`,
       "read, edit, write and bash resolve relative paths from the project directory; browse_workspace and a collaborator's outputFiles resolve them from the Task workspace, so use absolute paths for Task files. An older path in the history may predate a change of project directory: the directory above is current."
     ].join("\n");
-    // The user's own Agents, read again every turn so a new or changed one applies to the next turn.
+  const promptModel = () => (currentModel ? `${currentModel.provider}/${currentModel.id}` : modelId);
+  let mcpProblem: string | undefined;
+
+  /**
+   * The settings-derived prompt for the turn that is starting.
+   *
+   * Generated once per conversation and kept across turns, so a skill, server,
+   * Agent or memory added meanwhile does not rewrite the cached prefix. It is
+   * generated again for another model, after a reload request, and in a process
+   * that did not replace a running Main (idle wake, app restart). A process that
+   * replaced one (edit, retry, next Run) reuses the saved snapshot.
+   */
+  const currentPromptSnapshot = async (notify: (problem: string) => void): Promise<MainPromptSnapshot> => {
+    const refresh = await takeMainPromptRefresh(workspaceRoot, taskId);
+    const model = promptModel();
+    if (promptSnapshot && !refresh && promptSnapshot.model === model) return promptSnapshot;
+    if (!promptSnapshot && !refresh && process.env[MAIN_PROMPT_REUSE] === "1") {
+      const saved = await readMainPromptSnapshot(workspaceRoot, taskId).catch((error) => {
+        // An unreadable snapshot only costs this conversation its cached prefix once.
+        console.error(`[Formicand] Prompt snapshot: ${errorMessage(error)}`);
+        return undefined;
+      });
+      if (saved?.model === model) {
+        promptSnapshot = saved;
+        syncWebToolLoadout(saved.webSearch);
+        const problem = await mcpServers.sync();
+        if (problem) notify(problem);
+        return saved;
+      }
+    }
+    mainSettings = builtinAgentSettings(loadConfig(), "main", projectDirectory);
+    syncWebToolLoadout();
+    promptSnapshot = undefined;
+    const problem = await mcpServers.sync();
+    if (problem) notify(problem);
     const agents = await availableAgents(await processAgentLocations(projectDirectory));
-    const memory = await memoryIndexSection();
+    const next: MainPromptSnapshot = {
+      version: 1,
+      model,
+      skills: await skillCatalogNow(),
+      customAgents: agents.length ? customAgentsPrompt(agents) : "",
+      memory: await memoryIndexSection(),
+      userMainInstructions: mainSettings.prompt,
+      mcpServers: mcpServers.registered(),
+      webSearch: Boolean(web)
+    };
+    promptSnapshot = next;
+    await writeMainPromptSnapshot(workspaceRoot, taskId, next).catch((error) => {
+      console.error(`[Formicand] Prompt snapshot write: ${errorMessage(error)}`);
+    });
+    return next;
+  };
+
+  const prepareMainTurnSections = async (notify: (problem: string) => void) => {
+    // Real Pi assembles this hook before the per-request context hook, so tool
+    // discovery must finish here to exist on the first model request.
+    await beforeTurnModel?.();
+    const snapshot = await currentPromptSnapshot(notify);
+    // Uploads and desktop grants happen inside the conversation and apply at once.
+    await capabilityTools.refresh();
+    currentSkillsSection = skillsSection(snapshot.skills);
     // Keep SDK-owned tools and rules dynamic. Returning a forced prompt here
     // freezes snippets when enable_tools changes the active loadout mid-turn.
     return {
-      // Pi wraps each section in a tag of its own name.
-      current_workspace: workspace,
-      custom_agents: agents.length ? customAgentsPrompt(agents) : "",
-      memory,
-      // The user's extra instructions for Main add to the rules above and never replace them.
-      user_main_instructions: mainSettings.prompt
+      snapshot,
+      sections: {
+        // Pi wraps each section in a tag of its own name.
+        current_workspace: workspaceSection(),
+        custom_agents: snapshot.customAgents,
+        memory: snapshot.memory,
+        // The user's extra instructions for Main add to the rules above and never replace them.
+        user_main_instructions: snapshot.userMainInstructions
+      }
     };
   };
 
   pi.on("before_agent_start", async (event, ctx) => {
-    const sections = await prepareMainTurnSections();
-    const problem = await mcpServers.sync();
-    // Report a problem once, not again on every turn it persists.
-    if (problem && problem !== mcpProblem) ctx.ui.notify(problem, "warning");
-    mcpProblem = problem;
+    beforeTurnEvent = event;
+    const { snapshot, sections } = await prepareMainTurnSections((problem) => {
+      // Report a problem once, not again on every turn it persists.
+      if (problem !== mcpProblem) ctx.ui.notify(problem, "warning");
+      mcpProblem = problem;
+    });
     const options = event.systemPromptOptions;
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- systemPromptOptions 在旧版 Pi 调用方可能缺失，缺省时按项目默认身份处理
     projectDefaultIdentity = !options?.customPrompt && options?.forceSystemPrompt === undefined;
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- 旧版 Pi 调用方可能只提供 event.systemPrompt，缺少该系统选项时走下面的回退分支
     if (options) {
-      const catalog = await skillCatalogNow();
-      options.skills = catalog.map(piSkill);
-      currentSkillsSection = skillsSection(catalog);
+      options.skills = snapshot.skills.map(piSkill);
       Object.assign(options.sections, sections);
       return;
     }
@@ -452,13 +516,15 @@ async function registerMainExtension(pi: ExtensionAPI) {
     };
   });
 
-  let continuationSections: Awaited<ReturnType<typeof prepareMainTurnSections>> | undefined;
+  let continuationSections: Awaited<ReturnType<typeof prepareMainTurnSections>>["sections"] | undefined;
   if (process.env.FORMICAND_MAIN_CONTINUATION) {
     registerMainContinuation(pi, async (ctx) => {
-      continuationSections = await prepareMainTurnSections();
+      beforeTurnEvent = undefined;
+      ({ sections: continuationSections } = await prepareMainTurnSections((problem) =>
+        console.error(`[Formicand] ${problem}`)
+      ));
       await requestRetry?.restore();
       const options = ctx.getSystemPromptOptions();
-      currentSkillsSection = skillsSection(await skillCatalogNow());
       projectDefaultIdentity = !options.customPrompt && options.forceSystemPrompt === undefined;
     });
   }
@@ -529,9 +595,8 @@ async function registerMainExtension(pi: ExtensionAPI) {
         if (process.env.FORMICAND_MAIN_RETRY_REQUEST_ID) freshRetryContext = true;
       }
       await updateRuntime({ runtimePendingDelegations: inboxDelivery.queuedCount });
-      // Refresh between model requests, including changes made during a turn.
+      // Uploads and desktop grants made during a turn apply to its next request.
       await capabilityTools.refresh();
-      currentSkillsSection = skillsSection(await skillCatalogNow());
     } catch (error) {
       ctx.ui.notify(`Main context snapshot failed: ${errorMessage(error)}`, "warning");
     }
@@ -690,7 +755,9 @@ async function registerMainExtension(pi: ExtensionAPI) {
       // Image-only tools follow the connection that now sends the turn.
       if (imagesChanged) await capabilityTools.refresh();
     };
-    pi.on("before_agent_start", adoptSavedTurnModel);
+    beforeTurnModel = async () => {
+      if (beforeTurnEvent) await adoptSavedTurnModel(beforeTurnEvent);
+    };
   }
 
   const toolContext = {
@@ -724,7 +791,8 @@ async function registerMainExtension(pi: ExtensionAPI) {
       recentContext = value;
     },
     runtimeEnv,
-    skillCatalogNow,
+    // load_skill offers the skills this conversation's prompt lists.
+    skillCatalogNow: async () => promptSnapshot?.skills ?? (await skillCatalogNow()),
     get supportsReasoningEffort() {
       return currentSupportsReasoningEffort;
     },

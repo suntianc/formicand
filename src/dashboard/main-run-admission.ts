@@ -139,7 +139,10 @@ export function createMainRunAdmission({
       !submission?.edit &&
       typeof submission?.requirementId === "string";
     // A queued demand for the next Run of a Session must leave its idle Main in place.
-    if (nextSessionRun) return { replaceResident: true };
+    if (nextSessionRun) {
+      admission.replacedResident = true;
+      return { replaceResident: true };
+    }
     // A second demand for a Session whose turn is producing an answer is a
     // duplicate start, not input to that turn: the interjection path is how
     // a person adds input. A Main waiting for delegated work can still take
@@ -216,6 +219,7 @@ export function createMainRunAdmission({
       }
     }
     // An edit, another model or a process that is already gone replaces it.
+    admission.replacedResident = await residentProcessAlive(resident.record);
     await stopResidentMain(taskId, { replacing: true });
     return { replaceResident: false };
   }

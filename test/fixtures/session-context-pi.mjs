@@ -11,6 +11,8 @@ import { protocolStream } from "../model-protocol-fixture.mjs";
 
 const api = "openai-completions";
 
+export { withoutMainState } from "./main-state.mjs";
+
 export const providerText = (body) =>
   body.messages
     .map((message) =>
@@ -31,6 +33,7 @@ export async function sessionContextFixture(
   handle,
   {
     contextWindow = 64000,
+    config = {},
     compaction,
     summarize = () => ({ text: `<analysis>notes</analysis><summary>${FIXTURE_SUMMARY}</summary>` })
   } = {}
@@ -98,7 +101,7 @@ export async function sessionContextFixture(
   await once(server, "listening");
   await mkdir(project);
   await mkdir(join(root, "pi"));
-  await writeFile(join(root, "config.json"), JSON.stringify({ contextWindow }));
+  await writeFile(join(root, "config.json"), JSON.stringify({ contextWindow, ...config }));
   await writeFile(
     join(root, "pi", "settings.json"),
     JSON.stringify({

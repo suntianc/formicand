@@ -49,80 +49,79 @@ test("Main supplemental context bounds all text, retains excerpt ends and keeps 
   assert.ok(injected.includes("&lt;/formicand_main_context&gt;"));
 });
 
-test("Main context refresh replaces old snapshots across system deltas without changing the original history", () => {
-  const oldActive = mainRuntimeContext(state({ runtime: runtime({ runtimePendingDelegations: 9 }) }));
-  const oldFailed = mainRuntimeContext(
-    state({ runtime: runtime({ runtimePhase: "failed", runtimePendingDelegations: 7 }) })
-  );
+/** The block the runtime added: the last one of the newest message. */
+const lastText = (messages) => messages.at(-1).content.at(-1).text;
+
+test("Main state rides in the newest message, so a change leaves every earlier message as sent", () => {
   const messages = [
     {
       role: "system",
       content: "SYSTEM_POLICY_ANCHOR",
-      sections: { current_workspace: `OLD_WORKSPACE\n${oldActive}` },
+      sections: { current_workspace: "WORKSPACE" },
       timestamp: 0
     },
-    { role: "user", content: "Inspect the current source.", timestamp: 1 },
-    {
-      role: "system",
-      content: "",
-      sections: {
-        current_workspace: `NEW_WORKSPACE\n${oldFailed}`,
-        custom_context: "CUSTOM_CONTEXT_ANCHOR"
-      },
-      timestamp: 2
-    },
-    { role: "user", content: "Continue from the current state.", timestamp: 3 },
-    {
-      role: "system",
-      content: "",
-      sections: { delivery_context: "DELIVERY_CONTEXT_ANCHOR" },
-      timestamp: 4
-    }
+    { role: "user", content: "Inspect the current source.", timestamp: 1 }
   ];
   const before = structuredClone(messages);
   const waiting = withMainRuntimeContext(
     messages,
     state({ runtime: runtime({ runtimePhase: "waiting", runtimePendingDelegations: 3 }) })
   );
-  const waitingPrompt = effectivePrompt(waiting);
-  assert.ok(waitingPrompt.includes("SYSTEM_POLICY_ANCHOR"));
-  assert.ok(waitingPrompt.includes("NEW_WORKSPACE"));
-  assert.ok(!waitingPrompt.includes("OLD_WORKSPACE"));
-  assert.ok(waitingPrompt.includes("CUSTOM_CONTEXT_ANCHOR"));
-  assert.ok(waitingPrompt.includes("DELIVERY_CONTEXT_ANCHOR"));
-  assert.ok(waitingPrompt.includes("Runtime state: phase=waiting; pending delegations=3."));
-  assert.ok(!waitingPrompt.includes("phase=active"));
-  assert.ok(!waitingPrompt.includes("phase=failed"));
-  assert.equal((waitingPrompt.match(/<formicand_main_context>/g) ?? []).length, 1);
+  assert.equal(waiting.length, messages.length, "no message is added");
+  assert.deepEqual(waiting[0], before[0], "the system prompt keeps its bytes");
+  assert.equal(waiting[1].role, "user");
+  assert.equal(waiting[1].content[0].text, "Inspect the current source.", "the user's words come first");
+  assert.ok(lastText(waiting).includes("Runtime state: phase=waiting; pending delegations=3."));
+  assert.ok(lastText(waiting).includes("the user did not write it"));
+  assert.ok(!effectivePrompt(waiting).includes("formicand_main_context"));
 
-  const completedState = state({
-    runtime: runtime({ runtimePhase: "completed", runtimePendingDelegations: 0 })
-  });
-  const completed = withMainRuntimeContext(waiting, completedState);
-  const completedPrompt = effectivePrompt(completed);
-  assert.ok(completedPrompt.includes("Runtime state: phase=completed; pending delegations=0."));
-  assert.ok(!completedPrompt.includes("pending delegations=3"));
-  assert.ok(!completedPrompt.includes("pending delegations=9"));
-  assert.equal((completedPrompt.match(/<formicand_main_context>/g) ?? []).length, 1);
-  assert.equal(
-    effectivePrompt(withMainRuntimeContext(completed, completedState)),
-    completedPrompt,
-    "refreshing unchanged state does not accumulate extra messages or timestamp noise"
+  // Inside a tool loop the state rides in the newest tool result, which stays a tool result.
+  const loop = [
+    ...messages,
+    {
+      role: "assistant",
+      content: [{ type: "toolCall", id: "call-1", name: "read", arguments: {} }],
+      timestamp: 2
+    },
+    {
+      role: "toolResult",
+      toolCallId: "call-1",
+      toolName: "read",
+      content: [{ type: "text", text: "FILE" }],
+      isError: false,
+      timestamp: 3
+    }
+  ];
+  const loopBefore = structuredClone(loop);
+  const completed = withMainRuntimeContext(
+    loop,
+    state({ runtime: runtime({ runtimePhase: "completed", runtimePendingDelegations: 0 }) })
   );
-  assert.equal(completed.length, messages.length);
-  assert.deepEqual(messages, before, "persisted source envelopes and system deltas remain untouched");
+  assert.deepEqual(completed.slice(0, -1), loopBefore.slice(0, -1), "the cached prefix survives the change");
+  assert.equal(completed.at(-1).role, "toolResult");
+  assert.equal(completed.at(-1).content[0].text, "FILE");
+  assert.ok(lastText(completed).includes("phase=completed; pending delegations=0."));
+  assert.equal(
+    completed.filter((message) => JSON.stringify(message).includes("formicand_main_context")).length,
+    1
+  );
+  assert.deepEqual(loop, loopBefore, "the recorded messages are untouched");
+  assert.deepEqual(messages, before);
+
+  // A continuation after the model's own answer gets the state as a message of its own.
+  const after = withMainRuntimeContext(
+    [...messages, { role: "assistant", content: [{ type: "text", text: "Done." }], timestamp: 2 }],
+    state()
+  );
+  assert.equal(after.length, messages.length + 2);
+  assert.equal(after.at(-1).role, "user");
 });
 
 test("Main context avoids copying an already visible full goal while preserving every original user character", () => {
   const goal =
     "FULL_USER_REQUIREMENT: keep the module exports, verify counter.spec.js, then update docs/usage.md.";
   const messages = [
-    {
-      role: "system",
-      content: "System policy",
-      sections: { current_workspace: "CURRENT_DIRECTORY" },
-      timestamp: 0
-    },
+    { role: "system", content: "System policy", timestamp: 0 },
     {
       role: "user",
       content: [{ type: "text", text: `Please do this:\n${goal}\nREQUIREMENT_END_ANCHOR` }],
@@ -131,14 +130,10 @@ test("Main context avoids copying an already visible full goal while preserving 
   ];
   const before = structuredClone(messages);
   const refreshed = withMainRuntimeContext(messages, state({ runtime: runtime({ runtimeGoal: goal }) }));
-  const prompt = effectivePrompt(refreshed);
-  assert.ok(prompt.includes("Runtime state: phase=active"));
-  assert.ok(
-    !prompt.includes(goal),
-    "a full goal in the current user transcript is not duplicated into system context"
-  );
-  assert.ok(!prompt.includes("Task goal record (may be incomplete):"));
-  assert.deepEqual(refreshed[1], before[1]);
+  const context = lastText(refreshed);
+  assert.ok(context.includes("Runtime state: phase=active"));
+  assert.ok(!context.includes(goal), "a full goal in the current user transcript is not duplicated");
+  assert.ok(!context.includes("Task goal record (may be incomplete):"));
   assert.deepEqual(messages, before);
 
   const partial = [
@@ -146,14 +141,14 @@ test("Main context avoids copying an already visible full goal while preserving 
     { role: "user", content: "FULL_USER_REQUIREMENT: keep the module exports.", timestamp: 1 }
   ];
   assert.ok(
-    effectivePrompt(
-      withMainRuntimeContext(partial, state({ runtime: runtime({ runtimeGoal: goal }) }))
-    ).includes(goal),
+    lastText(withMainRuntimeContext(partial, state({ runtime: runtime({ runtimeGoal: goal }) }))).includes(
+      goal
+    ),
     "a partial prefix is not mistaken for the full saved goal"
   );
 });
 
-test("Main dynamic context stays out of native compaction-summary messages and the serialized summary conversation", () => {
+test("Main dynamic context leaves native compaction-summary messages as recorded", () => {
   const summary = {
     role: "compactionSummary",
     summary: "HISTORICAL_CHECKPOINT_ANCHOR: the earlier verification failed; inspect its recorded scope.",
@@ -169,16 +164,9 @@ test("Main dynamic context stays out of native compaction-summary messages and t
     messages,
     state({ runtime: runtime({ runtimePhase: "waiting", runtimePendingDelegations: 2 }) })
   );
-  assert.equal(
-    refreshed[1],
-    summary,
-    "the historical native summary is not rewritten with current runtime fields"
-  );
-  const serialized = serializeConversation(convertToLlm(refreshed));
+  assert.equal(refreshed[1], summary, "the historical summary is not rewritten with current runtime fields");
+  const serialized = serializeConversation(convertToLlm(messages));
   assert.ok(serialized.includes("HISTORICAL_CHECKPOINT_ANCHOR"));
-  assert.ok(!serialized.includes("<formicand_main_context>"));
   assert.ok(!serialized.includes("pending delegations"));
-  const prompt = effectivePrompt(refreshed);
-  assert.ok(prompt.includes("Runtime state: phase=waiting; pending delegations=2."));
-  assert.equal((prompt.match(/<formicand_main_context>/g) ?? []).length, 1);
+  assert.ok(lastText(refreshed).includes("Runtime state: phase=waiting; pending delegations=2."));
 });

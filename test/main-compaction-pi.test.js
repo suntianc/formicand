@@ -4,12 +4,19 @@ import { join } from "node:path";
 import { test } from "node:test";
 import { HumanRequestStore } from "../dist/src/runtime/human.js";
 import { DurableScheduler } from "../dist/src/runtime/scheduler.js";
-import { FIXTURE_SUMMARY, providerText, sessionContextFixture } from "./fixtures/session-context-pi.mjs";
+import {
+  FIXTURE_SUMMARY,
+  providerText,
+  sessionContextFixture,
+  withoutMainState
+} from "./fixtures/session-context-pi.mjs";
 
 const settings = { enabled: true, reserveTokens: 8000, keepRecentTokens: 1 };
 const tool = (name, args, usage) => ({ name, arguments: args, usage });
 const lastTool = (body) =>
-  providerText({ messages: [body.messages.findLast((message) => message.role === "tool")] });
+  withoutMainState(
+    providerText({ messages: [body.messages.findLast((message) => message.role === "tool")] })
+  );
 const notice = "Context capacity: about ";
 const handoff = "Context window handoff";
 

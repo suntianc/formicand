@@ -14,11 +14,19 @@ import {
 } from "../../dist/src/runtime/session-tool-results.js";
 import { truncateToolText } from "../../dist/src/runtime/tool-output.js";
 import { atomicWrite } from "../../dist/src/storage/atomic-file.js";
+import { loadConfig } from "./helpers.ts";
 
 const LARGE_RESULT_CHARS = 20_000;
 const RESULT_PREVIEW_CHARS = 1_000;
-const EDIT_THRESHOLD = 0.5;
-const MINIMUM_SAVINGS = 0.1;
+/**
+ * Clearing old results costs one cache miss on everything after the first
+ * cleared result, and saves on every later request. Measured on real runs
+ * (2026-11), starting at 100K tokens and clearing at least half that each time
+ * cost least; a small window starts at half of itself.
+ */
+const EDIT_START_TOKENS = 100_000;
+const EDIT_START_WINDOW_SHARE = 0.5;
+const MINIMUM_SAVINGS_SHARE = 0.5;
 const RECENT_RESULTS = 5;
 const PROTECTED_TOOLS = new Set(["load_skill", "askhuman"]);
 /** What stands in for an old result; the call that produced it stays visible. */
@@ -26,7 +34,9 @@ const CLEARED_RESULT = "[Old tool result content cleared]";
 
 function editsForTurn(event: TurnEndEvent, ctx: ExtensionContext): ContextEditEntryDraft[] {
   const usage = ctx.getContextUsage();
-  if (!usage || usage.tokens === null || usage.tokens <= usage.contextWindow * EDIT_THRESHOLD) return [];
+  if (!usage || usage.tokens === null) return [];
+  const start = Math.min(EDIT_START_TOKENS, usage.contextWindow * EDIT_START_WINDOW_SHARE);
+  if (usage.tokens <= start) return [];
   const edited = new Set(
     ctx.sessionManager.getBranch().flatMap((entry) => (entry.type === "context_edit" ? [entry.targetId] : []))
   );
@@ -49,12 +59,18 @@ function editsForTurn(event: TurnEndEvent, ctx: ExtensionContext): ContextEditEn
     if (savings <= 0) continue;
     saved += savings;
     entries.push({ type: "context_edit", targetId: id, replacement: { content } });
-    if (saved >= usage.contextWindow * MINIMUM_SAVINGS) return entries;
+    if (saved >= start * MINIMUM_SAVINGS_SHARE) return entries;
   }
+  // Too little to clear yet: a small edit would not repay the cache it breaks.
   return [];
 }
 
-export function registerSessionContext(pi: ExtensionAPI, usagePath?: string): void {
+/** `enabled` is read at every turn's end; the settings switch is the default. */
+export function registerSessionContext(
+  pi: ExtensionAPI,
+  usagePath?: string,
+  enabled: () => boolean = () => loadConfig().contextTrim !== false
+): void {
   pi.on("tool_result", async (event, ctx) => {
     // Nested tool calls feed script execution. Their outer result is sized separately.
     if (event.parentToolCallId) return;
@@ -87,6 +103,7 @@ export function registerSessionContext(pi: ExtensionAPI, usagePath?: string): vo
     };
   });
   pi.on("turn_end", (event, ctx) => {
+    if (!enabled()) return;
     const entries = editsForTurn(event, ctx);
     if (entries.length) return { entries };
   });

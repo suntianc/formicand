@@ -9,6 +9,8 @@
  * The script's own step count does not include the waits.
  */
 
+import { withoutMainState } from "./main-state.mjs";
+
 const TERMINAL = new Set(["completed", "failed", "cancelled", "timed_out"]);
 const SETTLED_STATUS = { completed: "succeeded" };
 
@@ -26,7 +28,12 @@ function lastTool(body) {
     const call = body.input
       .slice(0, index)
       .findLast((item) => item.type === "function_call" && item.call_id === result.call_id);
-    return { index, name: call?.name, text: typeof result.output === "string" ? result.output : "" };
+    const output = Array.isArray(result.output)
+      ? result.output.map((part) => part.text ?? "").join("")
+      : typeof result.output === "string"
+        ? result.output
+        : "";
+    return { index, name: call?.name, text: withoutMainState(output) };
   }
   const index = body.messages.findLastIndex((message) => message.role === "tool");
   if (index < 0) return undefined;
@@ -35,7 +42,7 @@ function lastTool(body) {
     .slice(0, index)
     .flatMap((message) => message.tool_calls ?? [])
     .findLast((candidate) => candidate.id === result.tool_call_id);
-  return { index, name: call?.function?.name, text: messageText(result) };
+  return { index, name: call?.function?.name, text: withoutMainState(messageText(result)) };
 }
 
 /** The same request with its newest tool result replaced by `text`. */
@@ -111,7 +118,7 @@ function callbackText(body, callId) {
         : "";
   return items
     .filter((item) => item.role === "user")
-    .map(text)
+    .map((item) => withoutMainState(text(item)))
     .findLast((content) => content.includes(callId));
 }
 

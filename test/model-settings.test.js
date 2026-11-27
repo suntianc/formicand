@@ -264,3 +264,19 @@ test("listing models asks each format's endpoint and marks what is already added
   assert.deepEqual(anthropic.models, [{ id: "claude-x", name: "Claude X", added: false }]);
   await assert.rejects(f.settings.listModels({ baseUrl: "https://no-key.example.test/v1" }), /API Key/);
 });
+
+test("the trim switch is on by default, saves off explicitly and returns to the default", async (t) => {
+  const f = await fixture(t);
+  assert.equal(f.settings.status().contextTrim, true);
+  assert.equal((await f.settings.saveContextTrim({ enabled: false })).contextTrim, false);
+  assert.equal(JSON.parse(await readFile(f.path, "utf8")).contextTrim, false);
+  assert.equal(f.reopen().status().contextTrim, false, "the saved choice outlives the process");
+  assert.equal((await f.settings.saveContextTrim({ enabled: true })).contextTrim, true);
+  assert.equal(
+    JSON.parse(await readFile(f.path, "utf8")).contextTrim,
+    undefined,
+    "on is the default, not a value"
+  );
+  assert.equal(JSON.parse(await readFile(f.path, "utf8")).workspaceRoot, "/preserve");
+  await assert.rejects(f.settings.saveContextTrim({ enabled: "no" }), /布尔值/);
+});

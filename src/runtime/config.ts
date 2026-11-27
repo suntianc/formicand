@@ -28,6 +28,8 @@ export interface FormicandConfig extends RuntimeSettingsConfig, WebSearchConfig 
   roleModels?: RoleModelConfig;
   /** The host's model for context summaries and conversation titles; absent follows each session's model. */
   utilityModel?: UtilityModelSettings;
+  /** Clear Main's old tool results once its context is large; absent is on. */
+  contextTrim?: boolean;
   baseUrl?: string;
   apiBase?: string;
   apiKey?: string;
@@ -89,6 +91,8 @@ export function readFormicandConfig(
   if (config.mainCapacity !== undefined) config.mainCapacity = mainCapacitySettings(config.mainCapacity);
   validateRoleModelConfig(config.roleModels);
   parseUtilityModel(config.utilityModel);
+  if (config.contextTrim !== undefined && typeof config.contextTrim !== "boolean")
+    throw new Error("模型配置 contextTrim 必须为布尔值");
   if (config.supportsImages !== undefined && typeof config.supportsImages !== "boolean")
     throw new Error("模型配置 supportsImages 必须为布尔值");
   if (config.supportsPromptCacheKey !== undefined && typeof config.supportsPromptCacheKey !== "boolean")

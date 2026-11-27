@@ -1382,7 +1382,7 @@ test(
 );
 
 test(
-  "a resident Main applies a search-settings change at its next turn, and a turn in flight holds it",
+  "a resident Main applies a search-settings change after a reload, and a turn in flight holds it",
   { timeout: 180_000 },
   async (t) => {
     let release;
@@ -1433,22 +1433,31 @@ test(
     await f.settleTurn("resident-web-config");
     const record = await f.mainRecord("resident-web-config");
 
-    // Between turns the process rests: the same user may switch search off...
+    // Between turns the process rests: the same user may switch search off.
+    // The conversation keeps the tools its prompt was given...
     assert.equal((await saveSearch({ provider: "off" })).enabled, false);
     await f.api("/api/tasks/resident-web-config/run", { prompt: "WEB_SECOND_INPUT" });
     await f.settleTurn("resident-web-config");
     assert.equal((await f.mainRecord("resident-web-config")).pid, record.pid, "the same resident served it");
-    const off = declared(f.requests.at(-1));
-    assert.equal(off.includes("search"), false, "search off means the next turn declares no search");
-    assert.equal(off.includes("visit"), false);
+    assert.equal(declared(f.requests.at(-1)).includes("search"), true, "a running conversation keeps search");
 
-    // ...and switch it back on, without a new process.
-    assert.equal((await saveSearch({ provider: "exa" })).enabled, true);
+    // ...until a reload, which applies the change at the next turn in the same process.
+    await f.api("/api/tasks/resident-web-config/action", { action: "reload" });
     await f.api("/api/tasks/resident-web-config/run", { prompt: "WEB_THIRD_INPUT" });
     await f.settleTurn("resident-web-config");
     assert.equal((await f.mainRecord("resident-web-config")).pid, record.pid, "still the first process");
+    const off = declared(f.requests.at(-1));
+    assert.equal(off.includes("search"), false, "search off means the reloaded turn declares no search");
+    assert.equal(off.includes("visit"), false);
+
+    // Switching it back on follows the same rule.
+    assert.equal((await saveSearch({ provider: "exa" })).enabled, true);
+    await f.api("/api/tasks/resident-web-config/action", { action: "reload" });
+    await f.api("/api/tasks/resident-web-config/run", { prompt: "WEB_FOURTH_INPUT" });
+    await f.settleTurn("resident-web-config");
+    assert.equal((await f.mainRecord("resident-web-config")).pid, record.pid, "still the first process");
     const on = declared(f.requests.at(-1));
-    assert.equal(on.includes("search"), true, "search on restores the tool for the next turn");
+    assert.equal(on.includes("search"), true, "search on restores the tool after a reload");
     assert.equal(on.includes("visit"), true);
   }
 );

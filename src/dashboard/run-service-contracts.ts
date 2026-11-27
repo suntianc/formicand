@@ -47,6 +47,8 @@ export interface MainLaunchSubmission {
 export interface MainLaunchAdmission {
   requestId?: string;
   spawned: boolean;
+  /** This launch replaces a running Main, so the new process keeps its system prompt. */
+  replacedResident?: boolean;
 }
 
 export type MainLaunchReceipt = {

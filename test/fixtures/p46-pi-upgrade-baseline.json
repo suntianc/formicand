@@ -15,7 +15,7 @@
       },
       {
         "role": "user",
-        "blockTypes": ["text"]
+        "blockTypes": ["text", "text"]
       }
     ]
   },
@@ -1759,9 +1759,7 @@
       "<cwd>",
       "</cwd>",
       "<current_workspace>",
-      "</current_workspace>",
-      "<formicand_main_context>",
-      "</formicand_main_context>"
+      "</current_workspace>"
     ]
   }
 }

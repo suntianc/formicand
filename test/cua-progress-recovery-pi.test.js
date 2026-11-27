@@ -16,6 +16,7 @@ import { protocolStream } from "./model-protocol-fixture.mjs";
 import { mainInputPath, saveMainInput } from "../dist/src/runtime/main-continuation.js";
 import { createImageArchive } from "../dist/src/tools/image-archive.js";
 import { LocalWorkspaceStore } from "../dist/src/workspace/workspace-store.js";
+import { withoutMainState } from "./fixtures/main-state.mjs";
 
 const quote = (value) => `'${value.replaceAll("'", "'\\''")}'`;
 const tool = (name, args) => ({ name, arguments: args });
@@ -76,7 +77,7 @@ ${state === "confirmed" ? `- confirmed: ${operation} saved; evidence ${download.
       const observeResult = (body) => {
         const last = body.messages.findLast((message) => message.role === "tool");
         if (!last) return;
-        const content = text(last.content);
+        const content = withoutMainState(text(last.content));
         const result = content.startsWith("{") ? JSON.parse(content) : undefined;
         assert.notEqual(result?.errorCode, "browser_failed", "the browser fixture could not open its page");
         if (result?.pageId) pageId = result.pageId;
@@ -137,7 +138,7 @@ ${state === "confirmed" ? `- confirmed: ${operation} saved; evidence ${download.
             // The real action result has reached the model boundary, but the
             // provider has not emitted any check or next action.
             const action = JSON.parse(
-              text(body.messages.findLast((message) => message.role === "tool").content)
+              withoutMainState(text(body.messages.findLast((message) => message.role === "tool").content))
             );
             assert.equal(action.dispatchStatus, "sent");
             assert.equal(action.effectVerified, false);

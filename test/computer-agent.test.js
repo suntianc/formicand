@@ -8,6 +8,7 @@ import { join, resolve } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { createDashboardApplication } from "../dist/src/dashboard/application.js";
 import { createImageArchive } from "../dist/src/tools/image-archive.js";
+import { withoutMainState } from "./fixtures/main-state.mjs";
 
 for (const globalPolicy of [false, true, "run-exit"])
   test(
@@ -82,7 +83,7 @@ for (const globalPolicy of [false, true, "run-exit"])
         send({ role: "assistant" });
         if (name) {
           const observed = input.messages.findLast((message) => message.role === "tool");
-          const result = observed && JSON.parse(observed.content);
+          const result = observed && JSON.parse(withoutMainState(observed.content));
           if (result?.session?.sessionId) {
             grant = result.session;
             firstExpiresAt ??= grant.expiresAt;
@@ -287,7 +288,7 @@ for (const globalPolicy of [false, true, "run-exit"])
             `native PNG absent from model request ${index}`
           );
           const payload = JSON.parse(
-            requests[index].messages.findLast((message) => message.role === "tool").content
+            withoutMainState(requests[index].messages.findLast((message) => message.role === "tool").content)
           );
           const observation = payload.observation ?? payload;
           assert.match(observation.imageRef, /^img_/);
@@ -301,7 +302,7 @@ for (const globalPolicy of [false, true, "run-exit"])
         }
         for (const index of steps.flatMap((step, index) => (step === "computer_act" ? [index + 1] : []))) {
           const result = JSON.parse(
-            requests[index].messages.findLast((message) => message.role === "tool").content
+            withoutMainState(requests[index].messages.findLast((message) => message.role === "tool").content)
           );
           assert.equal(result.dispatched, true);
           assert.equal(result.dispatchStatus, "sent");
@@ -315,7 +316,7 @@ for (const globalPolicy of [false, true, "run-exit"])
           assert.equal(dashboard.routePorts.computer.access().policy.enabled, true);
         } else if (globalPolicy) {
           const finalStatus = JSON.parse(
-            requests.at(-1).messages.findLast((message) => message.role === "tool").content
+            withoutMainState(requests.at(-1).messages.findLast((message) => message.role === "tool").content)
           );
           assert.equal(finalStatus.authorizationRequired, true);
           assert.equal(finalStatus.access.policy.enabled, false);

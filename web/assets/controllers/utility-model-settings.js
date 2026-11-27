@@ -53,3 +53,32 @@ export function installUtilityModelSettings({ select, request, status, showToast
   });
   return { refresh };
 }
+
+/** Whether Main and Subagents clear old tool results once their context is large. */
+export function installContextTrimSettings({ toggle, request, status, showToast, errorMessage }) {
+  let busy = false;
+  const render = (snapshot) => toggle.setAttribute("aria-checked", String(snapshot.contextTrim !== false));
+  const refresh = async () => {
+    try {
+      render(await status());
+    } catch (error) {
+      showToast(errorMessage(error));
+    }
+  };
+  toggle.addEventListener("click", async () => {
+    if (busy) return;
+    busy = true;
+    toggle.disabled = true;
+    const enabled = toggle.getAttribute("aria-checked") !== "true";
+    try {
+      render(await request("POST", { enabled }, "/api/model-settings/context-trim"));
+    } catch (error) {
+      showToast(errorMessage(error));
+      await refresh();
+    } finally {
+      busy = false;
+      toggle.disabled = false;
+    }
+  });
+  return { refresh };
+}

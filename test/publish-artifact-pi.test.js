@@ -8,6 +8,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { LocalWorkspaceStore } from "../dist/src/workspace/workspace-store.js";
 import { listTaskArtifacts, resolveTaskArtifact } from "../dist/src/workspace/artifact-store.js";
+import { withoutMainState } from "./fixtures/main-state.mjs";
 
 test(
   "real Main publishes an external PPT to the canonical task directory and fails honestly for missing files",
@@ -73,7 +74,7 @@ test(
             typeof result.content === "string"
               ? result.content
               : result.content.map((part) => part.text || "").join("");
-          const published = JSON.parse(text);
+          const published = JSON.parse(withoutMainState(text));
           assert.equal(published.absolutePath, join(workspace, "publish-task", "artifacts", name));
           assert.equal(
             published.mimeType,
