@@ -46,7 +46,8 @@ import {
  * process.
  */
 
-const START_TIMEOUT_MS = 20_000;
+/** A cold first launch can spend this window warming file caches and antivirus scans. */
+const START_TIMEOUT_MS = 60_000;
 /**
  * How long `stop` waits for the daemon's own teardown before forcing it.
  *
