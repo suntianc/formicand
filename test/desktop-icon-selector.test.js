@@ -9,7 +9,7 @@ const { selectApplicationIcon, refreshDockIcon } = createRequire(import.meta.url
   "../desktop/application-icon.cjs"
 );
 
-test("app icon selection prefers the runtime export, falls back to the build export, and preserves the system default", async (t) => {
+test("Windows uses the brand icon while macOS and Linux prefer the exported icons", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "formicand-icon-selection-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const runtime = join(root, "dist/src/desktop/formicand-icon.png");
@@ -17,15 +17,21 @@ test("app icon selection prefers the runtime export, falls back to the build exp
   const raw = join(root, "web/assets/brand/formicand-icon.png");
   for (const path of [runtime, build, raw]) await mkdir(dirname(path), { recursive: true });
   await writeFile(raw, "raw brand artwork");
-  assert.equal(selectApplicationIcon(root), undefined, "raw brand artwork never overrides the bundle icon");
+  assert.equal(selectApplicationIcon(root, "win32"), raw);
+  assert.equal(selectApplicationIcon(root, "darwin"), undefined);
+  assert.equal(selectApplicationIcon(root, "linux"), undefined);
   await writeFile(build, "rounded build icon");
-  assert.equal(selectApplicationIcon(root), build);
+  assert.equal(selectApplicationIcon(root, "darwin"), build);
   await writeFile(runtime, "rounded runtime icon");
-  assert.equal(selectApplicationIcon(root), runtime);
+  assert.equal(selectApplicationIcon(root, "darwin"), runtime);
+  assert.equal(selectApplicationIcon(root, "linux"), runtime);
+  assert.equal(selectApplicationIcon(root, "win32"), raw);
   await rm(runtime);
-  assert.equal(selectApplicationIcon(root), build);
+  assert.equal(selectApplicationIcon(root, "darwin"), build);
   await rm(build);
-  assert.equal(selectApplicationIcon(root), undefined);
+  await rm(raw);
+  assert.equal(selectApplicationIcon(root, "win32"), undefined);
+  assert.equal(selectApplicationIcon(root, "darwin"), undefined);
 });
 
 test("Dock refresh reads newly generated icons each time and does not replace a default with missing artwork", async (t) => {

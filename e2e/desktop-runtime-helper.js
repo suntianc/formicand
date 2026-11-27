@@ -10,7 +10,7 @@ import { developmentExecutable as brandExecutable } from "../scripts/desktop-dev
  * instead of failing on a missing generated file.
  */
 export function ensureDesktopIcon() {
-  if (existsSync("build/formicand.icns")) return;
+  if (process.platform !== "darwin" || existsSync("build/formicand.icns")) return;
   execFileSync(process.execPath, ["scripts/build-desktop-icon.mjs"], { stdio: "inherit" });
 }
 

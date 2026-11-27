@@ -9,6 +9,7 @@ function windowPolicy(platform = process.platform, release = os.release()) {
       return {
         titleBar: "overlay",
         material: Number(release.split(".")[2]) >= 22621 ? "acrylic" : "none",
+        closeToTray: true,
         hideMenuBar: true
       };
     default:

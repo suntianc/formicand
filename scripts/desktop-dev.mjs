@@ -7,6 +7,7 @@ import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { launchMacApplication } from "./mac-application-launch.mjs";
+import { windowsDevelopmentExecutable } from "./windows-development-runtime.mjs";
 
 const run = promisify(execFile);
 const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -23,6 +24,7 @@ export async function developmentExecutable({ root = projectRoot, toolchain } = 
   const tools = developmentToolchain(toolchain);
   const require = createRequire(join(root, "package.json"));
   const electron = require("electron");
+  if (process.platform === "win32") return windowsDevelopmentExecutable(root, electron);
   if (process.platform !== "darwin") return electron;
   const source = resolve(dirname(electron), "../..");
   const icon = join(root, "build/formicand.icns");

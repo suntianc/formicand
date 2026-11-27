@@ -85,6 +85,10 @@ e2e/                    浏览器和 Electron 用户流程测试
 | Windows | `overlay`，按钮在右侧 | 隐藏，保留快捷键 | Windows 11 22H2 起支持 Acrylic，较早版本使用主题实色 |
 | Linux   | `native`，系统标题栏  | Electron 默认    | 主题实色                                             |
 
+Windows 的窗口策略启用 `closeToTray`。主窗口和[系统托盘](../desktop/tray.cjs)使用[品牌图标](../web/assets/brand/formicand-icon.png)。托盘创建成功后，关窗隐藏主窗口，托盘的「退出」走原有的草稿保存与退出流程。托盘不可用时，关闭最后一个窗口按原流程退出客户端。
+
+Windows 任务栏也会读取可执行文件的图标。[开发启动器](../scripts/windows-development-runtime.mjs)将同一品牌图标嵌入缓存的 `Formicand.exe`。开发版与安装版使用各自的 AppUserModelID，任务栏可分别归组。
+
 **顶部栏布局按系统管理。** 新增或调整顶部控件时，将工作区和设置页中与系统窗口按钮有关的留白、对齐和拖动区域统一写入[桌面标题栏布局](../web/assets/styles/formicand/desktop-titlebar.css)，按 `data-title-bar` 选择规则。macOS 从左侧为系统按钮留位；Windows 以右侧系统按钮区的起点为标题栏的可用右边界。Linux 使用原生标题栏，浏览器和桌面全屏模式沿用基础布局。
 
 宽屏工作区展开或收起右侧面板时，标题栏上的面板开关应保持原位。修改相关布局后，在受影响的系统上保持窗口大小不变，实际点击开关完成一次展开和收起，比较切换前后的按钮坐标，并确认点击区域与系统按钮区互不重叠。见[桌面标题栏回归测试](../e2e/p45-titlebar-desktop.spec.js)。

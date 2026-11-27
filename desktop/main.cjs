@@ -29,7 +29,7 @@ const { createAppearanceHost } = require("./appearance.cjs");
 const { createLanguageHost } = require("./language.cjs");
 const { createFileOpener } = require("./file-open.cjs");
 const { followNativeTheme } = require("./system-theme.cjs");
-const { PRODUCT_NAME } = require("./product-name.cjs");
+const { PRODUCT_NAME, APPLICATION_ID } = require("./product-name.cjs");
 const { windowPolicy, windowOptions } = require("./window-policy.cjs");
 const {
   backgroundMode,
@@ -129,6 +129,8 @@ app.setName(profile.name);
 app.setPath("userData", profile.userData);
 // The profile name separates the development build's runtime; people see the product name.
 app.setName(PRODUCT_NAME);
+if (process.platform === "win32")
+  app.setAppUserModelId(profile.development ? `${APPLICATION_ID}.dev` : APPLICATION_ID);
 const owner = app.requestSingleInstanceLock();
 if (!owner) app.quit();
 const credentialStorage =
@@ -285,7 +287,16 @@ function createWindow() {
     return { action: "deny" };
   });
   mainWindow.on("close", (event) => {
-    if (updates?.status().mode === "source" && updates.status().applying) event.preventDefault();
+    if (updates?.status().mode === "source" && updates.status().applying) {
+      event.preventDefault();
+    } else if (mainWindowPolicy.closeToTray && desktopTray?.supported && !quitting) {
+      event.preventDefault();
+      if (!closing) {
+        mainWindow.hide();
+        closeArtifactViewers();
+        releaseComputerSessions();
+      }
+    }
   });
   mainWindow.on("closed", () => {
     closeArtifactViewers();
@@ -718,6 +729,8 @@ app.on("before-quit", (event) => {
   void (async () => {
     const saved = await documents.request();
     if (!saved) {
+      if (mainWindowPolicy.closeToTray && mainWindow && !mainWindow.isVisible())
+        revealWindow(mainWindow, background);
       const choice = await dialog.showMessageBox(mainWindow, {
         type: "warning",
         message: "有文档或任务草稿尚未保存",

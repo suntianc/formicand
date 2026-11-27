@@ -1,8 +1,11 @@
 const { existsSync } = require("node:fs");
 const { join } = require("node:path");
 
-/** Only exported app icons are suitable for the Dock; never substitute raw brand artwork. */
-function selectApplicationIcon(appRoot) {
+function selectApplicationIcon(appRoot, platform = process.platform) {
+  if (platform === "win32") {
+    const icon = join(appRoot, "web/assets/brand/formicand-icon.png");
+    if (existsSync(icon)) return icon;
+  }
   return [
     join(appRoot, "dist/src/desktop/formicand-icon.png"),
     join(appRoot, "build/formicand-icon.png")
@@ -10,7 +13,7 @@ function selectApplicationIcon(appRoot) {
 }
 
 function refreshDockIcon(appRoot, dock) {
-  const icon = selectApplicationIcon(appRoot);
+  const icon = selectApplicationIcon(appRoot, "darwin");
   // No override leaves Electron/macOS using the bundle's normal app icon.
   if (icon) dock?.setIcon(icon);
 }

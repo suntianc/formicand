@@ -1,7 +1,6 @@
 import { test, expect, _electron as electron } from "@playwright/test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { release, tmpdir } from "node:os";
-import { createRequire } from "node:module";
 import { join, resolve } from "node:path";
 import { developmentExecutable } from "./desktop-runtime-helper.js";
 import { startDashboard } from "../test/dashboard-fixture.mjs";
@@ -20,6 +19,7 @@ async function bootDesktop() {
   );
   Object.assign(env, {
     FORMICAND_DESKTOP_DATA: root,
+    FORMICAND_DESKTOP_DEV: "1",
     FORMICAND_DESKTOP_BACKGROUND: process.env.FORMICAND_DESKTOP_BACKGROUND ?? "1",
     FORMICAND_HOME: join(root, "home"),
     PI_CODING_AGENT_DIR: join(root, "pi"),
@@ -27,8 +27,7 @@ async function bootDesktop() {
     FORMICAND_DISABLE_SESSION_TITLES: "1",
     PI_OFFLINE: "1"
   });
-  const executablePath =
-    process.platform === "win32" ? createRequire(import.meta.url)("electron") : await developmentExecutable();
+  const executablePath = await developmentExecutable();
   const native = await electron.launch({
     executablePath,
     args: ["--use-mock-keychain", resolve(".")],
@@ -53,6 +52,17 @@ test("Windows integrates native caption buttons, theme and the material setting"
   const { native, page, root } = await bootDesktop();
   try {
     await expect(page.locator("html")).toHaveAttribute("data-title-bar", "overlay");
+    const executable = await native.evaluate(() => process.execPath);
+    expect(executable).toMatch(/[/\\]Formicand\.exe$/i);
+    const usesVendorIcon = await native.evaluate(
+      async ({ app }, vendor) => {
+        const icon = await app.getFileIcon(process.execPath);
+        const electronIcon = await app.getFileIcon(vendor);
+        return icon.toBitmap().equals(electronIcon.toBitmap());
+      },
+      resolve("node_modules/electron/dist/electron.exe")
+    );
+    expect(usesVendorIcon).toBe(false);
     await page.keyboard.press("Alt");
     expect(
       await native.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].isMenuBarVisible())
@@ -117,6 +127,40 @@ test("Windows integrates native caption buttons, theme and the material setting"
     } else {
       await expect(page.locator("#window-material-row")).toBeHidden();
     }
+  } finally {
+    await native.close();
+    await stopNativeBackend(root);
+    await rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  }
+});
+
+test("Windows closes to its tray, restores the same window and quits from the tray menu", async () => {
+  test.skip(process.platform !== "win32", "Requires the Windows notification area");
+  const { native, page, root } = await bootDesktop();
+  try {
+    expect(await page.evaluate(() => window.formicandDesktop.capabilities.tray)).toBe(true);
+    // Capture the real tray and its menu when the language host refreshes the labels.
+    const binding = await native.evaluateHandle(({ Tray }) => {
+      const binding = {};
+      const setMenu = Tray.prototype.setContextMenu;
+      Tray.prototype.setContextMenu = function (menu) {
+        Tray.prototype.setContextMenu = setMenu;
+        Object.assign(binding, { tray: this, menu });
+        return setMenu.call(this, menu);
+      };
+      return binding;
+    });
+    await page.evaluate(() => window.formicandDesktop.language.set("en"));
+    const win = await native.browserWindow(page);
+    await win.evaluate((window) => window.close());
+    await expect.poll(() => win.evaluate((window) => window.isVisible())).toBe(false);
+    await binding.evaluate(({ tray }) => tray.emit("click"));
+    await expect.poll(() => win.evaluate((window) => window.isVisible())).toBe(true);
+    await win.evaluate((window) => window.close());
+    await expect.poll(() => win.evaluate((window) => window.isVisible())).toBe(false);
+    const closed = native.waitForEvent("close");
+    await binding.evaluate(({ menu }) => menu.items.find((item) => item.label === "Quit Formicand").click());
+    await closed;
   } finally {
     await native.close();
     await stopNativeBackend(root);

@@ -41,6 +41,8 @@ npm run cli       # 终端
 
 只用 CLI 时可以用 `ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm ci` 跳过 Electron 下载。安装包用 `npm run desktop:dist` 生成在 `release/`，打开 DMG 把 App 拖进“应用程序”。它是 ad-hoc 签名、尚未公证，第一次打开被系统阻止时按 [Apple 的说明](https://support.apple.com/zh-cn/102445) 到“系统设置 → 隐私与安全性”里允许。
 
+在 Windows 上从源码运行桌面客户端时，点主窗口的 × 会收进系统托盘。单击 Formicand 图标可恢复窗口，右键选择「退出 Formicand」可退出客户端。
+
 ### 连接模型
 
 第一次打开会进入“设置 → 模型”，并弹出“添加供应商”：

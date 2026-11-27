@@ -41,6 +41,8 @@ npm run cli       # Terminal
 
 CLI-only setups can skip the Electron download with `ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm ci`. `npm run desktop:dist` writes an installer under `release/`; open the DMG and drag the App into Applications. It is ad-hoc signed and not notarized, so the first launch is blocked until you allow it under System Settings → Privacy & Security, as [Apple describes](https://support.apple.com/102445).
 
+When running the desktop client from source on Windows, closing the main window sends it to the system tray. Click the Formicand icon to restore the window, or right-click it and select **Quit Formicand** to exit the client.
+
 ### Connect a model
 
 The first launch opens Settings → Models with an "Add provider" sheet:

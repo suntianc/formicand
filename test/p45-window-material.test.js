@@ -28,7 +28,7 @@ test("Windows keeps the caption overlay and hidden menu with or without acrylic"
     ["10.0.19045", "none"]
   ]) {
     const policy = windowPolicy("win32", release);
-    assert.deepEqual(policy, { titleBar: "overlay", material, hideMenuBar: true });
+    assert.deepEqual(policy, { titleBar: "overlay", material, closeToTray: true, hideMenuBar: true });
     const options = windowOptions(policy, { shouldUseDarkColors: true });
     assert.equal(options.titleBarStyle, "hidden");
     assert.equal(options.titleBarOverlay.symbolColor, "#ffffff");

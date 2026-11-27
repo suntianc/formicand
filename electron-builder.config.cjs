@@ -1,7 +1,7 @@
 /** Signing is explicit; signing/notarization and installation still have separate release gates. */
 const signingConfigured = Boolean(process.env.CSC_NAME?.trim());
 module.exports = {
-  appId: "io.github.suntianc.formicand",
+  appId: require("./desktop/product-name.cjs").APPLICATION_ID,
   productName: "Formicand",
   directories: { output: ".tmp/release" },
   extraMetadata: { main: "desktop/main.cjs" },
@@ -81,6 +81,7 @@ module.exports = {
       to: "licenses/electron/LICENSES.chromium.html"
     }
   ],
+  win: { icon: "web/assets/brand/formicand-icon.png" },
   mac: {
     icon: "build/formicand.icns",
     minimumSystemVersion: "14.0",
