@@ -77,13 +77,17 @@ e2e/                    浏览器和 Electron 用户流程测试
 
 ### 跨平台行为
 
-桌面主窗口从[窗口策略](../desktop/window-policy.cjs)取得标题栏、菜单和材质。preload 从宿主读取标题栏模式并写入 `data-title-bar`。[桌面标题栏布局](../web/assets/styles/formicand/desktop-titlebar.css)集中管理工作区和设置页给系统按钮预留的空间。Windows 宽屏下，面板开关相对系统按钮保持固定间距。Linux 原生标题栏和全屏窗口沿用基础布局。
+桌面主窗口从[窗口策略](../desktop/window-policy.cjs)取得标题栏、菜单和材质。preload 将宿主选定的标题栏模式写入 `data-title-bar`，供页面布局使用。
 
 | 主窗口  | 标题栏模式            | 菜单栏           | 窗口材质                                             |
 | ------- | --------------------- | ---------------- | ---------------------------------------------------- |
 | macOS   | `inset`，按钮在左侧   | 系统应用菜单     | under-window                                         |
 | Windows | `overlay`，按钮在右侧 | 隐藏，保留快捷键 | Windows 11 22H2 起支持 Acrylic，较早版本使用主题实色 |
 | Linux   | `native`，系统标题栏  | Electron 默认    | 主题实色                                             |
+
+**顶部栏布局按系统管理。** 新增或调整顶部控件时，将工作区和设置页中与系统窗口按钮有关的留白、对齐和拖动区域统一写入[桌面标题栏布局](../web/assets/styles/formicand/desktop-titlebar.css)，按 `data-title-bar` 选择规则。macOS 从左侧为系统按钮留位；Windows 以右侧系统按钮区的起点为标题栏的可用右边界。Linux 使用原生标题栏，浏览器和桌面全屏模式沿用基础布局。
+
+宽屏工作区展开或收起右侧面板时，标题栏上的面板开关应保持原位。修改相关布局后，在受影响的系统上保持窗口大小不变，实际点击开关完成一次展开和收起，比较切换前后的按钮坐标，并确认点击区域与系统按钮区互不重叠。见[桌面标题栏回归测试](../e2e/p45-titlebar-desktop.spec.js)。
 
 运行时和 CLI 的子进程组规则见[进程组](../src/platform/process-group.ts)。文件系统的原子写入和快照分别由[原子写入](../src/storage/atomic-file.ts)与[快照](../src/storage/snapshot-file.ts)负责。验证、CLI 打包和源码更新通过[同一 npm 启动入口](../scripts/npm-command.mjs)选择可执行文件与参数。桌面打包入口见[打包和发布](#打包和发布)。
 
