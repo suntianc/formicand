@@ -6,6 +6,7 @@ import { once } from "node:events";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { randomBytes } from "node:crypto";
+import { usesProcessGroups } from "../platform/process-group.js";
 import { formicandHome } from "../../scripts/data-home.cjs";
 import { readFormicandConfig } from "../runtime/config.js";
 import { processIsAlive } from "../runtime/process-identity.js";
@@ -236,7 +237,7 @@ async function spawnBackend(
     child = spawn(executable, [fileURLToPath(import.meta.url), "serve", "--claim", claimToken], {
       cwd,
       env: { ...env, FORMICAND_API_TOKEN: instanceToken },
-      detached: process.platform !== "win32",
+      detached: usesProcessGroups,
       stdio: ["ignore", log, log]
     });
   } finally {

@@ -25,6 +25,7 @@ async function fixture(t, { name = "formicand" } = {}) {
   await git(author, "init", "--initial-branch=preview", "--template=");
   await git(author, "config", "user.name", "Fixture Developer");
   await git(author, "config", "user.email", "fixture@example.invalid");
+  await writeFile(join(author, ".gitattributes"), "*.md text eol=lf\n");
   await writeFile(
     join(author, ".gitignore"),
     ".tmp/\nnode_modules/\ndist/\nbuild/\n/config.json\n/workspace/\n/src/software/cad/*.generated.ts\n/web/assets/math/generated/\n/web/assets/pptist/generated/\n/web/assets/markdown/generated/\n"
@@ -508,7 +509,8 @@ test("an installed CLI has no updater and says to install a newer package by han
     "cli-information.mjs",
     "data-home.cjs",
     "update.mjs",
-    "update-source.mjs"
+    "update-source.mjs",
+    "npm-command.mjs"
   ])
     await writeFile(join(scripts, file), await readFile(new URL(`../scripts/${file}`, import.meta.url)));
   const failed = await execute(process.execPath, [join(scripts, "formicand.mjs"), "update", "--check"], {

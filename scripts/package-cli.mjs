@@ -1,4 +1,5 @@
 import { execFileSync } from "node:child_process";
+import { npmCommand } from "./npm-command.mjs";
 import { access, mkdtemp, cp, mkdir, readFile, writeFile, rm, chmod, rename } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve, relative, sep } from "node:path";
@@ -13,8 +14,8 @@ import {
 
 const arguments_ = process.argv.slice(2);
 if (arguments_.length) throw new Error("Usage: node scripts/package-cli.mjs");
+const npm = npmCommand([]);
 const stage = await mkdtemp(join(tmpdir(), "formicand-cli-package-"));
-const npm = process.platform === "win32" ? "npm.cmd" : "npm";
 const optionalSourceFiles = new Set(["licenses", "ROADMAP.md", "ROADMAP.en.md"]);
 try {
   const pkg = JSON.parse(await readFile("package.json", "utf8"));
@@ -51,6 +52,7 @@ try {
     "scripts/cli-session-picker.mjs",
     "scripts/update.mjs",
     "scripts/update-source.mjs",
+    "scripts/npm-command.mjs",
     "scripts/start-pi.mjs",
     "scripts/start-pi-runtime.mjs",
     "scripts/cli-runtime-host.mjs",
@@ -118,8 +120,9 @@ try {
       const entry = lock.packages[path];
       const [runtime] = JSON.parse(
         execFileSync(
-          npm,
+          npm.command,
           [
+            ...npm.args,
             "pack",
             `esbuild@${entry.version}`,
             "--json",
@@ -212,11 +215,15 @@ try {
   const destination = resolve(process.env.FORMICAND_PACKAGE_DIR ?? "release");
   await mkdir(destination, { recursive: true });
   const [result] = JSON.parse(
-    execFileSync(npm, ["pack", "--json", "--ignore-scripts", "--pack-destination", destination], {
-      cwd: stage,
-      encoding: "utf8",
-      maxBuffer: 32 * 1024 * 1024
-    })
+    execFileSync(
+      npm.command,
+      [...npm.args, "pack", "--json", "--ignore-scripts", "--pack-destination", destination],
+      {
+        cwd: stage,
+        encoding: "utf8",
+        maxBuffer: 32 * 1024 * 1024
+      }
+    )
   );
   if (result.files.some(({ path }) => /^(\.formicand|\.tools|desktop|task-[^/]+)\//.test(path)))
     throw new Error("CLI 包中发现禁止分发的目录");

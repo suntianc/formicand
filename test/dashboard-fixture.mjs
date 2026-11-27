@@ -3,11 +3,12 @@ import { once } from "node:events";
 import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:net";
 import { hostname, tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { setTimeout as delay } from "node:timers/promises";
 
-const harnessRoot = resolve(new URL("..", import.meta.url).pathname);
+const harnessRoot = fileURLToPath(new URL("..", import.meta.url));
 
 /** Configure a synthetic model for desktop-bridge UI tests without calling a provider. */
 export function startConfiguredDashboard(options = {}) {

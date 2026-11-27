@@ -330,7 +330,7 @@ body {
   cursor: default;
 }
 /* Only the native host supplies this state. Browser previews have no OS chrome. */
-html[data-desktop-platform="darwin"]:not([data-desktop-fullscreen="true"]) {
+html[data-title-bar="inset"]:not([data-desktop-fullscreen="true"]) {
   --shell-toolbar-height: 64px;
 }
 html[data-desktop-platform] .app-topbar {
@@ -340,7 +340,7 @@ html[data-desktop-platform] .app-topbar {
 html[data-desktop-platform] .app-topbar :is(button, a, input, select, textarea, [role="button"]) {
   -webkit-app-region: no-drag;
 }
-html[data-desktop-platform="darwin"]:not([data-desktop-fullscreen="true"]) .app-topbar {
+html[data-title-bar="inset"]:not([data-desktop-fullscreen="true"]) .app-topbar {
   padding-left: 104px;
   grid-template-columns: 100px minmax(0, 1fr) 180px;
 }

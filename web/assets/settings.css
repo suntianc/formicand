@@ -199,15 +199,15 @@ html[data-desktop-platform]
 html[data-desktop-platform] .settings-content {
   user-select: text;
 }
-html[data-desktop-platform="darwin"]:not([data-desktop-fullscreen="true"]) .settings-nav {
+html[data-title-bar="inset"]:not([data-desktop-fullscreen="true"]) .settings-nav {
   padding-top: 44px;
 }
 /* The empty band beside the traffic lights drags the window, as the title row
    does on the work page. */
-html[data-desktop-platform="darwin"]:not([data-desktop-fullscreen="true"]) .settings-nav {
+html[data-title-bar="inset"]:not([data-desktop-fullscreen="true"]) .settings-nav {
   position: relative;
 }
-html[data-desktop-platform="darwin"]:not([data-desktop-fullscreen="true"]) .settings-nav::before {
+html[data-title-bar="inset"]:not([data-desktop-fullscreen="true"]) .settings-nav::before {
   position: absolute;
   inset: 0 0 auto;
   height: 44px;

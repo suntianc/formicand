@@ -143,17 +143,16 @@ export async function loadPlan(root, options, platform = process.platform) {
       (file) => classify(file, "browser", catalog) === stage.id && eligible(file, "browser")
     )
   }));
-  const npm = platform === "win32" ? "npm.cmd" : "npm";
   const steps = [];
   if (!options.skipBuild)
-    steps.push({ id: "build", stage: "setup", kind: "command", command: npm, args: ["run", "build:full"] });
+    steps.push({ id: "build", stage: "setup", kind: "command", command: "npm", args: ["run", "build:full"] });
   if (options.stages.includes("basic")) {
     for (const script of ["lint", "check:extensions", "format:check", "check:docs"])
       steps.push({
         id: script.replace(":", "-"),
         stage: "basic",
         kind: "command",
-        command: npm,
+        command: "npm",
         args: ["run", script]
       });
     steps.push({
@@ -223,7 +222,7 @@ export async function loadPlan(root, options, platform = process.platform) {
         id: "cli-package",
         stage: "cli",
         kind: "command",
-        command: npm,
+        command: "npm",
         args: ["run", "cli:pack"]
       });
     if (options.stages.includes("app")) {
@@ -232,7 +231,7 @@ export async function loadPlan(root, options, platform = process.platform) {
           id: "app-package",
           stage: "app",
           kind: "command",
-          command: npm,
+          command: "npm",
           args: ["run", "desktop:dist"]
         });
       else deferred.push({ file: "final-mac-package", stage: "app", reason: "requires_macos" });

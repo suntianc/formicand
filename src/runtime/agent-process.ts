@@ -1,5 +1,6 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { utilityCommand } from "../platform/utility-command.js";
+import { signalProcessGroup, usesProcessGroups } from "../platform/process-group.js";
 import { randomUUID } from "node:crypto";
 import { mkdir, open, readFile, readdir } from "node:fs/promises";
 import { hostname } from "node:os";
@@ -249,7 +250,7 @@ export class AgentProcessHost {
         env,
         // A separate group is what lets the backend stop the whole tree and
         // what keeps it alive when the backend itself goes away.
-        detached: process.platform !== "win32",
+        detached: usesProcessGroups,
         stdio: ["pipe", resident ? "pipe" : stdout!.fd, resident ? "pipe" : stderr!.fd]
       });
       // A resident process owns its stdout, so the backend can follow its
@@ -658,8 +659,7 @@ async function readRecord(path: string): Promise<AgentProcessRecord | undefined>
 function signalGroup(pid: number, signal: NodeJS.Signals): void {
   if (!Number.isSafeInteger(pid) || pid <= 0) return;
   try {
-    if (process.platform !== "win32") process.kill(-pid, signal);
-    else process.kill(pid, signal);
+    signalProcessGroup(pid, signal);
     // eslint-disable-next-line no-restricted-syntax -- 进程组可能在信号发出前已退出（ESRCH）；退出由 settle 从记录与 pid 复盘
   } catch {
     /* the process group has already exited */

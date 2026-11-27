@@ -52,6 +52,7 @@ test("Windows integrates native caption buttons, theme and the material setting"
   test.setTimeout(120_000);
   const { native, page, root } = await bootDesktop();
   try {
+    await expect(page.locator("html")).toHaveAttribute("data-title-bar", "overlay");
     await page.keyboard.press("Alt");
     expect(
       await native.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].isMenuBarVisible())

@@ -302,10 +302,11 @@ test("the actual CLI packer excludes retained Mac helpers and tolerates optional
       formicand: "scripts/formicand.mjs",
       formicand: "scripts/formicand.mjs"
     });
-    const files = execFileSync("tar", ["-tzf", archive], { encoding: "utf8" }).trim().split("\n");
+    const files = execFileSync("tar", ["-tzf", archive], { encoding: "utf8" }).trim().split(/\r?\n/);
     // The worker and the Pi runtime load this gate at run time, so the archive
     // has to carry it or an external-capacity CLI fails in the consumer's tree.
     assert.ok(files.includes("package/scripts/main-capacity-gate.mjs"));
+    assert.ok(files.includes("package/scripts/npm-command.mjs"));
     assert.ok(!files.includes("package/desktop/main.cjs"));
     assert.ok(!files.some((path) => path.startsWith("package/docs/site/node_modules/")));
     for (const name of [
@@ -838,7 +839,7 @@ test(
       assert.deepEqual(manifest.dependencies ?? {}, {});
       assert.deepEqual(manifest.optionalDependencies, { [fffNodeName]: "0.11.0" });
       assert.deepEqual(manifest.bundleDependencies, []);
-      const files = execFileSync("tar", ["-tzf", archive], { encoding: "utf8" }).trim().split("\n");
+      const files = execFileSync("tar", ["-tzf", archive], { encoding: "utf8" }).trim().split(/\r?\n/);
       assert.equal(
         files.some((path) => path.startsWith("package/node_modules/")),
         false,

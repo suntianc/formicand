@@ -25,7 +25,7 @@ export async function verify(args = process.argv.slice(2), run = runCommand) {
   const scripts = full ? fullVerificationScripts : verificationScripts;
   const steps = [
     ...scripts.map((script) => ({
-      command: process.platform === "win32" ? "npm.cmd" : "npm",
+      command: "npm",
       args: ["run", script]
     })),
     ...(full ? [{ command: process.execPath, args: ["scripts/test.mjs"] }] : [])

@@ -28,9 +28,9 @@ const { installDesktopMotion } = require("./motion.cjs");
 const { createAppearanceHost } = require("./appearance.cjs");
 const { createLanguageHost } = require("./language.cjs");
 const { createFileOpener } = require("./file-open.cjs");
-const { windowBackground, titleBarOverlay, followNativeTheme } = require("./system-theme.cjs");
+const { followNativeTheme } = require("./system-theme.cjs");
 const { PRODUCT_NAME } = require("./product-name.cjs");
-const { windowMaterial } = require("./window-material.cjs");
+const { windowPolicy, windowOptions } = require("./window-policy.cjs");
 const {
   backgroundMode,
   prepareBackgroundApp,
@@ -73,7 +73,7 @@ const profile = desktopProfile({
   isPackaged: app.isPackaged,
   appRoot: app.getAppPath()
 });
-const material = windowMaterial();
+const mainWindowPolicy = windowPolicy();
 const background = backgroundMode();
 if (background) prepareBackgroundApp(app);
 
@@ -150,7 +150,7 @@ function windowMaterialState(event) {
   // Only the trusted main window may read the material; it is host capability data.
   try {
     trust(event);
-    event.returnValue = { material: material.material };
+    event.returnValue = { material: mainWindowPolicy.material };
     // eslint-disable-next-line no-restricted-syntax -- an untrusted sender gets no host capability data and has no other error channel on a synchronous reply
   } catch {
     event.returnValue = null;
@@ -218,21 +218,15 @@ const desktopMotion = installDesktopMotion(ipcMain, () => mainWindow, trust);
 
 function createWindow() {
   const icon = applicationIcon();
-  const windowsOverlay = process.platform === "win32";
   mainWindow = new BrowserWindow({
     width: 1560,
     height: 980,
     show: !background,
     minWidth: 752,
     minHeight: 700,
-    backgroundColor: windowBackground(nativeTheme, process.platform),
     title: PRODUCT_NAME,
     ...(icon ? { icon } : {}),
-    ...(process.platform === "darwin"
-      ? { titleBarStyle: "hiddenInset", trafficLightPosition: { x: 18, y: 16 } }
-      : {}),
-    ...material.options,
-    ...(windowsOverlay ? { titleBarStyle: "hidden", titleBarOverlay: titleBarOverlay(nativeTheme) } : {}),
+    ...windowOptions(mainWindowPolicy, nativeTheme),
     webPreferences: {
       preload: path.join(__dirname, "preload.cjs"),
       contextIsolation: true,
@@ -240,7 +234,7 @@ function createWindow() {
       sandbox: true
     }
   });
-  if (windowsOverlay) mainWindow.setMenuBarVisibility(false);
+  if (mainWindowPolicy.hideMenuBar) mainWindow.setMenuBarVisibility(false);
   desktopMotion.follow(mainWindow);
   if (background) showInBackground(mainWindow);
   installEditContextMenu(mainWindow, {
@@ -254,7 +248,7 @@ function createWindow() {
   mainWindow.on("leave-full-screen", publishWindowState);
   mainWindow.on("focus", refreshApplicationIcon);
   mainWindow.webContents.on("did-finish-load", publishWindowState);
-  followNativeTheme(mainWindow, nativeTheme, { transparent: material.material !== "none", windowsOverlay });
+  followNativeTheme(mainWindow, nativeTheme, mainWindowPolicy);
   mainWindow.webContents.on("will-navigate", (event, url) => {
     if (!isDashboardUrl(url, selectedBackend?.url || backend?.url)) {
       event.preventDefault();
@@ -460,6 +454,7 @@ ipcMain.on("formicand:capabilities", (event) => {
     trust(event);
     event.returnValue = {
       nativeMotion: desktopMotion.supported,
+      titleBar: mainWindowPolicy.titleBar,
       notifications: Notification.isSupported(),
       tray: desktopTray?.supported === true
     };

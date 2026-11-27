@@ -1,3 +1,4 @@
+import { npmCommand } from "./npm-command.mjs";
 import { spawn, execFileSync } from "node:child_process";
 import { createWriteStream } from "node:fs";
 import { readFile, mkdir, writeFile, readdir, stat } from "node:fs/promises";
@@ -96,13 +97,15 @@ async function runStep(step, directory, options) {
   process.once("SIGTERM", onInterrupt);
   let exitCode, error;
   try {
-    child = spawn(step.command, args, {
+    const env = {
+      ...process.env,
+      ...step.env,
+      ...(step.kind === "browser" ? { PLAYWRIGHT_JSON_OUTPUT_NAME: jsonFile } : {})
+    };
+    const invocation = step.command === "npm" ? npmCommand(args, { env }) : { command: step.command, args };
+    child = spawn(invocation.command, invocation.args, {
       cwd: root,
-      env: {
-        ...process.env,
-        ...step.env,
-        ...(step.kind === "browser" ? { PLAYWRIGHT_JSON_OUTPUT_NAME: jsonFile } : {})
-      },
+      env,
       detached: process.platform !== "win32",
       stdio: ["ignore", "pipe", "pipe"]
     });

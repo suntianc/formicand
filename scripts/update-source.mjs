@@ -1,4 +1,5 @@
 import { execFile } from "node:child_process";
+import { npmCommand } from "./npm-command.mjs";
 import { constants } from "node:fs";
 import { cp, lstat, mkdir, mkdtemp, readFile, realpath, rename, rm, writeFile } from "node:fs/promises";
 import { delimiter, dirname, join, resolve } from "node:path";
@@ -41,10 +42,17 @@ function commands({ root, env, toolchain, commandRunner } = {}) {
     environment.PATH = `${dirname(toolchain.nodeExecutable)}${delimiter}${environment.PATH ?? ""}`;
   const run = async (command, args, cwd = root) => {
     const timeout = command === "git" ? 120_000 : undefined;
+    const invocation =
+      command === "npm" ? npmCommand(args, { ...toolchain, env: environment }) : { command, args };
     try {
       return await (commandRunner
-        ? commandRunner({ command, args, cwd, env: environment, timeout })
-        : execute(command, args, { cwd, env: environment, timeout, maxBuffer: 32 * 1024 * 1024 }));
+        ? commandRunner({ ...invocation, cwd, env: environment, timeout })
+        : execute(invocation.command, invocation.args, {
+            cwd,
+            env: environment,
+            timeout,
+            maxBuffer: 32 * 1024 * 1024
+          }));
     } catch (error) {
       // Child output can include remote URLs and npm credentials. Report the stage, never that output.
       throw updateError(
@@ -207,9 +215,10 @@ export async function updateSource(options) {
       (await git("symbolic-ref", "--quiet", "--short", "HEAD")) !== result.branch
     )
       throw updateError("SOURCE_CHANGED", "检查后源码提交已改变，未执行更新，请重新检查。");
-    const temporaryRoot = join(root, ".tmp", "formicand-updates");
+    const temporaryDirectory = ".tmp/formicand-updates";
+    const temporaryRoot = join(root, temporaryDirectory);
     await mkdir(temporaryRoot, { recursive: true });
-    if ((await git("check-ignore", temporaryRoot)) !== temporaryRoot)
+    if ((await git("check-ignore", "--", temporaryDirectory)) !== temporaryDirectory)
       throw updateError("SOURCE_TEMP_NOT_IGNORED", "源码更新的临时目录必须被 Git 忽略，未执行更新。");
     transaction = await mkdtemp(join(temporaryRoot, ".update-"));
     const candidate = join(transaction, "candidate");
@@ -222,13 +231,10 @@ export async function updateSource(options) {
       !(await exists(join(root, "node_modules"))) ||
       !(await sameFile(join(root, "package-lock.json"), join(candidate, "package-lock.json"))) ||
       !(await sameFile(join(root, "package.json"), join(candidate, "package.json")));
-    const npm = options.toolchain?.npmCli
-      ? { command: options.toolchain.nodeExecutable ?? process.execPath, args: [options.toolchain.npmCli] }
-      : { command: process.platform === "win32" ? "npm.cmd" : "npm", args: [] };
     if (dependenciesChanged) {
       options.onProgress?.("安装新版锁定依赖…");
       try {
-        await run(npm.command, [...npm.args, "ci", "--no-audit", "--no-fund"], candidate);
+        await run("npm", ["ci", "--no-audit", "--no-fund"], candidate);
       } catch {
         throw updateError(
           "UPDATE_INSTALL_FAILED",
@@ -241,7 +247,7 @@ export async function updateSource(options) {
     }
     options.onProgress?.(target === "desktop" ? "构建新版 App…" : "构建新版 CLI…");
     try {
-      await run(npm.command, [...npm.args, "run", target === "desktop" ? "build" : "build:cli"], candidate);
+      await run("npm", ["run", target === "desktop" ? "build" : "build:cli"], candidate);
     } catch {
       throw updateError(
         "UPDATE_BUILD_FAILED",

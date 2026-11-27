@@ -54,6 +54,7 @@ test("desktop chrome keeps a top drag band while pane content stays selectable",
     // The preload script sets this flag in the native host; the browser stands in for it.
     await page.evaluate(() => {
       document.documentElement.dataset.desktopPlatform = "darwin";
+      document.documentElement.dataset.titleBar = "inset";
     });
     await page.locator(`.conversation-item[data-task="${taskId}"]`).click();
     const final = page.locator('[data-answer-kind="final"]');

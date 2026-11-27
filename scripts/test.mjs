@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { npmCommand } from "./npm-command.mjs";
 import { closeTestRun, openTestRun } from "./test-run-root.mjs";
 import { readdir, readFile } from "node:fs/promises";
 import { resolve } from "node:path";
@@ -96,7 +97,13 @@ export async function createTestPlan(root, options) {
 }
 
 export async function runCommand(command, args, { root = repositoryRoot, env = {} } = {}) {
-  const child = spawn(command, args, { cwd: root, stdio: "inherit", env: { ...process.env, ...env } });
+  const environment = { ...process.env, ...env };
+  const invocation = command === "npm" ? npmCommand(args, { env: environment }) : { command, args };
+  const child = spawn(invocation.command, invocation.args, {
+    cwd: root,
+    stdio: "inherit",
+    env: environment
+  });
   const onInterrupt = () => child.kill("SIGINT");
   const onTerminate = () => child.kill("SIGTERM");
   process.once("SIGINT", onInterrupt);
@@ -130,7 +137,7 @@ export async function main(args = process.argv.slice(2)) {
     return 0;
   }
   if (options.build && !options.skipBuild) {
-    const code = await runCommand(process.platform === "win32" ? "npm.cmd" : "npm", ["run", "build:full"]);
+    const code = await runCommand("npm", ["run", "build:full"]);
     if (code !== 0) return code;
   } else console.log("Using existing build; ensure it matches the current sources.");
   // Each run owns its temporary directories; a backend left running fails it (#35).

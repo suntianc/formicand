@@ -63,7 +63,7 @@ e2e/                    浏览器和 Electron 用户流程测试
 | 页面                       | [app](../web/app.js)、[controllers](../web/assets/controllers/)、[ui](../web/assets/ui/)                                                                                               |
 | 运行指示与动效             | [motion](../web/assets/ui/motion.js)、[CSS 动效](../web/assets/styles/motion.css)、[时长与缓动](../web/assets/ui.css)                                                                  |
 | 桌面动效                   | [播放选择](../web/assets/ui/native-motion.js)、[动效桥](../desktop/motion.cjs)、[系统图层](../desktop/motion.mm)                                                                       |
-| 桌面窗口、IPC、退出        | [main](../desktop/main.cjs)、[preload](../desktop/preload.cjs)、[标题栏主题](../desktop/system-theme.cjs)、[窗口材质](../desktop/window-material.cjs)                                  |
+| 桌面窗口、IPC、退出        | [main](../desktop/main.cjs)、[preload](../desktop/preload.cjs)、[标题栏主题](../desktop/system-theme.cjs)、[三端窗口策略](../desktop/window-policy.cjs)                                |
 | CLI 命令                   | [formicand.mjs](../scripts/formicand.mjs)、[src/cli/](../src/cli/)                                                                                                                     |
 | 浏览器和窗口操作           | [browser-use](../src/gui/browser-use.ts)、[computer-use](../src/gui/computer-use.ts)、[输入格式](../src/gui/browser-contracts.ts)、[Pi 工具](../.pi/runtime/tools/browser-use.ts)      |
 | 看图                       | [read-image](../src/tools/read-image.ts)                                                                                                                                               |
@@ -74,6 +74,18 @@ e2e/                    浏览器和 Electron 用户流程测试
 - **修一个用户流程**：先找到出问题的那一层和它的消费者，补一个能复现的测试，再改实现，不要在入口文件里加分支绕过去。
 - **加一个工具**：按领域放进对应模块，参数用 typebox 定义；改了工具就同步更新 [内置能力](../README.zh-CN.md#内置能力) 和相关测试。
 - **拆一个大模块**：先按职责拆出新文件，保持对外接口不变，测试全过后再调整调用方。
+
+### 跨平台行为
+
+桌面主窗口从[窗口策略](../desktop/window-policy.cjs)取得标题栏、菜单和材质。主进程据此创建窗口；preload 通过已校验的 capabilities 获取标题栏模式，写入 `data-title-bar`，页面按该模式为系统按钮留位。
+
+| 主窗口  | 标题栏模式            | 菜单栏           | 窗口材质                                             |
+| ------- | --------------------- | ---------------- | ---------------------------------------------------- |
+| macOS   | `inset`，按钮在左侧   | 系统应用菜单     | under-window                                         |
+| Windows | `overlay`，按钮在右侧 | 隐藏，保留快捷键 | Windows 11 22H2 起支持 Acrylic，较早版本使用主题实色 |
+| Linux   | `native`，系统标题栏  | Electron 默认    | 主题实色                                             |
+
+运行时和 CLI 的子进程组规则见[进程组](../src/platform/process-group.ts)。文件系统的原子写入和快照分别由[原子写入](../src/storage/atomic-file.ts)与[快照](../src/storage/snapshot-file.ts)负责。验证、CLI 打包和源码更新通过[同一 npm 启动入口](../scripts/npm-command.mjs)选择可执行文件与参数。桌面打包入口见[打包和发布](#打包和发布)。
 
 ## 架构
 

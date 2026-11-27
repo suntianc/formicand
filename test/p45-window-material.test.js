@@ -3,45 +3,46 @@ import { createRequire } from "node:module";
 import { test } from "node:test";
 
 const require = createRequire(import.meta.url);
-const { NATIVE_MATERIAL, windowMaterial } = require("../desktop/window-material.cjs");
-const {
-  DARK_BACKGROUND,
-  LIGHT_BACKGROUND,
-  windowBackground,
-  followNativeTheme
-} = require("../desktop/system-theme.cjs");
+const { windowPolicy, windowOptions } = require("../desktop/window-policy.cjs");
+const { DARK_BACKGROUND, LIGHT_BACKGROUND, followNativeTheme } = require("../desktop/system-theme.cjs");
 const { PRODUCT_NAME } = require("../desktop/product-name.cjs");
 
-test("macOS windows use the native material with a clear painted canvas", () => {
+test("macOS uses inset traffic lights over the native material", () => {
   assert.equal(PRODUCT_NAME, "Formicand");
-  assert.deepEqual(windowMaterial("darwin"), {
-    material: NATIVE_MATERIAL,
-    options: {
-      vibrancy: NATIVE_MATERIAL,
-      visualEffectState: "active",
-      transparent: true,
-      backgroundColor: "#00000000"
-    }
+  const policy = windowPolicy("darwin");
+  assert.deepEqual(policy, { titleBar: "inset", material: "under-window", hideMenuBar: false });
+  assert.deepEqual(windowOptions(policy, { shouldUseDarkColors: false }), {
+    titleBarStyle: "hiddenInset",
+    trafficLightPosition: { x: 18, y: 16 },
+    vibrancy: "under-window",
+    transparent: true,
+    visualEffectState: "active",
+    backgroundColor: "#00000000"
   });
-  assert.equal(windowBackground({ shouldUseDarkColors: true }, "darwin"), "#00000000");
-  assert.equal(windowBackground({ shouldUseDarkColors: false }, "darwin"), "#00000000");
 });
 
-test("Windows offers acrylic starting with Windows 11 22H2", () => {
-  assert.deepEqual(windowMaterial("win32", "10.0.22621"), {
-    material: "acrylic",
-    options: { backgroundMaterial: "acrylic", backgroundColor: "#00000000" }
-  });
-  for (const release of ["10.0.22000", "10.0.19045"]) {
-    assert.deepEqual(windowMaterial("win32", release), { material: "none", options: {} });
+test("Windows keeps the caption overlay and hidden menu with or without acrylic", () => {
+  for (const [release, material] of [
+    ["10.0.22621", "acrylic"],
+    ["10.0.22000", "none"],
+    ["10.0.19045", "none"]
+  ]) {
+    const policy = windowPolicy("win32", release);
+    assert.deepEqual(policy, { titleBar: "overlay", material, hideMenuBar: true });
+    const options = windowOptions(policy, { shouldUseDarkColors: true });
+    assert.equal(options.titleBarStyle, "hidden");
+    assert.equal(options.titleBarOverlay.symbolColor, "#ffffff");
+    assert.equal(options.backgroundColor, material === "none" ? DARK_BACKGROUND : "#00000000");
+    assert.equal(options.backgroundMaterial, material === "none" ? undefined : "acrylic");
   }
 });
 
-test("painted platforms keep the themed background and refresh it", () => {
-  assert.deepEqual(windowMaterial("linux"), { material: "none", options: {} });
-  assert.equal(windowBackground({ shouldUseDarkColors: true }, "linux"), DARK_BACKGROUND);
-  assert.equal(windowBackground({ shouldUseDarkColors: false }, "linux"), LIGHT_BACKGROUND);
-
+test("Linux keeps native chrome and follows the theme on its painted background", () => {
+  const linux = windowPolicy("linux");
+  assert.deepEqual(linux, { titleBar: "native", material: "none", hideMenuBar: false });
+  assert.deepEqual(windowOptions(linux, { shouldUseDarkColors: false }), {
+    backgroundColor: LIGHT_BACKGROUND
+  });
   const listeners = new Map();
   const colors = [];
   const nativeTheme = {
@@ -54,11 +55,11 @@ test("painted platforms keep the themed background and refresh it", () => {
     setBackgroundColor: (value) => colors.push(value),
     once: () => {}
   };
-  followNativeTheme(window, nativeTheme, { transparent: true });
+  followNativeTheme(window, nativeTheme, windowPolicy("darwin"));
   assert.equal(listeners.size, 0, "a native material is not repainted");
   assert.deepEqual(colors, []);
 
-  followNativeTheme(window, nativeTheme);
+  followNativeTheme(window, nativeTheme, linux);
   assert.deepEqual(colors, [LIGHT_BACKGROUND]);
   nativeTheme.shouldUseDarkColors = true;
   listeners.get("updated")();

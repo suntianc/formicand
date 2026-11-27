@@ -4,6 +4,8 @@ import { EventEmitter } from "node:events";
 import { test } from "node:test";
 const { windowBackground, followNativeTheme } = createRequire(import.meta.url)("../desktop/system-theme.cjs");
 
+const { windowPolicy } = createRequire(import.meta.url)("../desktop/window-policy.cjs");
+
 test("Windows caption symbols follow appearance while the acrylic background stays clear", () => {
   const nativeTheme = Object.assign(new EventEmitter(), { shouldUseDarkColors: true });
   const overlays = [];
@@ -11,7 +13,7 @@ test("Windows caption symbols follow appearance while the acrylic background sta
     isDestroyed: () => false,
     setTitleBarOverlay: (overlay) => overlays.push(overlay)
   });
-  followNativeTheme(window, nativeTheme, { transparent: true, windowsOverlay: true });
+  followNativeTheme(window, nativeTheme, windowPolicy("win32", "10.0.22621"));
   nativeTheme.shouldUseDarkColors = false;
   nativeTheme.emit("updated");
   assert.deepEqual(overlays, [
@@ -29,8 +31,8 @@ test("painted window background follows initial native appearance and updates un
     setBackgroundColor: (color) => colors.push(color)
   });
   const colors = [];
-  assert.equal(windowBackground(nativeTheme, "linux"), "#f2f2f4");
-  followNativeTheme(window, nativeTheme);
+  assert.equal(windowBackground(nativeTheme, windowPolicy("linux")), "#f2f2f4");
+  followNativeTheme(window, nativeTheme, windowPolicy("linux"));
   nativeTheme.shouldUseDarkColors = true;
   nativeTheme.emit("updated");
   nativeTheme.shouldUseDarkColors = false;

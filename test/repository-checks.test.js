@@ -181,6 +181,7 @@ test("quick verify prepares real web assets from a clean checkout", async () => 
   await fixture(async (root, put) => {
     for (const name of [
       "verify.mjs",
+      "npm-command.mjs",
       "test.mjs",
       "test-run-root.mjs",
       "build-web-assets.mjs",

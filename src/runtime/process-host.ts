@@ -1,4 +1,5 @@
 import { spawn, type ChildProcess, type SpawnOptions } from "node:child_process";
+import { signalProcessGroup, usesProcessGroups } from "../platform/process-group.js";
 
 /** Owns subprocess groups and bounded shutdown. Run state is owned by the caller. */
 export class ProcessHost {
@@ -10,7 +11,7 @@ export class ProcessHost {
     if (this.processes.has(key)) throw new Error(`Process already active: ${key}`);
     const env = { ...(options.env ?? process.env) };
     delete env.FORMICAND_COMPONENTS_GITHUB_TOKEN;
-    const child = spawn(command, args, { ...options, env, detached: process.platform !== "win32" });
+    const child = spawn(command, args, { ...options, env, detached: usesProcessGroups });
     this.processes.set(key, child);
     return child;
   }
@@ -26,8 +27,7 @@ export class ProcessHost {
     const operation = (async () => {
       const signal = (value: NodeJS.Signals) => {
         try {
-          if (process.platform !== "win32" && child.pid) process.kill(-child.pid, value);
-          else child.kill(value);
+          signalProcessGroup(child, value);
           // eslint-disable-next-line no-restricted-syntax -- 进程组可能已经退出（ESRCH），信号发不出去属预期，shutdown 仍按 close 与超时继续
         } catch {
           /* the process group has exited */
