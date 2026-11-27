@@ -1,3 +1,4 @@
+import { MAIN_PROMPT_REUSE } from "../runtime/main-prompt-snapshot.js";
 import { RuntimeOutputRecorder } from "../runtime/runtime-output.js";
 import {
   readyMessageEditTransaction,
@@ -379,7 +380,10 @@ export function createMainRunProcess({
       // ask for a second slot for the same Run.
       ...(admission.requestId ? { FORMICAND_MAIN_CAPACITY_GRANTED: admission.requestId } : {}),
       FORMICAND_MAIN_RETRY_REQUEST_ID: retryRequest?.requestId ?? "",
-      FORMICAND_MAIN_RETRY_MODEL: retryRequest ? JSON.stringify(retryRequest.model) : ""
+      FORMICAND_MAIN_RETRY_MODEL: retryRequest ? JSON.stringify(retryRequest.model) : "",
+      // An edit, a retry or a process taking over from a running Main keeps the
+      // conversation's system prompt; an idle wake or a restart generates it again.
+      [MAIN_PROMPT_REUSE]: submission?.edit || retryRequest || admission.replacedResident ? "1" : ""
     };
     const outputPath = join(taskWorkspace, taskId, "runs", runId, "runtime-output.log");
     const stderrPath = join(taskWorkspace, taskId, "runs", runId, "runtime-stderr.log");

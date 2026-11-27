@@ -6,6 +6,18 @@ import { withFileLock } from "../storage/file-lock.js";
 import type { SessionEntry } from "@earendil-works/pi-coding-agent";
 import { latestWindow, windowDetails } from "./session-handoff.js";
 
+/**
+ * The current Task state Main's runtime adds as a text block to the newest
+ * message of each model request. It is never recorded, so it is no part of
+ * the conversation when two requests are compared.
+ */
+export const MAIN_RUNTIME_CONTEXT_OPEN = "<formicand_main_context>\n";
+export const MAIN_RUNTIME_CONTEXT_CLOSE = "\n</formicand_main_context>";
+
+export function isMainRuntimeContextText(text: string): boolean {
+  return text.startsWith(MAIN_RUNTIME_CONTEXT_OPEN) && text.endsWith(MAIN_RUNTIME_CONTEXT_CLOSE);
+}
+
 export interface MainContextState {
   version: 1;
   contextEpoch: number;

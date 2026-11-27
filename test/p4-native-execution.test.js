@@ -11,6 +11,7 @@ import { modelProtocolFixture } from "./model-protocol-fixture.mjs";
 import { prepareDevelopmentWorkspace } from "../dist/src/workspace/development-workspace.js";
 import { prepareWorkItemSite } from "../dist/src/workspace/work-item-workspace.js";
 import { saveTestConnection } from "./model-provider-fixture.mjs";
+import { withoutMainState } from "./fixtures/main-state.mjs";
 
 const run = promisify(execFile);
 const messageText = (message) =>
@@ -19,7 +20,7 @@ const messageText = (message) =>
     : (message.content ?? []).map((part) => part.text ?? "").join("");
 const lastToolText = (body) => messageText(body.messages.findLast((message) => message.role === "tool"));
 const toolJson = (body) =>
-  JSON.parse(messageText(body.messages.findLast((message) => message.role === "tool")));
+  JSON.parse(withoutMainState(messageText(body.messages.findLast((message) => message.role === "tool"))));
 const userText = (body) =>
   body.messages
     .filter((message) => message.role === "user")

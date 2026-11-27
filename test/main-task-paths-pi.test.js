@@ -7,6 +7,7 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { test } from "node:test";
 import { LocalWorkspaceStore } from "../dist/src/workspace/workspace-store.js";
+import { withoutMainState } from "./fixtures/main-state.mjs";
 
 const shellQuote = (value) => `'${String(value).replaceAll("'", "'\\''")}'`;
 const resultText = (result) =>
@@ -143,7 +144,7 @@ const footer = "draft";
             (message) => message.role === "tool" && message.tool_call_id === `path-case-${recoveryStart + 2}`
           );
           assert.equal(
-            reread?.content,
+            withoutMainState(reread?.content ?? ""),
             recoverySource,
             "the model must receive the unchanged source before retrying with unique context"
           );

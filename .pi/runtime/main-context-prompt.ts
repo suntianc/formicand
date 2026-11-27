@@ -1,6 +1,9 @@
 import type { AgentMessage } from "@earendil-works/pi-agent-core";
-import { getCurrentSystemMessage } from "@earendil-works/pi-ai";
-import type { MainContextState } from "../../dist/src/runtime/main-context.js";
+import {
+  MAIN_RUNTIME_CONTEXT_CLOSE,
+  MAIN_RUNTIME_CONTEXT_OPEN,
+  type MainContextState
+} from "../../dist/src/runtime/main-context.js";
 import { limitToolContent } from "../../dist/src/runtime/tool-output.js";
 
 interface MainPromptState {
@@ -9,13 +12,12 @@ interface MainPromptState {
 }
 
 const MAX_MAIN_CONTEXT_CHARS = 12_000;
-const CURRENT_STATE_BLOCK = /<formicand_main_context>[\s\S]*?<\/formicand_main_context>/g;
 
 /** Current machine state is refreshed separately from the historical checkpoint. */
 export function mainRuntimeContext(state: MainPromptState): string {
   const runtime = state.runtime;
   const parts = [
-    "Current persisted Task context. This snapshot does not establish that work or verification completed. Later user messages and explicit execution evidence update historical records.",
+    "Current persisted Task context, added by the runtime to this request; the user did not write it. This snapshot does not establish that work or verification completed. Later user messages and explicit execution evidence update historical records.",
     `Runtime state: phase=${runtime.runtimePhase ?? "unknown"}; pending delegations=${runtime.runtimePendingDelegations ?? 0}.`,
     ...(runtime.runtimeGoal && !state.goalAlreadyVisible
       ? ["Task goal record (may be incomplete):", excerpt(runtime.runtimeGoal, 6_000)]
@@ -27,20 +29,23 @@ export function mainRuntimeContext(state: MainPromptState): string {
       : []),
     "Use search_history and read_history for original conversation evidence."
   ];
-  const open = "<formicand_main_context>\n";
-  const close = "\n</formicand_main_context>";
+  const open = MAIN_RUNTIME_CONTEXT_OPEN;
+  const close = MAIN_RUNTIME_CONTEXT_CLOSE;
   return open + excerpt(parts.join("\n"), MAX_MAIN_CONTEXT_CHARS - open.length - close.length) + close;
 }
 
-/** Replace one dynamic system section; never append snapshot messages to history. */
-export function withMainRuntimeContext<T extends AgentMessage>(
-  messages: readonly T[],
+/**
+ * Add the current state to the newest message of this request only.
+ *
+ * The state changes between requests; anywhere before the newest message it
+ * would rewrite the prefix the provider has cached. It is never recorded, so
+ * the next request carries the newer state in its place and the conversation
+ * the user sees does not hold it.
+ */
+export function withMainRuntimeContext(
+  messages: readonly AgentMessage[],
   state: MainPromptState
-): T[] {
-  const lastSystem = messages.findLastIndex((message) => message.role === "system");
-  if (lastSystem < 0) return [...messages];
-  const effective = getCurrentSystemMessage(messages.filter((message) => message.role === "system"));
-  const workspace = effective?.sections?.current_workspace?.replace(CURRENT_STATE_BLOCK, "").trim() ?? "";
+): AgentMessage[] {
   const goal = state.runtime.runtimeGoal;
   const goalAlreadyVisible = Boolean(
     goal &&
@@ -58,21 +63,24 @@ export function withMainRuntimeContext<T extends AgentMessage>(
     )
   );
   const context = mainRuntimeContext({ ...state, goalAlreadyVisible });
-  return messages.map((message, index) => {
-    if (message.role !== "system") return message;
-    const current = message.sections?.current_workspace;
-    if (index !== lastSystem && !current?.includes("<formicand_main_context>")) return message;
-    return {
-      ...message,
-      sections: {
-        ...message.sections,
-        current_workspace:
-          index === lastSystem
-            ? [workspace, context].filter(Boolean).join("\n\n")
-            : (current?.replace(CURRENT_STATE_BLOCK, "").trim() ?? "")
+  const block = { type: "text" as const, text: context };
+  const last = messages.at(-1);
+  // Riding inside the newest user message or tool result keeps the roles the
+  // model sees: a tool loop is not turned into a new user turn.
+  if (last?.role === "user")
+    return [
+      ...messages.slice(0, -1),
+      {
+        ...last,
+        content:
+          typeof last.content === "string"
+            ? [{ type: "text", text: last.content }, block]
+            : [...last.content, block]
       }
-    };
-  });
+    ];
+  if (last?.role === "toolResult")
+    return [...messages.slice(0, -1), { ...last, content: [...last.content, block] }];
+  return [...messages, { role: "user", content: [block], timestamp: Date.now() }];
 }
 
 function excerpt(text: string, budget: number): string {

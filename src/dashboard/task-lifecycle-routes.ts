@@ -6,6 +6,7 @@ import { readJsonFile } from "./event-stream.js";
 
 import type { DashboardRoutePorts } from "./routes.js";
 import { publishTask } from "./catalog-publication.js";
+import { requestMainPromptRefresh } from "../runtime/main-prompt-snapshot.js";
 
 export async function handleTaskLifecycleRequest(
   request: IncomingMessage,
@@ -169,6 +170,12 @@ export async function handleTaskLifecycleRequest(
     if (action === "compact") {
       const result = await ports.compactMainContext(taskId);
       sendJson(response, result.error ? 409 : result.queued ? 202 : 200, result);
+      return;
+    }
+    if (action === "reload") {
+      // Settings saved since the conversation began reach Main's prompt at its next turn.
+      await requestMainPromptRefresh((await locateTask(taskId)).workspaceRoot, taskId);
+      sendJson(response, 200, { reload: "next-turn" });
       return;
     }
     if (

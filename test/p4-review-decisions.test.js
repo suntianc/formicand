@@ -9,6 +9,7 @@ import { setTimeout as delay } from "node:timers/promises";
 import { startDashboard } from "./dashboard-fixture.mjs";
 import { modelProtocolFixture } from "./model-protocol-fixture.mjs";
 import { saveTestConnection } from "./model-provider-fixture.mjs";
+import { withoutMainState } from "./fixtures/main-state.mjs";
 
 const run = promisify(execFile);
 const git = (cwd, args) =>
@@ -18,7 +19,7 @@ const messageText = (message) =>
     ? message.content
     : (message.content ?? []).map((part) => part.text ?? "").join("");
 const lastToolText = (body) => messageText(body.messages.findLast((message) => message.role === "tool"));
-const toolJson = (body) => JSON.parse(lastToolText(body));
+const toolJson = (body) => JSON.parse(withoutMainState(lastToolText(body)));
 const userText = (body) =>
   body.messages
     .filter((message) => message.role === "user")

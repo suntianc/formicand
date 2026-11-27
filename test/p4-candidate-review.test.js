@@ -21,6 +21,7 @@ import { createProjectDevelopmentService } from "../dist/src/dashboard/project-d
 import { prepareDevelopmentWorkspace } from "../dist/src/workspace/development-workspace.js";
 import { prepareWorkItemSite } from "../dist/src/workspace/work-item-workspace.js";
 import { saveTestConnection } from "./model-provider-fixture.mjs";
+import { withoutMainState } from "./fixtures/main-state.mjs";
 
 const run = promisify(execFile);
 const git = (cwd, args) =>
@@ -30,7 +31,7 @@ const messageText = (message) =>
     ? message.content
     : (message.content ?? []).map((part) => part.text ?? "").join("");
 const lastToolText = (body) => messageText(body.messages.findLast((message) => message.role === "tool"));
-const toolJson = (body) => JSON.parse(lastToolText(body));
+const toolJson = (body) => JSON.parse(withoutMainState(lastToolText(body)));
 const userText = (body) =>
   body.messages
     .filter((message) => message.role === "user")

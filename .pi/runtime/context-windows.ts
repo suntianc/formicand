@@ -175,8 +175,9 @@ export function registerContextWindows(pi: ExtensionAPI, scope: HandoffScope) {
 
   pi.on("turn_end", async (event, ctx) => {
     if (event.outcome !== "completed") return;
+    // Pi keeps the entries the last handler returns: add to what earlier ones wrote.
     const manual = await requestedWindow(ctx);
-    if (manual) return { entries: [manual] };
+    if (manual) return { entries: [...event.entries, manual] };
     const branch = ctx.sessionManager.getBranch();
     const current = latestWindow(branch);
     const windowStart = current ? branch.indexOf(current) + 1 : 0;
@@ -195,6 +196,7 @@ export function registerContextWindows(pi: ExtensionAPI, scope: HandoffScope) {
     if (tokens <= usage.contextWindow * NOTICE_THRESHOLD) return;
     return {
       entries: [
+        ...event.entries,
         {
           type: "custom_message",
           customType: CONTEXT_CAPACITY_NOTICE,

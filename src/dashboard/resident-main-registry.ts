@@ -1,5 +1,6 @@
 import type { ChildProcess } from "node:child_process";
 import { AgentProcessHost } from "../runtime/agent-process.js";
+import { requestMainPromptRefresh } from "../runtime/main-prompt-snapshot.js";
 import { MainRunOutput } from "./main-run-outcome.js";
 import { LocalWorkspaceStore } from "../workspace/workspace-store.js";
 import type { TaskLocation } from "./workspace-directory.js";
@@ -92,6 +93,13 @@ export function createResidentMainRegistry({
     const live = await host.adopt({ taskId, runId: task.activeRunId, roles: ["main"] });
     const record = live.find((candidate) => candidate.role === "main");
     if (!record) return undefined;
+    // A Main that outlived its backend generates its system prompt again at its
+    // next turn, as a restarted app would; settings saved meanwhile apply then.
+    await requestMainPromptRefresh(location.workspaceRoot, taskId).catch((error) =>
+      console.error(
+        `[formicand] prompt refresh request failed: ${error instanceof Error ? error.message : String(error)}`
+      )
+    );
     const resident: ResidentMain = {
       taskId,
       runId: record.runId,

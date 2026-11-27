@@ -245,7 +245,7 @@ test("settings and Main read one store; Main reaches only its own project and on
 });
 
 test(
-  "a memory Main saves in one turn is in its system prompt on the next",
+  "a memory Main saves in one turn is in its system prompt once the conversation reloads",
   { timeout: 90_000 },
   async (t) => {
     let phase = "save";
@@ -294,14 +294,22 @@ test(
     const stored = await readFile(join(f.home, "memory", "user", "reply-in-chinese.md"), "utf8");
     assert.match(stored, /用户英文不好/);
 
-    // Settings changes it between turns; the next turn sees the edit.
+    // Settings changes it between turns. The conversation keeps the prompt it
+    // was given, so its cached prefix survives...
     await f.request("/api/memory/save", {
       target: { scope: "project", projectId: a.projectId },
       memory: sample("ticket-split", { type: "project" })
     });
     phase = "read";
-    const before = provider.requests.length;
+    let before = provider.requests.length;
     assert.ok((await f.request(`/api/tasks/${taskId}/run`, { prompt: "继续" })).status < 300);
+    await settle();
+    assert.equal(provider.requests[before].body.messages[0].content, first, "the prompt is unchanged");
+
+    // ...and a reload brings in both memories at the next turn.
+    assert.ok((await f.request(`/api/tasks/${taskId}/action`, { action: "reload" })).status < 300);
+    before = provider.requests.length;
+    assert.ok((await f.request(`/api/tasks/${taskId}/run`, { prompt: "再继续" })).status < 300);
     await settle();
     const system = provider.requests[before].body.messages[0].content;
     const section = system.match(/<memory>\n([^]*?)\n<\/memory>/)?.[1];

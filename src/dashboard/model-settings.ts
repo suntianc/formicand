@@ -69,7 +69,8 @@ export function createModelSettings(
       managedByEnvironment: managed(),
       ...(error ? { credentialError: error } : {}),
       modelRoles: publicModelRoles(config),
-      utilityModel: config.utilityModel?.profileId ?? null
+      utilityModel: config.utilityModel?.profileId ?? null,
+      contextTrim: config.contextTrim !== false
     };
   };
   /**
@@ -94,6 +95,7 @@ export function createModelSettings(
     if (persisted.roleModels) config.roleModels = persisted.roleModels;
     else delete config.roleModels;
     if (!persisted.utilityModel) delete config.utilityModel;
+    if (persisted.contextTrim === undefined) delete config.contextTrim;
     applyHostCredentials(config, credentials);
   };
   /**
@@ -236,6 +238,18 @@ export function createModelSettings(
     /** Choose the model for context summaries and conversation titles; empty follows each session's. */
     async saveUtility(value: Record<string, unknown>) {
       await update((previous) => saveUtilityModel(previous, value));
+      return status();
+    },
+    /** Main reads it at each turn's end, so a running conversation follows it from its next turn. */
+    async saveContextTrim(value: Record<string, unknown>) {
+      if (typeof value.enabled !== "boolean") throw new Error("enabled 必须为布尔值");
+      const enabled = value.enabled;
+      await update((previous) => {
+        const next = { ...previous };
+        if (enabled) delete next.contextTrim;
+        else next.contextTrim = false;
+        return next;
+      });
       return status();
     },
     /** The configuration this host runs with, for views that resolve built-in Agent settings. */

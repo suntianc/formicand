@@ -13,6 +13,7 @@ import {
   type MainRequestEnvironment
 } from "../storage/main-request-store.js";
 import { realpath } from "node:fs/promises";
+import { isMainRuntimeContextText } from "./main-context.js";
 import {
   assertMainRequestExecutionScope,
   mainRequestExecutionScope,
@@ -93,6 +94,8 @@ export class MainRequestRetry {
     await this.restore();
     if (this.replay) {
       this.execution?.protectReplayScope(this.replay.executionScope);
+      // The current state the runtime adds to the newest message differs on
+      // every request; only the conversation itself tells new context apart.
       const input = (messages: TranscriptContext["messages"]) =>
         messages
           .filter(
@@ -102,12 +105,13 @@ export class MainRequestRetry {
           )
           .map((message) => ({
             role: message.role,
-            content:
-              typeof message.content === "string"
-                ? [{ type: "text", text: message.content }]
-                : message.content,
+            content: (typeof message.content === "string"
+              ? [{ type: "text" as const, text: message.content }]
+              : message.content
+            ).filter((block) => !(block.type === "text" && isMainRuntimeContextText(block.text))),
             ...(message.role === "toolResult" ? { toolCallId: message.toolCallId } : {})
-          }));
+          }))
+          .filter((message) => message.content.length > 0);
       this.deferredContext ||=
         JSON.stringify(input(context.messages)) !== JSON.stringify(input(this.replay.context.messages));
       const archived = normalizeContext(this.replay.context);

@@ -10,6 +10,7 @@ import { chromium } from "playwright-core";
 import { modelProtocolFixture } from "./model-protocol-fixture.mjs";
 import { browserFixture } from "./browser-fixture.mjs";
 import { createImageArchive } from "../dist/src/tools/image-archive.js";
+import { withoutMainState } from "./fixtures/main-state.mjs";
 
 const exec = promisify(execFile);
 test(
@@ -40,7 +41,7 @@ test(
     const provider = await modelProtocolFixture("openai-completions", (body, requests) => {
       const last = body.messages.findLast((message) => message.role === "tool");
       if (last?.content.startsWith("{")) {
-        const result = JSON.parse(last.content);
+        const result = JSON.parse(withoutMainState(last.content));
         results.push(result);
         if (result.value?.pageId) pageId = result.value.pageId;
       }

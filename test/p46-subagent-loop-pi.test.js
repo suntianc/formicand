@@ -12,6 +12,7 @@ import { modelProtocolFixture } from "./model-protocol-fixture.mjs";
 import { DurableScheduler } from "../dist/src/runtime/scheduler.js";
 import { saveTestConnection } from "./model-provider-fixture.mjs";
 import { waitForMarkedDelegations } from "./fixtures/delegation-wait.mjs";
+import { withoutMainState } from "./fixtures/main-state.mjs";
 
 /**
  * Delegation through the backend: execute, review, rework, re-review.
@@ -66,7 +67,7 @@ const lastToolText = (body) => {
   const last = body.messages.findLast((message) => message.role === "tool");
   return last ? messageText(last) : "";
 };
-const toolJson = (body) => JSON.parse(lastToolText(body));
+const toolJson = (body) => JSON.parse(withoutMainState(lastToolText(body)));
 
 /**
  * Which work item this request is for, read from the role and the brief.

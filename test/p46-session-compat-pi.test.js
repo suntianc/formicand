@@ -7,6 +7,7 @@ import { after, test } from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
 import { isolatedPiEnvironment, spawnPiRpc, startLocalProvider } from "./fixtures/pi-process-fixture.mjs";
 import { formicandProviderId } from "../dist/src/runtime/model-profile.js";
+import { withoutMainState } from "./fixtures/main-state.mjs";
 
 /**
  * A Main session written by one Pi runtime must stay usable after switching
@@ -257,7 +258,7 @@ function replayedHistory(request) {
     roles: messages.map((message) => message.role),
     userTexts: messages
       .filter((message) => message.role === "user")
-      .map((message) => messageText(message.content)),
+      .map((message) => withoutMainState(messageText(message.content))),
     calls: calls.map((call) => ({ id: call.id, name: call.function.name })),
     results
   };

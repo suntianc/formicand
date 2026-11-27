@@ -10,6 +10,7 @@ import { promisify } from "node:util";
 import { HumanRequestStore } from "../dist/src/runtime/human.js";
 import { LocalWorkspaceStore } from "../dist/src/workspace/workspace-store.js";
 import { isolatedPiEnvironment, startLocalProvider } from "./fixtures/pi-process-fixture.mjs";
+import { withoutMainState } from "./fixtures/main-state.mjs";
 
 /**
  * Main creating Agents: manage_agent shows the whole definition as a question
@@ -25,9 +26,9 @@ const RUN = "agents-run";
 function lastToolText(body) {
   const message = body.messages.findLast((entry) => entry.role === "tool");
   if (!message) return "";
-  return typeof message.content === "string"
-    ? message.content
-    : message.content.map((part) => part.text).join("");
+  return withoutMainState(
+    typeof message.content === "string" ? message.content : message.content.map((part) => part.text).join("")
+  );
 }
 
 const definition = {

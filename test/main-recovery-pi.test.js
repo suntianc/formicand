@@ -314,7 +314,7 @@ test(
     const completed = await local.settle(taskId, "completed");
     const users = local.requests.at(-1).messages.filter((message) => message.role === "user");
     assert.equal(users.length, 1);
-    assert.equal(users[0].content, prompt);
+    assert.equal(users[0].content[0].text, prompt);
     assert.equal(completed.messages.filter((message) => message.role === "user").length, 1);
   }
 );

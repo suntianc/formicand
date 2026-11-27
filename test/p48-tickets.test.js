@@ -14,6 +14,7 @@ import { applyTicketWrite, developmentNext } from "../dist/src/domain/developmen
 import { createProjectDevelopmentTool } from "../dist/src/runtime/project-development-tool.js";
 import { applyTicketAnswer } from "../dist/src/dashboard/ticket-answer.js";
 import { renderHumanQuestion } from "../web/assets/human-questions.js";
+import { withoutMainState } from "./fixtures/main-state.mjs";
 
 /**
  * Tickets: the slices a requirement is split into, confirmed by the user on a
@@ -494,7 +495,7 @@ for (const late of [false, true])
           typeof tool?.content === "string"
             ? tool.content
             : (tool?.content ?? []).map((part) => part.text).join("");
-        if (text) results.push(JSON.parse(text));
+        if (text) results.push(JSON.parse(withoutMainState(text)));
         const step = results.length;
         if (step === 0)
           return {
@@ -734,7 +735,7 @@ test(
         typeof tool?.content === "string"
           ? tool.content
           : (tool?.content ?? []).map((part) => part.text).join("");
-      if (text) results.push(JSON.parse(text));
+      if (text) results.push(JSON.parse(withoutMainState(text)));
       const step = results.length;
       if (step === 0)
         return {
