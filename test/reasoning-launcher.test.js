@@ -21,9 +21,20 @@ const requirePi = createRequire(import.meta.resolve("@earendil-works/pi-coding-a
 async function launch({ args = [], config = {}, env = {} } = {}) {
   const root = await mkdtemp(join(tmpdir(), "formicand-reasoning-launcher-"));
   try {
-    await mkdir(join(root, "node_modules", ".bin"), { recursive: true });
+    const bin = join(root, "node_modules", ".bin");
+    await mkdir(bin, { recursive: true });
+    let entry = join(bin, "pi");
+    if (process.platform === "win32") {
+      const bundle = join(root, "node_modules", "@earendil-works", "pi-coding-agent", "dist", "bundle");
+      await mkdir(bundle, { recursive: true });
+      entry = join(bundle, "cli.js");
+      await writeFile(
+        join(bin, "pi.cmd"),
+        '@node "%~dp0../@earendil-works/pi-coding-agent/dist/bundle/cli.js" %*\r\n'
+      );
+    }
     await writeFile(
-      join(root, "node_modules", ".bin", process.platform === "win32" ? "pi.cmd" : "pi"),
+      entry,
       `
 console.log(JSON.stringify({
   args: process.argv.slice(2),
@@ -130,7 +141,7 @@ test("Pi launcher treats --thinking after -- as prompt text", async () => {
 });
 
 async function loadExtension() {
-  const { createJiti } = await import(requirePi.resolve("jiti"));
+  const { createJiti } = await import(pathToFileURL(requirePi.resolve("jiti")).href);
   const jiti = createJiti(pathToFileURL(extensionPath).href, { interopDefault: true });
   const module = await jiti.import(extensionPath, { default: true });
   return module.default ?? module;
@@ -193,6 +204,7 @@ test("Formicand provider and new delegations use the active Main effort", async 
     runId: "main"
   });
   const pendingDeliveries = new Set();
+  const sessions = [];
   const deliver = MainInboxDelivery.prototype.deliver;
   t.mock.method(MainInboxDelivery.prototype, "deliver", function (...args) {
     const pending = deliver.apply(this, args);
@@ -222,8 +234,10 @@ test("Formicand provider and new delegations use the active Main effort", async 
     const extension = await loadExtension();
     const pi = fakePi("off");
     await extension(pi);
+    sessions.push(pi);
     const ctx = {
       sessionManager: SessionManager.inMemory(),
+      getContextUsage: () => undefined,
       ui: { setStatus() {}, notify() {} },
       isIdle: () => true
     };
@@ -244,10 +258,12 @@ test("Formicand provider and new delegations use the active Main effort", async 
     process.env.FORMICAND_SUPPORTS_REASONING_EFFORT = "0";
     const explicit = fakePi("off");
     await extension(explicit);
+    sessions.push(explicit);
     await explicit.handlers.get("session_start")({ reason: "startup" }, ctx);
     assert.deepEqual(explicit.selected, [], "session_start must not overwrite native CLI --thinking off");
     assert.equal(explicit.providers.get("formicand-glm").models[0].compat.supportsReasoningEffort, false);
   } finally {
+    for (const session of sessions) await session.handlers.get("session_shutdown")({ reason: "quit" });
     await backend.close();
     // Startup recovery queues Inbox delivery asynchronously. Drain both fake
     // sessions before removing their workspace; heartbeat writes can also be
