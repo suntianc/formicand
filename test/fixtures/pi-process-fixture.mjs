@@ -1,3 +1,4 @@
+import { listenOnLocalHttpPort } from "../../dist/src/platform/local-http-port.js";
 import { killFixtureChild } from "./main-processes.mjs";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
@@ -54,10 +55,9 @@ export async function startLocalProvider({ model = "p46-fixture-model", handle }
       response.end(JSON.stringify({ error: { message: "Fixture model handler failed" } }));
     }
   });
-  server.listen(0, "127.0.0.1");
-  await once(server, "listening");
+  const port = await listenOnLocalHttpPort(server);
   return {
-    baseUrl: `http://127.0.0.1:${server.address().port}/v1`,
+    baseUrl: `http://127.0.0.1:${port}/v1`,
     requests,
     async close() {
       server.closeAllConnections();

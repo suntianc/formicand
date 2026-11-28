@@ -490,7 +490,10 @@ test(
         requests.length === 1 ? { name: "submit_review", arguments: conclusion } : { text: "Review complete" }
     });
 
-    const toolResult = provider.requests[1].messages.findLast(
+    assert.equal(callback.payload.status, "succeeded", JSON.stringify(callback.payload));
+    const followUp = provider.requests[1];
+    assert.ok(followUp, "the Reviewer receives the submit_review result in its next request");
+    const toolResult = followUp.messages.findLast(
       (message) => message.role === "tool" || message.role === "toolResult"
     );
     assert.match(String(toolResult?.content ?? ""), /"submitted":true/, "the tool confirms the record");
@@ -498,7 +501,6 @@ test(
     assert.deepEqual(result.review, conclusion, "the conclusion is stored as submitted, finding by finding");
     assert.equal(result.termination, "completed");
     assert.equal(result.response, "Review complete");
-    assert.equal(callback.payload.status, "succeeded", JSON.stringify(callback.payload));
     assert.deepEqual(callback.payload.review, conclusion, "Main receives the structured verdict");
   }
 );
