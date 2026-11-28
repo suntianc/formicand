@@ -50,7 +50,7 @@ export async function startDashboard({
   );
   const launchOptions = {
     cwd: harnessRoot,
-    stdio: ["ignore", "pipe", "pipe"],
+    stdio: ["ignore", "pipe", "pipe", "ipc"],
     env: {
       ...isolatedEnv,
       FORMICAND_HOME: join(root, "home"),
@@ -84,8 +84,12 @@ export async function startDashboard({
   const record = (chunk) => {
     output = `${output}${chunk}`.slice(-4_000);
   };
+  let published;
   const launch = () => {
     const dashboardProcess = spawn(process.execPath, ["dist/src/cli/dashboard.js"], launchOptions);
+    dashboardProcess.once("message", (message) => {
+      if (message?.type === "dashboard.ready") published = dashboardProcess;
+    });
     dashboardProcess.stdout.on("data", record);
     dashboardProcess.stderr.on("data", record);
     return dashboardProcess;
@@ -113,7 +117,11 @@ export async function startDashboard({
       if (child.exitCode !== null || child.signalCode !== null)
         throw new Error(`Dashboard exited before listening: ${output}`);
       try {
-        if ((await fetch(`${base}/api/tasks`, { signal: AbortSignal.timeout(500) })).ok) {
+        // HTTP starts listening before the backend publishes its credential and sends dashboard.ready.
+        if (
+          published === child &&
+          (await fetch(`${base}/api/tasks`, { signal: AbortSignal.timeout(500) })).ok
+        ) {
           return;
         }
       } catch {
