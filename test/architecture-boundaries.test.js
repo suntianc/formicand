@@ -179,3 +179,22 @@ test("the allowlist matches the bilingual entry documentation", async () => {
     }
   }
 });
+
+test("shared runtime and web views read platform capabilities from their owner", async () => {
+  const cases = [
+    ["src/dashboard/application.ts", "process.platform", 1],
+    ["src/platform/directory-picker.ts", "process.platform", 0],
+    ["src/runtime/process-identity.ts", "process.platform", 0],
+    ["web/app.js", "window.formicandDesktop?.platform", 1],
+    ["web/app.js", "globalThis.navigator?.userAgent", 1],
+    ["web/app.js", "document.documentElement.dataset.titleBar", 0]
+  ];
+  for (const [filePath, source, expected] of cases) {
+    const [result] = await eslint.lintText(source, { filePath });
+    assert.equal(
+      result.messages.filter(({ ruleId }) => ruleId === "no-restricted-syntax").length,
+      expected,
+      source
+    );
+  }
+});

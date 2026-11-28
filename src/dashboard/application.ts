@@ -10,7 +10,7 @@ import { createLinkPreviewService } from "./link-preview-service.js";
 import { createNodeResources } from "./node-resources.js";
 import { agentLocations, resolveAgent } from "../runtime/agent-definitions.js";
 import { homedir } from "node:os";
-import { spawn } from "node:child_process";
+import { pickDirectory } from "../platform/directory-picker.js";
 import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import { mkdir, rename, stat, writeFile } from "node:fs/promises";
@@ -580,38 +580,7 @@ export function createDashboardApplication(
     if (folderPickerOpen) throw new Error("文件夹选择窗口已经打开");
     folderPickerOpen = true;
     try {
-      const command =
-        process.platform === "darwin"
-          ? "/usr/bin/osascript"
-          : process.platform === "win32"
-            ? "powershell.exe"
-            : "zenity";
-      const args =
-        process.platform === "darwin"
-          ? [
-              "-e",
-              'try\nreturn POSIX path of (choose folder with prompt "选择 Formicand 工作空间")\non error number -128\nreturn ""\nend try'
-            ]
-          : process.platform === "win32"
-            ? [
-                "-NoProfile",
-                "-STA",
-                "-Command",
-                'Add-Type -AssemblyName System.Windows.Forms; $picker = New-Object System.Windows.Forms.FolderBrowserDialog; $picker.Description = "选择 Formicand 工作空间"; if ($picker.ShowDialog() -eq "OK") { Write-Output $picker.SelectedPath }; $picker.Dispose()'
-              ]
-            : ["--file-selection", "--directory", "--title=选择 Formicand 工作空间"];
-      const selected = await new Promise<string>((resolveSelection, reject) => {
-        const picker = spawn(command, args, { stdio: ["ignore", "pipe", "pipe"] });
-        let output = "";
-        picker.stdout.on("data", (chunk) => {
-          output += String(chunk);
-        });
-        picker.once("error", () => reject(new Error("无法打开系统文件夹选择器，请使用桌面版")));
-        picker.once("close", (code) => {
-          if (code === 0 || (process.platform === "linux" && code === 1)) resolveSelection(output.trim());
-          else reject(new Error("文件夹选择窗口未能正常打开，请重试"));
-        });
-      });
+      const selected = await pickDirectory();
       return selected ? await resolveWorkspacePath(selected) : undefined;
     } finally {
       folderPickerOpen = false;
