@@ -296,6 +296,18 @@ export class AgentProcessHost {
       throw new Error(`Agent process did not start: ${failure.message}`);
     }
     const identity = await identifySpawnedProcess(child);
+    if (!identity && child.exitCode === null && child.signalCode === null) {
+      // Without a start time no later backend could stop or adopt this process
+      // safely. This host still holds its handle, so the PID cannot be reused yet.
+      const closed = new Promise<void>((done) => child.once("close", () => done()));
+      try {
+        signalProcessGroup(child, "SIGKILL");
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== "ESRCH") throw error;
+      }
+      await Promise.race([closed, pause(5_000)]);
+      throw new Error(`Agent process did not start: unable to read the start time of process ${pid}`);
+    }
     const launched: AgentProcessRecord = {
       version: 1,
       taskId: input.taskId,

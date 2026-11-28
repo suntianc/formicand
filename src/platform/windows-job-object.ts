@@ -83,15 +83,22 @@ public static class FormicandJob {
     public static bool Stop(string name, int pid, long launchMs, long recordedMs) {
         using (var worker = Find(pid)) {
             IntPtr process = IntPtr.Zero;
-            if (worker != null && !worker.HasExited) {
+            // A reused PID means the worker exited, and with it the job's last handle.
+            bool reused = false;
+            if (worker != null) {
                 try {
-                    IntPtr handle = worker.Handle;
-                    long birth = new DateTimeOffset(worker.StartTime).ToUnixTimeMilliseconds();
-                    if (birth < launchMs || birth > recordedMs)
-                        throw new ArgumentException("The PID does not belong to the recorded job");
-                    process = handle;
+                    if (!worker.HasExited) {
+                        IntPtr handle = worker.Handle;
+                        long birth = new DateTimeOffset(worker.StartTime).ToUnixTimeMilliseconds();
+                        if (birth < launchMs || birth > recordedMs) reused = true;
+                        else process = handle;
+                    }
                 } catch (InvalidOperationException) {
                     if (!worker.HasExited) throw;
+                } catch (Win32Exception denied) {
+                    // The worker runs as this user. Access denied means another account owns the PID.
+                    if (denied.NativeErrorCode != 5) throw;
+                    reused = true;
                 }
             }
             var deadline = Stopwatch.StartNew();
@@ -100,10 +107,10 @@ public static class FormicandJob {
                     int error = Marshal.GetLastWin32Error();
                     if (job.IsInvalid) {
                         if (error != 2) throw new Win32Exception(error);
-                        if (worker == null || worker.HasExited) return false;
+                        if (reused || worker == null || worker.HasExited) return false;
                     } else {
                         uint active = Active(job);
-                        if (active == 0 && (worker == null || worker.HasExited)) return false;
+                        if (active == 0 && (reused || worker == null || worker.HasExited)) return false;
                         if (process != IntPtr.Zero) {
                             bool belongs;
                             Check(IsProcessInJob(process, job, out belongs));

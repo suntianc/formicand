@@ -265,3 +265,49 @@ test("stopping a process returns as soon as it exits, not after the liveness pol
   await host.stop(record);
   assert.ok(Date.now() - started < pollMs / 2, `stop took ${Date.now() - started}ms`);
 });
+
+test("a launch whose start time stays unreadable stops the child instead of recording it", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "formicand-agent-identity-"));
+  await mkdir(join(root, "scripts"), { recursive: true });
+  const pidFile = join(root, "child.pid");
+  await writeFile(
+    join(root, "scripts", "start-pi.mjs"),
+    `import { writeFileSync } from "node:fs";\nwriteFileSync(${JSON.stringify(pidFile)}, String(process.pid));\nsetInterval(() => {}, 1000);\n`
+  );
+  const workspaceRoot = join(root, "workspace");
+  const host = new AgentProcessHost({ workspaceRoot, harnessRoot: root, pollMs: 100, graceMs: 500 });
+  const path = process.env.PATH;
+  t.after(async () => {
+    if (path === undefined) delete process.env.PATH;
+    else process.env.PATH = path;
+    host.close();
+    await rm(root, { recursive: true, force: true });
+  });
+  const directory = join(workspaceRoot, "task", "runs", "run", "agents", "subagents", "call");
+  const target = { taskId: "task", runId: "run", role: "executor", agentId: "call" };
+  // Neither ps nor PowerShell can be found, so the start time is never readable.
+  process.env.PATH = "";
+  await assert.rejects(
+    host.launch({
+      ...target,
+      callId: "call",
+      workingDirectory: root,
+      prompt: "never recorded",
+      sessionDirectory: join(directory, "sessions"),
+      resultPath: join(directory, "result.json"),
+      env: {}
+    }),
+    /unable to read the start time/
+  );
+  process.env.PATH = path;
+  assert.equal(await host.record(target), undefined);
+  const pid = Number(await waitFor(() => readFile(pidFile, "utf8").catch(() => ""), "the child pid"));
+  await waitFor(() => {
+    try {
+      process.kill(pid, 0);
+      return false;
+    } catch (error) {
+      return error.code === "ESRCH";
+    }
+  }, "the unidentified child to exit");
+});

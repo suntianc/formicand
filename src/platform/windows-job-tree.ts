@@ -42,6 +42,10 @@ async function stopTree(pid: number, checkIdentity: string): Promise<void> {
         $startTime = $job.StartTime
         if ($null -eq $startTime) { throw 'Unable to verify the start time of the Windows process' }
       } catch {
+        # Formicand's own processes run as this user. Access denied means the PID was reused.
+        $cause = $_.Exception
+        while ($cause.InnerException) { $cause = $cause.InnerException }
+        if ($cause -is [ComponentModel.Win32Exception] -and $cause.NativeErrorCode -eq 5) { exit 0 }
         if ($job.HasExited) { exit 0 }
         throw
       }
