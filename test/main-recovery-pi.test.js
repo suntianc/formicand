@@ -37,7 +37,7 @@ function complete(response, text) {
   response.end("data: [DONE]\n\n");
 }
 
-async function fixture(t, handle, { retryBaseDelayMs } = {}) {
+async function fixture(t, handle, { retryBaseDelayMs, env } = {}) {
   const requests = [],
     rawRequests = [];
   let dashboard;
@@ -61,7 +61,8 @@ async function fixture(t, handle, { retryBaseDelayMs } = {}) {
   await once(provider, "listening");
   dashboard = await startDashboard({
     modelEndpoint: `http://127.0.0.1:${provider.address().port}`,
-    model: "fixture-model"
+    model: "fixture-model",
+    env
   });
   if (retryBaseDelayMs !== undefined) {
     await mkdir(join(dashboard.root, "pi"), { recursive: true });
@@ -631,7 +632,7 @@ test(
       releaseStep2 = resolve;
     });
     let killed = false;
-    const local = await fixture(t, async ({ body, response }) => {
+    const handle = async ({ body, response }) => {
       if (!killed && !body.messages.some((m) => m.role === "tool")) {
         const taskId = "wait-receipt-sigkill";
         if (!runId) {
@@ -707,7 +708,10 @@ test(
         return;
       }
       return complete(response, "Resumed cleanly after wait receipt SIGKILL.");
-    });
+    };
+    // The wait tool must own both receipts for this crash boundary. Releasing the fixture's
+    // prepared rows would otherwise invite the independent directory watcher to claim them.
+    const local = await fixture(t, handle, { env: { FORMICAND_DISABLE_FILE_WATCH: "1" } });
 
     const taskId = "wait-receipt-sigkill";
     await local.api("/api/tasks", { taskId, goal: "Wait for two callbacks." });
@@ -737,7 +741,11 @@ test(
     );
     const msgsBeforeKill = await inbox.list("main");
     assert.equal(msgsBeforeKill.find((m) => m.messageId === "cb-wait-a")?.state, "consumed");
-    assert.equal(msgsBeforeKill.find((m) => m.messageId === "cb-wait-b")?.state, "consumed");
+    assert.equal(
+      msgsBeforeKill.find((m) => m.messageId === "cb-wait-b")?.state,
+      "consumed",
+      JSON.stringify(msgsBeforeKill.map(({ messageId, state, lease }) => ({ messageId, state, lease })))
+    );
 
     // Pre-ack forced flush must have already persisted both wait receipts to messages.json BEFORE SIGKILL.
     const persistedBeforeKill = await readFile(

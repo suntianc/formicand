@@ -34,7 +34,8 @@ async function fixture(t) {
     const pending = exec(process.execPath, [entry, ...args], {
       cwd: project,
       env: { ...env, ...extra },
-      timeout: args[0] === "start" ? 60_000 : 25_000,
+      // A start waits for the CLI, a real Main and its delegated Pi to launch, answer and exit.
+      timeout: args[0] === "start" ? 120_000 : 25_000,
       windowsHide: true,
       maxBuffer: 1024 * 1024
     });
@@ -127,7 +128,7 @@ test("CLI selects project configuration and reports malformed secrets without di
 
 test(
   "CLI from an external project uses the real Main and delegated Pi provider after initialization",
-  { timeout: 135_000 },
+  { timeout: 270_000 },
   async (t) => {
     const f = await fixture(t);
     const namesFor = (body) => body.tools?.map((tool) => tool.name ?? tool.function?.name) || [];
