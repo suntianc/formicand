@@ -105,3 +105,14 @@ test("an unavailable OS query cannot confirm the exit of a live process", async 
     else process.env.PATH = path;
   }
 });
+
+test(
+  "a PID whose start time this user may not read is not a Formicand process",
+  { skip: process.platform !== "win32" },
+  async () => {
+    // PID 4 is the Windows System process. Its start time is denied even to an
+    // administrator, which is what a reused PID owned by a service looks like.
+    const recorded = { pid: 4, startedAt: "2000-01-01T00:00:00.0000000Z" };
+    assert.equal(await matchProcessIdentity(recorded), false);
+  }
+);
