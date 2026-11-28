@@ -1305,22 +1305,14 @@ test(
       "the death to settle",
       60_000
     );
-    const settled = JSON.parse(
-      await readFile(
-        join(
-          f.dashboard.workspaceRoot,
-          "resident-dead-record",
-          "runs",
-          run.runId,
-          "agents",
-          "main",
-          "process.json"
-        ),
-        "utf8"
-      )
-    );
-    assert.ok(settled.settledAt, "the exit is recorded once the projection is complete");
-    assert.equal(settled.exitSignal, "SIGKILL");
+    const settled = await waitFor(async () => {
+      const current = await f.mainRecord("resident-dead-record");
+      return current?.runId === run.runId && current.settledAt ? current : undefined;
+    }, "the exit to be recorded after projection");
+    if (process.platform === "win32") {
+      assert.equal(settled.exitSignal, null);
+      assert.ok(Number.isInteger(settled.exitCode) && settled.exitCode !== 0);
+    } else assert.equal(settled.exitSignal, "SIGKILL");
 
     // Later launches consult the same record; none may project the exit again.
     for (let attempt = 0; attempt < 3; attempt += 1) {

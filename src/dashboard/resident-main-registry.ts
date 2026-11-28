@@ -1,5 +1,5 @@
 import type { ChildProcess } from "node:child_process";
-import { AgentProcessHost } from "../runtime/agent-process.js";
+import { AgentProcessHost, type AgentProcessRecord } from "../runtime/agent-process.js";
 import { requestMainPromptRefresh } from "../runtime/main-prompt-snapshot.js";
 import { MainRunOutput } from "./main-run-outcome.js";
 import { LocalWorkspaceStore } from "../workspace/workspace-store.js";
@@ -7,6 +7,16 @@ import type { TaskLocation } from "./workspace-directory.js";
 import { type RunServicePorts, type InterjectionTarget } from "./run-service-contracts.js";
 import { type ResidentMain, mainTurnState } from "./resident-main.js";
 import type { createResidentMainSettlement } from "./resident-main-settlement.js";
+
+function sameLaunch(record: AgentProcessRecord | undefined, expected: AgentProcessRecord): boolean {
+  return (
+    record?.pid === expected.pid &&
+    record.startedAt === expected.startedAt &&
+    record.token === expected.token &&
+    record.runId === expected.runId &&
+    record.host === expected.host
+  );
+}
 
 export function createResidentMainRegistry({
   residentMains,
@@ -38,6 +48,7 @@ export function createResidentMainRegistry({
   pendingTurns: Map<string, number>;
 }) {
   const residentMain = (taskId: string): ResidentMain | undefined => residentMains.get(taskId);
+  const adoptions = new Map<string, Promise<ResidentMain | undefined>>();
 
   /** End the resident Main serving a Task, waiting for its Run to settle. */
   async function stopResidentMain(taskId: string, options: { replacing?: boolean } = {}): Promise<void> {
@@ -84,15 +95,41 @@ export function createResidentMainRegistry({
       harnessRoot: projectRoot,
       onExit: (record) => handleResidentExit(taskId, record.runId, record)
     });
+    const target = { taskId, runId: task.activeRunId, role: "main" as const, agentId: "main" };
+    const expected = await host.record(target);
+    if (!expected || expected.taskId !== taskId || expected.runId !== target.runId || expected.settledAt)
+      return undefined;
+    // A supervisor can relaunch Main in the same Run. Only observers of the
+    // same launch can share a watcher and the interjection target it publishes.
+    const key = JSON.stringify([
+      location.workspaceRoot,
+      taskId,
+      target.runId,
+      expected.token,
+      expected.pid,
+      expected.startedAt
+    ]);
+    const pending = adoptions.get(key);
+    if (pending) return pending;
+    const adoption = adoptProcess(location, host, expected).finally(() => {
+      adoptions.delete(key);
+      if (residentMains.get(taskId)?.host !== host) host.close();
+    });
+    adoptions.set(key, adoption);
+    return adoption;
+  }
+
+  async function adoptProcess(location: TaskLocation, host: AgentProcessHost, expected: AgentProcessRecord) {
+    const { taskId, runId } = expected;
     // `adopt` watches a live process and settles a dead record through the one
     // deduplicated settlement path, so a record found after a restart is
     // projected exactly once.
     // This host manages Main only: a delegated process in the same run
     // directory is the subagent backend's, and settling it here would finalize
     // the Task on a Subagent's exit.
-    const live = await host.adopt({ taskId, runId: task.activeRunId, roles: ["main"] });
+    const live = await host.adopt({ taskId, runId, roles: ["main"] });
     const record = live.find((candidate) => candidate.role === "main");
-    if (!record) return undefined;
+    if (!record || !sameLaunch(record, expected)) return undefined;
     // A Main that outlived its backend generates its system prompt again at its
     // next turn, as a restarted app would; settings saved meanwhile apply then.
     await requestMainPromptRefresh(location.workspaceRoot, taskId).catch((error) =>
@@ -114,9 +151,6 @@ export function createResidentMainRegistry({
       replacing: false,
       settled: false
     };
-    residentMains.set(taskId, resident);
-    activeRunIds.set(taskId, record.runId);
-    interjectionTargets.set(taskId, { runId: record.runId });
     // The place this Run still owns belongs to the adopted process too: the
     // next message must use it instead of admitting a second claim for it.
     if (mainCapacity?.enabled()) {
@@ -124,6 +158,19 @@ export function createResidentMainRegistry({
       const owned = await mainCapacity.requestFor(taskId, record.runId).catch(() => undefined);
       resident.requestId = owned;
     }
+    // A newer Run or a replacement launcher may have taken ownership during
+    // the OS or capacity lookup. Check again immediately before registering.
+    const [task, current] = await Promise.all([
+      location.store.readTask(taskId),
+      host.record({ taskId, runId, role: "main", agentId: "main" })
+    ]);
+    if (task.activeRunId !== runId || !sameLaunch(current, record) || current?.settledAt) return undefined;
+    const registered = residentMains.get(taskId);
+    if (registered)
+      return !registered.observed && sameLaunch(registered.record, record) ? registered : undefined;
+    residentMains.set(taskId, resident);
+    activeRunIds.set(taskId, record.runId);
+    interjectionTargets.set(taskId, { runId: record.runId });
     return resident;
   }
 
