@@ -102,7 +102,7 @@ export function registerSubagentTools(pi: ExtensionAPI, context: SubagentToolCon
       },
       { additionalProperties: false }
     ),
-    async execute(_toolCallId, params, signal): Promise<RuntimeToolResult> {
+    async execute(_toolCallId, params, signal, _onUpdate, ctx): Promise<RuntimeToolResult> {
       const outcome = await askMain({
         workspaceRoot: context.workspaceRoot,
         taskId: context.taskId,
@@ -156,7 +156,11 @@ export function registerSubagentTools(pi: ExtensionAPI, context: SubagentToolCon
         };
         return { content: [{ type: "text", text: JSON.stringify(payload) }], details: payload };
       }
-      if (outcome.status === "cancelled") throw new Error("Subagent was cancelled while waiting for Main");
+      if (outcome.status === "cancelled") {
+        // A tool error otherwise becomes input to another model turn while the host stops the process.
+        ctx.abort();
+        throw new Error("Subagent was cancelled while waiting for Main");
+      }
       const payload = {
         status: "timeout",
         questionId: outcome.question.questionId,

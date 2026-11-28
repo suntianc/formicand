@@ -486,7 +486,20 @@ test(
       "the receiver to consume the peer message"
     );
     const receiverCallback = await waitForCallback(f, "call-message-receiver");
-    assert.equal(receiverCallback.payload.status, "succeeded", JSON.stringify(receiverCallback.payload));
+    if (receiverCallback.payload.status !== "succeeded") {
+      const processRecord = (await recordedProcesses(f)).find((record) => record.callId === receiver.callId);
+      assert.fail(
+        JSON.stringify({
+          callback: receiverCallback.payload,
+          pid: receiver.pid,
+          startedAt: processRecord?.startedAt,
+          settledAt: processRecord?.settledAt,
+          exitCode: processRecord?.exitCode,
+          alive: alive(receiver.pid),
+          stderr: await readFile(receiver.stderrPath, "utf8")
+        })
+      );
+    }
     assert.match(receiverCallback.payload.response, /RECEIVER_DONE/);
     assert.equal(
       receiverRequests(f.provider, "PEER_MARKER", "RECEIVER_TASK_MARKER").length,
@@ -651,7 +664,7 @@ test(
     assert.equal(
       f.provider.requests.length,
       requestsBefore,
-      "a stopped process makes no further model request"
+      `a stopped process makes no further model request: ${JSON.stringify(f.provider.requests[requestsBefore]?.messages.at(-1))}`
     );
   }
 );
