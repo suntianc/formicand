@@ -349,7 +349,6 @@ export default {
   取消编辑: "Cancel edit",
   "取消编辑（Esc）": "Cancel edit (Esc)",
   发送编辑后的消息: "Send edited message",
-  "发送（⌘/Ctrl + Enter）": "Send (⌘/Ctrl + Enter)",
   "请先停止当前运行并等待停止完成，再编辑消息。":
     "Stop the current run and wait for it to finish before editing.",
   "请先取消或发送当前编辑。原来的草稿仍然保留。":

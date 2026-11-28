@@ -1,5 +1,6 @@
 import { bindConversationScrollback, historyScrollAnchor } from "./assets/controllers/conversation-pages.js";
 import { ui, localizeShell } from "./assets/ui/language.js";
+import { labelShellShortcuts } from "./assets/ui/keyboard-shortcuts.js";
 import { installLanguageSettings } from "./assets/controllers/language-settings.js";
 import { createMessageEditController } from "./assets/controllers/message-edit.js";
 import { createComposerSession } from "./assets/controllers/composer-session.js";
@@ -54,6 +55,7 @@ import { conversationTitle, textContent } from "./assets/controllers/work-title.
 revealScrollbarsWhileScrolling();
 
 localizeShell(document.body);
+labelShellShortcuts(document.body);
 
 /** Asks whether to trust a project's own Agents and skills; set once the composer exists. */
 const state = {

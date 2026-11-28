@@ -47,10 +47,4 @@ html[data-titlebar-layout="leading-nav"]:not([data-desktop-fullscreen="true"]) {
     border-width: 1px 0 0 1px;
     box-shadow: none;
   }
-  & .settings-group-head {
-    position: sticky;
-    top: 0;
-    z-index: 1;
-    background-color: var(--color-bg);
-  }
 }

@@ -2,7 +2,7 @@ import { test, expect } from "@playwright/test";
 import { startConfiguredDashboard } from "../test/dashboard-fixture.mjs";
 import { createProject, createTask } from "./p45-work-helpers.js";
 
-test("new sessions start from the sidebar, the project plus and ⌘K, and land in the chosen project", async ({
+test("new sessions start from the sidebar, the project plus and the keyboard shortcut, and land in the chosen project", async ({
   page
 }) => {
   const dashboard = await startConfiguredDashboard();
@@ -36,7 +36,7 @@ test("new sessions start from the sidebar, the project plus and ⌘K, and land i
     await expect(page.locator("#topbar-task")).toHaveText("已有会话");
     await expect(page.locator("#composer-project")).toBeHidden();
 
-    await page.keyboard.press("Meta+k");
+    await page.keyboard.press("ControlOrMeta+k");
     await expect(page.locator(".new-session-start")).toBeVisible();
     await expect(page.locator("#composer-project")).toContainText("测试项目");
 
