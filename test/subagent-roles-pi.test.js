@@ -264,6 +264,10 @@ async function delegatedCall(
     const messages = await readJson(join(runRoot, "agents", "main", "inbox-store.json"), []);
     return messages.find((message) => message.callId === callId && message.kind === "callback");
   }, `${callId} callback`);
+  if (role === "reviewer" && callback.payload.status !== "succeeded") {
+    const reviewSite = join(runRoot, "agents", "subagents", agentId, "review-site.json");
+    await waitFor(() => !existsSync(reviewSite), `${callId} to release its failed review checkout`);
+  }
   if (expectFailure) return { root, workspace, runRoot, provider, callback };
   const result = await readJson(join(runRoot, "agents", "subagents", agentId, "result.json"), undefined);
   // A callback is queued before the outcome is recorded, so wait for the record
