@@ -277,13 +277,17 @@ test(
   }
 );
 
-test("documents are listed by their raw names, quotes and backslashes included", async (t) => {
+test("document diffs in a deep checkout distinguish commit ranges from raw path names", async (t) => {
   const { documentsAdded, documentsAt } = await import("../dist/src/workspace/development-workspace.js");
-  const repo = await mkdtemp(join(tmpdir(), "formicand-doc-names-"));
-  t.after(() => rm(repo, { recursive: true, force: true }));
+  const root = await mkdtemp(join(tmpdir(), "formicand-doc-names-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  let repo = join(root, "checkout");
+  while (repo.length < 184) repo = join(repo, "development-workspace");
+  await mkdir(repo, { recursive: true });
   const run = (args) =>
     promisify(execFile)("git", ["-C", repo, ...args]).then((result) => result.stdout.trim());
-  await run(["init", "-q", "-b", "main"]);
+  // Development worktrees keep Git's object database outside the long checkout.
+  await run(["init", "-q", "-b", "main", "--separate-git-dir", join(root, "history.git")]);
   await run(["config", "user.email", "fixture@example.test"]);
   await run(["config", "user.name", "Fixture"]);
   await writeFile(join(repo, "README.md"), "x\n");
@@ -305,6 +309,8 @@ test("documents are listed by their raw names, quotes and backslashes included",
     ]);
   await run(["commit", "-qm", "docs"]);
   const head = await run(["rev-parse", "HEAD"]);
+  // A working-tree file with this literal name must not shadow the two commits.
+  await writeFile(join(repo, `${base}..${head}`), "untracked\n");
   assert.deepEqual((await documentsAdded(repo, base, head)).sort(), ["docs/a\\b.md", 'docs/中"文.md'].sort());
   assert.deepEqual(
     (await documentsAt(repo, head)).sort(),
