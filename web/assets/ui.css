@@ -329,11 +329,14 @@ body {
   opacity: 0.35;
   cursor: default;
 }
-html[data-desktop-platform] .app-topbar {
+html:where([data-title-bar="inset"], [data-title-bar="overlay"]):not([data-desktop-fullscreen="true"])
+  .app-topbar {
   -webkit-app-region: drag;
   user-select: none;
 }
-html[data-desktop-platform] .app-topbar :is(button, a, input, select, textarea, [role="button"]) {
+html:where([data-title-bar="inset"], [data-title-bar="overlay"]):not([data-desktop-fullscreen="true"])
+  .app-topbar
+  :is(button, a, input, select, textarea, [role="button"]) {
   -webkit-app-region: no-drag;
 }
 .app-topbar .topbar-context {

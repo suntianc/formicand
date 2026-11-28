@@ -2,7 +2,7 @@ const { existsSync } = require("node:fs");
 const { join } = require("node:path");
 
 function selectApplicationIcon(appRoot, platform = process.platform) {
-  if (platform === "win32") {
+  if (platform !== "darwin") {
     const icon = join(appRoot, "web/assets/brand/formicand-icon.png");
     if (existsSync(icon)) return icon;
   }

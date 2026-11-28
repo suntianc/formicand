@@ -164,7 +164,9 @@
   inset: 0;
   display: grid;
   grid-template-columns: 248px minmax(0, 1fr);
-  gap: 10px;
+  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-areas: "back content" "nav content";
+  column-gap: 10px;
   padding: 10px 10px 10px 0;
   z-index: 5;
 }
@@ -173,44 +175,55 @@
 }
 /* The page owns the window while it is open: the margins outside the two
    panels stay draggable, and macOS keeps room for its traffic lights. */
-html[data-desktop-platform] .settings-entry {
+html:where([data-title-bar="inset"], [data-title-bar="overlay"]):not([data-desktop-fullscreen="true"])
+  .settings-entry {
   -webkit-app-region: drag;
   user-select: none;
 }
-html[data-desktop-platform] .settings-entry :is(.settings-nav, .settings-content) {
+html:where([data-title-bar="inset"], [data-title-bar="overlay"]):not([data-desktop-fullscreen="true"])
+  .settings-entry
+  :is(.settings-nav, .settings-content) {
   -webkit-app-region: no-drag;
 }
 /* Scrolled content must not punch holes in the margins (see entry-shell.css). */
-html[data-desktop-platform] .settings-entry :is(.settings-nav, .settings-content) * {
+html:where([data-title-bar="inset"], [data-title-bar="overlay"]):not([data-desktop-fullscreen="true"])
+  .settings-entry
+  :is(.settings-nav, .settings-content)
+  * {
   -webkit-app-region: initial;
 }
 /* Each page's header row drags the window like the work page's title row. */
-html[data-desktop-platform]
+html:where([data-title-bar="inset"], [data-title-bar="overlay"]):not([data-desktop-fullscreen="true"])
   .settings-content
   :is(.settings-page-title, .settings-title-row, .skill-head, .model-settings-head) {
   -webkit-app-region: drag;
 }
-html[data-desktop-platform]
+html:where([data-title-bar="inset"], [data-title-bar="overlay"]):not([data-desktop-fullscreen="true"])
   .settings-content
   :is(.settings-page-title, .settings-title-row, .skill-head, .model-settings-head)
   :is(button, a, input, select, textarea, [role="button"], [role="tab"], summary) {
   -webkit-app-region: no-drag;
 }
-html[data-desktop-platform] .settings-content {
+html:where([data-title-bar="inset"], [data-title-bar="overlay"]):not([data-desktop-fullscreen="true"])
+  .settings-content {
   user-select: text;
 }
 .settings-nav {
+  grid-area: nav;
+  min-height: 0;
+  overflow: auto;
   display: flex;
   flex-direction: column;
   gap: 4px;
-  padding: 16px 12px;
+  padding: 18px 12px 16px;
   min-width: 0;
 }
 .settings-back {
+  grid-area: back;
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 14px;
+  margin: 16px 12px 0;
   padding: 6px 8px;
   border: 0;
   border-radius: var(--radius-control);
@@ -272,6 +285,7 @@ html[data-desktop-platform] .settings-content {
   outline-offset: 2px;
 }
 .settings-content {
+  grid-area: content;
   display: flex;
   justify-content: center;
   min-width: 0;
@@ -283,7 +297,6 @@ html[data-desktop-platform] .settings-content {
   border-radius: var(--radius-panel);
   background-color: var(--panel-fill);
   background-image: var(--panel-sheen);
-  backdrop-filter: blur(var(--panel-blur));
   box-shadow: var(--panel-shadow);
   scrollbar-width: thin;
   scrollbar-color: var(--color-line-strong) transparent;

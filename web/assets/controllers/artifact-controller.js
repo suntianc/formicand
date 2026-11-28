@@ -62,6 +62,7 @@ export function createArtifactController({
   let choosing = null;
   const openWith = createOpenWith({
     bridge: globalThis.window?.formicandDesktop?.files,
+    fileOpenWith: globalThis.window?.formicandDesktop?.capabilities?.fileOpenWith,
     showToast,
     onChange: () => renderArtifactDrawer()
   });

@@ -5,7 +5,11 @@ function createRendererFlush(getWindow, timeoutMs = 10_000) {
   return {
     request() {
       const window = getWindow();
-      if (!window || window.webContents.isDestroyed() || window.webContents.getURL() === "about:blank")
+      if (
+        !window ||
+        window.webContents.isDestroyed() ||
+        ["", "about:blank"].includes(window.webContents.getURL())
+      )
         return Promise.resolve(true);
       const requestId = randomUUID();
       return new Promise((resolve) => {

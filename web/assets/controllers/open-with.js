@@ -11,7 +11,7 @@ const FINDER_ID = "finder";
  * once at startup, folder icon on Windows/Linux), and the arrow lists installed
  * applications loaded quietly in the background without repainting the drawer.
  */
-export function createOpenWith({ bridge, showToast, onChange }) {
+export function createOpenWith({ bridge, fileOpenWith = "full", showToast, onChange }) {
   const lists = new Map();
   let menu, panel, current;
   let openTicket = 0;
@@ -83,13 +83,17 @@ export function createOpenWith({ bridge, showToast, onChange }) {
     if (!bridge || !target) return "";
     renderedOnce = true;
     // Warm the app list in the background so opening the menu is instant.
-    loadApps(taskId, target);
+    if (fileOpenWith === "full") loadApps(taskId, target);
     const label = platform === "darwin" ? ui("在访达中显示") : ui("在文件夹中显示");
+    const secondary =
+      fileOpenWith === "default-only"
+        ? `<button type="button" class="drawer-action is-icon drawer-open-more" data-open-default aria-label="${ui("用系统默认应用打开")}" title="${ui("用系统默认应用打开")}">${icon("open-app")}</button>`
+        : `<button type="button" class="drawer-action is-icon drawer-open-more" data-open-more aria-haspopup="menu" aria-expanded="false" aria-label="${ui(
+            "选择打开方式"
+          )}" title="${ui("选择打开方式")}">${icon("chevron-down")}</button>`;
     return `<div class="drawer-open-with"><button type="button" class="drawer-action drawer-open-main" data-open-main title="${esc(
       label
-    )}" aria-label="${esc(label)}">${mainIcon()}<span>${ui("打开")}</span></button><button type="button" class="drawer-action is-icon drawer-open-more" data-open-more aria-haspopup="menu" aria-expanded="false" aria-label="${ui(
-      "选择打开方式"
-    )}" title="${ui("选择打开方式")}">${icon("chevron-down")}</button></div>`;
+    )}" aria-label="${esc(label)}">${mainIcon()}<span>${ui("打开")}</span></button>${secondary}</div>`;
   }
 
   async function open(taskId, target, appId) {
@@ -170,6 +174,9 @@ export function createOpenWith({ bridge, showToast, onChange }) {
     if (!bridge || !target) return;
     container.querySelector("[data-open-main]")?.addEventListener("click", () => {
       void open(taskId, target, FINDER_ID);
+    });
+    container.querySelector("[data-open-default]")?.addEventListener("click", () => {
+      void open(taskId, target);
     });
     const more = container.querySelector("[data-open-more]");
     more?.addEventListener("click", async () => {

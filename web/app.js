@@ -171,6 +171,7 @@ const management = createManagementClient({
             error.status = result.error.status;
             throw error;
           }
+          if (result.temporaryCredential) showToast(ui("系统密钥库不可用，本次会话凭据仅保存在内存中"));
           return result;
         }
       }
