@@ -1,4 +1,5 @@
 import { listenOnFixtureHttpPort } from "./fixtures/http-server.mjs";
+import { releaseFixtureResources } from "./fixtures/cleanup.mjs";
 import { mkdir, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { join } from "node:path";
@@ -12,6 +13,28 @@ import { readFixtureRequestBody } from "./http-request-body-fixture.mjs";
 export const CAPTURE_PROMPT = "你好！";
 export const CAPTURE_MODEL = "p46-upgrade-fixture";
 
+export async function createUpgradeTask(dashboard, taskId, goal, after) {
+  const created = await fetch(`${dashboard.base}/api/tasks`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ taskId, goal })
+  });
+  if (!created.ok) throw new Error(`Could not create ${taskId}: HTTP ${created.status}`);
+  // Main remains resident after a completed turn. Close the session while its
+  // Dashboard is still available, before the fixture removes its workspace.
+  after(async () => {
+    const closed = await fetch(`${dashboard.base}/api/tasks/${taskId}/action`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ action: "cancel" }),
+      signal: AbortSignal.timeout(60_000)
+    });
+    await closed.arrayBuffer();
+    if (!closed.ok) throw new Error(`Could not close ${taskId}: HTTP ${closed.status}`);
+  });
+  await created.arrayBuffer();
+}
+
 /**
  * Run one standard Main turn against a recorded local provider and return the
  * model request the real Pi process produced.
@@ -22,7 +45,7 @@ export const CAPTURE_MODEL = "p46-upgrade-fixture";
  * table or the prompt's sections, record it again with
  * `node test/p46-pi-upgrade-capture.mjs --record` (build first).
  */
-export async function captureStandardMainRun({ api = "openai-completions", cleanup = [] } = {}) {
+export async function captureStandardMainRun({ api = "openai-completions", after }) {
   const requests = [];
   const provider = createServer(async (request, response) => {
     if (request.method !== "POST") {
@@ -35,15 +58,15 @@ export async function captureStandardMainRun({ api = "openai-completions", clean
     response.end(protocolStream(api, { text: "收到。" }));
   });
   const port = await listenOnFixtureHttpPort(provider);
+  after(async () => {
+    provider.closeAllConnections();
+    await new Promise((resolve, reject) => provider.close((error) => (error ? reject(error) : resolve())));
+  });
   const dashboard = await startDashboard({
     modelEndpoint: `http://127.0.0.1:${port}`,
     model: CAPTURE_MODEL
   });
-  cleanup.push(async () => {
-    await dashboard.stop();
-    provider.closeAllConnections();
-    await new Promise((done) => provider.close(done));
-  });
+  after(() => dashboard.stop());
   // Pin the protocol and output budget: a different default would change the
   // request the baseline describes without any SDK change.
   await writeFile(join(dashboard.root, "config.json"), JSON.stringify({ api, mainMaxTokens: 64 }));
@@ -52,11 +75,7 @@ export async function captureStandardMainRun({ api = "openai-completions", clean
     join(dashboard.root, "pi", "settings.json"),
     JSON.stringify({ retry: { enabled: false }, compaction: { enabled: false } })
   );
-  await fetch(`${dashboard.base}/api/tasks`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ taskId: "p46-upgrade-task", goal: CAPTURE_PROMPT })
-  });
+  await createUpgradeTask(dashboard, "p46-upgrade-task", CAPTURE_PROMPT, after);
   const run = await fetch(`${dashboard.base}/api/tasks/p46-upgrade-task/run`, {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -120,12 +139,14 @@ function systemPromptStructure(prompt) {
 if (process.argv[2] === "--record" && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const cleanup = [];
   try {
-    const summary = summarizeRequest(await captureStandardMainRun({ cleanup }));
+    const summary = summarizeRequest(
+      await captureStandardMainRun({ after: (release) => cleanup.push(release) })
+    );
     await writeFile(
       new URL("./fixtures/p46-pi-upgrade-baseline.json", import.meta.url),
       `${JSON.stringify(summary, null, 2)}\n`
     );
   } finally {
-    for (const step of cleanup) await step();
+    await releaseFixtureResources(cleanup);
   }
 }

@@ -6,17 +6,20 @@ export function deferCleanup(t, release) {
   if (!stack) {
     stack = [];
     resources.set(t, stack);
-    t.after(async () => {
-      const errors = [];
-      for (const close of stack.reverse()) {
-        try {
-          await close();
-        } catch (error) {
-          errors.push(error);
-        }
-      }
-      if (errors.length) throw new AggregateError(errors, errors.map(String).join("\n"));
-    });
+    t.after(() => releaseFixtureResources(stack));
   }
   stack.push(release);
+}
+
+/** Also used by standalone fixture scripts that do not have a test context. */
+export async function releaseFixtureResources(stack) {
+  const errors = [];
+  for (const close of stack.reverse()) {
+    try {
+      await close();
+    } catch (error) {
+      errors.push(error);
+    }
+  }
+  if (errors.length) throw new AggregateError(errors, errors.map(String).join("\n"));
 }
