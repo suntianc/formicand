@@ -1,0 +1,3 @@
+# Keep the prompt bytes sent to Pi identical on every checkout.
+.pi/prompts/*.md text eol=lf
+.pi/skills/**/SKILL.md text eol=lf

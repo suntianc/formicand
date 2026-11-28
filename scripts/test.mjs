@@ -146,7 +146,11 @@ export async function main(args = process.argv.slice(2)) {
   try {
     for (const command of plan.commands) {
       code = await runCommand(process.execPath, ["--import", "./test/isolate-user-data.mjs", ...command], {
-        env: { ...plan.env, TMPDIR: runRoot }
+        env: {
+          ...plan.env,
+          TMPDIR: runRoot,
+          ...(process.platform === "win32" ? { TEMP: runRoot, TMP: runRoot } : {})
+        }
       });
       if (code !== 0) break;
     }
