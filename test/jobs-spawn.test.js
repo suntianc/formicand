@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import { execFile, spawn } from "node:child_process";
+import { randomUUID } from "node:crypto";
+import { once } from "node:events";
 import { mkdir, mkdtemp, readFile, rename, rm, utimes, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { hostname, tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
@@ -36,6 +38,9 @@ public static extern bool IsWindowVisible(System.IntPtr window);
       cwd: root,
       command: `"${shell}" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File probe.ps1`
     });
+    const record = JSON.parse(await readFile(join(root, `${job.jobId}.json`), "utf8"));
+    assert.equal(record.windowsJobHost, hostname());
+    assert.match(record.windowsJobId, /^[\da-f]{8}-[\da-f]{4}-4[\da-f]{3}-[89ab][\da-f]{3}-[\da-f]{12}$/i);
     const deadline = Date.now() + 20_000;
     for (;;) {
       const status = await jobStatus({ directory: root, jobId: job.jobId });
@@ -217,6 +222,50 @@ test(
     assert.equal(JSON.parse(await readFile(path, "utf8")).finishedAt, undefined);
   }
 );
+
+test("an unfinished Windows job from another host cannot use a local PID", async (t) => {
+  const { jobStatus, killJob } = await import(jobsUrl);
+  const directory = await mkdtemp(join(tmpdir(), "formicand-foreign-job-"));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const startedAt = new Date().toISOString();
+  const local = spawn(process.execPath, ["-e", "setTimeout(() => {}, 60_000)"], {
+    detached: true,
+    windowsHide: true,
+    stdio: "ignore"
+  });
+  const exited = once(local, "exit");
+  t.after(async () => {
+    local.kill();
+    await exited;
+  });
+  await once(local, "spawn");
+  const input = { directory, jobId: "job-1" };
+  const record = {
+    jobId: input.jobId,
+    command: "foreign command",
+    cwd: directory,
+    logPath: join(directory, "job-1.log"),
+    pid: local.pid,
+    startedAt,
+    windowsJobId: randomUUID(),
+    windowsJobHost: `foreign-${hostname()}`
+  };
+  const path = join(directory, "job-1.json");
+  await writeFile(path, JSON.stringify(record));
+  for (const operation of [jobStatus, killJob]) {
+    await assert.rejects(operation(input), /recorded Windows host/i);
+    assert.doesNotThrow(() => process.kill(local.pid, 0));
+  }
+  assert.deepEqual(JSON.parse(await readFile(path, "utf8")), record);
+
+  await writeFile(path, JSON.stringify({ ...record, finishedAt: new Date().toISOString(), exitCode: 23 }));
+  for (const operation of [jobStatus, killJob]) {
+    const status = await operation(input);
+    assert.equal(status.state, "exited");
+    assert.equal(status.exitCode, 23);
+    assert.doesNotThrow(() => process.kill(local.pid, 0));
+  }
+});
 
 for (const failure of ["missing-cwd", "missing-executable", "invalid-command"]) {
   test(`job startup failure is recoverable in the same process: ${failure}`, async (t) => {
