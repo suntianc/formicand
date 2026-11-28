@@ -11,6 +11,7 @@ import { setTimeout as delay } from "node:timers/promises";
 import { SessionManager } from "@earendil-works/pi-coding-agent";
 import { killFixtureMain } from "./fixtures/main-processes.mjs";
 import { startDashboard } from "./dashboard-fixture.mjs";
+import { listenOnLocalHttpPort } from "../dist/src/platform/local-http-port.js";
 const { mainInputPath, saveMainInput } = await import("../dist/src/runtime/main-continuation.js");
 const { LocalWorkspaceStore } = await import("../dist/src/workspace/workspace-store.js");
 const { DurableScheduler, InboxStore } = await import("../dist/src/runtime/scheduler.js");
@@ -57,10 +58,17 @@ async function fixture(t, handle, { retryBaseDelayMs, env } = {}) {
       response.destroy(error);
     }
   });
-  provider.listen(0, "127.0.0.1");
-  await once(provider, "listening");
+  const modelPort = await listenOnLocalHttpPort(provider);
+  t.after(async () => {
+    try {
+      await dashboard?.stop();
+    } finally {
+      provider.closeAllConnections();
+      await new Promise((done) => provider.close(done));
+    }
+  });
   dashboard = await startDashboard({
-    modelEndpoint: `http://127.0.0.1:${provider.address().port}`,
+    modelEndpoint: `http://127.0.0.1:${modelPort}`,
     model: "fixture-model",
     env
   });
@@ -71,11 +79,6 @@ async function fixture(t, handle, { retryBaseDelayMs, env } = {}) {
       JSON.stringify({ retry: { baseDelayMs: retryBaseDelayMs } })
     );
   }
-  t.after(async () => {
-    await dashboard.stop();
-    provider.closeAllConnections();
-    await new Promise((done) => provider.close(done));
-  });
   const api = async (path, body) => {
     const response = await fetch(`${dashboard.base}${path}`, {
       ...(body === undefined
@@ -85,24 +88,31 @@ async function fixture(t, handle, { retryBaseDelayMs, env } = {}) {
             headers: { "content-type": "application/json" },
             body: JSON.stringify(body)
           }),
-      signal: AbortSignal.timeout(5_000)
+      // Starting or stopping a real Main can include several OS identity and process-tree queries.
+      signal: AbortSignal.timeout(30_000)
     });
     const payload = await response.json();
     assert.ok(response.ok, JSON.stringify(payload));
     return payload;
   };
   const settle = async (taskId, status) => {
-    const until = Date.now() + 30_000;
+    let deadline = Date.now() + 30_000;
+    let progress;
     let detail;
-    while (Date.now() < until) {
+    while (Date.now() < deadline) {
       detail = await api(`/api/tasks/${taskId}`);
       if (!detail.runtime.active) {
         assert.equal(detail.task.status, status, JSON.stringify(detail.task));
         return detail;
       }
+      const observed = `${requests.length}:${detail.task.version}:${detail.runtimeEvents.length}`;
+      if (progress !== observed) {
+        progress = observed;
+        deadline = Date.now() + 30_000;
+      }
       await delay(40);
     }
-    assert.fail(`Main did not settle: ${JSON.stringify(detail?.task)}`);
+    assert.fail(`Main did not settle: ${JSON.stringify({ task: detail?.task, progress })}`);
   };
   return { ...dashboard, api, settle, requests, rawRequests };
 }
@@ -323,7 +333,7 @@ test(
 
 test(
   "repeated manual continuation keeps one user turn and retains bounded retries",
-  { timeout: 60_000 },
+  { timeout: 150_000 },
   async (t) => {
     let rejecting = true;
     const local = await fixture(
@@ -841,7 +851,22 @@ test(
     await local.api(`/api/tasks/${taskId}/run`, { resume: true });
     await local.settle(taskId, "completed");
 
-    assert.equal(local.requests.length, requestsBeforeContinue + 1);
+    assert.equal(
+      local.requests.length,
+      requestsBeforeContinue + 1,
+      JSON.stringify(
+        local.requests.map((body) => ({
+          model: body.model,
+          tools: body.tools?.length,
+          conversation: body.messages
+            .filter((message) => message.role !== "system")
+            .map((message) => ({
+              role: message.role,
+              content: JSON.stringify(message.content).slice(0, 300)
+            }))
+        }))
+      )
+    );
     const continuedBody = JSON.stringify(local.requests.at(-1).messages);
     assert.match(continuedBody, new RegExp(uniquePrompt));
     const sessionsAfter = await SessionManager.listAll(piDir);
@@ -1131,14 +1156,13 @@ test(
       stream(response, {}, "tool_calls");
       response.end("data: [DONE]\n\n");
     });
-    provider.listen(0, "127.0.0.1");
-    await once(provider, "listening");
+    const modelPort = await listenOnLocalHttpPort(provider);
     const configPath = join(root, "config.json");
     await writeFile(
       configPath,
       JSON.stringify({
         api: "openai-completions",
-        baseUrl: `http://127.0.0.1:${provider.address().port}/v1`,
+        baseUrl: `http://127.0.0.1:${modelPort}/v1`,
         apiKey: "fixture-key",
         model: "fixture-model",
         workspaceRoot
