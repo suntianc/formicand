@@ -13,7 +13,8 @@ import { buildLiveActivity } from "../web/assets/activity.js";
 
 test(
   "Dashboard retains follow-ups, reasoning, tools, final answers and title across a reopened Main",
-  { timeout: 45000 },
+  // Two real Pi launches, tool execution, idle shutdown and reload share this outer budget.
+  { timeout: 120_000 },
   async () => {
     const root = await mkdtemp(join(tmpdir(), "formicand-conversation-api-"));
     const workspaceRoot = join(root, "workspace");

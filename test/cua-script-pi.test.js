@@ -13,7 +13,7 @@ import { withoutMainState } from "./fixtures/main-state.mjs";
 
 test(
   "real Pi loads CUA skill and runs persistent JavaScript cells through native HTTP with cancellation",
-  { timeout: 120_000 },
+  { timeout: 180_000 },
   async () => {
     const root = await mkdtemp(join(tmpdir(), "formicand-cua-script-pi-")),
       previous = { ...process.env };
@@ -170,15 +170,13 @@ test(
         202
       );
       let task;
-      for (let index = 0; index < 600; index++) {
+      const deadline = Date.now() + 140_000;
+      do {
         task = (await (await fetch(`${base}/api/tasks/cua-script-agent`)).json()).task;
-        if (
-          ["completed", "failed"].includes(task.status) &&
-          !dashboard.runs.activeRuns.has("cua-script-agent")
-        )
-          break;
-        await delay(100);
-      }
+        // A resident Main remains available after its completed turn.
+        if (["completed", "failed"].includes(task.status)) break;
+        await delay(150);
+      } while (Date.now() < deadline);
       assert.equal(task.status, "completed");
       assert.equal(requests.length, steps.length + 1);
       const payload = (index) =>

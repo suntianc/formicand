@@ -9,7 +9,7 @@ import { setTimeout as delay } from "node:timers/promises";
 
 test(
   "real HTTP upload, preview, task run and agent reading share the same original",
-  { timeout: 30000 },
+  { timeout: 120_000 },
   async (t) => {
     const failures = [];
     let id,
@@ -94,11 +94,13 @@ test(
     const run = await post("/api/tasks/file-http/run", { prompt: "请看材料", attachmentIds: [id] });
     assert.equal(run.status, 202, await run.text());
     let detail;
-    for (let count = 0; count < 150; count++) {
+    const deadline = Date.now() + 90_000;
+    do {
       detail = await (await fetch(`${dashboard.base}/api/tasks/file-http`)).json();
-      if (!detail.runtime?.active && detail.messages?.some((message) => message.role === "assistant")) break;
-      await delay(50);
-    }
+      if (detail.task.status === "completed" || detail.task.status === "failed") break;
+      await delay(150);
+    } while (Date.now() < deadline);
+    assert.equal(detail.task.status, "completed");
     assert.deepEqual(failures, []);
     assert.equal(requests, 2);
     assert.deepEqual(

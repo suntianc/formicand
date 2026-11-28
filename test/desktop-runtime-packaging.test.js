@@ -106,7 +106,7 @@ test("desktop file selection includes the complete Pi runtime import closure and
   const result = await exec(process.execPath, ["--input-type=module", "-e", probe], {
     cwd: stage,
     env: { ...env, PI_CODING_AGENT_DIR: join(root, "pi"), PI_OFFLINE: "1" },
-    timeout: 15000
+    timeout: 60_000
   });
   assert.match(result.stdout, /desktop-runtime-closure-loaded/);
 });

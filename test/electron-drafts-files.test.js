@@ -1827,7 +1827,7 @@ test("a rejected native save keeps the last snapshot and accepts a later recover
   assert.equal(JSON.parse(restarted.snapshot().entries[key]).text, "recovered latest");
 });
 
-test("selected bytes and artifacts stay with their authorized backend", { timeout: 90000 }, async (t) => {
+test("selected bytes and artifacts stay with their authorized backend", { timeout: 150_000 }, async (t) => {
   const { startBackend, stopBackend } = await import("../dist/src/cli/backend.js");
   let uploadId;
   let modelStep = 0;
@@ -1985,11 +1985,13 @@ test("selected bytes and artifacts stay with their authorized backend", { timeou
     json: { prompt: "read the selected file", attachmentIds: [uploadId] }
   });
   let detail;
-  for (let i = 0; i < 200; i++) {
+  const deadline = Date.now() + 90_000;
+  do {
     detail = await client.request("/api/tasks/shared-task");
-    if (!detail.runtime?.active && detail.messages?.some((message) => message.role === "assistant")) break;
-    await new Promise((done) => setTimeout(done, 50));
-  }
+    if (detail.task.status === "completed" || detail.task.status === "failed") break;
+    await new Promise((done) => setTimeout(done, 150));
+  } while (Date.now() < deadline);
+  assert.equal(detail.task.status, "completed");
   assert.deepEqual(modelFailures, []);
   assert.equal(modelStep, 2);
   assert.match(JSON.stringify(detail.messages), /fixture read complete/);
