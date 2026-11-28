@@ -135,7 +135,7 @@ export async function onlyChangesUnder(
 ): Promise<boolean> {
   if (from === to) return false;
   if ((await git(repository, ["merge-base", from, to])) !== from) return false;
-  const files = await gitPaths(repository, ["diff", "--name-only", "--no-renames", `${from}..${to}`]);
+  const files = await gitPaths(repository, ["diff", "--name-only", "--no-renames", `${from}..${to}`, "--"]);
   return files.length > 0 && files.every((file) => file.startsWith(directory));
 }
 
@@ -173,7 +173,7 @@ export async function documentsAt(repository: string, commit: string): Promise<s
 /** The Markdown documents added or renamed between two commits. */
 export async function documentsAdded(repository: string, from: string, to: string): Promise<string[]> {
   return (
-    await gitPaths(repository, ["diff", "--name-only", "--diff-filter=AR", "-M", `${from}..${to}`])
+    await gitPaths(repository, ["diff", "--name-only", "--diff-filter=AR", "-M", `${from}..${to}`, "--"])
   ).filter(isDocument);
 }
 

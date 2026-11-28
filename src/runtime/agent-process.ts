@@ -1,4 +1,5 @@
 import { spawn, type ChildProcess } from "node:child_process";
+import { stopRecordedWindowsTree } from "../platform/windows-job-tree.js";
 import { utilityCommand } from "../platform/utility-command.js";
 import { signalProcessGroup, usesProcessGroups } from "../platform/process-group.js";
 import { randomUUID } from "node:crypto";
@@ -11,9 +12,11 @@ import { now } from "../domain/types.js";
 import { DurableScheduler } from "./scheduler.js";
 import { agentWakeEndpoint } from "./agent-wake.js";
 import {
+  identifySpawnedProcess,
+  matchProcessIdentity,
   processGroupIsAlive,
   processIsAlive,
-  readProcessIdentity,
+  requireProcessIdentityCheck,
   verifyProcessIdentity
 } from "./process-identity.js";
 import type { ReviewConclusion } from "./subagent-review.js";
@@ -248,8 +251,9 @@ export class AgentProcessHost {
       child = spawn(executable, argv, {
         cwd: input.workingDirectory,
         env,
-        // A resident Main must also outlive its launching backend on Windows.
-        detached: resident || usesProcessGroups,
+        // Main and delegated agents both outlive their launching backend. On Windows
+        // libuv terminates non-detached children when the parent Node process exits.
+        detached: true,
         windowsHide: true,
         stdio: ["pipe", resident ? "pipe" : stdout!.fd, resident ? "pipe" : stderr!.fd]
       });
@@ -291,7 +295,7 @@ export class AgentProcessHost {
       ]);
       throw new Error(`Agent process did not start: ${failure.message}`);
     }
-    const identity = await readProcessIdentity(pid);
+    const identity = await identifySpawnedProcess(child);
     const launched: AgentProcessRecord = {
       version: 1,
       taskId: input.taskId,
@@ -369,7 +373,7 @@ export class AgentProcessHost {
         adopted.push(record);
         continue;
       }
-      const live = await this.owns(record);
+      const live = record.host === hostname() && (await requireProcessIdentityCheck(record));
       if (!live) {
         await this.settle(record);
         continue;
@@ -398,7 +402,17 @@ export class AgentProcessHost {
     // Signalling is the destructive step: never send one to a pid that no
     // longer matches the identity written at launch. A mismatch means the
     // process already ended, so settle from its durable records instead.
-    if (!(await this.owns(record))) {
+    if (!usesProcessGroups) {
+      if (record.host === hostname() && processIsAlive(record.pid)) {
+        if (!record.startedAt)
+          throw new Error(`Unable to verify the start time of agent process ${record.pid}`);
+        await stopRecordedWindowsTree(record.pid, record.startedAt);
+      }
+      await this.settle(record);
+      return;
+    }
+    const matches = record.host === hostname() && (await requireProcessIdentityCheck(record));
+    if (!matches) {
       await this.settle(record);
       return;
     }
@@ -548,10 +562,17 @@ export class AgentProcessHost {
   private watch(record: AgentProcessRecord): void {
     const key = recordKey(record);
     if (this.watchers.has(key)) return;
+    let checking = false;
     const watcher = setInterval(() => {
+      if (checking) return;
+      checking = true;
       void (async () => {
-        if (await verifyProcessIdentity({ pid: record.pid, startedAt: record.startedAt })) return;
-        await this.settle(record);
+        try {
+          const matches = await matchProcessIdentity(record);
+          if (matches === false && this.watchers.get(key) === watcher) await this.settle(record);
+        } finally {
+          checking = false;
+        }
       })();
     }, this.pollMs);
     // An observer must never be the reason a host (the CLI recovery loop, a

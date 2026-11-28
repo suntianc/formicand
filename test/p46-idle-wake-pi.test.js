@@ -1,7 +1,7 @@
+import { endAgentProcesses } from "./dashboard-fixture.mjs";
 import assert from "node:assert/strict";
 import { connect } from "node:net";
-import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
-import { hostname } from "node:os";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { test } from "node:test";
@@ -58,27 +58,6 @@ async function readJson(path, fallback) {
 function alive(pid) {
   try {
     process.kill(pid, 0);
-    return true;
-  } catch (error) {
-    return error.code === "EPERM";
-  }
-}
-
-/** End one launched process group and wait until the OS has released it. */
-async function stopGroup(pid) {
-  if (!pid || !groupAlive(pid)) return;
-  try {
-    process.kill(-pid, "SIGKILL");
-  } catch {
-    return;
-  }
-  const deadline = Date.now() + 10_000;
-  while (groupAlive(pid) && Date.now() < deadline) await delay(25);
-}
-
-function groupAlive(pid) {
-  try {
-    process.kill(-pid, 0);
     return true;
   } catch (error) {
     return error.code === "EPERM";
@@ -156,16 +135,10 @@ async function fixture(t, { handle, env = {} }) {
     PI_OFFLINE: "1",
     ...env
   });
-  const f = { root, workspace, site, runRoot, provider, services: [], records: [], env: childEnvironment };
+  const f = { root, workspace, site, runRoot, provider, services: [], env: childEnvironment };
   t.after(async () => {
     for (const service of f.services) service.close();
-    const launched = [...f.records];
-    for (const entry of await readdir(join(runRoot, "agents", "subagents")).catch(() => []))
-      launched.push(await readJson(join(runRoot, "agents", "subagents", entry, "process.json"), undefined));
-    for (const record of launched) {
-      if (!record?.pid || record.host !== hostname()) continue;
-      await stopGroup(record.pid);
-    }
+    await endAgentProcesses(workspace);
     await provider.close();
     // A stopped process group can still be flushing its last records; retry the
     // directory removal instead of racing it with an assertion-free unlink.
@@ -195,9 +168,12 @@ test(
   "an idle resident Main reads a callback and a user message with OS file events suppressed",
   { timeout: 180_000 },
   async (t) => {
+    const kickoffReply = Promise.withResolvers();
+    t.after(kickoffReply.resolve);
     const f = await fixture(t, {
-      handle: (_body, requests) => {
-        if (requests.length === 1)
+      handle: async (_body, requests) => {
+        if (requests.length === 1) {
+          await kickoffReply.promise;
           return {
             name: "sleep_until",
             arguments: {
@@ -205,6 +181,7 @@ test(
               wakeInSeconds: 3600
             }
           };
+        }
         return { text: `MAIN_ANSWER_${requests.length}` };
       }
     });
@@ -216,8 +193,8 @@ test(
       env: f.env
     });
     assert.ok(main?.pid, "the supervisor records the Main it started");
-    f.records.push(main);
-    const endpoint = await waitForEndpoint(main.wakeEndpoint, "the resident Main");
+
+    await waitForEndpoint(main.wakeEndpoint, "the resident Main");
 
     const inbox = new InboxStore(join(f.runRoot, "agents", "main", "inbox-store.json"));
     /** The Main process that serves this Run, read from its turn record. */
@@ -244,18 +221,25 @@ test(
     // read, so it only puts Main into its parked, resident state; the wakes
     // below are the ones this test holds the process to.
     await userMessage("idle-wake-kickoff", "IDLE_WAKE_KICKOFF_MARKER", "start with this.");
+    // Hold the first reply until the observer has seen the real model request and
+    // its active turn. A fast turn can otherwise park between heartbeat reads.
     const running = await waitFor(async () => {
+      if (!f.provider.requests.length) return;
       const beat = await heartbeat();
-      return beat?.turnActive === true ? beat : undefined;
-    }, "the turn opened by the kickoff message");
+      return beat?.turnActive === true && beat.turnId ? beat : undefined;
+    }, "the turn opened by the kickoff message").finally(kickoffReply.resolve);
+    assert.match(requestText(f.provider.requests[0]), /IDLE_WAKE_KICKOFF_MARKER/);
     // The turn has to be over before the callback is written: this is the idle
     // wait the ticket is about. Main parked the Task for a later wake and the
     // process stayed resident. The heartbeat names the Pi process that serves
     // the Run, which outlives its turn.
     const idle = await waitFor(async () => {
       const beat = await heartbeat();
-      return beat?.pid === running.pid && beat.turnActive === false ? beat : undefined;
+      return beat?.pid === running.pid && beat.turnId === running.turnId && beat.turnActive === false
+        ? beat
+        : undefined;
     }, "the Main turn to settle into an idle process");
+    assert.match((await readSleep(f.workspace, TASK_ID))?.reason ?? "", /PARK_MARKER/);
     assert.equal(alive(main.pid), true, "the idle Main process stays alive");
 
     // A delegated call finishes and the backend queues its callback. The
@@ -358,7 +342,8 @@ test(
       const pending = await new SubagentQuestionStore(f.workspace).list(TASK_ID, "pending");
       return pending.find((candidate) => candidate.callId === "call-idle-ask");
     }, "the blocked question");
-    const record = await readJson(join(f.runRoot, "agents", "subagents", "subagent_2", "process.json"));
+    const processPath = join(f.runRoot, "agents", "subagents", "subagent_2", "process.json");
+    const record = await readJson(processPath);
     assert.ok(record?.pid, "the delegated process has a launch record");
     await waitForEndpoint(record.wakeEndpoint, "the blocked Subagent");
 
@@ -387,5 +372,7 @@ test(
       "the model saw the answer as the tool result"
     );
     assert.equal(answeredAt > 0, true);
+    // The SDK writes its result before the parent finishes updating the queue and Inbox.
+    await waitFor(async () => (await readJson(processPath))?.settledAt, "the host to settle the process");
   }
 );

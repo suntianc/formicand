@@ -1,4 +1,6 @@
+import { assertPrivateFile } from "./fixtures/private-file.mjs";
 import assert from "node:assert/strict";
+import { deferCleanup } from "./fixtures/cleanup.mjs";
 import { after, before, test } from "node:test";
 import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { createServer } from "node:net";
@@ -200,7 +202,7 @@ for (const engine of PROJECT_DATA_ENGINES) {
     assert.equal(stale.body.currentRevision, 2);
 
     const before = await openService(f, engine, info.body);
-    t.after(() => before.close());
+    deferCleanup(t, () => before.close());
     const history = await before.service.getRequirement(a.projectId, requirement.requirementId);
     assert.equal(history.revisions.length, 2);
 
@@ -240,7 +242,7 @@ for (const engine of PROJECT_DATA_ENGINES) {
     const backupPath = join(f.root, `ledger-backup-${engine}.json`);
     const backup = await before.service.backupTo(backupPath);
     assert.equal(backup.engine, engine);
-    assert.equal((await stat(backupPath)).mode & 0o777, 0o600);
+    await assertPrivateFile(backupPath);
     await f.request(ledger(a.projectId), {
       action: "create",
       title: "备份后新增",
@@ -324,7 +326,7 @@ if (PROJECT_DATA_ENGINES.includes("postgres"))
   test("postgres: an older tidy finishing concurrently cannot move the mark back", async (t) => {
     const fixture = await ledgerFixture(t, "postgres");
     const { service, close } = await openService(fixture, "postgres");
-    t.after(close);
+    deferCleanup(t, close);
     const project = await service.ensureProject({
       projectId: "project_tidy",
       projectName: "维护",

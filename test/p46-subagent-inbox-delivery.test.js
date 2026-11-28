@@ -91,6 +91,32 @@ test("a lease records the holder's OS identity, so a reused pid never keeps it a
   );
   assert.equal(await f.inbox.lease(AGENT_ID, 1_000, "agent-1-other"), undefined, "a live owner keeps it");
 
+  // A temporary inability to read start times cannot release ordinary or wait-owned messages.
+  const waitConsumer = `wait-${holder.pid}-waiting`;
+  await f.inbox.enqueue({
+    messageId: "wait-receipt",
+    recipientAgentId: "main",
+    callId: "wait-call",
+    kind: "callback",
+    eventId: "wait-event",
+    priority: 1,
+    state: "ready",
+    payload: {},
+    createdAt: new Date().toISOString()
+  });
+  assert.ok(await f.inbox.claimReadyCallbackForWait("wait-call", waitConsumer, identity));
+  const savedPath = process.env.PATH;
+  try {
+    process.env.PATH = "";
+    await f.inbox.recoverAbandonedWaitCallbacks();
+    const offeredAgain = await f.inbox.lease(AGENT_ID, 1_000, "agent-1-other");
+    const [receipt] = await f.inbox.list("main");
+    assert.deepEqual([offeredAgain?.messageId, receipt.lease?.consumerId], [undefined, waitConsumer]);
+  } finally {
+    if (savedPath === undefined) delete process.env.PATH;
+    else process.env.PATH = savedPath;
+  }
+
   // The same number now names an unrelated process: the recorded start time
   // does not match, so the message is not pinned to a pid that was reused.
   await writeFile(

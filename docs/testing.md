@@ -43,7 +43,7 @@ npx playwright test e2e/conversation-menu.spec.js --output=.tmp/playwright-menu
 ## 写测试的规矩
 
 - **隔离数据。** 用临时目录和假模型服务，不读个人配置，不碰真实任务，不调用真实模型。
-- **临时目录自动收拾。** `test:unit` 和 Playwright 每次运行都建一个专属临时根目录（`formicand-run-*`），把 `TMPDIR` 指过去（[test-run-root](../scripts/test-run-root.mjs)）。运行结束时还以这里为数据目录活着的后端会被停掉，并判本次失败。
+- **临时目录自动收拾。** `test:unit` 和 Playwright 每次运行都建一个专属临时根目录（`formicand-run-*`），把 `TMPDIR` 指过去，Windows 同时设置 `TEMP`、`TMP`（[test-run-root](../scripts/test-run-root.mjs)）。运行结束时还以这里为数据目录活着的后端会被停掉，并判本次失败。
 - **启动了 App 要收尾。** 后端在窗口关闭后会继续运行，所以启动 App 的测试收尾时要调用 [`stopNativeBackend(<桌面数据目录>)`](../test/native-backend-fixture.mjs)。
 - **用真实链路。** 生命周期相关的测试要覆盖真实的 Pi hook 顺序和子进程结束，不能只用测试替身。
 - **覆盖异步边界。** 归属、取消、迟到的返回、冲突、退出和恢复。协议测试两端都要验证。

@@ -8,7 +8,7 @@ import { chromium } from "playwright-core";
 import { browserFixture, browserTestOptions } from "./browser-fixture.mjs";
 
 const requirePi = createRequire(import.meta.resolve("@earendil-works/pi-coding-agent"));
-const { createJiti } = await import(requirePi.resolve("jiti"));
+const { createJiti } = requirePi("jiti");
 const { registerBrowserTools } = await createJiti(import.meta.url).import(
   resolve(".pi/runtime/tools/browser-use.ts")
 );

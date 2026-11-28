@@ -1,8 +1,9 @@
+import { listenOnFixtureHttpPort } from "./fixtures/http-server.mjs";
+import { killFixtureMain } from "./fixtures/main-processes.mjs";
 import assert from "node:assert/strict";
-import { once } from "node:events";
 import { mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { hostname } from "node:os";
 import { test } from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
@@ -84,10 +85,9 @@ async function fixture(t, { handle, idleTimeoutMs, env = {} } = {}) {
     requests.push(body);
     await handle({ body, response, requests });
   });
-  provider.listen(0, "127.0.0.1");
-  await once(provider, "listening");
+  const modelPort = await listenOnFixtureHttpPort(provider);
   const dashboard = await startDashboard({
-    modelEndpoint: `http://127.0.0.1:${provider.address().port}`,
+    modelEndpoint: `http://127.0.0.1:${modelPort}`,
     model: "resident-fixture",
     env: { ...env, ...(idleTimeoutMs === undefined ? {} : { [IDLE_ENV]: String(idleTimeoutMs) }) }
   });
@@ -266,33 +266,39 @@ test(
     });
     await f.createTask("resident-idle", "Idle resident");
     const first = await f.api("/api/tasks/resident-idle/run", { prompt: "IDLE_FIRST_INPUT" });
+    let record;
     try {
       await waitFor(() => f.requests.length === 1, "the running model request");
       await delay(2_500); // Two idle windows pass while the first reply is still in flight.
       assert.equal((await f.detail("resident-idle")).task.status, "running");
+      record = await f.mainRecord("resident-idle");
+      assert.equal(alive(record.pid), true, "the long turn still owns a live Main");
     } finally {
       responseGate.resolve();
     }
     const settled = await f.settleTurn("resident-idle");
     assert.equal(settled.task.status, "completed");
-    assert.equal((await runEvents(f, "resident-idle", first.runId, "main.run_completed")).length, 1);
-    const record = await f.mainRecord("resident-idle");
-    assert.equal(alive(record.pid), true);
 
     // No turn, no subagent: the resident process exits and keeps its state.
     // The backend reports it gone only once the exit is projected, so wait for
     // that observation rather than for the pid alone.
-    const idle = await waitFor(
-      async () => {
+    const waitForIdleExit = (pid) =>
+      waitFor(async () => {
         const value = await f.detail("resident-idle");
-        return !value.runtime.mainRunning && !alive(record.pid) ? value : undefined;
-      },
-      "the idle Main to exit",
-      30_000
-    );
+        if (value.runtime.mainRunning || alive(pid)) return;
+        const current = await f.mainRecord("resident-idle");
+        if (current.pid === pid && current.settledAt) return value;
+      }, `idle Main ${pid} to exit and settle`);
+    const idle = await waitForIdleExit(record.pid);
     assert.equal(idle.runtime.active, false);
     assert.equal(idle.task.status, "completed", "the Task keeps the state its last turn recorded");
     assert.equal(idle.task.activeRunId, first.runId);
+    const completed = await runEvents(f, "resident-idle", first.runId, "main.run_completed");
+    assert.equal(completed.length, 1, JSON.stringify({ completed, modelRequests: f.requests.length }));
+    const stopped = await runEvents(f, "resident-idle", first.runId, "main.run_stopped");
+    assert.equal(stopped.length, 1, JSON.stringify(stopped));
+    assert.equal(stopped[0].payload.reason, "idle");
+    assert.ok(Date.parse(completed[0].occurredAt) <= Date.parse(stopped[0].occurredAt));
     assert.ok(
       (await readdir(join(f.dashboard.workspaceRoot, "resident-idle", "sessions", "main", "pi"))).length > 0,
       "the Pi session file is kept"
@@ -307,6 +313,7 @@ test(
     const continued = JSON.stringify(f.requests[1].messages);
     assert.match(continued, /IDLE_FIRST_INPUT/, "the session continued");
     assert.match(continued, /IDLE_SECOND_INPUT/);
+    await waitForIdleExit(restarted.pid);
   }
 );
 
@@ -657,15 +664,6 @@ test(
   }
 );
 
-/** End the recorded Main's whole process group, the way a crash would. */
-function killMain(record) {
-  try {
-    process.kill(-record.pid, "SIGKILL");
-  } catch {
-    /* the group already exited */
-  }
-}
-
 /** Every Run event of one type, read from the durable log. */
 async function runEvents(f, taskId, runId, type) {
   const text = await readFile(
@@ -824,7 +822,7 @@ test(
 
     await f.dashboard.restart();
     assert.equal(alive(record.pid), true);
-    killMain(record);
+    await killFixtureMain(record);
 
     const failed = await waitFor(
       async () => {
@@ -1205,45 +1203,54 @@ test(
     const run = await f.api("/api/tasks/resident-stale-interrupt/run", { prompt: "STALE_INTERRUPT_INPUT" });
     await waitFor(() => heldStarted, "the in-flight request", 60_000);
     const record = await f.mainRecord("resident-stale-interrupt");
-    // Hold the settlement so the interrupt is written while the exit is still
-    // being projected; then let the projection run.
     const { agentProcessRecordPath } = await import("../dist/src/runtime/agent-process.js");
-    const releaseSettlement = await holdSettlementLock(
-      agentProcessRecordPath(f.dashboard.workspaceRoot, "resident-stale-interrupt", run.runId, "main", "main")
-    );
-    killMain(record);
-    const inboxPath = join(
+    const { InboxStore } = await import("../dist/src/runtime/scheduler.js");
+    const { withFileLock } = await import("../dist/src/storage/file-lock.js");
+    const recordPath = agentProcessRecordPath(
       f.dashboard.workspaceRoot,
       "resident-stale-interrupt",
-      "runs",
       run.runId,
-      "agents",
       "main",
-      "inbox-store.json"
+      "main"
     );
-    const messages = JSON.parse(await readFile(inboxPath, "utf8"));
-    messages.push({
-      messageId: "stale-interrupt",
-      recipientAgentId: "main",
-      kind: "human_command",
-      eventId: "stale-interrupt-event",
-      priority: 200,
-      state: "ready",
-      payload: { type: "main.interrupt" },
-      createdAt: new Date().toISOString()
+    const inbox = new InboxStore(join(dirname(recordPath), "inbox-store.json"));
+    // Queue the command after the old process is dead and before its exit can be projected.
+    await withFileLock(`${recordPath}.settle`, async () => {
+      await killFixtureMain(record);
+      await waitFor(() => !alive(record.pid), "the interrupted Main to exit");
+      const pending = await inbox.enqueue({
+        messageId: "stale-interrupt",
+        recipientAgentId: "main",
+        kind: "human_command",
+        eventId: "stale-interrupt-event",
+        priority: 200,
+        state: "ready",
+        payload: { type: "main.interrupt" },
+        createdAt: new Date().toISOString()
+      });
+      assert.equal(pending.state, "ready");
     });
-    await writeFile(inboxPath, JSON.stringify(messages, null, 2));
-    await releaseSettlement();
 
     await waitFor(
-      async () => (await f.detail("resident-stale-interrupt")).task.status === "failed",
-      "the death to settle",
+      async () => (await f.mainRecord("resident-stale-interrupt"))?.settledAt,
+      "the dead Main's exit projection to finish",
       60_000
     );
-    const settled = JSON.parse(await readFile(inboxPath, "utf8")).find(
-      (message) => message.messageId === "stale-interrupt"
-    );
+    assert.equal((await f.detail("resident-stale-interrupt")).task.status, "failed");
+    const settled = (await inbox.list("main")).find((message) => message.messageId === "stale-interrupt");
     assert.equal(settled.state, "consumed", "the dead turn's interrupt is discarded");
+    const next = await f.api("/api/tasks/resident-stale-interrupt/run", {
+      runId: run.runId,
+      prompt: "AFTER_STALE_INTERRUPT"
+    });
+    assert.equal(next.runId, run.runId, "the replacement uses the same Inbox");
+    await waitFor(
+      () => f.requests.some((body) => JSON.stringify(body.messages).includes("AFTER_STALE_INTERRUPT")),
+      "the replacement's model request",
+      60_000
+    );
+    assert.equal((await f.settleTurn("resident-stale-interrupt")).task.status, "completed");
+    assert.notEqual((await f.mainRecord("resident-stale-interrupt")).pid, record.pid);
   }
 );
 
@@ -1261,7 +1268,7 @@ test(
 
     // A Main that goes away with work still pending is what the recovery
     // supervisor starts again.
-    killMain(original);
+    await killFixtureMain(original);
     await waitFor(() => !alive(original.pid), "the original Main to exit", 30_000);
     const { spawnMainProcess } = await import("../dist/src/runtime/main-supervisor.js");
     const recovered = await spawnMainProcess({
@@ -1283,7 +1290,7 @@ test(
       "the message reached the supervisor's Main"
     );
     assert.equal(alive(recovered.pid), true);
-    killMain(recovered);
+    await killFixtureMain(recovered);
   }
 );
 
@@ -1307,28 +1314,20 @@ test(
     const run = await f.api("/api/tasks/resident-dead-record/run", { prompt: "DEAD_RECORD_INPUT" });
     await waitFor(() => heldStarted, "the in-flight model request", 60_000);
     const record = await f.mainRecord("resident-dead-record");
-    killMain(record);
+    await killFixtureMain(record);
     await waitFor(
       async () => (await f.detail("resident-dead-record")).task.status === "failed",
       "the death to settle",
       60_000
     );
-    const settled = JSON.parse(
-      await readFile(
-        join(
-          f.dashboard.workspaceRoot,
-          "resident-dead-record",
-          "runs",
-          run.runId,
-          "agents",
-          "main",
-          "process.json"
-        ),
-        "utf8"
-      )
-    );
-    assert.ok(settled.settledAt, "the exit is recorded once the projection is complete");
-    assert.equal(settled.exitSignal, "SIGKILL");
+    const settled = await waitFor(async () => {
+      const current = await f.mainRecord("resident-dead-record");
+      return current?.runId === run.runId && current.settledAt ? current : undefined;
+    }, "the exit to be recorded after projection");
+    if (process.platform === "win32") {
+      assert.equal(settled.exitSignal, null);
+      assert.ok(Number.isInteger(settled.exitCode) && settled.exitCode !== 0);
+    } else assert.equal(settled.exitSignal, "SIGKILL");
 
     // Later launches consult the same record; none may project the exit again.
     for (let attempt = 0; attempt < 3; attempt += 1) {

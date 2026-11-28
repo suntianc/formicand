@@ -74,6 +74,7 @@ export function createProjectFileIndex() {
     try {
       const { stdout } = await run("git", ["ls-files", "-co", "--exclude-standard", "-z"], {
         cwd: root,
+        windowsHide: true,
         maxBuffer: 64 * 1024 * 1024
       });
       return stdout.split("\0").filter(Boolean).slice(0, FILE_LIMIT);

@@ -1,3 +1,4 @@
+import { assertPrivateFile } from "./fixtures/private-file.mjs";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { execFile } from "node:child_process";
@@ -33,7 +34,9 @@ async function fixture(t) {
     const pending = exec(process.execPath, [entry, ...args], {
       cwd: project,
       env: { ...env, ...extra },
-      timeout: 25000,
+      // A start waits for the CLI, a real Main and its delegated Pi to launch, answer and exit.
+      timeout: args[0] === "start" ? 120_000 : 25_000,
+      windowsHide: true,
       maxBuffer: 1024 * 1024
     });
     pending.child.stdin.end(); // A print-mode Pi reads piped input until EOF.
@@ -60,7 +63,7 @@ test("CLI setup uses private user data, checks without model requests, and refus
   assert.equal(config.reasoningEffort, "off");
   assert.equal(config.mainMaxTokens, 8192);
   assert.equal(config.workspaceRoot, join(f.user, "workspace"));
-  assert.equal((await stat(f.config)).mode & 0o777, 0o600);
+  await assertPrivateFile(f.config);
   const doctor = await f.run(["doctor"]);
   assert.match(doctor.stdout, /OK.*模型配置/);
   assert.match(doctor.stdout, /未发送模型请求/);
@@ -111,7 +114,7 @@ test("CLI selects project configuration and reports malformed secrets without di
   const path = join(f.project, ".formicand/config.json");
   await writeFile(path, '{"apiKey":"private-malformed-key');
   await assert.rejects(f.run(["doctor"]), (error) => {
-    assert.match(error.stdout, /\.formicand\/config.json/);
+    assert.match(error.stdout, /\.formicand[\\/]config\.json/);
     assert.match(error.stderr, /不是有效 JSON/);
     assert.ok(!error.stderr.includes("private-malformed-key"));
     return true;
@@ -125,7 +128,7 @@ test("CLI selects project configuration and reports malformed secrets without di
 
 test(
   "CLI from an external project uses the real Main and delegated Pi provider after initialization",
-  { timeout: 35000 },
+  { timeout: 270_000 },
   async (t) => {
     const f = await fixture(t);
     const namesFor = (body) => body.tools?.map((tool) => tool.name ?? tool.function?.name) || [];

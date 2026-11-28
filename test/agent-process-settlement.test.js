@@ -215,6 +215,9 @@ test("an exit whose record now describes a newer process is not projected onto i
   // The stale record's observer notices it died. Its record path now belongs to
   // the live process, which still owns the Run: projecting the old exit would
   // write a failure for work that is still running.
+  // Without the recorded birth time, a live PID cannot be signalled or settled.
+  await assert.rejects(host.stop({ ...newer, startedAt: "" }), /Unable to verify/);
+  assert.equal(exits.length, 0);
   await host.stop(replaced);
   await delay(200);
   assert.equal(exits.length, 0, "the replaced process is not projected");
@@ -232,7 +235,8 @@ test("stopping a process returns as soon as it exits, not after the liveness pol
     'process.on("SIGTERM", () => process.exit(0));\nsetInterval(() => {}, 1000);\n'
   );
   const workspaceRoot = join(root, "workspace");
-  const host = new AgentProcessHost({ workspaceRoot, harnessRoot: root, pollMs: 2_000, graceMs: 2_000 });
+  const pollMs = 10_000;
+  const host = new AgentProcessHost({ workspaceRoot, harnessRoot: root, pollMs, graceMs: 2_000 });
   let record;
   t.after(async () => {
     host.close();
@@ -259,5 +263,5 @@ test("stopping a process returns as soon as it exits, not after the liveness pol
   await delay(300);
   const started = Date.now();
   await host.stop(record);
-  assert.ok(Date.now() - started < 1_000, `stop took ${Date.now() - started}ms`);
+  assert.ok(Date.now() - started < pollMs / 2, `stop took ${Date.now() - started}ms`);
 });

@@ -1,8 +1,9 @@
+import { deferCleanup } from "./fixtures/cleanup.mjs";
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
 import { after, before, test } from "node:test";
 import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { join, normalize, sep } from "node:path";
 import { promisify } from "node:util";
 import { startDashboard } from "./dashboard-fixture.mjs";
 import {
@@ -48,6 +49,7 @@ async function makeRepository(directory) {
   await git(directory, ["init", "-b", "main"]);
   await git(directory, ["config", "user.email", "fixture@example.test"]);
   await git(directory, ["config", "user.name", "Fixture"]);
+  await git(directory, ["config", "core.autocrlf", "false"]);
   await writeFile(join(directory, "tracked.txt"), "committed\n");
   await writeFile(join(directory, "README.md"), "# fixture\n");
   await git(directory, ["add", "."]);
@@ -134,7 +136,7 @@ async function startSecondary(t, authority, token) {
     defaultProject: false,
     config: { projectData: { authority: { url: authority.base, token } } }
   });
-  t.after(() => dashboard.stop());
+  deferCleanup(t, () => dashboard.stop());
   const instance = await readServingInstance(dashboard.root);
   return {
     ...dashboard,
@@ -273,7 +275,7 @@ for (const engine of PROJECT_DATA_ENGINES) {
     assert.equal(one.workspace.state, "ready", JSON.stringify(one.workspace));
     assert.equal(one.workspace.backendId, configured.body.mergeConfig.executionBackendId);
     assert.ok(
-      !one.workspace.directory.startsWith(`${repository}/`),
+      !one.workspace.directory.startsWith(`${repository}${sep}`),
       "the workspace lives outside the user's tree"
     );
     assert.equal((await stat(one.workspace.directory)).isDirectory(), true);
@@ -300,8 +302,12 @@ for (const engine of PROJECT_DATA_ENGINES) {
       await assert.rejects(readFile(join(workspace.directory, "untracked.txt"), "utf8"));
     }
     const worktrees = await git(repository, ["worktree", "list", "--porcelain"]);
-    assert.match(worktrees, new RegExp(one.workspace.directory.replaceAll("/", "\\/")));
-    assert.match(worktrees, new RegExp(two.workspace.directory.replaceAll("/", "\\/")));
+    const checkouts = worktrees
+      .split("\n")
+      .filter((line) => line.startsWith("worktree "))
+      .map((line) => normalize(line.slice(9)));
+    assert.ok(checkouts.includes(one.workspace.directory));
+    assert.ok(checkouts.includes(two.workspace.directory));
 
     // The user's directory keeps its committed content, reservation, edit and
     // untracked file; only the worktree registry under .git changed.
@@ -348,7 +354,7 @@ for (const engine of PROJECT_DATA_ENGINES) {
 
     // Backup includes the new shared records; restoring removes the later one.
     const service = await openService(f, engine, (await request("/api/project-data")).body);
-    t.after(() => service.close());
+    deferCleanup(t, () => service.close());
     const backupPath = join(f.root, `development-backup-${engine}.json`);
     const backup = await service.service.backupTo(backupPath);
     assert.equal(backup.counts.project_data_developments, 2);
@@ -663,7 +669,7 @@ for (const engine of PROJECT_DATA_ENGINES) {
       backendId: "backend_remote_probe",
       source: "p4-test"
     });
-    t.after(() => remote.close());
+    deferCleanup(t, () => remote.close());
     const remoteFirst = await remote.createDevelopment(localProjectId, {
       requirementId: conflictRequirement.requirementId,
       goal: "远程网关记录共享事实",

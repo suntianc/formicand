@@ -1,3 +1,4 @@
+import { listenOnFixtureHttpPort } from "./fixtures/http-server.mjs";
 import assert from "node:assert/strict";
 import { parseModelRequestArchive } from "../dist/src/storage/model-request-recorder.js";
 import { spawn } from "node:child_process";
@@ -9,12 +10,14 @@ import { join, resolve } from "node:path";
 import { test } from "node:test";
 import { LocalWorkspaceStore } from "../dist/src/workspace/workspace-store.js";
 import { protocolStream } from "./model-protocol-fixture.mjs";
+import { killFixtureChild } from "./fixtures/main-processes.mjs";
 
 for (const api of ["openai-completions", "openai-responses"]) {
   for (const enabled of [false, true]) {
     test(
       `${api}: Main ${enabled ? "opt-in" : "default"} cache policy and usage survive a real Pi restart`,
-      { timeout: 30000 },
+      // Both the initial CLI turn and the resumed one start a fresh Pi process.
+      { timeout: 90_000 },
       async (t) => {
         const root = await mkdtemp(join(tmpdir(), "formicand-main-cache-"));
         const workspace = join(root, "workspace");
@@ -57,15 +60,10 @@ for (const api of ["openai-completions", "openai-responses"]) {
           res.writeHead(200, { "content-type": "text/event-stream" });
           res.end(stream);
         });
-        server.listen(0, "127.0.0.1");
-        await once(server, "listening");
+        await listenOnFixtureHttpPort(server);
         t.after(async () => {
           if (child?.pid && child.exitCode === null && child.signalCode === null) {
-            try {
-              process.kill(-child.pid, "SIGKILL");
-            } catch {
-              /* already exited */
-            }
+            await killFixtureChild(child);
             await childExit;
           }
           server.closeAllConnections();
@@ -108,7 +106,7 @@ for (const api of ["openai-completions", "openai-responses"]) {
           child = spawn(
             process.execPath,
             ["scripts/start-pi.mjs", "--print", "--mode", "json", "--session-dir", sessions, ...args],
-            { cwd: resolve("."), env, detached: true, stdio: ["ignore", "pipe", "pipe"] }
+            { cwd: resolve("."), env, detached: true, windowsHide: true, stdio: ["ignore", "pipe", "pipe"] }
           );
           childExit = once(child, "exit");
           child.stdout.on("data", (chunk) => {

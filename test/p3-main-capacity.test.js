@@ -1,5 +1,5 @@
+import { listenOnFixtureHttpPort } from "./fixtures/http-server.mjs";
 import assert from "node:assert/strict";
-import { once } from "node:events";
 import { createServer } from "node:http";
 import { readFileSync } from "node:fs";
 import { mkdir } from "node:fs/promises";
@@ -10,7 +10,7 @@ import { parseHTML } from "linkedom";
 import { startDashboard } from "./dashboard-fixture.mjs";
 import { createSettingsPages } from "../web/assets/controllers/settings-pages.js";
 import { readFixtureRequestBody } from "./http-request-body-fixture.mjs";
-import { protocolStream } from "./model-protocol-fixture.mjs";
+import { observeModelRequests, protocolStream } from "./model-protocol-fixture.mjs";
 import {
   PROJECT_DATA_ENGINES,
   startPostgresProjectDatabase,
@@ -28,7 +28,7 @@ import {
  * limit is asserted on both SQLite and PostgreSQL.
  */
 async function provider(t) {
-  const requests = [];
+  const { requests, record, waitForCount } = observeModelRequests(t.signal);
   const failures = [];
   const hold = { active: false, waiters: [] };
   const gate = () => (hold.active ? new Promise((resolve) => hold.waiters.push(resolve)) : Promise.resolve());
@@ -36,7 +36,7 @@ async function provider(t) {
     try {
       if (request.method === "GET") return response.end(JSON.stringify({ data: [{ id: "fixture-model" }] }));
       const body = JSON.parse(await readFixtureRequestBody(request));
-      requests.push(body);
+      record(body);
       await gate();
       if (response.destroyed) return;
       response.writeHead(200, { "content-type": "text/event-stream" });
@@ -46,15 +46,14 @@ async function provider(t) {
       response.destroy(error);
     }
   });
-  server.listen(0, "127.0.0.1");
-  await once(server, "listening");
+  const port = await listenOnFixtureHttpPort(server);
   t.after(async () => {
     server.closeAllConnections();
     await new Promise((done) => server.close(done));
   });
   return {
-    base: `http://127.0.0.1:${server.address().port}/v1`,
-    requests,
+    base: `http://127.0.0.1:${port}/v1`,
+    waitForCount,
     failures,
     hold() {
       hold.active = true;
@@ -259,20 +258,19 @@ for (const engine of PROJECT_DATA_ENGINES) {
       assert.match(reducedRunning.body.error, /正在运行 2 个外部常规 Main/);
       assert.deepEqual((await capacity(request)).body.settings, { resident: 2, continuation: 1 });
 
-      // Freeing one regular slot starts exactly the waiting demand, in order.
-      // The next demand's model work is held again so the slot it takes stays
-      // observable: a slot returns to the queue when its turn settles.
-      local.release();
-      local.hold();
+      // Hold all four in-flight model calls. Cancelling the other project's
+      // Main must admit the queued demand while the remaining slots stay busy.
+      await local.waitForCount(4);
       const cancelled = await cancel(request, other.body.session.taskId);
       assert.equal(cancelled.status, 200, JSON.stringify(cancelled.body));
       await waitFor(async () => {
         const view = await capacity(request);
-        return externalRegular(view.body).some((entry) => entry.taskId === second.body.session.taskId);
+        return (
+          externalRegular(view.body).some((entry) => entry.taskId === second.body.session.taskId) &&
+          view.body.queued.length === 0
+        );
       }, "the queued demand did not take the freed slot");
-      const advanced = await capacity(request);
-      assert.equal(advanced.body.queued.length, 0);
-      assert.ok(externalRegular(advanced.body).length >= 1);
+      await local.waitForCount(5);
       local.release();
 
       await settle(request, first.body.session.taskId, "completed");
@@ -363,10 +361,8 @@ test(
 
     // Watch the budget while work moves: regular never exceeds two, continuation
     // never exceeds its reserved one, and the queued demand is never a running one.
-    // The queued demand's own model work is held again so the slot it takes
-    // stays observable: a slot returns to the queue when its turn settles.
-    local.release();
-    local.hold();
+    // The two admitted Mains must reach the provider before one is cancelled.
+    await local.waitForCount(2);
     const cancelled = await cancel(request, sessions.one.taskId);
     assert.equal(cancelled.status, 200, JSON.stringify(cancelled.body));
     const observed = { regular: 0, continuation: 0 };
@@ -383,8 +379,9 @@ test(
         externalRegular(view.body).some((entry) => entry.taskId === sessions.two.taskId) &&
         view.body.queued.length === 0
       );
-    }, "the queued demand did not start after a completion and a cancellation");
+    }, "the queued demand did not take the cancelled Main's slot");
     assert.ok(observed.regular >= 1 && observed.regular <= 2, JSON.stringify(observed));
+    await local.waitForCount(3);
     local.release();
     await settle(request, sessions.two.taskId, "completed");
     await settle(request, sessions.three.taskId, "completed");
@@ -440,6 +437,7 @@ test("concurrent external session saves never exceed the project limit", { timeo
  */
 test("the runtime capacity page keeps edited quotas across a background refresh and saves them", async (t) => {
   const { window, document } = parseHTML(readFileSync("web/index.html", "utf8"));
+  let pages;
   const previous = {
     window: globalThis.window,
     document: globalThis.document,
@@ -453,6 +451,7 @@ test("the runtime capacity page keeps edited quotas across a background refresh 
     location: { origin: "http://127.0.0.1:3880", host: "127.0.0.1:3880" }
   });
   t.after(() => {
+    pages?.close({ restoreFocus: false });
     for (const [key, value] of Object.entries(previous)) {
       if (value === undefined) delete globalThis[key];
       else globalThis[key] = value;
@@ -462,6 +461,8 @@ test("the runtime capacity page keeps edited quotas across a background refresh 
   const sent = [];
   let reads = 0;
   const api = async (path, options) => {
+    if (path === "/api/node-resources") return undefined;
+    assert.equal(path, "/api/main-capacity");
     if (options?.body) {
       const body = JSON.parse(options.body);
       sent.push(body);
@@ -475,13 +476,13 @@ test("the runtime capacity page keeps edited quotas across a background refresh 
     reads += 1;
     return { settings: { resident: 2, continuation: 0 }, running: [], queued: [], projects: [] };
   };
-  const pages = createSettingsPages({
+  pages = createSettingsPages({
     root: document.querySelector("#settings-entry"),
     app: document.querySelector("#app-layout"),
     api,
     nodes: () => [{ origin: "https://cloud.example.test", name: "云端", role: "external" }]
   });
-  pages.open("capacity");
+  pages.open("nodes");
   for (let index = 0; index < 8; index++) await new Promise((done) => setTimeout(done, 0));
   const continuation = () => document.querySelector('[data-capacity-value="continuation"]');
   assert.equal(document.querySelector('[data-capacity-value="regular"]').textContent, "2");
@@ -490,7 +491,7 @@ test("the runtime capacity page keeps edited quotas across a background refresh 
   document.querySelector('[aria-label="增加接续 Main"]').click();
   assert.equal(continuation().textContent, "1");
   // A refresh reads the service again but keeps the number the person set.
-  pages.open("capacity");
+  pages.open("nodes");
   for (let index = 0; index < 8; index++) await new Promise((done) => setTimeout(done, 0));
   assert.equal(reads, 2);
   assert.equal(continuation().textContent, "1", "a background refresh must not overwrite the edited quota");

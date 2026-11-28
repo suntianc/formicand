@@ -1,3 +1,4 @@
+import { listenOnFixtureHttpPort } from "./fixtures/http-server.mjs";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { once } from "node:events";
@@ -50,13 +51,12 @@ async function searchFixture(t) {
     res.writeHead(200, { "content-type": "text/event-stream", "mcp-session-id": "pi-fixture" });
     res.end(`event: message\ndata: ${JSON.stringify({ jsonrpc: "2.0", id: body.id, result })}\n\n`);
   });
-  server.listen(0, "127.0.0.1");
-  await once(server, "listening");
+  const port = await listenOnFixtureHttpPort(server);
   t.after(async () => {
     server.closeAllConnections();
     await new Promise((done) => server.close(done));
   });
-  return { endpoint: `http://127.0.0.1:${server.address().port}/mcp`, calls };
+  return { endpoint: `http://127.0.0.1:${port}/mcp`, calls };
 }
 
 test(

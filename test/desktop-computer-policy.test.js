@@ -1,6 +1,7 @@
+import { assertPrivateFile } from "./fixtures/private-file.mjs";
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createRequire } from "node:module";
@@ -188,7 +189,7 @@ test("desktop CUA policy defaults off and persists only human policy across rest
     await store.save({ enabled: true, mode: "control" });
     const saved = JSON.parse(await readFile(join(root, "computer-policy.json"), "utf8"));
     assert.deepEqual(saved, { version: 1, policy: { enabled: true, mode: "control" } });
-    assert.equal((await stat(join(root, "computer-policy.json"))).mode & 0o777, 0o600);
+    await assertPrivateFile(join(root, "computer-policy.json"));
     assert.deepEqual(await createComputerPolicyStore(root).load(), { enabled: true, mode: "control" });
     await store.save({ enabled: false, mode: "observe" });
     assert.deepEqual(await createComputerPolicyStore(root).load(), { enabled: false, mode: "observe" });

@@ -86,32 +86,37 @@ test("a grant survives a round trip and records who made it", async (t) => {
   assert.equal(task.capabilities.reason, "优化数据合成 pipeline");
 });
 
+async function waitForJob(directory, jobId, ready) {
+  const deadline = Date.now() + 20_000;
+  do {
+    const status = await jobStatus({ directory, jobId });
+    if (ready(status)) return status;
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  } while (Date.now() < deadline);
+  throw new Error(`Timed out waiting for ${jobId}`);
+}
+
 test("a job reports progress, completion and its output", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "formicand-job-run-"));
   t.after(() => rm(root, { recursive: true, force: true }));
 
   const { jobId } = await startJob({
-    command: "echo first; sleep 0.4; echo second",
+    command: `"${process.execPath}" -e "console.log('first');setTimeout(() => console.log('second'), 400)"`,
     cwd: root,
     directory: join(root, "logs")
   });
   const early = await jobStatus({ directory: join(root, "logs"), jobId });
   assert.equal(early.state, "running", "a long job returns immediately instead of holding the agent");
 
-  await new Promise((resolve) => setTimeout(resolve, 900));
-  const done = await jobStatus({ directory: join(root, "logs"), jobId });
+  const done = await waitForJob(join(root, "logs"), jobId, (status) => status.exitCode !== undefined);
   assert.equal(done.state, "exited");
   assert.equal(done.exitCode, 0);
   assert.match(done.tail, /first/);
   assert.match(done.tail, /second/);
-  // elapsedMs must come from the job's own start/finish stamps rather than from
-  // however long the caller happened to wait. A `sleep 0.4` job measures ~410ms
-  // here, so the floor only has to rule out zero and the 900ms poll above; a
-  // tighter bound would be comparing wall clocks with single-digit margin.
-  assert.ok(
-    done.elapsedMs >= 350 && done.elapsedMs < 900,
-    `elapsedMs should reflect the job's own runtime, got ${done.elapsedMs}`
-  );
+  assert.ok(done.elapsedMs >= 350, `elapsedMs should include the job's own delay, got ${done.elapsedMs}`);
+  // A later query must use the recorded finish time even while wall time advances.
+  await new Promise((resolve) => setTimeout(resolve, 150));
+  assert.equal((await jobStatus({ directory: join(root, "logs"), jobId })).elapsedMs, done.elapsedMs);
   // The log is on disk, so a restarted agent can still read what happened.
   assert.match(await readFile(done.logPath, "utf8"), /second/);
 });
@@ -123,12 +128,15 @@ test("quiet time is reported so the model can judge a wedged job", async (t) => 
   // A job that printed once and then went silent: exactly the case a fixed
   // deadline cannot distinguish from healthy slow work.
   const { jobId } = await startJob({
-    command: "echo started; sleep 30",
+    command: `"${process.execPath}" -e "console.log('started');setTimeout(() => {}, 30000)"`,
     cwd: root,
     directory: join(root, "logs")
   });
-  await new Promise((resolve) => setTimeout(resolve, 700));
-  const status = await jobStatus({ directory: join(root, "logs"), jobId });
+  const status = await waitForJob(
+    join(root, "logs"),
+    jobId,
+    (s) => s.tail.includes("started") && s.quietMs >= 300
+  );
   assert.equal(status.state, "running");
   assert.match(status.tail, /started/);
   assert.ok(status.quietMs >= 300, `quiet time is evidence for the judgment, got ${status.quietMs}`);
@@ -145,12 +153,11 @@ test("killing a job takes its children with it", async (t) => {
   // The work worth killing is usually a child of the shell, so the signal has
   // to reach the whole group rather than the shell alone.
   const { jobId } = await startJob({
-    command: "sleep 45 & echo child=$!; wait",
+    command: `"${process.execPath}" -e "console.log('child=' + process.pid);setTimeout(() => {}, 45000)"`,
     cwd: root,
     directory: join(root, "logs")
   });
-  await new Promise((resolve) => setTimeout(resolve, 400));
-  const before = await jobStatus({ directory: join(root, "logs"), jobId });
+  const before = await waitForJob(join(root, "logs"), jobId, (s) => /child=\d+/.test(s.tail));
   const pid = Number(/child=(\d+)/.exec(before.tail)?.[1]);
   assert.ok(Number.isFinite(pid), `expected a child pid, got ${before.tail}`);
 
@@ -183,11 +190,14 @@ test("a job survives the process that started it, and is found again by a later 
 
   // A three-hour training run outlives the Agent that launched it, so the
   // record has to be on disk rather than in that process's memory.
-  const { jobId } = await startJob({ command: "echo working; sleep 20", cwd: root, directory });
-  await new Promise((resolve) => setTimeout(resolve, 300));
+  const { jobId } = await startJob({
+    command: `"${process.execPath}" -e "console.log('working');setTimeout(() => {}, 20000)"`,
+    cwd: root,
+    directory
+  });
 
   // A fresh caller with no in-memory state — what a restarted Agent looks like.
-  const seen = await jobStatus({ directory, jobId });
+  const seen = await waitForJob(directory, jobId, (s) => s.tail.includes("working"));
   assert.equal(seen.state, "running", "a restarted Agent must still find a job that is still running");
   assert.match(seen.tail, /working/);
 
@@ -205,7 +215,7 @@ test("a job that ended unobserved is reported as ended, not as running", async (
   t.after(() => rm(root, { recursive: true, force: true }));
   const directory = join(root, "logs");
   const { jobId } = await startJob({ command: "echo quick", cwd: root, directory });
-  await new Promise((resolve) => setTimeout(resolve, 400));
+  await waitForJob(directory, jobId, (s) => s.exitCode !== undefined);
 
   // Simulate the record as a crashed launcher would leave it: started, never
   // updated with an exit. Liveness comes from the pid, so the truth still wins.

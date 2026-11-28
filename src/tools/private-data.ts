@@ -1,3 +1,4 @@
+import { containsFilePath } from "./file-path.js";
 import { homedir } from "node:os";
 import { isAbsolute, join, relative, resolve, sep } from "node:path";
 import { formicandHome } from "../../scripts/data-home.cjs";
@@ -73,6 +74,9 @@ function spellings(
   userHome: string
 ): Array<{ prefix: string; expand: (rest: string) => string }> {
   const forms = [{ prefix: home, expand: (rest: string) => home + rest }];
+  // On the current drive Windows also accepts a rooted path without its drive letter.
+  if (sep === "\\" && /^[A-Z]:/i.test(home) && resolve(home.slice(2)) === home)
+    forms.push({ prefix: home.slice(2), expand: (rest: string) => home + rest });
   const inside = relative(userHome, home);
   if (inside && !inside.startsWith("..") && !isAbsolute(inside)) {
     const tail = inside.split(sep).join("/");
@@ -85,7 +89,7 @@ function spellings(
 function reachable(home: string, target: string): boolean {
   return WORKING_DIRECTORIES.some((entry) => {
     const allowed = join(home, entry);
-    return target === allowed || target.startsWith(allowed + sep);
+    return containsFilePath(allowed, target);
   });
 }
 
@@ -99,7 +103,8 @@ export function privateDataRefusal(
   for (const { spelled, target } of namedPaths(input, root, userHome))
     if (!reachable(root, target)) return refusal(spelled);
   for (const text of strings(input))
-    for (const name of PRIVATE_NAMES) if (text.includes(name)) return refusal(name);
+    for (const name of PRIVATE_NAMES)
+      if ((sep === "\\" ? text.toLowerCase() : text).includes(name)) return refusal(name);
   return undefined;
 }
 
@@ -112,7 +117,11 @@ function* namedPaths(
   const forms = spellings(root, userHome);
   for (const text of strings(input))
     for (const { prefix, expand } of forms) {
-      const pattern = new RegExp(`${escape(prefix)}(?=$|[/\\s'"\`;|&<>()])(${PATH_TAIL})`, "g");
+      const windows = sep === "\\";
+      const base = windows ? prefix.split(/[\\/]/).map(escape).join("[\\\\/]") : escape(prefix);
+      const boundary = windows ? String.raw`[\\/\s'"\`;|&<>()]` : String.raw`[/\s'"\`;|&<>()]`;
+      const start = windows && /^[\\/]/.test(prefix) ? "(?<![\\w:/\\\\.-])" : "";
+      const pattern = new RegExp(`${start}${base}(?=$|${boundary})(${PATH_TAIL})`, windows ? "gi" : "g");
       for (const match of text.matchAll(pattern))
         yield { spelled: match[0], target: resolve(expand(match[1])) };
     }
@@ -154,10 +163,9 @@ export function installRefusal(
 ): PrivateDataRefusal | undefined {
   const root = resolve(installRoot);
   const project = resolve(projectDirectory);
-  const within = (target: string, parent: string) => target === parent || target.startsWith(parent + sep);
-  if (within(project, root) || within(root, project)) return undefined;
+  if (containsFilePath(root, project) || containsFilePath(project, root)) return undefined;
   for (const { spelled, target } of namedPaths(input, root, userHome))
-    if (!INSTALL_READABLE.some((entry) => within(target, join(root, entry))))
+    if (!INSTALL_READABLE.some((entry) => containsFilePath(join(root, entry), target)))
       return { path: spelled, pattern: "Formicand install", reason: installReason(spelled) };
   return undefined;
 }

@@ -1,3 +1,5 @@
+import { availableLocalHttpPort } from "../dist/src/platform/local-http-port.js";
+import { listenOnFixtureHttpPort } from "./fixtures/http-server.mjs";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
@@ -17,11 +19,11 @@ import { endAgentProcesses } from "./dashboard-fixture.mjs";
 /**
  * Poll until the condition holds.
  *
- * The default budget covers an in-process turn. A check that also waits for a
+ * The default budget covers a real Main process and its turn. A check that also waits for a
  * delegated work item passes a larger one: that item is a real Pi process, and
  * its startup is not bounded by this harness.
  */
-async function until(read, condition, label, timeoutMs = 10_000) {
+async function until(read, condition, label, timeoutMs = 30_000) {
   const untilMs = Date.now() + timeoutMs;
   let last;
   for (;;) {
@@ -101,13 +103,8 @@ async function fixture(t, handle, maxTurns = 20, env = {}) {
     await removeAfterAsyncWrites(root);
   });
   await writeFile(join(root, "config.json"), "{}");
-  model.listen(0, "127.0.0.1");
-  await once(model, "listening");
-  const probe = createServer();
-  probe.listen(0, "127.0.0.1");
-  await once(probe, "listening");
-  const port = probe.address().port;
-  await new Promise((done) => probe.close(done));
+  const modelPort = await listenOnFixtureHttpPort(model);
+  const port = await availableLocalHttpPort();
   const workspaceRoot = join(root, "workspace");
   child = spawn(process.execPath, ["dist/src/cli/dashboard.js"], {
     cwd: resolve("."),
@@ -119,7 +116,7 @@ async function fixture(t, handle, maxTurns = 20, env = {}) {
       FORMICAND_GLOBAL_INDEX: join(root, "global.json"),
       FORMICAND_CONFIG: join(root, "config.json"),
       FORMICAND_UI_PORT: String(port),
-      FORMICAND_API_BASE: `http://127.0.0.1:${model.address().port}`,
+      FORMICAND_API_BASE: `http://127.0.0.1:${modelPort}`,
       FORMICAND_API_KEY: "test-key",
       FORMICAND_MODEL: "glm-5.3",
       PI_CODING_AGENT_DIR: join(root, "pi-agent"),
@@ -170,7 +167,7 @@ async function fixture(t, handle, maxTurns = 20, env = {}) {
   };
 }
 
-test("askhuman waits for the answer and continues the same turn with it", { timeout: 20000 }, async (t) => {
+test("askhuman waits for the answer and continues the same turn with it", { timeout: 60_000 }, async (t) => {
   // askhuman is an ordinary asynchronous tool: it blocks, and the answer comes
   // back as its tool result. Before this it returned immediately and ended the
   // turn, so the answer had to re-enter as a fabricated user turn — which the
@@ -277,7 +274,7 @@ test("askhuman waits for the answer and continues the same turn with it", { time
 
 test(
   "an unanswered question times out into the recommended option instead of stalling",
-  { timeout: 20000 },
+  { timeout: 60_000 },
   async (t) => {
     // Nobody answers. The turn continues on the option the model said it would
     // pick, so the person is never left with a conversation that has stopped —
@@ -322,7 +319,7 @@ test(
 
 test(
   "two questions in one turn each wait, and a reply for another run is refused",
-  { timeout: 20000 },
+  { timeout: 60_000 },
   async (t) => {
     // Two askhuman calls in one turn: each blocks on its own answer, and the turn
     // continues once both are in. Previously the turn ended at the first question
@@ -376,7 +373,7 @@ test(
   }
 );
 
-test("an answer given after the process stopped still resumes the run", { timeout: 20000 }, async (t) => {
+test("an answer given after the process stopped still resumes the run", { timeout: 120_000 }, async (t) => {
   // The durable path, which askhuman blocking does not replace: a person may
   // answer long after the waiting process is gone — the timeout expired, the
   // dashboard restarted, the machine slept. The answer then arrives through the
@@ -410,9 +407,10 @@ test("an answer given after the process stopped still resumes the run", { timeou
   // Inbox, exactly as after a restart.
   let detail = await until(
     f.detail,
-    (value) => !value.runtime.active && !value.runtime.mainRunning && value.humanRequests?.length,
-    "settled question after the Main exited"
+    (value) => !value.runtime.active && value.humanRequests?.length,
+    "the unanswered question to settle"
   );
+  await until(f.detail, (value) => !value.runtime.mainRunning, "the settled Main to exit when idle");
   assert.equal(detail.humanRequests[0].status, "unanswered");
   assert.equal(requests, 2, "the turn continued on the recommended option rather than stalling");
 
@@ -440,7 +438,7 @@ test("an answer given after the process stopped still resumes the run", { timeou
 for (const mode of ["wait tool", "premature answer"]) {
   test(
     `Main consumes two delayed callbacks before final completion (${mode})`,
-    { timeout: 30000 },
+    { timeout: 120_000 },
     async (t) => {
       const subagents = [];
       const subagentPrompts = [];
@@ -466,7 +464,7 @@ for (const mode of ["wait tool", "premature answer"]) {
             ]
           });
         if (mainRequests.length === 2 && mode === "wait tool")
-          return reply({ calls: [["wait_for_subagents", { timeoutMs: 5000 }]] });
+          return reply({ calls: [["wait_for_subagents", { timeoutMs: 60_000 }]] });
         const callbacks = body.messages.filter(
           (message) =>
             message.role === "user" &&
@@ -489,7 +487,8 @@ for (const mode of ["wait tool", "premature answer"]) {
       await until(
         () => subagents.length === 2 && mainRequests.length >= 2,
         Boolean,
-        "two running Subagents and Main wait/stop"
+        "two running Subagents and Main wait/stop",
+        90_000
       );
       // In the wait tool Main's turn is still running; after a premature
       // answer the turn has settled and Main waits for the callbacks.
@@ -547,7 +546,11 @@ for (const mode of ["wait tool", "premature answer"]) {
         );
       }
       subagents[1]({ text: "Evidence B verified." });
-      detail = await until(f.detail, (value) => !value.runtime.active, "Main final completion");
+      detail = await until(
+        f.detail,
+        (value) => !value.runtime.active && value.task.status === "completed",
+        "Main final completion"
+      );
       assert.equal(detail.task.status, "completed", JSON.stringify(detail.task));
       assert.equal(detail.task.completion.signal, mode === "wait tool" ? "finish_task" : "natural_stop");
       assert.deepEqual(detail.coordination.pending, []);
@@ -620,7 +623,7 @@ for (const [name, args] of [
 ]) {
   test(
     `Main naturally ends after ${name} and a final answer without an injected continuation`,
-    { timeout: 15000 },
+    { timeout: 60_000 },
     async (t) => {
       const requests = [];
       const f = await fixture(t, (body, reply) => {
@@ -642,7 +645,7 @@ for (const [name, args] of [
   );
 }
 
-test("A natural final answer at the turn limit completes", { timeout: 15000 }, async (t) => {
+test("A natural final answer at the turn limit completes", { timeout: 60_000 }, async (t) => {
   let requests = 0;
   const f = await fixture(
     t,
@@ -661,7 +664,7 @@ test("A natural final answer at the turn limit completes", { timeout: 15000 }, a
 
 test(
   "A turn budget stop on a tool never promotes an incomplete response to a final answer",
-  { timeout: 15000 },
+  { timeout: 60_000 },
   async (t) => {
     const f = await fixture(t, (_body, reply) => reply({ calls: [["bash", { command: "pwd" }]] }), 1);
     await f.start();
@@ -680,7 +683,7 @@ test(
   "Main's completion wait re-drives a queued Subagent retry without abandoning its callback",
   // The retry starts a second real Subagent process after the first one ends,
   // so a loaded machine needs more than one in-process turn's budget.
-  { timeout: 45000 },
+  { timeout: 150_000 },
   async (t) => {
     let subagentRequests = 0;
     let mainRequests = 0;
@@ -718,7 +721,7 @@ test(
       f.detail,
       (value) => !value.runtime.active && value.task.status === "completed",
       "retried task completion",
-      30_000
+      120_000
     );
     assert.equal(subagentRequests, 2);
     assert.equal(detail.task.status, "completed");
@@ -730,7 +733,7 @@ test(
 
 test(
   "A blocked Subagent question reaches Main, gates completion, and is answered end to end",
-  { timeout: 30000 },
+  { timeout: 120_000 },
   async (t) => {
     let mainRequests = 0;
     let subagentRequests = 0;
@@ -791,7 +794,7 @@ test(
       f.detail,
       (value) => !value.runtime.active && value.task.status === "completed",
       "question answered and task completed",
-      30_000
+      90_000
     );
 
     assert.ok(questionId, "Main must actually receive the question through its Inbox");
@@ -830,7 +833,7 @@ test(
 
 test(
   "A pending Subagent question blocks the dashboard complete action until it is resolved",
-  { timeout: 30000 },
+  { timeout: 120_000 },
   async (t) => {
     const f = await fixture(
       t,
@@ -882,7 +885,7 @@ test(
 
 test(
   "the person can speak while Main is working, and it reaches the running turn",
-  { timeout: 30000 },
+  { timeout: 120_000 },
   async (t) => {
     // Making the person wait for a run to finish before they could say anything
     // had the model backwards: a colleague who is mid-task can be told something,

@@ -6,7 +6,7 @@ import { pathToFileURL } from "node:url";
 import { Type } from "typebox";
 
 const requirePi = createRequire(import.meta.resolve("@earendil-works/pi-coding-agent"));
-const { createJiti } = await import(requirePi.resolve("jiti"));
+const { createJiti } = requirePi("jiti");
 const path = resolve(".pi/runtime/tools/cua-dispatch.ts");
 const { createCuaDispatcher } = await createJiti(pathToFileURL(path).href).import(path);
 

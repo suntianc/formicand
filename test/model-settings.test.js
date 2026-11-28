@@ -1,6 +1,7 @@
+import { assertPrivateFile } from "./fixtures/private-file.mjs";
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, stat, writeFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createModelSettings } from "../dist/src/dashboard/model-settings.js";
@@ -56,7 +57,7 @@ test("providers keep keys on the host, validate input and refuse changes during 
   const file = await readFile(f.path, "utf8");
   assert.equal(file.includes(key), false);
   assert.equal(JSON.parse(file).workspaceRoot, "/preserve", "other settings survive");
-  assert.equal((await stat(f.path)).mode & 0o777, 0o600);
+  await assertPrivateFile(f.path);
   assert.equal(JSON.parse(await readFile(f.credentials, "utf8")).modelProviders[provider.id], key);
 
   // An empty key keeps the saved one; other fields change.

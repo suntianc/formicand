@@ -1,3 +1,5 @@
+import { listenOnFixtureHttpPort } from "./fixtures/http-server.mjs";
+import { deferCleanup } from "./fixtures/cleanup.mjs";
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
 import { createServer } from "node:http";
@@ -48,6 +50,7 @@ async function makeRepository(directory) {
   await git(directory, ["init", "-b", "main"]);
   await git(directory, ["config", "user.email", "fixture@example.test"]);
   await git(directory, ["config", "user.name", "Fixture"]);
+  await git(directory, ["config", "core.autocrlf", "false"]);
   // The document registry every requirement merge checks.
   await writeFile(
     join(directory, "AGENTS.md"),
@@ -168,11 +171,9 @@ async function startPartitionProxy(target) {
     });
     response.end(result);
   });
-  await new Promise((done) => server.listen(0, "127.0.0.1", done));
-  const address = server.address();
-  assert.ok(address && typeof address === "object");
+  const port = await listenOnFixtureHttpPort(server);
   return {
-    url: `http://127.0.0.1:${address.port}`,
+    url: `http://127.0.0.1:${port}`,
     setFailing(value) {
       failing = value;
     },
@@ -235,7 +236,7 @@ for (const engine of PROJECT_DATA_ENGINES) {
       const instance = await readBackendInstance(backendPaths(join(dashboard.root, "home")));
       assert.ok(instance.value?.token && instance.value.backendId);
       const authority = await openAuthority(engine, dashboard);
-      t.after(() => authority.close());
+      deferCleanup(t, () => authority.close());
       const request = client(dashboard);
       const service = serviceFor({
         gateway: authority.gateway,
@@ -488,14 +489,14 @@ for (const engine of PROJECT_DATA_ENGINES) {
       const instance = await readBackendInstance(backendPaths(join(dashboard.root, "home")));
       const request = client(dashboard);
       const authority = await openAuthority(engine, dashboard);
-      t.after(() => authority.close());
+      deferCleanup(t, () => authority.close());
       const remote = await RemoteProjectDataService.open({
         url: dashboard.base,
         token: instance.value.token,
         backendId: "backend_delivery",
         source: "p4-delivery-records-test"
       });
-      t.after(() => remote.close());
+      deferCleanup(t, () => remote.close());
 
       // A real network partition at the client boundary: while down, every
       // business call behaves as an unreachable shared service.
@@ -687,7 +688,7 @@ test(
     const project = created.body.project;
     const instance = await readBackendInstance(backendPaths(join(dashboard.root, "home")));
     const authority = await openAuthority("sqlite", dashboard);
-    t.after(() => authority.close());
+    deferCleanup(t, () => authority.close());
     const request = client(dashboard);
     const info = (await request("/api/project-data", undefined, "GET")).body;
 
@@ -869,14 +870,14 @@ test(
       snapshot.readAt
     );
     const observer = await SqliteDatabase.open(info.target);
-    t.after(() => observer.close());
+    deferCleanup(t, () => observer.close());
     const remote = await RemoteProjectDataService.open({
       url: dashboard.base,
       token: instance.value.token,
       backendId: instance.value.backendId,
       source: "observe-delivery-count"
     });
-    t.after(() => remote.close());
+    deferCleanup(t, () => remote.close());
     const beforeNext = await observer.query("PRAGMA data_version");
     const nextResponse = await fetch(`${dashboard.base}/api/projects/${project.projectId}/developments`, {
       method: "POST",
@@ -919,7 +920,7 @@ test(
 
 test("a failed merge record keeps its published receipt when Git cannot verify the target", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "formicand-delivery-git-"));
-  t.after(() => rm(root, { recursive: true, force: true }));
+  deferCleanup(t, () => rm(root, { recursive: true, force: true }));
   const repository = await makeRepository(join(root, "repo"));
   await git(repository, ["config", "gc.auto", "0"]);
   const project = {
@@ -933,7 +934,7 @@ test("a failed merge record keeps its published receipt when Git cannot verify t
     dataRoot: root,
     env: {}
   });
-  t.after(() => runtime.close());
+  deferCleanup(t, () => runtime.close());
   const gateway = await runtime.service();
   const partitioned = Object.create(gateway);
   partitioned.updateMerge = (projectId, mergeId, patch) => {
@@ -1021,7 +1022,7 @@ test(
   { timeout: 180_000 },
   async (t) => {
     const authority = await startDashboard({ defaultProject: false });
-    t.after(() => authority.stop());
+    deferCleanup(t, () => authority.stop());
     const request = client(authority);
     const repository = await makeRepository(join(authority.root, "repository"));
     const created = await request("/api/projects", {
@@ -1038,7 +1039,7 @@ test(
       dataRoot: authority.root,
       env: {}
     });
-    t.after(() => runtime.close());
+    deferCleanup(t, () => runtime.close());
     const gateway = await runtime.service();
     const proxy = await startPartitionProxy(authority.base);
     const execution = await startDashboard({
@@ -1049,7 +1050,7 @@ test(
       env: { FORMICAND_DELIVERY_SYNC_TICK_MS: "50" }
     });
     let stopped = false;
-    t.after(async () => {
+    deferCleanup(t, async () => {
       if (!stopped) await execution.stop();
       await proxy.close();
     });
@@ -1060,7 +1061,7 @@ test(
       backendId: executionInstance.backendId,
       source: "p4-delivery-recovery-test"
     });
-    t.after(() => remote.close());
+    deferCleanup(t, () => remote.close());
     const service = createProjectDevelopmentService({
       runtime: { service: async () => remote },
       backendId: executionInstance.backendId,
@@ -1204,7 +1205,7 @@ test(
       taskProject: async () => undefined
     });
     restarted.startDeliveryRecovery(50);
-    t.after(() => restarted.stopDeliveryRecovery());
+    deferCleanup(t, () => restarted.stopDeliveryRecovery());
     await delay(300);
     assert.equal(
       (await gateway.queryMerges(project.projectId)).find(

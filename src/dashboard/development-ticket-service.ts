@@ -154,7 +154,13 @@ export function createDevelopmentTicketService({
    */
   function ticketChangedPaths(directory: string, integration: string, candidate: string) {
     // A rename changes both paths. Ask Git for the deletion and addition separately.
-    return gitPaths(directory, ["diff", "--name-only", "--no-renames", `${integration}...${candidate}`]);
+    return gitPaths(directory, [
+      "diff",
+      "--name-only",
+      "--no-renames",
+      `${integration}...${candidate}`,
+      "--"
+    ]);
   }
 
   /**

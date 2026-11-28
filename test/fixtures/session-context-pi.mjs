@@ -1,3 +1,4 @@
+import { listenOnFixtureHttpPort } from "./http-server.mjs";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
@@ -87,7 +88,8 @@ export async function sessionContextFixture(
   t.after(async () => {
     if (child && child.exitCode === null && child.signalCode === null) {
       try {
-        process.kill(-child.pid, "SIGKILL");
+        if (process.platform === "win32") child.kill();
+        else process.kill(-child.pid, "SIGKILL");
       } catch (error) {
         if (error.code !== "ESRCH") throw error;
       }
@@ -97,8 +99,7 @@ export async function sessionContextFixture(
     await new Promise((done) => server.close(done));
     await rm(root, { recursive: true, force: true });
   });
-  server.listen(0, "127.0.0.1");
-  await once(server, "listening");
+  const port = await listenOnFixtureHttpPort(server);
   await mkdir(project);
   await mkdir(join(root, "pi"));
   await writeFile(join(root, "config.json"), JSON.stringify({ contextWindow, ...config }));
@@ -126,7 +127,7 @@ export async function sessionContextFixture(
     FORMICAND_TASK_ID: taskId,
     FORMICAND_RUN_ID: runId,
     FORMICAND_GLOBAL_INDEX: join(root, "workspaces.json"),
-    FORMICAND_API_BASE: `http://127.0.0.1:${server.address().port}/v1`,
+    FORMICAND_API_BASE: `http://127.0.0.1:${port}/v1`,
     FORMICAND_API_KEY: "session-context-fixture",
     FORMICAND_MODEL: "protocol-fixture",
     FORMICAND_MODEL_API: api,
@@ -157,12 +158,17 @@ export async function sessionContextFixture(
         "--session-dir",
         sessions,
         ...(resume ? ["--session", await sessionFile()] : []),
-        ...args,
-        prompt
+        ...args
       ],
-      { env: { ...env, ...launchEnv }, detached: true, stdio: ["ignore", "pipe", "pipe"] }
+      {
+        env: { ...env, ...launchEnv },
+        detached: process.platform !== "win32",
+        windowsHide: true,
+        stdio: ["pipe", "pipe", "pipe"]
+      }
     );
     childExit = once(child, "exit");
+    child.stdin.end(prompt);
     let output = "";
     for (const stream of [child.stdout, child.stderr])
       stream.setEncoding("utf8").on("data", (chunk) => {

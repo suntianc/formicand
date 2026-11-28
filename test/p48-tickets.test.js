@@ -1,3 +1,4 @@
+import { deferCleanup } from "./fixtures/cleanup.mjs";
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
@@ -319,10 +320,10 @@ test(
   { timeout: 120_000 },
   async (t) => {
     const root = await mkdtemp(join(tmpdir(), "formicand-p48-tickets-"));
-    t.after(() => rm(root, { recursive: true, force: true }));
+    deferCleanup(t, () => rm(root, { recursive: true, force: true }));
     const directory = await repository(root);
     const dashboard = await startDashboard({ defaultProject: false });
-    t.after(() => dashboard.stop());
+    deferCleanup(t, () => dashboard.stop());
     const { projectId, requirementId, taskId } = await project(dashboard, directory, "票项目");
     const tool = createProjectDevelopmentTool({
       dashboardUrl: dashboard.base,
@@ -427,14 +428,14 @@ test(
 
 test("a second backend writes tickets through the authority it reads", { timeout: 120_000 }, async (t) => {
   const root = await mkdtemp(join(tmpdir(), "formicand-p48-tickets-remote-"));
-  t.after(() => rm(root, { recursive: true, force: true }));
+  deferCleanup(t, () => rm(root, { recursive: true, force: true }));
   const authority = await startDashboard({ defaultProject: false });
-  t.after(() => authority.stop());
+  deferCleanup(t, () => authority.stop());
   const secondary = await startDashboard({
     defaultProject: false,
     config: { projectData: { authority: { url: authority.base, token: await servingToken(authority.root) } } }
   });
-  t.after(() => secondary.stop());
+  deferCleanup(t, () => secondary.stop());
   const directory = await repository(root);
   const { projectId, requirementId, taskId } = await project(secondary, directory, "远程票项目");
   const tool = createProjectDevelopmentTool({
@@ -484,7 +485,7 @@ for (const late of [false, true])
     { timeout: 120_000 },
     async (t) => {
       const root = await mkdtemp(join(tmpdir(), "formicand-p48-tickets-main-"));
-      t.after(() => rm(root, { recursive: true, force: true }));
+      deferCleanup(t, () => rm(root, { recursive: true, force: true }));
       const directory = await repository(root);
       let developmentId = "";
       let requirementId = "";
@@ -518,7 +519,7 @@ for (const late of [false, true])
         }
         return { text: "票已确认。" };
       });
-      t.after(() => provider.close());
+      deferCleanup(t, () => provider.close());
       const dashboard = await startDashboard({
         defaultProject: false,
         modelEndpoint: provider.baseUrl,
@@ -529,7 +530,7 @@ for (const late of [false, true])
           ...(late ? { FORMICAND_HUMAN_ANSWER_TIMEOUT_MS: "150" } : {})
         }
       });
-      t.after(() => dashboard.stop());
+      deferCleanup(t, () => dashboard.stop());
       const setup = await project(dashboard, directory, "Main 票项目");
       requirementId = setup.requirementId;
       await setup.post(`/api/tasks/${setup.taskId}/run`, { prompt: "修分页" });
@@ -724,7 +725,7 @@ test(
   { timeout: 120_000 },
   async (t) => {
     const root = await mkdtemp(join(tmpdir(), "formicand-p48-tickets-replaced-"));
-    t.after(() => rm(root, { recursive: true, force: true }));
+    deferCleanup(t, () => rm(root, { recursive: true, force: true }));
     const directory = await repository(root);
     let developmentId = "";
     let requirementId = "";
@@ -763,7 +764,7 @@ test(
       }
       return { text: "等用户确认。" };
     });
-    t.after(() => provider.close());
+    deferCleanup(t, () => provider.close());
     const dashboard = await startDashboard({
       defaultProject: false,
       modelEndpoint: provider.baseUrl,
@@ -774,7 +775,7 @@ test(
         FORMICAND_HUMAN_ANSWER_TIMEOUT_MS: "150"
       }
     });
-    t.after(() => dashboard.stop());
+    deferCleanup(t, () => dashboard.stop());
     const setup = await project(dashboard, directory, "Main 票项目");
     requirementId = setup.requirementId;
     await setup.post(`/api/tasks/${setup.taskId}/run`, { prompt: "修分页" });

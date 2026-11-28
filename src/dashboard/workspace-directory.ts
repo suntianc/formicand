@@ -1,3 +1,4 @@
+import { mkdir } from "node:fs/promises";
 import { recoverMessageEditTransaction } from "../runtime/main-message-edit-transaction.js";
 import { readTaskActivity, type TaskActivityMetrics } from "../runtime/activity-metrics.js";
 import { HumanRequestStore } from "../runtime/human.js";
@@ -352,7 +353,11 @@ export function createWorkspaceDirectory(
       const project = (await projectCatalog.list()).find((entry) => entry.projectId === projectId);
       return project ? { ...project, projectCatalogPath: projectCatalog.filePath } : null;
     },
-    register: (root: string) => globalCatalog.register(root),
+    async register(root: string) {
+      // A fresh data home has no task directory until its first session.
+      if (root === workspaceRoot) await mkdir(root, { recursive: true });
+      await globalCatalog.register(root);
+    },
     locateTask,
     taskListItem,
     globalTaskPayload,

@@ -1,9 +1,10 @@
+import { assertPrivateFile } from "./fixtures/private-file.mjs";
 import { readFixtureRequestBody } from "./http-request-body-fixture.mjs";
 import { parseModelRequestArchive } from "../dist/src/storage/model-request-recorder.js";
 import assert from "node:assert/strict";
 import { getCurrentTools } from "@earendil-works/pi-ai";
-import { once } from "node:events";
-import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
+import { listenOnFixtureHttpPort } from "./fixtures/http-server.mjs";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { join } from "node:path";
 import { test } from "node:test";
@@ -27,10 +28,9 @@ async function fixture(t, api, handle) {
     received.push({ raw, path: request.url, body: JSON.parse(raw), snapshot });
     await handle({ response, received, dashboard });
   });
-  provider.listen(0, "127.0.0.1");
-  await once(provider, "listening");
+  const modelPort = await listenOnFixtureHttpPort(provider);
   dashboard = await startDashboard({
-    modelEndpoint: `http://127.0.0.1:${provider.address().port}`,
+    modelEndpoint: `http://127.0.0.1:${modelPort}`,
     model: "original-model",
     supportsImages: true
   });
@@ -49,11 +49,17 @@ async function fixture(t, api, handle) {
     const response = await fetch(`${dashboard.base}/api/tasks/retry-task/run`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify(body)
+      body: JSON.stringify(body),
+      signal: t.signal
     });
     return { status: response.status, payload: await response.json() };
   };
-  const detail = async () => (await fetch(`${dashboard.base}/api/tasks/retry-task`)).json();
+  const detail = async () => {
+    const response = await fetch(`${dashboard.base}/api/tasks/retry-task`, { signal: t.signal });
+    const value = await response.json();
+    assert.equal(response.status, 200, JSON.stringify(value));
+    return value;
+  };
   const settle = async (status) => {
     for (let attempt = 0; attempt < 600; attempt++) {
       const value = await detail();
@@ -61,7 +67,7 @@ async function fixture(t, api, handle) {
         assert.equal(value.task.status, status, JSON.stringify(value.task));
         return value;
       }
-      await delay(50);
+      await delay(50, undefined, { signal: t.signal });
     }
     assert.fail("The real Main process did not settle");
   };
@@ -130,7 +136,8 @@ function assertPublicRetryDetail(detail, request) {
 for (const api of ["openai-completions", "openai-responses"]) {
   test(
     `${api}: greeting retries preserve raw body, model, attachments and parameters across repeated failure/restart`,
-    { timeout: 60_000 },
+    // Three real Main launches and two backend restarts run sequentially.
+    { timeout: 150_000 },
     async (t) => {
       const f = await fixture(t, api, ({ response, received }) =>
         received.length < 3 ? reject(response) : answer(response, api, { text: "你好！原请求已恢复。" })
@@ -146,10 +153,7 @@ for (const api of ["openai-completions", "openai-responses"]) {
       let failed = await f.settle("failed");
       assert.equal(failed.messages.filter((message) => message.role === "user").length, 1);
       assert.ok(failed.retryRequest.requestId);
-      assert.equal(
-        (await stat(mainRequestPath(f.dashboard.workspaceRoot, "retry-task"))).mode & 0o777,
-        0o600
-      );
+      await assertPrivateFile(mainRequestPath(f.dashboard.workspaceRoot, "retry-task"));
       assertPublicRetryDetail(failed, f.received[0]);
       // Regeneration would change both the protocol and output limit. A selected
       // model and an edited resource must not affect the archived failed request.

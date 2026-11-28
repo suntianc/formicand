@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
-import { once } from "node:events";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, open, readFile, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { randomUUID } from "node:crypto";
 import { test } from "node:test";
 import { startDashboard } from "./dashboard-fixture.mjs";
+import { listenOnLocalHttpPort } from "../dist/src/platform/local-http-port.js";
 import { protocolStream } from "./model-protocol-fixture.mjs";
 import {
   MainRequestStore,
@@ -18,7 +18,7 @@ import { HumanRequestStore } from "../dist/src/runtime/human.js";
 async function fixture(t, api, handle, env = {}) {
   const requests = [];
   const provider = createServer(async (request, response) => {
-    if (request.method === "GET") {
+    if (request.method !== "POST") {
       response.writeHead(200, { "content-type": "application/json" });
       return response.end(JSON.stringify({ data: [{ id: "edit-fixture" }] }));
     }
@@ -33,10 +33,18 @@ async function fixture(t, api, handle, env = {}) {
     response.writeHead(200, { "content-type": "text/event-stream" });
     response.end(protocolStream(api, reply));
   });
-  provider.listen(0, "127.0.0.1");
-  await once(provider, "listening");
-  const dashboard = await startDashboard({
-    modelEndpoint: `http://127.0.0.1:${provider.address().port}`,
+  const modelPort = await listenOnLocalHttpPort(provider);
+  let dashboard;
+  t.after(async () => {
+    try {
+      await dashboard?.stop();
+    } finally {
+      provider.closeAllConnections();
+      await new Promise((done) => provider.close(done));
+    }
+  });
+  dashboard = await startDashboard({
+    modelEndpoint: `http://127.0.0.1:${modelPort}`,
     model: "edit-fixture",
     defaultProject: false,
     env
@@ -47,11 +55,6 @@ async function fixture(t, api, handle, env = {}) {
     join(dashboard.root, "pi", "settings.json"),
     JSON.stringify({ retry: { enabled: false }, compaction: { enabled: false } })
   );
-  t.after(async () => {
-    await dashboard.stop();
-    provider.closeAllConnections();
-    await new Promise((done) => provider.close(done));
-  });
   async function call(path, body) {
     const response = await fetch(`${dashboard.base}/api/tasks/edit-task${path}`, {
       method: "POST",
@@ -61,13 +64,33 @@ async function fixture(t, api, handle, env = {}) {
     return { status: response.status, payload: await response.json() };
   }
   async function detail() {
-    return (await fetch(`${dashboard.base}/api/tasks/edit-task`)).json();
+    const response = await fetch(`${dashboard.base}/api/tasks/edit-task`);
+    const value = await response.json();
+    assert.equal(response.status, 200, JSON.stringify(value));
+    return value;
   }
   async function settle(expected) {
     for (let attempt = 0; attempt < 500; attempt++) {
       const value = await detail();
       if (!value.runtime.active) {
-        assert.equal(value.task.status, expected, JSON.stringify(value));
+        if (value.task.status !== expected) {
+          const runDirectory = join(dashboard.workspaceRoot, "edit-task", "runs", value.task.activeRunId);
+          const logs = await Promise.all(
+            ["runtime-stderr.log", "runtime-output.log", "agents/main/agent-stderr.log"].map(async (name) => {
+              try {
+                return `${name}: ${(await readFile(join(runDirectory, name), "utf8")).slice(-5000)}`;
+              } catch (error) {
+                if (error.code !== "ENOENT") throw error;
+                return "";
+              }
+            })
+          );
+          assert.equal(
+            value.task.status,
+            expected,
+            `${JSON.stringify(value.events)}\n${logs.filter(Boolean).join("\n")}`
+          );
+        }
         return value;
       }
       await delay(50);
@@ -129,7 +152,15 @@ for (const api of ["openai-completions", "openai-responses"]) {
       const editId = randomUUID();
       const accepted = await f.edit(original, "NEW_WEATHER_INPUT_BEIJING", [], editId);
       assert.equal(accepted.status, 202, JSON.stringify(accepted));
-      const edited = await f.settle("completed");
+      // A history reader may keep the selected transcript open while its new Main starts.
+      const versions = JSON.parse(
+        await readFile(
+          join(f.dashboard.workspaceRoot, "edit-task", "sessions", "main", "versions.json"),
+          "utf8"
+        )
+      );
+      const reader = await open(versions.sessionFile, "r");
+      const edited = await f.settle("completed").finally(() => reader.close());
       assert.equal(edited.humanRequests[0].status, "cancelled");
       assert.equal(edited.humanResumePending, false);
       assert.equal(f.requests.length, 2);

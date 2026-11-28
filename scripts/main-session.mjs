@@ -1,6 +1,6 @@
 import { queuedUserTurn } from "../dist/src/runtime/queued-user-turn.js";
 import { resolve } from "node:path";
-import { realpath, readFile, rename, writeFile } from "node:fs/promises";
+import { open, realpath, readFile, writeFile } from "node:fs/promises";
 import { SessionManager } from "@earendil-works/pi-coding-agent";
 import { mainInputDelivered, readMainInput } from "../dist/src/runtime/main-continuation.js";
 
@@ -12,8 +12,7 @@ export async function alignSelectedTaskSession(sessionPath, sessionDirectory, pr
   return SessionManager.forkFrom(sessionPath, target, resolve(sessionDirectory)).getSessionFile();
 }
 
-/** Pi defers its first session file until an assistant response. A cancelled
- * first request still has Formicand's durable context snapshot; restore it once. */
+/** Recover a missing Pi transcript from the cancelled request's durable context snapshot. */
 export async function restoreUnflushedTaskSession(sessionDirectory, projectDirectory, snapshotPath) {
   const sessions = await SessionManager.listAll(resolve(sessionDirectory));
   if (sessions.some((session) => session.messageCount > 0)) return;
@@ -51,28 +50,32 @@ export async function restorePendingTaskInput(
   const [latest] = selectedSessionPath
     ? [{ path: selectedSessionPath }]
     : await SessionManager.listAll(directory);
-  const session = latest
-    ? SessionManager.open(latest.path, directory)
-    : SessionManager.create(await realpath(resolve(projectDirectory)), directory);
-  if (mainInputDelivered(session.getBranch(), input)) return;
-  const content =
-    input.source === "composer" && input.taskId && input.runId && input.messageId
-      ? queuedUserTurn({
-          taskId: input.taskId,
-          runId: input.runId,
-          messageId: input.messageId,
-          text: input.prompt
-        })
-      : input.prompt;
-  session.appendMessage({ role: "user", content, timestamp: input.submittedAt });
-  // Pi defers files without assistant output; flush the restored input before
-  // its child discovers the session, including a first-turn startup failure.
-  const path = session.getSessionFile();
-  const temporary = `${path}.${process.pid}.tmp`;
-  await writeFile(
-    temporary,
-    [session.getHeader(), ...session.getEntries()].map((entry) => JSON.stringify(entry)).join("\n") + "\n",
-    { mode: 0o600 }
-  );
-  await rename(temporary, path);
+  let path = latest?.path;
+  if (!path) {
+    const fresh = SessionManager.create(await realpath(resolve(projectDirectory)), directory);
+    path = fresh.getSessionFile();
+    await writeFile(path, `${JSON.stringify(fresh.getHeader())}\n`, { mode: 0o600, flag: "wx" });
+  }
+  // A selected branch must still exist. Pi otherwise opens a missing path as a new session.
+  const file = await open(path, "r+");
+  try {
+    const session = SessionManager.open(path, directory);
+    if (mainInputDelivered(session.getBranch(), input)) return;
+    const content =
+      input.source === "composer" && input.taskId && input.runId && input.messageId
+        ? queuedUserTurn({
+            taskId: input.taskId,
+            runId: input.runId,
+            messageId: input.messageId,
+            text: input.prompt
+          })
+        : input.prompt;
+    await file.chmod(0o600);
+    // Pi appends directly to this transcript, including the first user message.
+    // Publish those bytes before launching the child while history readers keep their handles.
+    session.appendMessage({ role: "user", content, timestamp: input.submittedAt });
+    await file.sync();
+  } finally {
+    await file.close();
+  }
 }

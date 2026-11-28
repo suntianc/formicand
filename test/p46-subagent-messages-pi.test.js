@@ -1,3 +1,6 @@
+import { fixtureMainProcesses } from "./fixtures/main-processes.mjs";
+import { endAgentProcesses } from "./dashboard-fixture.mjs";
+import { processGroupIsAlive as groupAlive } from "../dist/src/runtime/process-identity.js";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
@@ -61,15 +64,6 @@ function gate() {
 function alive(pid) {
   try {
     process.kill(pid, 0);
-    return true;
-  } catch (error) {
-    return error.code === "EPERM";
-  }
-}
-
-function groupAlive(pid) {
-  try {
-    process.kill(-pid, 0);
     return true;
   } catch (error) {
     return error.code === "EPERM";
@@ -160,14 +154,7 @@ async function fixture(t, { handle, env = {} }) {
   t.after(async () => {
     for (const service of f.services) service.close();
     for (const child of f.children) await stopChild(child);
-    for (const record of await recordedProcesses(f)) {
-      if (!record.pid || !groupAlive(record.pid)) continue;
-      try {
-        process.kill(-record.pid, "SIGKILL");
-      } catch {
-        /* the process group already exited */
-      }
-    }
+    await endAgentProcesses(workspace);
     await provider.close();
     await rm(root, { recursive: true, force: true });
   });
@@ -499,7 +486,20 @@ test(
       "the receiver to consume the peer message"
     );
     const receiverCallback = await waitForCallback(f, "call-message-receiver");
-    assert.equal(receiverCallback.payload.status, "succeeded", JSON.stringify(receiverCallback.payload));
+    if (receiverCallback.payload.status !== "succeeded") {
+      const processRecord = (await recordedProcesses(f)).find((record) => record.callId === receiver.callId);
+      assert.fail(
+        JSON.stringify({
+          callback: receiverCallback.payload,
+          pid: receiver.pid,
+          startedAt: processRecord?.startedAt,
+          settledAt: processRecord?.settledAt,
+          exitCode: processRecord?.exitCode,
+          alive: alive(receiver.pid),
+          stderr: await readFile(receiver.stderrPath, "utf8")
+        })
+      );
+    }
     assert.match(receiverCallback.payload.response, /RECEIVER_DONE/);
     assert.equal(
       receiverRequests(f.provider, "PEER_MARKER", "RECEIVER_TASK_MARKER").length,
@@ -627,6 +627,10 @@ test(
     const record = (await recordedProcesses(f)).find((entry) => entry.callId === "call-message-cancel");
     assert.ok(record?.pid, "the delegated process was launched");
     assert.equal(groupAlive(record.pid), true);
+    const sdk = (await fixtureMainProcesses(record.sessionDirectory, "--session-dir")).filter(
+      (process) => process.pid !== record.pid
+    );
+    assert.ok(sdk.length, "the delegated Pi child is running");
     const requestsBefore = f.provider.requests.length;
 
     const stopped = await service.stop({
@@ -637,7 +641,8 @@ test(
     assert.equal(stopped?.status, "cancelled", JSON.stringify(stopped));
 
     await waitFor(() => !alive(record.pid), "the cancelled process to exit");
-    assert.equal(groupAlive(record.pid), false, "the whole process group is stopped");
+    assert.equal(groupAlive(record.pid), false, "the launcher exited");
+    for (const child of sdk) assert.equal(alive(child.pid), false, "the delegated Pi child stopped");
 
     const callback = await waitForCallback(f, "call-message-cancel");
     assert.equal(callback.payload.status, "cancelled", JSON.stringify(callback.payload));
@@ -659,7 +664,7 @@ test(
     assert.equal(
       f.provider.requests.length,
       requestsBefore,
-      "a stopped process makes no further model request"
+      `a stopped process makes no further model request: ${JSON.stringify(f.provider.requests[requestsBefore]?.messages.at(-1))}`
     );
   }
 );

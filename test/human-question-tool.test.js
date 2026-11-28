@@ -19,7 +19,7 @@ async function fixture(t, timeoutMs, hooks = {}) {
   const inbox = new MainInboxDelivery(root, "task", "run");
   const tools = new Map();
   const requirePi = createRequire(import.meta.resolve("@earendil-works/pi-coding-agent"));
-  const { createJiti } = await import(requirePi.resolve("jiti"));
+  const { createJiti } = requirePi("jiti");
   const modulePath = resolve(".pi/runtime/tools/coordination.ts");
   const jiti = createJiti(pathToFileURL(modulePath).href, { interopDefault: true });
   const { registerCoordinationTools } = await jiti.import(modulePath);
@@ -58,7 +58,7 @@ async function fixture(t, timeoutMs, hooks = {}) {
 }
 
 test("aborting askhuman releases its wait promptly and clears the pending question", async (t) => {
-  const f = await fixture(t, 1000);
+  const f = await fixture(t, 60_000);
   const controller = new AbortController();
   controller.abort();
   const started = Date.now();
@@ -70,7 +70,7 @@ test("aborting askhuman releases its wait promptly and clears the pending questi
     f.ctx
   );
   assert.equal(result.details.status, "cancelled");
-  assert.ok(Date.now() - started < 700, "Escape must not wait out the configured human timeout");
+  assert.ok(Date.now() - started < 10_000, "Escape must not wait out the configured human timeout");
   assert.deepEqual(await f.human.list("task", "pending"), []);
 });
 

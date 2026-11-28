@@ -1,3 +1,4 @@
+import { deferCleanup } from "./fixtures/cleanup.mjs";
 import assert from "node:assert/strict";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -6,7 +7,7 @@ import { test } from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
 import { startDashboard } from "./dashboard-fixture.mjs";
 import { isolatedPiEnvironment, spawnPiRpc, startLocalProvider } from "./fixtures/pi-process-fixture.mjs";
-import { captureStandardMainRun, summarizeRequest } from "./p46-pi-upgrade-capture.mjs";
+import { captureStandardMainRun, createUpgradeTask, summarizeRequest } from "./p46-pi-upgrade-capture.mjs";
 import { InboxStore } from "../dist/src/runtime/scheduler.js";
 
 const baseline = JSON.parse(
@@ -19,11 +20,9 @@ test(
   "a standard Main run keeps the recorded tool table, prompt structure and request envelope",
   { timeout: 90_000 },
   async (t) => {
-    const cleanup = [];
-    t.after(async () => {
-      for (const step of cleanup) await step();
-    });
-    const current = summarizeRequest(await captureStandardMainRun({ cleanup }));
+    const current = summarizeRequest(
+      await captureStandardMainRun({ after: (release) => deferCleanup(t, release) })
+    );
 
     assert.equal(current.path, baseline.path, "the provider endpoint is unchanged");
     assert.deepEqual(current.envelope, baseline.envelope, "request envelope and message roles");
@@ -61,15 +60,14 @@ async function mainRunFixture(t, { runId, inbox }) {
     model: "p46-startup-model",
     handle: () => ({ text: "启动完成。" })
   });
+  const after = (release) => deferCleanup(t, release);
+  after(() => provider.close());
   const requests = provider.requests;
   const dashboard = await startDashboard({
     modelEndpoint: provider.baseUrl.replace(/\/v1$/, ""),
     model: "p46-startup-model"
   });
-  t.after(async () => {
-    await dashboard.stop();
-    await provider.close();
-  });
+  after(() => dashboard.stop());
   await writeFile(
     join(dashboard.root, "config.json"),
     JSON.stringify({ api: "openai-completions", mainMaxTokens: 64 })
@@ -79,11 +77,7 @@ async function mainRunFixture(t, { runId, inbox }) {
     join(dashboard.root, "pi", "settings.json"),
     JSON.stringify({ retry: { enabled: false }, compaction: { enabled: false } })
   );
-  await fetch(`${dashboard.base}/api/tasks`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ taskId: "startup-task", goal: "你好！" })
-  });
+  await createUpgradeTask(dashboard, "startup-task", "你好！", after);
   // The Dashboard accepts the Run id, so the fixture can put a callback in the
   // Inbox the real Main process will open during startup.
   await inbox(
@@ -203,7 +197,7 @@ function rpcFixture(t, env) {
     env: env.env,
     label: "p46"
   });
-  t.after(() => rpc.stop());
+  deferCleanup(t, () => rpc.stop());
   return rpc;
 }
 
@@ -213,7 +207,7 @@ function rpcFixture(t, env) {
  */
 async function probeRpc(t, { startupSend }) {
   const root = await mkdtemp(join(tmpdir(), "p46-upgrade-rpc-"));
-  t.after(() => rm(root, { recursive: true, force: true }));
+  deferCleanup(t, () => rm(root, { recursive: true, force: true }));
   const profile = join(root, "profile");
   const workspace = join(root, "workspace");
   await mkdir(profile);
@@ -228,7 +222,7 @@ async function probeRpc(t, { startupSend }) {
         ? { name: "read", arguments: { path: "fixture.txt" } }
         : { text: `reply ${requests.length}` }
   });
-  t.after(() => provider.close());
+  deferCleanup(t, () => provider.close());
   const requests = provider.requests;
   const baseUrl = provider.baseUrl;
   await writeFile(

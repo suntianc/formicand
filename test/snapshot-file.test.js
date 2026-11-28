@@ -16,7 +16,11 @@ const privateFile = { mode: 0o600, dirMode: 0o700 };
 const message = (text) => JSON.stringify({ text });
 
 test("large snapshot replacements preserve exact UTF-8, shortening, and existing readers", async (t) => {
-  const { dir, path } = await fixture(t);
+  const base = await fixture(t);
+  // Win32's extended rename must handle held readers beyond MAX_PATH, too.
+  const dir =
+    process.platform === "win32" ? join(base.dir, "中文-".repeat(30), "long-".repeat(30)) : base.dir;
+  const path = join(dir, "snapshot.json");
   const slab = "z".repeat(1024 * 1024);
   const original = message(slab + slab + slab);
   await writeJsonSnapshot(path, original, privateFile);

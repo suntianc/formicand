@@ -1,10 +1,11 @@
+import { availableLocalHttpPort } from "../dist/src/platform/local-http-port.js";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
 import { mkdtemp, mkdir, readFile, realpath, rm, symlink, writeFile } from "node:fs/promises";
-import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 import { setTimeout as delay } from "node:timers/promises";
 import { test } from "node:test";
 import { GlobalProjectCatalog } from "../dist/src/workspace/project-catalog.js";
@@ -53,11 +54,7 @@ test(
       await symlink(join(root, "secret.txt"), join(artifacts, "escape.txt"));
       const config = join(root, "config.json");
       await writeFile(config, "{}");
-      const probe = createServer();
-      probe.listen(0, "127.0.0.1");
-      await once(probe, "listening");
-      const port = probe.address().port;
-      await new Promise((done) => probe.close(done));
+      const port = await availableLocalHttpPort();
       child = spawn(process.execPath, ["dist/src/cli/dashboard.js"], {
         cwd: resolve("."),
         stdio: "ignore",
@@ -151,14 +148,18 @@ test(
       const resolved = async (reference) => (await (await fetch(resolveUrl(reference))).json()).matches;
       assert.deepEqual(await resolved("./src/hazard/HazardQuery.kt"), ["src/hazard/HazardQuery.kt"]);
       assert.deepEqual(await resolved(join(projectDirectory, "src/Other.kt")), ["src/Other.kt"]);
-      assert.deepEqual(await resolved(`file://localhost${join(projectDirectory, "src/Other.kt")}`), [
-        "src/Other.kt"
-      ]);
       assert.deepEqual(
-        await resolved(`file://${encodeURI(join(projectDirectory, "docs/说明 1.md"))}#L12-L20`),
+        await resolved(`file://localhost${pathToFileURL(join(projectDirectory, "src/Other.kt")).pathname}`),
+        ["src/Other.kt"]
+      );
+      assert.deepEqual(
+        await resolved(`${pathToFileURL(join(projectDirectory, "docs/说明 1.md")).href}#L12-L20`),
         ["docs/说明 1.md"]
       );
-      assert.deepEqual(await resolved(`file://other-host${join(projectDirectory, "src/Other.kt")}`), []);
+      assert.deepEqual(
+        await resolved(`file://other-host${pathToFileURL(join(projectDirectory, "src/Other.kt")).pathname}`),
+        []
+      );
       assert.deepEqual(await resolved("file:///etc/passwd"), []);
       assert.deepEqual(await resolved("hazard/HazardQuery.kt"), ["src/hazard/HazardQuery.kt"]);
       assert.deepEqual(await resolved("HazardQuery.kt"), ["src/hazard/HazardQuery.kt"]);

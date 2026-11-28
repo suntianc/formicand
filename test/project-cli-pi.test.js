@@ -1,3 +1,4 @@
+import { listenOnFixtureHttpPort } from "./fixtures/http-server.mjs";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
@@ -52,8 +53,7 @@ test(
       }
       response.end("data: [DONE]\n\n");
     });
-    model.listen(0, "127.0.0.1");
-    await once(model, "listening");
+    await listenOnFixtureHttpPort(model);
     const endpoint = `http://127.0.0.1:${model.address().port}/v1`;
     const dashboard = await startDashboard({ modelEndpoint: endpoint, defaultProject: false });
     t.after(async () => {

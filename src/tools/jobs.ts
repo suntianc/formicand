@@ -1,7 +1,14 @@
-import { spawn } from "node:child_process";
-import { createWriteStream } from "node:fs";
-import { mkdir, readFile, readdir, rename, stat, writeFile } from "node:fs/promises";
+import { randomUUID } from "node:crypto";
+import { fork, spawn } from "node:child_process";
+import { closeSync, openSync } from "node:fs";
+import { mkdir, readFile, readdir, stat } from "node:fs/promises";
+import { hostname } from "node:os";
 import { join } from "node:path";
+import { atomicWrite } from "../storage/atomic-file.js";
+import { withFileLock } from "../storage/file-lock.js";
+import { usesProcessGroups } from "../platform/process-group.js";
+import { isWindowsJobId, stopWindowsJob } from "../platform/windows-job-object.js";
+import { stopWindowsJobTree } from "../platform/windows-job-tree.js";
 
 /**
  * Long commands the model supervises instead of a timer.
@@ -26,6 +33,9 @@ export interface JobRecord {
   logPath: string;
   pid?: number;
   startedAt: string;
+  /** The kernel job owning the Windows worker and the commands it starts. */
+  windowsJobId?: string;
+  windowsJobHost?: string;
   exitCode?: number;
   signal?: string;
   finishedAt?: string;
@@ -68,7 +78,7 @@ export async function startJob(
   await mkdir(input.directory, { recursive: true });
   const jobId = await nextJobId(input.directory);
   const logPath = join(input.directory, `${jobId}.log`);
-  const log = createWriteStream(logPath, { flags: "a" });
+  const log = openSync(logPath, "a", 0o600);
   const record: JobRecord = {
     jobId,
     command: input.command,
@@ -77,42 +87,62 @@ export async function startJob(
     startedAt: new Date().toISOString()
   };
   async function failToStart(error: Error): Promise<never> {
-    log.destroy();
     const message = `Failed to start job ${jobId} in ${input.cwd}: ${error.message}`;
     // Keep the original launch error even if recording it also fails.
-    await writeRecord(input.directory, {
+    const outcome = await finishJobRecord(input.directory, {
       ...record,
       spawnError: message,
       finishedAt: new Date().toISOString()
       // eslint-disable-next-line no-restricted-syntax -- 正在上抛启动失败，记录写失败不能让原始错误丢失或被替换
     }).catch(() => {});
+    if (outcome?.windowsJobId === record.windowsJobId && outcome?.signal === "SIGKILL")
+      throw new Error(`Job ${jobId} was stopped before the command started`);
     throw new Error(message, { cause: error });
   }
   let child: ReturnType<typeof spawn>;
+  let started: Promise<Error | undefined>;
   try {
-    child = spawn(input.command, {
+    const options = {
       cwd: input.cwd,
-      shell: input.shell ?? true,
       env: { ...process.env, ...input.env },
-      stdio: ["ignore", "pipe", "pipe"],
-      // Its own group, so killing the job takes the whole pipeline with it
-      // rather than leaving the real work orphaned behind a dead shell.
+      windowsHide: true,
       detached: true
-    });
+    };
+    if (usesProcessGroups) {
+      child = spawn(input.command, { ...options, shell: input.shell ?? true, stdio: ["ignore", log, log] });
+      started = new Promise((resolve) => {
+        child.once("spawn", () => resolve(undefined));
+        child.once("error", resolve);
+      });
+    } else {
+      record.windowsJobId = randomUUID();
+      record.windowsJobHost = hostname();
+      child = fork(new URL("../platform/windows-job-worker.js", import.meta.url), [], {
+        ...options,
+        execArgv: [],
+        stdio: ["ignore", log, log, "ipc"]
+      });
+      started = new Promise((resolve) => {
+        child.once("error", resolve);
+        child.once("exit", () => resolve(new Error("Windows job worker exited before reporting startup")));
+        child.once("message", (reply: { started?: boolean; message?: string; code?: string }) => {
+          resolve(reply.started ? undefined : Object.assign(new Error(reply.message), { code: reply.code }));
+        });
+        child.once("spawn", () => {
+          child.send(
+            { command: input.command, shell: input.shell ?? true, windowsJobId: record.windowsJobId },
+            (error) => {
+              if (error) resolve(error);
+            }
+          );
+        });
+      });
+    }
   } catch (error) {
     return failToStart(error instanceof Error ? error : new Error(String(error)));
+  } finally {
+    closeSync(log);
   }
-  // ENOENT (including a missing cwd) is an asynchronous error event, not an
-  // exit code or a synchronous throw. Subscribe before any disk I/O, and do
-  // not report a running job until the OS confirms that it actually spawned.
-  // Resolve with the error so it cannot become an unhandled rejection while
-  // the initial record is still being written.
-  const started = new Promise<Error | undefined>((resolve) => {
-    child.once("spawn", () => resolve(undefined));
-    child.once("error", resolve);
-  });
-  child.stdout?.pipe(log);
-  child.stderr?.pipe(log);
   record.pid = child.pid;
   const recorded = writeRecord(input.directory, record);
   // Subscribe before awaiting disk I/O: a short job can exit while its initial
@@ -124,8 +154,8 @@ export async function startJob(
       signal: signal ?? undefined,
       finishedAt: new Date().toISOString()
     };
-    void recorded
-      .then(() => writeRecord(input.directory, finished))
+    void Promise.all([recorded, started])
+      .then(([, error]) => (error ? undefined : finishJobRecord(input.directory, finished)))
       // eslint-disable-next-line no-restricted-syntax -- 退出记录写失败时日志与 pid 检查仍是权威证据，不能让它变成未处理的 rejection
       .catch(() => {
         /* the log and the pid check remain authoritative */
@@ -133,7 +163,10 @@ export async function startJob(
   });
   await recorded;
   const spawnError = await started;
-  if (spawnError) return failToStart(spawnError);
+  if (spawnError) {
+    delete record.pid;
+    return failToStart(spawnError);
+  }
   // The parent must be able to exit while the job keeps running; the record on
   // disk is what a later Agent uses to find it again.
   child.unref();
@@ -205,28 +238,59 @@ export async function listJobs(input: JobsOptions): Promise<JobStatus[]> {
 }
 
 /**
- * Stop a job. SIGTERM first so it can clean up, then SIGKILL if it ignores it.
- * The negative pid targets the process group, since the thing worth killing is
- * usually a child of the shell that was started.
+ * Stop the shell and its descendants. On POSIX give the group time to exit.
  */
 export async function killJob(input: JobsOptions & { jobId: string; graceMs?: number }): Promise<JobStatus> {
   const record = await readRecord(input.directory, input.jobId);
   if (!record) throw new Error(`unknown job: ${input.jobId}`);
   const graceMs = input.graceMs ?? 5_000;
+  if (record.windowsJobId !== undefined) {
+    if (record.finishedAt === undefined)
+      await withFileLock(recordPath(input.directory, input.jobId), async () => {
+        const current = await readRecord(input.directory, input.jobId);
+        if (!current || current.windowsJobId !== record.windowsJobId)
+          throw new Error("The recorded Windows job was replaced");
+        if (current.finishedAt !== undefined) return;
+        if (current.pid === undefined || !current.windowsJobId)
+          throw new Error("Invalid Windows job identity");
+        const info = await stat(recordPath(input.directory, input.jobId));
+        const outcome = await stopWindowsJob(
+          current.windowsJobId,
+          current.pid,
+          Date.parse(current.startedAt),
+          info.mtimeMs
+        );
+        if (outcome === "terminated")
+          await writeRecord(input.directory, {
+            ...current,
+            signal: "SIGKILL",
+            finishedAt: new Date().toISOString()
+          });
+      });
+    return jobStatus(input);
+  }
   if (record.finishedAt === undefined && record.pid !== undefined && pidAlive(record.pid)) {
-    signalGroup(record.pid, "SIGTERM");
-    const deadline = Date.now() + graceMs;
-    while (pidAlive(record.pid) && Date.now() < deadline) {
-      await new Promise((resolve) => setTimeout(resolve, 100));
+    if (!usesProcessGroups) {
+      const info = await stat(recordPath(input.directory, input.jobId));
+      // A concurrent exit replaces the launch record with a newer timestamp.
+      // Only use the timestamp if it still describes the running record.
+      if ((await readRecord(input.directory, input.jobId))?.finishedAt !== undefined) return jobStatus(input);
+      await stopWindowsJobTree(record.pid, Date.parse(record.startedAt), info.mtimeMs);
+    } else {
+      signalGroup(record.pid, "SIGTERM");
+      const deadline = Date.now() + graceMs;
+      while (pidAlive(record.pid) && Date.now() < deadline) {
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      }
+      if (pidAlive(record.pid)) signalGroup(record.pid, "SIGKILL");
     }
-    if (pidAlive(record.pid)) signalGroup(record.pid, "SIGKILL");
     // The exit handler only fires in the process that spawned the job, so
     // record the outcome here too for an Agent that inherited it.
     const current = await readRecord(input.directory, input.jobId);
     if (current && current.finishedAt === undefined) {
       await writeRecord(input.directory, {
         ...current,
-        signal: "SIGTERM",
+        signal: usesProcessGroups ? "SIGTERM" : "SIGKILL",
         finishedAt: new Date().toISOString()
         // eslint-disable-next-line no-restricted-syntax -- 进程已被杀死，这里补写的退出记录失败时 jobStatus 仍会按 pid 与日志报告状态
       }).catch(() => {});
@@ -278,10 +342,22 @@ function recordPath(directory: string, jobId: string): string {
 }
 
 async function writeRecord(directory: string, record: JobRecord): Promise<void> {
-  const path = recordPath(directory, record.jobId);
-  const temporary = `${path}.tmp-${process.pid}-${Date.now()}`;
-  await writeFile(temporary, `${JSON.stringify(record, null, 2)}\n`, "utf8");
-  await rename(temporary, path);
+  await atomicWrite(recordPath(directory, record.jobId), `${JSON.stringify(record, null, 2)}\n`);
+}
+
+// Startup, process exit and a stop from another Agent can finish the same worker concurrently.
+async function finishJobRecord(directory: string, record: JobRecord): Promise<JobRecord> {
+  if (record.windowsJobId === undefined) {
+    await writeRecord(directory, record);
+    return record;
+  }
+  return withFileLock(recordPath(directory, record.jobId), async () => {
+    const current = await readRecord(directory, record.jobId);
+    if (current && (current.windowsJobId !== record.windowsJobId || current.finishedAt !== undefined))
+      return current;
+    await writeRecord(directory, record);
+    return record;
+  });
 }
 
 async function readRecord(directory: string, jobId: string): Promise<JobRecord | undefined> {
@@ -293,6 +369,22 @@ async function readRecord(directory: string, jobId: string): Promise<JobRecord |
       typeof value.startedAt !== "string"
     )
       return undefined;
+    if (value.windowsJobId !== undefined || value.windowsJobHost !== undefined) {
+      if (
+        !isWindowsJobId(value.windowsJobId) ||
+        (value.windowsJobHost !== undefined &&
+          (typeof value.windowsJobHost !== "string" || !value.windowsJobHost.trim())) ||
+        (value.pid !== undefined && (!Number.isSafeInteger(value.pid) || value.pid <= 0)) ||
+        (value.finishedAt !== undefined &&
+          (typeof value.finishedAt !== "string" || !Number.isFinite(Date.parse(value.finishedAt))))
+      )
+        throw new Error(`Invalid recorded Windows job identity: ${jobId}`);
+      if (
+        value.finishedAt === undefined &&
+        (usesProcessGroups || value.windowsJobHost?.toLowerCase() !== hostname().toLowerCase())
+      )
+        throw new Error(`Windows job ${jobId} can only be managed on its recorded Windows host`);
+    }
     return value as JobRecord;
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;

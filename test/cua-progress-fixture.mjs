@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { once } from "node:events";
+import { listenOnFixtureHttpPort } from "./fixtures/http-server.mjs";
 import { readFile, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { join } from "node:path";
@@ -54,9 +54,8 @@ export async function cuaProgressFixture(directory, operation) {
       response.end("Fixture failed");
     }
   });
-  server.listen(0, "127.0.0.1");
-  await once(server, "listening");
-  const url = `http://127.0.0.1:${server.address().port}`;
+  const port = await listenOnFixtureHttpPort(server);
+  const url = `http://127.0.0.1:${port}`;
   return {
     url,
     requests,

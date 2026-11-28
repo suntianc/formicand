@@ -1,3 +1,9 @@
+import { endAgentProcesses } from "./dashboard-fixture.mjs";
+import { fixtureMainProcesses, killFixtureMain } from "./fixtures/main-processes.mjs";
+import {
+  processGroupIsAlive as groupAlive,
+  readProcessIdentity
+} from "../dist/src/runtime/process-identity.js";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
@@ -44,15 +50,6 @@ function alive(pid) {
   }
 }
 
-function groupAlive(pid) {
-  try {
-    process.kill(-pid, 0);
-    return true;
-  } catch (error) {
-    return error.code === "EPERM";
-  }
-}
-
 /** A fresh Task/Run workspace and a work site the subagent must actually enter. */
 async function fixture(t) {
   const root = await mkdtemp(join(tmpdir(), "p46-subagent-process-"));
@@ -65,44 +62,10 @@ async function fixture(t) {
   const processes = [];
   t.after(async () => {
     for (const child of processes) await stopProcess(child);
-    for (const record of await recordedProcesses(workspace)) {
-      if (!groupAlive(record.pid) || !(await sameProcess(record.pid, record.startedAt))) continue;
-      try {
-        process.kill(-record.pid, "SIGKILL");
-      } catch {
-        /* the group already exited */
-      }
-    }
+    await endAgentProcesses(workspace);
     await rm(root, { recursive: true, force: true });
   });
   return { root, workspace, site, runRoot, processes };
-}
-
-async function recordedProcesses(workspace) {
-  const records = [];
-  for (const entry of await readdir(join(workspace, TASK_ID, "runs", RUN_ID, "agents", "subagents"), {
-    withFileTypes: true
-  }).catch(() => [])) {
-    if (!entry.isDirectory()) continue;
-    const record = await readJson(
-      join(workspace, TASK_ID, "runs", RUN_ID, "agents", "subagents", entry.name, "process.json"),
-      undefined
-    );
-    if (record?.pid) records.push(record);
-  }
-  return records;
-}
-
-/** Never signal a pid another program has taken over since the record was written. */
-async function sameProcess(pid, startedAt) {
-  const child = spawn("ps", ["-p", String(pid), "-o", "lstart="], {
-    stdio: ["ignore", "pipe", "ignore"],
-    env: { ...process.env, LC_ALL: "C", LANG: "C", TZ: "UTC" }
-  });
-  let out = "";
-  child.stdout.setEncoding("utf8").on("data", (chunk) => (out += chunk));
-  await once(child, "close");
-  return out.trim() === startedAt;
 }
 
 async function stopProcess(child) {
@@ -231,7 +194,7 @@ test(
       handle: async (_body, requests) => {
         if (requests.length === 1) {
           await turn.opened;
-          return { name: "bash", arguments: { command: "pwd" } };
+          return { name: "bash", arguments: { command: `"${process.execPath}" -p "process.cwd()"` } };
         }
         return { text: "P46_SUBAGENT_DONE" };
       }
@@ -254,11 +217,9 @@ test(
     const record = await waitForRecord(f, "subagent_1");
     assert.equal(alive(record.pid), true, "the delegated process is running");
     assert.notEqual(record.pid, backend.child.pid, "the work runs in its own process, not the backend");
-    const command = await readFile(`/proc/${record.pid}/cmdline`, "utf8").catch(() => "");
-    const listed = command.split("\0").join(" ");
-    assert.match(
-      listed || (await psCommand(record.pid)),
-      /start-pi\.mjs/,
+    const launchers = await fixtureMainProcesses(record.sessionDirectory, "start-pi.mjs");
+    assert.ok(
+      launchers.some((entry) => entry.pid === record.pid),
       "the delegated process is the shared Pi launcher"
     );
     turn.release();
@@ -310,14 +271,6 @@ test("subagent diagnostics name the process log that the delegated process write
   assert.equal(status.diagnostics.tracePath, `runs/${RUN_ID}/agents/subagents/subagent_1/agent-output.log`);
   assert.equal(await readFile(join(root, TASK_ID, status.diagnostics.tracePath), "utf8"), "");
 });
-
-async function psCommand(pid) {
-  const child = spawn("ps", ["-p", String(pid), "-o", "command="], { stdio: ["ignore", "pipe", "ignore"] });
-  let out = "";
-  child.stdout.setEncoding("utf8").on("data", (chunk) => (out += chunk));
-  await once(child, "close");
-  return out;
-}
 
 function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -473,11 +426,7 @@ test(
     const backend = startBackend(f, provider);
     await waitFor(() => provider.requests.length === 1, "the abnormal call request");
     const running = await waitForRecord(f, "subagent_4");
-    try {
-      process.kill(-running.pid, "SIGKILL");
-    } catch {
-      /* already gone */
-    }
+    await killFixtureMain(running);
     const [abnormalCallback] = await waitForCallback(f, abnormal);
     assert.equal(abnormalCallback.payload.status, "failed");
     assert.match(abnormalCallback.payload.error, /result record/i);
@@ -499,6 +448,11 @@ test(
       stdio: "ignore"
     });
     f.processes.push(sleeper);
+    const sleeperIdentity = await waitFor(
+      () => readProcessIdentity(sleeper.pid),
+      "the unrelated process identity"
+    );
+    assert.notEqual(sleeperIdentity.startedAt, running.startedAt);
     const lease = "call-p46-reused-pid";
     const scheduler = await queueCall(f, {
       callId: lease,
@@ -517,7 +471,7 @@ test(
       role: "executor",
       pid: sleeper.pid,
       host: hostname(),
-      startedAt: "Mon Jan  1 00:00:00 2001",
+      startedAt: running.startedAt,
       token: "stale-token",
       launchedAt: new Date(0).toISOString(),
       workingDirectory: f.site,
@@ -586,6 +540,10 @@ test(
     const record = await waitForRecord(f, "subagent_6");
     const pid = record.pid;
     assert.equal(groupAlive(pid), true, "the delegated process group is running");
+    const sdk = (await fixtureMainProcesses(record.sessionDirectory, "--session-dir")).filter(
+      (process) => process.pid !== pid
+    );
+    assert.ok(sdk.length, "the real Pi child is running in the delegated session");
 
     // The stop is a backend action; the test issues it through the same service API.
     const service = new SubagentProcessService({
@@ -602,7 +560,8 @@ test(
     turn.release();
 
     await waitFor(() => !alive(pid), "the stopped process to exit");
-    assert.equal(groupAlive(pid), false, "the whole process group exited, not just the launcher");
+    assert.equal(groupAlive(pid), false, "the launcher exited");
+    for (const child of sdk) assert.equal(alive(child.pid), false, "the real Pi child exited");
     const [callback] = await waitForCallback(f, callId);
     assert.equal(callback.payload.status, "cancelled", JSON.stringify(callback.payload));
     await waitFor(async () => {
@@ -658,26 +617,37 @@ test(
   { timeout: 60_000 },
   async (t) => {
     const f = await fixture(t);
+    const previousOwner = unrelatedGroup(f);
+    const oldIdentity = await waitFor(
+      () => readProcessIdentity(previousOwner.pid),
+      "the original process identity"
+    );
+    await stopProcess(previousOwner);
+    // ps lstart records whole seconds. Give the new owner a distinct creation time.
+    if (process.platform !== "win32") await delay(1_000);
     const reusedPid = unrelatedGroup(f);
     const foreignHost = unrelatedGroup(f);
     await waitFor(
       () => reusedPid.pid && groupAlive(reusedPid.pid) && foreignHost.pid && groupAlive(foreignHost.pid),
       "the unrelated process groups"
     );
+    const current = await waitFor(() => readProcessIdentity(reusedPid.pid), "the new process identity");
+    const foreign = await waitFor(() => readProcessIdentity(foreignHost.pid), "the foreign process identity");
+    assert.notEqual(oldIdentity.startedAt, current.startedAt);
     const cases = [
       {
         callId: "call-p46-stale-identity",
         agentId: "subagent_7",
         child: reusedPid,
         host: hostname(),
-        startedAt: "Thu Jan  1 00:00:01 1970"
+        startedAt: oldIdentity.startedAt
       },
       {
         callId: "call-p46-stale-host",
         agentId: "subagent_8",
         child: foreignHost,
         host: "a-different-host",
-        startedAt: "Thu Jan  1 00:00:01 1970"
+        startedAt: foreign.startedAt
       }
     ];
     for (const entry of cases) {

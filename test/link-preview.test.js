@@ -1,3 +1,4 @@
+import { listenOnFixtureHttpPort } from "./fixtures/http-server.mjs";
 import assert from "node:assert/strict";
 import { mkdtemp, readdir, rm } from "node:fs/promises";
 import { createServer } from "node:http";
@@ -70,7 +71,7 @@ test("a page is read once: its title and icon are kept on disk for later reads",
     response.writeHead(404);
     response.end();
   });
-  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  await listenOnFixtureHttpPort(server);
   const base = `http://127.0.0.1:${server.address().port}`;
   try {
     const service = createLinkPreviewService({ cacheRoot: root, localAllowed: true });

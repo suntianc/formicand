@@ -3,13 +3,12 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { once } from "node:events";
+import { listenOnFixtureHttpPort } from "./fixtures/http-server.mjs";
 import { createServer } from "node:http";
 import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
-import { pathToFileURL } from "node:url";
 import { createModels, createProvider, normalizeContext } from "@earendil-works/pi-ai";
 import { openAICompletionsApi } from "@earendil-works/pi-ai/api/openai-completions.lazy";
 const { MainRequestStore, mainRequestPath } = await import("../dist/src/storage/main-request-store.js");
@@ -107,9 +106,7 @@ test("late settlement cannot replace a newer request or recreate a cleared user 
 test("a dead snapshot writer does not block immediate process recovery", { timeout: 5000 }, async (t) => {
   const f = await storage(t);
   await f.store.begin(f.input);
-  const lockModule = pathToFileURL(
-    new URL("../dist/src/storage/file-lock.js", import.meta.url).pathname
-  ).href;
+  const lockModule = new URL("../dist/src/storage/file-lock.js", import.meta.url).href;
   await promisify(execFile)(process.execPath, [
     "--input-type=module",
     "-e",
@@ -222,16 +219,16 @@ async function provider(t, handle) {
       response.destroy(error);
     }
   });
-  server.listen(0, "127.0.0.1");
-  await once(server, "listening");
+  const port = await listenOnFixtureHttpPort(server);
   t.after(async () => {
     server.closeAllConnections();
     await new Promise((done) => server.close(done));
   });
-  return { base: `http://127.0.0.1:${server.address().port}/v1`, requests, failures };
+  return { base: `http://127.0.0.1:${port}/v1`, requests, failures };
 }
-async function api(dashboard, path, body) {
+async function api(dashboard, path, body, signal) {
   const response = await fetch(dashboard.base + path, {
+    signal,
     method: body === undefined ? "GET" : "POST",
     headers: { "content-type": "application/json" },
     ...(body === undefined ? {} : { body: JSON.stringify(body) })
@@ -240,17 +237,17 @@ async function api(dashboard, path, body) {
   assert.ok(response.ok, JSON.stringify(value));
   return value;
 }
-async function settle(dashboard, taskId, status) {
-  const until = Date.now() + 20000;
-  while (Date.now() < until) {
-    const detail = await api(dashboard, `/api/tasks/${taskId}`);
+async function settle(dashboard, taskId, status, signal) {
+  // A live Main can have no new runtime events while it starts or awaits its provider.
+  // The enclosing test bounds the restart and replay, including each detail request.
+  for (;;) {
+    const detail = await api(dashboard, `/api/tasks/${taskId}`, undefined, signal);
     if (!detail.runtime.active) {
       assert.equal(detail.task.status, status, JSON.stringify(detail.task));
       return detail;
     }
-    await delay(30);
+    await delay(100, undefined, { signal });
   }
-  assert.fail("Main did not settle");
 }
 const tokenLimit = (body) => body.max_output_tokens ?? body.max_completion_tokens ?? body.max_tokens;
 const reject = (response) => {
@@ -261,7 +258,7 @@ const reject = (response) => {
 for (const protocol of ["openai-completions", "openai-responses"]) {
   test(
     `${protocol}: Main replays exact bytes after restart and setting changes, then accepts a fresh turn`,
-    { timeout: 60000 },
+    { timeout: 120_000 },
     async (t) => {
       let dashboard, store;
       const local = await provider(t, async (item, count, response) => {
@@ -283,7 +280,7 @@ for (const protocol of ["openai-completions", "openai-responses"]) {
       await api(dashboard, "/api/tasks", { taskId: "exact", goal: "Test complete request replay" });
       store = new MainRequestStore(mainRequestPath(dashboard.workspaceRoot, "exact"), "exact");
       const first = await api(dashboard, "/api/tasks/exact/run", { prompt: "你好！请保留这份原始输入。" });
-      await settle(dashboard, "exact", "failed");
+      await settle(dashboard, "exact", "failed", t.signal);
       const failed = await store.pending();
       assert.equal(failed.model.api, protocol);
       assert.equal(tokenLimit(local.requests[0].body), 777);
@@ -295,7 +292,7 @@ for (const protocol of ["openai-completions", "openai-responses"]) {
       );
       await dashboard.restart();
       const resumed = await api(dashboard, "/api/tasks/exact/run", { resume: true, model: "new-selection" });
-      const completed = await settle(dashboard, "exact", "completed");
+      const completed = await settle(dashboard, "exact", "completed", t.signal);
       assert.equal(resumed.model, "fixture-model");
       assert.equal(local.requests[1].api, protocol);
       assert.equal(local.requests[1].raw, local.requests[0].raw);
@@ -317,7 +314,7 @@ for (const protocol of ["openai-completions", "openai-responses"]) {
       assert.deepEqual(replayArchive.payload.request, originalArchive.payload.request);
       assert.equal(replayArchive.payload.retryOf, failed.requestId);
       await api(dashboard, "/api/tasks/exact/run", { prompt: "这是新的请求。", model: "new-selection" });
-      const fresh = await settle(dashboard, "exact", "completed");
+      const fresh = await settle(dashboard, "exact", "completed", t.signal);
       assert.equal(local.requests[2].body.model, "new-selection");
       assert.equal(local.requests[2].api, nextProtocol);
       assert.equal(tokenLimit(local.requests[2].body), 37);
@@ -330,7 +327,7 @@ for (const protocol of ["openai-completions", "openai-responses"]) {
 
 test(
   "optional tools are restored for the failed request and subsequent tool calls run once",
-  { timeout: 60000 },
+  { timeout: 120_000 },
   async (t) => {
     const local = await provider(t, (_item, count, response) => {
       if (count === 1) return { name: "enable_tools", arguments: { groups: ["delivery"] } };
@@ -348,11 +345,11 @@ test(
     await writeFile(join(dashboard.workspaceRoot, "report.md"), "已有结果");
     await api(dashboard, "/api/tasks", { taskId: "tools", goal: "Publish and verify one artifact" });
     await api(dashboard, "/api/tasks/tools/run", { prompt: "发布一次产物并核对。" });
-    await settle(dashboard, "tools", "failed");
+    await settle(dashboard, "tools", "failed", t.signal);
     assert.equal(local.requests.length, 3);
     await dashboard.restart();
     await api(dashboard, "/api/tasks/tools/run", { resume: true });
-    const completed = await settle(dashboard, "tools", "completed");
+    const completed = await settle(dashboard, "tools", "completed", t.signal);
     assert.equal(local.requests.length, 5);
     assert.equal(local.requests[3].raw, local.requests[2].raw);
     assert.notEqual(local.requests[4].raw, local.requests[3].raw);
@@ -427,7 +424,7 @@ test("auxiliary summaries do not consume or replace a pending Main request", asy
 
 test(
   "changed project or binding and damaged snapshots reject retry before spawning or sending",
-  { timeout: 60000 },
+  { timeout: 120_000 },
   async (t) => {
     const local = await provider(t, (_item, count, response) => {
       if (count === 1) {
@@ -440,7 +437,7 @@ test(
     t.after(() => dashboard.stop());
     await api(dashboard, "/api/tasks", { taskId: "guard", goal: "Retry the original context" });
     await api(dashboard, "/api/tasks/guard/run", { prompt: "原始输入" });
-    const original = await settle(dashboard, "guard", "failed");
+    const original = await settle(dashboard, "guard", "failed", t.signal);
     const store = new MainRequestStore(mainRequestPath(dashboard.workspaceRoot, "guard"), "guard");
     const saved = await readFile(store.filePath, "utf8");
     const attempt = async (status, code, text) => {
@@ -478,14 +475,14 @@ test(
     assert.equal(await readFile(store.filePath, "utf8"), damaged);
     await writeFile(store.filePath, saved);
     await api(dashboard, "/api/tasks/guard/run", { resume: true });
-    await settle(dashboard, "guard", "completed");
+    await settle(dashboard, "guard", "completed", t.signal);
     assert.equal(local.requests[1].raw, local.requests[0].raw);
   }
 );
 
 test(
   "a callback arriving after failure waits until exact replay succeeds and is then processed once",
-  { timeout: 60000 },
+  { timeout: 120_000 },
   async (t) => {
     let inbox, stateDuringReplay;
     const local = await provider(t, async (item, count, response) => {
@@ -504,7 +501,7 @@ test(
     t.after(() => dashboard.stop());
     await api(dashboard, "/api/tasks", { taskId: "late", goal: "Preserve incoming callbacks during replay" });
     await api(dashboard, "/api/tasks/late/run", { prompt: "处理原始请求，保留后续回调。" });
-    await settle(dashboard, "late", "failed");
+    await settle(dashboard, "late", "failed", t.signal);
     const { InboxStore } = await import("../dist/src/runtime/scheduler.js");
     const runId = "replay-with-news";
     inbox = new InboxStore(join(dashboard.workspaceRoot, "late/runs", runId, "agents/main/inbox-store.json"));
@@ -519,7 +516,7 @@ test(
       createdAt: new Date().toISOString()
     });
     await api(dashboard, "/api/tasks/late/run", { resume: true, runId });
-    const completed = await settle(dashboard, "late", "completed");
+    const completed = await settle(dashboard, "late", "completed", t.signal);
     assert.equal(stateDuringReplay, "ready", "a callback absent from the replay body must not be consumed");
     assert.equal(local.requests.length, 3);
     assert.equal(local.requests[1].raw, local.requests[0].raw);
@@ -537,7 +534,7 @@ test(
 
 test(
   "already persisted new input is processed after replay without creating another user message",
-  { timeout: 60000 },
+  { timeout: 120_000 },
   async (t) => {
     const local = await provider(t, (item, count, response) => {
       if (count === 1) {
@@ -555,7 +552,7 @@ test(
       goal: "Replay before handling persisted new input"
     });
     await api(dashboard, "/api/tasks/persisted/run", { prompt: "恢复原始输入。" });
-    const failed = await settle(dashboard, "persisted", "failed");
+    const failed = await settle(dashboard, "persisted", "failed", t.signal);
     const { SessionManager } = await import("@earendil-works/pi-coding-agent");
     const sessions = join(dashboard.workspaceRoot, "persisted/sessions/main/pi");
     const [latest] = await SessionManager.listAll(sessions);
@@ -567,7 +564,7 @@ test(
       [session.getHeader(), ...session.getEntries()].map(JSON.stringify).join("\n") + "\n"
     );
     await api(dashboard, "/api/tasks/persisted/run", { resume: true });
-    const completed = await settle(dashboard, "persisted", "completed");
+    const completed = await settle(dashboard, "persisted", "completed", t.signal);
     assert.equal(local.requests.length, 3);
     assert.equal(local.requests[1].raw, local.requests[0].raw);
     assert.equal(

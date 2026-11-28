@@ -5,8 +5,11 @@ import { mkdtemp, rm, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
+import { setTimeout as delay } from "node:timers/promises";
 import { LocalWorkspaceStore } from "../dist/src/workspace/workspace-store.js";
 import { InboxStore } from "../dist/src/runtime/scheduler.js";
+import { mainContextPaths, readMainContextState } from "../dist/src/runtime/main-context.js";
+import { withFileLock } from "../dist/src/storage/file-lock.js";
 import { fakeEventHandlers } from "./fixtures/fake-pi-events.mjs";
 
 const extensionPath = resolve(".pi/extensions/formicand.ts");
@@ -39,7 +42,7 @@ function fakePi() {
 }
 
 async function loadExtension() {
-  const { createJiti } = await import(requirePi.resolve("jiti"));
+  const { createJiti } = requirePi("jiti");
   const jiti = createJiti(pathToFileURL(extensionPath).href, { interopDefault: true });
   const module = await jiti.import(extensionPath, { default: true });
   return module.default ?? module;
@@ -55,22 +58,8 @@ const keys = [
   "FORMICAND_API_KEY"
 ];
 
-/** The extension's runtime-state writes are fire-and-forget; let them land. */
-async function removeAfterAsyncWrites(path) {
-  for (let attempt = 0; attempt < 40; attempt += 1) {
-    try {
-      await rm(path, { recursive: true, force: true });
-      return;
-    } catch (error) {
-      if (error?.code !== "ENOTEMPTY" && error?.code !== "EBUSY") throw error;
-      await new Promise((resolvePromise) => setTimeout(resolvePromise, 50));
-    }
-  }
-  await rm(path, { recursive: true, force: true });
-}
-
 /** Build a Task whose capabilities are whatever this test needs. */
-async function harness(t, capabilities) {
+async function harness(t, capabilities, config = {}) {
   const root = await mkdtemp(join(tmpdir(), "formicand-main-jobs-"));
   const previous = Object.fromEntries(keys.map((key) => [key, process.env[key]]));
   Object.assign(process.env, {
@@ -80,7 +69,7 @@ async function harness(t, capabilities) {
     FORMICAND_TASK_ID: TASK,
     FORMICAND_RUN_ID: RUN
   });
-  await writeFile(process.env.FORMICAND_CONFIG, "{}\n");
+  await writeFile(process.env.FORMICAND_CONFIG, JSON.stringify(config));
   delete process.env.FORMICAND_API_BASE;
   delete process.env.FORMICAND_API_KEY;
   const store = new LocalWorkspaceStore(root);
@@ -88,19 +77,13 @@ async function harness(t, capabilities) {
   await store.createRun(TASK, RUN);
   if (capabilities) await store.updateTask(TASK, { capabilities });
   const pi = fakePi();
-  (await loadExtension())(pi);
-  t.after(async () => {
-    for (const key of keys) {
-      if (previous[key] === undefined) delete process.env[key];
-      else process.env[key] = previous[key];
-    }
-    await removeAfterAsyncWrites(root);
-  });
+  const runtime = await (await loadExtension())(pi);
   const ctx = {
     sessionManager: {
       getSessionId: () => "jobs-session",
       getSessionFile: () => undefined,
-      getEntries: () => []
+      getEntries: () => [],
+      getBranch: () => []
     },
     isProjectTrusted: () => false,
     ui: { notify() {}, setStatus() {} },
@@ -108,6 +91,21 @@ async function harness(t, capabilities) {
     hasPendingMessages: () => false,
     isIdle: () => true
   };
+  let closing;
+  const shutdown = () =>
+    (closing ??= pi.handlers.get("session_shutdown")({ type: "session_shutdown", reason: "quit" }, ctx));
+  t.after(async () => {
+    try {
+      await shutdown();
+    } finally {
+      for (const key of keys) {
+        if (previous[key] === undefined) delete process.env[key];
+        else process.env[key] = previous[key];
+      }
+      await rm(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
+    }
+  });
+  await pi.handlers.get("session_start")({ type: "session_start", reason: "startup" }, ctx);
   const call = (name, args = {}) => pi.tools.get(name).execute(name, args, undefined, undefined, ctx);
   const details = async (name, args) => (await call(name, args)).details;
   /**
@@ -132,8 +130,32 @@ async function harness(t, capabilities) {
     }
     throw new Error("job did not exit");
   }
-  return { root, store, pi, ctx, call, details, settled };
+  return { root, store, pi, ctx, call, details, settled, shutdown, runtime };
 }
+
+test("Main shutdown waits for the pending runtime state write", { timeout: 120_000 }, async (t) => {
+  const h = await harness(t, undefined, { baseUrl: "http://fixture.test", apiKey: "fixture" });
+  // With the session branch already saved, shutdown has no transcript changes to flush.
+  await h.runtime.flushSessionContext(h.ctx);
+  const paths = mainContextPaths(h.root, TASK);
+  const locked = Promise.withResolvers();
+  const release = Promise.withResolvers();
+  const holding = withFileLock(paths.state, async () => {
+    locked.resolve();
+    await release.promise;
+  });
+  await locked.promise;
+  try {
+    assert.equal((await h.details("finish_task")).completed, true);
+    const closed = h.shutdown().then(() => true);
+    assert.equal(await Promise.race([closed, delay(150, false)]), false);
+  } finally {
+    release.resolve();
+    await holding;
+  }
+  await h.shutdown();
+  assert.equal((await readMainContextState(paths)).runtimePhase, "completed");
+});
 
 test("job tools are registered for Main and refuse work until long work is granted", async (t) => {
   const h = await harness(t);
@@ -157,7 +179,9 @@ test("job tools are registered for Main and refuse work until long work is grant
 
 test("a Main job records its output and reports quiet time while it runs", async (t) => {
   const h = await harness(t, { longRunning: true, grantedBy: "user", grantedAt: new Date().toISOString() });
-  const started = await h.details("start_job", { command: "echo first; sleep 0.6; echo second" });
+  const started = await h.details("start_job", {
+    command: `"${process.execPath}" -e "console.log('first'); setTimeout(() => console.log('second'), 600)"`
+  });
   const running = await h.details("check_job", { jobId: started.jobId });
   assert.equal(running.state, "running");
   assert.equal(typeof running.quietMs, "number", "quiet time is the evidence a fixed timeout cannot provide");
@@ -190,7 +214,9 @@ test("Main can recover from a job startup error without leaving a completion blo
 
 test("an unfinished job blocks completion and its exit wakes Main through the Inbox", async (t) => {
   const h = await harness(t, { longRunning: true, grantedBy: "user", grantedAt: new Date().toISOString() });
-  const started = await h.details("start_job", { command: "sleep 0.5; echo done" });
+  const started = await h.details("start_job", {
+    command: `"${process.execPath}" -e "setTimeout(() => console.log('done'), 500)"`
+  });
 
   const early = await h.details("finish_task", {});
   assert.equal(early.completed, false);
@@ -213,7 +239,9 @@ test("an unfinished job blocks completion and its exit wakes Main through the In
 
 test("killing a Main job stops it and releases the completion gate", async (t) => {
   const h = await harness(t, { longRunning: true, grantedBy: "user", grantedAt: new Date().toISOString() });
-  const started = await h.details("start_job", { command: "sleep 30" });
+  const started = await h.details("start_job", {
+    command: `"${process.execPath}" -e "setTimeout(() => {}, 30000)"`
+  });
   assert.equal((await h.details("finish_task", {})).reason, "pending_jobs");
 
   const killed = await h.details("kill_job", { jobId: started.jobId });
@@ -223,7 +251,7 @@ test("killing a Main job stops it and releases the completion gate", async (t) =
 
 test("Main stays alive while a job runs and settles once it exits", async (t) => {
   const h = await harness(t, { longRunning: true, grantedBy: "user", grantedAt: new Date().toISOString() });
-  await h.details("start_job", { command: "sleep 0.6" });
+  await h.details("start_job", { command: `"${process.execPath}" -e "setTimeout(() => {}, 600)"` });
   let ended = false;
   const ending = h.pi.handlers
     .get("agent_end")({ messages: [{ role: "assistant", stopReason: "stop", content: "waiting" }] }, h.ctx)

@@ -3,6 +3,7 @@ import { readFile, readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { test } from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
+import { deferCleanup } from "./fixtures/cleanup.mjs";
 import { startDashboard } from "./dashboard-fixture.mjs";
 import { modelProtocolFixture } from "./model-protocol-fixture.mjs";
 import { saveTestConnection } from "./model-provider-fixture.mjs";
@@ -60,7 +61,9 @@ async function mainRecord(dashboard, taskId) {
   return records.at(-1);
 }
 
-async function settle(request, taskId) {
+async function settle(request, taskId, provider, expectedRequests) {
+  // The preceding turn can still look idle immediately after a new turn is queued.
+  await provider.waitForCount(expectedRequests);
   return waitFor(async () => {
     const detail = await request(`/api/tasks/${taskId}`);
     return detail.runtime.active ? undefined : detail;
@@ -71,18 +74,24 @@ test(
   "AC: the same resident Main sends the next turn with the saved protocol, model and reasoning level",
   { timeout: 180_000 },
   async (t) => {
-    const completions = await modelProtocolFixture("openai-completions", (_body, requests) => ({
-      text: `第一回合完成 ${requests.length}`
-    }));
-    const responses = await modelProtocolFixture("openai-responses", (_body, requests) => ({
-      text: `第二回合完成 ${requests.length}`
-    }));
+    const completions = await modelProtocolFixture(
+      "openai-completions",
+      (_body, requests) => ({
+        text: `第一回合完成 ${requests.length}`
+      }),
+      { signal: t.signal }
+    );
+    deferCleanup(t, () => completions.close());
+    const responses = await modelProtocolFixture(
+      "openai-responses",
+      (_body, requests) => ({
+        text: `第二回合完成 ${requests.length}`
+      }),
+      { signal: t.signal }
+    );
+    deferCleanup(t, () => responses.close());
     const dashboard = await startDashboard();
-    t.after(async () => {
-      await dashboard.stop();
-      await completions.close();
-      await responses.close();
-    });
+    deferCleanup(t, () => dashboard.stop());
     const request = client(dashboard);
     const keyA = "{{SECRET_q4m6x2vd}}";
     const keyB = "{{SECRET_r8n1c7zk}}";
@@ -102,7 +111,7 @@ test(
 
     await request("/api/tasks", { taskId: "resident-model", goal: "常驻 Main 采用最新模型配置" });
     const run = await request("/api/tasks/resident-model/run", { prompt: "FIRST_TURN_INPUT" });
-    await settle(request, "resident-model");
+    await settle(request, "resident-model", completions, 1);
     const turn = await request("/api/tasks/resident-model");
     assert.equal(turn.task.status, "completed");
     assert.equal(completions.requests.length, 1);
@@ -134,7 +143,7 @@ test(
       thinkingLevel: "high"
     });
     assert.equal(second.runId, run.runId, "the message joins the Run the same process owns");
-    await settle(request, "resident-model");
+    await settle(request, "resident-model", responses, 1);
     assert.equal((await mainRecord(dashboard, "resident-model")).pid, record.pid, "no new Main was started");
     assert.equal(completions.requests.length, 1, "the previous connection gets no further request");
     assert.equal(responses.requests.length, 1);
@@ -154,7 +163,7 @@ test(
     // The explicit pick was this turn's only. The next turn returns to the
     // saved connection's own level in the same process.
     await request("/api/tasks/resident-model/run", { prompt: "THIRD_TURN_INPUT" });
-    await settle(request, "resident-model");
+    await settle(request, "resident-model", responses, 2);
     assert.equal((await mainRecord(dashboard, "resident-model")).pid, record.pid);
     assert.equal(responses.requests.length, 2);
     assert.equal(responses.requests[1].body.reasoning.effort, "max");
@@ -181,6 +190,7 @@ test(
             { name: "enable_tools", arguments: { groups: ["computer"] } }
           : { text: `limits turn ${requests.length}` },
       {
+        signal: t.signal,
         models: [
           {
             id: "limits-a",
@@ -191,19 +201,18 @@ test(
         ]
       }
     );
+    deferCleanup(t, () => completions.close());
     const textOnly = await modelProtocolFixture(
       "openai-completions",
       (_body, requests) => ({ text: `B ${requests.length}` }),
       {
+        signal: t.signal,
         models: [{ id: "limits-b", context_window: 120000, max_output_tokens: 30000 }]
       }
     );
+    deferCleanup(t, () => textOnly.close());
     const dashboard = await startDashboard();
-    t.after(async () => {
-      await dashboard.stop();
-      await completions.close();
-      await textOnly.close();
-    });
+    deferCleanup(t, () => dashboard.stop());
     const request = client(dashboard);
 
     await saveConnection(request, {
@@ -216,7 +225,7 @@ test(
     });
     await request("/api/tasks", { taskId: "resident-limits", goal: "回合沿用端点上限" });
     await request("/api/tasks/resident-limits/run", { prompt: "LIMITS_ONE" });
-    await settle(request, "resident-limits");
+    await settle(request, "resident-limits", completions, 2);
 
     // Turn one: the enable_tools call is answered, so the second request shows
     // the tool the image capability added. A 40k window caps output at 20000.
@@ -236,8 +245,9 @@ test(
     // Two more turns in the same process re-read the saved connection and must
     // keep what the endpoint advertised instead of falling back to 256000/8192.
     for (const prompt of ["LIMITS_TWO", "LIMITS_THREE"]) {
+      const expected = completions.requests.length + 1;
       await request("/api/tasks/resident-limits/run", { prompt });
-      await settle(request, "resident-limits");
+      await settle(request, "resident-limits", completions, expected);
       const latest = completions.requests.at(-1);
       assert.ok(askedTokens(latest) > 8192, `${prompt} kept the endpoint output cap`);
       assert.ok(askedTokens(latest) <= 20000, `${prompt} kept the endpoint context window`);
@@ -262,7 +272,7 @@ test(
       activate: true
     });
     await request("/api/tasks/resident-limits/run", { prompt: "LIMITS_FOUR" });
-    await settle(request, "resident-limits");
+    await settle(request, "resident-limits", textOnly, 1);
     assert.equal(textOnly.requests.length, 1, "the new connection served the turn");
     assert.ok(askedTokens(textOnly.requests[0]) > 20000, "the new endpoint's larger output cap applied");
     assert.ok(askedTokens(textOnly.requests[0]) <= 30000, "the new endpoint's own cap applied");

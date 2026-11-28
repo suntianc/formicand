@@ -1,3 +1,4 @@
+import { listenOnFixtureHttpPort } from "./fixtures/http-server.mjs";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
@@ -46,15 +47,14 @@ async function provider(t, label, { hold, api = "openai-completions" } = {}) {
       response.destroy(error);
     }
   });
-  server.listen(0, "127.0.0.1");
-  await once(server, "listening");
+  const port = await listenOnFixtureHttpPort(server);
   t.after(async () => {
     server.closeAllConnections();
     await new Promise((done) => server.close(done));
   });
   return {
     label,
-    base: `http://127.0.0.1:${server.address().port}/v1`,
+    base: `http://127.0.0.1:${port}/v1`,
     requests,
     failures
   };
@@ -151,7 +151,10 @@ test(
   async (t) => {
     const a = await provider(t, "连接A");
     const b = await provider(t, "连接B", { api: "openai-responses" });
-    const dashboard = await startDashboard({ defaultProject: false });
+    const dashboard = await startDashboard({
+      defaultProject: false,
+      env: { FORMICAND_MAIN_IDLE_TIMEOUT_MS: "1200" }
+    });
     t.after(() => dashboard.stop());
     const request = client(dashboard);
     const keyA = "{{SECRET_9v2tq1wm}}";

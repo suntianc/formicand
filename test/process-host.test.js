@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { once } from "node:events";
 import { ProcessHost } from "../dist/src/runtime/process-host.js";
+import { processIsAlive } from "../dist/src/runtime/process-identity.js";
 
 test("process ownership refuses duplicates and drains child process groups on shutdown", async () => {
   const host = new ProcessHost();
@@ -17,7 +18,7 @@ test("process ownership refuses duplicates and drains child process groups on sh
   assert.throws(() => host.start("task", process.execPath, [], {}), /already active/);
   await host.stop(20);
   await closed;
-  assert.notEqual(child.signalCode, null);
+  assert.equal(processIsAlive(child.pid), false);
   assert.throws(() => host.start("next", process.execPath, [], {}), /shutting down/);
 });
 
@@ -61,8 +62,8 @@ test("stopping one task kills an uncooperative process and leaves another task r
   try {
     await Promise.all([once(first.stdout, "data"), once(other.stdout, "data")]);
     await Promise.all([host.stopKey("first", 25), host.stopKey("first", 25)]);
-    assert.notEqual(first.signalCode, null);
-    assert.equal(other.signalCode, null);
+    assert.equal(processIsAlive(first.pid), false);
+    assert.equal(processIsAlive(other.pid), true);
     const next = host.start("next", process.execPath, ["-e", "console.log('next')"], {
       stdio: ["ignore", "pipe", "pipe"]
     });

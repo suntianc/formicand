@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url";
 /**
  * Drive the real page against the real server, as a person would.
  *
@@ -12,7 +13,7 @@ import { join, resolve } from "node:path";
 import { NodeFilter, parseHTML } from "linkedom";
 import { startDashboard } from "./dashboard-fixture.mjs";
 
-const HARNESS = resolve(new URL("..", import.meta.url).pathname);
+const HARNESS = fileURLToPath(new URL("..", import.meta.url));
 
 /** A DOM that `app.js` can run in, with its fetch pointed at the live server. */
 export function createLiveBrowser(base) {

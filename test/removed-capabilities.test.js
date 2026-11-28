@@ -558,7 +558,7 @@ test(
     };
     const extensionPath = resolve(".pi/extensions/formicand.ts");
     const requirePi = createRequire(import.meta.resolve("@earendil-works/pi-coding-agent"));
-    const { createJiti } = await import(requirePi.resolve("jiti"));
+    const { createJiti } = requirePi("jiti");
     const extension = await createJiti(pathToFileURL(extensionPath).href, {
       interopDefault: true
     }).import(extensionPath, { default: true });

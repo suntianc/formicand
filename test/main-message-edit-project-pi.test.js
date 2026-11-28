@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { createServer } from "node:http";
-import { once } from "node:events";
+import { listenOnFixtureHttpPort } from "./fixtures/http-server.mjs";
 import { readFile, mkdir, realpath } from "node:fs/promises";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
@@ -42,7 +42,10 @@ for (const api of ["openai-completions", "openai-responses"]) {
               (message) => message.role === "tool" || message.type === "function_call_output"
             )
           )
-            return reply({ name: "bash", arguments: { command: "pwd" } });
+            return reply({
+              name: "bash",
+              arguments: { command: `"${process.execPath}" -p "process.cwd()"` }
+            });
           return reply({ text: "新目录中的回复" });
         }
         if (history.includes("NEW_EDIT_REQUEST")) return reply({ text: "修改后的真实回复" });
@@ -63,8 +66,7 @@ for (const api of ["openai-completions", "openai-responses"]) {
         }
         reply({ text: "前文真实回复" });
       });
-      provider.listen(0, "127.0.0.1");
-      await once(provider, "listening");
+      const modelPort = await listenOnFixtureHttpPort(provider);
       const dashboard = await startDashboard();
       marker = join(dashboard.workspaceRoot, "edit-operation.txt");
       t.after(async () => {
@@ -94,7 +96,7 @@ for (const api of ["openai-completions", "openai-responses"]) {
       assert.equal(
         (
           await saveTestConnection(call, {
-            baseUrl: `http://127.0.0.1:${provider.address().port}/v1`,
+            baseUrl: `http://127.0.0.1:${modelPort}/v1`,
             api,
             apiKey: "local-fixture-key",
             model: "fixture"
@@ -110,7 +112,8 @@ for (const api of ["openai-completions", "openai-responses"]) {
       const run = (prompt) =>
         call(`/api/tasks/${task.taskId}/run`, { prompt, composer: { text: prompt, attachments: [] } });
       assert.equal((await run("PERSIST_PREFIX")).status, 202);
-      await settle(task.taskId);
+      const first = await settle(task.taskId);
+      assert.equal(first.task.status, "completed", JSON.stringify(first.task));
       assert.equal((await run("OLD_EDIT_REQUEST")).status, 202);
       const until = Date.now() + 30_000;
       while (requests.length < 3 && Date.now() < until) await delay(25);

@@ -1,3 +1,4 @@
+import { listenOnFixtureHttpPort } from "./fixtures/http-server.mjs";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { execFile } from "node:child_process";
@@ -6,19 +7,18 @@ import { mkdtemp, mkdir, readFile, readdir, stat, writeFile, rm } from "node:fs/
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { createServer } from "node:http";
-import { once } from "node:events";
 import { LocalWorkspaceStore } from "../dist/src/workspace/workspace-store.js";
 
 const exec = promisify(execFile);
 const entry = resolve(process.env.FORMICAND_TEST_CLI_ENTRY || "scripts/formicand.mjs");
-const commandTimeoutMs = 15_000;
+const piCommandTimeoutMs = 45_000;
 const killGraceMs = 2_000;
 
 test(
   "CLI continuation and explicit session selection preserve the original Task and project",
   // Fourteen serial CLI launches each retain their own deadline, even when
   // other Node files compete for startup CPU. Include fixture setup/cleanup.
-  { timeout: commandTimeoutMs * 14 + killGraceMs + 5_000 },
+  { timeout: piCommandTimeoutMs * 14 + killGraceMs + 5_000 },
   async (t) => {
     const root = await mkdtemp(join(tmpdir(), "formicand-cli-resume-"));
     const project = join(root, "project"),
@@ -51,8 +51,7 @@ test(
       send({}, "stop");
       response.end("data: [DONE]\n\n");
     });
-    server.listen(0, "127.0.0.1");
-    await once(server, "listening");
+    await listenOnFixtureHttpPort(server);
     const env = Object.fromEntries(
       Object.entries(process.env).filter(([name]) => !/^(?:FORMICAND_|PI_|FORMICAND_)/.test(name))
     );
@@ -66,11 +65,13 @@ test(
       PI_TELEMETRY: "0"
     });
     const run = async (args, extra = {}, cwd = project) => {
+      const commandTimeoutMs = args[0] === "start" ? piCommandTimeoutMs : 15_000;
       const pending = exec(process.execPath, [entry, ...args], {
         cwd,
         env: { ...env, ...extra },
         timeout: commandTimeoutMs,
         signal: t.signal,
+        windowsHide: true,
         maxBuffer: 1024 * 1024
       });
       let stopped = false;

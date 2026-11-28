@@ -1,12 +1,13 @@
 import { spawn } from "node:child_process";
 import { once } from "node:events";
 import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
-import { createServer } from "node:net";
+import { availableLocalHttpPort } from "../dist/src/platform/local-http-port.js";
 import { hostname, tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { setTimeout as delay } from "node:timers/promises";
-import { verifyProcessIdentity } from "../dist/src/runtime/process-identity.js";
+import { processIsAlive, verifyProcessIdentity } from "../dist/src/runtime/process-identity.js";
+import { stopRecordedWindowsTree } from "../dist/src/platform/windows-job-tree.js";
 import { signalProcessGroup } from "../dist/src/platform/process-group.js";
 
 const harnessRoot = fileURLToPath(new URL("..", import.meta.url));
@@ -22,15 +23,6 @@ export function startConfiguredDashboard(options = {}) {
       ...options.config
     }
   });
-}
-
-async function freePort() {
-  const probe = createServer();
-  probe.listen(0, "127.0.0.1");
-  await once(probe, "listening");
-  const { port } = probe.address();
-  await new Promise((done) => probe.close(done));
-  return port;
 }
 
 /** A fresh real Dashboard; model connections, when supplied, are local test fixtures. */
@@ -52,13 +44,13 @@ export async function startDashboard({
   const workspaceRoot = existingWorkspace ?? join(root, "workspace");
   await mkdir(workspaceRoot, { recursive: true });
   await writeFile(join(root, "config.json"), JSON.stringify(config));
-  let port = requestedPort ?? (await freePort());
+  let port = requestedPort ?? (await availableLocalHttpPort());
   const isolatedEnv = Object.fromEntries(
     Object.entries(process.env).filter(([name]) => !/^(?:FORMICAND_|PI_|FORMICAND_|EXA_)/.test(name))
   );
   const launchOptions = {
     cwd: harnessRoot,
-    stdio: ["ignore", "pipe", "pipe"],
+    stdio: ["ignore", "pipe", "pipe", "ipc"],
     env: {
       ...isolatedEnv,
       FORMICAND_HOME: join(root, "home"),
@@ -92,8 +84,12 @@ export async function startDashboard({
   const record = (chunk) => {
     output = `${output}${chunk}`.slice(-4_000);
   };
+  let published;
   const launch = () => {
     const dashboardProcess = spawn(process.execPath, ["dist/src/cli/dashboard.js"], launchOptions);
+    dashboardProcess.once("message", (message) => {
+      if (message?.type === "dashboard.ready") published = dashboardProcess;
+    });
     dashboardProcess.stdout.on("data", record);
     dashboardProcess.stderr.on("data", record);
     return dashboardProcess;
@@ -121,7 +117,11 @@ export async function startDashboard({
       if (child.exitCode !== null || child.signalCode !== null)
         throw new Error(`Dashboard exited before listening: ${output}`);
       try {
-        if ((await fetch(`${base}/api/tasks`, { signal: AbortSignal.timeout(500) })).ok) {
+        // HTTP starts listening before the backend publishes its credential and sends dashboard.ready.
+        if (
+          published === child &&
+          (await fetch(`${base}/api/tasks`, { signal: AbortSignal.timeout(500) })).ok
+        ) {
           return;
         }
       } catch {
@@ -172,7 +172,7 @@ export async function startDashboard({
       async restart({ newPort = false } = {}) {
         await stopChild();
         if (newPort) {
-          port = await freePort();
+          port = await availableLocalHttpPort();
           base = `http://127.0.0.1:${port}`;
           launchOptions.env.FORMICAND_UI_PORT = String(port);
         }
@@ -211,6 +211,11 @@ export async function endAgentProcesses(workspaceRoot) {
           .then((value) => JSON.parse(value))
           .catch(() => undefined);
         if (!record?.pid || record.host !== hostname()) continue;
+        if (process.platform === "win32") {
+          if (record.startedAt && processIsAlive(record.pid))
+            await stopRecordedWindowsTree(record.pid, record.startedAt);
+          continue;
+        }
         if (!(await verifyProcessIdentity(record))) continue;
         try {
           signalProcessGroup(record.pid, "SIGKILL");

@@ -92,7 +92,7 @@ export function createDevelopmentDeliveryViewService({
       const head =
         merge?.mergeCommit ?? candidateCommit ?? (await git(workspace.directory, ["rev-parse", "HEAD"]));
       const base = merge?.combinedBase ?? record.baseline.commit;
-      const raw = await git(workspace.directory, ["diff", "--numstat", `${base}..${head}`]);
+      const raw = await git(workspace.directory, ["diff", "--numstat", `${base}..${head}`, "--"]);
       const files = raw
         .split("\n")
         .filter(Boolean)
@@ -393,7 +393,8 @@ export function createDevelopmentDeliveryViewService({
       "--no-color",
       "--unified=3",
       `${diff.base}..${diff.head}`,
-      ...(path === undefined ? [] : ["--", path])
+      "--",
+      ...(path === undefined ? [] : [path])
     ]);
     const truncated = raw.length > DELIVERY_PATCH_LIMIT;
     const contents: DeliveryFileContent[] = [];

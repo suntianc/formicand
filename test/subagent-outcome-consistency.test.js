@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { once } from "node:events";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, open, readFile, rm, writeFile } from "node:fs/promises";
 import { hostname, tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { execFileSync, spawn } from "node:child_process";
@@ -11,6 +11,52 @@ import { SubagentDispatchService } from "../dist/src/runtime/subagent-dispatch.j
 import { CoordinatorRuntime } from "../dist/src/runtime/coordinator-runtime.js";
 import { DurableScheduler, InboxStore } from "../dist/src/runtime/scheduler.js";
 import { SubagentProcessService } from "../dist/src/runtime/subagent-processes.js";
+
+test("a dispatch and its callback publish new snapshots while readers inspect the previous ones", async () => {
+  const root = await mkdtemp(join(tmpdir(), "formicand-dispatch-reader-"));
+  const queuePath = join(root, "queue.json");
+  const inboxPath = join(root, "inbox.json");
+  const scheduler = new DurableScheduler(queuePath);
+  const inbox = new InboxStore(inboxPath);
+  try {
+    const work = { taskId: "task", runId: "run", agentId: "a", importance: "normal", payload: {} };
+    const first = await scheduler.enqueue({ ...work, stepId: "executor" });
+    const message = await inbox.enqueue({
+      messageId: "m1",
+      eventId: "e1",
+      recipientAgentId: "main",
+      kind: "callback",
+      priority: 1,
+      state: "ready",
+      payload: {},
+      createdAt: first.createdAt
+    });
+    const queueReader = await open(queuePath, "r");
+    try {
+      await scheduler.enqueue({ ...work, stepId: "reviewer" });
+      assert.deepEqual(JSON.parse(await queueReader.readFile("utf8")), [first]);
+      assert.deepEqual(
+        (await scheduler.list()).map((item) => item.stepId),
+        ["executor", "reviewer"]
+      );
+    } finally {
+      await queueReader.close();
+    }
+    const inboxReader = await open(inboxPath, "r");
+    try {
+      await inbox.enqueue({ ...message, messageId: "m2", eventId: "e2" });
+      assert.deepEqual(JSON.parse(await inboxReader.readFile("utf8")), [message]);
+      assert.deepEqual(
+        (await inbox.list("main")).map((entry) => entry.messageId),
+        ["m1", "m2"]
+      );
+    } finally {
+      await inboxReader.close();
+    }
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
 
 const TASK_ID = "outcome-task";
 const RUN_ID = "outcome-run";

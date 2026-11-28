@@ -1,5 +1,5 @@
+import { listenOnFixtureHttpPort } from "./fixtures/http-server.mjs";
 import assert from "node:assert/strict";
-import { once } from "node:events";
 import { createServer } from "node:http";
 import { mkdir, readFile, readdir, stat } from "node:fs/promises";
 import { join } from "node:path";
@@ -79,15 +79,14 @@ async function provider(t, label) {
       response.destroy(error);
     }
   });
-  server.listen(0, "127.0.0.1");
-  await once(server, "listening");
+  const port = await listenOnFixtureHttpPort(server);
   t.after(async () => {
     server.closeAllConnections();
     await new Promise((done) => server.close(done));
   });
   return {
     label,
-    base: `http://127.0.0.1:${server.address().port}/v1`,
+    base: `http://127.0.0.1:${port}/v1`,
     requests,
     failures,
     hold(...tags) {
@@ -215,15 +214,17 @@ const cancel = (request, taskId) =>
   request(`/api/tasks/${encodeURIComponent(taskId)}/action`, { action: "cancel" });
 
 async function settle(request, taskId, status, timeout = 60_000) {
-  await waitFor(
-    async () => {
-      const detail = await taskDetail(request, taskId);
-      return detail.status === 200 && !detail.body.runtime.active && detail.body.task.status === status;
-    },
-    `Main ${taskId} did not settle to ${status}`,
-    timeout
+  const until = Date.now() + timeout;
+  let detail;
+  do {
+    detail = await taskDetail(request, taskId);
+    if (detail.status === 200 && !detail.body.runtime.active && detail.body.task.status === status)
+      return detail.body;
+    await delay(50);
+  } while (Date.now() < until);
+  assert.fail(
+    `Main ${taskId} did not settle to ${status}: HTTP ${detail.status}, Task ${detail.body.task?.status}, active ${detail.body.runtime?.active}, Run ${detail.body.task?.activeRunId}`
   );
-  return (await taskDetail(request, taskId)).body;
 }
 
 const sessionDirectory = (dashboard, taskId) =>
@@ -545,9 +546,8 @@ for (const engine of PROJECT_DATA_ENGINES) {
       assert.equal(sessionOne.activeRunId, null);
       assert.deepEqual(hostModel.failures, []);
       assert.deepEqual(secondaryModel.failures, []);
-      t.diagnostic(
-        `${engine}: authority ${authority.root}, secondary ${secondary.root}, postgres ${postgres.serverVersion}`
-      );
+      t.diagnostic(`${engine}: authority ${authority.root}, secondary ${secondary.root}`);
+      if (engine === "postgres") t.diagnostic(`PostgreSQL ${postgres.serverVersion}`);
     }
   );
 
@@ -816,8 +816,9 @@ for (const engine of PROJECT_DATA_ENGINES) {
       assert.deepEqual(hostModel.failures, []);
       assert.deepEqual(projectModel.failures, []);
       t.diagnostic(
-        `${engine}: restart kept board revision 2, ledger revision 2 and ${sessionsAfter.length} sessions; postgres ${postgres.serverVersion}`
+        `${engine}: restart kept board revision 2, ledger revision 2 and ${sessionsAfter.length} sessions`
       );
+      if (engine === "postgres") t.diagnostic(`PostgreSQL ${postgres.serverVersion}`);
     }
   );
 }

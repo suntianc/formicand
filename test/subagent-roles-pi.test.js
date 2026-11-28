@@ -1,3 +1,4 @@
+import { endAgentProcesses } from "./dashboard-fixture.mjs";
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
@@ -141,18 +142,6 @@ function refusalText(requests) {
   return messageText(lastToolResult(requests)).trim();
 }
 
-async function readJsonRecords(runRoot) {
-  const records = [];
-  const directory = join(runRoot, "agents", "subagents");
-  const entries = await readdir(directory, { withFileTypes: true }).catch(() => []);
-  for (const entry of entries) {
-    if (!entry.isDirectory()) continue;
-    const record = await readJson(join(directory, entry.name, "process.json"), undefined);
-    if (record) records.push(record);
-  }
-  return records;
-}
-
 /**
  * One delegated call through the real backend path: a durable queue item, the
  * process service that launches it, and Main's callback once it settles.
@@ -265,14 +254,7 @@ async function delegatedCall(
   const cleanup = async () => {
     service.close();
     await provider.close();
-    for (const record of await readJsonRecords(runRoot)) {
-      if (!record.pid || record.settledAt) continue;
-      try {
-        process.kill(-record.pid, "SIGKILL");
-      } catch {
-        /* the process group has already exited */
-      }
-    }
+    await endAgentProcesses(workspace);
     await rm(root, { recursive: true, force: true });
   };
   t.after(cleanup);
@@ -282,6 +264,10 @@ async function delegatedCall(
     const messages = await readJson(join(runRoot, "agents", "main", "inbox-store.json"), []);
     return messages.find((message) => message.callId === callId && message.kind === "callback");
   }, `${callId} callback`);
+  if (role === "reviewer" && callback.payload.status !== "succeeded") {
+    const reviewSite = join(runRoot, "agents", "subagents", agentId, "review-site.json");
+    await waitFor(() => !existsSync(reviewSite), `${callId} to release its failed review checkout`);
+  }
   if (expectFailure) return { root, workspace, runRoot, provider, callback };
   const result = await readJson(join(runRoot, "agents", "subagents", agentId, "result.json"), undefined);
   // A callback is queued before the outcome is recorded, so wait for the record
@@ -504,7 +490,10 @@ test(
         requests.length === 1 ? { name: "submit_review", arguments: conclusion } : { text: "Review complete" }
     });
 
-    const toolResult = provider.requests[1].messages.findLast(
+    assert.equal(callback.payload.status, "succeeded", JSON.stringify(callback.payload));
+    const followUp = provider.requests[1];
+    assert.ok(followUp, "the Reviewer receives the submit_review result in its next request");
+    const toolResult = followUp.messages.findLast(
       (message) => message.role === "tool" || message.role === "toolResult"
     );
     assert.match(String(toolResult?.content ?? ""), /"submitted":true/, "the tool confirms the record");
@@ -512,7 +501,6 @@ test(
     assert.deepEqual(result.review, conclusion, "the conclusion is stored as submitted, finding by finding");
     assert.equal(result.termination, "completed");
     assert.equal(result.response, "Review complete");
-    assert.equal(callback.payload.status, "succeeded", JSON.stringify(callback.payload));
     assert.deepEqual(callback.payload.review, conclusion, "Main receives the structured verdict");
   }
 );
@@ -1464,7 +1452,7 @@ test(
       FORMICAND_SUBAGENT_RESULT: join(root, "result.json")
     });
     await writeFile(process.env.FORMICAND_CONFIG, "{}\n");
-    const { createJiti } = await import(requirePi.resolve("jiti"));
+    const { createJiti } = requirePi("jiti");
     const jiti = createJiti(pathToFileURL(extensionPath).href, { interopDefault: true });
     const module = await jiti.import(extensionPath, { default: true });
     const pi = fakePi();

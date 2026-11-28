@@ -1,7 +1,8 @@
+import { listenOnFixtureHttpPort } from "./fixtures/http-server.mjs";
+import { availableLocalHttpPort } from "../dist/src/platform/local-http-port.js";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { once } from "node:events";
-import { createServer } from "node:net";
 import { request as httpRequest, createServer as createHttpServer } from "node:http";
 import { mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -18,13 +19,12 @@ test("a lost HTTP response after action dispatch reports unknown and never retri
     attempts++;
     response.destroy();
   });
-  server.listen(0, "127.0.0.1");
-  await once(server, "listening");
+  await listenOnFixtureHttpPort(server);
   const previousBase = process.env.FORMICAND_DASHBOARD_URL;
   process.env.FORMICAND_DASHBOARD_URL = `http://127.0.0.1:${server.address().port}`;
   try {
     const requirePi = createRequire(import.meta.resolve("@earendil-works/pi-coding-agent"));
-    const { createJiti } = await import(requirePi.resolve("jiti"));
+    const { createJiti } = requirePi("jiti");
     const { registerComputerTools } = await createJiti(import.meta.url).import(
       resolve(".pi/runtime/tools/computer-use.ts")
     );
@@ -73,11 +73,7 @@ test("computer HTTP consumes only desktop grants and isolates tasks, observation
   const root = await mkdtemp(join(tmpdir(), "formicand-computer-http-"));
   await writeFile(join(root, "config.json"), "{}");
   await symlink(resolve("web"), join(root, "web"));
-  const probe = createServer();
-  probe.listen(0, "127.0.0.1");
-  await once(probe, "listening");
-  const port = probe.address().port;
-  await new Promise((done) => probe.close(done));
+  const port = await availableLocalHttpPort();
   const target = {
     pid: 11,
     windowId: 12,
@@ -196,7 +192,7 @@ test("computer HTTP consumes only desktop grants and isolates tasks, observation
     process.env.FORMICAND_DASHBOARD_URL = base;
     try {
       const requirePi = createRequire(import.meta.resolve("@earendil-works/pi-coding-agent"));
-      const { createJiti } = await import(requirePi.resolve("jiti"));
+      const { createJiti } = requirePi("jiti");
       const jiti = createJiti(import.meta.url);
       const { registerComputerTools } = await jiti.import(resolve(".pi/runtime/tools/computer-use.ts"));
       const tools = new Map();

@@ -1,17 +1,21 @@
 import { spawn, type ChildProcess, type SpawnOptions } from "node:child_process";
+import { stopWindowsJobTree } from "../platform/windows-job-tree.js";
 import { signalProcessGroup, usesProcessGroups } from "../platform/process-group.js";
 
 /** Owns subprocess groups and bounded shutdown. Run state is owned by the caller. */
 export class ProcessHost {
   readonly processes = new Map<string, ChildProcess>();
   private stopping = false;
+  private readonly launchWindow = new WeakMap<ChildProcess, [number, number]>();
 
   start(key: string, command: string, args: string[], options: SpawnOptions): ChildProcess {
     if (this.stopping) throw new Error("Runtime is shutting down");
     if (this.processes.has(key)) throw new Error(`Process already active: ${key}`);
     const env = { ...(options.env ?? process.env) };
     delete env.FORMICAND_COMPONENTS_GITHUB_TOKEN;
-    const child = spawn(command, args, { ...options, env, detached: usesProcessGroups });
+    const started = Date.now();
+    const child = spawn(command, args, { windowsHide: true, ...options, env, detached: usesProcessGroups });
+    if (!usesProcessGroups) this.launchWindow.set(child, [started, Date.now()]);
     this.processes.set(key, child);
     return child;
   }
@@ -25,6 +29,15 @@ export class ProcessHost {
     const child = this.processes.get(key);
     if (!child) return Promise.resolve();
     const operation = (async () => {
+      const window = this.launchWindow.get(child);
+      if (window) {
+        if (child.pid && child.exitCode === null && child.signalCode === null) {
+          const closed = new Promise<void>((done) => child.once("close", () => done()));
+          await stopWindowsJobTree(child.pid, ...window);
+          await closed;
+        }
+        return;
+      }
       const signal = (value: NodeJS.Signals) => {
         try {
           signalProcessGroup(child, value);

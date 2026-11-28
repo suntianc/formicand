@@ -3,7 +3,7 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import type { AgentToolResult } from "@earendil-works/pi-agent-core";
 import { randomUUID } from "node:crypto";
 import { mkdir } from "node:fs/promises";
-import { join, relative, resolve } from "node:path";
+import { join, relative, resolve, sep } from "node:path";
 import { atomicWrite } from "../../dist/src/storage/atomic-file.js";
 import { JsonlEventStore } from "../../dist/src/storage/event-store.js";
 import { listAgentOutputFiles } from "../../dist/src/runtime/progress.js";
@@ -445,8 +445,10 @@ export async function registerSubagentAgent(pi: ExtensionAPI, role: AgentRole): 
           ...(submittedReview ? { review: submittedReview } : {}),
           ...(submittedReport ? { report: submittedReport } : {}),
           diagnostics: {
-            tracePath: relative(taskWorkspace, join(taskWorkspace, "sessions", agentId, "pi", callId)),
-            resultPath: relative(taskWorkspace, resultPath)
+            tracePath: relative(taskWorkspace, join(taskWorkspace, "sessions", agentId, "pi", callId))
+              .split(sep)
+              .join("/"),
+            resultPath: relative(taskWorkspace, resultPath).split(sep).join("/")
           },
           ...(error ? { error } : {}),
           completedAt: new Date().toISOString()

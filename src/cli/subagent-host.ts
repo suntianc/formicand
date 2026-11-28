@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { processAgentLocations, resolveAgent } from "../runtime/agent-definitions.js";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
-import type { AddressInfo } from "node:net";
+import { listenOnLocalHttpPort } from "../platform/local-http-port.js";
 import { join } from "node:path";
 import { readHostFormicandConfig, type FormicandConfig } from "../runtime/config.js";
 import { resolveModelRole } from "../runtime/role-models.js";
@@ -101,8 +101,7 @@ export async function openSubagentHost(options: SubagentHostOptions): Promise<Su
         else fail(response, error);
       });
     });
-    await listen(server);
-    const { port } = server.address() as AddressInfo;
+    const port = await listenOnLocalHttpPort(server);
     return {
       url: `http://127.0.0.1:${port}`,
       token,
@@ -140,15 +139,5 @@ function fail(response: ServerResponse, error: unknown): void {
   sendJson(response, status, {
     error: error instanceof Error ? error.message : String(error),
     ...(error instanceof HttpError && error.code ? { code: error.code } : {})
-  });
-}
-
-async function listen(server: Server): Promise<void> {
-  await new Promise<void>((done, reject) => {
-    server.once("error", reject);
-    server.listen(0, "127.0.0.1", () => {
-      server.off("error", reject);
-      done();
-    });
   });
 }

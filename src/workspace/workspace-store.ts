@@ -2,6 +2,7 @@ import { readTemporaryWorkspace } from "./temporary-workspaces.js";
 import { appendFile, mkdir, mkdtemp, readFile, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
 import { isAbsolute, join, resolve } from "node:path";
 import { withFileLock } from "../storage/file-lock.js";
+import { atomicWrite } from "../storage/atomic-file.js";
 import {
   id,
   now,
@@ -291,9 +292,9 @@ export class LocalWorkspaceStore implements WorkspaceStore {
           version: current.version + 1
         };
         await validateTemporaryRoot(next);
-        const temporary = `${taskFile}.tmp-${process.pid}-${Date.now()}`;
-        await writeFile(temporary, `${JSON.stringify({ layoutVersion: 2, ...next }, null, 2)}\n`, "utf8");
-        await rename(temporary, taskFile);
+        await atomicWrite(taskFile, `${JSON.stringify({ layoutVersion: 2, ...next }, null, 2)}\n`, {
+          createParent: false
+        });
         await appendFile(
           join(taskPath, "task_events.jsonl"),
           `${JSON.stringify({ eventId: id("task-event"), type: "task.metadata_updated", taskId, fields: Object.keys(patch), occurredAt: now() })}\n`,
@@ -337,9 +338,9 @@ export class LocalWorkspaceStore implements WorkspaceStore {
       if (details.runId) next.activeRunId = details.runId;
       if (details.error) next.lastError = details.error;
       if (status === "running") next.completedAt = undefined;
-      const temporary = `${taskFile}.tmp-${process.pid}-${Date.now()}`;
-      await writeFile(temporary, `${JSON.stringify({ layoutVersion: 2, ...next }, null, 2)}\n`, "utf8");
-      await rename(temporary, taskFile);
+      await atomicWrite(taskFile, `${JSON.stringify({ layoutVersion: 2, ...next }, null, 2)}\n`, {
+        createParent: false
+      });
       await appendFile(
         join(taskPath, "task_events.jsonl"),
         `${JSON.stringify({

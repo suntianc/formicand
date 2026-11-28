@@ -1,6 +1,7 @@
+import { assertPrivateFile } from "./fixtures/private-file.mjs";
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
-import { mkdtemp, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
@@ -20,7 +21,7 @@ test("remembered choices are kept privately with the origin that wrote them", as
     "formicand.time-format": "24h"
   };
   await store.save(entries, "http://127.0.0.1:5000");
-  assert.equal((await stat(join(root, "ui-preferences.json"))).mode & 0o777, 0o600);
+  await assertPrivateFile(join(root, "ui-preferences.json"));
   const reopened = createUiPreferenceStore(root);
   await reopened.load();
   assert.deepEqual(reopened.snapshot(), { entries, origin: "http://127.0.0.1:5000", persisted: true });

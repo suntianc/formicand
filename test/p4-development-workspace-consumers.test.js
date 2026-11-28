@@ -1,3 +1,4 @@
+import { deferCleanup } from "./fixtures/cleanup.mjs";
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
 import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
@@ -52,7 +53,7 @@ async function toolFixture(t) {
     defaultProject: false,
     config: { projectData: projectDataConfig("sqlite") }
   });
-  t.after(() => dashboard.stop());
+  deferCleanup(t, () => dashboard.stop());
   const request = async (path, body, method = body === undefined ? "GET" : "POST") => {
     const response = await fetch(`${dashboard.base}${path}`, {
       method,
@@ -276,7 +277,7 @@ test("the Main tool records and reads developments only for its own project", as
 
 test("a failed record with an intact checkout returns to ready without a second checkout", async (t) => {
   const directory = await mkdtemp(join(tmpdir(), "formicand-p4-recovery-"));
-  t.after(() => rm(directory, { recursive: true, force: true }));
+  deferCleanup(t, () => rm(directory, { recursive: true, force: true }));
   const repository = await makeRepository(join(directory, "repository"));
   const runtime = new ProjectDataRuntime({
     config: { sqlite: { path: join(directory, "project-data.sqlite") } },
@@ -284,7 +285,7 @@ test("a failed record with an intact checkout returns to ready without a second 
     dataRoot: directory,
     backendId: "backend_recovery"
   });
-  t.after(() => runtime.close());
+  deferCleanup(t, () => runtime.close());
   const gateway = await runtime.service();
   const projectId = "project_recovery";
   await gateway.ensureProject({

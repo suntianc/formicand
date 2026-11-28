@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { fileURLToPath } from "node:url";
 import { test } from "node:test";
 import { mkdtemp, writeFile, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -13,7 +14,7 @@ test("the headless shell bootstrap does not add flags to worker inheritance", as
       "worker.once('message',args=>writeFileSync('worker-args.json',JSON.stringify(args)));"
   );
   const bootstrap = new URL("../scripts/cli-shell-boot.mjs", import.meta.url);
-  assert.equal(await runCliProcess({ ...f, bootstrap: bootstrap.pathname }), 0);
+  assert.equal(await runCliProcess({ ...f, bootstrap: fileURLToPath(bootstrap) }), 0);
   assert.deepEqual(JSON.parse(await readFile(join(f.projectDirectory, "worker-args.json"), "utf8")), []);
 });
 

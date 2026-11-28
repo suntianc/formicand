@@ -4,7 +4,7 @@ import { AgentProcessHost, type AgentProcessRecord } from "../runtime/agent-proc
 import { InboxStore } from "../runtime/scheduler.js";
 import { MainRunOutput } from "./main-run-outcome.js";
 import { mainIsAlive, readHeartbeat } from "../runtime/main-heartbeat.js";
-import { processIsAlive, verifyProcessIdentity } from "../runtime/process-identity.js";
+import { processIsAlive, requireProcessIdentityCheck } from "../runtime/process-identity.js";
 import { hostname } from "node:os";
 import type { TaskLocation } from "./workspace-directory.js";
 
@@ -85,7 +85,7 @@ export async function mainTurnState(
  */
 export async function residentProcessAlive(record: AgentProcessRecord): Promise<boolean> {
   if (!record.startedAt) return processIsAlive(record.pid);
-  return verifyProcessIdentity({ pid: record.pid, startedAt: record.startedAt });
+  return requireProcessIdentityCheck(record);
 }
 
 /**

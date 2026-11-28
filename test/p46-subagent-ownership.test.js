@@ -1,10 +1,12 @@
+import { assertPrivateFile } from "./fixtures/private-file.mjs";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
 import { existsSync } from "node:fs";
-import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { hostname, tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 import { test } from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
 import { DurableScheduler, InboxStore } from "../dist/src/runtime/scheduler.js";
@@ -210,7 +212,7 @@ test(
       [
         "--input-type=module",
         "-e",
-        `import { claimSubagentOwnership } from ${JSON.stringify(join(harness, "dist/src/runtime/subagent-owner.js"))};
+        `import { claimSubagentOwnership } from ${JSON.stringify(pathToFileURL(join(harness, "dist/src/runtime/subagent-owner.js")).href)};
          await claimSubagentOwnership(process.argv[1], "dashboard");
          console.log("claimed");
          setInterval(() => {}, 1_000);`,
@@ -227,6 +229,17 @@ test(
         ),
       "the other owner's claim"
     );
+
+    const savedPath = process.env.PATH;
+    try {
+      process.env.PATH = "";
+      const contender = await claimSubagentOwnership(root, "worker");
+      assert.equal(contender.owned, false, "an unavailable OS query must not replace the running Dashboard");
+      assert.equal(contender.owner?.pid, owner.pid);
+    } finally {
+      if (savedPath === undefined) delete process.env.PATH;
+      else process.env.PATH = savedPath;
+    }
 
     const backend = createSubagentBackend({
       projectRoot: harness,
@@ -264,7 +277,7 @@ test(
     const credential = first.runCredential();
     assert.match(credential, /^run_[a-f0-9]{64}$/);
     const path = join(root, "run-credential");
-    assert.equal((await stat(path)).mode & 0o777, 0o600);
+    await assertPrivateFile(path);
     assert.equal((await readFile(path, "utf8")).trim(), credential);
     // A later backend process of the same data root presents the same
     // credential, which is what keeps an adopted Main authorized.

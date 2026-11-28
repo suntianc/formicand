@@ -1,16 +1,17 @@
+import { fileURLToPath } from "node:url";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { createServer } from "node:net";
+import { availableLocalHttpPort } from "../dist/src/platform/local-http-port.js";
 import { createRequire } from "node:module";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
 import { test } from "node:test";
 
 const require = createRequire(import.meta.url);
 const { connectBackend } = require("../desktop/backend.cjs");
 const { desktopPaths, prepareDesktopData } = require("../desktop/paths.cjs");
-const root = resolve(new URL("..", import.meta.url).pathname);
+const root = fileURLToPath(new URL("..", import.meta.url));
 
 async function call(instance, operation, credential = instance.token, headers = {}) {
   const response = await fetch(`${instance.url}/api/host/computer`, {
@@ -195,14 +196,7 @@ test(
     const paths = desktopPaths(root, join(base, "home"), {});
     await prepareDesktopData(paths, "test");
     await writeFile(paths.configPath, "{}\n");
-    const port = await new Promise((done, fail) => {
-      const server = createServer();
-      server.once("error", fail);
-      server.listen(0, "127.0.0.1", () => {
-        const value = server.address().port;
-        server.close(() => done(value));
-      });
-    });
+    const port = await availableLocalHttpPort();
     const env = Object.fromEntries(
       Object.entries(process.env).filter(([key]) => !/^(FORMICAND_|PI_|FORMICAND_|ELECTRON_)/.test(key))
     );
@@ -279,14 +273,7 @@ test(
     process.env.FORMICAND_DISABLE_SESSION_TITLES = "1";
     process.env.PI_OFFLINE = "1";
     process.env.FORMICAND_API_TOKEN = "synthetic-host-token";
-    const port = await new Promise((done, fail) => {
-      const server = createServer();
-      server.once("error", fail);
-      server.listen(0, "127.0.0.1", () => {
-        const value = server.address().port;
-        server.close(() => done(value));
-      });
-    });
+    const port = await availableLocalHttpPort();
     process.env.FORMICAND_UI_PORT = String(port);
     const calls = [];
     const status = {

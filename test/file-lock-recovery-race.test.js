@@ -148,7 +148,7 @@ test(
   async (t) => {
     const root = await mkdtemp(join(tmpdir(), "formicand-lock-owner-race-"));
     const target = join(root, "projects.json.operation");
-    const ownerPath = `${target}.lock/owner.json`;
+    const ownerPath = join(`${target}.lock`, "owner.json");
     const env = Object.fromEntries(
       Object.entries(process.env).filter(([key]) => !/^(?:FORMICAND_|FORMICAND_|PI_)/.test(key))
     );

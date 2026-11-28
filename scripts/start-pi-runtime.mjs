@@ -16,6 +16,7 @@ import {
   runtimeSettingsEnv
 } from "../dist/src/runtime/runtime-settings.js";
 import { ensurePiRetryDefaults } from "../dist/src/runtime/model-retry.js";
+import { piShellEnvironment } from "../dist/src/platform/project-shell.js";
 import { resolveModelRole, roleConnectionEnv } from "../dist/src/runtime/role-models.js";
 import { modelConnections } from "../dist/src/runtime/model-providers.js";
 import { compactAgentOutputLine } from "../dist/src/runtime/agent-output-compaction.js";
@@ -494,7 +495,7 @@ export async function startPi({ uiCompatibility } = {}) {
           ? fileURLToPath(new URL("./cli-ui-boot.mjs", import.meta.url))
           : executable,
         args,
-        env: childEnv,
+        env: piShellEnvironment(childEnv),
         projectDirectory,
         uiCompatibility: Boolean(uiCompatibility)
       });
@@ -615,7 +616,7 @@ async function startDelegatedAgent() {
   process.exitCode = await runCliProcess({
     executable,
     args,
-    env: { ...process.env },
+    env: piShellEnvironment(process.env),
     projectDirectory: process.cwd(),
     // This process's stdout is the agent's durable event log.
     ...(jsonEvents ? { compactStdoutLine: compactAgentOutputLine } : {})

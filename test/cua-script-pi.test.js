@@ -1,3 +1,5 @@
+import { listenOnFixtureHttpPort } from "./fixtures/http-server.mjs";
+import { availableLocalHttpPort } from "../dist/src/platform/local-http-port.js";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { createServer } from "node:http";
@@ -13,7 +15,7 @@ import { withoutMainState } from "./fixtures/main-state.mjs";
 
 test(
   "real Pi loads CUA skill and runs persistent JavaScript cells through native HTTP with cancellation",
-  { timeout: 120_000 },
+  { timeout: 180_000 },
   async () => {
     const root = await mkdtemp(join(tmpdir(), "formicand-cua-script-pi-")),
       previous = { ...process.env };
@@ -94,8 +96,7 @@ test(
       }
       response.end("data: [DONE]\n\n");
     });
-    model.listen(0, "127.0.0.1");
-    await once(model, "listening");
+    const modelPort = await listenOnFixtureHttpPort(model);
     try {
       await mkdir(join(root, "workspace"));
       await writeFile(join(root, "config.json"), "{}");
@@ -103,7 +104,7 @@ test(
         FORMICAND_CONFIG: join(root, "config.json"),
         FORMICAND_WORKSPACE: join(root, "workspace"),
         FORMICAND_GLOBAL_INDEX: join(root, "global.json"),
-        FORMICAND_API_BASE: `http://127.0.0.1:${model.address().port}/v1`,
+        FORMICAND_API_BASE: `http://127.0.0.1:${modelPort}/v1`,
         FORMICAND_API_KEY: "local-fixture",
         FORMICAND_MODEL: "cua-script-fixture",
         FORMICAND_SUPPORTS_IMAGES: "1",
@@ -115,12 +116,8 @@ test(
         PI_OFFLINE: "1"
       });
       delete process.env.FORMICAND_API_TOKEN;
-      const probe = createServer();
-      probe.listen(0, "127.0.0.1");
-      await once(probe, "listening");
-      const port = probe.address().port;
+      const port = await availableLocalHttpPort();
       base = `http://127.0.0.1:${port}`;
-      await new Promise((done) => probe.close(done));
       dashboard = createDashboardApplication({
         projectRoot: resolve("."),
         port,
@@ -170,15 +167,13 @@ test(
         202
       );
       let task;
-      for (let index = 0; index < 600; index++) {
+      const deadline = Date.now() + 140_000;
+      do {
         task = (await (await fetch(`${base}/api/tasks/cua-script-agent`)).json()).task;
-        if (
-          ["completed", "failed"].includes(task.status) &&
-          !dashboard.runs.activeRuns.has("cua-script-agent")
-        )
-          break;
-        await delay(100);
-      }
+        // A resident Main remains available after its completed turn.
+        if (["completed", "failed"].includes(task.status)) break;
+        await delay(150);
+      } while (Date.now() < deadline);
       assert.equal(task.status, "completed");
       assert.equal(requests.length, steps.length + 1);
       const payload = (index) =>

@@ -351,7 +351,12 @@ export function createTaskRunControl({
       onTaskCancelling(taskId);
       const settleCancellation = async (task: TaskRecord) => {
         const cancelledRunId = location.task.activeRunId;
-        if (cancelledRunId) await finalizeSessionRun({ ...location, task }, cancelledRunId, "cancelled");
+        if (cancelledRunId && task.activeRunId === cancelledRunId)
+          await finalizeSessionRun(
+            { ...location, task },
+            cancelledRunId,
+            task.status === "completed" ? "completed" : "cancelled"
+          );
         return task;
       };
       cancellations.add(taskId);
@@ -372,11 +377,14 @@ export function createTaskRunControl({
         });
         if (location.task.status === "completed") {
           const runId = resident?.runId ?? activeRunIds.get(taskId);
-          // A finished Task whose resident Main is idle keeps its completed
-          // outcome; closing only ends that process. A turn still producing
-          // the final response is a provisional completion, so cancelling it
-          // takes the ordinary terminal path below.
-          if (resident && (await taskTurnActive(taskId)) !== true) {
+          if (runId && runId !== location.task.activeRunId) return location.task;
+          // Natural completion is written after the final answer, before the
+          // idle heartbeat. Only finish_task can provisionally complete a turn
+          // while the model is still producing that answer.
+          if (
+            resident &&
+            (location.task.completion?.signal === "natural_stop" || !(await taskTurnActive(taskId)))
+          ) {
             await stopResidentMain(taskId);
             return await settleCancellation((await locateTask(taskId)).task);
           }

@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
@@ -17,7 +18,7 @@ import { test } from "node:test";
  * response and a real restart.
  */
 
-const repositoryRoot = resolve(new URL("..", import.meta.url).pathname);
+const repositoryRoot = fileURLToPath(new URL("..", import.meta.url));
 const backendEntry = join(repositoryRoot, "dist/src/cli/backend.js");
 
 const alive = (pid) => {

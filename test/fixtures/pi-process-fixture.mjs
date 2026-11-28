@@ -1,3 +1,5 @@
+import { listenOnLocalHttpPort } from "../../dist/src/platform/local-http-port.js";
+import { killFixtureChild } from "./main-processes.mjs";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
 import { createServer } from "node:http";
@@ -36,24 +38,31 @@ export function isolatedPiEnvironment(overrides = {}) {
  */
 export async function startLocalProvider({ model = "p46-fixture-model", handle } = {}) {
   const requests = [];
+  let failure;
   const server = createServer(async (request, response) => {
     if (request.method !== "POST") {
       response.writeHead(200, { "content-type": "application/json" });
       return response.end(JSON.stringify({ data: [{ id: model }] }));
     }
-    requests.push(JSON.parse(await readFixtureRequestBody(request)));
-    const reply = (await handle?.(requests.at(-1), requests)) ?? { text: "ok" };
-    response.writeHead(200, { "content-type": "text/event-stream" });
-    response.end(protocolStream("openai-completions", reply));
+    try {
+      requests.push(JSON.parse(await readFixtureRequestBody(request)));
+      const reply = (await handle?.(requests.at(-1), requests)) ?? { text: "ok" };
+      response.writeHead(200, { "content-type": "text/event-stream" });
+      response.end(protocolStream("openai-completions", reply));
+    } catch (error) {
+      failure ??= error;
+      response.writeHead(400, { "content-type": "application/json" });
+      response.end(JSON.stringify({ error: { message: "Fixture model handler failed" } }));
+    }
   });
-  server.listen(0, "127.0.0.1");
-  await once(server, "listening");
+  const port = await listenOnLocalHttpPort(server);
   return {
-    baseUrl: `http://127.0.0.1:${server.address().port}/v1`,
+    baseUrl: `http://127.0.0.1:${port}/v1`,
     requests,
     async close() {
       server.closeAllConnections();
       await new Promise((done) => server.close(done));
+      if (failure) throw failure;
     }
   };
 }
@@ -65,7 +74,7 @@ export async function startLocalProvider({ model = "p46-fixture-model", handle }
  * specific Pi bundle without this fixture deciding which runtime it is testing.
  */
 export function spawnPiRpc({ command, args, cwd, env, label = "p46" }) {
-  const child = spawn(command, args, { cwd, env, stdio: ["pipe", "pipe", "pipe"] });
+  const child = spawn(command, args, { cwd, env, windowsHide: true, stdio: ["pipe", "pipe", "pipe"] });
   const events = [];
   const pending = new Map();
   let buffer = "";
@@ -115,6 +124,11 @@ export function spawnPiRpc({ command, args, cwd, env, label = "p46" }) {
   const stop = async () => {
     if (child.exitCode !== null || child.signalCode !== null) return;
     const exited = once(child, "close");
+    if (process.platform === "win32") {
+      await killFixtureChild(child);
+      await exited;
+      return;
+    }
     child.kill("SIGTERM");
     const timeout = new AbortController();
     try {
@@ -138,29 +152,4 @@ export function spawnPiRpc({ command, args, cwd, env, label = "p46" }) {
  * OS start time, or the test process would keep its handles (and the machine
  * its processes) after the assertions are done.
  */
-export async function reapRecordedMains(workspaceRoot) {
-  const { readdir, readFile } = await import("node:fs/promises");
-  const { hostname } = await import("node:os");
-  const { join } = await import("node:path");
-  const expectedHost = hostname();
-  for (const task of await readdir(workspaceRoot, { withFileTypes: true }).catch(() => [])) {
-    if (!task.isDirectory()) continue;
-    const runs = await readdir(join(workspaceRoot, task.name, "runs")).catch(() => []);
-    for (const runId of runs) {
-      const record = await readFile(
-        join(workspaceRoot, task.name, "runs", runId, "agents", "main", "process.json"),
-        "utf8"
-      )
-        .then((value) => JSON.parse(value))
-        .catch(() => undefined);
-      if (!record?.pid || record.host !== expectedHost || !record.startedAt) continue;
-      const { verifyProcessIdentity } = await import("../../dist/src/runtime/process-identity.js");
-      if (!(await verifyProcessIdentity({ pid: record.pid, startedAt: record.startedAt }))) continue;
-      try {
-        process.kill(-record.pid, "SIGKILL");
-      } catch {
-        /* the group already exited */
-      }
-    }
-  }
-}
+export { endAgentProcesses as reapRecordedMains } from "../dashboard-fixture.mjs";

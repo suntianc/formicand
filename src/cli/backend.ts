@@ -1,7 +1,7 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { closeSync, openSync } from "node:fs";
 import { mkdir, open } from "node:fs/promises";
-import { createServer } from "node:net";
+import { availableLocalHttpPort } from "../platform/local-http-port.js";
 import { once } from "node:events";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -96,16 +96,6 @@ function publicStatus(value: BackendInstance): BackendStatus {
 
 function delay(ms: number): Promise<void> {
   return new Promise((done) => setTimeout(done, ms));
-}
-
-async function availablePort(): Promise<number> {
-  const probe = createServer();
-  probe.listen(0, "127.0.0.1");
-  await once(probe, "listening");
-  const address = probe.address();
-  const port = typeof address === "object" && address ? address.port : 0;
-  await new Promise<void>((done) => probe.close(() => done()));
-  return port;
 }
 
 async function logTail(paths: BackendPaths, bytes = 4_000): Promise<string> {
@@ -516,7 +506,13 @@ export async function serveBackend(claimToken?: string, executable = process.exe
   const requested = env.FORMICAND_UI_PORT ? Number(env.FORMICAND_UI_PORT) : undefined;
   if (requested !== undefined && (!Number.isInteger(requested) || requested < 1 || requested > 65535))
     throw new Error("FORMICAND_UI_PORT 必须是 1–65535 的整数");
-  const port = requested ?? (await availablePort());
+  let port: number;
+  try {
+    port = requested ?? (await availableLocalHttpPort());
+  } catch (error) {
+    await releaseBackendServing(paths, claimToken);
+    throw error;
+  }
   const token = env.FORMICAND_API_TOKEN?.trim() || randomBytes(32).toString("hex");
   env.FORMICAND_API_TOKEN = token;
   const startedAt = new Date().toISOString();

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, open, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
@@ -19,6 +19,7 @@ test("pending input restoration flushes the original input once across repeated 
   await saveMainInput(f.inputPath, input);
   await restorePendingTaskInput(f.sessions, f.root, f.inputPath);
   const [first] = await SessionManager.listAll(f.sessions);
+  if (process.platform !== "win32") assert.equal((await stat(first.path)).mode & 0o777, 0o600);
   const original = await readFile(first.path, "utf8");
   await restorePendingTaskInput(f.sessions, f.root, f.inputPath);
   assert.equal(await readFile(first.path, "utf8"), original);
@@ -34,7 +35,14 @@ test("an identical later request is restored without mistaking an older turn for
   const input = { version: 1, prompt: "The same text", submittedAt: 1 };
   await saveMainInput(f.inputPath, input);
   await restorePendingTaskInput(f.sessions, f.root, f.inputPath);
-  await saveMainInput(f.inputPath, { ...input, submittedAt: 2 });
+  const reader = await open(f.inputPath, "r");
+  try {
+    await saveMainInput(f.inputPath, { ...input, submittedAt: 2 });
+    assert.deepEqual(JSON.parse(await reader.readFile("utf8")), input);
+    assert.equal((await readMainInput(f.inputPath)).submittedAt, 2);
+  } finally {
+    await reader.close();
+  }
   await restorePendingTaskInput(f.sessions, f.root, f.inputPath);
   await restorePendingTaskInput(f.sessions, f.root, f.inputPath);
   const [latest] = await SessionManager.listAll(f.sessions);
@@ -78,7 +86,14 @@ test("explicit edited session restoration ignores newer abandoned history and re
     messageId: "accepted-message"
   };
   await saveMainInput(f.inputPath, input);
-  await restorePendingTaskInput(f.sessions, f.root, f.inputPath, selected.getSessionFile());
+  const reader = await open(selected.getSessionFile(), "r");
+  try {
+    await restorePendingTaskInput(f.sessions, f.root, f.inputPath, selected.getSessionFile());
+    assert.match(await reader.readFile("utf8"), /accepted-message/);
+    if (process.platform !== "win32") assert.equal((await reader.stat()).mode & 0o777, 0o600);
+  } finally {
+    await reader.close();
+  }
   await restorePendingTaskInput(f.sessions, f.root, f.inputPath, selected.getSessionFile());
   const entries = SessionManager.open(selected.getSessionFile()).getBranch();
   assert.equal(
@@ -87,5 +102,11 @@ test("explicit edited session restoration ignores newer abandoned history and re
   );
   assert.match(JSON.stringify(entries), /accepted-message/);
   assert.doesNotMatch(JSON.stringify(entries), /abandoned branch/);
+  assert.equal(await readFile(sourceFile, "utf8"), original);
+  await rm(selected.getSessionFile());
+  await assert.rejects(restorePendingTaskInput(f.sessions, f.root, f.inputPath, selected.getSessionFile()), {
+    code: "ENOENT"
+  });
+  await assert.rejects(stat(selected.getSessionFile()), { code: "ENOENT" });
   assert.equal(await readFile(sourceFile, "utf8"), original);
 });

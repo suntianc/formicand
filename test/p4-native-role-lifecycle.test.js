@@ -1,3 +1,6 @@
+import { listenOnFixtureHttpPort } from "./fixtures/http-server.mjs";
+import { endAgentProcesses } from "./dashboard-fixture.mjs";
+import { deferCleanup } from "./fixtures/cleanup.mjs";
 import assert from "node:assert/strict";
 import { execFile, spawn } from "node:child_process";
 import { once } from "node:events";
@@ -59,7 +62,8 @@ function spawnMain({ root, project, workspace, taskId, runId, prompt, env = {} }
     ],
     {
       cwd: resolve("."),
-      detached: true,
+      detached: process.platform !== "win32",
+      windowsHide: true,
       stdio: ["ignore", "pipe", "pipe"],
       env: {
         ...inherited,
@@ -101,11 +105,10 @@ function spawnMain({ root, project, workspace, taskId, runId, prompt, env = {} }
     exit: exited,
     async kill() {
       if (child.exitCode === null && child.signalCode === null) {
-        try {
-          process.kill(-child.pid, "SIGKILL");
-        } catch {
-          /* already gone */
-        }
+        // Windows ends the launcher's own SDK on exit. Independently launched
+        // delegated work must survive so the next backend can adopt it.
+        if (process.platform === "win32") child.kill("SIGKILL");
+        else process.kill(-child.pid, "SIGKILL");
       }
       await exited;
     }
@@ -202,13 +205,12 @@ async function provider(t, label, handle) {
       }
     }
   });
-  server.listen(0, "127.0.0.1");
-  await once(server, "listening");
-  t.after(async () => {
+  const port = await listenOnFixtureHttpPort(server);
+  deferCleanup(t, async () => {
     server.closeAllConnections();
     await new Promise((done) => server.close(done));
   });
-  return { label, baseUrl: `http://127.0.0.1:${server.address().port}/v1`, requests, failures };
+  return { label, baseUrl: `http://127.0.0.1:${port}/v1`, requests, failures };
 }
 
 const waitFor = async (check, message, timeout = 60_000) => {
@@ -373,15 +375,9 @@ test(
         FORMICAND_MODEL: "main-model"
       }
     });
-    t.after(async () => {
-      if (main.child.exitCode === null && main.child.signalCode === null) {
-        try {
-          process.kill(-main.child.pid, "SIGKILL");
-        } catch {
-          /* already gone */
-        }
-        await main.exit.catch(() => {});
-      }
+    deferCleanup(t, async () => {
+      await main.kill();
+      await endAgentProcesses(workspace);
       await rm(root, { recursive: true, force: true });
     });
     const [code] = await main.exit;
@@ -606,10 +602,11 @@ test(
         FORMICAND_MODEL: "main-model"
       }
     });
-    t.after(async () => {
+    deferCleanup(t, async () => {
       release();
       configEdited();
       await main.kill();
+      await endAgentProcesses(workspace);
       await rm(root, { recursive: true, force: true });
     });
 
@@ -812,9 +809,10 @@ test(
         FORMICAND_MODEL: "main-model"
       }
     });
-    t.after(async () => {
+    deferCleanup(t, async () => {
       release();
       await first.kill();
+      await endAgentProcesses(workspace);
       await rm(root, { recursive: true, force: true });
     });
     await waitFor(async () => {
@@ -859,12 +857,12 @@ test(
         FORMICAND_MODEL: "main-model"
       }
     });
-    t.after(() => second.kill());
+    deferCleanup(t, () => second.kill());
     // Wait for the assertions the second Main makes through its own tools, then
     // stop it: whether it exits on its own is not part of the behaviour here.
     await Promise.race([
       verified,
-      delay(60_000).then(async () =>
+      delay(60_000, undefined, { ref: false }).then(async () =>
         assert.fail(
           `the recovered Main never observed the outcome; failures=${JSON.stringify(failures)} exit=${second.child.exitCode}/${second.child.signalCode} output=${second.output.slice(-2000)}`
         )
@@ -929,10 +927,12 @@ test(
         FORMICAND_MODEL: "main-model"
       }
     });
-    t.after(() => third.kill());
+    deferCleanup(t, () => third.kill());
     await Promise.race([
       touched,
-      delay(30_000).then(() => assert.fail("the third start never reached the model"))
+      delay(30_000, undefined, { ref: false }).then(() =>
+        assert.fail("the third start never reached the model")
+      )
     ]);
     await third.kill();
     const queueAfter = await readQueue(workspace, taskId, runId);
@@ -1030,8 +1030,9 @@ test(
         FORMICAND_MODEL: "main-model"
       }
     });
-    t.after(async () => {
+    deferCleanup(t, async () => {
       await main.kill();
+      await endAgentProcesses(workspace);
       await rm(root, { recursive: true, force: true });
     });
     const [code] = await main.exit;

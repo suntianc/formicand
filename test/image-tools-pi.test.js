@@ -17,7 +17,7 @@ const pixel = Buffer.from(
 for (const api of ["openai-completions", "openai-responses"])
   test(
     `real Main ${api} read_image returns native pixels for every accepted source`,
-    { timeout: 45000 },
+    { timeout: 120_000 },
     async (t) => {
       const root = await mkdtemp(join(tmpdir(), "formicand-image-tools-pi-"));
       t.after(() => rm(root, { recursive: true, force: true }));
@@ -75,7 +75,7 @@ for (const api of ["openai-completions", "openai-responses"])
         ["scripts/start-pi.mjs", "--print", "--mode", "json", "Inspect pixel.png and report the evidence."],
         {
           cwd: resolve("."),
-          timeout: 35000,
+          timeout: 90_000,
           maxBuffer: 4000000,
           env: {
             ...env,

@@ -9,7 +9,9 @@ import { join, resolve } from "node:path";
 import { test } from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
 import { SessionManager } from "@earendil-works/pi-coding-agent";
+import { killFixtureMain } from "./fixtures/main-processes.mjs";
 import { startDashboard } from "./dashboard-fixture.mjs";
+import { listenOnLocalHttpPort } from "../dist/src/platform/local-http-port.js";
 const { mainInputPath, saveMainInput } = await import("../dist/src/runtime/main-continuation.js");
 const { LocalWorkspaceStore } = await import("../dist/src/workspace/workspace-store.js");
 const { DurableScheduler, InboxStore } = await import("../dist/src/runtime/scheduler.js");
@@ -36,7 +38,7 @@ function complete(response, text) {
   response.end("data: [DONE]\n\n");
 }
 
-async function fixture(t, handle, { retryBaseDelayMs } = {}) {
+async function fixture(t, handle, { retryBaseDelayMs, env } = {}) {
   const requests = [],
     rawRequests = [];
   let dashboard;
@@ -56,11 +58,19 @@ async function fixture(t, handle, { retryBaseDelayMs } = {}) {
       response.destroy(error);
     }
   });
-  provider.listen(0, "127.0.0.1");
-  await once(provider, "listening");
+  const modelPort = await listenOnLocalHttpPort(provider);
+  t.after(async () => {
+    try {
+      await dashboard?.stop();
+    } finally {
+      provider.closeAllConnections();
+      await new Promise((done) => provider.close(done));
+    }
+  });
   dashboard = await startDashboard({
-    modelEndpoint: `http://127.0.0.1:${provider.address().port}`,
-    model: "fixture-model"
+    modelEndpoint: `http://127.0.0.1:${modelPort}`,
+    model: "fixture-model",
+    env
   });
   if (retryBaseDelayMs !== undefined) {
     await mkdir(join(dashboard.root, "pi"), { recursive: true });
@@ -69,11 +79,6 @@ async function fixture(t, handle, { retryBaseDelayMs } = {}) {
       JSON.stringify({ retry: { baseDelayMs: retryBaseDelayMs } })
     );
   }
-  t.after(async () => {
-    await dashboard.stop();
-    provider.closeAllConnections();
-    await new Promise((done) => provider.close(done));
-  });
   const api = async (path, body) => {
     const response = await fetch(`${dashboard.base}${path}`, {
       ...(body === undefined
@@ -83,24 +88,31 @@ async function fixture(t, handle, { retryBaseDelayMs } = {}) {
             headers: { "content-type": "application/json" },
             body: JSON.stringify(body)
           }),
-      signal: AbortSignal.timeout(5_000)
+      // Starting or stopping a real Main can include several OS identity and process-tree queries.
+      signal: AbortSignal.timeout(30_000)
     });
     const payload = await response.json();
     assert.ok(response.ok, JSON.stringify(payload));
     return payload;
   };
   const settle = async (taskId, status) => {
-    const until = Date.now() + 30_000;
+    let deadline = Date.now() + 30_000;
+    let progress;
     let detail;
-    while (Date.now() < until) {
+    while (Date.now() < deadline) {
       detail = await api(`/api/tasks/${taskId}`);
       if (!detail.runtime.active) {
         assert.equal(detail.task.status, status, JSON.stringify(detail.task));
         return detail;
       }
+      const observed = `${requests.length}:${detail.task.version}:${detail.runtimeEvents.length}`;
+      if (progress !== observed) {
+        progress = observed;
+        deadline = Date.now() + 30_000;
+      }
       await delay(40);
     }
-    assert.fail(`Main did not settle: ${JSON.stringify(detail?.task)}`);
+    assert.fail(`Main did not settle: ${JSON.stringify({ task: detail?.task, progress })}`);
   };
   return { ...dashboard, api, settle, requests, rawRequests };
 }
@@ -321,7 +333,7 @@ test(
 
 test(
   "repeated manual continuation keeps one user turn and retains bounded retries",
-  { timeout: 60_000 },
+  { timeout: 150_000 },
   async (t) => {
     let rejecting = true;
     const local = await fixture(
@@ -624,12 +636,13 @@ test(
   async (t) => {
     let runId = "";
     let step2Reached = false;
+    let finishDelegations;
     let releaseStep2;
     const step2Held = new Promise((resolve) => {
       releaseStep2 = resolve;
     });
     let killed = false;
-    const local = await fixture(t, async ({ body, response }) => {
+    const handle = async ({ body, response }) => {
       if (!killed && !body.messages.some((m) => m.role === "tool")) {
         const taskId = "wait-receipt-sigkill";
         if (!runId) {
@@ -644,7 +657,7 @@ test(
           join(local.workspaceRoot, taskId, "runs", runId, "agents", "main", "inbox-store.json")
         );
         const now = new Date().toISOString();
-        const leaseExpiry = new Date(Date.now() + 200).toISOString();
+        const leaseExpiry = new Date(Date.now() + 120_000).toISOString();
         const claimedLeases = [];
         for (const [stepId, messageId, marker] of [
           ["sub-wait-a", "cb-wait-a", "SUBAGENT_UNIQUE_MARKER_A"],
@@ -673,12 +686,12 @@ test(
             createdAt: now
           });
         }
-        // Complete the two subagent calls in queue.json after the short pre-wait lease expires
-        // (without touching inbox-store.json), so wait_for_subagents deterministically claims both
-        // callbacks into details._formicandInboxMessages.
-        void delay(300).then(async () => {
+        // Only the wait tool should claim these receipts. Release the fixture leases
+        // once real execution has entered that tool, then finish the queued work.
+        finishDelegations = async () => {
+          for (const id of ["cb-wait-a", "cb-wait-b"]) await inbox.release(id);
           for (const [stepId, token] of claimedLeases) await scheduler.complete(stepId, token);
-        });
+        };
         response.writeHead(200, { "content-type": "text/event-stream" });
         stream(response, { role: "assistant" });
         stream(response, {
@@ -689,7 +702,7 @@ test(
               type: "function",
               function: {
                 name: "wait_for_subagents",
-                arguments: JSON.stringify({ callIds: ["sub-wait-a", "sub-wait-b"], timeoutMs: 4000 })
+                arguments: JSON.stringify({ callIds: ["sub-wait-a", "sub-wait-b"], timeoutMs: 30_000 })
               }
             }
           ]
@@ -705,13 +718,30 @@ test(
         return;
       }
       return complete(response, "Resumed cleanly after wait receipt SIGKILL.");
-    });
+    };
+    // The wait tool must own both receipts for this crash boundary. Releasing the fixture's
+    // prepared rows would otherwise invite the independent directory watcher to claim them.
+    const local = await fixture(t, handle, { env: { FORMICAND_DISABLE_FILE_WATCH: "1" } });
 
     const taskId = "wait-receipt-sigkill";
     await local.api("/api/tasks", { taskId, goal: "Wait for two callbacks." });
     const started = await local.api(`/api/tasks/${taskId}/run`, { prompt: "Wait for two callbacks." });
     runId = started.runId;
 
+    const waitUntil = Date.now() + 30_000;
+    for (;;) {
+      const detail = await local.api(`/api/tasks/${taskId}`);
+      if (
+        detail.runtimeEvents.some(
+          ({ payload }) =>
+            payload.type === "tool_execution_start" && payload.toolName === "wait_for_subagents"
+        )
+      )
+        break;
+      assert.ok(Date.now() < waitUntil, "the real Main entered its wait tool");
+      await delay(25);
+    }
+    await finishDelegations();
     const until = Date.now() + 25_000;
     while (!step2Reached && Date.now() < until) await delay(20);
     assert.equal(step2Reached, true, "Pi must reach the post-wait model request");
@@ -721,7 +751,11 @@ test(
     );
     const msgsBeforeKill = await inbox.list("main");
     assert.equal(msgsBeforeKill.find((m) => m.messageId === "cb-wait-a")?.state, "consumed");
-    assert.equal(msgsBeforeKill.find((m) => m.messageId === "cb-wait-b")?.state, "consumed");
+    assert.equal(
+      msgsBeforeKill.find((m) => m.messageId === "cb-wait-b")?.state,
+      "consumed",
+      JSON.stringify(msgsBeforeKill.map(({ messageId, state, lease }) => ({ messageId, state, lease })))
+    );
 
     // Pre-ack forced flush must have already persisted both wait receipts to messages.json BEFORE SIGKILL.
     const persistedBeforeKill = await readFile(
@@ -738,7 +772,7 @@ test(
       )
     );
     killed = true;
-    process.kill(proc.pid, "SIGKILL");
+    await killFixtureMain(proc);
     releaseStep2();
     await local.settle(taskId, "failed");
 
@@ -795,7 +829,7 @@ test(
       )
     );
     recoveredPhase = true;
-    process.kill(proc.pid, "SIGKILL");
+    await killFixtureMain(proc);
     releaseFirst();
     await local.settle(taskId, "failed");
 
@@ -817,7 +851,22 @@ test(
     await local.api(`/api/tasks/${taskId}/run`, { resume: true });
     await local.settle(taskId, "completed");
 
-    assert.equal(local.requests.length, requestsBeforeContinue + 1);
+    assert.equal(
+      local.requests.length,
+      requestsBeforeContinue + 1,
+      JSON.stringify(
+        local.requests.map((body) => ({
+          model: body.model,
+          tools: body.tools?.length,
+          conversation: body.messages
+            .filter((message) => message.role !== "system")
+            .map((message) => ({
+              role: message.role,
+              content: JSON.stringify(message.content).slice(0, 300)
+            }))
+        }))
+      )
+    );
     const continuedBody = JSON.stringify(local.requests.at(-1).messages);
     assert.match(continuedBody, new RegExp(uniquePrompt));
     const sessionsAfter = await SessionManager.listAll(piDir);
@@ -916,7 +965,7 @@ test(
       )
     );
     phase = "followup";
-    process.kill(proc.pid, "SIGKILL");
+    await killFixtureMain(proc);
     const failed = await local.settle(taskId, "failed");
 
     // 1. Backend loadDetail() retains original user prompt, step 1 tool output, and partial text.
@@ -1065,6 +1114,13 @@ test(
     const projectDir = join(root, "project");
     const piAgentDir = join(root, "pi-agent");
     const pidFile = join(root, "pi-child.pid");
+    const running = join(root, "tool-running");
+    const pidExtension = join(root, "pi-process.mjs");
+    await writeFile(
+      pidExtension,
+      `import { writeFile } from "node:fs/promises";
+      export default async () => { await writeFile(${JSON.stringify(pidFile)}, String(process.pid)); };`
+    );
     await mkdir(workspaceRoot, { recursive: true });
     await mkdir(projectDir, { recursive: true });
     await mkdir(piAgentDir, { recursive: true });
@@ -1091,7 +1147,7 @@ test(
             function: {
               name: "bash",
               arguments: JSON.stringify({
-                command: `printf '%s\\n' "$PPID" > ${shellQuote(pidFile)}; sleep 30`
+                command: `printf running > ${shellQuote(running)}; sleep 30`
               })
             }
           }
@@ -1100,14 +1156,13 @@ test(
       stream(response, {}, "tool_calls");
       response.end("data: [DONE]\n\n");
     });
-    provider.listen(0, "127.0.0.1");
-    await once(provider, "listening");
+    const modelPort = await listenOnLocalHttpPort(provider);
     const configPath = join(root, "config.json");
     await writeFile(
       configPath,
       JSON.stringify({
         api: "openai-completions",
-        baseUrl: `http://127.0.0.1:${provider.address().port}/v1`,
+        baseUrl: `http://127.0.0.1:${modelPort}/v1`,
         apiKey: "fixture-key",
         model: "fixture-model",
         workspaceRoot
@@ -1117,7 +1172,15 @@ test(
     const taskId = "cli-sigkill-materialize";
     const launcher = spawn(
       process.execPath,
-      [resolve("scripts/start-pi.mjs"), "--print", "Run a tool and wait."],
+      [
+        resolve("scripts/start-pi.mjs"),
+        "--extension",
+        resolve(".pi/extensions/formicand.ts"),
+        "--extension",
+        pidExtension,
+        "--print",
+        "Run a tool and wait."
+      ],
       {
         cwd: projectDir,
         env: {
@@ -1150,7 +1213,11 @@ test(
     while (Date.now() < until) {
       const raw = await readFile(pidFile, "utf8").catch(() => "");
       const parsed = Number(raw.trim());
-      if (Number.isInteger(parsed) && parsed > 0) {
+      if (
+        Number.isInteger(parsed) &&
+        parsed > 0 &&
+        (await readFile(running, "utf8").catch(() => "")) === "running"
+      ) {
         piPid = parsed;
         break;
       }

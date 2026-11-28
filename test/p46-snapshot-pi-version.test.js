@@ -1,6 +1,6 @@
+import { listenOnFixtureHttpPort } from "./fixtures/http-server.mjs";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { once } from "node:events";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { tmpdir } from "node:os";
@@ -202,10 +202,9 @@ async function dashboard(t) {
     response.writeHead(200, { "content-type": "text/event-stream" });
     response.end(protocolStream("openai-completions", { text: "重建上下文后继续。" }));
   });
-  provider.listen(0, "127.0.0.1");
-  await once(provider, "listening");
+  const port = await listenOnFixtureHttpPort(provider);
   const dashboard = await startDashboard({
-    modelEndpoint: `http://127.0.0.1:${provider.address().port}`,
+    modelEndpoint: `http://127.0.0.1:${port}`,
     model: "original-model"
   });
   t.after(async () => {

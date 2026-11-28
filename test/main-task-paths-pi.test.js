@@ -1,3 +1,5 @@
+import { listenOnFixtureHttpPort } from "./fixtures/http-server.mjs";
+import { killFixtureChild } from "./fixtures/main-processes.mjs";
 import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
 import { once } from "node:events";
@@ -175,13 +177,7 @@ const footer = "draft";
       response.end("data: [DONE]\n\n");
     });
     t.after(async () => {
-      if (child?.pid) {
-        try {
-          process.kill(-child.pid, "SIGKILL");
-        } catch {
-          /* already exited */
-        }
-      }
+      if (child?.pid) await killFixtureChild(child);
       server.closeAllConnections();
       await new Promise((done) => server.close(done));
       await rm(root, { recursive: true, force: true });
@@ -191,8 +187,7 @@ const footer = "draft";
     const store = new LocalWorkspaceStore(workspace);
     await store.createTask(taskId, { goal: "路径契约隔离验收" });
     await store.createRun(taskId, "paths-run");
-    server.listen(0, "127.0.0.1");
-    await once(server, "listening");
+    const port = await listenOnFixtureHttpPort(server);
     child = spawn(
       process.execPath,
       [
@@ -208,7 +203,8 @@ const footer = "draft";
       ],
       {
         cwd: resolve("."),
-        detached: true,
+        detached: process.platform !== "win32",
+        windowsHide: true,
         stdio: ["ignore", "pipe", "pipe"],
         env: {
           ...process.env,
@@ -217,7 +213,7 @@ const footer = "draft";
           FORMICAND_PROJECT_DIR: project,
           FORMICAND_TASK_ID: taskId,
           FORMICAND_RUN_ID: "paths-run",
-          FORMICAND_API_BASE: `http://127.0.0.1:${server.address().port}/v1`,
+          FORMICAND_API_BASE: `http://127.0.0.1:${port}/v1`,
           FORMICAND_API_KEY: "local-path-fixture",
           FORMICAND_MODEL: "task-path-fixture",
           FORMICAND_DASHBOARD_URL: "",
@@ -267,7 +263,7 @@ const footer = "draft";
     });
     assert.match(resultText(results[5].result), /TASK_BEFORE_EDIT/);
     const browsed = JSON.parse(resultText(results[7].result));
-    assert.equal(browsed.path, taskRelativeScript);
+    assert.equal(browsed.path, join("agents", "main", "work", scriptName));
     assert.match(browsed.content, /TASK_AFTER_EDIT/);
     assert.ok(
       resultText(results[8].result).includes(join(project, taskRelativeScript)),

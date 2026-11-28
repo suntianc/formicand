@@ -19,7 +19,10 @@ async function fixture(t) {
 }
 
 async function runningChild(t) {
-  const child = spawn(process.execPath, ["-e", "setInterval(() => {}, 1000)"], { stdio: "ignore" });
+  const child = spawn(process.execPath, ["-e", "setInterval(() => {}, 1000)"], {
+    stdio: "ignore",
+    windowsHide: true
+  });
   await once(child, "spawn");
   const exited = once(child, "exit");
   t.after(async () => {
@@ -41,7 +44,7 @@ test("development restart waits for the actual old PID to exit before replacing 
     entry,
     pollMs: 5,
     installDevelopmentAppImpl: async (received) => {
-      assert.equal(child.exitCode === null && child.signalCode === null, false);
+      assert.throws(() => process.kill(child.pid, 0), { code: "ESRCH" });
       assert.equal(received.directory, directory);
       assert.deepEqual(received.toolchain, {
         nodeExecutable: options.nodeExecutable,

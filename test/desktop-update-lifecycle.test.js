@@ -1,3 +1,4 @@
+import { listenOnFixtureHttpPort } from "./fixtures/http-server.mjs";
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
 import { createRequire } from "node:module";
@@ -43,10 +44,7 @@ test("idle preparation authenticates actual loopback HTTP and saves before the s
     response.writeHead(200, { "content-type": "application/json" });
     response.end(JSON.stringify(request.url === "/api/tasks" ? { tasks: [idleTask] } : detail()));
   });
-  await new Promise((resolve, reject) => {
-    server.once("error", reject);
-    server.listen(0, "127.0.0.1", resolve);
-  });
+  await listenOnFixtureHttpPort(server);
   t.after(async () => {
     server.closeAllConnections();
     await new Promise((resolve) => server.close(resolve));

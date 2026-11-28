@@ -96,6 +96,7 @@ async function mainTurn(t, { calls, answer }) {
       maxBuffer: 16 * 1024 * 1024,
       env: isolatedPiEnvironment({
         HOME: root,
+        USERPROFILE: root,
         FORMICAND_HOME: home,
         FORMICAND_CONFIG: configPath,
         FORMICAND_PROJECT_DIR: project,
@@ -138,7 +139,7 @@ test(
       scope: "global",
       path: join(home, "agents", "db-migrator.md"),
       // HOME is the test root, so the file under it is shown with `~`.
-      displayPath: ["~", "home", "agents", "db-migrator.md"].join("/"),
+      displayPath: join("~", "home", "agents", "db-migrator.md"),
       definition
     });
     assert.equal(JSON.parse(results[0]).saved, true);

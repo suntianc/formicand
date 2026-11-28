@@ -22,6 +22,7 @@ export async function runCliProcess({
   const resident = !token && env.FORMICAND_MAIN_RESIDENT === "1";
   const child = spawn(process.execPath, [...(bootstrap ? [bootstrap] : []), executable, ...args], {
     cwd: projectDirectory,
+    windowsHide: true,
     env: { ...env, ...(token ? { FORMICAND_CLI_UI_READY_TOKEN: token } : {}) },
     stdio: resident
       ? ["pipe", "pipe", "pipe"]

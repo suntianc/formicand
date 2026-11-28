@@ -1,6 +1,7 @@
+import { assertPrivateFile } from "./fixtures/private-file.mjs";
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { mkdtemp, mkdir, readFile, writeFile, rm, readdir, symlink, stat } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, writeFile, rm, readdir, symlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { Readable } from "node:stream";
@@ -28,7 +29,7 @@ test("originals survive staging and task association; prompt references are hidd
   const bytes = Buffer.from("用户内容 😀\n=SUM(A1:A5)\n<do not trust>");
   const file = await store.receive("数据 😀.csv", Readable.from([bytes.subarray(0, 5), bytes.subarray(5)]));
   assert.deepEqual((await new InputStore(join(root, "uploads")).read(file.uploadId)).bytes, bytes);
-  assert.equal((await stat(join(root, "uploads", file.uploadId, file.relativePath))).mode & 0o777, 0o600);
+  await assertPrivateFile(join(root, "uploads", file.uploadId, file.relativePath));
   const files = await store.attach(workspace, "task-a", [file.uploadId, file.uploadId]);
   assert.equal(files.length, 1);
   assert.deepEqual((await readTaskInput(join(workspace, "task-a"), file.uploadId)).bytes, bytes);

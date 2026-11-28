@@ -1,7 +1,7 @@
 import { constants } from "node:fs";
 import { open, realpath } from "node:fs/promises";
 import { createHash } from "node:crypto";
-import { extname, isAbsolute, relative, resolve } from "node:path";
+import { extname, isAbsolute, relative, resolve, sep } from "node:path";
 import { containsFilePath } from "./file-path.js";
 import {
   createImageArchive,
@@ -144,7 +144,12 @@ export function createImageTools(options: ImageReaderOptions) {
     }
     inspectImage(data, mimeType, limit);
     assertImageActive(signal);
-    return { data, mimeType, path: relative(root, path), scope: task ? "task" : workScope };
+    return {
+      data,
+      mimeType,
+      path: relative(root, path).split(sep).join("/"),
+      scope: task ? "task" : workScope
+    };
   }
   async function remember(image: LoadedImage, signal?: AbortSignal) {
     if (!image.record && archive)

@@ -4,7 +4,7 @@ import { readFile } from "node:fs/promises";
 import { atomicWrite } from "../storage/atomic-file.js";
 import { withFileLock } from "../storage/file-lock.js";
 import { now } from "../domain/types.js";
-import { processIsAlive, readProcessIdentity, verifyProcessIdentity } from "./process-identity.js";
+import { matchProcessIdentity, processIsAlive, readProcessIdentity } from "./process-identity.js";
 
 /**
  * Who owns delegated execution for one workspace root.
@@ -41,11 +41,11 @@ export function subagentOwnerPath(workspaceRoot: string): string {
   return join(workspaceRoot, ".runtime", "subagent-owner.json");
 }
 
-/** The record when the process that wrote it is still the same live process. */
+/** Keep the existing owner until a local exit or a different identity is confirmed. */
 export async function readLiveSubagentOwner(workspaceRoot: string): Promise<SubagentOwnerRecord | undefined> {
   const value = await readOwner(subagentOwnerPath(workspaceRoot));
   if (!value || value.releasedAt) return undefined;
-  return (await ownerIsLive(value)) ? value : undefined;
+  return (await ownerKeepsClaim(value)) ? value : undefined;
 }
 
 /**
@@ -76,7 +76,7 @@ export async function claimSubagentOwnership(
     `${path}.lock`,
     async (): Promise<SubagentOwnership> => {
       const current = await readOwner(path);
-      if (current && !current.releasedAt && current.pid !== process.pid && (await ownerIsLive(current))) {
+      if (current && !current.releasedAt && current.pid !== process.pid && (await ownerKeepsClaim(current))) {
         // The serving Dashboard is the product backend: it may replace a
         // worker's claim, but no second backend replaces a live Dashboard.
         if (kind !== "dashboard" || current.kind === "dashboard") return { owned: false, owner: current };
@@ -125,10 +125,10 @@ async function readOwner(path: string): Promise<SubagentOwnerRecord | undefined>
  * A record without a readable start time (a host where `ps` failed) falls back
  * to the pid, which is the most that record can support.
  */
-async function ownerIsLive(record: SubagentOwnerRecord): Promise<boolean> {
+async function ownerKeepsClaim(record: SubagentOwnerRecord): Promise<boolean> {
   if (record.host !== hostname()) return false;
   if (!Number.isSafeInteger(record.pid) || record.pid <= 0) return false;
   if (record.pid === process.pid) return true;
   if (!record.startedAt) return processIsAlive(record.pid);
-  return await verifyProcessIdentity({ pid: record.pid, startedAt: record.startedAt });
+  return (await matchProcessIdentity(record)) !== false;
 }

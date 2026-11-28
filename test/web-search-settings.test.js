@@ -1,6 +1,7 @@
+import { assertPrivateFile } from "./fixtures/private-file.mjs";
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { mkdtemp, readFile, writeFile, rm, stat } from "node:fs/promises";
+import { mkdtemp, readFile, writeFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { createRequire } from "node:module";
@@ -39,7 +40,7 @@ test("Web search settings persist choices privately without changing the model c
   const saved = JSON.parse(await readFile(paths.configPath, "utf8"));
   assert.equal(saved.model, "fixture-model");
   assert.deepEqual(saved.webSearch, { provider: "exa" });
-  assert.equal((await stat(paths.configPath)).mode & 0o777, 0o600);
+  await assertPrivateFile(paths.configPath);
   active = true;
   await assert.rejects(settings.save({ provider: "off" }), /停止运行/);
   active = false;

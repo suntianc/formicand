@@ -1,10 +1,11 @@
+import { deferCleanup } from "./fixtures/cleanup.mjs";
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
 import { after, before, test } from "node:test";
 import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, sep } from "node:path";
 import { promisify } from "node:util";
 import { setTimeout as delay } from "node:timers/promises";
 import { startDashboard } from "./dashboard-fixture.mjs";
@@ -31,7 +32,18 @@ const messageText = (message) =>
     ? message.content
     : (message.content ?? []).map((part) => part.text ?? "").join("");
 const lastToolText = (body) => messageText(body.messages.findLast((message) => message.role === "tool"));
-const toolJson = (body) => JSON.parse(withoutMainState(lastToolText(body)));
+const toolJson = (body) => {
+  const result = body.messages.findLast((message) => message.role === "tool");
+  const value = withoutMainState(messageText(result));
+  try {
+    return JSON.parse(value);
+  } catch (cause) {
+    const call = body.messages
+      .findLast((message) => message.tool_calls?.some((item) => item.id === result.tool_call_id))
+      ?.tool_calls.find((item) => item.id === result.tool_call_id);
+    throw new Error(`${call?.function.name ?? "Unknown tool"} returned invalid JSON: ${value}`, { cause });
+  }
+};
 const userText = (body) =>
   body.messages
     .filter((message) => message.role === "user")
@@ -61,15 +73,21 @@ const waitFor = async (check, message, timeout = 30_000) => {
   assert.fail(message);
 };
 
-const settle = async (request, taskId, timeout = 120_000) => {
-  const until = Date.now() + timeout;
+const settle = async (request, taskId, requests, timeout = 120_000) => {
+  let progress;
+  let until = Date.now() + timeout;
   while (Date.now() < until) {
     const detail = await request(`/api/tasks/${taskId}`);
     if (detail.status === 200 && !detail.body.runtime.active && detail.body.task.status === "completed")
       return detail.body;
-    await delay(50);
+    const steps = JSON.stringify(requests);
+    if (steps !== progress) {
+      progress = steps;
+      until = Date.now() + timeout;
+    }
+    await delay(100);
   }
-  assert.fail(`Main ${taskId} did not settle`);
+  assert.fail(`Main ${taskId} did not settle after provider steps ${progress}`);
 };
 
 async function makeRepository(directory) {
@@ -77,6 +95,7 @@ async function makeRepository(directory) {
   await git(directory, ["init", "-b", "main"]);
   await git(directory, ["config", "user.email", "fixture@example.test"]);
   await git(directory, ["config", "user.name", "Fixture"]);
+  await git(directory, ["config", "core.autocrlf", "false"]);
   await writeFile(join(directory, "tracked.txt"), "committed\n");
   await git(directory, ["add", "."]);
   await git(directory, ["commit", "-m", "baseline"]);
@@ -117,7 +136,7 @@ test(
         FORMICAND_DISABLE_SESSION_TITLES: "1"
       }
     });
-    t.after(async () => {
+    deferCleanup(t, async () => {
       await dashboard.stop();
       await rm(root, { recursive: true, force: true });
     });
@@ -173,9 +192,24 @@ test(
       const match = userText(body).match(/工作项 ([A-D])/);
       return match ? match[1].toLowerCase() : "unknown";
     };
+    let awaitedCall;
+    const waitForCall = (callId) => {
+      awaitedCall = callId;
+      return { name: "wait_for_subagents", arguments: { callIds: [callId], timeoutMs: 60_000 } };
+    };
     const provider = await modelProtocolFixture("openai-completions", async (body) => {
       try {
         const role = identity(body);
+        if (role === "main" && awaitedCall) {
+          const waited = toolJson(body);
+          const item = waited.calls.find((entry) => entry.callId === awaitedCall);
+          assert.ok(item, `wait returned no status for ${awaitedCall}`);
+          assert.ok(["queued", "leased", "completed"].includes(item.status), JSON.stringify(item));
+          // A callback or timeout can return before this particular Reviewer or Executor finishes.
+          if (waited.pending.includes(awaitedCall)) return waitForCall(awaitedCall);
+          assert.equal(item.status, "completed");
+          awaitedCall = undefined;
+        }
         const step = requests[role]++;
         if (role === "main") {
           if (step === 0) {
@@ -196,7 +230,7 @@ test(
             const development = toolJson(body).development;
             integration = development.workspace.directory;
             developmentId = development.developmentId;
-            assert.ok(!integration.startsWith(`${repository}/`));
+            assert.ok(!integration.startsWith(`${repository}${sep}`));
             return {
               name: "call_subagent",
               arguments: {
@@ -211,14 +245,9 @@ test(
             assert.equal(calls.a.accepted, true);
             assert.equal(calls.a.role, "executor");
             assert.notEqual(calls.a.workspace, integration);
-            return {
-              name: "wait_for_subagents",
-              arguments: { callIds: [calls.a.callId], timeoutMs: 60_000 }
-            };
+            return waitForCall(calls.a.callId);
           }
           if (step === 3) {
-            const waited = toolJson(body);
-            assert.equal(waited.calls.find((entry) => entry.callId === calls.a.callId).status, "completed");
             return {
               name: "bash",
               arguments: {
@@ -295,14 +324,9 @@ test(
             assert.equal(calls.b.role, "reviewer");
             assert.notEqual(calls.b.agentId, calls.a.agentId, "the reviewer has its own identity");
             assert.notEqual(calls.b.workspace, calls.a.workspace, "the reviewer has its own checkout");
-            return {
-              name: "wait_for_subagents",
-              arguments: { callIds: [calls.b.callId], timeoutMs: 60_000 }
-            };
+            return waitForCall(calls.b.callId);
           }
           if (step === 9) {
-            const waited = toolJson(body);
-            assert.equal(waited.calls.find((entry) => entry.callId === calls.b.callId).status, "completed");
             return {
               name: "project_development",
               arguments: { action: "attach_reviewer", reviewId: reviewId1, callId: calls.b.callId }
@@ -379,14 +403,9 @@ test(
             assert.equal(calls.a2.workspace, calls.a.workspace, "the rework keeps the original checkout");
             assert.notEqual(calls.a2.callId, calls.a.callId);
             assert.equal(calls.a2.continuedFrom, calls.a.callId);
-            return {
-              name: "wait_for_subagents",
-              arguments: { callIds: [calls.a2.callId], timeoutMs: 60_000 }
-            };
+            return waitForCall(calls.a2.callId);
           }
           if (step === 16) {
-            const waited = toolJson(body);
-            assert.equal(waited.calls.find((entry) => entry.callId === calls.a2.callId).status, "completed");
             return {
               name: "project_development",
               arguments: {
@@ -451,14 +470,9 @@ test(
           if (step === 20) {
             calls.c = toolJson(body);
             assert.notEqual(calls.c.agentId, calls.a.agentId);
-            return {
-              name: "wait_for_subagents",
-              arguments: { callIds: [calls.c.callId], timeoutMs: 60_000 }
-            };
+            return waitForCall(calls.c.callId);
           }
           if (step === 21) {
-            const waited = toolJson(body);
-            assert.equal(waited.calls.find((entry) => entry.callId === calls.c.callId).status, "completed");
             return {
               name: "project_development",
               arguments: { action: "attach_reviewer", reviewId: reviewId2, callId: calls.c.callId }
@@ -582,14 +596,9 @@ test(
           }
           if (step === 31) {
             calls.d = toolJson(body);
-            return {
-              name: "wait_for_subagents",
-              arguments: { callIds: [calls.d.callId], timeoutMs: 60_000 }
-            };
+            return waitForCall(calls.d.callId);
           }
           if (step === 32) {
-            const waited = toolJson(body);
-            assert.equal(waited.calls.find((entry) => entry.callId === calls.d.callId).status, "completed");
             return {
               name: "bash",
               arguments: {
@@ -668,11 +677,17 @@ test(
                 command: `mkdir -p evidence && printf '%s' '${FAILURE_LOG}' > evidence/failure.log`
               }
             };
-          if (step === 1)
+          if (step === 1) {
+            assert.doesNotMatch(
+              lastToolText(body),
+              /Command exited with code|not recognized|No such file|command not found/i,
+              "Reviewer must record its evidence"
+            );
             return {
               name: "bash",
               arguments: { command: 'test "$(tail -1 export.txt)" = total' }
             };
+          }
           if (step === 2)
             return {
               name: "submit_review",
@@ -719,7 +734,7 @@ test(
         return { text: "候选审查夹具失败。" };
       }
     });
-    t.after(async () => {
+    deferCleanup(t, async () => {
       await provider.close();
     });
     const saved = await saveTestConnection(request, {
@@ -737,7 +752,7 @@ test(
       prompt: "完成报表导出需求：先实现，再冻结候选做独立审查，有发现时在原执行会话返修并复审。"
     });
     assert.equal(started.status, 202, JSON.stringify(started.body));
-    await Promise.race([settle(request, taskId), scriptFailure]);
+    await Promise.race([settle(request, taskId, requests), scriptFailure]);
     assert.deepEqual(failures, [], failures.join("\n"));
 
     // The integration checkout holds the corrected export; the original
@@ -814,7 +829,7 @@ after(async () => {
 for (const engine of PROJECT_DATA_ENGINES) {
   test(`${engine}: review plans, fixed candidates and rulings survive restart and backup`, async (t) => {
     const root = await mkdtemp(join(tmpdir(), `formicand-p4-review-${engine}-`));
-    t.after(() => rm(root, { recursive: true, force: true }));
+    deferCleanup(t, () => rm(root, { recursive: true, force: true }));
     const repository = await makeRepository(join(root, "repository"));
     const developmentRoot = join(root, "development-workspaces");
     const runtime = new ProjectDataRuntime({
@@ -827,7 +842,7 @@ for (const engine of PROJECT_DATA_ENGINES) {
       env: {}
     });
     let runtimeClosed = false;
-    t.after(async () => {
+    deferCleanup(t, async () => {
       if (!runtimeClosed) await runtime.close();
     });
     const gateway = await runtime.service();
@@ -994,7 +1009,7 @@ for (const engine of PROJECT_DATA_ENGINES) {
       dataRoot: root,
       env: {}
     });
-    t.after(() => reopened.close());
+    deferCleanup(t, () => reopened.close());
     const afterRestart = await reopened.service();
     const reads = await afterRestart.queryReviews("project-review", development.developmentId);
     assert.equal(reads.length, 1);
@@ -1024,7 +1039,7 @@ test("a remote backend writes review facts through the authority and reads them 
   const root = await mkdtemp(join(tmpdir(), "formicand-p4-review-remote-"));
   const repository = await makeRepository(join(root, "repository"));
   const dashboard = await startDashboard({ defaultProject: false });
-  t.after(async () => {
+  deferCleanup(t, async () => {
     await dashboard.stop();
     await rm(root, { recursive: true, force: true });
   });
@@ -1047,7 +1062,7 @@ test("a remote backend writes review facts through the authority and reads them 
     backendId: "backend_remote_review",
     source: "p4-review-test"
   });
-  t.after(() => remote.close());
+  deferCleanup(t, () => remote.close());
   const calls = {};
   const remoteRoot = join(root, "remote");
   const service = createProjectDevelopmentService({
@@ -1359,7 +1374,7 @@ test("a closed or drifted review keeps its findings rulable and one reviewer own
     dataRoot: root,
     env: {}
   });
-  t.after(async () => {
+  deferCleanup(t, async () => {
     await runtime.close().catch(() => undefined);
     await rm(root, { recursive: true, force: true });
   });
@@ -1576,7 +1591,7 @@ for (const engine of PROJECT_DATA_ENGINES) {
       dataRoot: root,
       env: {}
     });
-    t.after(async () => {
+    deferCleanup(t, async () => {
       await runtime.close().catch(() => undefined);
       await rm(root, { recursive: true, force: true });
     });
@@ -1675,7 +1690,7 @@ test("the program imports the Reviewer's conclusion, narrows the re-review and s
     dataRoot: root,
     env: {}
   });
-  t.after(async () => {
+  deferCleanup(t, async () => {
     await runtime.close().catch(() => undefined);
     await rm(root, { recursive: true, force: true });
   });

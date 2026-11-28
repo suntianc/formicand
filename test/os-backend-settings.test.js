@@ -1,10 +1,11 @@
+import { listenOnFixtureHttpPort } from "./fixtures/http-server.mjs";
+import { assertPrivateFile } from "./fixtures/private-file.mjs";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { createServer } from "node:http";
 import { execFile } from "node:child_process";
-import { once } from "node:events";
 import { promisify } from "node:util";
-import { mkdir, mkdtemp, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { setTimeout as delay } from "node:timers/promises";
@@ -41,8 +42,7 @@ async function hostModelFixture(expectedKey, text) {
     response.writeHead(200, { "content-type": "text/event-stream" });
     response.end(protocolStream("openai-responses", { text }));
   });
-  server.listen(0, "127.0.0.1");
-  await once(server, "listening");
+  await listenOnFixtureHttpPort(server);
   return {
     baseUrl: `http://127.0.0.1:${server.address().port}/v1`,
     requests,
@@ -126,7 +126,7 @@ test(
     const credentials = JSON.parse(await readFile(credentialsPath, "utf8"));
     assert.equal(credentials.version, 1);
     assert.equal(credentials.modelProviders[providerOf(saved.activeProfileId)], sentinel);
-    assert.equal((await stat(credentialsPath)).mode & 0o777, 0o600);
+    await assertPrivateFile(credentialsPath);
 
     await call("/api/tasks", {
       taskId: "host-settings",

@@ -75,8 +75,7 @@ export async function browseWorkspace(options: BrowseWorkspaceOptions, rawInput:
 function safeWorkspacePath(root: string, relativePath: string): string {
   if (isAbsolute(relativePath)) throw new Error("browse_workspace path must be relative");
   const target = resolve(root, relativePath);
-  if (target !== root && !target.startsWith(`${root}/`))
-    throw new Error("browse_workspace path escapes workspace");
+  if (!containsFilePath(root, target)) throw new Error("browse_workspace path escapes workspace");
   return target;
 }
 

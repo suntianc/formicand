@@ -1,3 +1,4 @@
+import { deferCleanup } from "./fixtures/cleanup.mjs";
 import assert from "node:assert/strict";
 import { mkdtemp, rm } from "node:fs/promises";
 import { join } from "node:path";
@@ -17,14 +18,14 @@ const HOST = { backendId: BACKEND, actor: { id: "host", host: true } };
 
 async function openLedger(t) {
   const root = await mkdtemp(join(tmpdir(), "formicand-pause-"));
-  t.after(() => rm(root, { recursive: true, force: true }));
+  deferCleanup(t, () => rm(root, { recursive: true, force: true }));
   const runtime = new ProjectDataRuntime({
     config: { sqlite: { path: join(root, "project-data.sqlite") } },
     env: {},
     configPath: join(root, "config.json"),
     dataRoot: root
   });
-  t.after(() => runtime.close());
+  deferCleanup(t, () => runtime.close());
   const service = await runtime.service();
   const project = await service.ensureProject({
     projectId: "project_pause",

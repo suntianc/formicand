@@ -1,5 +1,5 @@
+import { listenOnFixtureHttpPort } from "./fixtures/http-server.mjs";
 import assert from "node:assert/strict";
-import { once } from "node:events";
 import { createServer } from "node:http";
 import { test } from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
@@ -45,13 +45,12 @@ async function provider(t) {
     response.writeHead(200, { "content-type": "text/event-stream" });
     response.end(protocolStream("openai-completions", reply));
   });
-  server.listen(0, "127.0.0.1");
-  await once(server, "listening");
+  const port = await listenOnFixtureHttpPort(server);
   t.after(async () => {
     server.closeAllConnections();
     await new Promise((done) => server.close(done));
   });
-  return { base: `http://127.0.0.1:${server.address().port}/v1`, requests };
+  return { base: `http://127.0.0.1:${port}/v1`, requests };
 }
 
 function client(dashboard) {

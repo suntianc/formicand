@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
 import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, sep } from "node:path";
 import { promisify } from "node:util";
 import { test } from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
@@ -48,15 +48,21 @@ const waitFor = async (check, message, timeout = 30_000) => {
   assert.fail(message);
 };
 
-const settle = async (request, taskId, timeout = 90_000) => {
-  const until = Date.now() + timeout;
+const settle = async (request, taskId, requests, timeout = 90_000) => {
+  let progress;
+  let until = Date.now() + timeout;
   while (Date.now() < until) {
     const detail = await request(`/api/tasks/${taskId}`);
     if (detail.status === 200 && !detail.body.runtime.active && detail.body.task.status === "completed")
       return detail.body;
-    await delay(50);
+    const steps = JSON.stringify(requests);
+    if (steps !== progress) {
+      progress = steps;
+      until = Date.now() + timeout;
+    }
+    await delay(100);
   }
-  assert.fail(`Main ${taskId} did not settle`);
+  assert.fail(`Main ${taskId} did not settle after provider steps ${progress}`);
 };
 
 async function makeRepository(directory) {
@@ -64,6 +70,7 @@ async function makeRepository(directory) {
   await git(directory, ["init", "-b", "main"]);
   await git(directory, ["config", "user.email", "fixture@example.test"]);
   await git(directory, ["config", "user.name", "Fixture"]);
+  await git(directory, ["config", "core.autocrlf", "false"]);
   await writeFile(join(directory, "tracked.txt"), "committed\n");
   await git(directory, ["add", "."]);
   await git(directory, ["commit", "-m", "baseline"]);
@@ -155,9 +162,30 @@ test(
       const match = text.match(/工作项 ([A-D])/);
       return match ? match[1].toLowerCase() : "unknown";
     };
+    let awaitedCalls;
+    const waitForCalls = (callIds, timeoutMs = 60_000) => {
+      awaitedCalls = callIds;
+      return { name: "wait_for_subagents", arguments: { callIds, timeoutMs } };
+    };
     const provider = await modelProtocolFixture("openai-completions", async (body) => {
       try {
         const role = identity(body);
+        if (role === "main" && awaitedCalls) {
+          const waited = toolJson(body);
+          for (const id of awaitedCalls) {
+            const item = waited.calls.find((entry) => entry.callId === id);
+            assert.ok(item, `wait returned no status for ${id}`);
+            if (item.status !== "completed") {
+              assert.ok(["queued", "leased"].includes(item.status), JSON.stringify(item));
+              assert.ok(waited.pending.includes(id), "an unfinished call stays pending");
+            }
+          }
+          // A timeout or incoming message returns an interim snapshot. Continue the
+          // same scripted step until all requested calls actually finished.
+          if (waited.pending.length) return waitForCalls(awaitedCalls);
+          assert.equal(waited.timedOut, false);
+          awaitedCalls = undefined;
+        }
         const step = requests[role]++;
         if (role === "main") {
           if (step === 0) {
@@ -181,7 +209,7 @@ test(
             integration = development.workspace.directory;
             developmentId = development.developmentId;
             assert.ok(
-              !integration.startsWith(`${repository}/`),
+              !integration.startsWith(repository + sep),
               "the requirement checkout is outside the user's working tree"
             );
             return {
@@ -268,17 +296,9 @@ test(
               "both independent Executors never reached the model together"
             );
             release();
-            return {
-              name: "wait_for_subagents",
-              arguments: { callIds: [calls.a.callId, calls.b.callId], timeoutMs: 60_000 }
-            };
+            return waitForCalls([calls.a.callId, calls.b.callId]);
           }
           if (step === 8) {
-            const waited = toolJson(body);
-            assert.deepEqual(waited.pending, []);
-            assert.equal(waited.timedOut, false);
-            for (const call of [calls.a, calls.b])
-              assert.equal(waited.calls.find((entry) => entry.callId === call.callId).status, "completed");
             return {
               name: "bash",
               arguments: {
@@ -305,14 +325,10 @@ test(
             const dependent = status.agents.find((agent) => agent.callId === calls.d.callId);
             assert.equal(dependent.blocked, undefined, "a finished prerequisite unblocks the dependent item");
             assert.ok(["running", "succeeded"].includes(dependent.status), dependent.status);
-            return {
-              name: "wait_for_subagents",
-              arguments: { callIds: [calls.d.callId], timeoutMs: 60_000 }
-            };
+            // Read D immediately so a still-running dependent exercises the interim wait path.
+            return waitForCalls([calls.d.callId], 0);
           }
           if (step === 11) {
-            const waited = toolJson(body);
-            assert.equal(waited.calls.find((entry) => entry.callId === calls.d.callId).status, "completed");
             return {
               name: "bash",
               arguments: {
@@ -342,14 +358,9 @@ test(
             calls.c = toolJson(body);
             assert.equal(calls.c.role, "reviewer");
             assert.notEqual(calls.c.workspace, integration);
-            return {
-              name: "wait_for_subagents",
-              arguments: { callIds: [calls.c.callId], timeoutMs: 60_000 }
-            };
+            return waitForCalls([calls.c.callId]);
           }
           if (step === 14) {
-            const waited = toolJson(body);
-            assert.equal(waited.calls.find((entry) => entry.callId === calls.c.callId).status, "completed");
             // Reread this async call's stored result through the documented path.
             return { name: "get_task_status", arguments: { resultCallIds: [calls.c.callId] } };
           }
@@ -431,7 +442,7 @@ test(
       prompt: "完成报表导出需求，先在自己的需求现场完成小改动，再按依赖组织子任务。"
     });
     assert.equal(started.status, 202, JSON.stringify(started.body));
-    await Promise.race([settle(request, taskId), scriptFailure]);
+    await Promise.race([settle(request, taskId, requests), scriptFailure]);
     assert.deepEqual(failures, [], failures.join("\n"));
 
     // The integration site keeps Main's direct edit and the collected results.

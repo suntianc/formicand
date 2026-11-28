@@ -1,3 +1,6 @@
+import { listenOnFixtureHttpPort } from "./fixtures/http-server.mjs";
+import { assertPrivateFile } from "./fixtures/private-file.mjs";
+import { killFixtureChild } from "./fixtures/main-processes.mjs";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
@@ -16,7 +19,6 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { execFile, spawn } from "node:child_process";
 import { createServer } from "node:http";
-import { once } from "node:events";
 import { promisify } from "node:util";
 import { createRequire } from "node:module";
 import { SessionManager } from "@earendil-works/pi-coding-agent";
@@ -28,8 +30,9 @@ import { protocolStream } from "./model-protocol-fixture.mjs";
 import { CombinedAutocompleteProvider } from "@earendil-works/pi-tui";
 const exec = promisify(execFile);
 const entry = resolve(process.env.FORMICAND_TEST_CLI_ENTRY || "scripts/formicand.mjs");
+const piStartupTimeoutMs = 45_000;
 const requirePi = createRequire(import.meta.resolve("@earendil-works/pi-coding-agent"));
-const { createJiti } = await import(requirePi.resolve("jiti"));
+const { createJiti } = requirePi("jiti");
 const jiti = createJiti(import.meta.url, { interopDefault: true, fsCache: false });
 const { registerCliCommands } = await jiti.import(resolve(".pi/runtime/cli-commands.ts"));
 
@@ -247,7 +250,7 @@ test("offline Formicand exports resolve nested session IDs, preserve branches, m
   assert.ok(html.includes("&lt;script&gt;"));
   assert.ok(!html.includes("pi.dev"));
   assert.ok(!html.includes(f.apiKey));
-  assert.equal((await stat(result.outputPath)).mode & 0o777, 0o600);
+  await assertPrivateFile(result.outputPath);
 });
 
 test("offline exports bind symlinked workspaces and never overwrite their source", async (t) => {
@@ -605,8 +608,7 @@ async function modelFixture(f) {
     response.writeHead(200, { "content-type": "text/event-stream" });
     response.end(protocolStream("openai-completions", { text: "Formicand fixture result." }));
   });
-  server.listen(0, "127.0.0.1");
-  await once(server, "listening");
+  await listenOnFixtureHttpPort(server);
   f.cleanup.push(async () => {
     server.closeAllConnections();
     await new Promise((done) => server.close(done));
@@ -621,17 +623,23 @@ async function modelFixture(f) {
 
 test(
   "real RPC exports and feedback use Formicand commands without model calls or non-JSON stdout",
-  { timeout: 20000 },
+  { timeout: piStartupTimeoutMs + 60_000 },
   async (t) => {
     const f = await fixture(t),
       requests = await modelFixture(f);
     const child = spawn(process.execPath, [entry, "--mode", "rpc", "--session", f.sessionPath], {
       cwd: f.project,
       env: f.env,
-      stdio: "pipe"
+      stdio: "pipe",
+      windowsHide: true
     });
     const closed = new Promise((done) => child.once("close", done));
     f.cleanup.push(async () => {
+      if (process.platform === "win32") {
+        await killFixtureChild(child);
+        await closed;
+        return;
+      }
       child.kill("SIGTERM");
       const force = setTimeout(() => child.kill("SIGKILL"), 2000);
       await closed;
@@ -656,17 +664,19 @@ test(
         }
       }
     });
-    const wait = async (predicate) => {
-      const deadline = Date.now() + 12000;
-      while (!rows.some(predicate)) {
+    const wait = async (id, timeoutMs = 12_000) => {
+      const deadline = Date.now() + timeoutMs;
+      let response;
+      while (!(response = rows.find((row) => row.id === id && row.type === "response"))) {
         assert.equal(parseError, undefined, "RPC stdout must stay JSONL");
-        if (Date.now() > deadline || child.exitCode !== null) assert.fail(`RPC response missing: ${stderr}`);
+        if (Date.now() > deadline || child.exitCode !== null || child.signalCode !== null)
+          assert.fail(`RPC response missing for ${id}: ${stderr}`);
         await new Promise((done) => setTimeout(done, 20));
       }
-      return rows.find(predicate);
+      return response;
     };
     child.stdin.write(JSON.stringify({ id: "ready", type: "get_state" }) + "\n");
-    assert.equal((await wait((row) => row.id === "ready")).success, true);
+    assert.equal((await wait("ready", piStartupTimeoutMs)).success, true);
     for (const [id, message] of [
       ["export", "/formicand-export json rpc-export.json"],
       ["share", "/formicand-share rpc-share.html"],
@@ -674,7 +684,7 @@ test(
       ["help", "/formicand-help"]
     ]) {
       child.stdin.write(JSON.stringify({ id, type: "prompt", message }) + "\n");
-      assert.equal((await wait((row) => row.id === id && row.type === "response")).success, true);
+      assert.equal((await wait(id)).success, true);
     }
     const data = JSON.parse(await readFile(join(f.project, "rpc-export.json"), "utf8"));
     assert.equal(data.producer.name, "Formicand");
@@ -691,17 +701,20 @@ test(
 
 test(
   "real provider requests preserve an explicitly selected custom system prompt",
-  { timeout: 20000 },
+  { timeout: piStartupTimeoutMs + 15_000 },
   async (t) => {
     const f = await fixture(t),
       requests = await modelFixture(f);
     const custom = join(f.project, "system.txt");
     await writeFile(custom, "User-selected fixture identity. Read Pi SDK docs for this requested task.");
     const result = await f
-      .run(["--print", "--no-session", "--system-prompt", custom, "Explain this fixture."])
+      .run(["--print", "--no-session", "--system-prompt", custom, "Explain this fixture."], {
+        timeout: piStartupTimeoutMs,
+        windowsHide: true
+      })
       .catch((error) => {
         assert.fail(
-          `CLI exit ${error.code}, ${requests.length} requests: ${error.stdout.slice(-4000)} ${error.stderr.slice(-4000)}`
+          `CLI exit ${error.code ?? error.signal}, ${requests.length} requests: ${error.stdout.slice(-4000)} ${error.stderr.slice(-4000)}`
         );
       });
     assert.match(result.stdout, /Formicand fixture result/);

@@ -1,5 +1,6 @@
 import { join } from "node:path";
-import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
+import { atomicWrite } from "../storage/atomic-file.js";
 import { withFileLock } from "../storage/file-lock.js";
 import { InboxStore } from "./scheduler.js";
 import { HumanRequestStore } from "./human.js";
@@ -222,7 +223,7 @@ export class MainSupervisor {
           pendingCallbacks: pending.length
         };
       }
-      await this.writeRelaunch(taskId, {
+      await writeRelaunch(this.options.workspaceRoot, taskId, {
         attempts: history.attempts + 1,
         lastAttemptAt: new Date(nowMs).toISOString()
       });
@@ -256,18 +257,9 @@ export class MainSupervisor {
     }
   }
 
-  private async writeRelaunch(taskId: string, state: RelaunchState): Promise<void> {
-    const directory = join(this.options.workspaceRoot, taskId, "agents", "main");
-    await mkdir(directory, { recursive: true });
-    const path = join(directory, "relaunch.json");
-    const temporary = `${path}.tmp-${process.pid}-${Date.now()}`;
-    await writeFile(temporary, `${JSON.stringify(state)}\n`, "utf8");
-    await rename(temporary, path);
-  }
-
   private async clearRelaunch(taskId: string): Promise<void> {
     // eslint-disable-next-line no-restricted-syntax -- 清理失败只影响退避计数，下一次失败仍按原计数重试，成功心跳会再次清零
-    await this.writeRelaunch(taskId, { attempts: 0, lastAttemptAt: "" }).catch(() => {});
+    await resetMainSupervisorBackoff(this.options.workspaceRoot, taskId).catch(() => {});
   }
 
   private async listTasks(): Promise<string[]> {
@@ -287,14 +279,14 @@ export class MainSupervisor {
   }
 }
 
+async function writeRelaunch(workspaceRoot: string, taskId: string, state: RelaunchState): Promise<void> {
+  const path = join(workspaceRoot, taskId, "agents", "main", "relaunch.json");
+  await atomicWrite(path, `${JSON.stringify(state)}\n`);
+}
+
 /** A successful short run may finish between supervisor ticks; its completion is authoritative. */
 export async function resetMainSupervisorBackoff(workspaceRoot: string, taskId: string): Promise<void> {
-  const directory = join(workspaceRoot, taskId, "agents", "main");
-  await mkdir(directory, { recursive: true });
-  const path = join(directory, "relaunch.json");
-  const temporary = `${path}.tmp-${process.pid}-${Date.now()}`;
-  await writeFile(temporary, JSON.stringify({ attempts: 0, lastAttemptAt: "" }) + "\n");
-  await rename(temporary, path);
+  await writeRelaunch(workspaceRoot, taskId, { attempts: 0, lastAttemptAt: "" });
 }
 
 /** Repeats supervisor cycles, holding one workspace-wide lease while it runs. */

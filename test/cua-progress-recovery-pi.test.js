@@ -1,3 +1,4 @@
+import { listenOnFixtureHttpPort } from "./fixtures/http-server.mjs";
 import assert from "node:assert/strict";
 import { parseModelRequestArchive } from "../dist/src/storage/model-request-recorder.js";
 import { spawn } from "node:child_process";
@@ -14,9 +15,11 @@ import { cuaProgressFixture } from "./cua-progress-fixture.mjs";
 import { readFixtureRequestBody } from "./http-request-body-fixture.mjs";
 import { protocolStream } from "./model-protocol-fixture.mjs";
 import { mainInputPath, saveMainInput } from "../dist/src/runtime/main-continuation.js";
+import { SUMMARY_SYSTEM_PROMPT } from "../dist/src/runtime/session-summary.js";
 import { createImageArchive } from "../dist/src/tools/image-archive.js";
 import { LocalWorkspaceStore } from "../dist/src/workspace/workspace-store.js";
 import { withoutMainState } from "./fixtures/main-state.mjs";
+import { killFixtureChild } from "./fixtures/main-processes.mjs";
 
 const quote = (value) => `'${value.replaceAll("'", "'\\''")}'`;
 const tool = (name, args) => ({ name, arguments: args });
@@ -43,12 +46,15 @@ for (const progress of ["confirmed", "unknown", "intent"])
       const requests = [];
       const events = [];
       const stages = [];
+      const summary =
+        "The browser dispatched the submission. Check the receipt before taking further action.";
+      let summaryRequests = 0;
       let child, childExit;
       let phase = "initial";
       let phaseRequest = 0;
       let pageId, oldPageId, imageRef, download, verifiedFile;
       let checkpoint;
-      let hardCrash = false;
+      let hardCrash;
       let output = "";
 
       // The agent records the last verified CUA state before the next window.
@@ -71,14 +77,20 @@ ${state === "confirmed" ? `- confirmed: ${operation} saved; evidence ${download.
 `;
       const checkDownload = () => {
         const path = join(taskRoot, download.path);
-        const code = `const fs=require('node:fs'),crypto=require('node:crypto');const b=fs.readFileSync(${JSON.stringify(path)});const r=JSON.parse(b);if(r.operation!==${JSON.stringify(operation)}||r.receiptId!=='receipt-1'||r.saved!==true)throw Error('receipt mismatch');console.log(JSON.stringify({machineChecked:true,operation:r.operation,receiptId:r.receiptId,bytes:b.length,sha256:crypto.createHash('sha256').update(b).digest('hex')}));`;
-        return tool("bash", { command: `${quote(process.execPath)} -e ${quote(code)}`, timeout: 10 });
+        const code = `const fs=require('node:fs'),crypto=require('node:crypto');const b=fs.readFileSync(process.argv[1]);const r=JSON.parse(b);if(r.operation!==process.argv[2]||r.receiptId!=='receipt-1'||r.saved!==true)throw Error('receipt mismatch');console.log(JSON.stringify({machineChecked:true,operation:r.operation,receiptId:r.receiptId,bytes:b.length,sha256:crypto.createHash('sha256').update(b).digest('hex')}));`;
+        return tool("bash", {
+          command: `${quote(process.execPath)} -e ${quote(code)} ${quote(path)} ${quote(operation)}`,
+          timeout: 10
+        });
       };
       const observeResult = (body) => {
         const last = body.messages.findLast((message) => message.role === "tool");
         if (!last) return;
         const content = withoutMainState(text(last.content));
         const result = content.startsWith("{") ? JSON.parse(content) : undefined;
+        const lastStage = stages.at(-1);
+        if (lastStage?.phase === phase && lastStage.name === "bash")
+          assert.equal(result?.machineChecked, true, content.slice(0, 2000));
         assert.notEqual(result?.errorCode, "browser_failed", "the browser fixture could not open its page");
         if (result?.pageId) pageId = result.pageId;
         if (result?.observation?.imageRef) imageRef = result.observation.imageRef;
@@ -131,8 +143,16 @@ ${state === "confirmed" ? `- confirmed: ${operation} saved; evidence ${download.
         let reply;
         try {
           const body = JSON.parse(await readFixtureRequestBody(request));
+          if (!body.tools?.length) {
+            assert.equal(text(body.messages[0].content), SUMMARY_SYSTEM_PROMPT);
+            assert.equal(phase, "initial");
+            assert.ok(checkpoint, "compaction follows the saved progress");
+            summaryRequests++;
+            response.writeHead(200, { "content-type": "text/event-stream" });
+            response.end(protocolStream("openai-completions", { text: `<summary>${summary}</summary>` }));
+            return;
+          }
           requests.push({ phase, body });
-          assert.ok(body.tools?.length, "window changes do not send a summary request");
           observeResult(body);
           if (progress === "intent" && phase === "initial" && phaseRequest === 4) {
             // The real action result has reached the model boundary, but the
@@ -144,8 +164,8 @@ ${state === "confirmed" ? `- confirmed: ${operation} saved; evidence ${download.
             assert.equal(action.effectVerified, false);
             assert.equal((await business.receipts()).length, 1);
             oldPageId = pageId;
-            hardCrash = true;
-            process.kill(-child.pid, "SIGKILL");
+            hardCrash = killFixtureChild(child);
+            await hardCrash;
             response.destroy();
             return;
           }
@@ -191,15 +211,10 @@ ${state === "confirmed" ? `- confirmed: ${operation} saved; evidence ${download.
           );
         response.end(stream);
       });
-      provider.listen(0, "127.0.0.1");
-      await once(provider, "listening");
+      const modelPort = await listenOnFixtureHttpPort(provider);
       t.after(async () => {
         if (child?.pid && child.exitCode === null && child.signalCode === null) {
-          try {
-            process.kill(-child.pid, "SIGKILL");
-          } catch {
-            /* already exited */
-          }
+          await killFixtureChild(child);
           await childExit;
         }
         // A SIGKILL reaches only Pi's process group; the browser it launched
@@ -239,7 +254,7 @@ ${state === "confirmed" ? `- confirmed: ${operation} saved; evidence ${download.
         FORMICAND_WORKSPACE: workspace,
         FORMICAND_TASK_ID: taskId,
         FORMICAND_RUN_ID: runId,
-        FORMICAND_API_BASE: `http://127.0.0.1:${provider.address().port}/v1`,
+        FORMICAND_API_BASE: `http://127.0.0.1:${modelPort}/v1`,
         FORMICAND_API_KEY: "local-progress-fixture",
         FORMICAND_MODEL: "fixture",
         FORMICAND_MODEL_API: "openai-completions",
@@ -265,9 +280,9 @@ ${state === "confirmed" ? `- confirmed: ${operation} saved; evidence ${download.
             join(root, "sessions"),
             ...args
           ],
-          { cwd: resolve("."), detached: true, stdio: ["ignore", "pipe", "pipe"], env }
+          { cwd: resolve("."), detached: true, windowsHide: true, stdio: ["ignore", "pipe", "pipe"], env }
         );
-        childExit = once(child, "exit");
+        childExit = once(child, "close");
         let pending = "";
         child.stdout.on("data", (chunk) => {
           output = (output + chunk).slice(-12000);
@@ -286,14 +301,16 @@ ${state === "confirmed" ? `- confirmed: ${operation} saved; evidence ${download.
           output = (output + chunk).slice(-12000);
         });
         const [code, signal] = await childExit;
-        if (expectCrash) {
-          assert.equal(code, null);
-          assert.equal(signal, "SIGKILL");
-          assert.equal(hardCrash, true);
-        } else assert.equal(code, 0, output);
         assert.deepEqual(failures, []);
+        if (expectCrash) {
+          assert.ok(hardCrash, "the fixture terminated the outstanding request's process tree");
+          await hardCrash;
+          if (process.platform === "win32") assert.ok(code !== null && code !== 0, `crash exit: ${code}`);
+          else assert.equal(signal, "SIGKILL");
+        } else assert.equal(code, 0, output);
       };
       await launch(["--session-id", runId, prompt], progress === "intent");
+      assert.equal(summaryRequests, progress === "intent" ? 0 : 1);
       if (progress !== "intent") assert.ok(output.includes("CHECKPOINT_READY"), output);
       const submitted = events.find(
         (event) => event.type === "tool_execution_end" && event.toolName === "browser_act"
@@ -329,7 +346,10 @@ ${state === "confirmed" ? `- confirmed: ${operation} saved; evidence ${download.
         assert.ok(beforeState.contextEpoch > 0, "production compaction hook must update context epoch");
         assert.ok(
           events.some(
-            (event) => event.type === "compaction_end" && event.result?.summary.includes(checkpoint)
+            (event) =>
+              event.type === "compaction_end" &&
+              event.result?.summary.includes(summary) &&
+              event.result.summary.includes(checkpoint)
           )
         );
       }

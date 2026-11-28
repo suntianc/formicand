@@ -1,3 +1,4 @@
+import { deferCleanup } from "./fixtures/cleanup.mjs";
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
@@ -69,7 +70,7 @@ test("the review rules name paths and a size, and leave documents to the self ch
 
 test("a quick change on a listed path cannot rest on Main's own checks", { timeout: 60_000 }, async (t) => {
   const root = await mkdtemp(join(tmpdir(), "formicand-lighter-routes-"));
-  t.after(() => rm(root, { recursive: true, force: true }));
+  deferCleanup(t, () => rm(root, { recursive: true, force: true }));
   const repo = join(root, "repository");
   await mkdir(repo, { recursive: true });
   await git(repo, ["init", "-b", "main"]);
@@ -82,7 +83,7 @@ test("a quick change on a listed path cannot rest on Main's own checks", { timeo
     dataRoot: root,
     env: {}
   });
-  t.after(() => runtime.close());
+  deferCleanup(t, () => runtime.close());
   const gateway = await runtime.service();
   const projectId = "project_rules";
   await gateway.ensureProject({
@@ -146,7 +147,7 @@ test("a quick change on a listed path cannot rest on Main's own checks", { timeo
 
 test("a version 14 database reads its direct developments as full", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "formicand-direct-v14-"));
-  t.after(() => rm(root, { recursive: true, force: true }));
+  deferCleanup(t, () => rm(root, { recursive: true, force: true }));
   const open = async () => {
     const runtime = new ProjectDataRuntime({
       config: { sqlite: { path: join(root, "project-data.sqlite") } },
@@ -185,7 +186,7 @@ test("a version 14 database reads its direct developments as full", async (t) =>
   await database.close();
 
   const again = await open();
-  t.after(() => again.runtime.close());
+  deferCleanup(t, () => again.runtime.close());
   assert.equal(again.service.description.schemaVersion, 16);
   const reopened = await SqliteDatabase.open(join(root, "project-data.sqlite"));
   const rows = await reopened.query("SELECT route FROM project_data_developments WHERE development_id = ?", [

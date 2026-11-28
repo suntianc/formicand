@@ -1,3 +1,4 @@
+import { listenOnFixtureHttpPort } from "./fixtures/http-server.mjs";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { spawn } from "node:child_process";
@@ -34,8 +35,7 @@ async function fixture(t, command) {
       )
     );
   });
-  server.listen(0, "127.0.0.1");
-  await once(server, "listening");
+  await listenOnFixtureHttpPort(server);
   const baseUrl = "http://127.0.0.1:" + server.address().port + "/v1";
   await writeFile(
     join(root, "config.json"),

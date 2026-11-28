@@ -1,3 +1,4 @@
+import { listenOnFixtureHttpPort } from "./fixtures/http-server.mjs";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { createServer } from "node:http";
@@ -91,8 +92,7 @@ test(
       await new Promise((done) => server.close(done));
       await rm(root, { recursive: true, force: true });
     });
-    server.listen(0, "127.0.0.1");
-    await once(server, "listening");
+    await listenOnFixtureHttpPort(server);
     child = spawn(
       process.execPath,
       [

@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import { createHash, randomUUID } from "node:crypto";
 import { readFile, mkdir, symlink, writeFile, rename, rm, access, realpath } from "node:fs/promises";
 import { join, resolve } from "node:path";
@@ -115,7 +116,8 @@ export async function ensureCliBranding({ agentDir, piPackageDir, version }) {
     try {
       await rename(candidate, directory);
     } catch (error) {
-      if (!["EEXIST", "ENOTEMPTY"].includes(error.code)) throw error;
+      if (!["EEXIST", "ENOTEMPTY"].includes(error.code) && !(error.code === "EPERM" && existsSync(directory)))
+        throw error;
       // Another startup published the identical complete overlay first.
       await validate();
     }

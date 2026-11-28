@@ -1,3 +1,4 @@
+import { listenOnFixtureHttpPort } from "./fixtures/http-server.mjs";
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 import { test } from "node:test";
@@ -198,7 +199,7 @@ test("host keeps the session secret, reuses it after restart, and reports revoca
       res.end(JSON.stringify({ error: { code: "session_revoked", message: "revoked" } }));
     }
   });
-  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  await listenOnFixtureHttpPort(server);
   t.after(() => new Promise((resolve) => server.close(resolve)));
   const port = server.address().port;
   instance = {
@@ -589,7 +590,7 @@ test(
           closed += 1;
         });
       });
-      await new Promise((done) => server.listen(0, "127.0.0.1", done));
+      await listenOnFixtureHttpPort(server);
       servers.push(server);
       return {
         url: `http://127.0.0.1:${server.address().port}`,

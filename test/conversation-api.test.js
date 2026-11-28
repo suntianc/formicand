@@ -1,3 +1,5 @@
+import { listenOnFixtureHttpPort } from "./fixtures/http-server.mjs";
+import { availableLocalHttpPort } from "../dist/src/platform/local-http-port.js";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
@@ -13,7 +15,8 @@ import { buildLiveActivity } from "../web/assets/activity.js";
 
 test(
   "Dashboard retains follow-ups, reasoning, tools, final answers and title across a reopened Main",
-  { timeout: 45000 },
+  // Two real Pi launches, tool execution, idle shutdown and reload share this outer budget.
+  { timeout: 120_000 },
   async () => {
     const root = await mkdtemp(join(tmpdir(), "formicand-conversation-api-"));
     const workspaceRoot = join(root, "workspace");
@@ -62,13 +65,8 @@ test(
       await writeFile(join(root, "config.json"), "{}");
       await mkdir(workspaceRoot);
       await writeFile(join(workspaceRoot, "fixture.txt"), "selected project evidence");
-      model.listen(0, "127.0.0.1");
-      await once(model, "listening");
-      const probe = createServer();
-      probe.listen(0, "127.0.0.1");
-      await once(probe, "listening");
-      const port = probe.address().port;
-      await new Promise((done) => probe.close(done));
+      await listenOnFixtureHttpPort(model);
+      const port = await availableLocalHttpPort();
       const base = `http://127.0.0.1:${port}`;
       child = spawn(process.execPath, ["dist/src/cli/dashboard.js"], {
         cwd: resolve("."),

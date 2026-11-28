@@ -1,3 +1,4 @@
+import { deferCleanup } from "./fixtures/cleanup.mjs";
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
@@ -57,6 +58,7 @@ async function makeDirtyRepository(directory) {
   await git(directory, ["init", "-b", "main"]);
   await git(directory, ["config", "user.email", "fixture@example.test"]);
   await git(directory, ["config", "user.name", "Fixture"]);
+  await git(directory, ["config", "core.autocrlf", "false"]);
   await writeFile(join(directory, "baseline.txt"), "baseline\n");
   await writeFile(join(directory, "shared.txt"), "base\n");
   await writeFile(join(directory, "tracked.txt"), "committed\n");
@@ -107,7 +109,7 @@ test(
     const baseline = await git(repository, ["rev-parse", "HEAD"]);
     const before = await dirtyState(repository);
     const authority = await startDashboard({ defaultProject: false });
-    t.after(async () => {
+    deferCleanup(t, async () => {
       await authority.stop();
       await rm(root, { recursive: true, force: true });
     });
@@ -123,7 +125,7 @@ test(
       dataRoot: authority.root,
       env: {}
     });
-    t.after(() => runtime.close());
+    deferCleanup(t, () => runtime.close());
     const gateway = await runtime.service();
     await gateway.ensureProject({
       projectId: project.projectId,
@@ -138,7 +140,7 @@ test(
       config: { projectData: { authority: { url: authority.base, token: authorityInstance.token } } },
       env: { FORMICAND_MERGE_FAULT_INJECT: "crash:*@after-apply" }
     });
-    t.after(() => execution.stop());
+    deferCleanup(t, () => execution.stop());
     const executionInstance = await servingInstance(execution.root);
     const configured = await client(execution)(
       `/api/projects/${encodeURIComponent(project.projectId)}/merge-config`,

@@ -66,7 +66,7 @@ test("each Main tool's text stays within its limit", async (t) => {
   };
   const extensionPath = resolve(".pi/extensions/formicand.ts");
   const requirePi = createRequire(import.meta.resolve("@earendil-works/pi-coding-agent"));
-  const { createJiti } = await import(requirePi.resolve("jiti"));
+  const { createJiti } = requirePi("jiti");
   const extension = await createJiti(pathToFileURL(extensionPath).href, { interopDefault: true }).import(
     extensionPath,
     { default: true }
@@ -115,7 +115,7 @@ test("Main's workspace state section stays within its limit", { timeout: 60_000 
 
 test("the Executor's and the Reviewer's role prompts stay within the base limit", async () => {
   const requirePi = createRequire(import.meta.resolve("@earendil-works/pi-coding-agent"));
-  const { createJiti } = await import(requirePi.resolve("jiti"));
+  const { createJiti } = requirePi("jiti");
   const path = resolve(".pi/runtime/subagent-agent.ts");
   const { subagentRolePrompt } = await createJiti(pathToFileURL(path).href).import(path);
   for (const role of ["executor", "reviewer"]) {

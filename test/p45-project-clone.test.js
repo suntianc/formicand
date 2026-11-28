@@ -1,8 +1,11 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
-import { chmod, mkdir, mkdtemp, readdir, readFile, stat, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, open, readdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { delimiter, join } from "node:path";
+import { pathToFileURL } from "node:url";
+import { deferCleanup } from "./fixtures/cleanup.mjs";
+import { shellExecutable } from "./fixtures/script-executable.mjs";
 import { setTimeout as delay } from "node:timers/promises";
 import { promisify } from "node:util";
 import { test } from "node:test";
@@ -56,6 +59,7 @@ async function seedRepository(root) {
   await git(work, ["init", "-b", "main"]);
   await git(work, ["config", "user.email", "fixture@example.test"]);
   await git(work, ["config", "user.name", "Fixture"]);
+  await writeFile(join(work, ".gitattributes"), "* text eol=lf\n");
   await writeFile(join(work, "README.md"), "克隆夹具\n");
   await git(work, ["add", "."]);
   await git(work, ["commit", "-m", "initial"]);
@@ -73,23 +77,39 @@ async function seedRepository(root) {
 async function fakeGit(root) {
   const directory = join(root, "bin");
   await mkdir(directory, { recursive: true });
-  const path = join(directory, "git");
-  await writeFile(
-    path,
-    `#!/bin/sh\ntrap 'echo term > "$GIT_TERM_MARKER"; exit 1' TERM INT\nfor arg in "$@"; do\n  case "$arg" in\n    *denied*)\n      echo "git@example.test: Permission denied (publickey)." >&2\n      exit 128;;\n    *slow*)\n      echo "Cloning into 'website'..." >&2\n      sleep 0.2\n      echo "Receiving objects:  42% (42/100)" >&2\n      sleep 60\n      exit 0;;\n    *cred*)\n      echo "fatal: unable to access '$arg': repository not found" >&2\n      exit 128;;\n  esac\ndone\nexit 1\n`
+  const path = await shellExecutable(
+    join(directory, "git"),
+    `#!/bin/sh
+trap 'echo term > "$GIT_TERM_MARKER"; exit 1' TERM INT
+for arg in "$@"; do
+  case "$arg" in
+    *denied*)
+      echo "git@example.test: Permission denied (publickey)." >&2
+      exit 128;;
+    *slow*)
+      echo "Cloning into 'website'..." >&2
+      sleep 0.2
+      "${process.execPath.replaceAll("\\", "/")}" -e 'if (process.env.GIT_PID_MARKER) require("fs").writeFileSync(process.env.GIT_PID_MARKER, String(process.pid)); console.error("Receiving objects:  42% (42/100)"); setTimeout(() => {}, 60000)'
+      exit 0;;
+    *cred*)
+      echo "fatal: unable to access '$arg': repository not found" >&2
+      exit 128;;
+  esac
+done
+exit 1
+`
   );
-  await run("chmod", ["755", path]);
   return { directory, path };
 }
 
 test("clones a branch from a file URL, reports progress and registers the project", async (t) => {
   const dashboard = await startDashboard({ defaultProject: false });
-  t.after(() => dashboard.stop());
+  deferCleanup(t, () => dashboard.stop());
   const bare = await seedRepository(dashboard.root);
   const destination = join(dashboard.root, "website");
   const started = await request(dashboard, "/api/project-clones", {
     method: "POST",
-    body: { remoteUrl: `file://${bare}`, destination, branch: "release" }
+    body: { remoteUrl: pathToFileURL(bare).href, destination, branch: "release" }
   });
   assert.equal(started.status, 202, JSON.stringify(started.body));
   assert.equal(started.body.clone.state, "cloning");
@@ -113,7 +133,7 @@ test("clones a branch from a file URL, reports progress and registers the projec
 
 test("clones a local path with the default branch", async (t) => {
   const dashboard = await startDashboard({ defaultProject: false });
-  t.after(() => dashboard.stop());
+  deferCleanup(t, () => dashboard.stop());
   const bare = await seedRepository(dashboard.root);
   const destination = join(dashboard.root, "local-clone");
   const started = await request(dashboard, "/api/project-clones", {
@@ -134,7 +154,7 @@ test("clones a local path with the default branch", async (t) => {
 
 test("refuses an existing target and registers nothing", async (t) => {
   const dashboard = await startDashboard({ defaultProject: false });
-  t.after(() => dashboard.stop());
+  deferCleanup(t, () => dashboard.stop());
   const destination = join(dashboard.root, "taken");
   await mkdir(destination);
   const result = await request(dashboard, "/api/project-clones", {
@@ -148,7 +168,7 @@ test("refuses an existing target and registers nothing", async (t) => {
 
 test("an address that is not a repository fails readably and leaves no folder or project", async (t) => {
   const dashboard = await startDashboard({ defaultProject: false });
-  t.after(() => dashboard.stop());
+  deferCleanup(t, () => dashboard.stop());
   const destination = join(dashboard.root, "missing-clone");
   const started = await request(dashboard, "/api/project-clones", {
     method: "POST",
@@ -160,21 +180,22 @@ test("an address that is not a repository fails readably and leaves no folder or
     started.body.clone.cloneId,
     (clone) => clone.state === "failed"
   );
-  assert.match(failed.error, /does not exist|not a git repository|不存在|not found/i);
+  assert.match(failed.error, /does not exist|not (?:appear to be )?a git repository|不存在|not found/i);
   assert.equal(await exists(destination), false);
   assert.deepEqual(await projects(dashboard), []);
 });
 
 test("an authentication failure is reported without registering a project", async (t) => {
-  const root = await mkdtempForTest();
-  const ssh = join(root, "fake-ssh");
-  await writeFile(ssh, `#!/bin/sh\necho "Permission denied (publickey)." >&2\nexit 255\n`);
-  await run("chmod", ["755", ssh]);
+  const root = await mkdtempForTest(t);
+  const ssh = await shellExecutable(
+    join(root, "fake-ssh"),
+    `#!/bin/sh\necho "Permission denied (publickey)." >&2\nexit 255\n`
+  );
   const dashboard = await startDashboard({
     defaultProject: false,
-    env: { GIT_SSH_COMMAND: ssh }
+    env: { GIT_SSH_COMMAND: `"${ssh.replaceAll("\\", "/")}"` }
   });
-  t.after(() => dashboard.stop());
+  deferCleanup(t, () => dashboard.stop());
   const destination = join(dashboard.root, "private-clone");
   const started = await request(dashboard, "/api/project-clones", {
     method: "POST",
@@ -192,16 +213,17 @@ test("an authentication failure is reported without registering a project", asyn
 });
 
 test("reports clone progress and cancelling stops git and removes the incomplete folder", async (t) => {
-  const root = await mkdtempForTest();
+  const root = await mkdtempForTest(t);
   const fake = await fakeGit(root);
   const dashboard = await startDashboard({
     defaultProject: false,
     env: {
-      PATH: `${fake.directory}:${process.env.PATH}`,
-      GIT_TERM_MARKER: join(root, "terminated.marker")
+      PATH: `${fake.directory}${delimiter}${process.env.PATH}`,
+      GIT_TERM_MARKER: join(root, "terminated.marker").replaceAll("\\", "/"),
+      GIT_PID_MARKER: join(root, "git.pid")
     }
   });
-  t.after(() => dashboard.stop());
+  deferCleanup(t, () => dashboard.stop());
   const destination = join(dashboard.root, "slow-clone");
   const started = await request(dashboard, "/api/project-clones", {
     method: "POST",
@@ -217,16 +239,20 @@ test("reports clone progress and cancelling stops git and removes the incomplete
   assert.equal(cancelled.status, 200, JSON.stringify(cancelled.body));
   assert.equal(cancelled.body.clone.state, "cancelled");
   assert.equal(await exists(destination), false);
-  assert.equal(await readFile(join(root, "terminated.marker"), "utf8"), "term\n");
+  const workerPid = Number(await readFile(join(root, "git.pid"), "utf8"));
+  assert.ok(Number.isSafeInteger(workerPid) && workerPid > 0);
+  assert.throws(() => process.kill(workerPid, 0), { code: "ESRCH" });
+  if (process.platform !== "win32")
+    assert.equal(await readFile(join(root, "terminated.marker"), "utf8"), "term\n");
   assert.deepEqual(await projects(dashboard), []);
 });
 
 test("one operation id returns its clone and refuses different content", async (t) => {
-  const root = await mkdtempForTest();
+  const root = await mkdtempForTest(t);
   const fake = await fakeGit(root);
   const dashboard = await startDashboard({
     defaultProject: false,
-    env: { PATH: `${fake.directory}:${process.env.PATH}` }
+    env: { PATH: `${fake.directory}${delimiter}${process.env.PATH}` }
   });
   const destination = join(dashboard.root, "operation-clone");
   const body = {
@@ -252,7 +278,7 @@ test("one operation id returns its clone and refuses different content", async (
 });
 
 test("recovery fails an interrupted clone, removes its folder and registers nothing", async (t) => {
-  const root = await mkdtempForTest();
+  const root = await mkdtempForTest(t);
   const fake = await fakeGit(root);
   const dataRoot = join(root, "project-clones");
   const destination = join(root, "crash-clone");
@@ -266,7 +292,7 @@ test("recovery fails an interrupted clone, removes its folder and registers noth
       return { projectId: "project_crash", ...input };
     }
   });
-  t.after(() => first.stop());
+  deferCleanup(t, () => first.stop());
   const started = await first.start({ remoteUrl: "https://example.test/slow.git", destination });
   assert.equal(started.state, "cloning");
   assert.equal(await exists(destination), true);
@@ -291,13 +317,13 @@ test("recovery fails an interrupted clone, removes its folder and registers noth
 });
 
 test("a credential embedded in the remote URL never reaches a response or the clone record", async (t) => {
-  const root = await mkdtempForTest();
+  const root = await mkdtempForTest(t);
   const fake = await fakeGit(root);
   const dashboard = await startDashboard({
     defaultProject: false,
-    env: { PATH: `${fake.directory}:${process.env.PATH}` }
+    env: { PATH: `${fake.directory}${delimiter}${process.env.PATH}` }
   });
-  t.after(() => dashboard.stop());
+  deferCleanup(t, () => dashboard.stop());
   const destination = join(dashboard.root, "private-address");
   const token = "secret-token";
   const started = await request(dashboard, "/api/project-clones", {
@@ -325,7 +351,7 @@ test("a credential embedded in the remote URL never reaches a response or the cl
 });
 
 test("a crash between registration and completion keeps the folder and the registered project", async (t) => {
-  const root = await mkdtempForTest();
+  const root = await mkdtempForTest(t);
   const git = await silentGit(root);
   const dataRoot = join(root, "project-clones");
   const destination = join(root, "registering-clone");
@@ -359,7 +385,7 @@ test("a crash between registration and completion keeps the folder and the regis
       throw new Error("an existing registration must not be repeated");
     }
   });
-  t.after(() => second.stop());
+  deferCleanup(t, () => second.stop());
   await second.ready;
   const recovered = await second.status(started.cloneId);
   assert.equal(recovered.state, "completed");
@@ -367,8 +393,40 @@ test("a crash between registration and completion keeps the folder and the regis
   assert.equal(await exists(destination), true);
 });
 
+test("a reader of the registering clone record can stay open while completion is published", async (t) => {
+  const root = await mkdtempForTest(t);
+  const bare = await seedRepository(root);
+  const dataRoot = join(root, "project-clones");
+  const destination = join(root, "reader-clone");
+  const registration = Promise.withResolvers();
+  const service = createProjectCloneService({
+    dataRoot,
+    projectForDirectory: async () => undefined,
+    createProject: async (input) => {
+      await registration.promise;
+      return { ...input, projectId: "project_reader" };
+    }
+  });
+  deferCleanup(t, async () => {
+    registration.resolve();
+    await service.stop();
+  });
+  const { cloneId } = await service.start({ remoteUrl: bare, destination });
+  await waitForServiceState(service, cloneId, "registering");
+  const file = `${cloneId}.json`;
+  const reader = await open(join(dataRoot, file), "r");
+  deferCleanup(t, () => reader.close());
+  registration.resolve();
+  await service.stop();
+  const completed = await service.status(cloneId);
+  assert.equal(completed.state, "completed");
+  assert.equal(completed.project.projectDirectory, destination);
+  assert.equal(JSON.parse(await reader.readFile("utf8")).state, "registering");
+  assert.deepEqual(await readdir(dataRoot), [file]);
+});
+
 test("stopping waits for a registration in progress to be written", async (t) => {
-  const root = await mkdtempForTest();
+  const root = await mkdtempForTest(t);
   const git = await silentGit(root);
   const dataRoot = join(root, "project-clones");
   const destination = join(root, "stopping-clone");
@@ -407,7 +465,7 @@ test("stopping waits for a registration in progress to be written", async (t) =>
     projectForDirectory: async () => project,
     createProject: async () => project
   });
-  t.after(() => again.stop());
+  deferCleanup(t, () => again.stop());
   await again.ready;
   const record = await again.status(started.cloneId);
   assert.equal(record.state, "completed");
@@ -415,7 +473,7 @@ test("stopping waits for a registration in progress to be written", async (t) =>
 });
 
 test("a stop reports an outcome that could not be written, and a restart settles it", async (t) => {
-  const root = await mkdtempForTest();
+  const root = await mkdtempForTest(t);
   const git = await silentGit(root);
   const dataRoot = join(root, "project-clones");
   const destination = join(root, "unwritable-clone");
@@ -440,14 +498,20 @@ test("a stop reports an outcome that could not be written, and a restart settles
   const started = await service.start({ remoteUrl: "https://example.test/instant.git", destination });
   await waitForServiceState(service, started.cloneId, "registering");
   const stopping = service.stop();
-  await chmod(dataRoot, 0o555);
-  release();
-  await assert.rejects(
-    stopping.finally(() => chmod(dataRoot, 0o755)),
-    { code: "EACCES" }
-  );
+  // Make the record directory unavailable at its real path until the final
+  // write has failed. This also exercises read-back after restoring it.
+  const savedRoot = join(root, "saved-project-clones");
+  await rename(dataRoot, savedRoot);
+  try {
+    await writeFile(dataRoot, "not a directory");
+    release();
+    await assert.rejects(stopping, { code: "EEXIST" });
+  } finally {
+    await rm(dataRoot, { force: true });
+    await rename(savedRoot, dataRoot);
+  }
   assert.equal((await service.status(started.cloneId)).state, "registering");
-  await assert.rejects(service.stop(), { code: "EACCES" });
+  await assert.rejects(service.stop(), { code: "EEXIST" });
 
   const again = createProjectCloneService({
     dataRoot,
@@ -455,7 +519,7 @@ test("a stop reports an outcome that could not be written, and a restart settles
     projectForDirectory: async () => project,
     createProject: async () => project
   });
-  t.after(() => again.stop());
+  deferCleanup(t, () => again.stop());
   await again.ready;
   const record = await again.status(started.cloneId);
   assert.equal(record.state, "completed");
@@ -463,7 +527,7 @@ test("a stop reports an outcome that could not be written, and a restart settles
 });
 
 test("recovery finishes registration for a registering record and keeps the clone", async (t) => {
-  const root = await mkdtempForTest();
+  const root = await mkdtempForTest(t);
   const git = await silentGit(root);
   const dataRoot = join(root, "project-clones");
   const destination = join(root, "pending-registration");
@@ -487,7 +551,7 @@ test("recovery finishes registration for a registering record and keeps the clon
       return { projectId: "project_finished", ...input };
     }
   });
-  t.after(() => second.stop());
+  deferCleanup(t, () => second.stop());
   await second.ready;
   const recovered = await second.status(started.cloneId);
   assert.equal(recovered.state, "completed");
@@ -497,7 +561,7 @@ test("recovery finishes registration for a registering record and keeps the clon
 });
 
 test("recovery keeps a complete clone when the catalog cannot be read", async (t) => {
-  const root = await mkdtempForTest();
+  const root = await mkdtempForTest(t);
   const git = await silentGit(root);
   const dataRoot = join(root, "project-clones");
   const destination = join(root, "unreadable-catalog");
@@ -521,7 +585,7 @@ test("recovery keeps a complete clone when the catalog cannot be read", async (t
       throw new Error("must not register while the catalog is unreadable");
     }
   });
-  t.after(() => second.stop());
+  deferCleanup(t, () => second.stop());
   await second.ready;
   const recovered = await second.status(started.cloneId);
   assert.equal(recovered.state, "failed");
@@ -530,7 +594,7 @@ test("recovery keeps a complete clone when the catalog cannot be read", async (t
 });
 
 test("non-allowlisted transports are refused before git starts", async (t) => {
-  const root = await mkdtempForTest();
+  const root = await mkdtempForTest(t);
   const service = createProjectCloneService({
     dataRoot: join(root, "project-clones"),
     projectForDirectory: async () => undefined,
@@ -538,7 +602,7 @@ test("non-allowlisted transports are refused before git starts", async (t) => {
       throw new Error("must not register");
     }
   });
-  t.after(() => service.stop());
+  deferCleanup(t, () => service.stop());
   for (const remoteUrl of ["ext::sh -c 'touch /tmp/pwned'", "fd::3", "git+ssh://example.test/repo.git"]) {
     await assert.rejects(service.start({ remoteUrl, destination: join(root, "blocked") }), /协议|不合法/);
   }
@@ -546,18 +610,18 @@ test("non-allowlisted transports are refused before git starts", async (t) => {
 });
 
 test("git runs with the protocol allowlist and keeps the inherited environment", async (t) => {
-  const root = await mkdtempForTest();
+  const root = await mkdtempForTest(t);
   const bin = join(root, "env-bin");
   await mkdir(bin, { recursive: true });
   const marker = join(root, "git-env.txt");
-  const path = join(bin, "git");
-  await writeFile(
-    path,
-    `#!/bin/sh\nprintf '%s|%s' "$GIT_ALLOW_PROTOCOL" "$HOME" > "$GIT_ENV_MARKER"\nexit 0\n`
+  // Git Bash rewrites HOME to an MSYS path. Report the same directory in native form.
+  const homeExpression = process.platform === "win32" ? '$(cygpath -m "$HOME")' : "$HOME";
+  const path = await shellExecutable(
+    join(bin, "git"),
+    `#!/bin/sh\nprintf '%s|%s' "$GIT_ALLOW_PROTOCOL" "${homeExpression}" > "$GIT_ENV_MARKER"\nexit 0\n`
   );
-  await run("chmod", ["755", path]);
-  process.env.GIT_ENV_MARKER = marker;
-  t.after(() => {
+  process.env.GIT_ENV_MARKER = marker.replaceAll("\\", "/");
+  deferCleanup(t, () => {
     delete process.env.GIT_ENV_MARKER;
   });
   const service = createProjectCloneService({
@@ -566,23 +630,24 @@ test("git runs with the protocol allowlist and keeps the inherited environment",
     projectForDirectory: async () => undefined,
     createProject: async (input) => ({ projectId: "project_env", ...input })
   });
-  t.after(() => service.stop());
+  deferCleanup(t, () => service.stop());
   const destination = join(root, "env-clone");
   const started = await service.start({ remoteUrl: "https://example.test/instant.git", destination });
   await waitForServiceState(service, started.cloneId, "completed");
-  assert.equal(await readFile(marker, "utf8"), `file:git:http:https:ssh|${process.env.HOME}`);
+  const [protocols, inheritedHome] = (await readFile(marker, "utf8")).split("|");
+  assert.equal(protocols, "file:git:http:https:ssh");
+  // GIT_ENV_MARKER also had to survive for the stand-in to create this file.
+  if (process.env.HOME) assert.equal(inheritedHome, process.env.HOME.replaceAll("\\", "/"));
 });
 
 async function silentGit(root) {
   const directory = join(root, "instant-bin");
   await mkdir(directory, { recursive: true });
-  const path = join(directory, "git");
-  await writeFile(path, "#!/bin/sh\nexit 0\n");
-  await run("chmod", ["755", path]);
+  const path = await shellExecutable(join(directory, "git"), "#!/bin/sh\nexit 0\n");
   return { directory, path };
 }
 
-async function waitForServiceState(service, cloneId, state, timeoutMs = 5_000) {
+async function waitForServiceState(service, cloneId, state, timeoutMs = 20_000) {
   const deadline = Date.now() + timeoutMs;
   for (;;) {
     const view = await service.status(cloneId);
@@ -600,6 +665,8 @@ async function waitForCondition(predicate, timeoutMs = 5_000) {
   }
 }
 
-function mkdtempForTest() {
-  return mkdtemp(join(tmpdir(), "project-clone-test-"));
+async function mkdtempForTest(t) {
+  const root = await mkdtemp(join(tmpdir(), "project-clone-test-"));
+  deferCleanup(t, () => rm(root, { recursive: true, force: true }));
+  return root;
 }

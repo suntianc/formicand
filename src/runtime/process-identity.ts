@@ -1,9 +1,11 @@
 import { channel } from "node:diagnostics_channel";
-import { execFile } from "node:child_process";
+import { type ChildProcess, execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { signalProcessGroup } from "../platform/process-group.js";
 
 const run = promisify(execFile);
+const pending = new Map<number, Promise<string | undefined>>();
+const owned = new Map<number, { child: ChildProcess; startedAt: string }>();
 const queryTiming = channel("formicand.process-identity.query");
 
 /**
@@ -56,7 +58,7 @@ async function readStartedAt(pid: number): Promise<string | undefined> {
               "-Command",
               `(Get-Process -Id ${pid} -ErrorAction Stop).StartTime.ToUniversalTime().ToString('o')`
             ],
-            { timeout: 5_000 }
+            { timeout: 5_000, windowsHide: true }
           )
         : await run("ps", ["-p", String(pid), "-o", "lstart="], {
             timeout: 5_000,
@@ -69,7 +71,7 @@ async function readStartedAt(pid: number): Promise<string | undefined> {
           });
     const startedAt = stdout.trim();
     return startedAt || undefined;
-    // eslint-disable-next-line no-restricted-syntax -- 进程可能刚退出或本机没有 ps/powershell；拿不到启动时间就是无法核对身份，由调用方按“已结束”处理
+    // eslint-disable-next-line no-restricted-syntax -- 进程可能刚退出或本机没有 ps/powershell；拿不到启动时间就是无法核对身份，由调用方区分进程已结束与身份暂不可读
   } catch {
     return undefined;
   } finally {
@@ -85,13 +87,48 @@ async function readStartedAt(pid: number): Promise<string | undefined> {
 /** Read the identity of a live process, or nothing when it is gone or unreadable. */
 export async function readProcessIdentity(pid: number): Promise<ProcessIdentity | undefined> {
   if (!processIsAlive(pid)) return undefined;
-  const startedAt = await readStartedAt(pid);
+  const launched = owned.get(pid);
+  if (launched && launched.child.exitCode === null && launched.child.signalCode === null)
+    return { pid, startedAt: launched.startedAt };
+  let lookup = pending.get(pid);
+  if (!lookup) {
+    lookup = readStartedAt(pid).finally(() => pending.delete(pid));
+    pending.set(pid, lookup);
+  }
+  const startedAt = await lookup;
   return startedAt ? { pid, startedAt } : undefined;
 }
 
-/** Whether the process recorded earlier is still the same process. */
-export async function verifyProcessIdentity(identity: ProcessIdentity): Promise<boolean> {
-  if (!identity.startedAt) return false;
+/** The parent owns a process handle until exit. Its verified creation time cannot change. */
+export async function identifySpawnedProcess(child: ChildProcess): Promise<ProcessIdentity | undefined> {
+  if (child.pid === undefined) return undefined;
+  const identity = await readProcessIdentity(child.pid);
+  if (identity && child.exitCode === null && child.signalCode === null) {
+    const entry = { child, startedAt: identity.startedAt };
+    owned.set(identity.pid, entry);
+    child.once("exit", () => {
+      if (owned.get(identity.pid) === entry) owned.delete(identity.pid);
+    });
+  }
+  return identity;
+}
+
+/** Undefined means the PID still exists but its start time could not be read. */
+export async function matchProcessIdentity(identity: ProcessIdentity): Promise<boolean | undefined> {
   const current = await readProcessIdentity(identity.pid);
-  return current !== undefined && current.startedAt === identity.startedAt;
+  if (current && identity.startedAt) return current.startedAt === identity.startedAt;
+  return processIsAlive(identity.pid) ? undefined : false;
+}
+
+/** A decision to replace or settle a process requires a conclusive identity check. */
+export async function requireProcessIdentityCheck(identity: ProcessIdentity): Promise<boolean> {
+  const matches = await matchProcessIdentity(identity);
+  if (matches === undefined)
+    throw new Error(`Unable to verify the start time of agent process ${identity.pid}`);
+  return matches;
+}
+
+/** Only a verified match authorizes a signal or an adoption. */
+export async function verifyProcessIdentity(identity: ProcessIdentity): Promise<boolean> {
+  return (await matchProcessIdentity(identity)) === true;
 }

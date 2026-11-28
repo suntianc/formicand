@@ -1,8 +1,9 @@
 import { createHash } from "node:crypto";
-import { mkdir, readdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, rm, stat } from "node:fs/promises";
 import { basename, dirname, isAbsolute, join, resolve } from "node:path";
 import type { ChildProcess } from "node:child_process";
 import { ProcessHost } from "../runtime/process-host.js";
+import { atomicWrite } from "../storage/atomic-file.js";
 import { id, now } from "../domain/types.js";
 import { stableJson } from "./management-commands.js";
 
@@ -137,14 +138,15 @@ function failureMessage(output: string, code: number | null, remoteUrl?: string)
   // query; that text reaches a response and a record, so the URL is removed.
   const lines = redactRemote(output, remoteUrl)
     .split(/\r?\n/)
-    .map((line) => line.trim().replace(/^fatal:\s*/i, ""))
+    .map((line) => line.trim())
     .filter((line) => line && !NOISE.test(line));
   const authentication = lines.find((line) =>
     /permission denied|authentication failed|could not read username|publickey/i.test(line)
   );
-  if (authentication) return authentication.replace(/^[^\s@]+@[^\s:]+:\s*/, "");
-  const last = lines.at(-1);
-  if (last) return last;
+  if (authentication) return authentication.replace(/^fatal:\s*/i, "").replace(/^[^\s@]+@[^\s:]+:\s*/, "");
+  // A failed upload-pack can end with generic instructions after the fatal cause.
+  const cause = lines.find((line) => /^fatal:\s*/i.test(line)) ?? lines.at(-1);
+  if (cause) return cause.replace(/^fatal:\s*/i, "");
   return code === null ? "无法启动 Git 克隆" : `Git 克隆失败（退出码 ${code}）`;
 }
 
@@ -197,11 +199,7 @@ export function createProjectCloneService(options: {
   const recordPath = (value: string) => join(directory, `${value}.json`);
 
   async function write(record: ProjectCloneRecord): Promise<void> {
-    await mkdir(directory, { recursive: true });
-    const path = recordPath(record.cloneId);
-    const temporary = `${path}.tmp-${process.pid}-${Date.now()}`;
-    await writeFile(temporary, `${JSON.stringify(record, null, 2)}\n`, { mode: 0o600 });
-    await rename(temporary, path);
+    await atomicWrite(recordPath(record.cloneId), `${JSON.stringify(record, null, 2)}\n`, { mode: 0o600 });
   }
 
   function recordOf(value: unknown): ProjectCloneRecord | undefined {

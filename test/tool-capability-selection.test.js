@@ -1,3 +1,4 @@
+import { listenOnFixtureHttpPort } from "./fixtures/http-server.mjs";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { createRequire } from "node:module";
@@ -6,11 +7,10 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { createServer } from "node:http";
-import { once } from "node:events";
 import { LocalWorkspaceStore } from "../dist/src/workspace/workspace-store.js";
 
 const requirePi = createRequire(import.meta.resolve("@earendil-works/pi-coding-agent"));
-const { createJiti } = await import(requirePi.resolve("jiti"));
+const { createJiti } = requirePi("jiti");
 const path = resolve(".pi/runtime/tools/capabilities.ts");
 const { registerCapabilityTools, CORE_TOOLS } = await createJiti(pathToFileURL(path).href).import(path);
 const optional = [
@@ -180,8 +180,7 @@ test("desktop tool schemas follow active human observation/control grants and ex
     response.writeHead(200, { "content-type": "application/json" });
     response.end(JSON.stringify({ session }));
   });
-  server.listen(0, "127.0.0.1");
-  await once(server, "listening");
+  await listenOnFixtureHttpPort(server);
   t.after(async () => {
     server.closeAllConnections();
     await new Promise((done) => server.close(done));

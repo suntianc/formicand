@@ -1,3 +1,4 @@
+import { deferCleanup } from "./fixtures/cleanup.mjs";
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
@@ -100,7 +101,7 @@ async function commit(directory, files, message) {
 /** A project with documents and no registry, and the program's development service over it. */
 async function project(t) {
   const root = await mkdtemp(join(tmpdir(), "registry-project-"));
-  t.after(() => rm(root, { recursive: true, force: true }));
+  deferCleanup(t, () => rm(root, { recursive: true, force: true }));
   const repo = join(root, "repository");
   await mkdir(repo, { recursive: true });
   await git(repo, ["init", "-b", "main"]);
@@ -117,7 +118,7 @@ async function project(t) {
     dataRoot: root,
     env: {}
   });
-  t.after(() => runtime.close());
+  deferCleanup(t, () => runtime.close());
   const gateway = await runtime.service();
   const projectId = "project_registry";
   await gateway.ensureProject({
@@ -276,24 +277,40 @@ test(
   }
 );
 
-test("documents are listed by their raw names, quotes and backslashes included", async (t) => {
+test("document diffs in a deep checkout distinguish commit ranges from raw path names", async (t) => {
   const { documentsAdded, documentsAt } = await import("../dist/src/workspace/development-workspace.js");
-  const repo = await mkdtemp(join(tmpdir(), "formicand-doc-names-"));
-  t.after(() => rm(repo, { recursive: true, force: true }));
+  const root = await mkdtemp(join(tmpdir(), "formicand-doc-names-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  let repo = join(root, "checkout");
+  while (repo.length < 184) repo = join(repo, "development-workspace");
+  await mkdir(repo, { recursive: true });
   const run = (args) =>
     promisify(execFile)("git", ["-C", repo, ...args]).then((result) => result.stdout.trim());
-  await run(["init", "-q", "-b", "main"]);
+  // Development worktrees keep Git's object database outside the long checkout.
+  await run(["init", "-q", "-b", "main", "--separate-git-dir", join(root, "history.git")]);
   await run(["config", "user.email", "fixture@example.test"]);
   await run(["config", "user.name", "Fixture"]);
   await writeFile(join(repo, "README.md"), "x\n");
   await run(["add", "."]);
   await run(["commit", "-qm", "base"]);
   const base = await run(["rev-parse", "HEAD"]);
-  await mkdir(join(repo, "docs"));
-  for (const name of ['中"文.md', "a\\b.md"]) await writeFile(join(repo, "docs", name), "x\n");
-  await run(["add", "."]);
+  // Build the Git index directly so raw Git names are covered even on NTFS.
+  const blob = await run(["rev-parse", "HEAD:README.md"]);
+  for (const name of ['中"文.md', "a\\b.md"])
+    await run([
+      "-c",
+      "core.protectNTFS=false",
+      "update-index",
+      "--add",
+      "--cacheinfo",
+      "100644",
+      blob,
+      `docs/${name}`
+    ]);
   await run(["commit", "-qm", "docs"]);
   const head = await run(["rev-parse", "HEAD"]);
+  // A working-tree file with this literal name must not shadow the two commits.
+  await writeFile(join(repo, `${base}..${head}`), "untracked\n");
   assert.deepEqual((await documentsAdded(repo, base, head)).sort(), ["docs/a\\b.md", 'docs/中"文.md'].sort());
   assert.deepEqual(
     (await documentsAt(repo, head)).sort(),

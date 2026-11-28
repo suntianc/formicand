@@ -157,8 +157,16 @@ export function createImageArchive(options: ImageArchiveOptions) {
   }
   async function boundedRead(path: string, limit: number, signal?: AbortSignal) {
     assertImageActive(signal);
+    const before = constants.O_NOFOLLOW ? undefined : await lstat(path, { bigint: true });
+    if (before && !before.isFile())
+      throw Object.assign(new Error("Invalid image archive file"), { code: "ELOOP" });
     const handle = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW);
     try {
+      if (before) {
+        const opened = await handle.stat({ bigint: true });
+        if (before.dev !== opened.dev || before.ino !== opened.ino)
+          throw Object.assign(new Error("Image archive file changed before reading"), { code: "ELOOP" });
+      }
       const info = await handle.stat();
       if (!info.isFile() || info.size > limit) throw new Error("Image archive file exceeds its limit");
       // Use a bounded allocation even if the file is replaced or grows after stat.

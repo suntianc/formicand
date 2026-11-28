@@ -1,6 +1,6 @@
+import { availableLocalHttpPort } from "../dist/src/platform/local-http-port.js";
 import assert from "node:assert/strict";
 import { once } from "node:events";
-import { createServer } from "node:net";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -22,11 +22,7 @@ async function fixture(t, options = {}) {
     PI_OFFLINE: "1"
   });
   await writeFile(join(root, "config.json"), "{}\n");
-  const probe = createServer();
-  probe.listen(0, "127.0.0.1");
-  await once(probe, "listening");
-  const port = probe.address().port;
-  await new Promise((done) => probe.close(done));
+  const port = await availableLocalHttpPort();
   const identity = {
     backendId: options.backendId ?? "backend_fixture",
     pid: process.pid,

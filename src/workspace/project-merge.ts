@@ -6,6 +6,7 @@ import { pipeline } from "node:stream/promises";
 import { promisify } from "node:util";
 import { now } from "../domain/types.js";
 import type { MergeCheck } from "../domain/development-merge.js";
+import { projectCheckShell } from "../platform/project-shell.js";
 import {
   assertRepository,
   branchTip as targetTip,
@@ -109,7 +110,8 @@ export async function runMergeChecks(directory: string, checks: MergeCheck[]): P
   for (const check of checks) {
     const at = now();
     try {
-      const { stdout, stderr } = await execute("/bin/sh", ["-c", check.command], {
+      const { stdout, stderr } = await execute(projectCheckShell(), ["-c", check.command], {
+        windowsHide: true,
         cwd: directory,
         timeout: CHECK_TIMEOUT_MS,
         maxBuffer: 4 * 1024 * 1024
@@ -147,6 +149,7 @@ export async function runMergeChecks(directory: string, checks: MergeCheck[]): P
 /** Git holds HEAD and its referent from prepare until commit (or EOF). */
 async function advanceCheckout(worktree: string, target: string, before: string, after: string) {
   const update = execute("git", ["-C", worktree, "update-ref", "-m", "publish merge", "--stdin"], {
+    windowsHide: true,
     timeout: GIT_TIMEOUT_MS
   });
   const replies = createInterface({ input: update.child.stdout! })[Symbol.asyncIterator]();

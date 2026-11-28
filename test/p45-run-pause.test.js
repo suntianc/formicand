@@ -1,5 +1,5 @@
+import { listenOnFixtureHttpPort } from "./fixtures/http-server.mjs";
 import assert from "node:assert/strict";
-import { once } from "node:events";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { join } from "node:path";
@@ -62,10 +62,9 @@ async function fixture(t, handle) {
       response.destroy(error);
     }
   });
-  provider.listen(0, "127.0.0.1");
-  await once(provider, "listening");
+  const port = await listenOnFixtureHttpPort(provider);
   dashboard = await startDashboard({
-    modelEndpoint: `http://127.0.0.1:${provider.address().port}`,
+    modelEndpoint: `http://127.0.0.1:${port}`,
     model: "fixture-model"
   });
   await mkdir(join(dashboard.root, "pi"), { recursive: true });

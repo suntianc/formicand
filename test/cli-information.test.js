@@ -1,3 +1,4 @@
+import { npmCommand } from "../scripts/npm-command.mjs";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { mkdtemp, mkdir, cp, writeFile, readFile, readdir, rm } from "node:fs/promises";
@@ -103,7 +104,8 @@ test("public root, start, npm and thin version queries work without SDK/dist/con
   // The in-process single-agent entry no longer exists, so help must not list it.
   assert.doesNotMatch((await run("formicand.mjs", ["--help"])).stdout, /formicand single/);
   assert.deepEqual((await readdir(root)).sort(), ["config.json", "package.json", "scripts"]);
-  const npm = await exec(process.platform === "win32" ? "npm.cmd" : "npm", ["start", "--", "--version"], {
+  const npmStart = npmCommand(["start", "--", "--version"]);
+  const npm = await exec(npmStart.command, npmStart.args, {
     cwd: root,
     env: { ...env, npm_config_cache: join(root, "npm-cache"), npm_config_update_notifier: "false" },
     timeout: 15000

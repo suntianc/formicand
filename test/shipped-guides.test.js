@@ -182,7 +182,10 @@ test("the code map links the capability implementations", async () => {
     ".pi/runtime/tools/browser-use.ts",
     "src/tools/cua-script-guest.js"
   ])
-    assert.ok(map.includes(`](${relative("docs", file)})`), `the code map links ${file}`);
+    assert.ok(
+      map.includes(`](${relative("docs", file).split(sep).join("/")})`),
+      `the code map links ${file}`
+    );
 });
 
 test("the document standards match the merged layout", async () => {
