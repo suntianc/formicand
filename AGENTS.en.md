@@ -11,6 +11,8 @@ This guide is for contributors and coding agents. Users start with [README](READ
 3. Code, tests and [architecture](docs/development.md#架构) define current behavior. Choose work from current issues and acceptance criteria.
 4. Reproduce the problem, edit the owning module, run relevant behavior tests and local verification, then report commands, failures and skips actually observed.
 
+For changes affecting multiple desktop platforms, use the [cross-platform workflow (Chinese)](docs/development.md#跨平台改动的分工与交接) to identify shared implementation, target-machine checks and the commit to hand off.
+
 ## Repository map
 
 | Location                                        | Responsibility                                              | Local instructions                                |

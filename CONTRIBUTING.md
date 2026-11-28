@@ -17,8 +17,10 @@ npm run test:unit -- --file test/name.test.js
 npm run verify
 # UI / HTTP-UI 集成变化；首次先 npx playwright install chromium
 npm run test:browser
-# Mac 宿主、退出恢复或安装包变化：Apple Silicon Mac
+# 在受影响的目标 OS 构建并启动目录包
 npm run desktop:pack
+node scripts/desktop-smoke.mjs --basic
+# Mac 客户端退出、草稿或升级恢复变化，在 Mac 上额外执行
 npm run test:desktop
 ```
 
@@ -44,7 +46,7 @@ npm run test:desktop
 
 一个 PR 完成一项职责明确的修改。使用 [PR 模板](.github/pull_request_template.md)，描述最终问题/结果、接口消费者、数据影响、实际验证及未覆盖范围；说明最终实现，省去讨论过程。按 [各层职责](docs/development.md#各层职责) 和 [代码地图](docs/development.md#代码地图) 找到负责的模块与消费者；跨接口两端协同，真实人员未分配时维护者负责审核。工作流不代表 CODEOWNERS/分支保护已经启用。
 
-完成本地 verify 后，根据变化增加浏览器、跨平台、原生或安装验收，并在 PR 中提供相应证据。GitHub 常规检查在 PR 和推送到 main 时自动运行轻量 `check:ci` 构建/静态检查，也可手动触发；Mac 工作流只上传 Release 草稿，维护者验收后再发布。本地行为回归要求保持不变，触发范围见 [开发指南](docs/development.md#分支和合并)。
+跨机修改按[跨平台改动的分工与交接](docs/development.md#跨平台改动的分工与交接)交付同一候选提交，在 PR 中列出各目标系统实际跑过的命令和结果。常规 CI 运行轻量静态检查与桌面策略单测；涉及指定桌面路径的修改另行触发原生目录包冒烟。触发条件见[开发指南](docs/development.md#分支和合并)。
 
 正式/稳定版在作出相应产品与平台承诺前，完成 以下 P0 门槛：许可/第三方内容、分发渠道、实际模型、Developer ID 签名/公证、干净机器安装和升级恢复。限定范围的公开 beta 单独说明支持范围、安装方式和未完成验收，不能把 beta 当作已经满足全部 P0 的稳定版。
 
