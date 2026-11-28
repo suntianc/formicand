@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process";
 import { once } from "node:events";
 import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
-import { createServer } from "node:net";
+import { availableLocalHttpPort } from "../dist/src/platform/local-http-port.js";
 import { hostname, tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -25,15 +25,6 @@ export function startConfiguredDashboard(options = {}) {
   });
 }
 
-async function freePort() {
-  const probe = createServer();
-  probe.listen(0, "127.0.0.1");
-  await once(probe, "listening");
-  const { port } = probe.address();
-  await new Promise((done) => probe.close(done));
-  return port;
-}
-
 /** A fresh real Dashboard; model connections, when supplied, are local test fixtures. */
 export async function startDashboard({
   modelEndpoint,
@@ -53,7 +44,7 @@ export async function startDashboard({
   const workspaceRoot = existingWorkspace ?? join(root, "workspace");
   await mkdir(workspaceRoot, { recursive: true });
   await writeFile(join(root, "config.json"), JSON.stringify(config));
-  let port = requestedPort ?? (await freePort());
+  let port = requestedPort ?? (await availableLocalHttpPort());
   const isolatedEnv = Object.fromEntries(
     Object.entries(process.env).filter(([name]) => !/^(?:FORMICAND_|PI_|FORMICAND_|EXA_)/.test(name))
   );
@@ -173,7 +164,7 @@ export async function startDashboard({
       async restart({ newPort = false } = {}) {
         await stopChild();
         if (newPort) {
-          port = await freePort();
+          port = await availableLocalHttpPort();
           base = `http://127.0.0.1:${port}`;
           launchOptions.env.FORMICAND_UI_PORT = String(port);
         }
