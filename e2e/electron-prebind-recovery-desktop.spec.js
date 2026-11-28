@@ -6,7 +6,6 @@ import { developmentExecutable } from "./desktop-runtime-helper.js";
 import { dismissModelSetup, setupDialog } from "./model-provider-ui.js";
 
 test("desktop restores drafts saved before the first backend binding", async () => {
-  test.skip(process.platform !== "darwin", "Native desktop acceptance requires macOS");
   test.setTimeout(120_000);
   const root = await mkdtemp(join(process.env.P2_NATIVE_ROOT || tmpdir(), "prebind-native-"));
   const profile = join(root, "profile");

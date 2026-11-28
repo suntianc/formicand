@@ -1,0 +1,67 @@
+name: Native desktop package smoke
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "43 2 * * *"
+  push:
+    branches: [main]
+    paths:
+      - "desktop/**"
+      - "electron-builder*.cjs"
+      - "package*.json"
+      - "scripts/*desktop*"
+      - "scripts/*packag*"
+      - "scripts/windows-*"
+      - "scripts/mac-signing.mjs"
+      - "web/assets/styles/formicand/desktop-titlebar.css"
+      - "web/assets/styles/formicand/entry-shell.css"
+      - "web/assets/settings.css"
+      - ".github/workflows/desktop-smoke.yml"
+  pull_request:
+    paths:
+      - "desktop/**"
+      - "electron-builder*.cjs"
+      - "package*.json"
+      - "scripts/*desktop*"
+      - "scripts/*packag*"
+      - "scripts/windows-*"
+      - "scripts/mac-signing.mjs"
+      - "web/assets/styles/formicand/desktop-titlebar.css"
+      - "web/assets/styles/formicand/entry-shell.css"
+      - "web/assets/settings.css"
+      - ".github/workflows/desktop-smoke.yml"
+permissions:
+  contents: read
+concurrency:
+  group: desktop-smoke-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  smoke:
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [macos-15, windows-2022, ubuntu-24.04]
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci
+      - run: npm run desktop:pack
+      - if: runner.os != 'Linux'
+        run: node scripts/desktop-smoke.mjs --basic
+      - if: runner.os == 'Linux'
+        name: Packaged app on X11 with an isolated Secret Service session
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gnome-keyring libsecret-1-0 xvfb
+          xvfb-run -a dbus-run-session -- bash -euc '
+            export XDG_CURRENT_DESKTOP=GNOME
+            printf "%s" "ephemeral-smoke-keyring" | gnome-keyring-daemon --unlock --components=secrets
+            node scripts/desktop-smoke.mjs --basic
+          '

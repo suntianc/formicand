@@ -1,12 +1,12 @@
+import { blockDraftSave } from "./draft-save-failure.js";
 import { test, expect, _electron as electron } from "@playwright/test";
-import { chmod, mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { developmentExecutable } from "./desktop-runtime-helper.js";
 import { dismissModelSetup } from "./model-provider-ui.js";
 
 test("desktop draft migration, switching and recovery survive restart", async () => {
-  test.skip(process.platform !== "darwin", "Native desktop acceptance requires macOS");
   test.setTimeout(180_000);
   const root = await mkdtemp(join(process.env.P2_NATIVE_ROOT || tmpdir(), "draft-rework-"));
   const profile = join(root, "profile");
@@ -45,6 +45,7 @@ test("desktop draft migration, switching and recovery survive restart", async ()
   const started = await startBackend(otherEnv, resolve("."), process.execPath);
   const other = JSON.parse(await readFile(join(otherHome, "runtime/backend-instance.json"), "utf8"));
   expect(started.pid).toBe(other.pid);
+  let restoreDrafts;
   let native;
   let primary;
   let page;
@@ -219,12 +220,13 @@ test("desktop draft migration, switching and recovery survive restart", async ()
         return { response: 0 };
       };
     });
-    await chmod(profile, 0o500);
+    restoreDrafts = await blockDraftSave(profile);
     await page.locator("#composer-input").fill("native save failure recovery");
     await native.evaluate(({ app }) => app.quit());
     await expect.poll(() => native.evaluate(() => globalThis.fixtureSaveFailureShown || false)).toBe(true);
     await expect(page.locator("#composer-input")).toHaveValue("native save failure recovery");
-    await chmod(profile, 0o700);
+    await restoreDrafts();
+    restoreDrafts = undefined;
     await native.close();
     native = undefined;
     await launch();
@@ -232,7 +234,7 @@ test("desktop draft migration, switching and recovery survive restart", async ()
     expect(errors).toEqual([]);
     console.log(JSON.stringify({ event: "native-save-recovered", text: "native save failure recovery" }));
   } finally {
-    await chmod(profile, 0o700).catch(() => {});
+    await restoreDrafts?.();
     await native?.close();
     if (primary)
       console.log(

@@ -24,6 +24,8 @@ jobs:
           node-version: "24"
           cache: npm
       - run: npm ci
+      - name: Desktop platform policy
+        run: node --test test/desktop-system-theme.test.js test/desktop-icon-selector.test.js test/p45-window-material.test.js
       - run: npm run check:ci
         env:
           FORMAT_BASE: ${{ github.event.pull_request.base.sha || github.event.before || 'HEAD^' }}

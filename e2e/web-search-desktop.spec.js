@@ -10,7 +10,6 @@ import { stopNativeBackend } from "../test/native-backend-fixture.mjs";
 import { connectModelThroughUi, setupDialog } from "./model-provider-ui.js";
 
 test("native App after normal model setup performs anonymous search and source fetch without a search key", async () => {
-  test.skip(process.platform !== "darwin", "Native App acceptance requires macOS");
   test.setTimeout(120_000);
   const root = await mkdtemp(join(tmpdir(), "formicand-search-desktop-"));
   const exa = await exaMcpFixture(),

@@ -32,12 +32,17 @@ test("a blocked cold start shows diagnostics, retries after a port conflict and 
           globalThis.openedStartupFile = file;
         };
         const messageBox = dialog.showMessageBox.bind(dialog);
-        dialog.showMessageBox = (window, options) =>
-          options.buttons?.includes("重试")
-            ? new Promise((resolve) => {
-                globalThis.retryStartup = () => resolve({ response: 0 });
-              })
-            : messageBox(window, options);
+        dialog.showMessageBox = (window, options) => {
+          if (options.buttons?.includes("重试")) {
+            if (globalThis.startupFixtureClosing) return Promise.resolve({ response: 2 });
+            return new Promise((resolve) => {
+              globalThis.retryStartup = (response) => resolve({ response });
+            });
+          }
+          if (globalThis.startupFixtureClosing && options.buttons?.includes("仍然退出"))
+            return Promise.resolve({ response: options.buttons.indexOf("仍然退出") });
+          return messageBox(window, options);
+        };
       });
       await expect
         .poll(() =>
@@ -83,7 +88,9 @@ test("a blocked cold start shows diagnostics, retries after a port conflict and 
       .poll(() => native.evaluate(() => Boolean(globalThis.retryStartup)), { timeout: 30_000 })
       .toBe(true);
     await new Promise((resolveClose) => occupied.close(resolveClose));
-    await native.evaluate(() => globalThis.retryStartup());
+    await native.evaluate(() => globalThis.retryStartup(0));
+    const timingFile = join(root, "logs", "desktop-startup.jsonl");
+    await expect.poll(() => readFile(timingFile, "utf8"), { timeout: 30_000 }).toContain('"renderer_loaded"');
     await expect
       .poll(
         () =>
@@ -103,7 +110,7 @@ test("a blocked cold start shows diagnostics, retries after a port conflict and 
         )
       )
       .toBe(0);
-    const rows = (await readFile(join(root, "logs", "desktop-startup.jsonl"), "utf8"))
+    const rows = (await readFile(timingFile, "utf8"))
       .trim()
       .split("\n")
       .map((line) => JSON.parse(line));
@@ -123,7 +130,10 @@ test("a blocked cold start shows diagnostics, retries after a port conflict and 
     ).toContain("port_listening");
   } finally {
     if (occupied.listening) await new Promise((resolveClose) => occupied.close(resolveClose));
-    await native?.evaluate(() => globalThis.retryStartup?.());
+    await native?.evaluate(() => {
+      globalThis.startupFixtureClosing = true;
+      globalThis.retryStartup?.(2);
+    });
     await native?.close();
     await stopNativeBackend(root);
     await rm(root, { recursive: true, force: true, maxRetries: 5 });

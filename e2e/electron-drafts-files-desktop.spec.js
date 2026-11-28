@@ -1,5 +1,6 @@
+import { blockDraftSave } from "./draft-save-failure.js";
 import { test, expect, _electron as electron } from "@playwright/test";
-import { chmod, mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -7,7 +8,6 @@ import { developmentExecutable } from "./desktop-runtime-helper.js";
 import { dismissModelSetup } from "./model-provider-ui.js";
 
 test("desktop keeps drafts and selected file bytes with their backend", async () => {
-  test.skip(process.platform !== "darwin", "Native desktop acceptance requires macOS");
   test.setTimeout(180_000);
   const root = await mkdtemp(join(tmpdir(), "formicand-native-drafts-"));
   const profile = join(root, "profile");
@@ -48,6 +48,7 @@ test("desktop keeps drafts and selected file bytes with their backend", async ()
   const otherStarted = await startBackend(otherEnv, resolve("."), process.execPath);
   const other = JSON.parse(await readFile(join(otherHome, "runtime/backend-instance.json"), "utf8"));
   expect(otherStarted.pid).toBe(other.pid);
+  let restoreDrafts;
   let native;
   let primary;
   let page;
@@ -263,19 +264,20 @@ test("desktop keeps drafts and selected file bytes with their backend", async ()
         return { response: 0 };
       };
     });
-    await chmod(profile, 0o500);
+    restoreDrafts = await blockDraftSave(profile);
     await page.locator("#composer-input").fill("recover after native save failure");
     await native.evaluate(({ app }) => app.quit());
     await expect.poll(() => native.evaluate(() => globalThis.fixtureSaveFailureShown || false)).toBe(true);
     await expect(page.locator("#composer-input")).toHaveValue("recover after native save failure");
-    await chmod(profile, 0o700);
+    await restoreDrafts();
+    restoreDrafts = undefined;
     await native.close();
     native = undefined;
     await launch();
     await expect(page.locator("#composer-input")).toHaveValue("recover after native save failure");
     expect(errors).toEqual([]);
   } finally {
-    await chmod(profile, 0o700).catch(() => {});
+    await restoreDrafts?.();
     await native?.close();
     if (primary) {
       const result = await stopBackend({ ...env, FORMICAND_HOME: profile }, primary);

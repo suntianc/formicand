@@ -138,16 +138,21 @@ test("stage selection excludes unrelated commands and keeps shared build", async
   assert.ok(!plan.steps.some((step) => step.id === "basic-node"));
 });
 
-test("native and package work is explicit and Mac-specific", async () => {
+test("native and package selection follows the target desktop platform", async () => {
   const mac = await loadPlan(root, parseOptions(["--native", "--packages"]), "darwin");
   assert.ok(mac.groups.some((group) => group.node.includes("test/computer-native.test.js")));
   assert.ok(mac.steps.some((step) => step.id === "app-package"));
   assert.ok(
     mac.steps.filter((step) => step.kind === "browser").every((step) => step.args.includes("--workers=1"))
   );
-  const linux = await loadPlan(root, parseOptions(["--native", "--packages"]), "linux");
-  assert.ok(linux.deferred.some((item) => item.file === "final-mac-package"));
-  assert.ok(!linux.steps.some((step) => step.id === "app-package"));
+  for (const platform of ["win32", "linux"]) {
+    const native = await loadPlan(root, parseOptions(["--native", "--packages"]), platform);
+    assert.ok(native.deferred.some((item) => item.file === "test/computer-native.test.js"));
+    assert.ok(native.deferred.some((item) => item.file === "e2e/p45-desktop-background.spec.js"));
+    assert.ok(native.groups.some((group) => group.browser.includes("e2e/external-links-desktop.spec.js")));
+    assert.ok(native.steps.some((step) => step.id === "app-package"));
+    assert.equal(native.deferredVariants.length, 1);
+  }
 });
 
 test("mixed files retain Web coverage and gate only native variants", async () => {
