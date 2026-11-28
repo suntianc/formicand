@@ -1,8 +1,9 @@
 import { createHash } from "node:crypto";
-import { mkdir, readdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, rm, stat } from "node:fs/promises";
 import { basename, dirname, isAbsolute, join, resolve } from "node:path";
 import type { ChildProcess } from "node:child_process";
 import { ProcessHost } from "../runtime/process-host.js";
+import { atomicWrite } from "../storage/atomic-file.js";
 import { id, now } from "../domain/types.js";
 import { stableJson } from "./management-commands.js";
 
@@ -198,11 +199,7 @@ export function createProjectCloneService(options: {
   const recordPath = (value: string) => join(directory, `${value}.json`);
 
   async function write(record: ProjectCloneRecord): Promise<void> {
-    await mkdir(directory, { recursive: true });
-    const path = recordPath(record.cloneId);
-    const temporary = `${path}.tmp-${process.pid}-${Date.now()}`;
-    await writeFile(temporary, `${JSON.stringify(record, null, 2)}\n`, { mode: 0o600 });
-    await rename(temporary, path);
+    await atomicWrite(recordPath(record.cloneId), `${JSON.stringify(record, null, 2)}\n`, { mode: 0o600 });
   }
 
   function recordOf(value: unknown): ProjectCloneRecord | undefined {

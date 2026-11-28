@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
-import { mkdir, mkdtemp, readdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, open, readdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { delimiter, join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -391,6 +391,38 @@ test("a crash between registration and completion keeps the folder and the regis
   assert.equal(recovered.state, "completed");
   assert.equal(recovered.project.projectId, "project_registered");
   assert.equal(await exists(destination), true);
+});
+
+test("a reader of the registering clone record can stay open while completion is published", async (t) => {
+  const root = await mkdtempForTest(t);
+  const bare = await seedRepository(root);
+  const dataRoot = join(root, "project-clones");
+  const destination = join(root, "reader-clone");
+  const registration = Promise.withResolvers();
+  const service = createProjectCloneService({
+    dataRoot,
+    projectForDirectory: async () => undefined,
+    createProject: async (input) => {
+      await registration.promise;
+      return { ...input, projectId: "project_reader" };
+    }
+  });
+  deferCleanup(t, async () => {
+    registration.resolve();
+    await service.stop();
+  });
+  const { cloneId } = await service.start({ remoteUrl: bare, destination });
+  await waitForServiceState(service, cloneId, "registering");
+  const file = `${cloneId}.json`;
+  const reader = await open(join(dataRoot, file), "r");
+  deferCleanup(t, () => reader.close());
+  registration.resolve();
+  await service.stop();
+  const completed = await service.status(cloneId);
+  assert.equal(completed.state, "completed");
+  assert.equal(completed.project.projectDirectory, destination);
+  assert.equal(JSON.parse(await reader.readFile("utf8")).state, "registering");
+  assert.deepEqual(await readdir(dataRoot), [file]);
 });
 
 test("stopping waits for a registration in progress to be written", async (t) => {
