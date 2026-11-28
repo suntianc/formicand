@@ -8,7 +8,7 @@ import { setTimeout as delay } from "node:timers/promises";
 import { fixtureMainProcesses } from "./fixtures/main-processes.mjs";
 import { startDashboard } from "./dashboard-fixture.mjs";
 import { readFixtureRequestBody } from "./http-request-body-fixture.mjs";
-import { protocolStream } from "./model-protocol-fixture.mjs";
+import { observeModelRequests, protocolStream } from "./model-protocol-fixture.mjs";
 import { startProjectDataDashboard } from "./p3-storage-fixture.mjs";
 import { backendPaths, readBackendInstance } from "../dist/src/dashboard/backend-instance.js";
 
@@ -23,14 +23,14 @@ import { backendPaths, readBackendInstance } from "../dist/src/dashboard/backend
  * went with that view; the shared records it read stay covered here.
  */
 async function provider(t, { hold = () => false, wait, rejectFirst = false, rejectAfterHold = false } = {}) {
-  const requests = [];
+  const { requests, record, waitForCount } = observeModelRequests(t.signal);
   const failures = [];
   const server = createServer(async (request, response) => {
     try {
       if (request.method === "GET") return response.end(JSON.stringify({ data: [{ id: "fixture-model" }] }));
       const raw = await readFixtureRequestBody(request);
       const body = JSON.parse(raw);
-      requests.push(body);
+      record(body);
       // No explicit gate keeps the old "hold forever" fixture behavior.
       if (hold() && !wait) return new Promise(() => {});
       if ((rejectFirst && requests.length === 1) || rejectAfterHold) {
@@ -53,7 +53,7 @@ async function provider(t, { hold = () => false, wait, rejectFirst = false, reje
     server.closeAllConnections();
     await new Promise((done) => server.close(done));
   });
-  return { base: `http://127.0.0.1:${server.address().port}/v1`, requests, failures };
+  return { base: `http://127.0.0.1:${server.address().port}/v1`, requests, failures, waitForCount };
 }
 
 function client(dashboard) {
@@ -134,7 +134,7 @@ test("cancel and an abnormal exit leave no Main process this run owns", { timeou
     mainSessionId: session.sessionId
   });
   assert.equal(started.status, 202, JSON.stringify(started.body));
-  await waitFor(() => local.requests.length === 1, "the Main process never reached the model");
+  await local.waitForCount(1);
   assert.ok(
     (await fixtureMainProcesses(dashboard.root)).length > 0,
     "the Main process is running before cancel"
@@ -157,7 +157,7 @@ test("cancel and an abnormal exit leave no Main process this run owns", { timeou
     mainSessionId: session.sessionId
   });
   assert.equal(again.status, 202, JSON.stringify(again.body));
-  await waitFor(() => local.requests.length === 2, "the restarted Main never reached the model");
+  await local.waitForCount(2);
   assert.ok(
     (await fixtureMainProcesses(dashboard.root)).length > 0,
     "the Main process is running before shutdown"
@@ -488,7 +488,7 @@ test(
       requirementId
     });
     assert.equal(first.status, 202, JSON.stringify(first.body));
-    await waitFor(() => local.requests.length === 1, "the first Main never reached the model");
+    await local.waitForCount(1);
     const before = await sessionView(request, project.projectId);
     assert.equal(before.runs.length, 1);
     assert.equal(before.runs[0].state, "running");
@@ -551,7 +551,7 @@ test("two near-simultaneous starts admit exactly one Run", { timeout: 120_000 },
     })
   ]);
   assert.deepEqual(started.map((entry) => entry.status).sort(), [202, 400], JSON.stringify(started));
-  await waitFor(() => local.requests.length === 1, "exactly one admitted start should reach the model");
+  await local.waitForCount(1);
   const running = await sessionView(request, project.projectId);
   assert.equal(running.runs.length, 1);
   assert.equal(running.runs[0].state, "running");
@@ -619,7 +619,7 @@ test("a legitimate retry re-enters running and completes its Run", { timeout: 12
     retryRequestId: failed.retryRequest.requestId
   });
   assert.equal(retry.status, 202, JSON.stringify(retry.body));
-  await waitFor(() => local.requests.length === 2, "the retry never reached the model");
+  await local.waitForCount(2);
   const during = await sessionView(request, project.projectId);
   assert.equal(during.runs.length, 1);
   assert.equal(during.runs[0].runId, first.body.runId);

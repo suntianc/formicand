@@ -1,5 +1,23 @@
 import { createServer } from "node:http";
-import { once } from "node:events";
+import assert from "node:assert/strict";
+import { EventEmitter, once } from "node:events";
+
+/** Observe real POST arrivals within the enclosing integration test's deadline. */
+export function observeModelRequests(signal) {
+  const arrivals = new EventEmitter();
+  const requests = [];
+  return {
+    requests,
+    record(body) {
+      requests.push(body);
+      arrivals.emit("arrived");
+    },
+    async waitForCount(count) {
+      while (requests.length < count) await once(arrivals, "arrived", { signal });
+      assert.equal(requests.length, count, "unexpected number of model requests");
+    }
+  };
+}
 
 /** Strict local provider: wrong paths/formats fail instead of concealing fallback bugs. */
 export async function modelProtocolFixture(api, handle, { models = [{ id: "protocol-fixture" }] } = {}) {
