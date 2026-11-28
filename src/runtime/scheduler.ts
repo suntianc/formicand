@@ -1,6 +1,7 @@
-import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import { id, now, type Importance, type InboxMessage } from "../domain/types.js";
+import { atomicWrite } from "../storage/atomic-file.js";
 import { withFileLock } from "../storage/file-lock.js";
 import { notifyAgentProcess } from "./agent-wake.js";
 import { matchProcessIdentity, processIsAlive, type ProcessIdentity } from "./process-identity.js";
@@ -267,10 +268,7 @@ export class DurableScheduler {
   }
 
   private async writeItems(items: WorkItem[]): Promise<void> {
-    await mkdir(dirname(this.queuePath), { recursive: true });
-    const temporary = `${this.queuePath}.tmp-${process.pid}-${Date.now()}`;
-    await writeFile(temporary, `${JSON.stringify(items, null, 2)}\n`, "utf8");
-    await rename(temporary, this.queuePath);
+    await atomicWrite(this.queuePath, `${JSON.stringify(items, null, 2)}\n`);
   }
 
   private async withLock<T>(fn: () => Promise<T>): Promise<T> {
@@ -577,10 +575,7 @@ export class InboxStore {
   }
 
   private async write(messages: InboxMessage[]): Promise<void> {
-    await mkdir(dirname(this.filePath), { recursive: true });
-    const temporary = `${this.filePath}.tmp-${process.pid}-${Date.now()}`;
-    await writeFile(temporary, `${JSON.stringify(messages, null, 2)}\n`, "utf8");
-    await rename(temporary, this.filePath);
+    await atomicWrite(this.filePath, `${JSON.stringify(messages, null, 2)}\n`);
   }
   private async withLock<T>(fn: () => Promise<T>): Promise<T> {
     const previous = this.mutex;
