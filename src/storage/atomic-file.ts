@@ -1,7 +1,21 @@
 import { randomUUID } from "node:crypto";
-import { closeSync, fsyncSync, mkdirSync, openSync, renameSync, writeFileSync } from "node:fs";
-import { link, mkdir, open, rename, rm, unlink } from "node:fs/promises";
+import { closeSync, fsyncSync, mkdirSync, openSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { link, mkdir, open, rename, rm } from "node:fs/promises";
 import { dirname } from "node:path";
+import {
+  isWindowsSharingError,
+  replaceOpenFile,
+  replaceOpenFileSync
+} from "../platform/replace-open-file.js";
+
+async function replaceFile(temporary: string, path: string): Promise<void> {
+  try {
+    await rename(temporary, path);
+  } catch (error) {
+    if (!isWindowsSharingError(error)) throw error;
+    await replaceOpenFile(temporary, path, error);
+  }
+}
 
 /**
  * Durable small-file writes for runtime state.
@@ -20,20 +34,18 @@ export async function atomicWrite(
   const temporary = `${path}.tmp-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const handle = await open(temporary, "wx", options?.mode);
   try {
-    if (options?.mode !== undefined) await handle.chmod(options.mode);
-    await handle.writeFile(content, typeof content === "string" ? "utf8" : undefined);
-    // The rename is atomic, but only over bytes the kernel has committed.
-    await handle.sync();
-  } finally {
-    await handle.close();
-  }
-  if (options?.exclusive) {
     try {
-      await link(temporary, path);
+      if (options?.mode !== undefined) await handle.chmod(options.mode);
+      await handle.writeFile(content, typeof content === "string" ? "utf8" : undefined);
+      await handle.sync();
     } finally {
-      await unlink(temporary);
+      await handle.close();
     }
-  } else await rename(temporary, path);
+    if (options?.exclusive) await link(temporary, path);
+    else await replaceFile(temporary, path);
+  } finally {
+    await rm(temporary, { force: true });
+  }
 }
 
 /**
@@ -49,13 +61,21 @@ export function atomicWriteSync(path: string, content: string, options?: { mode?
   const temporary = `${path}.tmp-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const descriptor = openSync(temporary, "wx", options?.mode);
   try {
-    writeFileSync(descriptor, content, "utf8");
-    fsyncSync(descriptor);
+    try {
+      writeFileSync(descriptor, content, "utf8");
+      fsyncSync(descriptor);
+    } finally {
+      closeSync(descriptor);
+    }
+    try {
+      renameSync(temporary, path);
+    } catch (error) {
+      if (!isWindowsSharingError(error)) throw error;
+      replaceOpenFileSync(temporary, path, error);
+    }
   } finally {
-    closeSync(descriptor);
+    rmSync(temporary, { force: true });
   }
-  // The mode is set at creation, before any byte is written.
-  renameSync(temporary, path);
 }
 
 /**
@@ -93,7 +113,7 @@ export async function atomicWriteDurable(
     } finally {
       await handle.close();
     }
-    await rename(temporary, path);
+    await replaceFile(temporary, path);
     await syncDirectory(dir);
   } finally {
     await rm(temporary, { force: true });

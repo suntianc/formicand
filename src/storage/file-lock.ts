@@ -1,5 +1,6 @@
 import { mkdir, readFile, rm, stat, writeFile, utimes } from "node:fs/promises";
-import { dirname } from "node:path";
+import { dirname, join } from "node:path";
+import { isWindowsSharingError } from "../platform/replace-open-file.js";
 import { createHash, randomUUID } from "node:crypto";
 import { hostname } from "node:os";
 
@@ -103,7 +104,7 @@ async function recoverAbandonedLock(lockPath: string, ownerPath: string, staleMs
   const abandoned = local && observed.owner !== undefined && (!pidIsAlive(observed.owner.pid) || cancelled);
   const ownerless = observed.owner === undefined && Date.now() - observedStat.mtimeMs >= OWNERLESS_GRACE_MS;
   if (!abandoned && !ownerless && Date.now() - observedStat.mtimeMs < staleMs) return;
-  const claimPath = `${lockPath}/.dead-owner-recovery`;
+  const claimPath = join(lockPath, ".dead-owner-recovery");
   const claimToken = randomUUID();
   try {
     await mkdir(claimPath);
@@ -112,14 +113,14 @@ async function recoverAbandonedLock(lockPath: string, ownerPath: string, staleMs
       // Recovery can itself be interrupted. Reclaim its abandoned claim using
       // the same ownership check and atomic claim, rather than deleting a claim
       // another live recoverer still owns. A missing/corrupt owner waits for TTL.
-      await recoverAbandonedLock(claimPath, `${claimPath}/owner.json`, staleMs);
+      await recoverAbandonedLock(claimPath, join(claimPath, "owner.json"), staleMs);
       return;
     }
     if ((error as NodeJS.ErrnoException).code === "ENOENT") return;
     throw error;
   }
-  const marker = `${claimPath}/${claimToken}`;
-  const claimOwnerPath = `${claimPath}/owner.json`;
+  const marker = join(claimPath, claimToken);
+  const claimOwnerPath = join(claimPath, "owner.json");
   let publishedClaim = false;
   const ownsClaim = async (): Promise<boolean> => {
     const current = (await readOwner(claimOwnerPath)).owner;
@@ -181,7 +182,7 @@ export async function withFileLock<T>(
   options: FileLockOptions = {}
 ): Promise<T> {
   const lockPath = `${targetPath}.lock`;
-  const ownerPath = `${lockPath}/owner.json`;
+  const ownerPath = join(lockPath, "owner.json");
   const retryMs = options.retryMs ?? 25;
   const staleMs = options.staleMs ?? 5 * 60_000;
   const timeoutMs = options.timeoutMs ?? 30_000;
@@ -213,7 +214,7 @@ export async function withFileLock<T>(
         // wrote it. Wait for that claim to settle, then verify ownership again.
         while (await ownsPublishedLock()) {
           try {
-            await stat(`${lockPath}/.dead-owner-recovery`);
+            await stat(join(lockPath, ".dead-owner-recovery"));
           } catch (error) {
             if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
             verified = await ownsPublishedLock();
@@ -236,7 +237,13 @@ export async function withFileLock<T>(
       }
       break;
     } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+      const err = error as NodeJS.ErrnoException;
+      if (err.syscall === "mkdir" && isWindowsSharingError(err)) {
+        if (Date.now() - started >= timeoutMs) throw err;
+        await new Promise((resolve) => setTimeout(resolve, retryMs));
+        continue;
+      }
+      if (err.code !== "EEXIST") throw error;
       if (Date.now() - started >= timeoutMs) throw new Error(`timed out acquiring file lock: ${targetPath}`);
       try {
         if (recoverDeadOwner) await recoverAbandonedLock(lockPath, ownerPath, staleMs);
@@ -245,7 +252,11 @@ export async function withFileLock<T>(
           if (Date.now() - details.mtimeMs >= staleMs) await rm(lockPath, { recursive: true, force: true });
         }
       } catch (statError) {
-        if ((statError as NodeJS.ErrnoException).code !== "ENOENT") throw statError;
+        const code = (statError as NodeJS.ErrnoException).code;
+        // A competing Windows owner may have just deleted its owner or cancellation file.
+        // Retry acquisition from mkdir without inferring that the current owner is dead.
+        const deleting = isWindowsSharingError(statError);
+        if (code !== "ENOENT" && !deleting) throw statError;
       }
       await new Promise((resolve) => setTimeout(resolve, retryMs));
     }
