@@ -282,18 +282,14 @@ test(
     // No turn, no subagent: the resident process exits and keeps its state.
     // The backend reports it gone only once the exit is projected, so wait for
     // that observation rather than for the pid alone.
-    const idle = await waitFor(
-      async () => {
+    const waitForIdleExit = (pid) =>
+      waitFor(async () => {
         const value = await f.detail("resident-idle");
-        return !value.runtime.mainRunning &&
-          !alive(record.pid) &&
-          (await f.mainRecord("resident-idle")).settledAt
-          ? value
-          : undefined;
-      },
-      "the idle Main to exit",
-      30_000
-    );
+        if (value.runtime.mainRunning || alive(pid)) return;
+        const current = await f.mainRecord("resident-idle");
+        if (current.pid === pid && current.settledAt) return value;
+      }, `idle Main ${pid} to exit and settle`);
+    const idle = await waitForIdleExit(record.pid);
     assert.equal(idle.runtime.active, false);
     assert.equal(idle.task.status, "completed", "the Task keeps the state its last turn recorded");
     assert.equal(idle.task.activeRunId, first.runId);
@@ -317,6 +313,7 @@ test(
     const continued = JSON.stringify(f.requests[1].messages);
     assert.match(continued, /IDLE_FIRST_INPUT/, "the session continued");
     assert.match(continued, /IDLE_SECOND_INPUT/);
+    await waitForIdleExit(restarted.pid);
   }
 );
 
