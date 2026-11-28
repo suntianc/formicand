@@ -4,6 +4,8 @@ import { mkdir, mkdtemp, readFile, rename, rm, utimes, writeFile } from "node:fs
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
+import { fileURLToPath } from "node:url";
+import { setTimeout as delay } from "node:timers/promises";
 import { test } from "node:test";
 
 const execFileAsync = promisify(execFile);
@@ -114,6 +116,72 @@ test(
     pids = [];
     await rename(cwd, join(root, "released"));
     assert.equal((await runStop()).stdout.trim(), "exited");
+  }
+);
+
+test(
+  "stopping a Windows job ends its grandchild after the intermediate process exits",
+  {
+    skip: process.platform !== "win32"
+  },
+  async (t) => {
+    const { startJob, killJob } = await import(jobsUrl);
+    const { readProcessIdentity, matchProcessIdentity } = await import(
+      new URL("../runtime/process-identity.js", jobsUrl)
+    );
+    const root = await mkdtemp(join(tmpdir(), "formicand-orphan-job-"));
+    const directory = join(root, "records");
+    const sentinel = join(root, "keep-running");
+    let identity;
+    async function waitFor(check, message) {
+      const until = Date.now() + 15_000;
+      for (;;) {
+        const result = await check();
+        if (result) return result;
+        assert.ok(Date.now() < until, message);
+        await delay(30);
+      }
+    }
+    async function report(name) {
+      try {
+        return JSON.parse(await readFile(join(root, name), "utf8"));
+      } catch (error) {
+        if (error.code !== "ENOENT") throw error;
+      }
+    }
+    t.after(async () => {
+      await rm(sentinel, { force: true });
+      try {
+        if (identity)
+          await waitFor(
+            async () => (await matchProcessIdentity(identity)) === false,
+            "the fixture grandchild did not exit after cleanup"
+          );
+      } finally {
+        await rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+      }
+    });
+    await writeFile(sentinel, "");
+    const worker = fileURLToPath(new URL("./fixtures/orphaned-job.cjs", import.meta.url));
+    const job = await startJob({ directory, cwd: root, command: `"${process.execPath}" "${worker}" outer` });
+    const middle = await waitFor(() => report("middle-exit"), "the intermediate process did not exit");
+    assert.equal(middle.code, 0);
+    const leaf = await waitFor(() => report("leaf"), "the grandchild did not start");
+    assert.equal(leaf.parent, middle.pid);
+    identity = await readProcessIdentity(leaf.pid);
+    assert.ok(identity, "the fixture identified its still-running grandchild");
+    const stopped = await killJob({ directory, jobId: job.jobId });
+    assert.equal(stopped.state, "exited");
+    await writeFile(join(root, "challenge"), "");
+    const outcome = await waitFor(async () => {
+      const reply = await report("reply");
+      if (reply) {
+        assert.equal(reply.pid, identity.pid);
+        return "grandchild acknowledged new work";
+      }
+      if ((await matchProcessIdentity(identity)) === false) return "exited";
+    }, "the grandchild never exited after the job was stopped");
+    assert.equal(outcome, "exited", "killJob reported exited while its grandchild still accepted work");
   }
 );
 
