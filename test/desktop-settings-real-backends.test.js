@@ -10,7 +10,7 @@ import { test } from "node:test";
 const require = createRequire(import.meta.url);
 const { createSettingsTargetGuard } = require("../desktop/settings-target.cjs");
 const { createBackendAuthorization } = require("../desktop/backend-authorization.cjs");
-const repo = resolve(new URL("..", import.meta.url).pathname);
+const repo = resolve(import.meta.dirname, "..");
 const exec = promisify(execFile);
 const cli = join(repo, "dist/src/cli/backend.js");
 

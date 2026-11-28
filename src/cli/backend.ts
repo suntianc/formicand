@@ -6,8 +6,8 @@ import { once } from "node:events";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { randomBytes } from "node:crypto";
+import { observeBackendStop, requestBackendStop, clearBackendStop } from "../platform/backend-stop.js";
 import { backendStartupTrace } from "./backend-startup-trace.js";
-import { usesProcessGroups } from "../platform/process-group.js";
 import { formicandHome } from "../../scripts/data-home.cjs";
 import { readFormicandConfig } from "../runtime/config.js";
 import { processIsAlive } from "../runtime/process-identity.js";
@@ -173,7 +173,10 @@ export async function startBackend(
         return { kind: "waiting", claim: starting.value };
       if (starting.exists) await removeBackendStarting(paths);
       await ensureBackendIdentity(paths);
-      if (inspection.state === "stale") await removeBackendInstance(paths, inspection.instance);
+      if (inspection.state === "stale") {
+        await clearBackendStop(paths.runtimeDir, inspection.instance);
+        await removeBackendInstance(paths, inspection.instance);
+      }
       const claimToken = randomBytes(32).toString("hex");
       const instanceToken = env.FORMICAND_API_TOKEN?.trim() || randomBytes(32).toString("hex");
       const claim: BackendStarting = {
@@ -243,7 +246,9 @@ async function spawnBackend(
     child = spawn(executable, [fileURLToPath(import.meta.url), "serve", "--claim", claimToken], {
       cwd,
       env: { ...env, FORMICAND_API_TOKEN: instanceToken },
-      detached: usesProcessGroups,
+      // The serving process owns its lifetime even after the launching Windows client exits.
+      detached: true,
+      windowsHide: true,
       stdio: ["ignore", log, log]
     });
   } finally {
@@ -338,14 +343,11 @@ export async function stopBackend(
       if (inspection.state === "stale") {
         if (startupAlive) throw startupConflict(starting.value!);
         if (starting.exists) await removeBackendStarting(paths);
+        await clearBackendStop(paths.runtimeDir, instance);
         await removeBackendInstance(paths, instance);
         return { ...publicStatus(instance), state: "stopped", reason: inspection.reason };
       }
-      try {
-        process.kill(instance.pid, "SIGTERM");
-      } catch (error) {
-        if ((error as NodeJS.ErrnoException).code !== "ESRCH") throw error;
-      }
+      await requestBackendStop(paths.runtimeDir, instance);
       const deadline = Date.now() + TEARDOWN_BUDGET_MS;
       while (processIsAlive(instance.pid) && Date.now() < deadline) await delay(50);
       const forced = processIsAlive(instance.pid);
@@ -429,7 +431,10 @@ export async function claimBackendServing(
       if (starting.value && processIsAlive(starting.value.pid)) throw startupConflict(starting.value);
       if (starting.exists) await removeBackendStarting(paths);
       await ensureBackendIdentity(paths);
-      if (inspection.state === "stale") await removeBackendInstance(paths, inspection.instance);
+      if (inspection.state === "stale") {
+        await clearBackendStop(paths.runtimeDir, inspection.instance);
+        await removeBackendInstance(paths, inspection.instance);
+      }
       const claim: BackendStarting = {
         version: 1,
         token: claimToken,
@@ -553,6 +558,7 @@ export async function serveBackend(claimToken?: string, executable = process.exe
     markReady = done;
   });
   let published: BackendInstance | undefined;
+  let closeStopObserver: (() => Promise<void>) | undefined;
   let stopping = false;
   let tearingDown = false;
   const teardown = (code: number) => {
@@ -563,6 +569,7 @@ export async function serveBackend(claimToken?: string, executable = process.exe
     // the daemon's own proof that managed cleanup completed.
     void application
       .stop()
+      .then(() => closeStopObserver?.())
       .then(
         () =>
           (published ? removeBackendInstance(paths, published) : Promise.resolve()).then(
@@ -582,6 +589,7 @@ export async function serveBackend(claimToken?: string, executable = process.exe
   process.on("SIGTERM", () => shutdown(0));
   process.on("SIGINT", () => shutdown(0));
   try {
+    closeStopObserver = await observeBackendStop(paths.runtimeDir, instance, () => shutdown(0));
     await publishBackendServing(paths, claimToken, instance);
     published = instance;
     markReady();

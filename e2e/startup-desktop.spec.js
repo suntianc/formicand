@@ -7,7 +7,7 @@ import { createServer } from "node:net";
 import { withFileLock } from "../dist/src/storage/file-lock.js";
 import { desktopSmokeEnvironment } from "../scripts/desktop-smoke-env.mjs";
 import { stopNativeBackend } from "../test/native-backend-fixture.mjs";
-import { developmentExecutable } from "./desktop-runtime-helper.js";
+import { developmentExecutable, quitDesktop } from "./desktop-runtime-helper.js";
 
 test("a blocked cold start shows diagnostics, retries after a port conflict and replaces feedback with the dashboard", async () => {
   test.setTimeout(120_000);
@@ -134,7 +134,7 @@ test("a blocked cold start shows diagnostics, retries after a port conflict and 
       globalThis.startupFixtureClosing = true;
       globalThis.retryStartup?.(2);
     });
-    await native?.close();
+    await quitDesktop(native);
     await stopNativeBackend(root);
     await rm(root, { recursive: true, force: true, maxRetries: 5 });
   }
