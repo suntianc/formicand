@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import { once } from "node:events";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { join } from "node:path";
@@ -7,6 +6,7 @@ import { setTimeout as delay } from "node:timers/promises";
 import { randomUUID } from "node:crypto";
 import { test } from "node:test";
 import { startDashboard } from "./dashboard-fixture.mjs";
+import { listenOnLocalHttpPort } from "../dist/src/platform/local-http-port.js";
 import { protocolStream } from "./model-protocol-fixture.mjs";
 import {
   MainRequestStore,
@@ -18,7 +18,7 @@ import { HumanRequestStore } from "../dist/src/runtime/human.js";
 async function fixture(t, api, handle, env = {}) {
   const requests = [];
   const provider = createServer(async (request, response) => {
-    if (request.method === "GET") {
+    if (request.method !== "POST") {
       response.writeHead(200, { "content-type": "application/json" });
       return response.end(JSON.stringify({ data: [{ id: "edit-fixture" }] }));
     }
@@ -33,10 +33,18 @@ async function fixture(t, api, handle, env = {}) {
     response.writeHead(200, { "content-type": "text/event-stream" });
     response.end(protocolStream(api, reply));
   });
-  provider.listen(0, "127.0.0.1");
-  await once(provider, "listening");
-  const dashboard = await startDashboard({
-    modelEndpoint: `http://127.0.0.1:${provider.address().port}`,
+  const modelPort = await listenOnLocalHttpPort(provider);
+  let dashboard;
+  t.after(async () => {
+    try {
+      await dashboard?.stop();
+    } finally {
+      provider.closeAllConnections();
+      await new Promise((done) => provider.close(done));
+    }
+  });
+  dashboard = await startDashboard({
+    modelEndpoint: `http://127.0.0.1:${modelPort}`,
     model: "edit-fixture",
     defaultProject: false,
     env
@@ -47,11 +55,6 @@ async function fixture(t, api, handle, env = {}) {
     join(dashboard.root, "pi", "settings.json"),
     JSON.stringify({ retry: { enabled: false }, compaction: { enabled: false } })
   );
-  t.after(async () => {
-    await dashboard.stop();
-    provider.closeAllConnections();
-    await new Promise((done) => provider.close(done));
-  });
   async function call(path, body) {
     const response = await fetch(`${dashboard.base}/api/tasks/edit-task${path}`, {
       method: "POST",
@@ -70,7 +73,21 @@ async function fixture(t, api, handle, env = {}) {
     for (let attempt = 0; attempt < 500; attempt++) {
       const value = await detail();
       if (!value.runtime.active) {
-        assert.equal(value.task.status, expected, JSON.stringify(value));
+        if (value.task.status !== expected) {
+          const outputPath = join(
+            dashboard.workspaceRoot,
+            "edit-task",
+            "runs",
+            value.task.activeRunId,
+            "runtime-output.log"
+          );
+          const output = await readFile(outputPath, "utf8").catch((error) => error.message);
+          assert.equal(
+            value.task.status,
+            expected,
+            `${JSON.stringify(value.events)}\n${output.slice(-4000)}`
+          );
+        }
         return value;
       }
       await delay(50);
