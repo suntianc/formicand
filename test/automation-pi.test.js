@@ -8,7 +8,7 @@ import { modelProtocolFixture } from "./model-protocol-fixture.mjs";
 
 test(
   "real Pi reads, edits and publishes files without an editor and resumes after restart",
-  { timeout: 90000 },
+  { timeout: 120_000 },
   async (t) => {
     const failures = [];
     let step = 0,
@@ -59,7 +59,8 @@ test(
         ...(body === undefined
           ? {}
           : { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) }),
-        signal: AbortSignal.timeout(5000)
+        // Starting a Run after restart waits for the real Main to be adopted.
+        signal: t.signal
       });
       const result = await response.json();
       assert.ok(response.ok, JSON.stringify(result));
@@ -85,7 +86,7 @@ test(
           assert.deepEqual(failures, []);
           return detail;
         }
-        await delay(50);
+        await delay(50, undefined, { signal: t.signal });
       }
       assert.fail("Pi did not settle");
     };

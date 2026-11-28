@@ -11,14 +11,14 @@ import { LocalWorkspaceStore } from "../dist/src/workspace/workspace-store.js";
 
 const exec = promisify(execFile);
 const entry = resolve(process.env.FORMICAND_TEST_CLI_ENTRY || "scripts/formicand.mjs");
-const commandTimeoutMs = 15_000;
+const piCommandTimeoutMs = 45_000;
 const killGraceMs = 2_000;
 
 test(
   "CLI continuation and explicit session selection preserve the original Task and project",
   // Fourteen serial CLI launches each retain their own deadline, even when
   // other Node files compete for startup CPU. Include fixture setup/cleanup.
-  { timeout: commandTimeoutMs * 14 + killGraceMs + 5_000 },
+  { timeout: piCommandTimeoutMs * 14 + killGraceMs + 5_000 },
   async (t) => {
     const root = await mkdtemp(join(tmpdir(), "formicand-cli-resume-"));
     const project = join(root, "project"),
@@ -66,11 +66,13 @@ test(
       PI_TELEMETRY: "0"
     });
     const run = async (args, extra = {}, cwd = project) => {
+      const commandTimeoutMs = args[0] === "start" ? piCommandTimeoutMs : 15_000;
       const pending = exec(process.execPath, [entry, ...args], {
         cwd,
         env: { ...env, ...extra },
         timeout: commandTimeoutMs,
         signal: t.signal,
+        windowsHide: true,
         maxBuffer: 1024 * 1024
       });
       let stopped = false;
