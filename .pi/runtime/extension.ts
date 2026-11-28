@@ -835,6 +835,7 @@ async function registerMainExtension(pi: ExtensionAPI) {
     await lifecycle.close();
     await cuaScripts.dispose();
     await browserTools.dispose();
+    await runtimeWrites;
   });
   const capabilityTools = registerCapabilityTools(pi, {
     workspaceRoot,
