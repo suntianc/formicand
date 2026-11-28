@@ -1,4 +1,5 @@
 import { ui } from "../ui/language.js";
+import { primaryShortcut } from "../ui/keyboard-shortcuts.js";
 import { escapeHtml as esc } from "../ui/html.js";
 import { icon } from "../ui/icons.js";
 
@@ -105,7 +106,7 @@ export function createMessageEditController({
       if (!target || composerSession.currentKey !== taskId || target.messageId !== messageId) return "";
       if (submitting.has(taskId)) return "";
       const draft = composerSession.editSnapshot();
-      return ui`<div class="user-message-actions"><div class="inline-edit-actions">${draft.attachments.length ? ui`<details class="inline-edit-attachments-menu" data-activity-key="edit-attachments:${esc(target.editId)}"><summary class="app-button" role="button" aria-label="编辑附件" title="编辑附件（${draft.attachments.length}）">${icon("paperclip")}</summary><div class="inline-edit-attachments">${draft.attachments.map((file, index) => ui`<span class="inline-edit-attachment"><span title="${esc(file.name)}">${esc(file.name)}</span><button type="button" data-remove-edit-attachment="${index}" aria-label="移除附件 ${esc(file.name)}">${icon("close")}</button></span>`).join("")}</div></details>` : ""}<button type="button" class="app-button" data-cancel-message-edit aria-label="取消编辑" title="取消编辑（Esc）">取消</button><button type="button" class="app-button is-primary" data-submit-message-edit aria-label="发送编辑后的消息" title="发送（⌘/Ctrl + Enter）">发送</button></div></div>`;
+      return ui`<div class="user-message-actions"><div class="inline-edit-actions">${draft.attachments.length ? ui`<details class="inline-edit-attachments-menu" data-activity-key="edit-attachments:${esc(target.editId)}"><summary class="app-button" role="button" aria-label="编辑附件" title="编辑附件（${draft.attachments.length}）">${icon("paperclip")}</summary><div class="inline-edit-attachments">${draft.attachments.map((file, index) => ui`<span class="inline-edit-attachment"><span title="${esc(file.name)}">${esc(file.name)}</span><button type="button" data-remove-edit-attachment="${index}" aria-label="移除附件 ${esc(file.name)}">${icon("close")}</button></span>`).join("")}</div></details>` : ""}<button type="button" class="app-button" data-cancel-message-edit aria-label="取消编辑" title="取消编辑（Esc）">取消</button><button type="button" class="app-button is-primary" data-submit-message-edit aria-label="发送编辑后的消息" title="${ui("发送")} (${primaryShortcut("Enter")})">发送</button></div></div>`;
     },
     bind(container, taskId) {
       root = container;

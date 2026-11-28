@@ -606,7 +606,7 @@
               type="button"
               title="后退"
               aria-label="后退"
-              aria-keyshortcuts="Meta+BracketLeft"
+              data-shortcut-key="["
               disabled
             >
               <svg class="ui-icon" aria-hidden="true"><use href="#i-chevron-left" /></svg>
@@ -617,7 +617,7 @@
               type="button"
               title="前进"
               aria-label="前进"
-              aria-keyshortcuts="Meta+BracketRight"
+              data-shortcut-key="]"
               disabled
             >
               <svg class="ui-icon" aria-hidden="true"><use href="#i-chevron-right" /></svg>
@@ -630,13 +630,14 @@
               title="搜索"
               aria-label="搜索"
               aria-haspopup="dialog"
-              aria-keyshortcuts="Control+P Meta+P"
+              data-shortcut-key="P"
             >
               <svg class="ui-icon" aria-hidden="true"><use href="#i-search" /></svg>
             </button>
             <button
               class="titlebar-button"
               id="titlebar-new-session"
+              data-shortcut-key="K"
               type="button"
               title="新会话"
               aria-label="新会话"
@@ -719,10 +720,16 @@
           </div>
           <div class="work-sidebar" data-entry-panel="work">
             <div class="sidebar-top">
-              <button class="new-conversation" id="new-conversation" aria-label="新会话" disabled>
+              <button
+                class="new-conversation"
+                id="new-conversation"
+                aria-label="新会话"
+                data-shortcut-key="K"
+                disabled
+              >
                 <span class="new-icon"
                   ><svg class="ui-icon"><use href="#i-plus" /></svg></span
-                ><span class="new-label">新会话</span><kbd class="shortcut">⌘K</kbd>
+                ><span class="new-label">新会话</span><kbd class="shortcut"></kbd>
               </button>
               <button
                 class="new-conversation sidebar-search"
@@ -730,11 +737,11 @@
                 type="button"
                 aria-label="搜索"
                 aria-haspopup="dialog"
-                aria-keyshortcuts="Control+P Meta+P"
+                data-shortcut-key="P"
               >
                 <span class="new-icon"
                   ><svg class="ui-icon"><use href="#i-search" /></svg></span
-                ><span class="new-label">搜索</span><kbd class="shortcut">⌘P</kbd>
+                ><span class="new-label">搜索</span><kbd class="shortcut"></kbd>
               </button>
             </div>
             <div class="sidebar-scroll" data-sidebar-scroll>

@@ -66,9 +66,18 @@ html[data-theme] .new-conversation .new-label {
 }
 html[data-theme] .new-conversation .shortcut {
   margin-left: auto;
+  flex-shrink: 0;
   color: var(--color-text-3);
+  font-family: var(--ui-font);
   font-size: 12px;
   font-weight: 400;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+@media (min-width: 1024px) {
+  html[data-titlebar-layout="leading-nav"] .sidebar-top {
+    gap: 10px;
+  }
 }
 
 html[data-theme] .sidebar-scroll {

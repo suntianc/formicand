@@ -69,6 +69,39 @@ test("after first-use setup, leaving settings restores focus to its current open
   }
 });
 
+test("Windows shows spaced Ctrl shortcuts and a flat add-node header", async () => {
+  test.skip(process.platform !== "win32", "Requires the Windows desktop shell");
+  const { native, page, root } = await bootDesktop();
+  try {
+    await native.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setSize(1200, 800));
+    const sidebar = page.locator(".sidebar-top");
+    const create = sidebar.locator("#new-conversation");
+    const search = sidebar.locator("#sidebar-search");
+    await expect(create).toBeVisible();
+    await expect(create.locator("kbd")).toHaveText("Ctrl + K");
+    await expect(search.locator("kbd")).toHaveText("Ctrl + P");
+    await expect(create).toHaveAttribute("aria-keyshortcuts", "Control+K");
+    await expect(search).toHaveAttribute("aria-keyshortcuts", "Control+P");
+    const first = await create.boundingBox();
+    const second = await search.boundingBox();
+    expect(second.y - first.y - first.height).toBeGreaterThanOrEqual(10);
+    await page.keyboard.press("Control+p");
+    await expect(page.locator("#task-search-input")).toBeFocused();
+    await page.keyboard.press("Escape");
+    await page.locator("#user-menu-button").click();
+    await page.locator('[data-settings-section="nodes"]').click();
+    const add = page.locator("#settings-node-add");
+    await expect(add).toBeVisible();
+    await expect(add.locator("..")).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+    await add.click();
+    await expect(page.locator("#node-address")).toBeVisible();
+  } finally {
+    await quitDesktop(native);
+    await stopNativeBackend(root);
+    await rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  }
+});
+
 test("Windows integrates native caption buttons, theme and the material setting", async () => {
   test.skip(process.platform !== "win32", "Requires the Windows window manager");
   test.setTimeout(120_000);
