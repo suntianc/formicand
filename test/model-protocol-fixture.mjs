@@ -1,4 +1,5 @@
 import { createServer } from "node:http";
+import { listenOnLocalHttpPort } from "../dist/src/platform/local-http-port.js";
 import assert from "node:assert/strict";
 import { EventEmitter, once } from "node:events";
 
@@ -20,9 +21,14 @@ export function observeModelRequests(signal) {
 }
 
 /** Strict local provider: wrong paths/formats fail instead of concealing fallback bugs. */
-export async function modelProtocolFixture(api, handle, { models = [{ id: "protocol-fixture" }] } = {}) {
-  const requests = [];
+export async function modelProtocolFixture(
+  api,
+  handle,
+  { models = [{ id: "protocol-fixture" }], signal } = {}
+) {
+  const { requests, record, waitForCount } = observeModelRequests(signal);
   const server = createServer(async (req, res) => {
+    if (req.method === "HEAD" && req.url === "/") return res.writeHead(204).end();
     if (req.method === "GET" && req.url === "/v1/models") {
       res.setHeader("content-type", "application/json");
       return res.end(JSON.stringify({ data: models }));
@@ -30,7 +36,7 @@ export async function modelProtocolFixture(api, handle, { models = [{ id: "proto
     let raw = "";
     for await (const chunk of req.setEncoding("utf8")) raw += chunk;
     const body = JSON.parse(raw);
-    requests.push({ path: req.url, body });
+    record({ path: req.url, body });
     const responses = api === "openai-responses";
     if (
       req.url !== (responses ? "/v1/responses" : "/v1/chat/completions") ||
@@ -50,11 +56,11 @@ export async function modelProtocolFixture(api, handle, { models = [{ id: "proto
     res.writeHead(200, { "content-type": "text/event-stream" });
     res.end(protocolStream(api, reply));
   });
-  server.listen(0, "127.0.0.1");
-  await once(server, "listening");
+  const port = await listenOnLocalHttpPort(server);
   return {
-    baseUrl: `http://127.0.0.1:${server.address().port}/v1`,
+    baseUrl: `http://127.0.0.1:${port}/v1`,
     requests,
+    waitForCount,
     async close() {
       server.closeAllConnections();
       await new Promise((done) => server.close(done));
