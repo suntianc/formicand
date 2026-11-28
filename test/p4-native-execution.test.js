@@ -162,9 +162,30 @@ test(
       const match = text.match(/工作项 ([A-D])/);
       return match ? match[1].toLowerCase() : "unknown";
     };
+    let awaitedCalls;
+    const waitForCalls = (callIds, timeoutMs = 60_000) => {
+      awaitedCalls = callIds;
+      return { name: "wait_for_subagents", arguments: { callIds, timeoutMs } };
+    };
     const provider = await modelProtocolFixture("openai-completions", async (body) => {
       try {
         const role = identity(body);
+        if (role === "main" && awaitedCalls) {
+          const waited = toolJson(body);
+          for (const id of awaitedCalls) {
+            const item = waited.calls.find((entry) => entry.callId === id);
+            assert.ok(item, `wait returned no status for ${id}`);
+            if (item.status !== "completed") {
+              assert.ok(["queued", "leased"].includes(item.status), JSON.stringify(item));
+              assert.ok(waited.pending.includes(id), "an unfinished call stays pending");
+            }
+          }
+          // A timeout or incoming message returns an interim snapshot. Continue the
+          // same scripted step until all requested calls actually finished.
+          if (waited.pending.length) return waitForCalls(awaitedCalls);
+          assert.equal(waited.timedOut, false);
+          awaitedCalls = undefined;
+        }
         const step = requests[role]++;
         if (role === "main") {
           if (step === 0) {
@@ -275,17 +296,9 @@ test(
               "both independent Executors never reached the model together"
             );
             release();
-            return {
-              name: "wait_for_subagents",
-              arguments: { callIds: [calls.a.callId, calls.b.callId], timeoutMs: 60_000 }
-            };
+            return waitForCalls([calls.a.callId, calls.b.callId]);
           }
           if (step === 8) {
-            const waited = toolJson(body);
-            assert.deepEqual(waited.pending, []);
-            assert.equal(waited.timedOut, false);
-            for (const call of [calls.a, calls.b])
-              assert.equal(waited.calls.find((entry) => entry.callId === call.callId).status, "completed");
             return {
               name: "bash",
               arguments: {
@@ -312,14 +325,10 @@ test(
             const dependent = status.agents.find((agent) => agent.callId === calls.d.callId);
             assert.equal(dependent.blocked, undefined, "a finished prerequisite unblocks the dependent item");
             assert.ok(["running", "succeeded"].includes(dependent.status), dependent.status);
-            return {
-              name: "wait_for_subagents",
-              arguments: { callIds: [calls.d.callId], timeoutMs: 60_000 }
-            };
+            // Read D immediately so a still-running dependent exercises the interim wait path.
+            return waitForCalls([calls.d.callId], 0);
           }
           if (step === 11) {
-            const waited = toolJson(body);
-            assert.equal(waited.calls.find((entry) => entry.callId === calls.d.callId).status, "completed");
             return {
               name: "bash",
               arguments: {
@@ -349,14 +358,9 @@ test(
             calls.c = toolJson(body);
             assert.equal(calls.c.role, "reviewer");
             assert.notEqual(calls.c.workspace, integration);
-            return {
-              name: "wait_for_subagents",
-              arguments: { callIds: [calls.c.callId], timeoutMs: 60_000 }
-            };
+            return waitForCalls([calls.c.callId]);
           }
           if (step === 14) {
-            const waited = toolJson(body);
-            assert.equal(waited.calls.find((entry) => entry.callId === calls.c.callId).status, "completed");
             // Reread this async call's stored result through the documented path.
             return { name: "get_task_status", arguments: { resultCallIds: [calls.c.callId] } };
           }
