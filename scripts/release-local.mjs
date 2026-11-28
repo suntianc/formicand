@@ -1,9 +1,12 @@
 import { execFileSync } from "node:child_process";
+import { npmCommand } from "./npm-command.mjs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
-const execute = (command, args, options = {}) =>
-  execFileSync(command, args, { stdio: "inherit", ...options });
+const execute = (command, args, options = {}) => {
+  const invocation = command === "npm" ? npmCommand(args, { env: options.env }) : { command, args };
+  return execFileSync(invocation.command, invocation.args, { stdio: "inherit", ...options });
+};
 
 export async function runLocalRelease({
   tag = process.env.RELEASE_TAG,
@@ -13,8 +16,11 @@ export async function runLocalRelease({
   arch = process.arch,
   commandRunner = execute
 } = {}) {
-  if (platform !== "darwin" || arch !== "arm64")
-    throw new Error("Local release packaging requires an Apple Silicon Mac");
+  if (!(
+    (platform === "darwin" && arch === "arm64") ||
+    (["win32", "linux"].includes(platform) && arch === "x64")
+  ))
+    throw new Error("Local release requires macOS arm64, Windows x64 or Linux x64");
   if (typeof tag !== "string" || !/^v\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(tag))
     throw new Error("Usage: npm run release:local -- v<version>");
   if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repository)) throw new Error("Invalid GitHub repository");
@@ -31,6 +37,11 @@ export async function runLocalRelease({
 
   await run("node", ["scripts/release-metadata.mjs"]);
   await run("npm", ["run", "desktop:dist"]);
+  if (platform !== "darwin") {
+    await run("node", ["scripts/release-artifacts.mjs", "--stage-desktop"]);
+    console.log("Native installer, source receipt and SHA-256 prepared in release/ for the shared draft.");
+    return;
+  }
   await run("npm", ["run", "cli:pack"]);
   await run("node", ["scripts/release-artifacts.mjs"]);
   await run("node", ["scripts/release-draft.mjs", "upload"]);

@@ -180,6 +180,44 @@ export default [
     rules: { "no-restricted-syntax": ["error", ...discardedErrors] }
   },
   {
+    files: ["src/**/*.ts", ".pi/**/*.ts"],
+    ignores: [
+      "src/platform/**",
+      ".pi/runtime/cli-commands.ts",
+      "src/gui/macos-approval.ts",
+      "src/gui/macos-driver.ts",
+      "src/runtime/agent-wake.ts",
+      "src/runtime/process-identity.ts",
+      "src/storage/atomic-file.ts",
+      "src/storage/snapshot-file.ts"
+    ],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        ...discardedErrors,
+        {
+          selector:
+            "MemberExpression[object.name='process']:matches([property.name='platform'], [property.value='platform'])",
+          message: "Keep OS decisions in src/platform/ or an explicit platform adapter."
+        }
+      ]
+    }
+  },
+  {
+    files: ["web/**/*.js"],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        ...discardedErrors,
+        {
+          selector:
+            "MemberExpression:matches([object.name=/^(navigator|formicandDesktop)$/], [object.property.name=/^(navigator|formicandDesktop)$/]):matches([property.name=/^(platform|userAgent)$/], [property.value=/^(platform|userAgent)$/])",
+          message: "Use desktop capabilities and semantic title bar attributes for layout."
+        }
+      ]
+    }
+  },
+  {
     files: ["src/**/*.ts"],
     ignores: ["src/cli/**", "src/gui/**"],
     rules: {

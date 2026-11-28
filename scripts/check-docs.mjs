@@ -22,6 +22,7 @@ export const maintainedDocumentation = [
   "docs/adr/0001-requirement-is-a-long-lived-feature.md",
   "docs/adr/0002-window-handoff-keeps-summary-and-records.md",
   "docs/adr/0003-memory-is-user-and-project-scoped.md",
+  "docs/adr/0004-desktop-platform-capabilities.md",
   "docs/hero/README.md",
   "docs/p1-retrospective.md",
   "docs/p2-retrospective.md",

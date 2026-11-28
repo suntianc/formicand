@@ -1,7 +1,7 @@
 import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
 import { createReadStream } from "node:fs";
-import { lstat, readFile, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, lstat, readFile, writeFile } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
@@ -43,6 +43,81 @@ async function checkChecksum(directory, artifact) {
   const match = /^([a-fA-F0-9]{64})[ \t]+\*?([^\r\n]+)$/.exec(checksum);
   if (!match || match[1].toLowerCase() !== artifact.sha256 || match[2] !== artifact.name)
     throw new Error("Release checksum does not match its artifact: " + artifact.name);
+}
+
+// Only native x64 candidates from the two experimental desktop builds join the Mac/CLI manifest.
+const installerSuffix = { win32: "win-x64.exe", linux: "linux-x64.AppImage" };
+
+async function authenticode(path) {
+  const { stdout } = await execute(
+    "powershell.exe",
+    [
+      "-NoProfile",
+      "-NonInteractive",
+      "-Command",
+      [
+        "$ErrorActionPreference = 'Stop'",
+        "$path = $env:FORMICAND_SIGNED_INSTALLER",
+        "$signature = Get-AuthenticodeSignature -LiteralPath $path",
+        "@{status=$signature.Status.ToString(); signer=$signature.SignerCertificate.Thumbprint; timestampSigner=$signature.TimeStamperCertificate.Thumbprint; sha256=(Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant()} | ConvertTo-Json -Compress"
+      ].join("; ")
+    ],
+    { env: { ...process.env, FORMICAND_SIGNED_INSTALLER: path } }
+  );
+  return JSON.parse(stdout);
+}
+
+function verifyWindowsSignature(report, sha256) {
+  const thumbprint = /^[a-f0-9]{40}$/i;
+  if (
+    report?.status !== "Valid" ||
+    report.sha256 !== sha256 ||
+    !thumbprint.test(report.signer) ||
+    !thumbprint.test(report.timestampSigner)
+  )
+    throw new Error(
+      "Windows installer requires a valid Authenticode signature and timestamp bound to its SHA-256"
+    );
+}
+
+export async function stageDesktopInstaller({
+  root = process.cwd(),
+  tag = process.env.RELEASE_TAG,
+  platform = process.platform,
+  arch = process.arch,
+  readWindowsSignature = authenticode
+} = {}) {
+  if (!Object.hasOwn(installerSuffix, platform) || arch !== "x64")
+    throw new Error("Expected a native Windows or Linux x64 installer");
+  const source = await validateRelease(root, tag);
+  const directory = join(root, "release");
+  const name = `Formicand-${source.version}-${installerSuffix[platform]}`;
+  const candidate = join(root, ".tmp", "release", name);
+  await regularFile(candidate);
+  const signature = platform === "win32" ? await readWindowsSignature(candidate) : undefined;
+  if (platform === "win32")
+    verifyWindowsSignature(signature, (await fingerprint(join(root, ".tmp", "release"), name)).sha256);
+  await mkdir(directory, { recursive: true });
+  await copyFile(candidate, join(directory, name));
+  const artifact = await fingerprint(directory, name);
+  if (platform === "win32") verifyWindowsSignature(signature, artifact.sha256);
+  await writeFile(join(directory, name + ".sha256"), `${artifact.sha256}  ${name}\n`);
+  await writeFile(
+    join(directory, name + ".build.json"),
+    JSON.stringify(
+      {
+        tag,
+        commit: source.commit,
+        platform,
+        arch,
+        ...artifact,
+        ...(signature ? { authenticode: signature } : {})
+      },
+      null,
+      2
+    ) + "\n"
+  );
+  return name;
 }
 
 async function archiveJson(archive, member, commandRunner) {
@@ -93,6 +168,7 @@ export async function inspectReleaseArtifacts({
   repository,
   commandRunner = execute,
   requireSigningReport = false,
+  requireDesktopInstallers = process.env.RELEASE_ALL_DESKTOP === "1",
   prepareSigningChecksum = false
 } = {}) {
   const metadata = await validateRelease(root, tag);
@@ -119,6 +195,33 @@ export async function inspectReleaseArtifacts({
   }
   const names = [dmg, dmg + ".sha256", cli, cli + ".sha256"];
   const artifacts = await Promise.all(names.map((name) => fingerprint(directory, name)));
+
+  for (const [platform, suffix] of Object.entries(installerSuffix)) {
+    const name = `Formicand-${metadata.version}-${suffix}`;
+    const receiptName = name + ".build.json";
+    if (
+      !requireDesktopInstallers &&
+      !(await exists(join(directory, receiptName))) &&
+      !(await exists(join(directory, name)))
+    )
+      continue;
+    const installer = await fingerprint(directory, name);
+    const receipt = await fingerprint(directory, receiptName);
+    const record = JSON.parse(await readFile(join(directory, receiptName), "utf8"));
+    if (
+      record.tag !== tag ||
+      record.commit !== metadata.commit ||
+      record.platform !== platform ||
+      record.arch !== "x64" ||
+      record.name !== name ||
+      record.sha256 !== installer.sha256 ||
+      record.size !== installer.size
+    )
+      throw new Error("Installer provenance differs from the release source: " + name);
+    if (platform === "win32") verifyWindowsSignature(record.authenticode, installer.sha256);
+    await checkChecksum(directory, installer);
+    artifacts.push(installer, await fingerprint(directory, name + ".sha256"), receipt);
+  }
 
   if (hasSigning) {
     const signing = await fingerprint(directory, signingName);
@@ -272,11 +375,15 @@ export async function verifyReleaseArtifacts(options = {}) {
 
 if (process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.meta.url) {
   try {
-    const result = await writeReleaseArtifacts({
-      repository: process.env.GITHUB_REPOSITORY,
-      requireSigningReport: true
-    });
-    console.log("Release manifest: " + result.manifestPath + "\nReview draft notes: " + result.notesPath);
+    if (process.argv[2] === "--stage-desktop") {
+      console.log("Staged native installer: " + (await stageDesktopInstaller()));
+    } else {
+      const result = await writeReleaseArtifacts({
+        repository: process.env.GITHUB_REPOSITORY,
+        requireSigningReport: true
+      });
+      console.log("Release manifest: " + result.manifestPath + "\nReview draft notes: " + result.notesPath);
+    }
   } catch (error) {
     console.error(error.message);
     process.exitCode = 1;

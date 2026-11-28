@@ -69,6 +69,8 @@ export default {
   " 小时无进展": " h without progress",
   "允许所有对话观察并操作全部应用窗口。": "Let every conversation observe and operate all app windows.",
   "此格式可下载后用系统应用打开。": "Download this format and open it with a compatible app.",
+  "系统密钥库不可用，本次会话凭据仅保存在内存中":
+    "System key storage is unavailable. This session credential will stay in memory.",
   用系统默认应用打开: "Open with the default app",
   在访达中显示: "Reveal in Finder",
   在文件夹中显示: "Show in Folder",

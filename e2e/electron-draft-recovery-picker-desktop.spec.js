@@ -6,7 +6,6 @@ import { developmentExecutable } from "./desktop-runtime-helper.js";
 import { dismissModelSetup, setupDialog } from "./model-provider-ui.js";
 
 test("desktop lets users recover separate unbound drafts to chosen projects", async () => {
-  test.skip(process.platform !== "darwin", "Native desktop acceptance requires macOS");
   test.setTimeout(120_000);
   const root = await mkdtemp(join(process.env.P2_NATIVE_ROOT || tmpdir(), "draft-picker-"));
   const profile = join(root, "profile");

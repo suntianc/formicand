@@ -17,8 +17,10 @@ npm run test:unit -- --file test/name.test.js
 npm run verify
 # UI / HTTP-UI integration; install Chromium first if needed
 npm run test:browser
-# Mac host, exit/recovery or package changes: Apple Silicon Mac
+# Build and launch the directory package on the affected target OS
 npm run desktop:pack
+node scripts/desktop-smoke.mjs --basic
+# On Mac, also exercise changes to client quit, drafts or upgrade recovery
 npm run test:desktop
 ```
 
@@ -44,7 +46,7 @@ Keep one long-lived main branch. Temporary feat/fix branches start from main and
 
 Keep each PR focused on one complete change. Use the [PR template](.github/pull_request_template.md): final problem/outcome, consumers, data impact, actual validation and uncovered scope. Find the owning module and its consumers in [layer responsibilities](docs/development.md#各层职责) and the [code map](docs/development.md#代码地图) (Chinese). Cross-interface work involves both ends; maintainers review until real people are assigned. The workflow does not prove CODEOWNERS/branch protection is enabled.
 
-After local verify, add relevant browser/platform/native/install acceptance and include evidence in the PR. Routine GitHub checks run lightweight `check:ci` build/static checks automatically on PRs and pushes to main, and can also be triggered manually; the Mac workflow uploads only Release drafts, which maintainers publish after acceptance. Local behavioral requirements remain unchanged. Triggers are in [development](docs/development.md#分支和合并) (Chinese).
+For cross-machine changes, hand off a reachable commit and record the commands and results for each tested OS in the PR. Follow the [cross-platform workflow (Chinese)](docs/development.md#跨平台改动的分工与交接). Routine CI runs lightweight static checks and desktop policy tests. Changes to selected desktop paths also trigger native directory-package smoke tests. See the [workflow triggers (Chinese)](docs/development.md#分支和合并).
 
 Before making the corresponding product/platform commitments, a formal/stable release satisfies the following P0 gates: license/notices, distribution, actual models, Developer ID signing/notarization, clean installation and upgrade recovery. A public beta with limited scope documents its support, installation method and pending acceptance separately; it does not certify that every stable-release P0 gate is complete.
 

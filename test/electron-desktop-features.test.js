@@ -243,6 +243,21 @@ test("host keeps the session secret, reuses it after restart, and reports revoca
   assert.equal((await renewed.authorize({ ...input, reuse: true })).session.sessionId, "session-3");
   assert.equal(renewed.requestToken(renewedSelection), "secret-3");
   assert.equal((await sessions.read("backend-a")).token, "secret-3");
+
+  const linuxStore = createSessionCredentialStore({
+    userData: root,
+    linuxKeyring: true,
+    storage: { ...storage, getSelectedStorageBackend: () => "basic_text" }
+  });
+  const temporary = createBackendAuthorization({ appRoot: process.cwd(), sessionStore: linuxStore });
+  const target = await temporary.select(root);
+  const authorized = await temporary.authorize({ ...input, reuse: true });
+  assert.equal(authorized.temporaryCredential, true);
+  assert.equal(authorized.session.token, undefined);
+  assert.equal(temporary.requestToken(target), "secret-4");
+  assert.equal((await temporary.authorize({ ...input, reuse: true })).session.sessionId, "session-4");
+  assert.equal(minted, 4);
+  assert.equal((await sessions.read("backend-a")).token, "secret-3");
 });
 
 test("host injects credentials only for the current desktop capability and selected backend", () => {

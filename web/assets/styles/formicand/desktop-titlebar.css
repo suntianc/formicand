@@ -9,18 +9,8 @@ html[data-title-bar="inset"]:not([data-desktop-fullscreen="true"]) {
     padding-left: 104px;
     grid-template-columns: 100px minmax(0, 1fr) 180px;
   }
-  & .settings-nav {
-    position: relative;
-    padding-top: 44px;
-  }
-  /* The empty band beside the macOS traffic lights remains draggable. */
-  & .settings-nav::before {
-    position: absolute;
-    inset: 0 0 auto;
-    height: 44px;
-    content: "";
-    pointer-events: none;
-    -webkit-app-region: drag;
+  & .settings-back {
+    margin-top: 44px;
   }
 }
 
@@ -32,7 +22,35 @@ html[data-title-bar="overlay"]:not([data-desktop-fullscreen="true"]) {
       padding-right: 10px;
     }
   }
+}
+
+html[data-titlebar-layout="leading-nav"]:not([data-desktop-fullscreen="true"]) {
   & .settings-entry {
-    padding-top: calc(env(titlebar-area-height, 44px) + 10px);
+    grid-template-columns: min(248px, 32vw) minmax(0, 1fr);
+    grid-template-rows: env(titlebar-area-height, 44px) minmax(0, 1fr);
+    grid-template-areas: "back back" "nav content";
+    gap: 0;
+    padding: 0;
+  }
+  & .settings-back {
+    align-self: center;
+    justify-self: start;
+    margin: 0 0 0 calc(env(titlebar-area-x, 0px) + 12px);
+    max-width: calc(env(titlebar-area-width, 100%) - 24px);
+    -webkit-app-region: no-drag;
+  }
+  & .settings-nav {
+    padding: 12px;
+  }
+  & .settings-content {
+    border-radius: 0;
+    border-width: 1px 0 0 1px;
+    box-shadow: none;
+  }
+  & .settings-group-head {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background-color: var(--color-bg);
   }
 }

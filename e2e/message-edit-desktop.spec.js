@@ -9,7 +9,6 @@ import { modelProtocolFixture } from "../test/model-protocol-fixture.mjs";
 import { addProviderThroughUi, checkProvider, leaveSettings, setupDialog } from "./model-provider-ui.js";
 
 test("native edit restores an attachment-only message and survives relaunch with its original unsent draft", async ({}, testInfo) => {
-  test.skip(process.platform !== "darwin", "Native desktop acceptance requires macOS");
   test.setTimeout(120000);
   await mkdir(testInfo.outputDir, { recursive: true });
   const root = await mkdtemp(join(tmpdir(), "formicand-message-edit-desktop-"));

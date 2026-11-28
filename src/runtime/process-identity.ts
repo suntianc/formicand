@@ -1,8 +1,10 @@
+import { channel } from "node:diagnostics_channel";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { signalProcessGroup } from "../platform/process-group.js";
 
 const run = promisify(execFile);
+const queryTiming = channel("formicand.process-identity.query");
 
 /**
  * Who a pid is, not just that something answers to it.
@@ -43,6 +45,7 @@ export function processIsAlive(pid: number): boolean {
 }
 
 async function readStartedAt(pid: number): Promise<string | undefined> {
+  const started = queryTiming.hasSubscribers ? performance.now() : undefined;
   try {
     const { stdout } =
       process.platform === "win32"
@@ -69,6 +72,13 @@ async function readStartedAt(pid: number): Promise<string | undefined> {
     // eslint-disable-next-line no-restricted-syntax -- 进程可能刚退出或本机没有 ps/powershell；拿不到启动时间就是无法核对身份，由调用方按“已结束”处理
   } catch {
     return undefined;
+  } finally {
+    if (started !== undefined)
+      queryTiming.publish({
+        started,
+        durationMs: performance.now() - started,
+        tool: process.platform === "win32" ? "powershell" : "ps"
+      });
   }
 }
 

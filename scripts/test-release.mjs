@@ -11,8 +11,8 @@ const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const help = `本地发布验收：npm run test:release -- [选项]
   --list                    查看分组和未自动执行项，不构建、不写报告
   --stage basic,cli,app,cases  选择环节，默认全部
-  --native                  Mac 上加入真实 Electron/Computer Use 测试，串行浏览器
-  --packages                构建 CLI tgz/Mac DMG；最终安装仍需人工验收
+  --native                  加入当前平台的原生 Electron 用例和可用的 Computer Use 测试，串行浏览器
+  --packages                构建 CLI tgz 及当前平台桌面安装包；最终安装仍需人工验收
   --skip-build              调试已有构建，报告记录跳过构建
   --timeout-seconds N        每一步超时，默认 1800 秒
   --strict                  未完成全部发布证据时返回 2

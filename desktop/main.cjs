@@ -10,6 +10,7 @@ if (process.argv.includes(require("./keychain-worker.cjs").workerFlag)) {
 const {
   app,
   BrowserWindow,
+  WebContentsView,
   dialog,
   ipcMain,
   Notification,
@@ -30,6 +31,7 @@ const { createLanguageHost } = require("./language.cjs");
 const { createFileOpener } = require("./file-open.cjs");
 const { followNativeTheme } = require("./system-theme.cjs");
 const { PRODUCT_NAME, APPLICATION_ID } = require("./product-name.cjs");
+const { desktopCapabilities } = require("./host-capabilities.cjs");
 const { windowPolicy, windowOptions } = require("./window-policy.cjs");
 const {
   backgroundMode,
@@ -58,6 +60,7 @@ const { createUiPreferenceStore } = require("./ui-preferences.cjs");
 const { installEditContextMenu } = require("./edit-context-menu.cjs");
 const { connectRenderer } = require("./renderer-connection.cjs");
 const { connectBackend } = require("./backend.cjs");
+const { launchWithFeedback, showStartupView } = require("./startup-feedback.cjs");
 const { createBackendAuthorization } = require("./backend-authorization.cjs");
 const {
   isArtifactViewerUrl,
@@ -82,6 +85,7 @@ let backend,
   clientSessions,
   paths,
   startupPromise,
+  language,
   composerDrafts,
   uiPreferences,
   updates,
@@ -100,10 +104,13 @@ const sessionTransport = createSessionTransport({
 });
 const computerTargets = createComputerTargetCoordinator({
   registerTakeover: (enabled) => registerComputerTakeover(enabled),
-  openPermissionSettings: (permission) =>
-    shell.openExternal(
-      `x-apple.systempreferences:com.apple.preference.security?${permission === "screenRecording" ? "Privacy_ScreenCapture" : "Privacy_Accessibility"}`
-    )
+  openPermissionSettings:
+    process.platform === "darwin"
+      ? (permission) =>
+          shell.openExternal(
+            `x-apple.systempreferences:com.apple.preference.security?${permission === "screenRecording" ? "Privacy_ScreenCapture" : "Privacy_Accessibility"}`
+          )
+      : undefined
 });
 let quitting = false,
   closing = false,
@@ -148,16 +155,6 @@ const credentialStorage =
 function trust(event) {
   assertTrustedSender(event, mainWindow, selectedBackend?.url || backend?.url);
 }
-function windowMaterialState(event) {
-  // Only the trusted main window may read the material; it is host capability data.
-  try {
-    trust(event);
-    event.returnValue = { material: mainWindowPolicy.material };
-    // eslint-disable-next-line no-restricted-syntax -- an untrusted sender gets no host capability data and has no other error channel on a synchronous reply
-  } catch {
-    event.returnValue = null;
-  }
-}
 function openExternalLink(url) {
   const target = externalNavigationUrl(url, selectedBackend?.url || backend?.url);
   if (!target) return;
@@ -176,13 +173,14 @@ async function stopSelectedExecutionHost(previous) {
   computerTargets.invalidateStopped(previous.backendId, previous.pid);
   return result;
 }
-async function launchBackend({ computerTransitionHeld = false } = {}) {
+async function launchBackend({ computerTransitionHeld = false, trace, window = mainWindow } = {}) {
   if (!computerTransitionHeld) await computerTargets.beginSwitch({ waitForNavigationRelease: true });
   try {
     // The backend is a detached execution host: it keeps running when this client
     // quits, so there is no child exit to report and no shutdown here.
-    backend = await connectBackend(paths);
-    if (closing || quitting) return;
+    trace?.mark("backend_connect");
+    backend = await connectBackend(paths, undefined, process.execPath, trace);
+    if (closing || quitting || window !== mainWindow) return;
     if (!backendAuthorization)
       backendAuthorization = createBackendAuthorization({
         appRoot: paths.appRoot,
@@ -211,12 +209,30 @@ async function launchBackend({ computerTransitionHeld = false } = {}) {
     );
     if (!target.ok) console.warn("窗口访问策略恢复失败", target.error);
     computerTargets.endSwitch();
+    if (window !== mainWindow) return;
+    trace?.mark("renderer_connect");
     await connectSelectedRenderer(selectedBackend);
+    if (window && !window.isDestroyed()) trace?.mark("renderer_loaded");
   } finally {
     computerTargets.endSwitch();
   }
 }
 const desktopMotion = installDesktopMotion(ipcMain, () => mainWindow, trust);
+
+function launchWindowBackend(window) {
+  return launchWithFeedback({
+    window,
+    logs: paths.logs,
+    language: language.get(),
+    launch: (trace) => launchBackend({ trace, window }),
+    openLog: (file) => shell.showItemInFolder(file),
+    showLoading: (options) => showStartupView({ ...options, WebContentsView }),
+    showFailure: (window, options) => dialog.showMessageBox(window, options),
+    cancelled: () => closing || quitting
+  }).then((result) => {
+    if (result === "quit") app.quit();
+  });
+}
 
 function createWindow() {
   const icon = applicationIcon();
@@ -310,7 +326,6 @@ function applicationIcon() {
 function refreshApplicationIcon() {
   if (process.platform === "darwin" && !background) refreshDockIcon(profile.appRoot, app.dock);
 }
-ipcMain.on("formicand:window-material", windowMaterialState);
 ipcMain.handle("formicand:choose-project", async (event) => {
   trust(event);
   const result = await dialog.showOpenDialog(mainWindow, {
@@ -463,12 +478,17 @@ ipcMain.on("formicand:transport-nonce", (event) => {
 ipcMain.on("formicand:capabilities", (event) => {
   try {
     trust(event);
-    event.returnValue = {
+    event.returnValue = desktopCapabilities({
+      platform: process.platform,
+      arch: process.arch,
+      osVersion: require("node:os").release(),
+      version: app.getVersion(),
+      policy: mainWindowPolicy,
       nativeMotion: desktopMotion.supported,
-      titleBar: mainWindowPolicy.titleBar,
       notifications: Notification.isSupported(),
-      tray: desktopTray?.supported === true
-    };
+      tray: desktopTray?.supported === true,
+      development: profile.development
+    });
     // eslint-disable-next-line no-restricted-syntax -- trust() throws deliberately for untrusted senders; capabilities stay null for them
   } catch {
     event.returnValue = null;
@@ -566,7 +586,8 @@ function registerComputerTakeover(enabled) {
     // eslint-disable-next-line no-restricted-syntax -- a global-shortcut callback has no reply channel and the shortcut is already unregistered, so a failed pause cannot be retried from here
     void computerTargets.pauseForTakeover().catch(() => {});
   });
-  return registered ? "Ctrl + Option + Esc" : null;
+  if (!registered) return null;
+  return process.platform === "darwin" ? "Ctrl + Option + Esc" : "Ctrl + Alt + Esc";
 }
 ipcMain.handle("formicand:computer-use", async (event, input) => {
   trust(event);
@@ -654,7 +675,7 @@ if (owner)
       });
       await appearance.load();
       appearance.register();
-      const language = createLanguageHost({
+      language = createLanguageHost({
         userData,
         ipcMain,
         getWindow: () => mainWindow,
@@ -676,7 +697,11 @@ if (owner)
       await composerDrafts.load();
       uiPreferences = createUiPreferenceStore(userData);
       await uiPreferences.load();
-      clientSessions = createSessionCredentialStore({ userData, storage: credentialStorage });
+      clientSessions = createSessionCredentialStore({
+        userData,
+        storage: credentialStorage,
+        linuxKeyring: process.platform === "linux"
+      });
       refreshApplicationIcon();
       desktopTray = createDesktopTray({
         Tray,
@@ -699,7 +724,7 @@ if (owner)
       }
       await initializeUpdates(userData);
       createWindow();
-      await launchBackend();
+      await launchWindowBackend(mainWindow);
     })
     .catch((error) => {
       dialog.showErrorBox("Formicand 无法启动", error.message);
@@ -712,12 +737,16 @@ app.on("window-all-closed", () => {
   if (process.platform !== "darwin") app.quit();
 });
 app.on("activate", () => {
+  if (!updates) return;
   refreshApplicationIcon();
   if (!mainWindow) {
     createWindow();
     // Reconnect before showing the page: a backend restarted outside the app
     // publishes a new host credential, and the window must carry the new one.
-    void launchBackend().catch((error) => dialog.showErrorBox("Formicand 无法连接本地服务", error.message));
+    const window = mainWindow;
+    startupPromise = startupPromise
+      .then(() => launchWindowBackend(window))
+      .catch((error) => dialog.showErrorBox("Formicand 无法连接本地服务", error.message));
   } else if (background) showInBackground(mainWindow);
   else mainWindow.show();
 });

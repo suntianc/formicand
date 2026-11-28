@@ -19,7 +19,6 @@ import {
 
 for (const reasoningEffort of ["off", "max"]) {
   test(`native desktop persists each protocol and ${reasoningEffort} across saves and application relaunch`, async ({}, testInfo) => {
-    test.skip(process.platform !== "darwin", "Native desktop acceptance requires macOS");
     test.setTimeout(120_000);
     const root = await mkdtemp(join(tmpdir(), "formicand-protocol-desktop-"));
     const executablePath = await developmentExecutable();

@@ -6,6 +6,7 @@ import { once } from "node:events";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { randomBytes } from "node:crypto";
+import { backendStartupTrace } from "./backend-startup-trace.js";
 import { usesProcessGroups } from "../platform/process-group.js";
 import { formicandHome } from "../../scripts/data-home.cjs";
 import { readFormicandConfig } from "../runtime/config.js";
@@ -151,9 +152,11 @@ async function waitForStartup(
 export async function startBackend(
   env: NodeJS.ProcessEnv = process.env,
   cwd = process.cwd(),
-  executable = process.execPath
+  executable = process.execPath,
+  onStage?: (stage: "lock_wait" | "lock_acquired" | "backend_spawned" | "waiting_for_owner") => void
 ): Promise<BackendStatus> {
   const paths = backendPaths(formicandHome(env));
+  onStage?.("lock_wait");
   const prepared = await withFileLock(
     join(paths.runtimeDir, "backend-lifecycle"),
     async (): Promise<
@@ -161,6 +164,7 @@ export async function startBackend(
       | { kind: "waiting"; claim: BackendStarting }
       | { kind: "starting"; claim: BackendStarting; instanceToken: string; spawned: SpawnedBackend }
     > => {
+      onStage?.("lock_acquired");
       const inspection = await inspectBackend(paths);
       if (inspection.state === "running") return { kind: "running", instance: inspection.instance };
       if (inspection.state === "conflict") throw new BackendInstanceConflict(inspection.reason);
@@ -181,6 +185,7 @@ export async function startBackend(
       await writeBackendStarting(paths, claim);
       try {
         const spawned = await spawnBackend(paths, env, cwd, claimToken, instanceToken, executable);
+        onStage?.("backend_spawned");
         return { kind: "starting", claim, instanceToken, spawned };
       } catch (error) {
         // eslint-disable-next-line no-restricted-syntax -- 启动失败后放弃归属记录，删除失败不能覆盖将要抛出的 spawn 错误
@@ -192,6 +197,7 @@ export async function startBackend(
   );
   if (prepared.kind === "running") return { ...publicStatus(prepared.instance), state: "running" };
   if (prepared.kind === "waiting") {
+    onStage?.("waiting_for_owner");
     // Another startup owns the root. It publishes the instance record without
     // the lock, so wait for it here rather than holding the lock it needs.
     const observed = await waitForStartup(paths, prepared.claim);
@@ -253,7 +259,15 @@ async function spawnBackend(
     error = failure;
   });
   const pid = child.pid;
-  if (!pid) throw new Error(`后端进程未能启动：${error?.message ?? "没有进程 id"}`);
+  if (!pid) {
+    // ENOENT/EPERM is delivered on the next tick; preserve its OS code for startup diagnostics.
+    try {
+      await once(child, "spawn");
+    } catch (cause) {
+      throw new Error("后端进程未能启动", { cause });
+    }
+    throw new Error("后端进程未能启动：没有进程 id");
+  }
   return {
     pid,
     exitStatus: () => exit,
@@ -472,6 +486,8 @@ export async function releaseBackendServing(paths: BackendPaths, claimToken: str
 export async function serveBackend(claimToken?: string, executable = process.execPath): Promise<void> {
   // Management clients only need lifecycle operations; load the server graph
   // inside the process that actually serves requests, before claiming a root.
+  const trace = backendStartupTrace(process.env.FORMICAND_STARTUP_ATTEMPT);
+  delete process.env.FORMICAND_STARTUP_ATTEMPT;
   const { createDashboardApplication } = await import("../dashboard/application.js");
   const env = process.env;
   const paths = backendPaths(formicandHome(env));
@@ -505,9 +521,11 @@ export async function serveBackend(claimToken?: string, executable = process.exe
   });
   try {
     await application.ready;
+    trace?.applicationReady();
     await new Promise<void>((resolveListen, reject) => {
       application.server.once("error", reject);
       application.server.listen(port, "127.0.0.1", () => {
+        trace?.listening();
         application.server.off("error", reject);
         resolveListen();
       });

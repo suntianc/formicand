@@ -9,7 +9,7 @@ const { selectApplicationIcon, refreshDockIcon } = createRequire(import.meta.url
   "../desktop/application-icon.cjs"
 );
 
-test("Windows uses the brand icon while macOS and Linux prefer the exported icons", async (t) => {
+test("Windows and Linux use the brand icon while macOS prefers the exported icon", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "formicand-icon-selection-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const runtime = join(root, "dist/src/desktop/formicand-icon.png");
@@ -19,12 +19,12 @@ test("Windows uses the brand icon while macOS and Linux prefer the exported icon
   await writeFile(raw, "raw brand artwork");
   assert.equal(selectApplicationIcon(root, "win32"), raw);
   assert.equal(selectApplicationIcon(root, "darwin"), undefined);
-  assert.equal(selectApplicationIcon(root, "linux"), undefined);
+  assert.equal(selectApplicationIcon(root, "linux"), raw);
   await writeFile(build, "rounded build icon");
   assert.equal(selectApplicationIcon(root, "darwin"), build);
   await writeFile(runtime, "rounded runtime icon");
   assert.equal(selectApplicationIcon(root, "darwin"), runtime);
-  assert.equal(selectApplicationIcon(root, "linux"), runtime);
+  assert.equal(selectApplicationIcon(root, "linux"), raw);
   assert.equal(selectApplicationIcon(root, "win32"), raw);
   await rm(runtime);
   assert.equal(selectApplicationIcon(root, "darwin"), build);

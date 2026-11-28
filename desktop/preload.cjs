@@ -168,8 +168,10 @@ let fullscreen = false;
 let capabilities;
 function reflectWindowState() {
   if (!document.documentElement) return;
-  document.documentElement.dataset.desktopPlatform = process.platform;
+  document.documentElement.dataset.desktopPlatform = capabilities?.platform ?? process.platform;
   document.documentElement.dataset.titleBar = capabilities?.titleBar ?? "native";
+  document.documentElement.dataset.controlsSide = capabilities?.controlsSide ?? "none";
+  document.documentElement.dataset.titlebarLayout = capabilities?.titlebarLayout ?? "standard";
   document.documentElement.dataset.desktopFullscreen = String(fullscreen);
 }
 document.addEventListener("DOMContentLoaded", reflectWindowState, { once: true });
@@ -192,13 +194,6 @@ try {
   // eslint-disable-next-line no-restricted-syntax -- the synchronous reply is null when the sender is untrusted or the host is not ready, and the language keeps its zh-CN default
 } catch {
   /* Chinese fallback. */
-}
-let initialWindowMaterial;
-try {
-  initialWindowMaterial = ipcRenderer.sendSync("formicand:window-material");
-  // eslint-disable-next-line no-restricted-syntax -- a null reply means the host has no material or the sender is untrusted; the page then paints its gradient
-} catch {
-  /* Painted backdrop fallback. */
 }
 try {
   capabilities = ipcRenderer.sendSync("formicand:capabilities");
@@ -223,7 +218,7 @@ contextBridge.exposeInMainWorld("formicandDesktop", {
         }
       }
     : undefined,
-  windowMaterial: initialWindowMaterial,
+  windowMaterial: capabilities ? { material: capabilities.material } : null,
   transportNonce,
   language: {
     initial: initialLanguage,
@@ -291,7 +286,7 @@ contextBridge.exposeInMainWorld("formicandDesktop", {
     ipcRenderer.on("formicand:update-status", listener);
     return () => ipcRenderer.removeListener("formicand:update-status", listener);
   },
-  version: process.env.npm_package_version || "0.1.0",
+  version: capabilities?.version,
   pathForFile: (file) => webUtils.getPathForFile(file),
   chooseProject: () => ipcRenderer.invoke("formicand:choose-project"),
   // A previewed file is named by session, source and path; the host resolves it.

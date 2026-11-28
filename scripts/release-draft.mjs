@@ -18,7 +18,7 @@ export async function readReleaseDraft({ repository, tag, commandRunner = execut
       "--repo",
       repository,
       "--json",
-      "isDraft,isPrerelease,tagName"
+      "isDraft,isPrerelease,tagName,assets"
     ]);
   } catch (error) {
     if (error.code === 1 && /^release not found\s*$/i.test(String(error.stderr ?? "").trim()))
@@ -34,7 +34,9 @@ export async function readReleaseDraft({ repository, tag, commandRunner = execut
   if (
     release.tagName !== tag ||
     typeof release.isDraft !== "boolean" ||
-    typeof release.isPrerelease !== "boolean"
+    typeof release.isPrerelease !== "boolean" ||
+    !Array.isArray(release.assets) ||
+    release.assets.some((asset) => typeof asset?.name !== "string")
   )
     throw new Error("GitHub returned incomplete release metadata; no release files were changed");
   if (!release.isDraft)
@@ -42,6 +44,18 @@ export async function readReleaseDraft({ repository, tag, commandRunner = execut
       "Release is already published. Use a new version tag; published assets are not replaced."
     );
   return release;
+}
+
+function checkExistingPlatformAssets(release, manifest) {
+  const prefix = `Formicand-${manifest.version}-`;
+  for (const { name } of release.assets) {
+    if (
+      name.startsWith(prefix) &&
+      /^(win-x64\.exe|linux-x64\.AppImage)(?:\.sha256|\.build\.json)?$/.test(name.slice(prefix.length)) &&
+      !manifest.files.includes(name)
+    )
+      throw new Error("This manifest would omit an existing desktop asset: " + name);
+  }
 }
 
 /** Prepare only a draft. Maintainer-edited notes survive retries unless replacement is explicit. */
@@ -56,6 +70,7 @@ export async function uploadReleaseDraft({
   const manifest = await verifyReleaseArtifacts({ root, tag, repository, requireSigningReport });
   repository = manifest.source.repository;
   let draft = await readReleaseDraft({ repository, tag, commandRunner });
+  if (draft) checkExistingPlatformAssets(draft, manifest);
   const notes = resolve(root, "release", releaseFiles(manifest.version).notes);
   if (!draft) {
     await commandRunner("gh", [
@@ -92,6 +107,7 @@ export async function uploadReleaseDraft({
     throw new Error(
       "The prepared release is missing or has the wrong release channel; no assets were uploaded"
     );
+  checkExistingPlatformAssets(draft, manifest);
   await commandRunner("gh", [
     "release",
     "upload",

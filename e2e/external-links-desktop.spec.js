@@ -8,7 +8,6 @@ import { modelProtocolFixture } from "../test/model-protocol-fixture.mjs";
 import { connectModelThroughUi, setupDialog } from "./model-provider-ui.js";
 
 test("desktop response links leave through the system browser and local viewers stay unprivileged", async () => {
-  test.skip(process.platform !== "darwin", "Native desktop acceptance requires macOS");
   test.setTimeout(90000);
   const root = await mkdtemp(join(tmpdir(), "formicand-desktop-links-"));
   const project = join(root, "project");

@@ -92,12 +92,14 @@ async function backendEnvironment(paths, settings) {
  * session. `stop` is for the two explicit actions that replace the serving
  * process — settings restarts and updates — never for quitting the app.
  */
-async function connectBackend(paths, settings, executable = process.execPath) {
+async function connectBackend(paths, settings, executable = process.execPath, trace) {
   const env = await backendEnvironment(paths, settings);
   const runtime = backendExecutable(executable, process.platform, paths.appRoot);
   const entry = path.join(paths.appRoot, "dist/src/cli/backend.js");
   const { startBackend, stopBackend } = await import(pathToFileURL(entry).href);
-  const status = await startBackend(env, paths.appRoot, runtime);
+  if (trace) env.FORMICAND_STARTUP_ATTEMPT = trace.id;
+  const status = await startBackend(env, paths.appRoot, runtime, trace?.mark);
+  trace?.mark(status.state === "started" ? "port_ready" : "existing_port_ready");
   const instance = await readInstance(paths);
   if (
     instance.backendId !== status.backendId ||

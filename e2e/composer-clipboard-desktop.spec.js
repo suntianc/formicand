@@ -7,7 +7,6 @@ import { developmentExecutable } from "./desktop-runtime-helper.js";
 import { dismissModelSetup } from "./model-provider-ui.js";
 
 test("Electron editable context menu uses native clipboard editing and saves the selected draft", async () => {
-  test.skip(process.platform !== "darwin", "Native desktop test requires macOS");
   test.setTimeout(90_000);
   const root = await mkdtemp(join(tmpdir(), "formicand-clipboard-desktop-"));
   const env = Object.fromEntries(
@@ -85,7 +84,7 @@ test("Electron editable context menu uses native clipboard editing and saves the
     );
     await expect(input).toHaveValue("旧草稿混合文字\n第二行");
     await expect(page.locator(".attachment-chip")).toHaveCount(0);
-    await input.press("Meta+v");
+    await input.press("ControlOrMeta+v");
     await expect(input).toHaveValue("旧草稿混合文字\n第二行混合文字\n第二行");
     await expect(page.locator(".attachment-chip")).toHaveCount(0);
     await input.fill("");

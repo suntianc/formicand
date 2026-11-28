@@ -201,12 +201,13 @@ function createBackendAuthorization({ appRoot, fetchImpl = fetch, sessionStore }
       if (sessionStore) {
         if (typeof result.session?.token !== "string" || typeof result.session?.sessionId !== "string")
           throw new Error("后端未返回有效的客户端会话");
-        await sessionStore.write(selection.backendId, result.session);
+        const saved = await sessionStore.write(selection.backendId, result.session);
         if (!current()) throw new Error("后端已切换，请重新授权");
         activeSession = { selection, token: result.session.token };
         const { sessionId, clientName, protocolVersion, createdAt, revokedAt } = result.session;
         return {
           session: { sessionId, clientName, protocolVersion, createdAt, revokedAt },
+          ...(saved?.temporary ? { temporaryCredential: true } : {}),
           backend: publicIdentity(instance),
           protocol: result.protocol
         };

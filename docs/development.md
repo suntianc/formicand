@@ -77,7 +77,7 @@ e2e/                    浏览器和 Electron 用户流程测试
 
 ### 跨平台行为
 
-桌面主窗口从[窗口策略](../desktop/window-policy.cjs)取得标题栏、菜单和材质。preload 将宿主选定的标题栏模式写入 `data-title-bar`，供页面布局使用。
+桌面能力的归属见[跨平台架构决定](adr/0004-desktop-platform-capabilities.md)。桌面主窗口从[窗口策略](../desktop/window-policy.cjs)取得标题栏、菜单和材质。可信主窗口通过 `formicand:capabilities` 同步取得[宿主能力](../desktop/host-capabilities.cjs)，包括实际托盘、通知、原生动效、文件打开方式、窗口材质与应用版本。preload 将标题栏模式、系统按钮位置和布局写入 `data-title-bar`、`data-controls-side` 和 `data-titlebar-layout`。窗口访问能力由所连后端的 `/api/computer/status` 提供。
 
 | 主窗口  | 标题栏模式            | 菜单栏           | 窗口材质                                             |
 | ------- | --------------------- | ---------------- | ---------------------------------------------------- |
@@ -89,9 +89,11 @@ Windows 的窗口策略启用 `closeToTray`。主窗口和[系统托盘](../desk
 
 Windows 任务栏也会读取可执行文件的图标。[开发启动器](../scripts/windows-development-runtime.mjs)将同一品牌图标嵌入缓存的 `Formicand.exe`。开发版与安装版使用各自的 AppUserModelID，任务栏可分别归组。
 
-**顶部栏布局按系统管理。** 新增或调整顶部控件时，将工作区和设置页中与系统窗口按钮有关的留白、对齐和拖动区域统一写入[桌面标题栏布局](../web/assets/styles/formicand/desktop-titlebar.css)，按 `data-title-bar` 选择规则。macOS 从左侧为系统按钮留位；Windows 以右侧系统按钮区的起点为标题栏的可用右边界。Linux 使用原生标题栏，浏览器和桌面全屏模式沿用基础布局。
+**顶部栏布局按系统管理。** 新增或调整顶部控件时，将工作区和设置页中与系统窗口按钮有关的留白、对齐和拖动区域统一写入[桌面标题栏布局](../web/assets/styles/formicand/desktop-titlebar.css)，按 `data-title-bar` 选择规则。macOS 从左侧为系统按钮留位；Windows 以右侧系统按钮区的起点为标题栏的可用右边界。Windows 设置页使用同一个返回按钮，占据标题栏左侧，导航与内容从系统按钮下沿开始。Linux 使用原生标题栏，浏览器和桌面全屏模式沿用基础布局。Linux 会话凭据仅在系统密钥库可用时写入磁盘，使用基础文本后端时由宿主保存在内存。
 
 宽屏工作区展开或收起右侧面板时，标题栏上的面板开关应保持原位。修改相关布局后，在受影响的系统上保持窗口大小不变，实际点击开关完成一次展开和收起，比较切换前后的按钮坐标，并确认点击区域与系统按钮区互不重叠。见[桌面标题栏回归测试](../e2e/p45-titlebar-desktop.spec.js)。
+
+浏览器模式的系统目录选择由[平台选择器](../src/platform/directory-picker.ts)处理，Linux 需要 zenity。桌面模式继续使用宿主的原生对话框。平台分支集中在 `src/platform/` 和 ESLint 点名的系统适配模块。
 
 运行时和 CLI 的子进程组规则见[进程组](../src/platform/process-group.ts)。文件系统的原子写入和快照分别由[原子写入](../src/storage/atomic-file.ts)与[快照](../src/storage/snapshot-file.ts)负责。验证、CLI 打包和源码更新通过[同一 npm 启动入口](../scripts/npm-command.mjs)选择可执行文件与参数。桌面打包入口见[打包和发布](#打包和发布)。
 
@@ -240,7 +242,7 @@ CLI 的交互界面直接使用原版 Pi 1.6.1，不改依赖文件。启动时�
 - 密钥不进页面状态、源码、日志和安装包。
 - 窗口访问需要用户在 App 里开启并在本机确认身份，Agent 不能自己开启或恢复，见 [内置能力](../README.zh-CN.md#操作本机窗口)。
 - 这个授权只管窗口操作，不是整个产品的系统沙箱：Agent 执行的命令不受操作系统隔离。
-- App 只支持 Apple Silicon Mac。Windows/Linux 桌面、远程 Worker 和多用户隔离都还没有做。
+- 当前公开 Beta 面向 macOS 14+ Apple Silicon。Windows 11 x64 为下一交付目标，Windows 10 x64 为兼容验证目标，Linux x64 为实验性适配目标。
 
 ## 日常修改流程
 
@@ -251,6 +253,13 @@ CLI 的交互界面直接使用原版 Pi 1.6.1，不改依赖文件。启动时�
 5. 同一个改动里同步更新相关文档。提交说明写清楚问题和结果、涉及的模块、跑过的检查和没验证到的范围。
 
 派单、返修、独立审查和交接的约定见 [开发交接](development-handoffs.md)。
+
+### 跨平台改动的分工与交接
+
+1. **按模块职责组织代码。** 共享业务逻辑和页面保留一份实现。系统差异集中在桌面宿主或平台适配模块，页面按能力和布局属性选择行为。共享代码、平台适配和打包脚本均可在具备所需工具链的开发环境中编写。见[跨平台行为](#跨平台行为)。
+2. **按产物选择构建环境。** 在项目支持的目标操作系统和架构中运行打包命令。符合条件的物理机、虚拟机或 CI runner 均可。例如，在 Linux x64 虚拟机内运行 `npm run desktop:dist` 即可构建 Linux x64 AppImage。见[打包和发布](#打包和发布)。
+3. **按行为选择验证环境。** 纯策略用例可在任一支持的开发环境运行。依赖系统能力的行为，在提供该能力的环境复现和验证，例如 Windows 的窗口缩放、macOS 的 Keychain 或 Linux 的 Wayland 会话。见[桌面平台覆盖](testing.md#桌面平台覆盖)。
+4. **让结果能对应到代码和产物。** 跨环境复测使用同一候选提交，记录 SHA、实际系统和架构、执行命令与结果。安装包验收同时记录产物校验值。
 
 ## 检查命令
 
@@ -282,17 +291,19 @@ CLI 的交互界面直接使用原版 Pi 1.6.1，不改依赖文件。启动时�
 - 合并用 `git merge --no-ff`，合完重新构建一次。
 - 版本以 tag 和 GitHub Release 为准。
 
-[常规工作流](../.github/workflows/test.yml) 在 PR 和推送到 `main` 时运行 `npm run check:ci`。CI 只做构建和静态检查，完整测试、浏览器、原生能力和真实模型都在本地做，不能把 CI 通过当成测试通过。
+[常规工作流](../.github/workflows/test.yml) 在 PR 和推送到 `main` 时运行 `npm run check:ci` 和桌面策略单测。[桌面打包冒烟](../.github/workflows/desktop-smoke.yml) 在桌面相关路径变化、定时及手动运行时用三个原生 runner 验证目录包。完整回归和干净机验收分别记录。
 
 ## 打包和发布
 
-当前只出 Apple Silicon 的 Mac 安装包，用 ad-hoc 签名，没有 Developer ID 签名、公证和应用内更新。
+公开 Beta 使用 Apple Silicon 的 ad-hoc 签名 DMG，尚未公证，手动覆盖升级。开发构建在各目标系统运行 `npm ci` 后使用下表入口。Windows 和 Linux 的分发范围按原生安装验收记录确定。
 
 | 命令                   | 产物                                                                  |
 | ---------------------- | --------------------------------------------------------------------- |
 | `npm run desktop:pack` | `.tmp/release/mac-arm64/Formicand.app`，用来跑 `npm run test:desktop` |
 | `npm run desktop:dist` | `release/Formicand-<版本>-mac-arm64.dmg` 和它的 SHA-256               |
 | `npm run cli:pack`     | `release/` 下的 CLI 安装包；用 `FORMICAND_PACKAGE_DIR` 换输出目录     |
+
+在 Windows x64 运行 `npm run desktop:pack` 生成 `.tmp/release/win-unpacked/Formicand.exe`，`npm run desktop:dist` 生成 `.tmp/release/Formicand-<版本>-win-x64.exe`（NSIS）。Linux x64 的相同命令分别生成 `.tmp/release/linux-unpacked/formicand` 和 `.tmp/release/Formicand-<版本>-linux-x64.AppImage`。桌面启动器与 NSIS 共用品牌 ICO，应用标识沿用桌面宿主的 AppUserModelID。
 
 发版步骤：
 
@@ -302,7 +313,7 @@ CLI 的交互界面直接使用原版 Pi 1.6.1，不改依赖文件。启动时�
 4. 在干净的 tag 检出上运行 `npm run release:local -- v0.1.4`。它会校验 tag 和版本，构建 DMG 和 CLI 包，生成校验文件，并上传到 GitHub Release 草稿。
 5. 核对草稿里的文件、版本和说明，手动点 Publish。测试版标成 Pre-release，并在说明里写明未签名、未公证。
 
-本地构建机不可用时，可以手动运行 [Release Mac 工作流](../.github/workflows/release-mac.yml) 在云端构建；只要内部测试包时用 [Internal Mac package](../.github/workflows/internal-mac.yml)。已经发布的版本不能替换文件，修复要发新版本，不要移动 tag。
+[桌面发版工作流](../.github/workflows/release-mac.yml) 在版本 tag 上构建三端产物，手动运行时默认构建 Mac 包，可选择加入 Windows 和 Linux。Windows 正式包须在原生机通过 Authenticode 和时间戳校验。内部 Mac 测试包可运行 [Internal Mac package](../.github/workflows/internal-mac.yml)。已经发布的版本不能替换文件，修复要发新版本，不要移动 tag。
 
 打包关闭了 asar，因为 Pi 扩展和子进程要用真实文件路径。打包用白名单挑文件，但发布前仍要检查最终包里有没有不该带的东西，不能只靠 `.gitignore`。
 
@@ -339,5 +350,9 @@ CLI 的交互界面直接使用原版 Pi 1.6.1，不改依赖文件。启动时�
 | 重启后草稿或附件不见了         | 数据目录、全局索引和草稿文件；先记下实际路径                  |
 | 模型启动失败                   | 地址、接口格式、模型、参数和环境变量覆盖；不要打印完整配置    |
 | 异步结果覆盖了新会话           | 记下的任务和草稿身份、导航 token、迟到的请求                  |
+
+桌面端连接本地服务超过 1.5 秒时，窗口显示「查看启动日志」。宿主的 `logs/desktop-startup.jsonl` 按 `attempt` 区分启动或重试，`window_ready.processUptimeMs` 表示创建连接时宿主进程已运行的毫秒数，`elapsedMs` 从本次窗口连接开始计时，`stageMs` 表示距上一条记录的时间。对照 `lock_wait`、`lock_acquired`、`backend_spawned`、`port_ready`、`renderer_connect` 和 `renderer_loaded` 可定位等待阶段。复用已有实例时记录 `existing_port_ready`。失败行的 `reason` 为固定分类，弹窗给出对应处理办法。例如 `access_denied` 检查数据目录权限，`missing_file` 检查安装文件和数据目录，`backend_exited` 查看同目录后端日志的末尾。应用启动前的系统提示与扫描等待在安装机上另行计时。
+
+新拉起的后端在同目录的 `backend.log` 记录相同的 `attempt`。前 60 秒每次进程身份查询记录工具、开始时间、耗时、查询次数和累计毫秒数。用 `application_ready`、`port_listening` 和宿主的 `renderer_loaded` 确定发生查询的阶段。恢复作业可与页面加载并行，判断阻塞时结合调用点及两阶段的实际等待。等待后端就绪的超时仍为 60 秒。
 
 各种日志和记录的位置见 [数据布局](#数据布局)。

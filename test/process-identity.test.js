@@ -22,3 +22,21 @@ test(
     assert.equal(await verifyProcessIdentity(written), true);
   }
 );
+
+test("startup diagnostics measure the actual OS query without its pid or result", async () => {
+  const { channel } = await import("node:diagnostics_channel");
+  const timing = channel("formicand.process-identity.query");
+  const events = [];
+  const observe = (sample) => events.push(sample);
+  timing.subscribe(observe);
+  try {
+    await readProcessIdentity(process.pid);
+    await readProcessIdentity(-1);
+    assert.equal(events.length, 1);
+    assert.deepEqual(Object.keys(events[0]).sort(), ["durationMs", "started", "tool"]);
+    assert.ok(events[0].durationMs >= 0);
+    assert.equal(events[0].tool, process.platform === "win32" ? "powershell" : "ps");
+  } finally {
+    timing.unsubscribe(observe);
+  }
+});

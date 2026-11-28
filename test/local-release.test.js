@@ -32,11 +32,28 @@ test("local release builds once and uploads candidate archives without publishin
   assert.equal(calls[3].options.env.GITHUB_REPOSITORY, repo);
 });
 
-test("local release refuses to run on a non-Apple-Silicon host before invoking commands", async () => {
+test("local release rejects unsupported architectures before invoking commands", async () => {
   let invoked = false;
   await assert.rejects(
-    runLocalRelease({ tag, platform: "linux", arch: "x64", commandRunner: () => (invoked = true) }),
-    /Apple Silicon Mac/
+    runLocalRelease({ tag, platform: "linux", arch: "arm64", commandRunner: () => (invoked = true) }),
+    /macOS arm64/
   );
   assert.equal(invoked, false);
+});
+
+test("native x64 runners prepare their installer for a shared draft", async () => {
+  for (const platform of ["win32", "linux"]) {
+    const calls = [];
+    await runLocalRelease({
+      tag,
+      platform,
+      arch: "x64",
+      commandRunner: (cmd, args) => calls.push([cmd, ...args])
+    });
+    assert.deepEqual(calls, [
+      ["node", "scripts/release-metadata.mjs"],
+      ["npm", "run", "desktop:dist"],
+      ["node", "scripts/release-artifacts.mjs", "--stage-desktop"]
+    ]);
+  }
 });

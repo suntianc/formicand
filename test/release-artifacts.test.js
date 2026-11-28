@@ -9,6 +9,7 @@ import { test } from "node:test";
 import {
   inspectReleaseArtifacts,
   releaseFiles,
+  stageDesktopInstaller,
   verifyReleaseArtifacts,
   writeReleaseArtifacts
 } from "../scripts/release-artifacts.mjs";
@@ -92,6 +93,63 @@ async function fixture(t, { notes } = {}) {
   await pack();
   return { root, env, git, commit, dmg, cli, checksum, pack, options: { root, tag, repository } };
 }
+
+test("multi-platform release verifies both target receipts and checksums on the selected tag", async (t) => {
+  const f = await fixture(t);
+  await mkdir(join(f.root, ".git", "info"), { recursive: true });
+  await writeFile(join(f.root, ".git", "info", "exclude"), "/.tmp/\n");
+  const staging = join(f.root, ".tmp/release");
+  await mkdir(staging, { recursive: true });
+  await assert.rejects(inspectReleaseArtifacts({ ...f.options, requireDesktopInstallers: true }), /ENOENT/);
+  for (const [platform, suffix] of [
+    ["win32", "win-x64.exe"],
+    ["linux", "linux-x64.AppImage"]
+  ]) {
+    await writeFile(join(staging, `Formicand-${version}-${suffix}`), "installer fixture");
+    const signed = {
+      status: "Valid",
+      sha256: hash("installer fixture"),
+      signer: "a".repeat(40),
+      timestampSigner: "b".repeat(40)
+    };
+    if (platform === "win32") {
+      for (const invalid of [
+        { status: "NotSigned" },
+        { timestampSigner: null },
+        { sha256: hash("other file") }
+      ])
+        await assert.rejects(
+          stageDesktopInstaller({
+            ...f.options,
+            platform,
+            arch: "x64",
+            readWindowsSignature: async () => ({ ...signed, ...invalid })
+          }),
+          /Authenticode signature and timestamp/
+        );
+    }
+    await stageDesktopInstaller({
+      ...f.options,
+      platform,
+      arch: "x64",
+      readWindowsSignature: async () => signed
+    });
+  }
+  const options = { ...f.options, requireDesktopInstallers: true };
+  await writeReleaseArtifacts(options);
+  const verified = await verifyReleaseArtifacts(options);
+  const exe = `Formicand-${version}-win-x64.exe`;
+  assert.ok(verified.files.includes(exe) && verified.files.includes(exe + ".sha256"));
+  const receipt = join(f.root, "release", exe + ".build.json");
+  const original = await readFile(receipt, "utf8");
+  const incomplete = JSON.parse(original);
+  delete incomplete.authenticode;
+  await writeFile(receipt, JSON.stringify(incomplete));
+  await assert.rejects(verifyReleaseArtifacts(options), /Authenticode signature and timestamp/);
+  await writeFile(receipt, original);
+  await writeFile(join(f.root, "release", exe), "changed bytes");
+  await assert.rejects(verifyReleaseArtifacts(options), /provenance differs/);
+});
 
 async function addSigningReport(f, changes = {}) {
   const signature = (identifier) => ({
@@ -250,7 +308,7 @@ function githubFixture({ initial, publishBeforeUpload = false, readError } = {})
       if (readError) throw readError;
       if (!current) throw Object.assign(new Error("not found"), { code: 1, stderr: "release not found\n" });
       if (publishBeforeUpload && views > 1) current = { ...current, isDraft: false };
-      return { stdout: JSON.stringify(current) };
+      return { stdout: JSON.stringify({ assets: [], ...current }) };
     }
     if (operation === "create" || operation === "edit")
       current = { tagName: tag, isDraft: true, isPrerelease: args.includes("--prerelease=true") };
@@ -293,6 +351,27 @@ for (const replaceNotes of [false, true]) {
     }
   );
 }
+
+test("Mac-only retries preserve a draft that already contains another native installer", async (t) => {
+  const f = await fixture(t);
+  await writeReleaseArtifacts(f.options);
+  const github = githubFixture({
+    initial: {
+      tagName: tag,
+      isDraft: true,
+      isPrerelease: true,
+      assets: [{ name: `Formicand-${version}-win-x64.exe` }]
+    }
+  });
+  await assert.rejects(
+    uploadReleaseDraft({ ...f.options, ...github, replaceNotes: true }),
+    /would omit an existing/
+  );
+  assert.deepEqual(
+    github.calls.map((args) => args[1]),
+    ["view"]
+  );
+});
 
 test("an existing beta draft with the wrong channel is corrected without replacing its reviewed notes", async (t) => {
   const f = await fixture(t);

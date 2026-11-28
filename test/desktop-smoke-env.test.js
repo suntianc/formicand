@@ -31,7 +31,7 @@ test("packaged smoke excludes inherited data/model/credential overrides while le
     NODE_OPTIONS: "fixture-only-node-options"
   };
   const original = { ...source };
-  const env = desktopSmokeEnvironment({ data: "/fixture/owned-data", source });
+  const env = desktopSmokeEnvironment({ data: "/fixture/owned-data", source, platform: "darwin" });
   assert.deepEqual(source, original);
   assert.deepEqual(env, {
     HOME: "/fixture/original-home",
@@ -45,4 +45,25 @@ test("packaged smoke excludes inherited data/model/credential overrides while le
     PI_OFFLINE: "1",
     PI_TELEMETRY: "0"
   });
+});
+
+test("Windows packaged smoke can start system PowerShell with external search tools and npm version removed", () => {
+  const env = desktopSmokeEnvironment({
+    data: "fixture",
+    platform: "win32",
+    source: {
+      WIN_CSC_LINK: "fixture-cert",
+      win_csc_key_password: "fixture-password",
+      cSc_LiNk: "fixture-link",
+      apple_keychain_profile: "fixture-profile",
+      Path: "D:\\developer-tools",
+      SystemRoot: "D:\\Windows",
+      npm_package_version: "9.9.9"
+    }
+  });
+  assert.equal(env.PATH, "D:\\Windows\\System32;D:\\Windows\\System32\\WindowsPowerShell\\v1.0");
+  for (const key of ["WIN_CSC_LINK", "win_csc_key_password", "cSc_LiNk", "apple_keychain_profile"])
+    assert.equal(env[key], undefined);
+  assert.equal(env.Path, undefined);
+  assert.equal(env.npm_package_version, undefined);
 });

@@ -231,29 +231,35 @@ html[data-theme] body.sidebar-collapsed .titlebar-lead {
    title row drag the window, pane content does not, and controls inside the
    row stay clickable. Only the chrome refuses text selection; pane content
    selects normally. */
-html[data-desktop-platform] :is(.app-shell, .app-layout) {
+html:where([data-title-bar="inset"], [data-title-bar="overlay"]):not([data-desktop-fullscreen="true"])
+  :is(.app-shell, .app-layout) {
   -webkit-app-region: drag;
   user-select: none;
 }
-html[data-desktop-platform] .conversation-sidebar,
-html[data-desktop-platform] :is(.chat-pane, .observe-pane, .observe-detail, .agent-pane) {
+html:where([data-title-bar="inset"], [data-title-bar="overlay"]):not([data-desktop-fullscreen="true"])
+  .conversation-sidebar,
+html:where([data-title-bar="inset"], [data-title-bar="overlay"]):not([data-desktop-fullscreen="true"])
+  :is(.chat-pane, .observe-pane, .observe-detail, .agent-pane) {
   -webkit-app-region: no-drag;
 }
-html[data-desktop-platform] :is(.chat-pane, .observe-pane, .observe-detail, .agent-pane) {
+html:where([data-title-bar="inset"], [data-title-bar="overlay"]):not([data-desktop-fullscreen="true"])
+  :is(.chat-pane, .observe-pane, .observe-detail, .agent-pane) {
   user-select: text;
 }
-html[data-desktop-platform] :is(.app-titlebar, .observe-header, .requirement-panel-head) {
+html:where([data-title-bar="inset"], [data-title-bar="overlay"]):not([data-desktop-fullscreen="true"])
+  :is(.app-titlebar, .observe-header, .requirement-panel-head) {
   -webkit-app-region: drag;
   user-select: none;
 }
-html[data-desktop-platform] :is(button, a, input, select, textarea, [role="button"], [role="tab"], summary) {
+html:where([data-title-bar="inset"], [data-title-bar="overlay"]):not([data-desktop-fullscreen="true"])
+  :is(button, a, input, select, textarea, [role="button"], [role="tab"], summary) {
   -webkit-app-region: no-drag;
 }
 /* A region inherits, and Chromium takes one rectangle from every element that
    carries it, clipped or not. Pane content scrolled up behind the title row
    therefore punched no-drag holes in it. The pane box alone keeps its content
    out of the drag; nothing inside adds a rectangle, apart from the panel heads. */
-html[data-desktop-platform]
+html:where([data-title-bar="inset"], [data-title-bar="overlay"]):not([data-desktop-fullscreen="true"])
   :is(.conversation-sidebar, .chat-pane, .observe-pane, .observe-detail, .agent-pane)
   :not(:is(.observe-header, .requirement-panel-head), :is(.observe-header, .requirement-panel-head) *) {
   -webkit-app-region: initial;

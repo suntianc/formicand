@@ -79,7 +79,9 @@ FORMICAND_DESKTOP_APP=.tmp/release/mac-arm64/Formicand.app node scripts/desktop-
 FORMICAND_DESKTOP_APP=.tmp/release/mac-arm64/Formicand.app node scripts/desktop-smoke.mjs --settings-only
 ```
 
-**原生窗口和输入。** 需要解锁的 Mac 和已经授予的系统权限：`npm run test:release -- --native --stage app`。普通测试入口不跑这些。
+三端从 `npm run desktop:pack` 产出的目录包执行 `node scripts/desktop-smoke.mjs --basic`。脚本用包内 Electron 实际加载 FFF 搜索夹具文件，两次启动同一隔离数据根，检查版本、后端连接和重启复用。Linux CI 使用 Xvfb 的 X11 会话和临时 Secret Service。真实 DPI、Wayland 和干净机安装由目标平台验收。
+
+**原生窗口和输入。** 运行 `npm run test:release -- --native --stage app` 选取当前平台的 Electron 用例。macOS 的 Computer Use 验收还需要解锁和相应系统权限。
 
 **附件解析。** 需要 Python 3.11 和 [document-requirements.txt](../scripts/document-requirements.txt) 里的库，用 `FORMICAND_PYTHON` 指向它。缺库要修环境，不能把跳过当通过。
 
@@ -91,8 +93,8 @@ FORMICAND_DESKTOP_APP=.tmp/release/mac-arm64/Formicand.app node scripts/desktop-
 npm run test:release -- --list              # 只看计划，不构建不运行
 npm run test:release                        # 构建一次，跑全部环节
 npm run test:release -- --stage cli         # 只跑一个环节
-npm run test:release -- --native            # 加上真实窗口和 Electron 测试（Mac）
-npm run test:release -- --native --packages # 同时打出 CLI 包和 DMG，之后人工安装验收
+npm run test:release -- --native            # 加上当前平台的原生窗口和 Electron 测试
+npm run test:release -- --native --packages # 同时打出 CLI 包和本机桌面安装包，之后人工安装验收
 npm run test:release:runner                 # 发版执行器自己的测试
 ```
 
@@ -117,6 +119,16 @@ npm run test:release:runner                 # 发版执行器自己的测试
 | 分发     | 版本、tag、产物、支持平台、签名状态、已知限制和许可证                                |
 
 记录系统、芯片、版本和安装包的校验值。
+
+### 桌面平台覆盖
+
+发布目录中的 `nativePlatforms` 标记仅适用于特定宿主的文件。其他原生用例在 `--native` 时进入目标 OS 的执行计划。实际通过、失败、跳过以目标机报告为准。
+
+| 范围             | 验证环境                           | 示例                                                                                                                                       |
+| ---------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| 系统专属行为     | 选择提供该能力的系统和桌面会话。   | macOS 的 Keychain、Dock、红绿灯与 Core Animation；Windows 的原生窗口按钮与托盘。                                                           |
+| 含平台断言的用例 | 按断言涉及的系统运行相应场景。     | `appearance-desktop` 的 macOS 材质颜色、`p46-artifact-open-desktop` 的 macOS 应用枚举、`p45-titlebar-desktop` 的 Windows 与 macOS 标题栏。 |
+| 共享桌面流程     | 按变更影响选择系统，记录实测环境。 | 剪贴板、草稿恢复与冲突、外链、模型协议与切换、消息编辑、网页搜索。                                                                         |
 
 ### 维护用例清单
 

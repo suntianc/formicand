@@ -11,6 +11,8 @@ This guide is for contributors and coding agents. Users start with [README](READ
 3. Code, tests and [architecture](docs/development.md#架构) define current behavior. Choose work from current issues and acceptance criteria.
 4. Reproduce the problem, edit the owning module, run relevant behavior tests and local verification, then report commands, failures and skips actually observed.
 
+For changes affecting multiple desktop platforms, use the [cross-platform workflow (Chinese)](docs/development.md#跨平台改动的分工与交接) to identify shared implementation, target-machine checks and the commit to hand off.
+
 ## Repository map
 
 | Location                                        | Responsibility                                              | Local instructions                                |
@@ -80,7 +82,7 @@ When a change touches a path below, the program will not merge it on Main's own 
 
 Use Node >=22.19.0 and `npm ci`. Match validation to the change: documentation-only edits run `check:docs` and `format:check`; behavior changes run related tests and lightweight `npm run verify` (CLI and web asset builds, source hygiene, static checks and the release-runner self-test). Explicitly run `npm run verify:full` for release acceptance or changes with broad impact; it performs a complete build, release-runner self-tests and the full deterministic Node suite. Do not repeat the full suite for every small edit. `npm run test:unit -- --match model` selects test files; `npm run check:docs` checks documentation links; `npm run check:source` checks current source for private configuration, credentials, personal paths and generated/retired documents. See [local testing](docs/testing.md) for the full command inventory. Test doubles do not replace lifecycle tests; browser, native, real-model and clean-install evidence are separate.
 
-Routine GitHub checks run automatically on PRs and pushes to main, and can also be triggered manually. They execute the lightweight static checks in `npm run check:ci`. Run complete regressions and release acceptance locally and record evidence. The manually triggered Mac workflow builds and uploads to a draft Release; see the [Mac release guide](docs/development.md). CI passing does not mean the complete test suite passed; do not add browser, native or cross-platform test matrices by default.
+Routine PRs and main pushes run pure desktop policy tests and `npm run check:ci`. Desktop-related paths also trigger native directory-package smoke tests on three platforms, with scheduled and manual runs available. Release tags and manual release runs prepare a draft. Record local full regression, clean-machine installation and publication approval separately. See the [release guide](docs/development.md#打包和发布).
 
 Change descriptions include the problem and resulting behavior, affected modules/interfaces, checks run and unverified scope. For delegation, rework, independent review and archival, use the [handoff guide (Chinese)](docs/development-handoffs.md) to identify the current delta, validation owners and evidence. Update the relevant guide and code map when changing commands, features, paths or interfaces. Planned scope and next steps live in the requirement ledger's development records, not in repository documents.
 

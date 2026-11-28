@@ -83,20 +83,24 @@ export async function loadPlan(root, options, platform = process.platform) {
     .sort()
     .map((name) => `e2e/${name}`);
   const knownFiles = new Set([...nodeFiles, ...browserFiles]);
-  const nativeEnabled = options.native && platform === "darwin";
+  const desktopPlatform = ["darwin", "win32", "linux"].includes(platform);
+  const nativeEnabled = (platforms) =>
+    options.native && desktopPlatform && (!platforms || platforms.includes(platform));
+  const deferReason = (platforms) =>
+    options.native ? "requires_" + (platforms ?? ["desktop"]).join("_or_") : "requires_native_flag";
   const nativeVariants = catalog.nativeVariants ?? [];
   for (const variant of nativeVariants) {
     if (!knownFiles.has(variant.file) || !["node", "browser"].includes(variant.kind))
       throw new Error(`未知原生变体：${variant.file}`);
     new RegExp(variant.pattern);
   }
-  const deferredVariants = nativeEnabled
-    ? []
-    : nativeVariants.map((variant) => ({
-        ...variant,
-        stage: classify(variant.file, variant.kind, catalog),
-        reason: options.native ? "requires_macos" : "requires_native_flag"
-      }));
+  const deferredVariants = nativeVariants
+    .filter((variant) => !nativeEnabled(variant.platforms))
+    .map((variant) => ({
+      ...variant,
+      stage: classify(variant.file, variant.kind, catalog),
+      reason: deferReason(variant.platforms)
+    }));
   const requirements = [];
   const document = "docs/testing.md";
   const content = await readFile(join(root, document), "utf8");
@@ -127,12 +131,14 @@ export async function loadPlan(root, options, platform = process.platform) {
     const native =
       kind === "node"
         ? catalog.nativeNode.includes(file)
-        : new RegExp(catalog.nativeBrowserPattern).test(basename(file));
-    if (!native || (options.native && platform === "darwin")) return true;
+        : new RegExp(catalog.nativeBrowserPattern).test(basename(file)) ||
+          Object.hasOwn(catalog.nativePlatforms ?? {}, file);
+    const platforms = catalog.nativePlatforms?.[file];
+    if (!native || nativeEnabled(platforms)) return true;
     deferred.push({
       file,
       stage: classify(file, kind, catalog),
-      reason: options.native ? "requires_macos" : "requires_native_flag"
+      reason: deferReason(platforms)
     });
     return false;
   }
@@ -169,7 +175,7 @@ export async function loadPlan(root, options, platform = process.platform) {
         .filter(
           (variant) => variant.kind === "node" && variant.enableEnv && group.node.includes(variant.file)
         )
-        .map((variant) => [variant.enableEnv, nativeEnabled ? "1" : "0"])
+        .map((variant) => [variant.enableEnv, nativeEnabled(variant.platforms) ? "1" : "0"])
     );
     for (const file of group.node.filter((file) => file.endsWith(".ts")))
       steps.push({
@@ -202,11 +208,12 @@ export async function loadPlan(root, options, platform = process.platform) {
           "test",
           "--reporter=list,json",
           ...(options.native ? ["--workers=1"] : []),
-          ...(!nativeEnabled &&
-          nativeVariants.some((variant) => variant.kind === "browser" && group.browser.includes(variant.file))
+          ...(deferredVariants.some(
+            (variant) => variant.kind === "browser" && group.browser.includes(variant.file)
+          )
             ? [
                 "--grep-invert",
-                nativeVariants
+                deferredVariants
                   .filter((variant) => variant.kind === "browser" && group.browser.includes(variant.file))
                   .map((variant) => `(?:${variant.pattern})`)
                   .join("|")
@@ -226,7 +233,7 @@ export async function loadPlan(root, options, platform = process.platform) {
         args: ["run", "cli:pack"]
       });
     if (options.stages.includes("app")) {
-      if (platform === "darwin")
+      if (desktopPlatform)
         steps.push({
           id: "app-package",
           stage: "app",
@@ -234,7 +241,7 @@ export async function loadPlan(root, options, platform = process.platform) {
           command: "npm",
           args: ["run", "desktop:dist"]
         });
-      else deferred.push({ file: "final-mac-package", stage: "app", reason: "requires_macos" });
+      else deferred.push({ file: "desktop-package", stage: "app", reason: "requires_desktop_platform" });
     }
   }
   return {

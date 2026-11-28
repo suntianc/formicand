@@ -181,11 +181,19 @@ test("open-with uses cached native Finder icon on macOS, folder icon on Windows,
   assert.equal(openWith.markup("t1", targetB), htmlA);
 
   // Windows bridge falls back to the folder icon and folder tooltip.
+  let enumerations = 0;
+  const winCalls = [];
   const winOpenWith = createOpenWith({
+    fileOpenWith: "default-only",
     bridge: {
       defaultIcon: async () => ({ icon: "", platform: "win32" }),
-      apps: async () => ({ apps: [] }),
-      open: async () => {}
+      apps: async () => {
+        enumerations++;
+        return { apps: [] };
+      },
+      open: async (...args) => {
+        winCalls.push(args);
+      }
     },
     showToast: () => {},
     onChange: () => {}
@@ -195,4 +203,14 @@ test("open-with uses cached native Finder icon on macOS, folder icon on Windows,
   assert.match(winHtml, /open-with-folder/);
   assert.match(winHtml, /#i-folder/);
   assert.match(winHtml, /在文件夹中显示/);
+  assert.doesNotMatch(winHtml, /data-open-more/);
+  host.innerHTML = winHtml;
+  winOpenWith.bind(host, "t1", targetA);
+  host.querySelector("[data-open-main]").click();
+  host.querySelector("[data-open-default]").click();
+  assert.deepEqual(winCalls, [
+    ["t1", targetA, "finder"],
+    ["t1", targetA, undefined]
+  ]);
+  assert.equal(enumerations, 0);
 });

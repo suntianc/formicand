@@ -38,6 +38,16 @@
     "test/computer-native.test.js"
   ],
   "nativeBrowserPattern": "-desktop\\.spec\\.js$",
+  "nativePlatforms": {
+    "test/computer-native.test.js": ["darwin"],
+    "e2e/appearance-desktop.spec.js": ["darwin"],
+    "e2e/backdrop-desktop.spec.js": ["darwin"],
+    "e2e/computer-settings-desktop.spec.js": ["darwin"],
+    "e2e/keychain-retry-desktop.spec.js": ["darwin"],
+    "e2e/native-motion-desktop.spec.js": ["darwin"],
+    "e2e/p45-desktop-background.spec.js": ["darwin"],
+    "e2e/p46-artifact-open-desktop.spec.js": ["darwin"]
+  },
   "nativeVariants": [
     {
       "file": "e2e/model-providers.spec.js",
@@ -48,7 +58,8 @@
       "file": "test/desktop-dev.test.js",
       "kind": "node",
       "pattern": "Finder development entry|Mac launch gives",
-      "enableEnv": "FORMICAND_NATIVE_DESKTOP_TEST"
+      "enableEnv": "FORMICAND_NATIVE_DESKTOP_TEST",
+      "platforms": ["darwin"]
     }
   ],
   "anchors": [

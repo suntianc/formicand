@@ -28,7 +28,7 @@
 
 ### 安装
 
-需要 Node.js ≥22.19.0、npm 和 Git；Mac App 需要 macOS 14+、Apple Silicon，CLI 可在 macOS 或 Linux 上运行。
+从源码构建需要 Node.js ≥22.19.0、npm 和 Git。CLI 可在 macOS 或 Linux 上运行。 桌面安装版当前公开 Beta 面向 macOS 14+ Apple Silicon。Windows 与 Linux 的开发构建入口见[打包和发布](docs/development.md#打包和发布)。
 
 ```sh
 git clone https://github.com/suntianc/formicand.git
@@ -39,7 +39,7 @@ npm run ui        # 网页界面
 npm run cli       # 终端
 ```
 
-只用 CLI 时可以用 `ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm ci` 跳过 Electron 下载。安装包用 `npm run desktop:dist` 生成在 `release/`，打开 DMG 把 App 拖进“应用程序”。它是 ad-hoc 签名、尚未公证，第一次打开被系统阻止时按 [Apple 的说明](https://support.apple.com/zh-cn/102445) 到“系统设置 → 隐私与安全性”里允许。
+只用 CLI 时可以用 `ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm ci` 跳过 Electron 下载。Mac 安装包用 `npm run desktop:dist` 生成在 `release/`，打开 DMG 把 App 拖进“应用程序”。它是 ad-hoc 签名、尚未公证，第一次打开被系统阻止时按 [Apple 的说明](https://support.apple.com/zh-cn/102445) 到“系统设置 → 隐私与安全性”里允许。
 
 在 Windows 上从源码运行桌面客户端时，点主窗口的 × 会收进系统托盘。单击 Formicand 图标可恢复窗口，右键选择「退出 Formicand」可退出客户端。
 

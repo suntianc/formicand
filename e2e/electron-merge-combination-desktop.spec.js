@@ -6,7 +6,6 @@ import { developmentExecutable } from "./desktop-runtime-helper.js";
 import { dismissModelSetup } from "./model-provider-ui.js";
 
 test("host authorization recovery preserves drafts through backend switches and restart", async () => {
-  test.skip(process.platform !== "darwin", "Native desktop acceptance requires macOS");
   test.setTimeout(150_000);
   const root = await mkdtemp(join(process.env.P2_NATIVE_ROOT || tmpdir(), "merge-combination-"));
   const profile = join(root, "profile");

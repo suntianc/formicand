@@ -37,7 +37,6 @@ for (const native of [false, true]) {
   test(`${native ? "desktop" : "web"}: Main moves between providers of different formats and continues the same conversation`, async ({
     page: browserPage
   }) => {
-    test.skip(native && process.platform !== "darwin", "Native test requires macOS");
     test.setTimeout(120_000);
     const first = await modelProtocolFixture("openai-completions", () => ({ text: "第一家已回复" }), {
       models: []

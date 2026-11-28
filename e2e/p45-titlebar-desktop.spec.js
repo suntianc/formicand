@@ -10,7 +10,7 @@ import { dismissModelSetup } from "./model-provider-ui.js";
 const taskId = "titlebar-task";
 const taskGoal = "标题栏验收会话";
 
-async function bootDesktop() {
+async function bootDesktop({ dismissSetup = true } = {}) {
   const root = await mkdtemp(join(tmpdir(), "formicand-p45-titlebar-"));
   const env = Object.fromEntries(
     Object.entries(process.env).filter(
@@ -42,9 +42,27 @@ async function bootDesktop() {
   }
   const page = await native.firstWindow();
   await expect(page.locator("#composer-input")).toBeAttached();
-  await dismissModelSetup(page, { wait: 5_000 });
+  if (dismissSetup) await dismissModelSetup(page, { wait: 5_000 });
   return { native, page, root };
 }
+
+test("after first-use setup, leaving settings restores focus to its current opener", async () => {
+  const { native, page, root } = await bootDesktop({ dismissSetup: false });
+  try {
+    await dismissModelSetup(page);
+    const trigger = page.locator("#user-menu-button");
+    await trigger.focus();
+    await trigger.press("Enter");
+    await expect(page.locator('[data-settings-section][aria-current="page"]')).toBeFocused();
+    await page.locator("#settings-back").click();
+    await expect(page.locator("#settings-entry")).toBeHidden();
+    await expect(trigger).toBeFocused();
+  } finally {
+    await native.close();
+    await stopNativeBackend(root);
+    await rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  }
+});
 
 test("Windows integrates native caption buttons, theme and the material setting", async () => {
   test.skip(process.platform !== "win32", "Requires the Windows window manager");
@@ -54,14 +72,11 @@ test("Windows integrates native caption buttons, theme and the material setting"
     await expect(page.locator("html")).toHaveAttribute("data-title-bar", "overlay");
     const executable = await native.evaluate(() => process.execPath);
     expect(executable).toMatch(/[/\\]Formicand\.exe$/i);
-    const usesVendorIcon = await native.evaluate(
-      async ({ app }, vendor) => {
-        const icon = await app.getFileIcon(process.execPath);
-        const electronIcon = await app.getFileIcon(vendor);
-        return icon.toBitmap().equals(electronIcon.toBitmap());
-      },
-      resolve("node_modules/electron/dist/electron.exe")
-    );
+    const usesVendorIcon = await native.evaluate(async ({ app }, vendor) => {
+      const icon = await app.getFileIcon(process.execPath);
+      const electronIcon = await app.getFileIcon(vendor);
+      return icon.toBitmap().equals(electronIcon.toBitmap());
+    }, resolve("node_modules/electron/dist/electron.exe"));
     expect(usesVendorIcon).toBe(false);
     await page.keyboard.press("Alt");
     expect(
@@ -94,6 +109,45 @@ test("Windows integrates native caption buttons, theme and the material setting"
             panel.getBoundingClientRect().top >= navigator.windowControlsOverlay.getTitlebarAreaRect().bottom
         )
     ).toBe(true);
+    await expect(page.locator("html")).toHaveAttribute("data-titlebar-layout", "leading-nav");
+    const originalSize = await native.evaluate(({ BrowserWindow }) => {
+      const window = BrowserWindow.getAllWindows()[0];
+      const size = window.getSize();
+      window.setSize(752, 700);
+      return size;
+    });
+    const back = page.locator("#settings-entry > #settings-back");
+    await expect(back).toBeInViewport();
+    const geometryAtMinimum = await back.evaluate((button) => {
+      const rect = button.getBoundingClientRect();
+      const area = navigator.windowControlsOverlay.getTitlebarAreaRect();
+      return (
+        rect.left >= area.left &&
+        rect.right <= area.right &&
+        rect.top >= area.top &&
+        rect.bottom <= area.bottom
+      );
+    });
+    expect(geometryAtMinimum).toBe(true);
+    await expect(back).toHaveCSS("-webkit-app-region", "no-drag");
+    await page.locator('[data-settings-section="general"]').focus();
+    await page.keyboard.press("Shift+Tab");
+    await expect(back).toBeFocused();
+    await page.keyboard.press("Enter");
+    await expect(page.locator("#settings-entry")).toBeHidden();
+    await native.evaluate(
+      ({ BrowserWindow }, size) => BrowserWindow.getAllWindows()[0].setSize(...size),
+      originalSize
+    );
+    await page.locator("#user-menu-button").click();
+    await native.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setFullScreen(true));
+    await expect(page.locator("html")).toHaveAttribute("data-desktop-fullscreen", "true");
+    await expect(page.locator("#settings-entry")).toHaveCSS("-webkit-app-region", "none");
+    await back.click();
+    await expect(page.locator("#settings-entry")).toBeHidden();
+    await native.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setFullScreen(false));
+    await expect(page.locator("html")).toHaveAttribute("data-desktop-fullscreen", "false");
+    await page.locator("#user-menu-button").click();
     const acrylic = Number(release().split(".")[2]) >= 22621;
     const tint = { light: "rgba(247, 247, 248, 0.75)", dark: "rgba(16, 16, 18, 0.68)" };
     for (const theme of ["light", "dark"]) {
@@ -198,6 +252,19 @@ test("the desktop window has no title bar, panels reach the top and traffic ligh
   test.setTimeout(180_000);
   const { native, page, root } = await bootDesktop();
   try {
+    const applicationVersion = await native.evaluate(({ app }) => app.getVersion());
+    const capabilities = await page.evaluate(() => window.formicandDesktop.capabilities);
+    expect(capabilities).toMatchObject({
+      platform: "darwin",
+      version: applicationVersion,
+      titleBar: "inset",
+      controlsSide: "left",
+      titlebarLayout: "standard",
+      material: "under-window",
+      updates: "source",
+      fileOpenWith: "full"
+    });
+    await expect(page.locator("html")).toHaveAttribute("data-controls-side", "left");
     await createTaskThroughHost(page);
     await page.reload();
     await dismissModelSetup(page);
@@ -406,6 +473,44 @@ test("the browser keeps its design margin and reserves nothing for native window
     expect(metrics.mainX).toBe(258);
     expect(metrics.mainY).toBe(44);
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(1440);
+  } finally {
+    await dashboard.stop();
+  }
+});
+
+test("settings keeps a usable return control in overlay, fullscreen and native chrome", async ({ page }) => {
+  const dashboard = await startDashboard();
+  try {
+    await page.goto(dashboard.base);
+    await expect(page.locator("#entry-work")).toBeVisible();
+    await page.setViewportSize({ width: 752, height: 740 });
+    await page.locator("#user-menu-button").click();
+    const root = page.locator("html");
+    for (const [titleBar, layout, fullscreen] of [
+      ["overlay", "leading-nav", false],
+      ["overlay", "leading-nav", true],
+      ["native", "standard", false]
+    ]) {
+      await root.evaluate((html, state) => Object.assign(html.dataset, state), {
+        desktopPlatform: "fixture",
+        titleBar,
+        titlebarLayout: layout,
+        desktopFullscreen: String(fullscreen)
+      });
+      const content = page.locator(".settings-content");
+      const back = page.locator("#settings-entry > #settings-back");
+      await expect(back).toBeInViewport();
+      const activeOverlay = titleBar === "overlay" && !fullscreen;
+      await expect(page.locator("#settings-entry")).toHaveCSS(
+        "-webkit-app-region",
+        activeOverlay ? "drag" : "none"
+      );
+      const [buttonBox, panelBox] = await Promise.all([back.boundingBox(), content.boundingBox()]);
+      if (activeOverlay) expect(buttonBox.y + buttonBox.height).toBeLessThanOrEqual(panelBox.y);
+      else expect(buttonBox.x + buttonBox.width).toBeLessThanOrEqual(panelBox.x);
+    }
+    await page.locator("#settings-back").click();
+    await expect(page.locator("#settings-entry")).toBeHidden();
   } finally {
     await dashboard.stop();
   }

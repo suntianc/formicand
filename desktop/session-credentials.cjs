@@ -3,7 +3,11 @@ const path = require("node:path");
 const { createHash, randomUUID } = require("node:crypto");
 
 /** Long-lived client sessions are encrypted by the desktop host, never returned to the renderer. */
-function createSessionCredentialStore({ userData, storage }) {
+function createSessionCredentialStore({ userData, storage, linuxKeyring = false }) {
+  const temporarySessions = new Map();
+  // Electron can report working encryption on Linux with a hard-coded fallback key.
+  const hasKeyring = () =>
+    ["gnome_libsecret", "kwallet", "kwallet5", "kwallet6"].includes(storage.getSelectedStorageBackend());
   const file = path.join(userData, "client-sessions.json");
   let queue = Promise.resolve();
   const serial = (action) => {
@@ -42,7 +46,9 @@ function createSessionCredentialStore({ userData, storage }) {
   return {
     read(backendId) {
       return serial(async () => {
-        const entry = (await document()).credentials[keyFor(backendId)];
+        const key = keyFor(backendId);
+        if (temporarySessions.has(key)) return temporarySessions.get(key);
+        const entry = (await document()).credentials[key];
         if (!entry) return undefined;
         if (typeof entry.sessionId !== "string" || typeof entry.ciphertext !== "string")
           throw new Error("客户端凭据存储格式无效");
@@ -59,6 +65,7 @@ function createSessionCredentialStore({ userData, storage }) {
         } catch {
           throw unavailable();
         }
+        if (linuxKeyring && (!available || !hasKeyring())) return undefined;
         if (!available) throw unavailable();
         let token;
         try {
@@ -86,7 +93,12 @@ function createSessionCredentialStore({ userData, storage }) {
         const value = await document();
         let ciphertext;
         try {
-          if (!(await storage.isEncryptionAvailable())) throw new Error();
+          const available = await storage.isEncryptionAvailable();
+          if (linuxKeyring && (!available || !hasKeyring())) {
+            temporarySessions.set(key, { sessionId: session.sessionId, token: session.token });
+            return { temporary: true };
+          }
+          if (!available) throw new Error();
           ciphertext = (await storage.encryptString(session.token)).toString("base64");
           await storage.release?.();
         } catch {
@@ -98,6 +110,7 @@ function createSessionCredentialStore({ userData, storage }) {
         try {
           await fs.writeFile(temporary, JSON.stringify(value) + "\n", { mode: 0o600 });
           await fs.rename(temporary, file);
+          temporarySessions.delete(key);
         } finally {
           await fs.rm(temporary, { force: true });
         }

@@ -13,7 +13,10 @@
 
 ## 验证
 
-- [ ] `npm run verify`（构建一次，静态检查 + 确定性 Node 回归）
+- 受影响平台及架构：
+- 实测系统版本、安装方式、命令与结果：
+
+- [ ] `npm run verify`（轻量构建、静态检查与发布 runner 自测）
 - [ ] 相关行为测试；写明实际命令与结果
 - [ ] 前端/HTTP 用户流程变化：`npm run test:browser`
 - [ ] 桌面/生命周期变更：打包后 npm run test:desktop
