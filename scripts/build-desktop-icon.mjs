@@ -3,6 +3,10 @@ import { execFileSync } from "node:child_process";
 import { mkdir, readFile, writeFile, access, copyFile } from "node:fs/promises";
 import { resolve, join } from "node:path";
 
+import { buildWindowsIcon } from "./windows-icon.mjs";
+
+if (process.platform === "win32") await buildWindowsIcon(process.cwd());
+
 // Native rendering places the exported Formicand icon on the standard alpha margin.
 // macOS does not mask custom app icons, so an opaque padded PNG would appear square.
 if (process.platform === "darwin") {

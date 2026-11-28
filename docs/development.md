@@ -240,7 +240,7 @@ CLI 的交互界面直接使用原版 Pi 1.6.1，不改依赖文件。启动时�
 - 密钥不进页面状态、源码、日志和安装包。
 - 窗口访问需要用户在 App 里开启并在本机确认身份，Agent 不能自己开启或恢复，见 [内置能力](../README.zh-CN.md#操作本机窗口)。
 - 这个授权只管窗口操作，不是整个产品的系统沙箱：Agent 执行的命令不受操作系统隔离。
-- App 只支持 Apple Silicon Mac。Windows/Linux 桌面、远程 Worker 和多用户隔离都还没有做。
+- 当前公开 Beta 面向 macOS 14+ Apple Silicon。Windows 11 x64 为下一交付目标，Windows 10 x64 为兼容验证目标，Linux x64 为实验性适配目标。
 
 ## 日常修改流程
 
@@ -286,13 +286,15 @@ CLI 的交互界面直接使用原版 Pi 1.6.1，不改依赖文件。启动时�
 
 ## 打包和发布
 
-当前只出 Apple Silicon 的 Mac 安装包，用 ad-hoc 签名，没有 Developer ID 签名、公证和应用内更新。
+公开 Beta 使用 Apple Silicon 的 ad-hoc 签名 DMG，尚未公证，手动覆盖升级。开发构建在各目标系统运行 `npm ci` 后使用下表入口。Windows 和 Linux 的分发范围按原生安装验收记录确定。
 
 | 命令                   | 产物                                                                  |
 | ---------------------- | --------------------------------------------------------------------- |
 | `npm run desktop:pack` | `.tmp/release/mac-arm64/Formicand.app`，用来跑 `npm run test:desktop` |
 | `npm run desktop:dist` | `release/Formicand-<版本>-mac-arm64.dmg` 和它的 SHA-256               |
 | `npm run cli:pack`     | `release/` 下的 CLI 安装包；用 `FORMICAND_PACKAGE_DIR` 换输出目录     |
+
+在 Windows x64 运行 `npm run desktop:pack` 生成 `.tmp/release/win-unpacked/Formicand.exe`，`npm run desktop:dist` 生成 `.tmp/release/Formicand-<版本>-win-x64.exe`（NSIS）。Linux x64 的相同命令分别生成 `.tmp/release/linux-unpacked/formicand` 和 `.tmp/release/Formicand-<版本>-linux-x64.AppImage`。桌面启动器与 NSIS 共用品牌 ICO，应用标识沿用桌面宿主的 AppUserModelID。
 
 发版步骤：
 
