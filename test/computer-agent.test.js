@@ -1,10 +1,12 @@
 import { listenOnFixtureHttpPort } from "./fixtures/http-server.mjs";
+import { deferCleanup } from "./fixtures/cleanup.mjs";
+import { endAgentProcesses } from "./dashboard-fixture.mjs";
 import { availableLocalHttpPort } from "../dist/src/platform/local-http-port.js";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { createServer } from "node:http";
 import { once } from "node:events";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
@@ -16,9 +18,14 @@ for (const globalPolicy of [false, true, "run-exit"])
   test(
     `${globalPolicy ? (globalPolicy === "run-exit" ? "global policy + new conversation + automatic release when the work ends: " : "global policy + selection + renewal + revocation: ") : ""}real Pi CUA loop delivers native images and consumes successive observations through HTTP (fixture driver)`,
     { timeout: 80_000 },
-    async () => {
+    async (t) => {
       const root = await mkdtemp(join(tmpdir(), "formicand-computer-agent-"));
+      deferCleanup(t, () => rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }));
       const previous = { ...process.env };
+      deferCleanup(t, () => {
+        for (const key of Object.keys(process.env)) if (!(key in previous)) delete process.env[key];
+        Object.assign(process.env, previous);
+      });
       const requests = [],
         effects = [];
       let grant,
@@ -144,201 +151,209 @@ for (const globalPolicy of [false, true, "run-exit"])
         response.end("data: [DONE]\n\n");
       });
       await listenOnFixtureHttpPort(model);
-      try {
-        await mkdir(join(root, "workspace"));
-        await writeFile(join(root, "config.json"), "{}");
-        Object.assign(process.env, {
-          FORMICAND_CONFIG: join(root, "config.json"),
-          FORMICAND_WORKSPACE: join(root, "workspace"),
-          FORMICAND_GLOBAL_INDEX: join(root, "global.json"),
-          FORMICAND_API_BASE: `http://127.0.0.1:${model.address().port}/v1`,
-          FORMICAND_API_KEY: "local-fixture",
-          FORMICAND_MODEL: "computer-fixture",
-          FORMICAND_SUPPORTS_IMAGES: "1",
-          FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
-          FORMICAND_DISABLE_SESSION_TITLES: "1",
-          FORMICAND_REASONING_EFFORT: "off",
-          FORMICAND_SUPPORTS_REASONING_EFFORT: "0",
-          PI_CODING_AGENT_DIR: join(root, "pi"),
-          PI_OFFLINE: "1"
-        });
-        delete process.env.FORMICAND_API_TOKEN;
-        const base = `http://127.0.0.1:${await availableLocalHttpPort()}`;
-        dashboard = createDashboardApplication({
-          projectRoot: resolve("."),
-          port: Number(new URL(base).port),
-          computerClock: () => now,
-          computerDriver: {
-            status: async () => ({
-              available: true,
-              screenRecording: true,
-              accessibility: true,
-              windows: [target]
-            }),
-            observe: async () => ({
-              width: 1,
-              height: 1,
-              image,
-              frame: { x: 0, y: 0, width: 1, height: 1 },
-              accessibilityText: "Isolated fixture input",
-              accessibility: {
-                available: true,
-                truncated: false,
-                elements: [
-                  {
-                    elementId: "button",
-                    role: "AXButton",
-                    name: "Save",
-                    enabled: true,
-                    actions: ["press"],
-                    path: [],
-                    identity: "button-identity",
-                    fingerprint: "button-state"
-                  },
-                  {
-                    elementId: "field",
-                    role: "AXTextField",
-                    name: "Input",
-                    value: "",
-                    enabled: true,
-                    actions: ["set_value"],
-                    path: [0],
-                    identity: "field-identity",
-                    fingerprint: "field-state"
-                  }
-                ]
-              }
-            }),
-            act: async (selected, action) => effects.push({ selected, action })
-          }
-        });
-        dashboard.server.listen(Number(new URL(base).port), "127.0.0.1");
-        await once(dashboard.server, "listening");
-        const post = (path, body) =>
-          fetch(`${base}${path}`, {
-            method: "POST",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify(body)
-          });
-        if (globalPolicy === "run-exit")
-          await dashboard.computerHostRequest({ operation: "policy", enabled: true, mode: "control" });
-        assert.equal(
-          (await post("/api/tasks", { taskId: "computer-agent", goal: "isolated CUA protocol" })).status,
-          201
-        );
-        if (globalPolicy)
-          await dashboard.computerHostRequest({ operation: "policy", enabled: true, mode: "control" });
-        else
-          grant = await dashboard.computerHostRequest({
-            operation: "authorize",
-            taskId: "computer-agent",
-            ...target,
-            mode: "control"
-          });
-        assert.equal(
-          (await post("/api/tasks/computer-agent/run", { prompt: "Perform the isolated CUA protocol." }))
-            .status,
-          202
-        );
-        let task;
-        for (let index = 0; index < 600; index++) {
-          task = (await (await fetch(`${base}/api/tasks/computer-agent`)).json()).task;
-          // The Run's work ends at its turn boundary, so a successful run leaves
-          // the resident Main alive; the release is checked here as well, since
-          // it happens at that same boundary rather than at process exit.
-          const released =
-            globalPolicy !== "run-exit" ||
-            dashboard.routePorts.computer.current("computer-agent")?.state === "ended";
-          if ((task.status === "completed" || task.status === "failed") && released) break;
-          await delay(100);
-        }
-        assert.equal(task.status, "completed");
-        assert.equal(requests.length, steps.length + 1);
-        const visibleTools = requests[0].tools.map((tool) => tool.function.name);
-        for (const name of [
-          "computer_status",
-          "computer_observe",
-          "computer_wait",
-          "computer_act",
-          ...(globalPolicy ? ["computer_discover", "computer_select", "computer_release"] : [])
-        ])
-          assert.ok(
-            visibleTools.includes(name),
-            `${name} must be available to an ordinary Task from the first turn`
-          );
-        assert.deepEqual(
-          effects.map((effect) => effect.action),
-          actions
-        );
-        assert.ok(effects.every((effect) => effect.selected.windowId === target.windowId));
-        for (const index of steps.flatMap((step, index) =>
-          ["computer_observe", "computer_wait", "computer_act"].includes(step) ? [index + 1] : []
-        )) {
-          const content = requests[index].messages.flatMap((message) =>
-            Array.isArray(message.content) ? message.content : []
-          );
-          assert.ok(
-            content.some(
-              (block) =>
-                block.type === "image_url" && block.image_url.url === `data:image/png;base64,${image}`
-            ),
-            `native PNG absent from model request ${index}`
-          );
-          const payload = JSON.parse(
-            withoutMainState(requests[index].messages.findLast((message) => message.role === "tool").content)
-          );
-          const observation = payload.observation ?? payload;
-          assert.match(observation.imageRef, /^img_/);
-          const stored = await createImageArchive({
-            taskDirectory: join(root, "workspace", "computer-agent")
-          }).read(observation.imageRef);
-          assert.equal(stored.data.toString("base64"), image);
-          assert.equal(stored.record.source.kind, "computer");
-          assert.equal(stored.record.source.historical, true);
-          assert.equal(stored.record.source.sourceObservationId, observation.observationId);
-        }
-        for (const index of steps.flatMap((step, index) => (step === "computer_act" ? [index + 1] : []))) {
-          const result = JSON.parse(
-            withoutMainState(requests[index].messages.findLast((message) => message.role === "tool").content)
-          );
-          assert.equal(result.dispatched, true);
-          assert.equal(result.dispatchStatus, "sent");
-          assert.equal(result.effectVerified, false);
-          assert.equal(result.requiresObservation, false);
-          assert.equal(typeof result.observation.observationId, "string");
-          assert.equal(result.observation.image, undefined);
-        }
-        if (globalPolicy === "run-exit") {
-          assert.equal(dashboard.routePorts.computer.current("computer-agent").state, "ended");
-          assert.equal(dashboard.routePorts.computer.access().policy.enabled, true);
-        } else if (globalPolicy) {
-          const finalStatus = JSON.parse(
-            withoutMainState(requests.at(-1).messages.findLast((message) => message.role === "tool").content)
-          );
-          assert.equal(finalStatus.authorizationRequired, true);
-          assert.equal(finalStatus.access.policy.enabled, false);
-          assert.match(finalStatus.nextStep, /设置中开启窗口访问/);
-          assert.doesNotMatch(finalStatus.nextStep, /会话菜单|并授权/);
-          assert.equal(finalStatus.session.state, "ended");
-          assert.ok(now > firstExpiresAt);
-        }
-        assert.equal(
-          dashboard.routePorts.computer
-            .current("computer-agent")
-            .activity.filter((event) => event.outcome === "failed").length,
-          0
-        );
-      } finally {
-        // A resident Main outlives the backend on purpose; closing this Task's
-        // session ends the process this test started and waits for its
-        // settlement, so the temporary root can be removed and the file exits.
-        await dashboard?.routePorts.cancelTask("computer-agent").catch(() => {});
-        await dashboard?.stop();
+      deferCleanup(t, async () => {
         model.closeAllConnections();
-        await new Promise((done) => model.close(done));
-        for (const key of Object.keys(process.env)) if (!(key in previous)) delete process.env[key];
-        Object.assign(process.env, previous);
-        await rm(root, { recursive: true, force: true });
+        await new Promise((resolve, reject) => model.close((error) => (error ? reject(error) : resolve())));
+      });
+      await mkdir(join(root, "workspace"));
+      await writeFile(join(root, "config.json"), "{}");
+      Object.assign(process.env, {
+        FORMICAND_CONFIG: join(root, "config.json"),
+        FORMICAND_WORKSPACE: join(root, "workspace"),
+        FORMICAND_GLOBAL_INDEX: join(root, "global.json"),
+        FORMICAND_API_BASE: `http://127.0.0.1:${model.address().port}/v1`,
+        FORMICAND_API_KEY: "local-fixture",
+        FORMICAND_MODEL: "computer-fixture",
+        FORMICAND_SUPPORTS_IMAGES: "1",
+        FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
+        FORMICAND_DISABLE_SESSION_TITLES: "1",
+        FORMICAND_REASONING_EFFORT: "off",
+        FORMICAND_SUPPORTS_REASONING_EFFORT: "0",
+        PI_CODING_AGENT_DIR: join(root, "pi"),
+        PI_OFFLINE: "1"
+      });
+      delete process.env.FORMICAND_API_TOKEN;
+      const base = `http://127.0.0.1:${await availableLocalHttpPort()}`;
+      dashboard = createDashboardApplication({
+        projectRoot: resolve("."),
+        port: Number(new URL(base).port),
+        computerClock: () => now,
+        computerDriver: {
+          status: async () => ({
+            available: true,
+            screenRecording: true,
+            accessibility: true,
+            windows: [target]
+          }),
+          observe: async () => ({
+            width: 1,
+            height: 1,
+            image,
+            frame: { x: 0, y: 0, width: 1, height: 1 },
+            accessibilityText: "Isolated fixture input",
+            accessibility: {
+              available: true,
+              truncated: false,
+              elements: [
+                {
+                  elementId: "button",
+                  role: "AXButton",
+                  name: "Save",
+                  enabled: true,
+                  actions: ["press"],
+                  path: [],
+                  identity: "button-identity",
+                  fingerprint: "button-state"
+                },
+                {
+                  elementId: "field",
+                  role: "AXTextField",
+                  name: "Input",
+                  value: "",
+                  enabled: true,
+                  actions: ["set_value"],
+                  path: [0],
+                  identity: "field-identity",
+                  fingerprint: "field-state"
+                }
+              ]
+            }
+          }),
+          act: async (selected, action) => effects.push({ selected, action })
+        }
+      });
+      deferCleanup(t, () => dashboard.stop());
+      deferCleanup(t, () => endAgentProcesses(join(root, "workspace")));
+      dashboard.server.listen(Number(new URL(base).port), "127.0.0.1");
+      await once(dashboard.server, "listening");
+      const post = (path, body) =>
+        fetch(`${base}${path}`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(body)
+        });
+      if (globalPolicy === "run-exit")
+        await dashboard.computerHostRequest({ operation: "policy", enabled: true, mode: "control" });
+      assert.equal(
+        (await post("/api/tasks", { taskId: "computer-agent", goal: "isolated CUA protocol" })).status,
+        201
+      );
+      deferCleanup(t, async () => {
+        const closed = await dashboard.routePorts.cancelTask("computer-agent");
+        if (closed.activeRunId) {
+          const record = join(
+            root,
+            "workspace",
+            "computer-agent",
+            "runs",
+            closed.activeRunId,
+            "agents",
+            "main",
+            "process.json"
+          );
+          assert.ok(JSON.parse(await readFile(record, "utf8")).settledAt, "closing waits for Main to settle");
+        }
+      });
+      if (globalPolicy)
+        await dashboard.computerHostRequest({ operation: "policy", enabled: true, mode: "control" });
+      else
+        grant = await dashboard.computerHostRequest({
+          operation: "authorize",
+          taskId: "computer-agent",
+          ...target,
+          mode: "control"
+        });
+      assert.equal(
+        (await post("/api/tasks/computer-agent/run", { prompt: "Perform the isolated CUA protocol." }))
+          .status,
+        202
+      );
+      let task;
+      for (let index = 0; index < 600; index++) {
+        task = (await (await fetch(`${base}/api/tasks/computer-agent`)).json()).task;
+        // The Run's work ends at its turn boundary, so a successful run leaves
+        // the resident Main alive; the release is checked here as well, since
+        // it happens at that same boundary rather than at process exit.
+        const released =
+          globalPolicy !== "run-exit" ||
+          dashboard.routePorts.computer.current("computer-agent")?.state === "ended";
+        if ((task.status === "completed" || task.status === "failed") && released) break;
+        await delay(100);
       }
+      assert.equal(task.status, "completed");
+      assert.equal(requests.length, steps.length + 1);
+      const visibleTools = requests[0].tools.map((tool) => tool.function.name);
+      for (const name of [
+        "computer_status",
+        "computer_observe",
+        "computer_wait",
+        "computer_act",
+        ...(globalPolicy ? ["computer_discover", "computer_select", "computer_release"] : [])
+      ])
+        assert.ok(
+          visibleTools.includes(name),
+          `${name} must be available to an ordinary Task from the first turn`
+        );
+      assert.deepEqual(
+        effects.map((effect) => effect.action),
+        actions
+      );
+      assert.ok(effects.every((effect) => effect.selected.windowId === target.windowId));
+      for (const index of steps.flatMap((step, index) =>
+        ["computer_observe", "computer_wait", "computer_act"].includes(step) ? [index + 1] : []
+      )) {
+        const content = requests[index].messages.flatMap((message) =>
+          Array.isArray(message.content) ? message.content : []
+        );
+        assert.ok(
+          content.some(
+            (block) => block.type === "image_url" && block.image_url.url === `data:image/png;base64,${image}`
+          ),
+          `native PNG absent from model request ${index}`
+        );
+        const payload = JSON.parse(
+          withoutMainState(requests[index].messages.findLast((message) => message.role === "tool").content)
+        );
+        const observation = payload.observation ?? payload;
+        assert.match(observation.imageRef, /^img_/);
+        const stored = await createImageArchive({
+          taskDirectory: join(root, "workspace", "computer-agent")
+        }).read(observation.imageRef);
+        assert.equal(stored.data.toString("base64"), image);
+        assert.equal(stored.record.source.kind, "computer");
+        assert.equal(stored.record.source.historical, true);
+        assert.equal(stored.record.source.sourceObservationId, observation.observationId);
+      }
+      for (const index of steps.flatMap((step, index) => (step === "computer_act" ? [index + 1] : []))) {
+        const result = JSON.parse(
+          withoutMainState(requests[index].messages.findLast((message) => message.role === "tool").content)
+        );
+        assert.equal(result.dispatched, true);
+        assert.equal(result.dispatchStatus, "sent");
+        assert.equal(result.effectVerified, false);
+        assert.equal(result.requiresObservation, false);
+        assert.equal(typeof result.observation.observationId, "string");
+        assert.equal(result.observation.image, undefined);
+      }
+      if (globalPolicy === "run-exit") {
+        assert.equal(dashboard.routePorts.computer.current("computer-agent").state, "ended");
+        assert.equal(dashboard.routePorts.computer.access().policy.enabled, true);
+      } else if (globalPolicy) {
+        const finalStatus = JSON.parse(
+          withoutMainState(requests.at(-1).messages.findLast((message) => message.role === "tool").content)
+        );
+        assert.equal(finalStatus.authorizationRequired, true);
+        assert.equal(finalStatus.access.policy.enabled, false);
+        assert.match(finalStatus.nextStep, /设置中开启窗口访问/);
+        assert.doesNotMatch(finalStatus.nextStep, /会话菜单|并授权/);
+        assert.equal(finalStatus.session.state, "ended");
+        assert.ok(now > firstExpiresAt);
+      }
+      assert.equal(
+        dashboard.routePorts.computer
+          .current("computer-agent")
+          .activity.filter((event) => event.outcome === "failed").length,
+        0
+      );
     }
   );

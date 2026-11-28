@@ -130,6 +130,7 @@ async function fixture(
     running = false,
     gate = false,
     onRunEvent,
+    onRunFinalized,
     coordinator,
     subagents
   }
@@ -162,6 +163,7 @@ async function fixture(
       waitForSubagents: async () => ({ pending: [], callbackPending: [] })
     },
     ...(subagents ? { subagents } : {}),
+    onRunFinalized,
     locateTask: async () => ({ workspaceRoot, store, task: await store.readTask("task") }),
     resolveMainModel: singleConnectionMainModel(),
     normalizeModel: (value) => (typeof value === "string" ? value : undefined),
@@ -498,6 +500,62 @@ test("cancelling a still-active provisional finish_task clears completion and se
     f.records.some((record) => record.type === "main.run_failed"),
     false
   );
+});
+
+for (const turnActive of [true, false])
+  test(`closing a naturally completed Task reaps Main ${turnActive ? "before" : "after"} its idle heartbeat`, async (t) => {
+    const ledger = [];
+    const f = await fixture(t, {
+      running: true,
+      onRunFinalized: async (_location, runId, status) => ledger.push({ runId, status })
+    });
+    const runId = "natural-run";
+    await f.service.startMainRun("task", "A complete final answer.", runId);
+    const recordPath = join(f.workspaceRoot, "task", "runs", runId, "agents", "main", "process.json");
+    const record = JSON.parse(await readFile(recordPath, "utf8"));
+    await f.store.transitionTask("task", "completed", {
+      runId,
+      completion: { signal: "natural_stop", summary: "The work is complete." }
+    });
+    await writeFile(
+      join(f.workspaceRoot, "task", "agents", "main", "heartbeat.json"),
+      JSON.stringify({
+        pid: record.pid,
+        host: record.host,
+        runId,
+        turnActive,
+        updatedAt: new Date().toISOString()
+      })
+    );
+    assert.equal(await f.service.taskTurnActive("task"), turnActive);
+    assert.equal(processAlive(record.pid), true);
+    const closed = await f.service.cancelTask("task");
+    assert.equal(closed.status, "completed");
+    assert.equal(closed.completion.signal, "natural_stop");
+    assert.equal(processAlive(record.pid), false, "closing waits for this resident to exit");
+    assert.ok(JSON.parse(await readFile(recordPath, "utf8")).settledAt);
+    assert.deepEqual(ledger, [{ runId, status: "completed" }]);
+  });
+
+test("closing a stale resident does not stop or settle a different completed Run", async (t) => {
+  const ledger = [];
+  const f = await fixture(t, {
+    gate: true,
+    onRunFinalized: async (_location, runId, status) => ledger.push({ runId, status })
+  });
+  await f.service.startMainRun("task", "Previous Run.", "old-run");
+  const record = JSON.parse(
+    await readFile(join(f.workspaceRoot, "task", "runs", "old-run", "agents", "main", "process.json"), "utf8")
+  );
+  const latest = await f.store.transitionTask("task", "completed", {
+    runId: "different-run",
+    completion: { signal: "natural_stop", summary: "New work completed." }
+  });
+  assert.deepEqual(await f.service.cancelTask("task"), latest);
+  assert.equal(processAlive(record.pid), true);
+  assert.deepEqual(ledger, []);
+  await f.release();
+  assert.deepEqual(await f.settle(), latest);
 });
 
 test("desktop shutdown leaves the resident Main running and its Task state intact", async (t) => {
