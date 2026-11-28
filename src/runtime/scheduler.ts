@@ -3,7 +3,7 @@ import { dirname } from "node:path";
 import { id, now, type Importance, type InboxMessage } from "../domain/types.js";
 import { withFileLock } from "../storage/file-lock.js";
 import { notifyAgentProcess } from "./agent-wake.js";
-import { processIsAlive, verifyProcessIdentity, type ProcessIdentity } from "./process-identity.js";
+import { matchProcessIdentity, processIsAlive, type ProcessIdentity } from "./process-identity.js";
 
 export type WorkStatus = "queued" | "leased" | "completed" | "failed" | "cancelled";
 
@@ -444,7 +444,8 @@ export class InboxStore {
       const messages = await this.read();
       let changed = false;
       for (const message of messages) {
-        if (message.state !== "leased" || !waitOwner(message) || (await waitOwnerIsAlive(message))) continue;
+        if (message.state !== "leased" || !waitOwner(message) || (await consumerKeepsLease(message)))
+          continue;
         message.state = "ready";
         message.lease = undefined;
         changed = true;
@@ -610,7 +611,7 @@ export class InboxStore {
       // every message kind, not only the wait callbacks. A lease that recorded
       // the holder's OS start time is checked by identity, so a reused pid is
       // never mistaken for the process that took it.
-      if (await consumerOwnerIsAlive(message.lease.consumerId, message.lease.owner)) continue;
+      if (await consumerKeepsLease(message)) continue;
       message.state = "ready";
       message.lease = undefined;
       changed = true;
@@ -632,22 +633,15 @@ function consumerOwnerPid(consumerId: string | undefined): number | undefined {
   return Number.isSafeInteger(pid) && pid > 0 ? pid : undefined;
 }
 
-async function consumerOwnerIsAlive(
-  consumerId: string,
-  owner?: { pid: number; startedAt: string }
-): Promise<boolean> {
-  if (owner?.startedAt) return verifyProcessIdentity(owner);
-  const pid = owner?.pid ?? consumerOwnerPid(consumerId);
+/** Only a confirmed exit or a different process may release an identified consumer's lease. */
+async function consumerKeepsLease(message: InboxMessage): Promise<boolean> {
+  const lease = message.lease;
+  if (lease?.owner?.startedAt) return (await matchProcessIdentity(lease.owner)) !== false;
+  const pid = lease?.owner?.pid ?? consumerOwnerPid(lease?.consumerId);
   return pid !== undefined && processIsAlive(pid);
 }
 
 function waitOwner(message: InboxMessage): number | undefined {
   if (message.kind !== "callback") return;
   return consumerOwnerPid(message.lease?.consumerId);
-}
-
-async function waitOwnerIsAlive(message: InboxMessage): Promise<boolean> {
-  if (message.lease?.owner?.startedAt) return verifyProcessIdentity(message.lease.owner);
-  const pid = waitOwner(message);
-  return pid !== undefined && processIsAlive(pid);
 }

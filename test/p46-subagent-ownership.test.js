@@ -230,6 +230,17 @@ test(
       "the other owner's claim"
     );
 
+    const savedPath = process.env.PATH;
+    try {
+      process.env.PATH = "";
+      const contender = await claimSubagentOwnership(root, "worker");
+      assert.equal(contender.owned, false, "an unavailable OS query must not replace the running Dashboard");
+      assert.equal(contender.owner?.pid, owner.pid);
+    } finally {
+      if (savedPath === undefined) delete process.env.PATH;
+      else process.env.PATH = savedPath;
+    }
+
     const backend = createSubagentBackend({
       projectRoot: harness,
       dashboardUrl: "http://127.0.0.1:1",
