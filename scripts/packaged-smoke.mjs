@@ -83,6 +83,19 @@ export async function runPackagedSmoke() {
         .toBe(200);
       assert.ok(backend.backendId && Number.isInteger(backend.pid));
       assert.equal(backend.displayedVersion, version);
+      if (process.platform === "win32" && attempt === 1) {
+        assert.equal(await page.evaluate(() => window.formicandDesktop.capabilities.tray), true);
+        assert.ok(
+          await native.evaluate(async ({ app }) => !(await app.getFileIcon(process.execPath)).isEmpty())
+        );
+        const window = await native.browserWindow(page);
+        await window.evaluate((win) => {
+          win.show();
+          win.close();
+        });
+        await expect.poll(() => window.evaluate((win) => win.isVisible())).toBe(false);
+        console.log("Windows packaged icon loaded and closing the window kept the tray client alive.");
+      }
       if (attempt === 1) firstBackend = backend;
       else assert.deepEqual(backend, firstBackend);
       console.log(

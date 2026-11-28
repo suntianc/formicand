@@ -67,6 +67,7 @@ jobs:
           $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
           $installer = Get-Item -LiteralPath ".tmp/release/Formicand-$version-win-x64.exe"
           $digest = (Get-FileHash -Algorithm SHA256 -LiteralPath $installer.FullName).Hash
+          Write-Output "$($installer.Name) SHA-256 $digest"
           "$($installer.Name) SHA-256 $digest" >> $env:GITHUB_STEP_SUMMARY
           $destination = Join-Path $env:RUNNER_TEMP "Formicand 安装测试"
           $install = Start-Process -FilePath $installer.FullName -ArgumentList "/S /D=$destination" -Wait -PassThru
