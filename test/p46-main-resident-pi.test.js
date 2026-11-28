@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { once } from "node:events";
 import { mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { hostname } from "node:os";
 import { test } from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
@@ -1197,45 +1197,54 @@ test(
     const run = await f.api("/api/tasks/resident-stale-interrupt/run", { prompt: "STALE_INTERRUPT_INPUT" });
     await waitFor(() => heldStarted, "the in-flight request", 60_000);
     const record = await f.mainRecord("resident-stale-interrupt");
-    // Hold the settlement so the interrupt is written while the exit is still
-    // being projected; then let the projection run.
     const { agentProcessRecordPath } = await import("../dist/src/runtime/agent-process.js");
-    const releaseSettlement = await holdSettlementLock(
-      agentProcessRecordPath(f.dashboard.workspaceRoot, "resident-stale-interrupt", run.runId, "main", "main")
-    );
-    await killFixtureMain(record);
-    const inboxPath = join(
+    const { InboxStore } = await import("../dist/src/runtime/scheduler.js");
+    const { withFileLock } = await import("../dist/src/storage/file-lock.js");
+    const recordPath = agentProcessRecordPath(
       f.dashboard.workspaceRoot,
       "resident-stale-interrupt",
-      "runs",
       run.runId,
-      "agents",
       "main",
-      "inbox-store.json"
+      "main"
     );
-    const messages = JSON.parse(await readFile(inboxPath, "utf8"));
-    messages.push({
-      messageId: "stale-interrupt",
-      recipientAgentId: "main",
-      kind: "human_command",
-      eventId: "stale-interrupt-event",
-      priority: 200,
-      state: "ready",
-      payload: { type: "main.interrupt" },
-      createdAt: new Date().toISOString()
+    const inbox = new InboxStore(join(dirname(recordPath), "inbox-store.json"));
+    // Queue the command after the old process is dead and before its exit can be projected.
+    await withFileLock(`${recordPath}.settle`, async () => {
+      await killFixtureMain(record);
+      await waitFor(() => !alive(record.pid), "the interrupted Main to exit");
+      const pending = await inbox.enqueue({
+        messageId: "stale-interrupt",
+        recipientAgentId: "main",
+        kind: "human_command",
+        eventId: "stale-interrupt-event",
+        priority: 200,
+        state: "ready",
+        payload: { type: "main.interrupt" },
+        createdAt: new Date().toISOString()
+      });
+      assert.equal(pending.state, "ready");
     });
-    await writeFile(inboxPath, JSON.stringify(messages, null, 2));
-    await releaseSettlement();
 
     await waitFor(
-      async () => (await f.detail("resident-stale-interrupt")).task.status === "failed",
-      "the death to settle",
+      async () => (await f.mainRecord("resident-stale-interrupt"))?.settledAt,
+      "the dead Main's exit projection to finish",
       60_000
     );
-    const settled = JSON.parse(await readFile(inboxPath, "utf8")).find(
-      (message) => message.messageId === "stale-interrupt"
-    );
+    assert.equal((await f.detail("resident-stale-interrupt")).task.status, "failed");
+    const settled = (await inbox.list("main")).find((message) => message.messageId === "stale-interrupt");
     assert.equal(settled.state, "consumed", "the dead turn's interrupt is discarded");
+    const next = await f.api("/api/tasks/resident-stale-interrupt/run", {
+      runId: run.runId,
+      prompt: "AFTER_STALE_INTERRUPT"
+    });
+    assert.equal(next.runId, run.runId, "the replacement uses the same Inbox");
+    await waitFor(
+      () => f.requests.some((body) => JSON.stringify(body.messages).includes("AFTER_STALE_INTERRUPT")),
+      "the replacement's model request",
+      60_000
+    );
+    assert.equal((await f.settleTurn("resident-stale-interrupt")).task.status, "completed");
+    assert.notEqual((await f.mainRecord("resident-stale-interrupt")).pid, record.pid);
   }
 );
 
