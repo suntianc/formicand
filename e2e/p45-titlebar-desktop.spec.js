@@ -102,6 +102,31 @@ test("Windows shows spaced Ctrl shortcuts and a flat add-node header", async () 
   }
 });
 
+test("settings group headings share the panel background in light and dark themes", async () => {
+  const { native, page, root } = await bootDesktop();
+  try {
+    await page.locator("#user-menu-button").click();
+    for (const theme of ["light", "dark"]) {
+      await page.locator('[data-settings-section="general"]').click();
+      await page.locator(`[data-appearance-value="${theme}"]`).click();
+      await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
+      for (const section of ["general", "members", "tools", "nodes"]) {
+        await page.locator(`[data-settings-section="${section}"]`).click();
+        const headings = page.locator(`[data-settings-panel="${section}"] .settings-group-head:visible`);
+        await expect(headings.first()).toBeVisible();
+        for (const heading of await headings.all()) {
+          await expect(heading).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+          await expect(heading).toHaveCSS("box-shadow", "none");
+        }
+      }
+    }
+  } finally {
+    await quitDesktop(native);
+    await stopNativeBackend(root);
+    await rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  }
+});
+
 test("Windows integrates native caption buttons, theme and the material setting", async () => {
   test.skip(process.platform !== "win32", "Requires the Windows window manager");
   test.setTimeout(120_000);
