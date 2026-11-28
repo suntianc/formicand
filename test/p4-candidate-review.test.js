@@ -32,7 +32,18 @@ const messageText = (message) =>
     ? message.content
     : (message.content ?? []).map((part) => part.text ?? "").join("");
 const lastToolText = (body) => messageText(body.messages.findLast((message) => message.role === "tool"));
-const toolJson = (body) => JSON.parse(withoutMainState(lastToolText(body)));
+const toolJson = (body) => {
+  const result = body.messages.findLast((message) => message.role === "tool");
+  const value = withoutMainState(messageText(result));
+  try {
+    return JSON.parse(value);
+  } catch (cause) {
+    const call = body.messages
+      .findLast((message) => message.tool_calls?.some((item) => item.id === result.tool_call_id))
+      ?.tool_calls.find((item) => item.id === result.tool_call_id);
+    throw new Error(`${call?.function.name ?? "Unknown tool"} returned invalid JSON: ${value}`, { cause });
+  }
+};
 const userText = (body) =>
   body.messages
     .filter((message) => message.role === "user")
@@ -181,9 +192,24 @@ test(
       const match = userText(body).match(/工作项 ([A-D])/);
       return match ? match[1].toLowerCase() : "unknown";
     };
+    let awaitedCall;
+    const waitForCall = (callId) => {
+      awaitedCall = callId;
+      return { name: "wait_for_subagents", arguments: { callIds: [callId], timeoutMs: 60_000 } };
+    };
     const provider = await modelProtocolFixture("openai-completions", async (body) => {
       try {
         const role = identity(body);
+        if (role === "main" && awaitedCall) {
+          const waited = toolJson(body);
+          const item = waited.calls.find((entry) => entry.callId === awaitedCall);
+          assert.ok(item, `wait returned no status for ${awaitedCall}`);
+          assert.ok(["queued", "leased", "completed"].includes(item.status), JSON.stringify(item));
+          // A callback or timeout can return before this particular Reviewer or Executor finishes.
+          if (waited.pending.includes(awaitedCall)) return waitForCall(awaitedCall);
+          assert.equal(item.status, "completed");
+          awaitedCall = undefined;
+        }
         const step = requests[role]++;
         if (role === "main") {
           if (step === 0) {
@@ -219,14 +245,9 @@ test(
             assert.equal(calls.a.accepted, true);
             assert.equal(calls.a.role, "executor");
             assert.notEqual(calls.a.workspace, integration);
-            return {
-              name: "wait_for_subagents",
-              arguments: { callIds: [calls.a.callId], timeoutMs: 60_000 }
-            };
+            return waitForCall(calls.a.callId);
           }
           if (step === 3) {
-            const waited = toolJson(body);
-            assert.equal(waited.calls.find((entry) => entry.callId === calls.a.callId).status, "completed");
             return {
               name: "bash",
               arguments: {
@@ -303,14 +324,9 @@ test(
             assert.equal(calls.b.role, "reviewer");
             assert.notEqual(calls.b.agentId, calls.a.agentId, "the reviewer has its own identity");
             assert.notEqual(calls.b.workspace, calls.a.workspace, "the reviewer has its own checkout");
-            return {
-              name: "wait_for_subagents",
-              arguments: { callIds: [calls.b.callId], timeoutMs: 60_000 }
-            };
+            return waitForCall(calls.b.callId);
           }
           if (step === 9) {
-            const waited = toolJson(body);
-            assert.equal(waited.calls.find((entry) => entry.callId === calls.b.callId).status, "completed");
             return {
               name: "project_development",
               arguments: { action: "attach_reviewer", reviewId: reviewId1, callId: calls.b.callId }
@@ -387,14 +403,9 @@ test(
             assert.equal(calls.a2.workspace, calls.a.workspace, "the rework keeps the original checkout");
             assert.notEqual(calls.a2.callId, calls.a.callId);
             assert.equal(calls.a2.continuedFrom, calls.a.callId);
-            return {
-              name: "wait_for_subagents",
-              arguments: { callIds: [calls.a2.callId], timeoutMs: 60_000 }
-            };
+            return waitForCall(calls.a2.callId);
           }
           if (step === 16) {
-            const waited = toolJson(body);
-            assert.equal(waited.calls.find((entry) => entry.callId === calls.a2.callId).status, "completed");
             return {
               name: "project_development",
               arguments: {
@@ -459,14 +470,9 @@ test(
           if (step === 20) {
             calls.c = toolJson(body);
             assert.notEqual(calls.c.agentId, calls.a.agentId);
-            return {
-              name: "wait_for_subagents",
-              arguments: { callIds: [calls.c.callId], timeoutMs: 60_000 }
-            };
+            return waitForCall(calls.c.callId);
           }
           if (step === 21) {
-            const waited = toolJson(body);
-            assert.equal(waited.calls.find((entry) => entry.callId === calls.c.callId).status, "completed");
             return {
               name: "project_development",
               arguments: { action: "attach_reviewer", reviewId: reviewId2, callId: calls.c.callId }
@@ -590,14 +596,9 @@ test(
           }
           if (step === 31) {
             calls.d = toolJson(body);
-            return {
-              name: "wait_for_subagents",
-              arguments: { callIds: [calls.d.callId], timeoutMs: 60_000 }
-            };
+            return waitForCall(calls.d.callId);
           }
           if (step === 32) {
-            const waited = toolJson(body);
-            assert.equal(waited.calls.find((entry) => entry.callId === calls.d.callId).status, "completed");
             return {
               name: "bash",
               arguments: {
