@@ -87,7 +87,7 @@ async function present(directory: string, path: string): Promise<boolean> {
 /** Files a merged development changed, from its baseline to the candidate that merged. */
 async function changedFiles(directory: string, from: string, to: string): Promise<string[]> {
   const range = `${from}..${to}`;
-  const output = await git(directory, ["diff", "--name-only", "--no-renames", range]).catch(
+  const output = await git(directory, ["diff", "--name-only", "--no-renames", range, "--"]).catch(
     // eslint-disable-next-line no-restricted-syntax -- 本机检出可能没有这次开发的提交（另一台机器合入、仓库被重建），读不到就不计这次，代码位置只是提示
     () => ""
   );

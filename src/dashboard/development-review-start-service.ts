@@ -189,7 +189,8 @@ export function createDevelopmentReviewStartService({
               await gitPaths(record.workspace!.directory, [
                 "diff",
                 "--name-only",
-                `${previous.candidate.commit}..${candidate.commit}`
+                `${previous.candidate.commit}..${candidate.commit}`,
+                "--"
               ])
             ).slice(0, 200)
           }
@@ -246,7 +247,8 @@ export function createDevelopmentReviewStartService({
           "diff",
           "--name-only",
           "--no-renames",
-          `${previous.candidate.commit}..${current.commit}`
+          `${previous.candidate.commit}..${current.commit}`,
+          "--"
         ])
       : changed;
     const review = await service.createReview(projectId, developmentId, {
@@ -341,7 +343,8 @@ export function createDevelopmentReviewStartService({
       "diff",
       "--name-only",
       "--no-renames",
-      `${target ?? record.baseline.commit}...${commit}`
+      `${target ?? record.baseline.commit}...${commit}`,
+      "--"
     ]);
     return independentReviewReason(rules, changed);
   }
@@ -383,7 +386,8 @@ export function createDevelopmentReviewStartService({
         await gitPaths(record.workspace!.directory, [
           "diff",
           "--name-only",
-          `${previous.candidate.commit}..${candidate.commit}`
+          `${previous.candidate.commit}..${candidate.commit}`,
+          "--"
         ])
       ).slice(0, 200);
       const pending = previous.findings.filter((finding) => finding.state === "fix_claimed");
