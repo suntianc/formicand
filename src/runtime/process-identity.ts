@@ -120,6 +120,14 @@ export async function matchProcessIdentity(identity: ProcessIdentity): Promise<b
   return processIsAlive(identity.pid) ? undefined : false;
 }
 
+/** A decision to replace or settle a process requires a conclusive identity check. */
+export async function requireProcessIdentityCheck(identity: ProcessIdentity): Promise<boolean> {
+  const matches = await matchProcessIdentity(identity);
+  if (matches === undefined)
+    throw new Error(`Unable to verify the start time of agent process ${identity.pid}`);
+  return matches;
+}
+
 /** Only a verified match authorizes a signal or an adoption. */
 export async function verifyProcessIdentity(identity: ProcessIdentity): Promise<boolean> {
   return (await matchProcessIdentity(identity)) === true;

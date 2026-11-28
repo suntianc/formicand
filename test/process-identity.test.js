@@ -3,6 +3,7 @@ import { channel } from "node:diagnostics_channel";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
 import { test } from "node:test";
+import { createMainRunAdmission } from "../dist/src/dashboard/main-run-admission.js";
 import {
   identifySpawnedProcess,
   matchProcessIdentity,
@@ -91,6 +92,14 @@ test("an unavailable OS query cannot confirm the exit of a live process", async 
     process.env.PATH = "";
     assert.equal(await matchProcessIdentity(identity), undefined);
     assert.equal(await verifyProcessIdentity(identity), false);
+    const admission = createMainRunAdmission({
+      residentFor: async () => ({ observed: false, record: identity }),
+      stopResidentMain: () => assert.fail("A pending identity check must not stop the resident Main")
+    });
+    await assert.rejects(
+      admission.reuseResidentMain({ task: { taskId: "live" } }, { prompt: "continue" }, {}),
+      /Unable to verify the start time/
+    );
   } finally {
     if (path === undefined) delete process.env.PATH;
     else process.env.PATH = path;

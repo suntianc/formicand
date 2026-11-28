@@ -16,6 +16,7 @@ import {
   matchProcessIdentity,
   processGroupIsAlive,
   processIsAlive,
+  requireProcessIdentityCheck,
   verifyProcessIdentity
 } from "./process-identity.js";
 import type { ReviewConclusion } from "./subagent-review.js";
@@ -372,9 +373,7 @@ export class AgentProcessHost {
         adopted.push(record);
         continue;
       }
-      const live = record.host === hostname() && (await matchProcessIdentity(record));
-      if (live === undefined)
-        throw new Error(`Unable to verify the start time of agent process ${record.pid}`);
+      const live = record.host === hostname() && (await requireProcessIdentityCheck(record));
       if (!live) {
         await this.settle(record);
         continue;
@@ -412,9 +411,7 @@ export class AgentProcessHost {
       await this.settle(record);
       return;
     }
-    const matches = record.host === hostname() && (await matchProcessIdentity(record));
-    if (matches === undefined)
-      throw new Error(`Unable to verify the start time of agent process ${record.pid}`);
+    const matches = record.host === hostname() && (await requireProcessIdentityCheck(record));
     if (!matches) {
       await this.settle(record);
       return;
