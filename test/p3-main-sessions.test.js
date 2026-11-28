@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
+import { deferCleanup } from "./fixtures/cleanup.mjs";
 import { once } from "node:events";
 import { createServer } from "node:http";
-import { chmod, mkdir, readFile, readdir, realpath, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { mkdir, readFile, readdir, realpath, rename, unlink, writeFile } from "node:fs/promises";
+import { basename, join } from "node:path";
 import { after, before, test } from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
 import { SessionManager } from "@earendil-works/pi-coding-agent";
@@ -186,12 +187,22 @@ test(
     );
 
     // A Task that cannot be written takes its session back: the retry leaves one new session.
-    await chmod(dashboard.workspaceRoot, 0o555);
-    const unwritable = await request(`/api/projects/${encodeURIComponent(a.projectId)}/main-sessions`, {
-      action: "create",
-      title: "写不进去"
-    }).finally(() => chmod(dashboard.workspaceRoot, 0o755));
-    assert.ok(unwritable.status >= 400, JSON.stringify(unwritable.body));
+    const savedWorkspace = join(dashboard.root, "saved-workspace");
+    await rename(dashboard.workspaceRoot, savedWorkspace);
+    try {
+      await writeFile(dashboard.workspaceRoot, "blocks task directory creation", { flag: "wx" });
+      try {
+        const unwritable = await request(`/api/projects/${encodeURIComponent(a.projectId)}/main-sessions`, {
+          action: "create",
+          title: "写不进去"
+        });
+        assert.ok(unwritable.status >= 400, JSON.stringify(unwritable.body));
+      } finally {
+        await unlink(dashboard.workspaceRoot);
+      }
+    } finally {
+      await rename(savedWorkspace, dashboard.workspaceRoot);
+    }
     assert.deepEqual(
       (await sessions(request, a.projectId)).map((session) => session.sessionId).sort(),
       [sessionOne.sessionId, sessionTwo.sessionId].sort()
@@ -417,7 +428,7 @@ test(
     assert.match(userText(local.requests[0]), /继续升级前的会话/);
     // It also continued the same transcript rather than forking a new directory.
     const files = (await transcriptFiles(directory)).filter((name) => name.endsWith(".jsonl"));
-    assert.deepEqual(files, [originalPath.split("/").at(-1)]);
+    assert.deepEqual(files, [basename(originalPath)]);
     const resumed = SessionManager.open(originalPath, directory);
     assert.equal(resumed.getHeader().id, originalHeader.id);
     assert.equal(resumed.getHeader().cwd, originalHeader.cwd);
@@ -477,7 +488,7 @@ for (const engine of PROJECT_DATA_ENGINES) {
     assert.equal(info.status, 200);
     assert.equal(info.body.schemaVersion, 16);
     const opened = await openService(f, engine, info.body);
-    t.after(() => opened.close());
+    deferCleanup(t, () => opened.close());
 
     // The HTTP project catalog is local; the shared row is written when a
     // backend first uses the project's shared data.

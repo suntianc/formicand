@@ -108,7 +108,7 @@ test(
     });
     const outcome = await Promise.race([
       once(child, "close").then(([code]) => code),
-      delay(45_000).then(() => "timeout")
+      delay(45_000, undefined, { ref: false }).then(() => "timeout")
     ]);
     assert.notEqual(outcome, "timeout", `the delegated process did not exit: ${output}`);
     assert.equal(outcome, 0, output);

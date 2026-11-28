@@ -1,3 +1,4 @@
+import { deferCleanup } from "./fixtures/cleanup.mjs";
 import assert from "node:assert/strict";
 import { mkdtemp, rm } from "node:fs/promises";
 import { join } from "node:path";
@@ -8,14 +9,14 @@ import { ProjectDataRuntime } from "../dist/src/workspace/project-data-service.j
 /** A ledger longer than one read is read page by page, each requirement once. */
 test("the requirement query pages through a long ledger by id, unmoved by updates", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "formicand-ledger-pages-"));
-  t.after(() => rm(root, { recursive: true, force: true }));
+  deferCleanup(t, () => rm(root, { recursive: true, force: true }));
   const runtime = new ProjectDataRuntime({
     config: { sqlite: { path: join(root, "project-data.sqlite") } },
     env: {},
     configPath: join(root, "config.json"),
     dataRoot: root
   });
-  t.after(() => runtime.close());
+  deferCleanup(t, () => runtime.close());
   const service = await runtime.service();
   const { projectId } = await service.ensureProject({
     projectId: "project_pages",

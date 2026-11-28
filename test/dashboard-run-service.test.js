@@ -1,3 +1,4 @@
+import { endAgentProcesses } from "./dashboard-fixture.mjs";
 import assert from "node:assert/strict";
 import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -119,25 +120,6 @@ function processAlive(pid) {
   }
 }
 
-/** End every fake resident Main this test left behind, by its recorded group. */
-async function endResidentMains(workspaceRoot) {
-  const runs = await readdir(join(workspaceRoot, "task", "runs")).catch(() => []);
-  for (const runId of runs) {
-    const record = await readFile(
-      join(workspaceRoot, "task", "runs", runId, "agents", "main", "process.json"),
-      "utf8"
-    )
-      .then((value) => JSON.parse(value))
-      .catch(() => undefined);
-    if (!record?.pid) continue;
-    try {
-      process.kill(-record.pid, "SIGKILL");
-    } catch {
-      /* the fake process already exited */
-    }
-  }
-}
-
 async function fixture(
   t,
   {
@@ -193,7 +175,7 @@ async function fixture(
     await service.stop();
     // A resident Main outlives the backend, so the fixture is what ends the
     // fake process it started.
-    await endResidentMains(workspaceRoot);
+    await endAgentProcesses(workspaceRoot);
     await rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 });
   });
   async function settle() {

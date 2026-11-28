@@ -1,3 +1,4 @@
+import { npmCommand } from "../scripts/npm-command.mjs";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
@@ -58,20 +59,17 @@ function installOldPi() {
       join(root, "package.json"),
       JSON.stringify({ name: "p46-session-compat-old-pi", private: true })
     );
-    const installed = await runProcess(
-      process.platform === "win32" ? "npm.cmd" : "npm",
-      [
-        "install",
-        "--offline",
-        "--before=2026-11-20T00:00:00.000Z",
-        "--no-audit",
-        "--no-fund",
-        "--no-package-lock",
-        "--no-save",
-        `@earendil-works/pi-coding-agent@${OLD_PI_VERSION}`
-      ],
-      { cwd: root }
-    );
+    const install = npmCommand([
+      "install",
+      "--offline",
+      "--before=2026-11-20T00:00:00.000Z",
+      "--no-audit",
+      "--no-fund",
+      "--no-package-lock",
+      "--no-save",
+      `@earendil-works/pi-coding-agent@${OLD_PI_VERSION}`
+    ]);
+    const installed = await runProcess(install.command, install.args, { cwd: root });
     if (installed.code !== 0)
       return {
         ok: false,

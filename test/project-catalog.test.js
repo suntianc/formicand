@@ -4,7 +4,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import fs from "node:fs/promises";
 import { syncBuiltinESMExports } from "node:module";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { GlobalProjectCatalog } from "../dist/src/workspace/project-catalog.js";
 import { LocalWorkspaceStore } from "../dist/src/workspace/workspace-store.js";
 import { createWorkspaceDirectory } from "../dist/src/dashboard/workspace-directory.js";
@@ -290,7 +290,7 @@ test("a failed creation event leaves no project Task for the session list to ado
   });
   const append = fs.appendFile;
   const fault = t.mock.method(fs, "appendFile", async (path, ...args) => {
-    if (String(path).endsWith("/task_events.jsonl"))
+    if (basename(path) === "task_events.jsonl")
       throw Object.assign(new Error("task event write failed"), { code: "EIO" });
     return append(path, ...args);
   });

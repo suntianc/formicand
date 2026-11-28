@@ -1,9 +1,10 @@
+import { assertPrivateFile } from "./fixtures/private-file.mjs";
 import { readFixtureRequestBody } from "./http-request-body-fixture.mjs";
 import { parseModelRequestArchive } from "../dist/src/storage/model-request-recorder.js";
 import assert from "node:assert/strict";
 import { getCurrentTools } from "@earendil-works/pi-ai";
 import { once } from "node:events";
-import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { join } from "node:path";
 import { test } from "node:test";
@@ -53,7 +54,12 @@ async function fixture(t, api, handle) {
     });
     return { status: response.status, payload: await response.json() };
   };
-  const detail = async () => (await fetch(`${dashboard.base}/api/tasks/retry-task`)).json();
+  const detail = async () => {
+    const response = await fetch(`${dashboard.base}/api/tasks/retry-task`);
+    const value = await response.json();
+    assert.equal(response.status, 200, JSON.stringify(value));
+    return value;
+  };
   const settle = async (status) => {
     for (let attempt = 0; attempt < 600; attempt++) {
       const value = await detail();
@@ -146,10 +152,7 @@ for (const api of ["openai-completions", "openai-responses"]) {
       let failed = await f.settle("failed");
       assert.equal(failed.messages.filter((message) => message.role === "user").length, 1);
       assert.ok(failed.retryRequest.requestId);
-      assert.equal(
-        (await stat(mainRequestPath(f.dashboard.workspaceRoot, "retry-task"))).mode & 0o777,
-        0o600
-      );
+      await assertPrivateFile(mainRequestPath(f.dashboard.workspaceRoot, "retry-task"));
       assertPublicRetryDetail(failed, f.received[0]);
       // Regeneration would change both the protocol and output limit. A selected
       // model and an edited resource must not affect the archived failed request.

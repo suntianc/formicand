@@ -61,7 +61,10 @@ async function fixture(t, api, handle, env = {}) {
     return { status: response.status, payload: await response.json() };
   }
   async function detail() {
-    return (await fetch(`${dashboard.base}/api/tasks/edit-task`)).json();
+    const response = await fetch(`${dashboard.base}/api/tasks/edit-task`);
+    const value = await response.json();
+    assert.equal(response.status, 200, JSON.stringify(value));
+    return value;
   }
   async function settle(expected) {
     for (let attempt = 0; attempt < 500; attempt++) {

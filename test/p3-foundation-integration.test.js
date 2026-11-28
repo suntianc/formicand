@@ -545,9 +545,8 @@ for (const engine of PROJECT_DATA_ENGINES) {
       assert.equal(sessionOne.activeRunId, null);
       assert.deepEqual(hostModel.failures, []);
       assert.deepEqual(secondaryModel.failures, []);
-      t.diagnostic(
-        `${engine}: authority ${authority.root}, secondary ${secondary.root}, postgres ${postgres.serverVersion}`
-      );
+      t.diagnostic(`${engine}: authority ${authority.root}, secondary ${secondary.root}`);
+      if (engine === "postgres") t.diagnostic(`PostgreSQL ${postgres.serverVersion}`);
     }
   );
 
@@ -816,8 +815,9 @@ for (const engine of PROJECT_DATA_ENGINES) {
       assert.deepEqual(hostModel.failures, []);
       assert.deepEqual(projectModel.failures, []);
       t.diagnostic(
-        `${engine}: restart kept board revision 2, ledger revision 2 and ${sessionsAfter.length} sessions; postgres ${postgres.serverVersion}`
+        `${engine}: restart kept board revision 2, ledger revision 2 and ${sessionsAfter.length} sessions`
       );
+      if (engine === "postgres") t.diagnostic(`PostgreSQL ${postgres.serverVersion}`);
     }
   );
 }

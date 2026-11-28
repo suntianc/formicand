@@ -184,6 +184,7 @@ export function createMcpService(options: McpServiceOptions) {
       return await new Promise((done, fail) => {
         const child = spawn(process.execPath, [piEntry, "mcp", ...args], {
           cwd: folder,
+          windowsHide: true,
           env: { ...process.env, PI_CODING_AGENT_DIR: options.piAgentDir },
           stdio: ["ignore", "pipe", "pipe"]
         });

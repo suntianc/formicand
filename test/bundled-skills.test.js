@@ -75,7 +75,7 @@ test("bundled skills load on demand and every local resource survives installed 
   for (const name of names) {
     const loaded = await loader.execute({ name });
     assert.equal(loaded.name, name);
-    assert.equal(relative(root, loaded.directory), `.pi/skills/${name}`);
+    assert.equal(relative(root, loaded.directory), join(".pi", "skills", name));
     assert.ok(catalog.includes(name));
     assert.ok(!catalog.includes(loaded.content.split("\n\n").at(-1)), "skill body is loaded only on demand");
   }

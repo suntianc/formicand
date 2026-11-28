@@ -1,3 +1,4 @@
+import { assertPrivateFile } from "./fixtures/private-file.mjs";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
@@ -29,7 +30,7 @@ import { CombinedAutocompleteProvider } from "@earendil-works/pi-tui";
 const exec = promisify(execFile);
 const entry = resolve(process.env.FORMICAND_TEST_CLI_ENTRY || "scripts/formicand.mjs");
 const requirePi = createRequire(import.meta.resolve("@earendil-works/pi-coding-agent"));
-const { createJiti } = await import(requirePi.resolve("jiti"));
+const { createJiti } = requirePi("jiti");
 const jiti = createJiti(import.meta.url, { interopDefault: true, fsCache: false });
 const { registerCliCommands } = await jiti.import(resolve(".pi/runtime/cli-commands.ts"));
 
@@ -247,7 +248,7 @@ test("offline Formicand exports resolve nested session IDs, preserve branches, m
   assert.ok(html.includes("&lt;script&gt;"));
   assert.ok(!html.includes("pi.dev"));
   assert.ok(!html.includes(f.apiKey));
-  assert.equal((await stat(result.outputPath)).mode & 0o777, 0o600);
+  await assertPrivateFile(result.outputPath);
 });
 
 test("offline exports bind symlinked workspaces and never overwrite their source", async (t) => {

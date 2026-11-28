@@ -1,3 +1,5 @@
+import { fileURLToPath } from "node:url";
+import { deferCleanup } from "./fixtures/cleanup.mjs";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { EventEmitter } from "node:events";
@@ -25,7 +27,7 @@ import { LocalWorkspaceStore } from "../dist/src/workspace/workspace-store.js";
  * transport seam with records the real backend produced.
  */
 
-const repositoryRoot = resolve(new URL("..", import.meta.url).pathname);
+const repositoryRoot = fileURLToPath(new URL("..", import.meta.url));
 const backendEntry = join(repositoryRoot, "dist/src/cli/backend.js");
 
 const alive = (pid) => {
@@ -323,9 +325,10 @@ function controllableTransport({ snapshot, serve }) {
 
 test("the ledger keeps sequence, revisions and retention across a restart", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "formicand-ledger-"));
-  t.after(() => rm(root, { recursive: true, force: true }));
+  deferCleanup(t, () => rm(root, { recursive: true, force: true }));
   const directory = join(root, "events");
   const ledger = await EventLedger.open(directory, "backend_test", { maxRecords: 4 });
+  deferCleanup(t, () => ledger.close());
   const task = (version, title) => ({
     taskId: "task-a",
     title,
@@ -374,7 +377,9 @@ test("the ledger keeps sequence, revisions and retention across a restart", asyn
 
   // Reopening keeps the sequence and object revisions: a client cached before
   // the restart is still valid and the next event continues instead of restarting.
+  await ledger.close();
   const reopened = await EventLedger.open(directory, "backend_test", { maxRecords: 4 });
+  deferCleanup(t, () => reopened.close());
   assert.equal(reopened.cursor(), 3);
   const fourth = await reopened.publish({
     scope: "task",
@@ -419,7 +424,9 @@ test("the ledger keeps sequence, revisions and retention across a restart", asyn
     reopened.replay(reopened.earliest() - 1).every((record) => record.seq >= reopened.earliest()),
     true
   );
+  await reopened.close();
   const afterCompaction = await EventLedger.open(directory, "backend_test", { maxRecords: 4 });
+  deferCleanup(t, () => afterCompaction.close());
   const next = await afterCompaction.publish({
     scope: "task",
     objectId: "task-a",
@@ -431,6 +438,7 @@ test("the ledger keeps sequence, revisions and retention across a restart", asyn
   // A deletion is published only for an object this process already saw in a
   // complete catalog: an unreadable root must not erase subscriptions.
   const fresh = await EventLedger.open(join(root, "events-2"), "backend_test", { maxRecords: 8 });
+  deferCleanup(t, () => fresh.close());
   await fresh.reconcile({ projects: [], tasks: [task(1, "一")] });
   const before = fresh.cursor();
   const deleted = await fresh.reconcile({ projects: [], tasks: [] });
@@ -448,10 +456,6 @@ test("the ledger keeps sequence, revisions and retention across a restart", asyn
   );
   const recreated = await fresh.reconcile({ projects: [], tasks: [task(2, "二")] });
   assert.ok(recreated.cursor > stale.cursor, "an object that came back with a newer revision is published");
-  await fresh.close();
-  await afterCompaction.close();
-  await reopened.close();
-  await ledger.close();
 });
 
 // ---------------------------------------------------------------------------

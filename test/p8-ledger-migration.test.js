@@ -1,3 +1,4 @@
+import { deferCleanup } from "./fixtures/cleanup.mjs";
 import assert from "node:assert/strict";
 import { readFile, mkdtemp, rm } from "node:fs/promises";
 import { join } from "node:path";
@@ -167,7 +168,7 @@ async function seedVersion8(database) {
 async function version8Database(t, engine) {
   if (engine === "sqlite") {
     const directory = await mkdtemp(join(tmpdir(), "formicand-ledger-v8-"));
-    t.after(() => rm(directory, { recursive: true, force: true }));
+    deferCleanup(t, () => rm(directory, { recursive: true, force: true }));
     const path = join(directory, "project-data.sqlite");
     const database = await SqliteDatabase.open(path);
     await seedVersion8(database);
@@ -178,15 +179,15 @@ async function version8Database(t, engine) {
   const admin = new pg.Client({ connectionString: postgres.connectionString });
   await admin.connect();
   await admin.query(`CREATE DATABASE ${name}`);
-  t.after(() => admin.end().catch(() => undefined));
-  t.after(() => admin.query(`DROP DATABASE IF EXISTS ${name} WITH (FORCE)`).catch(() => undefined));
+  deferCleanup(t, () => admin.end().catch(() => undefined));
+  deferCleanup(t, () => admin.query(`DROP DATABASE IF EXISTS ${name} WITH (FORCE)`).catch(() => undefined));
   const url = new URL(postgres.connectionString);
   url.pathname = `/${name}`;
   const database = new PostgresDatabase({ connectionString: url.toString() });
   await seedVersion8(database);
   await database.close();
   const directory = await mkdtemp(join(tmpdir(), "formicand-ledger-v8-"));
-  t.after(() => rm(directory, { recursive: true, force: true }));
+  deferCleanup(t, () => rm(directory, { recursive: true, force: true }));
   return { config: { engine, postgres: { connectionString: url.toString() } }, dataRoot: directory };
 }
 
@@ -247,7 +248,7 @@ for (const engine of PROJECT_DATA_ENGINES) {
       configPath: join(legacy.dataRoot, "config.json"),
       dataRoot: legacy.dataRoot
     });
-    t.after(() => reopened.close());
+    deferCleanup(t, () => reopened.close());
     const again = await reopened.service();
     assert.equal((await again.queryRequirements(project)).length, 3);
   });

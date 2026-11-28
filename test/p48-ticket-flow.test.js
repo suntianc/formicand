@@ -1,3 +1,4 @@
+import { deferCleanup } from "./fixtures/cleanup.mjs";
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
@@ -33,6 +34,7 @@ const git = (cwd, args) =>
 async function repository(directory) {
   await mkdir(join(directory, "src"), { recursive: true });
   await git(directory, ["init", "-b", "main"]);
+  await git(directory, ["config", "core.autocrlf", "false"]);
   await git(directory, ["config", "user.email", "fixture@example.test"]);
   await git(directory, ["config", "user.name", "Fixture"]);
   // The document registry every requirement merge checks.
@@ -46,11 +48,12 @@ async function repository(directory) {
   return directory;
 }
 
+const quotedFilename = process.platform === "win32" ? "说 明.txt" : '说"明.txt';
 const ticket = (ticketId, file, extra = {}) => ({
   ticketId,
   title: `写 ${file}`,
   scope: [file],
-  criteria: [{ text: `${file} 存在`, command: file.includes('"') ? `test -f '${file}'` : `test -f ${file}` }],
+  criteria: [{ text: `${file} 存在`, command: /[ "]/.test(file) ? `test -f '${file}'` : `test -f ${file}` }],
   ...extra
 });
 
@@ -68,7 +71,7 @@ test(
   { timeout: 120_000 },
   async (t) => {
     const root = await mkdtemp(join(tmpdir(), "formicand-p48-ticket-flow-"));
-    t.after(() => rm(root, { recursive: true, force: true }));
+    deferCleanup(t, () => rm(root, { recursive: true, force: true }));
     const repo = await repository(join(root, "repository"));
     const runtime = new ProjectDataRuntime({
       config: { sqlite: { path: join(root, "project-data.sqlite") } },
@@ -76,7 +79,7 @@ test(
       dataRoot: root,
       env: {}
     });
-    t.after(() => runtime.close());
+    deferCleanup(t, () => runtime.close());
     const gateway = await runtime.service();
     const projectId = "project_flow";
     await gateway.ensureProject({
@@ -117,7 +120,7 @@ test(
         ticket("01", "src/a.txt"),
         ticket("02", "src/b.txt", { dependsOn: ["01"] }),
         // A Chinese path: git quotes it unless told not to.
-        ticket("03", 'src/说"明.txt')
+        ticket("03", `src/${quotedFilename}`)
       ]
     });
     set = await service.writeTickets(projectId, developmentId, {
@@ -292,7 +295,7 @@ test(
     // Two tickets in review at once: a Reviewer must say which one it examines.
     await service.ticketForDispatch("task-flow", developmentId, "02");
     await executor("call-e2", "02", { "src/b.txt": "b\n" });
-    await executor("call-e3", "03", { 'src/说"明.txt': "c\n" });
+    await executor("call-e3", "03", { [`src/${quotedFilename}`]: "c\n" });
     const second = await service.startReview(projectId, "task-flow", { developmentId, ticketId: "02" });
     const third = await service.startReview(projectId, "task-flow", { developmentId, ticketId: "03" });
     await assert.rejects(service.frozenCandidateForTask("task-flow", developmentId), /用 reviewId 指明/);
@@ -346,7 +349,7 @@ test(
     ]);
     assert.equal(slowFailure.integrated, false);
     assert.equal(other.integrated, true, JSON.stringify(other));
-    assert.equal(await readFile(join(integration, "src", '说"明.txt'), "utf8"), "c\n");
+    assert.equal(await readFile(join(integration, "src", quotedFilename), "utf8"), "c\n");
     const kept = other.tickets.tickets.find((entry) => entry.ticketId === "03").integration.commit;
     await git(integration, ["merge-base", "--is-ancestor", kept, "HEAD"]);
     // An attempt that stopped between its merge and its checks: the retry undoes that merge first.
@@ -575,7 +578,7 @@ test(
         "test -f src/a.txt",
         "test -f src/cli.js",
         "test -f src/b.txt",
-        "test -f 'src/说\"明.txt'",
+        `test -f 'src/${quotedFilename}'`,
         "test -f src/README.txt"
       ],
       "the checks each ticket passed run again on the combined version"
@@ -599,17 +602,17 @@ test(
   { timeout: 120_000 },
   async (t) => {
     const root = await mkdtemp(join(tmpdir(), "formicand-p48-ticket-dispatch-"));
-    t.after(() => rm(root, { recursive: true, force: true }));
+    deferCleanup(t, () => rm(root, { recursive: true, force: true }));
     const repo = await repository(join(root, "repository"));
     const provider = await modelProtocolFixture("openai-completions", () => ({ text: "完成。" }));
-    t.after(() => provider.close());
+    deferCleanup(t, () => provider.close());
     const dashboard = await startDashboard({
       defaultProject: false,
       modelEndpoint: provider.baseUrl,
       model: "protocol-fixture",
       env: { FORMICAND_DISABLE_MAIN_GUARDIAN: "1", FORMICAND_DISABLE_SESSION_TITLES: "1" }
     });
-    t.after(() => dashboard.stop());
+    deferCleanup(t, () => dashboard.stop());
     const token = await servingToken(dashboard.root);
     const post = async (path, body, auth = false) => {
       const response = await fetch(`${dashboard.base}${path}`, {
@@ -695,7 +698,7 @@ test(
   { timeout: 120_000 },
   async (t) => {
     const root = await mkdtemp(join(tmpdir(), "formicand-p48-ticket-rounds-"));
-    t.after(() => rm(root, { recursive: true, force: true }));
+    deferCleanup(t, () => rm(root, { recursive: true, force: true }));
     const repo = await repository(join(root, "repository"));
     const runtime = new ProjectDataRuntime({
       config: { sqlite: { path: join(root, "project-data.sqlite") } },
@@ -703,7 +706,7 @@ test(
       dataRoot: root,
       env: {}
     });
-    t.after(() => runtime.close());
+    deferCleanup(t, () => runtime.close());
     const gateway = await runtime.service();
     const projectId = "project_rounds";
     await gateway.ensureProject({
@@ -898,7 +901,7 @@ test(
 
 test("Main writes a ticket itself in a checkout the program opens", { timeout: 120_000 }, async (t) => {
   const root = await mkdtemp(join(tmpdir(), "formicand-p48-main-ticket-"));
-  t.after(() => rm(root, { recursive: true, force: true }));
+  deferCleanup(t, () => rm(root, { recursive: true, force: true }));
   const repo = await repository(join(root, "repository"));
   const runtime = new ProjectDataRuntime({
     config: { sqlite: { path: join(root, "project-data.sqlite") } },
@@ -906,7 +909,7 @@ test("Main writes a ticket itself in a checkout the program opens", { timeout: 1
     dataRoot: root,
     env: {}
   });
-  t.after(() => runtime.close());
+  deferCleanup(t, () => runtime.close());
   const gateway = await runtime.service();
   const projectId = "project_main_ticket";
   await gateway.ensureProject({

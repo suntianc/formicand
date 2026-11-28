@@ -1,4 +1,4 @@
-import { join, win32 } from "node:path";
+import { posix, win32 } from "node:path";
 
 /** Keep the packaged smoke on its own data/model directories without changing the caller. */
 export function desktopSmokeEnvironment({ data, source = process.env, platform = process.platform }) {
@@ -30,7 +30,7 @@ export function desktopSmokeEnvironment({ data, source = process.env, platform =
     FORMICAND_DESKTOP_BACKGROUND: source.FORMICAND_DESKTOP_BACKGROUND ?? "1",
     FORMICAND_HOME: data,
     FORMICAND_DESKTOP_DATA: data,
-    PI_CODING_AGENT_DIR: join(data, "pi"),
+    PI_CODING_AGENT_DIR: (platform === "win32" ? win32 : posix).join(data, "pi"),
     FORMICAND_DISABLE_MAIN_GUARDIAN: "1",
     PI_OFFLINE: "1",
     PI_TELEMETRY: "0"

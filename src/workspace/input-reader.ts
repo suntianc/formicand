@@ -94,7 +94,12 @@ export async function extractDocument(
         String(page),
         options.render ? "1" : "0"
       ],
-      { timeout: 30000, maxBuffer: 16 * 1024 * 1024 }
+      {
+        timeout: 30000,
+        maxBuffer: 16 * 1024 * 1024,
+        windowsHide: true,
+        env: { ...process.env, PYTHONIOENCODING: "utf-8" }
+      }
     );
     return JSON.parse(stdout) as ExtractedDocument;
   } catch (error) {

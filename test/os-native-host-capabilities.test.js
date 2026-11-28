@@ -215,7 +215,10 @@ await writeFile(process.argv[2],JSON.stringify({
   assert.ok(started.status >= 200 && started.status < 300);
   await waitFor(async () => {
     const current = await fixture.request("/api/tasks/delegate-task");
-    return !current.body.runtime.active && current.body.task.status === "completed";
+    assert.equal(current.status, 200, JSON.stringify(current.body));
+    if (current.body.runtime.active) return false;
+    assert.equal(current.body.task.status, "completed", JSON.stringify(current.body.task));
+    return true;
   }, 40_000);
   assert.deepEqual(errors, []);
   assert.equal(mainTurns, 2);
@@ -525,7 +528,7 @@ test(
           case 0:
             return {
               name: "bash",
-              arguments: { command: `${process.execPath} ${join(project, "check-permission.mjs")}` }
+              arguments: { command: `"${process.execPath}" "${join(project, "check-permission.mjs")}"` }
             };
           case 1:
             return { name: "read", arguments: { path: join(project, "input.txt") } };

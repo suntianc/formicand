@@ -1,3 +1,4 @@
+import { killFixtureMain } from "./fixtures/main-processes.mjs";
 import assert from "node:assert/strict";
 import { once } from "node:events";
 import { mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
@@ -657,15 +658,6 @@ test(
   }
 );
 
-/** End the recorded Main's whole process group, the way a crash would. */
-function killMain(record) {
-  try {
-    process.kill(-record.pid, "SIGKILL");
-  } catch {
-    /* the group already exited */
-  }
-}
-
 /** Every Run event of one type, read from the durable log. */
 async function runEvents(f, taskId, runId, type) {
   const text = await readFile(
@@ -824,7 +816,7 @@ test(
 
     await f.dashboard.restart();
     assert.equal(alive(record.pid), true);
-    killMain(record);
+    await killFixtureMain(record);
 
     const failed = await waitFor(
       async () => {
@@ -1211,7 +1203,7 @@ test(
     const releaseSettlement = await holdSettlementLock(
       agentProcessRecordPath(f.dashboard.workspaceRoot, "resident-stale-interrupt", run.runId, "main", "main")
     );
-    killMain(record);
+    await killFixtureMain(record);
     const inboxPath = join(
       f.dashboard.workspaceRoot,
       "resident-stale-interrupt",
@@ -1261,7 +1253,7 @@ test(
 
     // A Main that goes away with work still pending is what the recovery
     // supervisor starts again.
-    killMain(original);
+    await killFixtureMain(original);
     await waitFor(() => !alive(original.pid), "the original Main to exit", 30_000);
     const { spawnMainProcess } = await import("../dist/src/runtime/main-supervisor.js");
     const recovered = await spawnMainProcess({
@@ -1283,7 +1275,7 @@ test(
       "the message reached the supervisor's Main"
     );
     assert.equal(alive(recovered.pid), true);
-    killMain(recovered);
+    await killFixtureMain(recovered);
   }
 );
 
@@ -1307,7 +1299,7 @@ test(
     const run = await f.api("/api/tasks/resident-dead-record/run", { prompt: "DEAD_RECORD_INPUT" });
     await waitFor(() => heldStarted, "the in-flight model request", 60_000);
     const record = await f.mainRecord("resident-dead-record");
-    killMain(record);
+    await killFixtureMain(record);
     await waitFor(
       async () => (await f.detail("resident-dead-record")).task.status === "failed",
       "the death to settle",

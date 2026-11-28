@@ -1,3 +1,4 @@
+import { deferCleanup } from "./fixtures/cleanup.mjs";
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
 import { after, before, test } from "node:test";
@@ -40,6 +41,7 @@ async function makeRepository(directory) {
   await git(directory, ["init", "-b", "main"]);
   await git(directory, ["config", "user.email", "fixture@example.test"]);
   await git(directory, ["config", "user.name", "Fixture"]);
+  await git(directory, ["config", "core.autocrlf", "false"]);
   // The document registry every requirement merge checks.
   await writeFile(
     join(directory, "AGENTS.md"),
@@ -121,14 +123,14 @@ for (const engine of PROJECT_DATA_ENGINES) {
       const instance = await readBackendInstance(backendPaths(join(dashboard.root, "home")));
       assert.ok(instance.value?.token && instance.value.backendId);
       const authority = await openAuthority(engine, dashboard);
-      t.after(() => authority.close());
+      deferCleanup(t, () => authority.close());
       const secondRemote = await RemoteProjectDataService.open({
         url: dashboard.base,
         token: instance.value.token,
         backendId: "backend_second",
         source: "p4-project-integration-test"
       });
-      t.after(() => secondRemote.close());
+      deferCleanup(t, () => secondRemote.close());
       const main = serviceFor({
         gateway: authority.gateway,
         backendId: instance.value.backendId,

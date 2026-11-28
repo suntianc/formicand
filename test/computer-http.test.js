@@ -24,7 +24,7 @@ test("a lost HTTP response after action dispatch reports unknown and never retri
   process.env.FORMICAND_DASHBOARD_URL = `http://127.0.0.1:${server.address().port}`;
   try {
     const requirePi = createRequire(import.meta.resolve("@earendil-works/pi-coding-agent"));
-    const { createJiti } = await import(requirePi.resolve("jiti"));
+    const { createJiti } = requirePi("jiti");
     const { registerComputerTools } = await createJiti(import.meta.url).import(
       resolve(".pi/runtime/tools/computer-use.ts")
     );
@@ -196,7 +196,7 @@ test("computer HTTP consumes only desktop grants and isolates tasks, observation
     process.env.FORMICAND_DASHBOARD_URL = base;
     try {
       const requirePi = createRequire(import.meta.resolve("@earendil-works/pi-coding-agent"));
-      const { createJiti } = await import(requirePi.resolve("jiti"));
+      const { createJiti } = requirePi("jiti");
       const jiti = createJiti(import.meta.url);
       const { registerComputerTools } = await jiti.import(resolve(".pi/runtime/tools/computer-use.ts"));
       const tools = new Map();

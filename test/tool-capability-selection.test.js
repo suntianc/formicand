@@ -10,7 +10,7 @@ import { once } from "node:events";
 import { LocalWorkspaceStore } from "../dist/src/workspace/workspace-store.js";
 
 const requirePi = createRequire(import.meta.resolve("@earendil-works/pi-coding-agent"));
-const { createJiti } = await import(requirePi.resolve("jiti"));
+const { createJiti } = requirePi("jiti");
 const path = resolve(".pi/runtime/tools/capabilities.ts");
 const { registerCapabilityTools, CORE_TOOLS } = await createJiti(pathToFileURL(path).href).import(path);
 const optional = [

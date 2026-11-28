@@ -1,19 +1,16 @@
 import assert from "node:assert/strict";
-import { execFile } from "node:child_process";
 import { once } from "node:events";
 import { createServer } from "node:http";
 import { mkdir, readFile, readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { test } from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
-import { promisify } from "node:util";
+import { fixtureMainProcesses } from "./fixtures/main-processes.mjs";
 import { startDashboard } from "./dashboard-fixture.mjs";
 import { readFixtureRequestBody } from "./http-request-body-fixture.mjs";
 import { protocolStream } from "./model-protocol-fixture.mjs";
 import { startProjectDataDashboard } from "./p3-storage-fixture.mjs";
 import { backendPaths, readBackendInstance } from "../dist/src/dashboard/backend-instance.js";
-
-const run = promisify(execFile);
 
 /**
  * The session consumers: the shared session records and a real Pi process
@@ -112,16 +109,6 @@ const waitFor = async (check, message, timeout = 15_000) => {
   assert.fail(message);
 };
 
-/** Processes this test owns: their argv names the disposable data root. */
-async function ownedProcesses(root) {
-  const { stdout } = await run("ps", ["-ax", "-o", "pid=,command="], { maxBuffer: 8 * 1024 * 1024 });
-  return stdout
-    .split("\n")
-    .filter((line) => line.includes(root))
-    .map((line) => line.trim())
-    .filter(Boolean);
-}
-
 test("cancel and an abnormal exit leave no Main process this run owns", { timeout: 120_000 }, async (t) => {
   let holding = false;
   const local = await provider(t, { hold: () => holding });
@@ -130,6 +117,7 @@ test("cancel and an abnormal exit leave no Main process this run owns", { timeou
     model: "fixture-model",
     defaultProject: false
   });
+  t.after(() => dashboard.stop());
   const request = client(dashboard);
   const project = await createProject(request, dashboard, "process");
   const created = await request(`/api/projects/${encodeURIComponent(project.projectId)}/main-sessions`, {
@@ -147,14 +135,17 @@ test("cancel and an abnormal exit leave no Main process this run owns", { timeou
   });
   assert.equal(started.status, 202, JSON.stringify(started.body));
   await waitFor(() => local.requests.length === 1, "the Main process never reached the model");
-  assert.ok((await ownedProcesses(dashboard.root)).length > 0, "the Main process is running before cancel");
+  assert.ok(
+    (await fixtureMainProcesses(dashboard.root)).length > 0,
+    "the Main process is running before cancel"
+  );
   const cancelled = await request(`/api/tasks/${encodeURIComponent(session.taskId)}/action`, {
     action: "cancel"
   });
   assert.equal(cancelled.status, 200, JSON.stringify(cancelled.body));
   assert.equal(cancelled.body.status, "cancelled");
   await waitFor(
-    async () => (await ownedProcesses(dashboard.root)).length === 0,
+    async () => (await fixtureMainProcesses(dashboard.root)).length === 0,
     "a cancelled Main process stayed alive"
   );
   const listed = await request(`/api/projects/${encodeURIComponent(project.projectId)}/main-sessions`);
@@ -167,10 +158,13 @@ test("cancel and an abnormal exit leave no Main process this run owns", { timeou
   });
   assert.equal(again.status, 202, JSON.stringify(again.body));
   await waitFor(() => local.requests.length === 2, "the restarted Main never reached the model");
-  assert.ok((await ownedProcesses(dashboard.root)).length > 0, "the Main process is running before shutdown");
+  assert.ok(
+    (await fixtureMainProcesses(dashboard.root)).length > 0,
+    "the Main process is running before shutdown"
+  );
   await dashboard.stop();
   await waitFor(
-    async () => (await ownedProcesses(dashboard.root)).length === 0,
+    async () => (await fixtureMainProcesses(dashboard.root)).length === 0,
     "the backend exit left its Main process running"
   );
   assert.deepEqual(local.failures, []);

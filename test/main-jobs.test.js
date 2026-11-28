@@ -39,7 +39,7 @@ function fakePi() {
 }
 
 async function loadExtension() {
-  const { createJiti } = await import(requirePi.resolve("jiti"));
+  const { createJiti } = requirePi("jiti");
   const jiti = createJiti(pathToFileURL(extensionPath).href, { interopDefault: true });
   const module = await jiti.import(extensionPath, { default: true });
   return module.default ?? module;
@@ -88,7 +88,9 @@ async function harness(t, capabilities) {
   await store.createRun(TASK, RUN);
   if (capabilities) await store.updateTask(TASK, { capabilities });
   const pi = fakePi();
-  (await loadExtension())(pi);
+  await (
+    await loadExtension()
+  )(pi);
   t.after(async () => {
     for (const key of keys) {
       if (previous[key] === undefined) delete process.env[key];
@@ -157,7 +159,9 @@ test("job tools are registered for Main and refuse work until long work is grant
 
 test("a Main job records its output and reports quiet time while it runs", async (t) => {
   const h = await harness(t, { longRunning: true, grantedBy: "user", grantedAt: new Date().toISOString() });
-  const started = await h.details("start_job", { command: "echo first; sleep 0.6; echo second" });
+  const started = await h.details("start_job", {
+    command: `"${process.execPath}" -e "console.log('first'); setTimeout(() => console.log('second'), 600)"`
+  });
   const running = await h.details("check_job", { jobId: started.jobId });
   assert.equal(running.state, "running");
   assert.equal(typeof running.quietMs, "number", "quiet time is the evidence a fixed timeout cannot provide");
@@ -190,7 +194,9 @@ test("Main can recover from a job startup error without leaving a completion blo
 
 test("an unfinished job blocks completion and its exit wakes Main through the Inbox", async (t) => {
   const h = await harness(t, { longRunning: true, grantedBy: "user", grantedAt: new Date().toISOString() });
-  const started = await h.details("start_job", { command: "sleep 0.5; echo done" });
+  const started = await h.details("start_job", {
+    command: `"${process.execPath}" -e "setTimeout(() => console.log('done'), 500)"`
+  });
 
   const early = await h.details("finish_task", {});
   assert.equal(early.completed, false);
@@ -213,7 +219,9 @@ test("an unfinished job blocks completion and its exit wakes Main through the In
 
 test("killing a Main job stops it and releases the completion gate", async (t) => {
   const h = await harness(t, { longRunning: true, grantedBy: "user", grantedAt: new Date().toISOString() });
-  const started = await h.details("start_job", { command: "sleep 30" });
+  const started = await h.details("start_job", {
+    command: `"${process.execPath}" -e "setTimeout(() => {}, 30000)"`
+  });
   assert.equal((await h.details("finish_task", {})).reason, "pending_jobs");
 
   const killed = await h.details("kill_job", { jobId: started.jobId });
@@ -223,7 +231,7 @@ test("killing a Main job stops it and releases the completion gate", async (t) =
 
 test("Main stays alive while a job runs and settles once it exits", async (t) => {
   const h = await harness(t, { longRunning: true, grantedBy: "user", grantedAt: new Date().toISOString() });
-  await h.details("start_job", { command: "sleep 0.6" });
+  await h.details("start_job", { command: `"${process.execPath}" -e "setTimeout(() => {}, 600)"` });
   let ended = false;
   const ending = h.pi.handlers
     .get("agent_end")({ messages: [{ role: "assistant", stopReason: "stop", content: "waiting" }] }, h.ctx)

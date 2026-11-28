@@ -1,3 +1,4 @@
+import { deferCleanup } from "./fixtures/cleanup.mjs";
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
 import { mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
@@ -31,6 +32,7 @@ async function makeRepository(directory) {
   await git(directory, ["init", "-b", "main"]);
   await git(directory, ["config", "user.email", "fixture@example.test"]);
   await git(directory, ["config", "user.name", "Fixture"]);
+  await git(directory, ["config", "core.autocrlf", "false"]);
   // The document registry every requirement merge checks.
   await writeFile(
     join(directory, "AGENTS.md"),
@@ -66,7 +68,7 @@ test(
     const root = await mkdtemp(join(tmpdir(), "formicand-p45-delivery-diff-"));
     const repository = await makeRepository(join(root, "repository"));
     const dashboard = await startDashboard({ defaultProject: false });
-    t.after(async () => {
+    deferCleanup(t, async () => {
       await dashboard.stop();
       await rm(root, { recursive: true, force: true });
     });
@@ -82,7 +84,7 @@ test(
       dataRoot: dashboard.root,
       env: {}
     });
-    t.after(() => runtime.close());
+    deferCleanup(t, () => runtime.close());
     const gateway = await runtime.service();
     const execution = createProjectDevelopmentService({
       runtime: { service: async () => gateway },

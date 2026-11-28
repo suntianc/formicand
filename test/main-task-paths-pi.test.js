@@ -1,3 +1,4 @@
+import { killFixtureChild } from "./fixtures/main-processes.mjs";
 import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
 import { once } from "node:events";
@@ -175,13 +176,7 @@ const footer = "draft";
       response.end("data: [DONE]\n\n");
     });
     t.after(async () => {
-      if (child?.pid) {
-        try {
-          process.kill(-child.pid, "SIGKILL");
-        } catch {
-          /* already exited */
-        }
-      }
+      if (child?.pid) await killFixtureChild(child);
       server.closeAllConnections();
       await new Promise((done) => server.close(done));
       await rm(root, { recursive: true, force: true });
@@ -208,7 +203,8 @@ const footer = "draft";
       ],
       {
         cwd: resolve("."),
-        detached: true,
+        detached: process.platform !== "win32",
+        windowsHide: true,
         stdio: ["ignore", "pipe", "pipe"],
         env: {
           ...process.env,
@@ -267,7 +263,7 @@ const footer = "draft";
     });
     assert.match(resultText(results[5].result), /TASK_BEFORE_EDIT/);
     const browsed = JSON.parse(resultText(results[7].result));
-    assert.equal(browsed.path, taskRelativeScript);
+    assert.equal(browsed.path, join("agents", "main", "work", scriptName));
     assert.match(browsed.content, /TASK_AFTER_EDIT/);
     assert.ok(
       resultText(results[8].result).includes(join(project, taskRelativeScript)),

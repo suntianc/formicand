@@ -1,6 +1,7 @@
+import { assertPrivateFile } from "./fixtures/private-file.mjs";
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
-import { mkdtemp, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
@@ -27,7 +28,7 @@ test("valid envelopes containing malformed draft records are backed up instead o
     assert.match(store.snapshot().warning, /损坏/);
     const backup = (await readdir(root)).find((name) => name.startsWith("composer-drafts.json.invalid-"));
     assert.equal(await readFile(join(root, backup), "utf8"), original);
-    assert.equal((await stat(join(root, backup))).mode & 0o777, 0o600);
+    await assertPrivateFile(join(root, backup));
     await store.save(draft("replacement after backup"));
   }
 });
@@ -76,7 +77,7 @@ test("desktop drafts persist privately across origins without accepting other st
   const store = createComposerDraftStore(root);
   await store.load();
   await store.save(draft("重启后继续这份草稿"), "http://127.0.0.1:12345");
-  assert.equal((await stat(join(root, "composer-drafts.json"))).mode & 0o777, 0o600);
+  await assertPrivateFile(join(root, "composer-drafts.json"));
   const restarted = createComposerDraftStore(root);
   await restarted.load();
   assert.deepEqual(restarted.snapshot().entries, draft("重启后继续这份草稿"));
@@ -158,7 +159,7 @@ test("human reply records validate choices without capturing other data", async 
   await store.load();
   await store.save(entries, "http://127.0.0.1:43800");
   assert.deepEqual(JSON.parse(await readFile(path, "utf8")).entries, { ...entries });
-  assert.equal((await stat(path)).mode & 0o777, 0o600);
+  await assertPrivateFile(path);
   const restored = createComposerDraftStore(root);
   await restored.load();
   assert.deepEqual(restored.snapshot().entries, entries);

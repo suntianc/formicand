@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
 import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, sep } from "node:path";
 import { promisify } from "node:util";
 import { test } from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
@@ -48,15 +48,21 @@ const waitFor = async (check, message, timeout = 30_000) => {
   assert.fail(message);
 };
 
-const settle = async (request, taskId, timeout = 90_000) => {
-  const until = Date.now() + timeout;
+const settle = async (request, taskId, requests, timeout = 90_000) => {
+  let progress;
+  let until = Date.now() + timeout;
   while (Date.now() < until) {
     const detail = await request(`/api/tasks/${taskId}`);
     if (detail.status === 200 && !detail.body.runtime.active && detail.body.task.status === "completed")
       return detail.body;
-    await delay(50);
+    const steps = JSON.stringify(requests);
+    if (steps !== progress) {
+      progress = steps;
+      until = Date.now() + timeout;
+    }
+    await delay(100);
   }
-  assert.fail(`Main ${taskId} did not settle`);
+  assert.fail(`Main ${taskId} did not settle after provider steps ${progress}`);
 };
 
 async function makeRepository(directory) {
@@ -64,6 +70,7 @@ async function makeRepository(directory) {
   await git(directory, ["init", "-b", "main"]);
   await git(directory, ["config", "user.email", "fixture@example.test"]);
   await git(directory, ["config", "user.name", "Fixture"]);
+  await git(directory, ["config", "core.autocrlf", "false"]);
   await writeFile(join(directory, "tracked.txt"), "committed\n");
   await git(directory, ["add", "."]);
   await git(directory, ["commit", "-m", "baseline"]);
@@ -181,7 +188,7 @@ test(
             integration = development.workspace.directory;
             developmentId = development.developmentId;
             assert.ok(
-              !integration.startsWith(`${repository}/`),
+              !integration.startsWith(repository + sep),
               "the requirement checkout is outside the user's working tree"
             );
             return {
@@ -431,7 +438,7 @@ test(
       prompt: "完成报表导出需求，先在自己的需求现场完成小改动，再按依赖组织子任务。"
     });
     assert.equal(started.status, 202, JSON.stringify(started.body));
-    await Promise.race([settle(request, taskId), scriptFailure]);
+    await Promise.race([settle(request, taskId, requests), scriptFailure]);
     assert.deepEqual(failures, [], failures.join("\n"));
 
     // The integration site keeps Main's direct edit and the collected results.

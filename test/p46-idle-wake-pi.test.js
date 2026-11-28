@@ -1,7 +1,7 @@
+import { endAgentProcesses } from "./dashboard-fixture.mjs";
 import assert from "node:assert/strict";
 import { connect } from "node:net";
-import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
-import { hostname } from "node:os";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { test } from "node:test";
@@ -58,27 +58,6 @@ async function readJson(path, fallback) {
 function alive(pid) {
   try {
     process.kill(pid, 0);
-    return true;
-  } catch (error) {
-    return error.code === "EPERM";
-  }
-}
-
-/** End one launched process group and wait until the OS has released it. */
-async function stopGroup(pid) {
-  if (!pid || !groupAlive(pid)) return;
-  try {
-    process.kill(-pid, "SIGKILL");
-  } catch {
-    return;
-  }
-  const deadline = Date.now() + 10_000;
-  while (groupAlive(pid) && Date.now() < deadline) await delay(25);
-}
-
-function groupAlive(pid) {
-  try {
-    process.kill(-pid, 0);
     return true;
   } catch (error) {
     return error.code === "EPERM";
@@ -156,16 +135,10 @@ async function fixture(t, { handle, env = {} }) {
     PI_OFFLINE: "1",
     ...env
   });
-  const f = { root, workspace, site, runRoot, provider, services: [], records: [], env: childEnvironment };
+  const f = { root, workspace, site, runRoot, provider, services: [], env: childEnvironment };
   t.after(async () => {
     for (const service of f.services) service.close();
-    const launched = [...f.records];
-    for (const entry of await readdir(join(runRoot, "agents", "subagents")).catch(() => []))
-      launched.push(await readJson(join(runRoot, "agents", "subagents", entry, "process.json"), undefined));
-    for (const record of launched) {
-      if (!record?.pid || record.host !== hostname()) continue;
-      await stopGroup(record.pid);
-    }
+    await endAgentProcesses(workspace);
     await provider.close();
     // A stopped process group can still be flushing its last records; retry the
     // directory removal instead of racing it with an assertion-free unlink.
@@ -216,7 +189,7 @@ test(
       env: f.env
     });
     assert.ok(main?.pid, "the supervisor records the Main it started");
-    f.records.push(main);
+
     const endpoint = await waitForEndpoint(main.wakeEndpoint, "the resident Main");
 
     const inbox = new InboxStore(join(f.runRoot, "agents", "main", "inbox-store.json"));

@@ -1,3 +1,4 @@
+import { deferCleanup } from "./fixtures/cleanup.mjs";
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
@@ -100,7 +101,7 @@ async function commit(directory, files, message) {
 /** A project with documents and no registry, and the program's development service over it. */
 async function project(t) {
   const root = await mkdtemp(join(tmpdir(), "registry-project-"));
-  t.after(() => rm(root, { recursive: true, force: true }));
+  deferCleanup(t, () => rm(root, { recursive: true, force: true }));
   const repo = join(root, "repository");
   await mkdir(repo, { recursive: true });
   await git(repo, ["init", "-b", "main"]);
@@ -117,7 +118,7 @@ async function project(t) {
     dataRoot: root,
     env: {}
   });
-  t.after(() => runtime.close());
+  deferCleanup(t, () => runtime.close());
   const gateway = await runtime.service();
   const projectId = "project_registry";
   await gateway.ensureProject({
@@ -289,9 +290,19 @@ test("documents are listed by their raw names, quotes and backslashes included",
   await run(["add", "."]);
   await run(["commit", "-qm", "base"]);
   const base = await run(["rev-parse", "HEAD"]);
-  await mkdir(join(repo, "docs"));
-  for (const name of ['中"文.md', "a\\b.md"]) await writeFile(join(repo, "docs", name), "x\n");
-  await run(["add", "."]);
+  // Build the Git index directly so raw Git names are covered even on NTFS.
+  const blob = await run(["rev-parse", "HEAD:README.md"]);
+  for (const name of ['中"文.md', "a\\b.md"])
+    await run([
+      "-c",
+      "core.protectNTFS=false",
+      "update-index",
+      "--add",
+      "--cacheinfo",
+      "100644",
+      blob,
+      `docs/${name}`
+    ]);
   await run(["commit", "-qm", "docs"]);
   const head = await run(["rev-parse", "HEAD"]);
   assert.deepEqual((await documentsAdded(repo, base, head)).sort(), ["docs/a\\b.md", 'docs/中"文.md'].sort());

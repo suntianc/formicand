@@ -52,7 +52,7 @@ function fakePi() {
 }
 
 async function loadExtension() {
-  const { createJiti } = await import(requirePi.resolve("jiti"));
+  const { createJiti } = requirePi("jiti");
   const jiti = createJiti(pathToFileURL(extensionPath).href, { interopDefault: true });
   const module = await jiti.import(extensionPath, { default: true });
   return module.default ?? module;

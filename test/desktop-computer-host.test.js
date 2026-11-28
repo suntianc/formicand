@@ -1,16 +1,17 @@
+import { fileURLToPath } from "node:url";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { createServer } from "node:net";
 import { createRequire } from "node:module";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
 import { test } from "node:test";
 
 const require = createRequire(import.meta.url);
 const { connectBackend } = require("../desktop/backend.cjs");
 const { desktopPaths, prepareDesktopData } = require("../desktop/paths.cjs");
-const root = resolve(new URL("..", import.meta.url).pathname);
+const root = fileURLToPath(new URL("..", import.meta.url));
 
 async function call(instance, operation, credential = instance.token, headers = {}) {
   const response = await fetch(`${instance.url}/api/host/computer`, {

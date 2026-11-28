@@ -32,7 +32,7 @@ export function directoryPickerCommand(platform: NodeJS.Platform): [string, stri
 export async function pickDirectory(platform = process.platform, run = execute): Promise<string | undefined> {
   const [command, args] = directoryPickerCommand(platform);
   try {
-    const { stdout } = await run(command, args, { encoding: "utf8" });
+    const { stdout } = await run(command, args, { encoding: "utf8", windowsHide: true });
     return stdout.trim() || undefined;
   } catch (error) {
     const code = error instanceof Error && "code" in error ? error.code : undefined;

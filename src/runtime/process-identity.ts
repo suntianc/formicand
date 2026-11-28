@@ -56,7 +56,7 @@ async function readStartedAt(pid: number): Promise<string | undefined> {
               "-Command",
               `(Get-Process -Id ${pid} -ErrorAction Stop).StartTime.ToUniversalTime().ToString('o')`
             ],
-            { timeout: 5_000 }
+            { timeout: 5_000, windowsHide: true }
           )
         : await run("ps", ["-p", String(pid), "-o", "lstart="], {
             timeout: 5_000,

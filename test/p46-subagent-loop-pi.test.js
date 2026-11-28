@@ -1114,7 +1114,7 @@ test(
     const exited = once(child, "exit");
     const code = await Promise.race([
       exited.then(([value]) => value),
-      delay(30_000).then(() => assert.fail(`the worker did not yield: ${output}`))
+      delay(30_000, undefined, { ref: false }).then(() => assert.fail(`the worker did not yield: ${output}`))
     ]);
     assert.equal(code, 0, output);
     assert.match(output, /owned by the running backend/);

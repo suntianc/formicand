@@ -1,3 +1,4 @@
+import { deferCleanup } from "./fixtures/cleanup.mjs";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
@@ -116,14 +117,14 @@ test("a large ledger leaves out the catalog only when one feature is likely", ()
 
 async function openLedger(t) {
   const root = await mkdtemp(join(tmpdir(), "formicand-lookup-"));
-  t.after(() => rm(root, { recursive: true, force: true }));
+  deferCleanup(t, () => rm(root, { recursive: true, force: true }));
   const runtime = new ProjectDataRuntime({
     config: { sqlite: { path: join(root, "project-data.sqlite") } },
     env: {},
     configPath: join(root, "config.json"),
     dataRoot: root
   });
-  t.after(() => runtime.close());
+  deferCleanup(t, () => runtime.close());
   const service = await runtime.service();
   const project = await service.ensureProject({
     projectId: "project_lookup",
@@ -197,7 +198,7 @@ const run = (cwd, ...args) => execFileSync("git", args, { cwd, encoding: "utf8" 
 
 test("context names the feature's decisions, developments and where its code changed", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "formicand-context-"));
-  t.after(() => rm(root, { recursive: true, force: true }));
+  deferCleanup(t, () => rm(root, { recursive: true, force: true }));
   run(root, "init", "-q", "-b", "main");
   run(root, "config", "user.email", "test@example.com");
   run(root, "config", "user.name", "test");

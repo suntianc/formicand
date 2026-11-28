@@ -3,7 +3,7 @@ import { test } from "node:test";
 import { existsSync, readFileSync } from "node:fs";
 import { lstat, mkdir, mkdtemp, readFile, realpath, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { resolveFileTarget, resolveProtectedTarget } from "../dist/src/tools/file-path.js";
 import {
   ProtectedPaths,
@@ -54,7 +54,7 @@ test("the guard protects version control, but not the project's own code", async
 
 test("the harness install is protected by absolute path, wherever it sits", async (t) => {
   const { root } = await project(t);
-  const install = "/opt/formicand";
+  const install = resolve("/opt/formicand");
   const guard = new ProtectedPaths({ root, protectedRoots: [install] });
   // An agent must not edit the runtime it runs in, even from outside the project.
   assert.equal(guard.match("/opt/formicand/src/runtime/role-models.ts"), install);

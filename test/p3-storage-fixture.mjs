@@ -5,6 +5,7 @@ import { randomBytes } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
 import pg from "pg";
 import { startDashboard } from "./dashboard-fixture.mjs";
+import { deferCleanup } from "./fixtures/cleanup.mjs";
 
 /**
  * The two real project-data engines used by the P3 contract tests.
@@ -137,7 +138,7 @@ export async function startProjectDataDashboard(
     ...options,
     config: { ...config, ...(resolved ? { projectData: resolved } : {}) }
   });
-  t.after(() => dashboard.stop());
+  deferCleanup(t, () => dashboard.stop());
   const request = async (path, body, method = "POST") => {
     const response = await fetch(`${dashboard.base}${path}`, {
       method,

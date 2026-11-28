@@ -1,10 +1,11 @@
+import { deferCleanup } from "./fixtures/cleanup.mjs";
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
 import { after, before, test } from "node:test";
 import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, sep } from "node:path";
 import { promisify } from "node:util";
 import { setTimeout as delay } from "node:timers/promises";
 import { startDashboard } from "./dashboard-fixture.mjs";
@@ -61,15 +62,21 @@ const waitFor = async (check, message, timeout = 30_000) => {
   assert.fail(message);
 };
 
-const settle = async (request, taskId, timeout = 120_000) => {
-  const until = Date.now() + timeout;
+const settle = async (request, taskId, requests, timeout = 120_000) => {
+  let progress;
+  let until = Date.now() + timeout;
   while (Date.now() < until) {
     const detail = await request(`/api/tasks/${taskId}`);
     if (detail.status === 200 && !detail.body.runtime.active && detail.body.task.status === "completed")
       return detail.body;
-    await delay(50);
+    const steps = JSON.stringify(requests);
+    if (steps !== progress) {
+      progress = steps;
+      until = Date.now() + timeout;
+    }
+    await delay(100);
   }
-  assert.fail(`Main ${taskId} did not settle`);
+  assert.fail(`Main ${taskId} did not settle after provider steps ${progress}`);
 };
 
 async function makeRepository(directory) {
@@ -77,6 +84,7 @@ async function makeRepository(directory) {
   await git(directory, ["init", "-b", "main"]);
   await git(directory, ["config", "user.email", "fixture@example.test"]);
   await git(directory, ["config", "user.name", "Fixture"]);
+  await git(directory, ["config", "core.autocrlf", "false"]);
   await writeFile(join(directory, "tracked.txt"), "committed\n");
   await git(directory, ["add", "."]);
   await git(directory, ["commit", "-m", "baseline"]);
@@ -117,7 +125,7 @@ test(
         FORMICAND_DISABLE_SESSION_TITLES: "1"
       }
     });
-    t.after(async () => {
+    deferCleanup(t, async () => {
       await dashboard.stop();
       await rm(root, { recursive: true, force: true });
     });
@@ -196,7 +204,7 @@ test(
             const development = toolJson(body).development;
             integration = development.workspace.directory;
             developmentId = development.developmentId;
-            assert.ok(!integration.startsWith(`${repository}/`));
+            assert.ok(!integration.startsWith(`${repository}${sep}`));
             return {
               name: "call_subagent",
               arguments: {
@@ -668,11 +676,17 @@ test(
                 command: `mkdir -p evidence && printf '%s' '${FAILURE_LOG}' > evidence/failure.log`
               }
             };
-          if (step === 1)
+          if (step === 1) {
+            assert.doesNotMatch(
+              lastToolText(body),
+              /Command exited with code|not recognized|No such file|command not found/i,
+              "Reviewer must record its evidence"
+            );
             return {
               name: "bash",
               arguments: { command: 'test "$(tail -1 export.txt)" = total' }
             };
+          }
           if (step === 2)
             return {
               name: "submit_review",
@@ -719,7 +733,7 @@ test(
         return { text: "候选审查夹具失败。" };
       }
     });
-    t.after(async () => {
+    deferCleanup(t, async () => {
       await provider.close();
     });
     const saved = await saveTestConnection(request, {
@@ -737,7 +751,7 @@ test(
       prompt: "完成报表导出需求：先实现，再冻结候选做独立审查，有发现时在原执行会话返修并复审。"
     });
     assert.equal(started.status, 202, JSON.stringify(started.body));
-    await Promise.race([settle(request, taskId), scriptFailure]);
+    await Promise.race([settle(request, taskId, requests), scriptFailure]);
     assert.deepEqual(failures, [], failures.join("\n"));
 
     // The integration checkout holds the corrected export; the original
@@ -814,7 +828,7 @@ after(async () => {
 for (const engine of PROJECT_DATA_ENGINES) {
   test(`${engine}: review plans, fixed candidates and rulings survive restart and backup`, async (t) => {
     const root = await mkdtemp(join(tmpdir(), `formicand-p4-review-${engine}-`));
-    t.after(() => rm(root, { recursive: true, force: true }));
+    deferCleanup(t, () => rm(root, { recursive: true, force: true }));
     const repository = await makeRepository(join(root, "repository"));
     const developmentRoot = join(root, "development-workspaces");
     const runtime = new ProjectDataRuntime({
@@ -827,7 +841,7 @@ for (const engine of PROJECT_DATA_ENGINES) {
       env: {}
     });
     let runtimeClosed = false;
-    t.after(async () => {
+    deferCleanup(t, async () => {
       if (!runtimeClosed) await runtime.close();
     });
     const gateway = await runtime.service();
@@ -994,7 +1008,7 @@ for (const engine of PROJECT_DATA_ENGINES) {
       dataRoot: root,
       env: {}
     });
-    t.after(() => reopened.close());
+    deferCleanup(t, () => reopened.close());
     const afterRestart = await reopened.service();
     const reads = await afterRestart.queryReviews("project-review", development.developmentId);
     assert.equal(reads.length, 1);
@@ -1024,7 +1038,7 @@ test("a remote backend writes review facts through the authority and reads them 
   const root = await mkdtemp(join(tmpdir(), "formicand-p4-review-remote-"));
   const repository = await makeRepository(join(root, "repository"));
   const dashboard = await startDashboard({ defaultProject: false });
-  t.after(async () => {
+  deferCleanup(t, async () => {
     await dashboard.stop();
     await rm(root, { recursive: true, force: true });
   });
@@ -1047,7 +1061,7 @@ test("a remote backend writes review facts through the authority and reads them 
     backendId: "backend_remote_review",
     source: "p4-review-test"
   });
-  t.after(() => remote.close());
+  deferCleanup(t, () => remote.close());
   const calls = {};
   const remoteRoot = join(root, "remote");
   const service = createProjectDevelopmentService({
@@ -1359,7 +1373,7 @@ test("a closed or drifted review keeps its findings rulable and one reviewer own
     dataRoot: root,
     env: {}
   });
-  t.after(async () => {
+  deferCleanup(t, async () => {
     await runtime.close().catch(() => undefined);
     await rm(root, { recursive: true, force: true });
   });
@@ -1576,7 +1590,7 @@ for (const engine of PROJECT_DATA_ENGINES) {
       dataRoot: root,
       env: {}
     });
-    t.after(async () => {
+    deferCleanup(t, async () => {
       await runtime.close().catch(() => undefined);
       await rm(root, { recursive: true, force: true });
     });
@@ -1675,7 +1689,7 @@ test("the program imports the Reviewer's conclusion, narrows the re-review and s
     dataRoot: root,
     env: {}
   });
-  t.after(async () => {
+  deferCleanup(t, async () => {
     await runtime.close().catch(() => undefined);
     await rm(root, { recursive: true, force: true });
   });

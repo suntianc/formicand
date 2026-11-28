@@ -1,3 +1,4 @@
+import { deferCleanup } from "./fixtures/cleanup.mjs";
 import assert from "node:assert/strict";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -203,7 +204,7 @@ function rpcFixture(t, env) {
     env: env.env,
     label: "p46"
   });
-  t.after(() => rpc.stop());
+  deferCleanup(t, () => rpc.stop());
   return rpc;
 }
 
@@ -213,7 +214,7 @@ function rpcFixture(t, env) {
  */
 async function probeRpc(t, { startupSend }) {
   const root = await mkdtemp(join(tmpdir(), "p46-upgrade-rpc-"));
-  t.after(() => rm(root, { recursive: true, force: true }));
+  deferCleanup(t, () => rm(root, { recursive: true, force: true }));
   const profile = join(root, "profile");
   const workspace = join(root, "workspace");
   await mkdir(profile);
@@ -228,7 +229,7 @@ async function probeRpc(t, { startupSend }) {
         ? { name: "read", arguments: { path: "fixture.txt" } }
         : { text: `reply ${requests.length}` }
   });
-  t.after(() => provider.close());
+  deferCleanup(t, () => provider.close());
   const requests = provider.requests;
   const baseUrl = provider.baseUrl;
   await writeFile(

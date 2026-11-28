@@ -1,3 +1,4 @@
+import { deferCleanup } from "./fixtures/cleanup.mjs";
 import assert from "node:assert/strict";
 import { once } from "node:events";
 import { mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
@@ -59,7 +60,7 @@ async function secondaryBackend(t, authority) {
       projectData: { authority: { url: authority.base, token: instance.value.token } }
     }
   });
-  t.after(() => dashboard.stop());
+  deferCleanup(t, () => dashboard.stop());
   return { ...dashboard, request: requestFor(dashboard), authorityToken: instance.value.token };
 }
 
@@ -443,7 +444,7 @@ async function previousVersionDatabase(t, engine) {
   };
   if (engine === "sqlite") {
     const directory = await mkdtemp(join(tmpdir(), "formicand-board-version-"));
-    t.after(() => rm(directory, { recursive: true, force: true }));
+    deferCleanup(t, () => rm(directory, { recursive: true, force: true }));
     const path = join(directory, "project-data.sqlite");
     const database = await SqliteDatabase.open(path);
     await seed(database);
@@ -470,15 +471,15 @@ async function previousVersionDatabase(t, engine) {
   const admin = new pg.Client({ connectionString: postgres.connectionString });
   await admin.connect();
   await admin.query(`CREATE DATABASE ${name}`);
-  t.after(() => admin.end().catch(() => undefined));
-  t.after(() => admin.query(`DROP DATABASE IF EXISTS ${name} WITH (FORCE)`).catch(() => undefined));
+  deferCleanup(t, () => admin.end().catch(() => undefined));
+  deferCleanup(t, () => admin.query(`DROP DATABASE IF EXISTS ${name} WITH (FORCE)`).catch(() => undefined));
   const url = new URL(postgres.connectionString);
   url.pathname = `/${name}`;
   const database = new PostgresDatabase({ connectionString: url.toString() });
   await seed(database);
   await database.close();
   const directory = await mkdtemp(join(tmpdir(), "formicand-board-version-"));
-  t.after(() => rm(directory, { recursive: true, force: true }));
+  deferCleanup(t, () => rm(directory, { recursive: true, force: true }));
   return {
     config: { engine, postgres: { connectionString: url.toString() } },
     dataRoot: directory,
@@ -510,7 +511,7 @@ for (const engine of PROJECT_DATA_ENGINES) {
       configPath: legacy.configPath,
       dataRoot: legacy.dataRoot
     });
-    t.after(() => runtime.close());
+    deferCleanup(t, () => runtime.close());
     const label =
       engine === "sqlite"
         ? legacy.config.sqlite.path

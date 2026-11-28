@@ -151,7 +151,10 @@ test(
   async (t) => {
     const a = await provider(t, "连接A");
     const b = await provider(t, "连接B", { api: "openai-responses" });
-    const dashboard = await startDashboard({ defaultProject: false });
+    const dashboard = await startDashboard({
+      defaultProject: false,
+      env: { FORMICAND_MAIN_IDLE_TIMEOUT_MS: "1200" }
+    });
     t.after(() => dashboard.stop());
     const request = client(dashboard);
     const keyA = "{{SECRET_9v2tq1wm}}";

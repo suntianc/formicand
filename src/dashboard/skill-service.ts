@@ -1,3 +1,4 @@
+import { archiveCommand } from "../platform/archive-command.js";
 import { execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
@@ -236,9 +237,9 @@ export function createSkillService(options: SkillServiceOptions) {
       const extracted = join(root, "files");
       await writeFile(file, archive);
       try {
-        await run(options.unzipCommand ?? "unzip", ["-q", file, "-d", extracted], {
-          timeout: COMMAND_TIMEOUT_MS
-        });
+        await mkdir(extracted);
+        const [command, args] = archiveCommand(file, extracted, options.unzipCommand);
+        await run(command, args, { timeout: COMMAND_TIMEOUT_MS, windowsHide: true });
       } catch (error) {
         await rm(root, { recursive: true, force: true });
         const missing = (error as NodeJS.ErrnoException).code === "ENOENT";
@@ -259,6 +260,7 @@ export function createSkillService(options: SkillServiceOptions) {
       try {
         await run(options.gitCommand ?? "git", ["clone", "--depth", "1", "--quiet", "--", url, checkout], {
           timeout: COMMAND_TIMEOUT_MS,
+          windowsHide: true,
           env: { ...process.env, GIT_ALLOW_PROTOCOL, GIT_TERMINAL_PROMPT: "0" }
         });
       } catch (error) {

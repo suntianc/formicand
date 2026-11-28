@@ -1067,7 +1067,7 @@ test("real extension context handler refuses to consume a receipt that exists on
   await isolateMainExtension(t, root);
 
   const requirePi = createRequire(import.meta.resolve("@earendil-works/pi-coding-agent"));
-  const { createJiti } = await import(requirePi.resolve("jiti"));
+  const { createJiti } = requirePi("jiti");
   const extPath = resolve(".pi/runtime/extension.ts");
   const jiti = createJiti(pathToFileURL(extPath).href, { interopDefault: true });
   const extModule = await jiti.import(extPath);
@@ -1159,7 +1159,7 @@ test("real extension replaces persistedReceiptKeys on branch switch (A -> B) in 
   await isolateMainExtension(t, root);
 
   const requirePi = createRequire(import.meta.resolve("@earendil-works/pi-coding-agent"));
-  const { createJiti } = await import(requirePi.resolve("jiti"));
+  const { createJiti } = requirePi("jiti");
   const extPath = resolve(".pi/runtime/extension.ts");
   const jiti = createJiti(pathToFileURL(extPath).href, { interopDefault: true });
   const extModule = await jiti.import(extPath);
@@ -1303,7 +1303,7 @@ test("partial snapshot write failure (messages.json written, state.json EIO) inv
       syncBuiltinESMExports();
 
       const requirePi = createRequire(import.meta.resolve("@earendil-works/pi-coding-agent"));
-      const { createJiti } = await import(requirePi.resolve("jiti"));
+      const { createJiti } = requirePi("jiti");
       const jiti = createJiti(pathToFileURL(extPath).href, { interopDefault: true });
       const extModule = await jiti.import(extPath);
       const registerMainExtension = extModule.default ?? extModule;

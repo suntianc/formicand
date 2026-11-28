@@ -1,3 +1,4 @@
+import { deferCleanup } from "./fixtures/cleanup.mjs";
 import assert from "node:assert/strict";
 import { mkdtemp, rm } from "node:fs/promises";
 import { join } from "node:path";
@@ -50,9 +51,9 @@ async function openLedger(t, root) {
 
 async function ledger(t) {
   const root = await mkdtemp(join(tmpdir(), "formicand-tidy-"));
-  t.after(() => rm(root, { recursive: true, force: true }));
+  deferCleanup(t, () => rm(root, { recursive: true, force: true }));
   const { runtime, service } = await openLedger(t, root);
-  t.after(() => runtime.close());
+  deferCleanup(t, () => runtime.close());
   const project = await service.ensureProject({
     projectId: "project_tidy",
     projectName: "待办",
@@ -114,7 +115,7 @@ async function recordMerges(root, projectId, developmentId, requirementId, times
 
 test("the tidy counts developments merged since the last one and lists the whole catalog", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "formicand-tidy-count-"));
-  t.after(() => rm(root, { recursive: true, force: true }));
+  deferCleanup(t, () => rm(root, { recursive: true, force: true }));
   const first = await openLedger(t, root);
   const project = await first.service.ensureProject({
     projectId: "project_tidy",
@@ -135,7 +136,7 @@ test("the tidy counts developments merged since the last one and lists the whole
   ]);
 
   const again = await openLedger(t, root);
-  t.after(() => again.runtime.close());
+  deferCleanup(t, () => again.runtime.close());
   const read = await again.service.tidyLedger(project.projectId);
   assert.equal(read.merged, 2);
   assert.equal(read.tidiedAt, undefined);
@@ -187,7 +188,7 @@ const tick = () => new Promise((resolve) => setTimeout(resolve, 5));
 
 test("a merge that lands while Main tidies counts toward the next tidy, whoever else reads", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "formicand-tidy-race-"));
-  t.after(() => rm(root, { recursive: true, force: true }));
+  deferCleanup(t, () => rm(root, { recursive: true, force: true }));
   const first = await openLedger(t, root);
   const project = await first.service.ensureProject({
     projectId: "project_tidy",
@@ -208,7 +209,7 @@ test("a merge that lands while Main tidies counts toward the next tidy, whoever 
   await tick();
 
   const again = await openLedger(t, root);
-  t.after(() => again.runtime.close());
+  deferCleanup(t, () => again.runtime.close());
   // A second read (another tidy, or a result's next counting merges) moves nothing.
   const other = await again.service.tidyLedger(project.projectId);
   assert.equal(other.merged, 1);
@@ -223,7 +224,7 @@ test("a merge that lands while Main tidies counts toward the next tidy, whoever 
 
 test("a delivery recorded late counts after the mark, whenever it merged", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "formicand-tidy-late-"));
-  t.after(() => rm(root, { recursive: true, force: true }));
+  deferCleanup(t, () => rm(root, { recursive: true, force: true }));
   const first = await openLedger(t, root);
   const project = await first.service.ensureProject({
     projectId: "project_tidy",
@@ -249,7 +250,7 @@ test("a delivery recorded late counts after the mark, whenever it merged", async
   await tick();
 
   const again = await openLedger(t, root);
-  t.after(() => again.runtime.close());
+  deferCleanup(t, () => again.runtime.close());
   const next = await again.service.tidyLedger(project.projectId);
   assert.equal(next.merged, 2);
   assert.equal(next.changes.length, 2);
@@ -374,7 +375,7 @@ test("merging moves everything to the feature that stays and deletes the duplica
 
 test("a version 9 ledger gains the tidy mark and each requirement a description", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "formicand-tidy-v9-"));
-  t.after(() => rm(root, { recursive: true, force: true }));
+  deferCleanup(t, () => rm(root, { recursive: true, force: true }));
   const first = await openLedger(t, root);
   const project = await first.service.ensureProject({
     projectId: "project_v9",
@@ -406,7 +407,7 @@ test("a version 9 ledger gains the tidy mark and each requirement a description"
   await database.close();
 
   const again = await openLedger(t, root);
-  t.after(() => again.runtime.close());
+  deferCleanup(t, () => again.runtime.close());
   assert.equal(again.service.description.schemaVersion, 16);
   // A version 9 requirement takes its summary's first sentence as its description.
   const upgraded = await again.service.getRequirement(project.projectId, exported.requirementId);
@@ -418,7 +419,7 @@ test("a version 9 ledger gains the tidy mark and each requirement a description"
 
 test("a version 12 ledger drops the per-project tidy read time", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "formicand-tidy-v12-"));
-  t.after(() => rm(root, { recursive: true, force: true }));
+  deferCleanup(t, () => rm(root, { recursive: true, force: true }));
   const first = await openLedger(t, root);
   const project = await first.service.ensureProject({
     projectId: "project_v12",
@@ -442,7 +443,7 @@ test("a version 12 ledger drops the per-project tidy read time", async (t) => {
   await database.close();
 
   const again = await openLedger(t, root);
-  t.after(() => again.runtime.close());
+  deferCleanup(t, () => again.runtime.close());
   assert.equal(again.service.description.schemaVersion, 16);
   const reopened = await SqliteDatabase.open(join(root, "project-data.sqlite"));
   const columns = await reopened.query("PRAGMA table_info(project_data_projects)");
@@ -478,7 +479,7 @@ for (const completed of [false, true])
     await database.close();
 
     const upgraded = await openLedger(t, root);
-    t.after(() => upgraded.runtime.close());
+    deferCleanup(t, () => upgraded.runtime.close());
     await assert.rejects(upgraded.service.finishLedgerTidy(projectId, { unchanged: "旧版未见交付" }, at), {
       code: "invalid_project_data"
     });

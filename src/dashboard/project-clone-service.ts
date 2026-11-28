@@ -137,14 +137,15 @@ function failureMessage(output: string, code: number | null, remoteUrl?: string)
   // query; that text reaches a response and a record, so the URL is removed.
   const lines = redactRemote(output, remoteUrl)
     .split(/\r?\n/)
-    .map((line) => line.trim().replace(/^fatal:\s*/i, ""))
+    .map((line) => line.trim())
     .filter((line) => line && !NOISE.test(line));
   const authentication = lines.find((line) =>
     /permission denied|authentication failed|could not read username|publickey/i.test(line)
   );
-  if (authentication) return authentication.replace(/^[^\s@]+@[^\s:]+:\s*/, "");
-  const last = lines.at(-1);
-  if (last) return last;
+  if (authentication) return authentication.replace(/^fatal:\s*/i, "").replace(/^[^\s@]+@[^\s:]+:\s*/, "");
+  // A failed upload-pack can end with generic instructions after the fatal cause.
+  const cause = lines.find((line) => /^fatal:\s*/i.test(line)) ?? lines.at(-1);
+  if (cause) return cause.replace(/^fatal:\s*/i, "");
   return code === null ? "无法启动 Git 克隆" : `Git 克隆失败（退出码 ${code}）`;
 }
 

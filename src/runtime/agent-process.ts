@@ -249,8 +249,9 @@ export class AgentProcessHost {
       child = spawn(executable, argv, {
         cwd: input.workingDirectory,
         env,
-        // A resident Main must also outlive its launching backend on Windows.
-        detached: resident || usesProcessGroups,
+        // Main and delegated agents both outlive their launching backend. On Windows
+        // libuv terminates non-detached children when the parent Node process exits.
+        detached: true,
         windowsHide: true,
         stdio: ["pipe", resident ? "pipe" : stdout!.fd, resident ? "pipe" : stderr!.fd]
       });

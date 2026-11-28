@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
@@ -22,7 +23,7 @@ import { parseHTML } from "linkedom";
  * case, and none of these assertions reads backend internals.
  */
 
-const repositoryRoot = resolve(new URL("..", import.meta.url).pathname);
+const repositoryRoot = fileURLToPath(new URL("..", import.meta.url));
 const backendEntry = join(repositoryRoot, "dist/src/cli/backend.js");
 const HOST_CREDENTIAL = "host-credential-for-os-web-client-protocol";
 
@@ -257,6 +258,7 @@ test("opening a PDF reads the bound backend's file through its authorized sessio
     ])
   };
   const opened = [];
+  let opening;
   const viewer = createArtifactViewer({
     read: (path) => client.blob(path),
     identity: () => client.state(),
@@ -280,7 +282,7 @@ test("opening a PDF reads the bound backend's file through its authorized sessio
       throw new Error(message);
     },
     renderRightPanel() {},
-    openArtifactViewer: (path) => viewer.open(path)
+    openArtifactViewer: (path) => (opening = viewer.open(path))
   });
   for (const [root, instance, body] of [
     [first, a, "artifact from A"],
@@ -308,13 +310,12 @@ test("opening a PDF reads the bound backend's file through its authorized sessio
       5000
     );
     document
-      .querySelector('#artifact-drawer a[target="_blank"]')
+      .querySelector("#artifact-drawer [data-open-artifact-viewer]")
       .dispatchEvent(new window.Event("click", { bubbles: true, cancelable: true }));
-    await waitFor(
-      "authorized artifact to open",
-      () => opened.find((item) => item.backendId === instance.backendId),
-      1000
-    );
+    assert.ok(opening, "clicking Open starts the authorized read");
+    await opening;
+    opening = undefined;
+    assert.equal(opened.at(-1).backendId, instance.backendId);
     assert.equal(opened.at(-1).text, body);
     assert.equal(opened.at(-1).type, "application/pdf");
   }

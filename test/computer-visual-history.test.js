@@ -13,7 +13,7 @@ import { createImageTools } from "../dist/src/tools/read-image.js";
 import { createImageArchive } from "../dist/src/tools/image-archive.js";
 
 const requirePi = createRequire(import.meta.resolve("@earendil-works/pi-coding-agent"));
-const { createJiti } = await import(requirePi.resolve("jiti"));
+const { createJiti } = requirePi("jiti");
 const { registerComputerTools } = await createJiti(import.meta.url).import(
   resolve(".pi/runtime/tools/computer-use.ts")
 );

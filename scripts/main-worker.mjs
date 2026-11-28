@@ -86,6 +86,7 @@ try {
         [resolve("scripts", "start-pi.mjs"), "--continue", "--print", WAKE_PROMPT],
         {
           cwd: process.cwd(),
+          windowsHide: true,
           stdio: "inherit",
           env: {
             ...process.env,

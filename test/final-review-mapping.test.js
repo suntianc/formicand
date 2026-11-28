@@ -1,3 +1,4 @@
+import { deferCleanup } from "./fixtures/cleanup.mjs";
 import assert from "node:assert/strict";
 import { mkdtemp, rm } from "node:fs/promises";
 import { join } from "node:path";
@@ -48,7 +49,7 @@ test("the mapping is numbered by the program and each row needs a requirement an
 
 test("a version 10 ledger gains the review mapping", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "formicand-mapping-v10-"));
-  t.after(() => rm(root, { recursive: true, force: true }));
+  deferCleanup(t, () => rm(root, { recursive: true, force: true }));
   const open = async () => {
     const runtime = new ProjectDataRuntime({
       config: { sqlite: { path: join(root, "project-data.sqlite") } },
@@ -81,7 +82,7 @@ test("a version 10 ledger gains the review mapping", async (t) => {
   await database.close();
 
   const again = await open();
-  t.after(() => again.runtime.close());
+  deferCleanup(t, () => again.runtime.close());
   assert.equal(again.service.description.schemaVersion, 16);
   const reopened = await SqliteDatabase.open(join(root, "project-data.sqlite"));
   const columns = await reopened.query("PRAGMA table_info(project_data_development_reviews)");

@@ -1,6 +1,7 @@
+import JSZip from "jszip";
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -102,9 +103,9 @@ test("a zip archive and a Git repository install the same way", async (t) => {
   const { paths, service } = await setup(t);
   const source = join(paths.root, "zip-source");
   await skill(join(source, "zipped"), "zipped");
-  const archive = join(paths.root, "skills.zip");
-  await run("zip", ["-qr", archive, "zipped"], { cwd: source });
-  const fromZip = await service.previewArchive(await readFile(archive), global);
+  const archive = new JSZip();
+  archive.file("zipped/SKILL.md", await readFile(join(source, "zipped", "SKILL.md")));
+  const fromZip = await service.previewArchive(await archive.generateAsync({ type: "nodebuffer" }), global);
   await service.install(fromZip.stagingId, ["zipped"], global, false);
   assert.ok(existsSync(join(paths.home, "skills", "zipped", "SKILL.md")));
   await assert.rejects(service.previewArchive(Buffer.from("not a zip"), global), /压缩包无法解开/);
@@ -123,7 +124,7 @@ test("a zip archive and a Git repository install the same way", async (t) => {
   await assert.rejects(service.previewGit("ftp://example.com/x", global), /不支持 ftp 协议/);
   // Staged copies are cleaned once installed.
   const staged = join(paths.home, "runtime", "skill-staging");
-  assert.deepEqual(existsSync(staged) ? (await run("ls", [staged])).stdout.trim() : "", "");
+  assert.deepEqual(existsSync(staged) ? await readdir(staged) : [], []);
 });
 
 test("removing hides a skill from the catalog, restoring brings it back, and only installed skills delete", async (t) => {

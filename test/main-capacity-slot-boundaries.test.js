@@ -1,3 +1,4 @@
+import { endAgentProcesses } from "./dashboard-fixture.mjs";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
@@ -172,7 +173,7 @@ async function runFixture(t, { unfinished, holdUnfinished = false }) {
   });
   t.after(async () => {
     await service.stop();
-    await endResidentMains(workspaceRoot);
+    await endAgentProcesses(workspaceRoot);
     await rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 });
   });
   const settle = async () => {
@@ -194,25 +195,6 @@ async function runFixture(t, { unfinished, holdUnfinished = false }) {
     pause,
     releaseUnfinished
   };
-}
-
-/** End every fake resident Main this test left behind, by its recorded group. */
-async function endResidentMains(workspaceRoot) {
-  const runs = await readdir(join(workspaceRoot, TASK_ID, "runs")).catch(() => []);
-  for (const runId of runs) {
-    const record = await readFile(
-      join(workspaceRoot, TASK_ID, "runs", runId, "agents", "main", "process.json"),
-      "utf8"
-    )
-      .then((value) => JSON.parse(value))
-      .catch(() => undefined);
-    if (!record?.pid) continue;
-    try {
-      process.kill(-record.pid, "SIGKILL");
-    } catch {
-      /* the fake process already exited */
-    }
-  }
 }
 
 test("a paused turn with unfinished delegated work releases no slot", async (t) => {

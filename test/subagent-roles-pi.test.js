@@ -1,3 +1,4 @@
+import { endAgentProcesses } from "./dashboard-fixture.mjs";
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
@@ -141,18 +142,6 @@ function refusalText(requests) {
   return messageText(lastToolResult(requests)).trim();
 }
 
-async function readJsonRecords(runRoot) {
-  const records = [];
-  const directory = join(runRoot, "agents", "subagents");
-  const entries = await readdir(directory, { withFileTypes: true }).catch(() => []);
-  for (const entry of entries) {
-    if (!entry.isDirectory()) continue;
-    const record = await readJson(join(directory, entry.name, "process.json"), undefined);
-    if (record) records.push(record);
-  }
-  return records;
-}
-
 /**
  * One delegated call through the real backend path: a durable queue item, the
  * process service that launches it, and Main's callback once it settles.
@@ -265,14 +254,7 @@ async function delegatedCall(
   const cleanup = async () => {
     service.close();
     await provider.close();
-    for (const record of await readJsonRecords(runRoot)) {
-      if (!record.pid || record.settledAt) continue;
-      try {
-        process.kill(-record.pid, "SIGKILL");
-      } catch {
-        /* the process group has already exited */
-      }
-    }
+    await endAgentProcesses(workspace);
     await rm(root, { recursive: true, force: true });
   };
   t.after(cleanup);
@@ -1464,7 +1446,7 @@ test(
       FORMICAND_SUBAGENT_RESULT: join(root, "result.json")
     });
     await writeFile(process.env.FORMICAND_CONFIG, "{}\n");
-    const { createJiti } = await import(requirePi.resolve("jiti"));
+    const { createJiti } = requirePi("jiti");
     const jiti = createJiti(pathToFileURL(extensionPath).href, { interopDefault: true });
     const module = await jiti.import(extensionPath, { default: true });
     const pi = fakePi();

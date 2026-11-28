@@ -1,8 +1,9 @@
+import { shellExecutable } from "./fixtures/script-executable.mjs";
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
-import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { delimiter, join } from "node:path";
 import { test } from "node:test";
 import { promisify } from "node:util";
 import { commitExists, isAncestor, publishMerge, targetTip } from "../dist/src/workspace/project-merge.js";
@@ -13,11 +14,15 @@ async function fixture(t) {
   const root = await mkdtemp(join(tmpdir(), "formicand-publish-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const repo = join(root, "repo");
-  const real = (await run("which", ["git"])).stdout.trim();
+  const real = (await run(process.platform === "win32" ? "where.exe" : "which", ["git"])).stdout
+    .trim()
+    .split(/\r?\n/)[0]
+    .replaceAll("\\", "/");
   const git = (args) => run(real, ["-C", repo, ...args]).then((result) => result.stdout.trim());
   await run(real, ["init", "-b", "main", repo]);
   await git(["config", "user.email", "fixture@example.test"]);
   await git(["config", "user.name", "Fixture"]);
+  await git(["config", "core.autocrlf", "false"]);
   await writeFile(join(repo, "a.txt"), "a\n");
   await git(["add", "."]);
   await git(["commit", "-m", "base"]);
@@ -37,19 +42,18 @@ async function fixture(t) {
     const bin = join(root, "bin");
     await mkdir(bin);
     const wrapper = join(bin, "git");
-    await writeFile(
+    await shellExecutable(
       wrapper,
       `#!/bin/sh
-git() { "${real}" -C "${repo}" "$@"; }
+git() { "${real}" -C "${repo.replaceAll("\\", "/")}" "$@"; }
 case "$*" in
 ${commands}
 esac
 exec "${real}" "$@"
 `
     );
-    await chmod(wrapper, 0o755);
     const path = process.env.PATH;
-    process.env.PATH = `${bin}:${path}`;
+    process.env.PATH = `${bin}${delimiter}${path}`;
     t.after(() => {
       process.env.PATH = path;
     });
@@ -147,7 +151,7 @@ test("the target stays locked through the fast-forward and unrelated staged and 
   await writeFile(join(repo, "a.txt"), "staged\n");
   await git(["add", "a.txt"]);
   await writeFile(join(repo, "a.txt"), "working\n");
-  const marker = join(root, "switch-result");
+  const marker = join(root, "switch-result").replaceAll("\\", "/");
   await intercept(
     `*"symbolic-ref"*) "${real}" "$@" || exit $?; git switch -q other 2>/dev/null; echo "$?" > "${marker}"; exit 0 ;;`
   );
@@ -176,7 +180,7 @@ test("a conflicting local file blocks publication and retry finishes an already 
 for (const format of ["NUL", "legacy"]) {
   test(`a target in a linked worktree with a quoted path is advanced on disk (${format} listing)`, async (t) => {
     const { root, git, merged, publish, intercept } = await fixture(t);
-    const checkout = join(root, 'linked "worktree"');
+    const checkout = join(root, process.platform === "win32" ? "linked 中文 worktree" : 'linked "worktree"');
     await git(["switch", "other"]);
     await git(["worktree", "add", checkout, "main"]);
     if (format === "legacy") await intercept(`*"worktree list"*"-z"*) exit 129 ;;`);

@@ -6,7 +6,8 @@ import { hostname, tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { setTimeout as delay } from "node:timers/promises";
-import { verifyProcessIdentity } from "../dist/src/runtime/process-identity.js";
+import { processIsAlive, verifyProcessIdentity } from "../dist/src/runtime/process-identity.js";
+import { stopRecordedWindowsTree } from "../dist/src/platform/windows-job-tree.js";
 import { signalProcessGroup } from "../dist/src/platform/process-group.js";
 
 const harnessRoot = fileURLToPath(new URL("..", import.meta.url));
@@ -211,6 +212,11 @@ export async function endAgentProcesses(workspaceRoot) {
           .then((value) => JSON.parse(value))
           .catch(() => undefined);
         if (!record?.pid || record.host !== hostname()) continue;
+        if (process.platform === "win32") {
+          if (record.startedAt && processIsAlive(record.pid))
+            await stopRecordedWindowsTree(record.pid, record.startedAt);
+          continue;
+        }
         if (!(await verifyProcessIdentity(record))) continue;
         try {
           signalProcessGroup(record.pid, "SIGKILL");

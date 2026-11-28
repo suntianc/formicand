@@ -9,6 +9,7 @@ import { join, resolve } from "node:path";
 import { test } from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
 import { SessionManager } from "@earendil-works/pi-coding-agent";
+import { killFixtureMain } from "./fixtures/main-processes.mjs";
 import { startDashboard } from "./dashboard-fixture.mjs";
 const { mainInputPath, saveMainInput } = await import("../dist/src/runtime/main-continuation.js");
 const { LocalWorkspaceStore } = await import("../dist/src/workspace/workspace-store.js");
@@ -624,6 +625,7 @@ test(
   async (t) => {
     let runId = "";
     let step2Reached = false;
+    let finishDelegations;
     let releaseStep2;
     const step2Held = new Promise((resolve) => {
       releaseStep2 = resolve;
@@ -644,7 +646,7 @@ test(
           join(local.workspaceRoot, taskId, "runs", runId, "agents", "main", "inbox-store.json")
         );
         const now = new Date().toISOString();
-        const leaseExpiry = new Date(Date.now() + 200).toISOString();
+        const leaseExpiry = new Date(Date.now() + 120_000).toISOString();
         const claimedLeases = [];
         for (const [stepId, messageId, marker] of [
           ["sub-wait-a", "cb-wait-a", "SUBAGENT_UNIQUE_MARKER_A"],
@@ -673,12 +675,12 @@ test(
             createdAt: now
           });
         }
-        // Complete the two subagent calls in queue.json after the short pre-wait lease expires
-        // (without touching inbox-store.json), so wait_for_subagents deterministically claims both
-        // callbacks into details._formicandInboxMessages.
-        void delay(300).then(async () => {
+        // Only the wait tool should claim these receipts. Release the fixture leases
+        // once real execution has entered that tool, then finish the queued work.
+        finishDelegations = async () => {
+          for (const id of ["cb-wait-a", "cb-wait-b"]) await inbox.release(id);
           for (const [stepId, token] of claimedLeases) await scheduler.complete(stepId, token);
-        });
+        };
         response.writeHead(200, { "content-type": "text/event-stream" });
         stream(response, { role: "assistant" });
         stream(response, {
@@ -689,7 +691,7 @@ test(
               type: "function",
               function: {
                 name: "wait_for_subagents",
-                arguments: JSON.stringify({ callIds: ["sub-wait-a", "sub-wait-b"], timeoutMs: 4000 })
+                arguments: JSON.stringify({ callIds: ["sub-wait-a", "sub-wait-b"], timeoutMs: 30_000 })
               }
             }
           ]
@@ -712,6 +714,20 @@ test(
     const started = await local.api(`/api/tasks/${taskId}/run`, { prompt: "Wait for two callbacks." });
     runId = started.runId;
 
+    const waitUntil = Date.now() + 30_000;
+    for (;;) {
+      const detail = await local.api(`/api/tasks/${taskId}`);
+      if (
+        detail.runtimeEvents.some(
+          ({ payload }) =>
+            payload.type === "tool_execution_start" && payload.toolName === "wait_for_subagents"
+        )
+      )
+        break;
+      assert.ok(Date.now() < waitUntil, "the real Main entered its wait tool");
+      await delay(25);
+    }
+    await finishDelegations();
     const until = Date.now() + 25_000;
     while (!step2Reached && Date.now() < until) await delay(20);
     assert.equal(step2Reached, true, "Pi must reach the post-wait model request");
@@ -738,7 +754,7 @@ test(
       )
     );
     killed = true;
-    process.kill(proc.pid, "SIGKILL");
+    await killFixtureMain(proc);
     releaseStep2();
     await local.settle(taskId, "failed");
 
@@ -795,7 +811,7 @@ test(
       )
     );
     recoveredPhase = true;
-    process.kill(proc.pid, "SIGKILL");
+    await killFixtureMain(proc);
     releaseFirst();
     await local.settle(taskId, "failed");
 
@@ -916,7 +932,7 @@ test(
       )
     );
     phase = "followup";
-    process.kill(proc.pid, "SIGKILL");
+    await killFixtureMain(proc);
     const failed = await local.settle(taskId, "failed");
 
     // 1. Backend loadDetail() retains original user prompt, step 1 tool output, and partial text.
@@ -1065,6 +1081,13 @@ test(
     const projectDir = join(root, "project");
     const piAgentDir = join(root, "pi-agent");
     const pidFile = join(root, "pi-child.pid");
+    const running = join(root, "tool-running");
+    const pidExtension = join(root, "pi-process.mjs");
+    await writeFile(
+      pidExtension,
+      `import { writeFile } from "node:fs/promises";
+      export default async () => { await writeFile(${JSON.stringify(pidFile)}, String(process.pid)); };`
+    );
     await mkdir(workspaceRoot, { recursive: true });
     await mkdir(projectDir, { recursive: true });
     await mkdir(piAgentDir, { recursive: true });
@@ -1091,7 +1114,7 @@ test(
             function: {
               name: "bash",
               arguments: JSON.stringify({
-                command: `printf '%s\\n' "$PPID" > ${shellQuote(pidFile)}; sleep 30`
+                command: `printf running > ${shellQuote(running)}; sleep 30`
               })
             }
           }
@@ -1117,7 +1140,15 @@ test(
     const taskId = "cli-sigkill-materialize";
     const launcher = spawn(
       process.execPath,
-      [resolve("scripts/start-pi.mjs"), "--print", "Run a tool and wait."],
+      [
+        resolve("scripts/start-pi.mjs"),
+        "--extension",
+        resolve(".pi/extensions/formicand.ts"),
+        "--extension",
+        pidExtension,
+        "--print",
+        "Run a tool and wait."
+      ],
       {
         cwd: projectDir,
         env: {
@@ -1150,7 +1181,11 @@ test(
     while (Date.now() < until) {
       const raw = await readFile(pidFile, "utf8").catch(() => "");
       const parsed = Number(raw.trim());
-      if (Number.isInteger(parsed) && parsed > 0) {
+      if (
+        Number.isInteger(parsed) &&
+        parsed > 0 &&
+        (await readFile(running, "utf8").catch(() => "")) === "running"
+      ) {
         piPid = parsed;
         break;
       }

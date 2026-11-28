@@ -9,7 +9,6 @@ import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
-import { pathToFileURL } from "node:url";
 import { createModels, createProvider, normalizeContext } from "@earendil-works/pi-ai";
 import { openAICompletionsApi } from "@earendil-works/pi-ai/api/openai-completions.lazy";
 const { MainRequestStore, mainRequestPath } = await import("../dist/src/storage/main-request-store.js");
@@ -107,9 +106,7 @@ test("late settlement cannot replace a newer request or recreate a cleared user 
 test("a dead snapshot writer does not block immediate process recovery", { timeout: 5000 }, async (t) => {
   const f = await storage(t);
   await f.store.begin(f.input);
-  const lockModule = pathToFileURL(
-    new URL("../dist/src/storage/file-lock.js", import.meta.url).pathname
-  ).href;
+  const lockModule = new URL("../dist/src/storage/file-lock.js", import.meta.url).href;
   await promisify(execFile)(process.execPath, [
     "--input-type=module",
     "-e",

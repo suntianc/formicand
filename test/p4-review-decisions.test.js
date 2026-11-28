@@ -44,15 +44,21 @@ const waitFor = async (check, message, timeout = 30_000) => {
   assert.fail(message);
 };
 
-const settle = async (request, taskId, timeout = 120_000) => {
-  const until = Date.now() + timeout;
+const settle = async (request, taskId, requests, timeout = 120_000) => {
+  let progress;
+  let until = Date.now() + timeout;
   while (Date.now() < until) {
     const detail = await request(`/api/tasks/${taskId}`);
     if (detail.status === 200 && !detail.body.runtime.active && detail.body.task.status === "completed")
       return detail.body;
-    await delay(50);
+    const steps = JSON.stringify(requests);
+    if (steps !== progress) {
+      progress = steps;
+      until = Date.now() + timeout;
+    }
+    await delay(100);
   }
-  assert.fail(`Main ${taskId} did not settle`);
+  assert.fail(`Main ${taskId} did not settle after provider steps ${progress}`);
 };
 
 async function makeRepository(directory) {
@@ -60,6 +66,7 @@ async function makeRepository(directory) {
   await git(directory, ["init", "-b", "main"]);
   await git(directory, ["config", "user.email", "fixture@example.test"]);
   await git(directory, ["config", "user.name", "Fixture"]);
+  await git(directory, ["config", "core.autocrlf", "false"]);
   await writeFile(join(directory, "tracked.txt"), "committed\n");
   await git(directory, ["add", "."]);
   await git(directory, ["commit", "-m", "baseline"]);
@@ -719,7 +726,7 @@ test(
     });
     assert.equal(started.status, 202, JSON.stringify(started.body));
     try {
-      await Promise.race([settle(request, taskId), scriptFailure]);
+      await Promise.race([settle(request, taskId, requests), scriptFailure]);
     } finally {
       polling = false;
       await answerer;

@@ -268,11 +268,11 @@ for (const engine of PROJECT_DATA_ENGINES) {
       assert.equal(cancelled.status, 200, JSON.stringify(cancelled.body));
       await waitFor(async () => {
         const view = await capacity(request);
-        return externalRegular(view.body).some((entry) => entry.taskId === second.body.session.taskId);
+        return (
+          externalRegular(view.body).some((entry) => entry.taskId === second.body.session.taskId) &&
+          view.body.queued.length === 0
+        );
       }, "the queued demand did not take the freed slot");
-      const advanced = await capacity(request);
-      assert.equal(advanced.body.queued.length, 0);
-      assert.ok(externalRegular(advanced.body).length >= 1);
       local.release();
 
       await settle(request, first.body.session.taskId, "completed");
@@ -440,6 +440,7 @@ test("concurrent external session saves never exceed the project limit", { timeo
  */
 test("the runtime capacity page keeps edited quotas across a background refresh and saves them", async (t) => {
   const { window, document } = parseHTML(readFileSync("web/index.html", "utf8"));
+  let pages;
   const previous = {
     window: globalThis.window,
     document: globalThis.document,
@@ -453,6 +454,7 @@ test("the runtime capacity page keeps edited quotas across a background refresh 
     location: { origin: "http://127.0.0.1:3880", host: "127.0.0.1:3880" }
   });
   t.after(() => {
+    pages?.close({ restoreFocus: false });
     for (const [key, value] of Object.entries(previous)) {
       if (value === undefined) delete globalThis[key];
       else globalThis[key] = value;
@@ -462,6 +464,8 @@ test("the runtime capacity page keeps edited quotas across a background refresh 
   const sent = [];
   let reads = 0;
   const api = async (path, options) => {
+    if (path === "/api/node-resources") return undefined;
+    assert.equal(path, "/api/main-capacity");
     if (options?.body) {
       const body = JSON.parse(options.body);
       sent.push(body);
@@ -475,13 +479,13 @@ test("the runtime capacity page keeps edited quotas across a background refresh 
     reads += 1;
     return { settings: { resident: 2, continuation: 0 }, running: [], queued: [], projects: [] };
   };
-  const pages = createSettingsPages({
+  pages = createSettingsPages({
     root: document.querySelector("#settings-entry"),
     app: document.querySelector("#app-layout"),
     api,
     nodes: () => [{ origin: "https://cloud.example.test", name: "云端", role: "external" }]
   });
-  pages.open("capacity");
+  pages.open("nodes");
   for (let index = 0; index < 8; index++) await new Promise((done) => setTimeout(done, 0));
   const continuation = () => document.querySelector('[data-capacity-value="continuation"]');
   assert.equal(document.querySelector('[data-capacity-value="regular"]').textContent, "2");
@@ -490,7 +494,7 @@ test("the runtime capacity page keeps edited quotas across a background refresh 
   document.querySelector('[aria-label="增加接续 Main"]').click();
   assert.equal(continuation().textContent, "1");
   // A refresh reads the service again but keeps the number the person set.
-  pages.open("capacity");
+  pages.open("nodes");
   for (let index = 0; index < 8; index++) await new Promise((done) => setTimeout(done, 0));
   assert.equal(reads, 2);
   assert.equal(continuation().textContent, "1", "a background refresh must not overwrite the edited quota");

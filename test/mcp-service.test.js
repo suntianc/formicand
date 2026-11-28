@@ -123,7 +123,7 @@ test("import adds several servers, refuses clashes unless replacing, and failure
   const byName = Object.fromEntries(list.servers.map((server) => [server.name, server]));
   assert.equal(byName.echoes.status.state, "connected");
   assert.equal(byName.broken.status.state, "failed");
-  assert.match(byName.broken.status.error, /ENOENT/);
+  assert.match(byName.broken.status.error, /missing-binary/);
   assert.equal(byName.remote.status.state, "unchecked");
   assert.equal(byName.remote.oauth, true);
 

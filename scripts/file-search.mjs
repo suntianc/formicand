@@ -238,6 +238,7 @@ async function runNativeLines({ command, args, cwd, signal, deadline, nul = fals
   if (signal?.aborted) throw new Error(ABORT_MESSAGE);
   const child = spawn(command, args, {
     cwd,
+    windowsHide: true,
     stdio: ["ignore", "pipe", "pipe"],
     detached: process.platform !== "win32"
   });

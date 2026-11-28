@@ -415,6 +415,7 @@ async function launch() {
   // Main starts from the user's project, while extensions and workers use the immutable install root.
   const child = spawn(process.execPath, [join(harness, entry), ...forwarded], {
     cwd: pi ? cwd : harness,
+    windowsHide: true,
     env,
     stdio: "inherit"
   });

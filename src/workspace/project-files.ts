@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url";
 import type { Stats } from "node:fs";
 import { realpath } from "node:fs/promises";
 import { isAbsolute, relative, sep } from "node:path";
@@ -36,17 +37,22 @@ function normalizeReference(reference: string): string | undefined {
   if (!/^file:\/\//i.test(trimmed)) return trimmed;
   const match = /^file:\/\/(?:localhost)?(\/(?![/\\]).*)$/i.exec(trimmed);
   if (!match) return undefined;
-  const [rawPath] = match[1].split("#");
-  let decoded = rawPath;
-  if (rawPath.includes("%")) {
-    try {
-      decoded = decodeURIComponent(rawPath);
-      // eslint-disable-next-line no-restricted-syntax -- file:// 引用可能含非法百分比转义，保留原路径供后续边界校验
-    } catch {
-      /* keep rawPath */
-    }
+  const [raw] = trimmed.split("#");
+  let local = raw;
+  try {
+    decodeURIComponent(raw);
+  } catch (error) {
+    if (!(error instanceof URIError)) throw error;
+    // Older replies can contain literal percent signs in filenames.
+    local = raw.replaceAll("%", "%25");
   }
-  return /[\x00-\x1f\x7f]/.test(decoded) ? undefined : decoded;
+  try {
+    const path = fileURLToPath(local.replaceAll("?", "%3F"));
+    return /[\x00-\x1f\x7f]/.test(path) ? undefined : path;
+  } catch (error) {
+    if (error instanceof TypeError) return undefined;
+    throw error;
+  }
 }
 
 /**

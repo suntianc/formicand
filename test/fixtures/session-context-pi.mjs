@@ -87,7 +87,8 @@ export async function sessionContextFixture(
   t.after(async () => {
     if (child && child.exitCode === null && child.signalCode === null) {
       try {
-        process.kill(-child.pid, "SIGKILL");
+        if (process.platform === "win32") child.kill();
+        else process.kill(-child.pid, "SIGKILL");
       } catch (error) {
         if (error.code !== "ESRCH") throw error;
       }
@@ -157,12 +158,17 @@ export async function sessionContextFixture(
         "--session-dir",
         sessions,
         ...(resume ? ["--session", await sessionFile()] : []),
-        ...args,
-        prompt
+        ...args
       ],
-      { env: { ...env, ...launchEnv }, detached: true, stdio: ["ignore", "pipe", "pipe"] }
+      {
+        env: { ...env, ...launchEnv },
+        detached: process.platform !== "win32",
+        windowsHide: true,
+        stdio: ["pipe", "pipe", "pipe"]
+      }
     );
     childExit = once(child, "exit");
+    child.stdin.end(prompt);
     let output = "";
     for (const stream of [child.stdout, child.stderr])
       stream.setEncoding("utf8").on("data", (chunk) => {

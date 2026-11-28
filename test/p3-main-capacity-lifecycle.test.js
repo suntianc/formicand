@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { execFile, spawn } from "node:child_process";
+import { spawn } from "node:child_process";
 import { once } from "node:events";
 import { createServer } from "node:http";
 import { readFileSync } from "node:fs";
@@ -8,9 +8,9 @@ import { hostname, tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
-import { promisify } from "node:util";
+import { fixtureMainProcesses, killFixtureChild, killFixtureMain } from "./fixtures/main-processes.mjs";
 import { parseHTML } from "linkedom";
-import { startDashboard } from "./dashboard-fixture.mjs";
+import { startDashboard as launchDashboard } from "./dashboard-fixture.mjs";
 import { readFixtureRequestBody } from "./http-request-body-fixture.mjs";
 import { protocolStream } from "./model-protocol-fixture.mjs";
 import { createSettingsPages } from "../web/assets/controllers/settings-pages.js";
@@ -18,7 +18,10 @@ import { backendPaths, readBackendInstance } from "../dist/src/dashboard/backend
 import { saveTestConnection } from "./model-provider-fixture.mjs";
 import { saveRoleModel } from "./role-settings.mjs";
 
-const run = promisify(execFile);
+// These tests await the resident Main's actual exit before checking its slot.
+function startDashboard(options) {
+  return launchDashboard({ ...options, env: { FORMICAND_MAIN_IDLE_TIMEOUT_MS: "1200", ...options.env } });
+}
 
 /**
  * The external Main lifecycle: a slot is one running process, and the program
@@ -157,14 +160,7 @@ async function settle(request, taskId, status, timeout = 30_000) {
  * second `kill(-pid)` fail with `ESRCH` after the first one ended the group.
  */
 async function ownProcesses(root, marker) {
-  const { stdout } = await run("ps", ["-ax", "-o", "pid=,pgid=,command="], { maxBuffer: 8 * 1024 * 1024 });
-  return stdout
-    .split("\n")
-    .map((line) => line.trim())
-    .filter((line) => line.includes(root) && line.includes(marker))
-    .map((line) => line.split(/\s+/))
-    .filter(([pid, pgid]) => /^\d+$/.test(pid) && pid === pgid && Number(pid) > 0)
-    .map(([pid]) => Number(pid));
+  return fixtureMainProcesses(root, marker, true);
 }
 
 /** Run a CLI child with a bound; a timeout stops the group this test started. */
@@ -292,7 +288,7 @@ test(
     // The launcher is a process group leader; kill that whole group (the Main)
     // by the pid this test recorded, never by name.
     const crashed = await waitForPid(dashboard.workspaceRoot, sessions.bravo.taskId);
-    for (const pid of crashed) process.kill(-pid, "SIGKILL");
+    for (const group of crashed) await killFixtureMain(group);
     await settle(request, sessions.bravo.taskId, "failed");
     await waitFor(async () => {
       const now = await capacity(request);
@@ -464,7 +460,7 @@ test(
     // start the demand that waited through the restart.
     const orphaned = await ownProcesses(dashboard.workspaceRoot, firstSession.taskId);
     assert.ok(orphaned.length > 0, "the orphaned Main was not found by its Task");
-    for (const pid of orphaned) process.kill(-pid, "SIGKILL");
+    for (const group of orphaned) await killFixtureMain(group);
     // A read during the hand-off must not reclaim the reservation before the
     // dispatched process exists, so this poll is also the race regression.
     let latest = {};
@@ -676,6 +672,7 @@ test(
     assert.equal(view.queued[0].origin, "http");
     assert.deepEqual(view.settings, { resident: 1, continuation: 0 });
 
+    let pages;
     const previous = {
       window: globalThis.window,
       document: globalThis.document,
@@ -683,6 +680,7 @@ test(
       location: globalThis.location
     };
     t.after(() => {
+      pages?.close({ restoreFocus: false });
       for (const [key, value] of Object.entries(previous)) {
         if (value === undefined) delete globalThis[key];
         else globalThis[key] = value;
@@ -702,13 +700,13 @@ test(
       }
       return response.json();
     };
-    const pages = createSettingsPages({
+    pages = createSettingsPages({
       root: document.querySelector("#settings-entry"),
       app: document.querySelector("#app-layout"),
       api,
       nodes: () => [{ origin: "https://cloud.example.test", name: "云端", role: "external" }]
     });
-    pages.open("capacity");
+    pages.open("nodes");
     // Only the remote external node is offered; this machine never gets quotas.
     await waitFor(
       () => document.querySelector('[data-capacity-value="regular"]'),
@@ -720,7 +718,7 @@ test(
     document.querySelector('[aria-label="增加接续 Main"]').click();
     assert.equal(document.querySelector('[data-capacity-value="continuation"]').textContent, "1");
     // A background refresh keeps the number the person set.
-    pages.open("capacity");
+    pages.open("nodes");
     await waitFor(
       () => document.querySelector('[data-capacity-value="continuation"]')?.textContent === "1",
       "a background refresh overwrote the edited quota"
@@ -1959,15 +1957,7 @@ test(
         }
       }
     );
-    t.after(() => {
-      if (child.exitCode === null && child.signalCode === null) {
-        try {
-          process.kill(-child.pid, "SIGKILL");
-        } catch {
-          child.kill("SIGKILL");
-        }
-      }
-    });
+    t.after(() => killFixtureChild(child));
     let childStderr = "";
     let childStdout = "";
     child.stderr.on("data", (chunk) => {
@@ -2012,7 +2002,7 @@ test(
 
     // Only when the child actually exits does the slot free and the next demand
     // start, exactly once.
-    process.kill(-child.pid, "SIGKILL");
+    await killFixtureChild(child);
     await waitFor(
       async () =>
         (await capacity(request)).body.running.some((entry) => entry.taskId === secondSession.taskId),
