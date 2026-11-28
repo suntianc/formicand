@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
-import { execFile } from "node:child_process";
-import { mkdtemp, rm } from "node:fs/promises";
+import { execFile, spawn } from "node:child_process";
+import { mkdir, mkdtemp, readFile, rename, rm, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
@@ -8,6 +8,96 @@ import { test } from "node:test";
 
 const execFileAsync = promisify(execFile);
 const jobsUrl = new URL("../dist/src/tools/jobs.js", import.meta.url).href;
+
+test(
+  "a restarted Windows agent stops the shell, command and grandchild and releases their directory",
+  {
+    skip: process.platform !== "win32"
+  },
+  async (t) => {
+    const { startJob } = await import(jobsUrl);
+    const root = await mkdtemp(join(tmpdir(), "formicand-job-tree-"));
+    const cwd = join(root, "working directory");
+    const directory = join(root, "records");
+    const proof = join(root, "pids.json");
+    await mkdir(cwd);
+    await writeFile(
+      join(cwd, "parent.cjs"),
+      `
+    const { spawn } = require("node:child_process");
+    const child = spawn(process.execPath, ["-e", "setInterval(() => {}, 1000)"], { stdio: "ignore" });
+    const fs = require("node:fs");
+    fs.writeFileSync(process.argv[2] + ".tmp", JSON.stringify([process.pid, child.pid]));
+    fs.renameSync(process.argv[2] + ".tmp", process.argv[2]);
+  `
+    );
+    let pids = [];
+    t.after(async () => {
+      for (const pid of pids) {
+        try {
+          process.kill(pid);
+        } catch (error) {
+          if (error.code !== "ESRCH") throw error;
+        }
+      }
+      await rm(root, { recursive: true, force: true, maxRetries: 5 });
+    });
+    const job = await startJob({ directory, cwd, command: `"${process.execPath}" parent.cjs "${proof}"` });
+    pids.push(job.pid);
+    const deadline = Date.now() + 10000;
+    for (;;) {
+      try {
+        pids.push(...JSON.parse(await readFile(proof, "utf8")));
+        break;
+      } catch (error) {
+        if (error.code !== "ENOENT" || Date.now() >= deadline) throw error;
+        await new Promise((done) => setTimeout(done, 30));
+      }
+    }
+    const script = `import { killJob } from ${JSON.stringify(jobsUrl)};
+    console.log((await killJob({ directory: process.argv[1], jobId: process.argv[2] })).state);`;
+    const runStop = () =>
+      execFileAsync(process.execPath, ["--input-type=module", "-e", script, directory, job.jobId]);
+    assert.equal((await runStop()).stdout.trim(), "exited");
+    for (const pid of pids) assert.throws(() => process.kill(pid, 0), { code: "ESRCH" });
+    pids = [];
+    await rename(cwd, join(root, "released"));
+    assert.equal((await runStop()).stdout.trim(), "exited");
+  }
+);
+
+test(
+  "a stale Windows job record cannot stop a process outside its launch window",
+  {
+    skip: process.platform !== "win32"
+  },
+  async (t) => {
+    const { killJob } = await import(jobsUrl);
+    const directory = await mkdtemp(join(tmpdir(), "formicand-job-identity-"));
+    t.after(() => rm(directory, { recursive: true, force: true }));
+    const target = spawn(process.execPath, ["-e", "setInterval(() => {}, 1000)"], { stdio: "ignore" });
+    const exited = new Promise((resolve) => target.once("exit", resolve));
+    t.after(async () => {
+      target.kill();
+      await exited;
+    });
+    const old = new Date(Date.now() - 60_000);
+    const record = {
+      jobId: "job-1",
+      logPath: join(directory, "job-1.log"),
+      command: "old command",
+      cwd: directory,
+      pid: target.pid,
+      startedAt: old.toISOString()
+    };
+    const path = join(directory, "job-1.json");
+    await writeFile(path, JSON.stringify(record));
+    await utimes(path, old, old);
+    await assert.rejects(killJob({ directory, jobId: record.jobId }), /does not belong to the recorded job/);
+    process.kill(target.pid, 0);
+    assert.equal(JSON.parse(await readFile(path, "utf8")).finishedAt, undefined);
+  }
+);
 
 for (const failure of ["missing-cwd", "missing-executable", "invalid-command"]) {
   test(`job startup failure is recoverable in the same process: ${failure}`, async (t) => {

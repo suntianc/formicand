@@ -2,6 +2,8 @@ import { spawn } from "node:child_process";
 import { createWriteStream } from "node:fs";
 import { mkdir, readFile, readdir, rename, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { usesProcessGroups } from "../platform/process-group.js";
+import { stopWindowsJobTree } from "../platform/windows-job-tree.js";
 
 /**
  * Long commands the model supervises instead of a timer.
@@ -205,28 +207,34 @@ export async function listJobs(input: JobsOptions): Promise<JobStatus[]> {
 }
 
 /**
- * Stop a job. SIGTERM first so it can clean up, then SIGKILL if it ignores it.
- * The negative pid targets the process group, since the thing worth killing is
- * usually a child of the shell that was started.
+ * Stop the shell and its descendants. On POSIX give the group time to exit.
  */
 export async function killJob(input: JobsOptions & { jobId: string; graceMs?: number }): Promise<JobStatus> {
   const record = await readRecord(input.directory, input.jobId);
   if (!record) throw new Error(`unknown job: ${input.jobId}`);
   const graceMs = input.graceMs ?? 5_000;
   if (record.finishedAt === undefined && record.pid !== undefined && pidAlive(record.pid)) {
-    signalGroup(record.pid, "SIGTERM");
-    const deadline = Date.now() + graceMs;
-    while (pidAlive(record.pid) && Date.now() < deadline) {
-      await new Promise((resolve) => setTimeout(resolve, 100));
+    if (!usesProcessGroups) {
+      const info = await stat(recordPath(input.directory, input.jobId));
+      // A concurrent exit replaces the launch record with a newer timestamp.
+      // Only use the timestamp if it still describes the running record.
+      if ((await readRecord(input.directory, input.jobId))?.finishedAt !== undefined) return jobStatus(input);
+      await stopWindowsJobTree(record.pid, Date.parse(record.startedAt), info.mtimeMs);
+    } else {
+      signalGroup(record.pid, "SIGTERM");
+      const deadline = Date.now() + graceMs;
+      while (pidAlive(record.pid) && Date.now() < deadline) {
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      }
+      if (pidAlive(record.pid)) signalGroup(record.pid, "SIGKILL");
     }
-    if (pidAlive(record.pid)) signalGroup(record.pid, "SIGKILL");
     // The exit handler only fires in the process that spawned the job, so
     // record the outcome here too for an Agent that inherited it.
     const current = await readRecord(input.directory, input.jobId);
     if (current && current.finishedAt === undefined) {
       await writeRecord(input.directory, {
         ...current,
-        signal: "SIGTERM",
+        signal: usesProcessGroups ? "SIGTERM" : "SIGKILL",
         finishedAt: new Date().toISOString()
         // eslint-disable-next-line no-restricted-syntax -- 进程已被杀死，这里补写的退出记录失败时 jobStatus 仍会按 pid 与日志报告状态
       }).catch(() => {});
