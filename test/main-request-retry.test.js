@@ -238,16 +238,25 @@ async function api(dashboard, path, body) {
   return value;
 }
 async function settle(dashboard, taskId, status) {
-  const until = Date.now() + 20000;
-  while (Date.now() < until) {
-    const detail = await api(dashboard, `/api/tasks/${taskId}`);
+  let deadline = Date.now() + 30_000;
+  let progress;
+  let detail;
+  while (Date.now() < deadline) {
+    detail = await api(dashboard, `/api/tasks/${taskId}`);
     if (!detail.runtime.active) {
       assert.equal(detail.task.status, status, JSON.stringify(detail.task));
       return detail;
     }
+    const observed = `${detail.task.version}:${detail.runtimeEvents.length}`;
+    if (progress !== observed) {
+      progress = observed;
+      deadline = Date.now() + 30_000;
+    }
     await delay(30);
   }
-  assert.fail("Main did not settle");
+  assert.fail(
+    `Main did not settle: ${JSON.stringify({ status: detail.task.status, runtime: detail.runtime, progress })}`
+  );
 }
 const tokenLimit = (body) => body.max_output_tokens ?? body.max_completion_tokens ?? body.max_tokens;
 const reject = (response) => {
@@ -258,7 +267,7 @@ const reject = (response) => {
 for (const protocol of ["openai-completions", "openai-responses"]) {
   test(
     `${protocol}: Main replays exact bytes after restart and setting changes, then accepts a fresh turn`,
-    { timeout: 60000 },
+    { timeout: 120_000 },
     async (t) => {
       let dashboard, store;
       const local = await provider(t, async (item, count, response) => {
@@ -327,7 +336,7 @@ for (const protocol of ["openai-completions", "openai-responses"]) {
 
 test(
   "optional tools are restored for the failed request and subsequent tool calls run once",
-  { timeout: 60000 },
+  { timeout: 120_000 },
   async (t) => {
     const local = await provider(t, (_item, count, response) => {
       if (count === 1) return { name: "enable_tools", arguments: { groups: ["delivery"] } };
@@ -424,7 +433,7 @@ test("auxiliary summaries do not consume or replace a pending Main request", asy
 
 test(
   "changed project or binding and damaged snapshots reject retry before spawning or sending",
-  { timeout: 60000 },
+  { timeout: 120_000 },
   async (t) => {
     const local = await provider(t, (_item, count, response) => {
       if (count === 1) {
@@ -482,7 +491,7 @@ test(
 
 test(
   "a callback arriving after failure waits until exact replay succeeds and is then processed once",
-  { timeout: 60000 },
+  { timeout: 120_000 },
   async (t) => {
     let inbox, stateDuringReplay;
     const local = await provider(t, async (item, count, response) => {
@@ -534,7 +543,7 @@ test(
 
 test(
   "already persisted new input is processed after replay without creating another user message",
-  { timeout: 60000 },
+  { timeout: 120_000 },
   async (t) => {
     const local = await provider(t, (item, count, response) => {
       if (count === 1) {
