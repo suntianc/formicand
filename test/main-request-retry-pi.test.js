@@ -50,12 +50,13 @@ async function fixture(t, api, handle) {
     const response = await fetch(`${dashboard.base}/api/tasks/retry-task/run`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify(body)
+      body: JSON.stringify(body),
+      signal: t.signal
     });
     return { status: response.status, payload: await response.json() };
   };
   const detail = async () => {
-    const response = await fetch(`${dashboard.base}/api/tasks/retry-task`);
+    const response = await fetch(`${dashboard.base}/api/tasks/retry-task`, { signal: t.signal });
     const value = await response.json();
     assert.equal(response.status, 200, JSON.stringify(value));
     return value;
@@ -67,7 +68,7 @@ async function fixture(t, api, handle) {
         assert.equal(value.task.status, status, JSON.stringify(value.task));
         return value;
       }
-      await delay(50);
+      await delay(50, undefined, { signal: t.signal });
     }
     assert.fail("The real Main process did not settle");
   };
@@ -136,7 +137,8 @@ function assertPublicRetryDetail(detail, request) {
 for (const api of ["openai-completions", "openai-responses"]) {
   test(
     `${api}: greeting retries preserve raw body, model, attachments and parameters across repeated failure/restart`,
-    { timeout: 60_000 },
+    // Three real Main launches and two backend restarts run sequentially.
+    { timeout: 150_000 },
     async (t) => {
       const f = await fixture(t, api, ({ response, received }) =>
         received.length < 3 ? reject(response) : answer(response, api, { text: "你好！原请求已恢复。" })
