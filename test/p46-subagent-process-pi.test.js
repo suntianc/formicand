@@ -1,6 +1,9 @@
 import { endAgentProcesses } from "./dashboard-fixture.mjs";
 import { fixtureMainProcesses, killFixtureMain } from "./fixtures/main-processes.mjs";
-import { processGroupIsAlive as groupAlive } from "../dist/src/runtime/process-identity.js";
+import {
+  processGroupIsAlive as groupAlive,
+  readProcessIdentity
+} from "../dist/src/runtime/process-identity.js";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
@@ -445,6 +448,11 @@ test(
       stdio: "ignore"
     });
     f.processes.push(sleeper);
+    const sleeperIdentity = await waitFor(
+      () => readProcessIdentity(sleeper.pid),
+      "the unrelated process identity"
+    );
+    assert.notEqual(sleeperIdentity.startedAt, running.startedAt);
     const lease = "call-p46-reused-pid";
     const scheduler = await queueCall(f, {
       callId: lease,
@@ -463,7 +471,7 @@ test(
       role: "executor",
       pid: sleeper.pid,
       host: hostname(),
-      startedAt: "Mon Jan  1 00:00:00 2001",
+      startedAt: running.startedAt,
       token: "stale-token",
       launchedAt: new Date(0).toISOString(),
       workingDirectory: f.site,
@@ -609,26 +617,37 @@ test(
   { timeout: 60_000 },
   async (t) => {
     const f = await fixture(t);
+    const previousOwner = unrelatedGroup(f);
+    const oldIdentity = await waitFor(
+      () => readProcessIdentity(previousOwner.pid),
+      "the original process identity"
+    );
+    await stopProcess(previousOwner);
+    // ps lstart records whole seconds. Give the new owner a distinct creation time.
+    if (process.platform !== "win32") await delay(1_000);
     const reusedPid = unrelatedGroup(f);
     const foreignHost = unrelatedGroup(f);
     await waitFor(
       () => reusedPid.pid && groupAlive(reusedPid.pid) && foreignHost.pid && groupAlive(foreignHost.pid),
       "the unrelated process groups"
     );
+    const current = await waitFor(() => readProcessIdentity(reusedPid.pid), "the new process identity");
+    const foreign = await waitFor(() => readProcessIdentity(foreignHost.pid), "the foreign process identity");
+    assert.notEqual(oldIdentity.startedAt, current.startedAt);
     const cases = [
       {
         callId: "call-p46-stale-identity",
         agentId: "subagent_7",
         child: reusedPid,
         host: hostname(),
-        startedAt: "Thu Jan  1 00:00:01 1970"
+        startedAt: oldIdentity.startedAt
       },
       {
         callId: "call-p46-stale-host",
         agentId: "subagent_8",
         child: foreignHost,
         host: "a-different-host",
-        startedAt: "Thu Jan  1 00:00:01 1970"
+        startedAt: foreign.startedAt
       }
     ];
     for (const entry of cases) {
