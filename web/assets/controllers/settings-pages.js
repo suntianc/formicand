@@ -738,6 +738,7 @@ export function createSettingsPages({
 
   function close({ restoreFocus = true } = {}) {
     if (!root || root.hidden) return;
+    opened = false;
     closeNodeMenu();
     clearInterval(resourceTimer);
     resourceTimer = undefined;

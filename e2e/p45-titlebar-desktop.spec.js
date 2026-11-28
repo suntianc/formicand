@@ -10,7 +10,7 @@ import { dismissModelSetup } from "./model-provider-ui.js";
 const taskId = "titlebar-task";
 const taskGoal = "标题栏验收会话";
 
-async function bootDesktop() {
+async function bootDesktop({ dismissSetup = true } = {}) {
   const root = await mkdtemp(join(tmpdir(), "formicand-p45-titlebar-"));
   const env = Object.fromEntries(
     Object.entries(process.env).filter(
@@ -42,9 +42,27 @@ async function bootDesktop() {
   }
   const page = await native.firstWindow();
   await expect(page.locator("#composer-input")).toBeAttached();
-  await dismissModelSetup(page, { wait: 5_000 });
+  if (dismissSetup) await dismissModelSetup(page, { wait: 5_000 });
   return { native, page, root };
 }
+
+test("after first-use setup, leaving settings restores focus to its current opener", async () => {
+  const { native, page, root } = await bootDesktop({ dismissSetup: false });
+  try {
+    await dismissModelSetup(page);
+    const trigger = page.locator("#user-menu-button");
+    await trigger.focus();
+    await trigger.press("Enter");
+    await expect(page.locator('[data-settings-section][aria-current="page"]')).toBeFocused();
+    await page.locator("#settings-back").click();
+    await expect(page.locator("#settings-entry")).toBeHidden();
+    await expect(trigger).toBeFocused();
+  } finally {
+    await native.close();
+    await stopNativeBackend(root);
+    await rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  }
+});
 
 test("Windows integrates native caption buttons, theme and the material setting", async () => {
   test.skip(process.platform !== "win32", "Requires the Windows window manager");
