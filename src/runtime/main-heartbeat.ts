@@ -1,6 +1,7 @@
 import { hostname } from "node:os";
 import { join } from "node:path";
-import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
+import { atomicWrite } from "../storage/atomic-file.js";
 
 /**
  * A liveness signal a running Main writes for its Task.
@@ -60,10 +61,7 @@ export async function writeHeartbeat(
     ...(state.turnActive === undefined ? {} : { turnActive: state.turnActive }),
     ...(state.turnId === undefined ? {} : { turnId: state.turnId })
   };
-  await mkdir(join(workspaceRoot, taskId, "agents", "main"), { recursive: true });
-  const temporary = `${path}.tmp-${process.pid}-${Date.now()}`;
-  await writeFile(temporary, `${JSON.stringify(beat)}\n`, "utf8");
-  await rename(temporary, path);
+  await atomicWrite(path, `${JSON.stringify(beat)}\n`);
 }
 
 export async function readHeartbeat(

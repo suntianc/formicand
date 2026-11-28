@@ -35,7 +35,14 @@ test("an identical later request is restored without mistaking an older turn for
   const input = { version: 1, prompt: "The same text", submittedAt: 1 };
   await saveMainInput(f.inputPath, input);
   await restorePendingTaskInput(f.sessions, f.root, f.inputPath);
-  await saveMainInput(f.inputPath, { ...input, submittedAt: 2 });
+  const reader = await open(f.inputPath, "r");
+  try {
+    await saveMainInput(f.inputPath, { ...input, submittedAt: 2 });
+    assert.deepEqual(JSON.parse(await reader.readFile("utf8")), input);
+    assert.equal((await readMainInput(f.inputPath)).submittedAt, 2);
+  } finally {
+    await reader.close();
+  }
   await restorePendingTaskInput(f.sessions, f.root, f.inputPath);
   await restorePendingTaskInput(f.sessions, f.root, f.inputPath);
   const [latest] = await SessionManager.listAll(f.sessions);

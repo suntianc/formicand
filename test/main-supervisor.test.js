@@ -1,13 +1,17 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { hostname } from "node:os";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, open, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { LocalWorkspaceStore } from "../dist/src/workspace/workspace-store.js";
 import { InboxStore } from "../dist/src/runtime/scheduler.js";
 import { HumanRequestStore } from "../dist/src/runtime/human.js";
-import { MainSupervisor, MainSupervisorLoop } from "../dist/src/runtime/main-supervisor.js";
+import {
+  MainSupervisor,
+  MainSupervisorLoop,
+  resetMainSupervisorBackoff
+} from "../dist/src/runtime/main-supervisor.js";
 import {
   mainIsAlive,
   readHeartbeat,
@@ -222,6 +226,37 @@ test("heartbeat liveness distinguishes fresh, stale, dead and remote", async (t)
   assert.equal(mainIsAlive({ ...beat, updatedAt: "not a date" }), false);
 });
 
+test("a reader of the previous heartbeat does not prevent publication of the current turn", async (t) => {
+  const { root, taskId } = await workspace(t);
+  await writeHeartbeat(root, taskId, RUN, { turnId: "previous", turnActive: false });
+  const reader = await open(join(root, taskId, "agents", "main", "heartbeat.json"), "r");
+  try {
+    await writeHeartbeat(root, taskId, RUN, { turnId: "current", turnActive: true });
+    assert.equal(JSON.parse(await reader.readFile("utf8")).turnId, "previous");
+    const current = await readHeartbeat(root, taskId);
+    assert.equal(current.turnId, "current");
+    assert.equal(current.turnActive, true);
+  } finally {
+    await reader.close();
+  }
+});
+
+test("a completed Main resets the backoff while its previous state is being read", async (t) => {
+  const { root, taskId } = await workspace(t);
+  await queueCallback(root, taskId);
+  const { supervisor } = supervisorFor(root);
+  assert.equal((await supervisor.runCycle()).resumed, 1);
+  const path = join(root, taskId, "agents", "main", "relaunch.json");
+  const reader = await open(path, "r");
+  try {
+    await resetMainSupervisorBackoff(root, taskId);
+    assert.equal(JSON.parse(await reader.readFile("utf8")).attempts, 1);
+    assert.deepEqual(JSON.parse(await readFile(path, "utf8")), { attempts: 0, lastAttemptAt: "" });
+  } finally {
+    await reader.close();
+  }
+});
+
 test("the loop can run a single cycle and stop", async (t) => {
   const { root, taskId } = await workspace(t);
   await queueCallback(root, taskId);
@@ -264,7 +299,14 @@ test("a Main that keeps dying is relaunched with growing backoff", async (t) => 
   assert.equal(launches.length, 1);
 
   clock += 61_000;
-  assert.equal((await supervisor.runCycle()).resumed, 1, "eligible again after the wait");
+  const reader = await open(join(root, taskId, "agents", "main", "relaunch.json"), "r");
+  try {
+    const result = await supervisor.runCycle();
+    assert.equal(result.resumed, 1, JSON.stringify(result.decisions));
+    assert.equal(JSON.parse(await reader.readFile("utf8")).attempts, 1);
+  } finally {
+    await reader.close();
+  }
   assert.equal(launches.length, 2);
 
   // The wait grows, so a persistent failure becomes cheap instead of constant.

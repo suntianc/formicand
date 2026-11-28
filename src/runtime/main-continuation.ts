@@ -1,7 +1,8 @@
 import { readQueuedUserTurn } from "./queued-user-turn.js";
 import type { ExtensionAPI, ExtensionCommandContext, SessionEntry } from "@earendil-works/pi-coding-agent";
-import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { readFile } from "node:fs/promises";
+import { atomicWrite } from "../storage/atomic-file.js";
+import { join } from "node:path";
 import type { PiThinkingLevel } from "./runtime-settings.js";
 
 export const MAIN_CONTINUATION_COMMAND = "/formicand-internal-continue";
@@ -57,10 +58,7 @@ export async function readMainInput(path: string): Promise<MainInput | undefined
 
 /** Save accepted input before spawning Pi, including a launch that never reaches its first hook. */
 export async function saveMainInput(path: string, input: MainInput): Promise<void> {
-  await mkdir(dirname(path), { recursive: true });
-  const temporary = `${path}.${process.pid}.tmp`;
-  await writeFile(temporary, `${JSON.stringify(input)}\n`, { mode: 0o600 });
-  await rename(temporary, path);
+  await atomicWrite(path, `${JSON.stringify(input)}\n`, { mode: 0o600 });
 }
 
 export function mainInputDelivered(branch: readonly SessionEntry[], input: MainInput): boolean {
