@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, open, readFile, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
@@ -74,18 +74,21 @@ async function fixture(t, api, handle, env = {}) {
       const value = await detail();
       if (!value.runtime.active) {
         if (value.task.status !== expected) {
-          const outputPath = join(
-            dashboard.workspaceRoot,
-            "edit-task",
-            "runs",
-            value.task.activeRunId,
-            "runtime-output.log"
+          const runDirectory = join(dashboard.workspaceRoot, "edit-task", "runs", value.task.activeRunId);
+          const logs = await Promise.all(
+            ["runtime-stderr.log", "runtime-output.log", "agents/main/agent-stderr.log"].map(async (name) => {
+              try {
+                return `${name}: ${(await readFile(join(runDirectory, name), "utf8")).slice(-5000)}`;
+              } catch (error) {
+                if (error.code !== "ENOENT") throw error;
+                return "";
+              }
+            })
           );
-          const output = await readFile(outputPath, "utf8").catch((error) => error.message);
           assert.equal(
             value.task.status,
             expected,
-            `${JSON.stringify(value.events)}\n${output.slice(-4000)}`
+            `${JSON.stringify(value.events)}\n${logs.filter(Boolean).join("\n")}`
           );
         }
         return value;
@@ -149,7 +152,15 @@ for (const api of ["openai-completions", "openai-responses"]) {
       const editId = randomUUID();
       const accepted = await f.edit(original, "NEW_WEATHER_INPUT_BEIJING", [], editId);
       assert.equal(accepted.status, 202, JSON.stringify(accepted));
-      const edited = await f.settle("completed");
+      // A history reader may keep the selected transcript open while its new Main starts.
+      const versions = JSON.parse(
+        await readFile(
+          join(f.dashboard.workspaceRoot, "edit-task", "sessions", "main", "versions.json"),
+          "utf8"
+        )
+      );
+      const reader = await open(versions.sessionFile, "r");
+      const edited = await f.settle("completed").finally(() => reader.close());
       assert.equal(edited.humanRequests[0].status, "cancelled");
       assert.equal(edited.humanResumePending, false);
       assert.equal(f.requests.length, 2);
