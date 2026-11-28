@@ -266,18 +266,18 @@ test(
     });
     await f.createTask("resident-idle", "Idle resident");
     const first = await f.api("/api/tasks/resident-idle/run", { prompt: "IDLE_FIRST_INPUT" });
+    let record;
     try {
       await waitFor(() => f.requests.length === 1, "the running model request");
       await delay(2_500); // Two idle windows pass while the first reply is still in flight.
       assert.equal((await f.detail("resident-idle")).task.status, "running");
+      record = await f.mainRecord("resident-idle");
+      assert.equal(alive(record.pid), true, "the long turn still owns a live Main");
     } finally {
       responseGate.resolve();
     }
     const settled = await f.settleTurn("resident-idle");
     assert.equal(settled.task.status, "completed");
-    assert.equal((await runEvents(f, "resident-idle", first.runId, "main.run_completed")).length, 1);
-    const record = await f.mainRecord("resident-idle");
-    assert.equal(alive(record.pid), true);
 
     // No turn, no subagent: the resident process exits and keeps its state.
     // The backend reports it gone only once the exit is projected, so wait for
@@ -285,7 +285,11 @@ test(
     const idle = await waitFor(
       async () => {
         const value = await f.detail("resident-idle");
-        return !value.runtime.mainRunning && !alive(record.pid) ? value : undefined;
+        return !value.runtime.mainRunning &&
+          !alive(record.pid) &&
+          (await f.mainRecord("resident-idle")).settledAt
+          ? value
+          : undefined;
       },
       "the idle Main to exit",
       30_000
@@ -293,6 +297,12 @@ test(
     assert.equal(idle.runtime.active, false);
     assert.equal(idle.task.status, "completed", "the Task keeps the state its last turn recorded");
     assert.equal(idle.task.activeRunId, first.runId);
+    const completed = await runEvents(f, "resident-idle", first.runId, "main.run_completed");
+    assert.equal(completed.length, 1, JSON.stringify({ completed, modelRequests: f.requests.length }));
+    const stopped = await runEvents(f, "resident-idle", first.runId, "main.run_stopped");
+    assert.equal(stopped.length, 1, JSON.stringify(stopped));
+    assert.equal(stopped[0].payload.reason, "idle");
+    assert.ok(Date.parse(completed[0].occurredAt) <= Date.parse(stopped[0].occurredAt));
     assert.ok(
       (await readdir(join(f.dashboard.workspaceRoot, "resident-idle", "sessions", "main", "pi"))).length > 0,
       "the Pi session file is kept"

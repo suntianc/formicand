@@ -197,6 +197,9 @@ export function registerMainLifecycle(
   /** Unsubscribe functions for this process's wake channel, one per session. */
   const wakeSubscriptions: Array<() => void> = [];
   let idleTimer: ReturnType<typeof setTimeout> | undefined;
+  let inboxClosed = false;
+  let publishedIdleTurn: string | undefined;
+  let heartbeatWrites = Promise.resolve();
   let heartbeatTimer: ReturnType<typeof setInterval> | undefined;
   let mainTimeoutTimer: ReturnType<typeof setTimeout> | undefined;
   let lastMainMessage: unknown;
@@ -288,7 +291,8 @@ export function registerMainLifecycle(
    */
   const touchMainActivity = () => {
     stopMainIdleTimer();
-    if (!resident || turnActive || mainIdleTimeoutMs <= 0) return;
+    if (inboxClosed || !resident || turnActive || publishedIdleTurn !== turnId || mainIdleTimeoutMs <= 0)
+      return;
     const timer = setTimeout(async () => {
       const idle = await canExitWhenIdle();
       // A new turn, Inbox wake or session close invalidates this check during its reads.
@@ -452,7 +456,6 @@ export function registerMainLifecycle(
       if (turnId === settlingTurn) {
         // A model failure stays active until the backend settles the process exit.
         turnActive = modelFailed;
-        touchMainActivity();
       }
       // The durable turn record is what the next turn state is read from. It is
       // written after the boundary's Task status, so a reader never sees the
@@ -465,7 +468,22 @@ export function registerMainLifecycle(
     }
   });
 
-  const writeMainHeartbeat = () => writeHeartbeat(workspaceRoot, taskId, mainRunId, { turnActive, turnId });
+  const writeMainHeartbeat = () => {
+    if (inboxClosed) return heartbeatWrites;
+    const state = { turnActive, turnId };
+    const publish = async () => {
+      await writeHeartbeat(workspaceRoot, taskId, mainRunId, state);
+      // The backend classifies an exit using this record. Start the idle clock
+      // only after this turn is durably idle, including after a failed write is retried.
+      if (!state.turnActive && state.turnId === turnId && publishedIdleTurn !== turnId) {
+        publishedIdleTurn = turnId;
+        touchMainActivity();
+      }
+    };
+    // A slow earlier heartbeat must never overwrite a later turn boundary.
+    heartbeatWrites = heartbeatWrites.then(publish, publish);
+    return heartbeatWrites;
+  };
   pi.on("agent_start", async (_event, ctx) => {
     awaitingInitialPrompt = false;
     lastMainMessage = undefined;
@@ -611,6 +629,7 @@ export function registerMainLifecycle(
   });
 
   async function startInbox(ctx: ExtensionContext) {
+    inboxClosed = false;
     if (!isReplaying()) {
       const branch = ctx.sessionManager.getBranch();
       if (extractInboxReceipts(branch, taskId, mainRunId).length > 0) await persistSession(ctx);
@@ -701,13 +720,17 @@ export function registerMainLifecycle(
     touchMainActivity();
   }
   async function close() {
+    inboxClosed = true;
+    stopMainIdleTimer();
+    if (heartbeatTimer) clearInterval(heartbeatTimer);
+    heartbeatTimer = undefined;
     stopInboxWatch?.();
     stopInboxWatch = undefined;
     for (const unsubscribe of wakeSubscriptions.splice(0)) unsubscribe();
     await stopAgentWake();
-    stopMainIdleTimer();
-    if (heartbeatTimer) clearInterval(heartbeatTimer);
-    heartbeatTimer = undefined;
+    await heartbeatWrites.catch((error) => {
+      console.error(`[Formicand] Main heartbeat on shutdown failed: ${errorMessage(error)}`);
+    });
     // A message handed to Pi but never read before this process ends becomes
     // readable for the next Main now, not after the lease expires.
     // eslint-disable-next-line no-restricted-syntax -- 进程正在退出；未能交回的消息仍会在租约到期后可读
