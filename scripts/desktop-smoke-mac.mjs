@@ -17,7 +17,7 @@ import {
 import { signAsync } from "@electron/osx-sign";
 
 import { HumanRequestStore } from "../dist/src/runtime/human.js";
-import { stopBackend } from "../dist/src/cli/backend.js";
+import { stopNativeBackend } from "../test/native-backend-fixture.mjs";
 const settingsOnly = process.argv.includes("--settings-only");
 const appPath = resolve(process.env.FORMICAND_DESKTOP_APP || ".tmp/release/mac-arm64/Formicand.app");
 const executablePath = join(appPath, "Contents/MacOS/Formicand");
@@ -148,7 +148,7 @@ const model = createServer(async (req, res) => {
           id: "desktop-read",
           type: "function",
           function: {
-            name: "read_file",
+            name: "read",
             arguments: JSON.stringify({ path: join(projectDirectory, "desktop-input.txt") })
           }
         }
@@ -189,6 +189,19 @@ const launch = async (app = executablePath) => {
     timeout: 30_000
   });
   desktopPids.add(native.process().pid);
+  // The credential worker can exit between UI operations. Subscribe before the first
+  // save and keep only PIDs whose actual invocation contains the worker flag.
+  await native.evaluate(() => {
+    const record = (child) => {
+      if (child.spawnargs?.includes("--formicand-keychain-worker"))
+        globalThis.smokeKeychainPids.add(child.pid);
+    };
+    globalThis.smokeKeychainPids = new Set();
+    for (const child of process._getActiveHandles()) record(child);
+    process.getBuiltinModule("node:diagnostics_channel").subscribe("child_process", ({ process: child }) => {
+      child.once("spawn", () => record(child));
+    });
+  });
   native.process().stderr.on("data", (chunk) => console.error(String(chunk).trim().slice(-2000)));
   const page = await native.firstWindow();
   await expect(page.locator("#composer-input")).toBeAttached({ timeout: 90_000 });
@@ -204,12 +217,7 @@ const launch = async (app = executablePath) => {
   return page;
 };
 async function recordKeychainWorkers() {
-  const workers = await native.evaluate(() =>
-    process
-      ._getActiveHandles()
-      .filter((handle) => handle.spawnargs?.includes("--formicand-keychain-worker"))
-      .map((child) => child.pid)
-  );
+  const workers = await native.evaluate(() => [...globalThis.smokeKeychainPids]);
   for (const pid of workers) keychainPids.add(pid);
 }
 function unexpectedApplications() {
@@ -532,16 +540,17 @@ async function runSmoke() {
     return;
   }
   await verifyNativeChrome(page);
-  // Fresh installs require an explicit project and application destination.
-  // Create the project through the UI and register its own application workspace.
+  // Create the first project through the same settings and controls as a fresh install.
   await createProject(page);
   await writeFile(join(projectDirectory, "desktop-input.txt"), "桌面内测内容\n中文与 Emoji 😀\n");
   await page.locator("#composer-input").fill("请读取 desktop-input.txt 并确认内容。");
   await page.locator("#send-button").click();
-  const reasoning = page.locator(".reasoning-details").filter({ hasText: reasoningText[0] }).first();
+  const reasoning = page.locator(".process-segment.is-live").first();
   await expect(reasoning).toBeVisible({ timeout: 40_000 });
-  if (!(await reasoning.evaluate((element) => element.open))) await reasoning.locator("summary").click();
+  if (!(await reasoning.evaluate((element) => element.open)))
+    await reasoning.locator(":scope > summary").click();
   await expect(reasoning).toHaveAttribute("open", "");
+  await expect(reasoning.locator(".reasoning-copy")).toContainText(reasoningText[0]);
   reasoningGates[0].release();
   await expect(reasoning).toContainText(reasoningText[1]);
   await expect(reasoning).toHaveAttribute("open", "");
@@ -691,7 +700,9 @@ async function runSmoke() {
   await expect(page.locator("#composer-input")).toHaveValue(conversationDraft);
   await expect(page.getByRole("button", { name: "移除 未发送的说明.txt", exact: true })).toBeVisible();
   const mirroredDrafts = JSON.parse(await readFile(join(data, "composer-drafts.json"), "utf8"));
-  const restoredDraft = JSON.parse(mirroredDrafts.entries[`formicand.composer.v1:${taskId}`]);
+  const restoredDraft = JSON.parse(
+    mirroredDrafts.entries[`formicand.composer.v1:${selectedBackend.backendId}:${taskId}`]
+  );
   expect(restoredDraft).toMatchObject({
     text: conversationDraft,
     attachments: [{ name: "未发送的说明.txt", kind: "text" }]
@@ -700,7 +711,7 @@ async function runSmoke() {
   expect(restoredUpload).toMatch(/^upload-[a-f0-9-]{36}$/);
   expect((await desktopRequest(page, `/api/uploads/${restoredUpload}`)).body).toBe(draftAttachment);
   // A real pending request is rendered by the packaged UI, then retained by
-  // the native close handshake across a changed localhost origin.
+  // the native close handshake across a client restart.
   const humanTask = taskId;
   const humanDetail = (await desktopRequest(page, `/api/tasks/${humanTask}`)).body;
   expect(humanDetail.workspaceRoot.startsWith(root)).toBe(true);
@@ -725,7 +736,7 @@ async function runSmoke() {
   await expect(page.getByRole("radio", { name: "PDF", exact: true })).toBeChecked();
   const humanDraftPath = join(data, "composer-drafts.json");
   expect((await stat(humanDraftPath)).mode & 0o777).toBe(0o600);
-  expect(JSON.parse(await readFile(humanDraftPath, "utf8")).version).toBe(3);
+  expect(JSON.parse(await readFile(humanDraftPath, "utf8")).version).toBe(4);
   const humanSubmission = page.waitForResponse(
     (response) =>
       response.url().endsWith(`/human/${humanRequest.requestId}/answer`) &&
@@ -756,7 +767,7 @@ async function runSmoke() {
     )
     .toBe(0);
   console.log(
-    "Desktop human reply PASS: private draft and explicit choice restored after quit/new origin, accepted answer persisted and draft removed."
+    "Desktop human reply PASS: private draft and explicit choice restored after client restart, accepted answer persisted and draft removed."
   );
   // Simulate a new installed release in a different directory, retaining only user data.
   await quit();
@@ -827,12 +838,12 @@ async function runSmoke() {
       { timeout: 40_000 }
     )
     .toBe("completed");
-  // Conversation rows expose the current status through their accessible description.
+  // The selected conversation stops showing its running indicator after the reply arrives.
   await focusConversation(page, taskId);
-  await expect(page.locator(`.conversation-item[data-task="${taskId}"]`)).toHaveAttribute(
-    "aria-description",
-    "已完成"
-  );
+  const row = page.locator(`.conversation-item[data-task="${taskId}"]`);
+  await expect(row).toHaveAttribute("data-status", "completed");
+  await expect(row.getByRole("img", { name: "运行中" })).toHaveCount(0);
+  await expect(page.locator('[data-answer-kind="final"]').last()).toContainText("后端继续运行");
   const proof = process.env.FORMICAND_DESKTOP_PROOF;
   if (proof) await page.screenshot({ path: resolve(proof) });
   await quit();
@@ -846,7 +857,7 @@ async function runSmoke() {
   );
   expect(log).not.toContain("desktop-fake-key");
   console.log(
-    "Packaged Mac smoke PASS: app icon, native chrome, configuration, authenticated API, real Pi with a local model fixture, text editing and export, graceful quit, restart, upgrade and an active run continuing after client exit. No system Node used."
+    "Packaged Mac smoke PASS: app icon, native chrome, configuration, authenticated API, real Pi with a local model fixture, project file reads, drafts, attachments, human replies, restart, and an active run continuing across a relocated upgrade simulation."
   );
 }
 try {
@@ -897,16 +908,11 @@ try {
   let cleanupComplete = true;
   try {
     const instance = JSON.parse(await readFile(join(data, "runtime/backend-instance.json"), "utf8"));
-    const stopped = await stopBackend({ FORMICAND_HOME: data }, instance);
-    if (stopped.state !== "stopped") {
-      cleanupComplete = false;
-      process.exitCode = 1;
-      console.error(`Desktop smoke backend cleanup returned ${stopped.state}`);
-    } else
-      console.log(
-        "Desktop smoke: stopped isolated backend",
-        JSON.stringify({ backendId: instance.backendId, pid: instance.pid })
-      );
+    await stopNativeBackend(data);
+    console.log(
+      "Desktop smoke: stopped isolated backend and resident agents",
+      JSON.stringify({ backendId: instance.backendId, pid: instance.pid })
+    );
   } catch (error) {
     if (error.code !== "ENOENT") {
       cleanupComplete = false;
@@ -922,6 +928,6 @@ try {
       ["-u", join(root, "next-release/Formicand.app")]
       // eslint-disable-next-line no-restricted-syntax -- lsregister 反注册是清理辅助步骤，清不掉也不影响随后删除冒烟目录
     ).catch(() => {});
-    await rm(root, { recursive: true, force: true });
+    await rm(root, { recursive: true, force: true, maxRetries: 5 });
   }
 }
