@@ -11,7 +11,7 @@ export async function stopWindowsJobTree(pid: number, launchMs: number, recorded
   }
   await stopTree(
     pid,
-    `$birth = ([DateTimeOffset]$job.StartTime).ToUnixTimeMilliseconds()
+    `$birth = ([DateTimeOffset]$startTime).ToUnixTimeMilliseconds()
       if ($birth -lt ${launchMs} -or $birth -gt ${Math.ceil(recordedMs)}) {
         throw 'The PID does not belong to the recorded job'
       }`
@@ -21,8 +21,8 @@ export async function stopWindowsJobTree(pid: number, launchMs: number, recorded
 /** An adopted Agent has a precise OS start time. A mismatch means it already ended. */
 export async function stopRecordedWindowsTree(pid: number, startedAt: string): Promise<void> {
   if (!Number.isSafeInteger(pid) || pid <= 0 || !/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{7}Z$/.test(startedAt))
-    return;
-  await stopTree(pid, `if ($job.StartTime.ToUniversalTime().ToString('o') -cne '${startedAt}') { exit 0 }`);
+    throw new Error("Invalid Windows job identity");
+  await stopTree(pid, `if ($startTime.ToUniversalTime().ToString('o') -cne '${startedAt}') { exit 0 }`);
 }
 
 async function stopTree(pid: number, checkIdentity: string): Promise<void> {
@@ -36,9 +36,17 @@ async function stopTree(pid: number, checkIdentity: string): Promise<void> {
     try { $job = [Diagnostics.Process]::GetProcessById(${pid}) }
     catch [ArgumentException] { exit 0 }
     try {
-      $null = $job.Handle
-      ${checkIdentity}
+      try {
+        $handle = $job.Handle
+        if ($null -eq $handle -or $handle -eq [IntPtr]::Zero) { throw 'Unable to open a Windows process handle' }
+        $startTime = $job.StartTime
+        if ($null -eq $startTime) { throw 'Unable to verify the start time of the Windows process' }
+      } catch {
+        if ($job.HasExited) { exit 0 }
+        throw
+      }
       if ($job.HasExited) { exit 0 }
+      ${checkIdentity}
       & "$env:SystemRoot\\System32\\taskkill.exe" /PID ${pid} /T /F
       if ($LASTEXITCODE -eq 128 -and $job.HasExited) { exit 0 }
       exit $LASTEXITCODE

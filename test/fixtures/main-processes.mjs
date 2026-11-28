@@ -18,8 +18,9 @@ export async function fixtureMainProcesses(root, marker = "", groupsOnly = false
       foreach ($row in $rows) {
         if ($env:TEST_MAIN_GROUPS -eq '1' -and $matched -contains $row.ParentProcessId) { continue }
         $process = Get-Process -Id $row.ProcessId -ErrorAction SilentlyContinue
-        if ($process -and $process.StartTime) {
-          "$($row.ProcessId) $($process.StartTime.ToUniversalTime().ToString('o'))"
+        $startTime = $process.StartTime
+        if ($startTime) {
+          "$($row.ProcessId) $($startTime.ToUniversalTime().ToString('o'))"
         }
       }`;
     const { stdout } = await run("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", query], {
