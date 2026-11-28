@@ -215,6 +215,9 @@ test("an exit whose record now describes a newer process is not projected onto i
   // The stale record's observer notices it died. Its record path now belongs to
   // the live process, which still owns the Run: projecting the old exit would
   // write a failure for work that is still running.
+  // Without the recorded birth time, a live PID cannot be signalled or settled.
+  await assert.rejects(host.stop({ ...newer, startedAt: "" }), /Unable to verify/);
+  assert.equal(exits.length, 0);
   await host.stop(replaced);
   await delay(200);
   assert.equal(exits.length, 0, "the replaced process is not projected");

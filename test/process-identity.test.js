@@ -1,8 +1,14 @@
 import assert from "node:assert/strict";
+import { channel } from "node:diagnostics_channel";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
 import { test } from "node:test";
-import { readProcessIdentity, verifyProcessIdentity } from "../dist/src/runtime/process-identity.js";
+import {
+  identifySpawnedProcess,
+  matchProcessIdentity,
+  readProcessIdentity,
+  verifyProcessIdentity
+} from "../dist/src/runtime/process-identity.js";
 
 test(
   "a process keeps its identity across backends started in different time zones",
@@ -37,6 +43,18 @@ test("a live PID only matches its recorded start time and an exited child cannot
     assert.ok(identity);
     assert.equal(await verifyProcessIdentity(identity), true);
     assert.equal(await verifyProcessIdentity({ ...identity, startedAt: "earlier process" }), false);
+    assert.deepEqual(await identifySpawnedProcess(child), identity);
+    const timing = channel("formicand.process-identity.query");
+    const events = [];
+    const observe = (event) => events.push(event);
+    timing.subscribe(observe);
+    try {
+      assert.equal(await verifyProcessIdentity(identity), true);
+      assert.equal(await verifyProcessIdentity({ ...identity, startedAt: "earlier process" }), false);
+      assert.equal(events.length, 0, "the live child handle pins the identity until exit");
+    } finally {
+      timing.unsubscribe(observe);
+    }
   } finally {
     child.kill();
     await exited;
@@ -45,19 +63,36 @@ test("a live PID only matches its recorded start time and an exited child cannot
 });
 
 test("startup diagnostics measure the actual OS query without its pid or result", async () => {
-  const { channel } = await import("node:diagnostics_channel");
   const timing = channel("formicand.process-identity.query");
   const events = [];
   const observe = (sample) => events.push(sample);
   timing.subscribe(observe);
   try {
-    await readProcessIdentity(process.pid);
+    const [first, second] = await Promise.all([
+      readProcessIdentity(process.pid),
+      readProcessIdentity(process.pid)
+    ]);
+    assert.deepEqual(first, second);
     await readProcessIdentity(-1);
-    assert.equal(events.length, 1);
+    assert.equal(events.length, 1, "overlapping observers share one actual OS query");
     assert.deepEqual(Object.keys(events[0]).sort(), ["durationMs", "started", "tool"]);
     assert.ok(events[0].durationMs >= 0);
     assert.equal(events[0].tool, process.platform === "win32" ? "powershell" : "ps");
   } finally {
     timing.unsubscribe(observe);
+  }
+});
+
+test("an unavailable OS query cannot confirm the exit of a live process", async () => {
+  const identity = await readProcessIdentity(process.pid);
+  assert.ok(identity);
+  const path = process.env.PATH;
+  try {
+    process.env.PATH = "";
+    assert.equal(await matchProcessIdentity(identity), undefined);
+    assert.equal(await verifyProcessIdentity(identity), false);
+  } finally {
+    if (path === undefined) delete process.env.PATH;
+    else process.env.PATH = path;
   }
 });
