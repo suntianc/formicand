@@ -43,7 +43,12 @@ async function main(): Promise<void> {
       await writeFile(join(shared, "agents", "subagents", "s1", "progress.md"), "tests are green\n");
       const browse = (input: unknown) => browseWorkspace({ workspaceDirectory: shared }, input);
       const tree = await browse({ mode: "tree", depth: 4 });
-      assert.match(JSON.stringify(tree), /agents\/subagents\/s1\/progress\.md/);
+      const entries = (tree as { entries: { path: string; type: string }[] }).entries;
+      assert.ok(
+        entries.some(
+          (entry) => entry.type === "file" && entry.path === join("agents", "subagents", "s1", "progress.md")
+        )
+      );
       const search = await browse({ mode: "search", query: "green" });
       assert.match(JSON.stringify(search), /progress\.md/);
       // The read-only view never leaves the Task workspace, even through a link.

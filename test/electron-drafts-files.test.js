@@ -1850,7 +1850,7 @@ test("selected bytes and artifacts stay with their authorized backend", { timeou
   });
   t.after(() => model.close());
   const root = await mkdtemp(join(tmpdir(), "formicand-electron-files-"));
-  const repository = resolve(new URL("..", import.meta.url).pathname);
+  const repository = resolve(import.meta.dirname, "..");
   const instances = [];
   t.after(async () => {
     // A resident Main outlives the backend that launched it: stopping the

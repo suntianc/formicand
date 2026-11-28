@@ -528,11 +528,16 @@ export async function startPi({ uiCompatibility } = {}) {
 
 /** Locate the installed Pi entry, whichever way npm laid the package out. */
 async function resolvePiEntry(harnessRoot) {
-  const piBin = resolve(harnessRoot, "node_modules", ".bin", process.platform === "win32" ? "pi.cmd" : "pi");
+  // The launcher imports this entry as JavaScript. On Windows npm's .bin contains shell shims.
+  const modules = resolve(harnessRoot, "node_modules");
+  const piBin =
+    process.platform === "win32"
+      ? resolve(modules, "@earendil-works/pi-coding-agent/dist/bundle/cli.js")
+      : resolve(modules, ".bin/pi");
   try {
     await access(piBin);
     return piBin;
-    // eslint-disable-next-line no-restricted-syntax -- npm 可能把依赖提升到包外，本地 .bin 缺失时改为从已安装模块解析入口
+    // eslint-disable-next-line no-restricted-syntax -- npm 可能把依赖提升到包外，本地入口缺失时改为从已安装模块解析入口
   } catch {
     try {
       // npm may hoist dependencies outside the package; resolve from this installed module.

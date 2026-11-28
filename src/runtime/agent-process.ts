@@ -248,9 +248,9 @@ export class AgentProcessHost {
       child = spawn(executable, argv, {
         cwd: input.workingDirectory,
         env,
-        // A separate group is what lets the backend stop the whole tree and
-        // what keeps it alive when the backend itself goes away.
-        detached: usesProcessGroups,
+        // A resident Main must also outlive its launching backend on Windows.
+        detached: resident || usesProcessGroups,
+        windowsHide: true,
         stdio: ["pipe", resident ? "pipe" : stdout!.fd, resident ? "pipe" : stderr!.fd]
       });
       // A resident process owns its stdout, so the backend can follow its

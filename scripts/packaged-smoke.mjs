@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { dashboardWindow, quitDesktop } from "../e2e/desktop-runtime-helper.js";
 import { execFile } from "node:child_process";
 import { mkdtemp, mkdir, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -57,7 +58,7 @@ export async function runPackagedSmoke() {
       assert.equal(identity.packaged, true);
       assert.equal(identity.version, version);
       assert.equal(await realpath(identity.path), appRoot);
-      const page = await native.firstWindow();
+      const page = await dashboardWindow(native);
       await expect(page.locator("#composer-input")).toBeAttached({ timeout: 90000 });
       let backend;
       await expect
@@ -81,6 +82,20 @@ export async function runPackagedSmoke() {
         )
         .toBe(200);
       assert.ok(backend.backendId && Number.isInteger(backend.pid));
+      assert.equal(backend.displayedVersion, version);
+      if (process.platform === "win32" && attempt === 1) {
+        assert.equal(await page.evaluate(() => window.formicandDesktop.capabilities.tray), true);
+        assert.ok(
+          await native.evaluate(async ({ app }) => !(await app.getFileIcon(process.execPath)).isEmpty())
+        );
+        const window = await native.browserWindow(page);
+        await window.evaluate((win) => {
+          win.show();
+          win.close();
+        });
+        await expect.poll(() => window.evaluate((win) => win.isVisible())).toBe(false);
+        console.log("Windows packaged icon loaded and closing the window kept the tray client alive.");
+      }
       if (attempt === 1) firstBackend = backend;
       else assert.deepEqual(backend, firstBackend);
       console.log(
@@ -92,7 +107,7 @@ export async function runPackagedSmoke() {
           backendReadyMs: Math.round(performance.now() - start)
         })
       );
-      await native.close();
+      await quitDesktop(native);
       native = undefined;
     }
     assert.equal(firstBackend.displayedVersion, version, "Version exposed by the installed app");
@@ -101,7 +116,7 @@ export async function runPackagedSmoke() {
     );
   } finally {
     try {
-      await native?.close();
+      await quitDesktop(native);
     } finally {
       await stopNativeBackend(data);
       await rm(root, { recursive: true, force: true, maxRetries: 5 });

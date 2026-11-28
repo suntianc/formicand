@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { spawn } from "node:child_process";
+import { once } from "node:events";
 import { test } from "node:test";
 import { readProcessIdentity, verifyProcessIdentity } from "../dist/src/runtime/process-identity.js";
 
@@ -22,6 +24,25 @@ test(
     assert.equal(await verifyProcessIdentity(written), true);
   }
 );
+
+test("a live PID only matches its recorded start time and an exited child cannot be reclaimed", async () => {
+  const child = spawn(process.execPath, ["-e", "setInterval(() => {}, 1000)"], {
+    stdio: "ignore",
+    windowsHide: true
+  });
+  const exited = once(child, "exit");
+  try {
+    await once(child, "spawn");
+    const identity = await readProcessIdentity(child.pid);
+    assert.ok(identity);
+    assert.equal(await verifyProcessIdentity(identity), true);
+    assert.equal(await verifyProcessIdentity({ ...identity, startedAt: "earlier process" }), false);
+  } finally {
+    child.kill();
+    await exited;
+  }
+  assert.equal(await readProcessIdentity(child.pid), undefined);
+});
 
 test("startup diagnostics measure the actual OS query without its pid or result", async () => {
   const { channel } = await import("node:diagnostics_channel");

@@ -2,7 +2,12 @@ import { test, expect, _electron as electron } from "@playwright/test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { release, tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { developmentExecutable } from "./desktop-runtime-helper.js";
+import {
+  developmentExecutable,
+  dashboardWindow,
+  quitDesktop,
+  desktopExit
+} from "./desktop-runtime-helper.js";
 import { startDashboard } from "../test/dashboard-fixture.mjs";
 import { stopNativeBackend } from "../test/native-backend-fixture.mjs";
 import { dismissModelSetup } from "./model-provider-ui.js";
@@ -40,7 +45,7 @@ async function bootDesktop({ dismissSetup = true } = {}) {
       BrowserWindow.getAllWindows().forEach((window) => window.hide());
     });
   }
-  const page = await native.firstWindow();
+  const page = await dashboardWindow(native);
   await expect(page.locator("#composer-input")).toBeAttached();
   if (dismissSetup) await dismissModelSetup(page, { wait: 5_000 });
   return { native, page, root };
@@ -58,7 +63,7 @@ test("after first-use setup, leaving settings restores focus to its current open
     await expect(page.locator("#settings-entry")).toBeHidden();
     await expect(trigger).toBeFocused();
   } finally {
-    await native.close();
+    await quitDesktop(native);
     await stopNativeBackend(root);
     await rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   }
@@ -182,7 +187,7 @@ test("Windows integrates native caption buttons, theme and the material setting"
       await expect(page.locator("#window-material-row")).toBeHidden();
     }
   } finally {
-    await native.close();
+    await quitDesktop(native);
     await stopNativeBackend(root);
     await rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   }
@@ -212,11 +217,11 @@ test("Windows closes to its tray, restores the same window and quits from the tr
     await expect.poll(() => win.evaluate((window) => window.isVisible())).toBe(true);
     await win.evaluate((window) => window.close());
     await expect.poll(() => win.evaluate((window) => window.isVisible())).toBe(false);
-    const closed = native.waitForEvent("close");
+    const closed = desktopExit(native);
     await binding.evaluate(({ menu }) => menu.items.find((item) => item.label === "Quit Formicand").click());
     await closed;
   } finally {
-    await native.close();
+    await quitDesktop(native);
     await stopNativeBackend(root);
     await rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   }
@@ -359,7 +364,7 @@ test("the desktop window has no title bar, panels reach the top and traffic ligh
     }));
     expect(materials).toEqual({ material: "under-window", platform: "darwin" });
   } finally {
-    await native.close();
+    await quitDesktop(native);
     await stopNativeBackend(root);
     await rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   }
@@ -445,7 +450,7 @@ test("content scrolled behind the title row or the settings margin never takes t
     expect(await dragLine(page, 5)).toEqual([]);
     expect(await dragLine(page, 40)).toEqual([]);
   } finally {
-    await native.close();
+    await quitDesktop(native);
     await stopNativeBackend(root);
     await rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   }

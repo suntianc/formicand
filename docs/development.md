@@ -291,7 +291,7 @@ CLI 的交互界面直接使用原版 Pi 1.6.1，不改依赖文件。启动时�
 - 合并用 `git merge --no-ff`，合完重新构建一次。
 - 版本以 tag 和 GitHub Release 为准。
 
-[常规工作流](../.github/workflows/test.yml) 在 PR 和推送到 `main` 时运行 `npm run check:ci` 和桌面策略单测。[桌面打包冒烟](../.github/workflows/desktop-smoke.yml) 在桌面相关路径变化、定时及手动运行时用三个原生 runner 验证目录包。完整回归和干净机验收分别记录。
+[常规工作流](../.github/workflows/test.yml) 在 PR 和推送到 `main` 时运行 `npm run check:ci` 和桌面策略单测。[桌面打包冒烟](../.github/workflows/desktop-smoke.yml) 在桌面相关路径变化、定时及手动运行时用三个原生 runner 验证目录包。Windows runner 还会安装同次构建的 NSIS，在含空格和中文的安装路径复跑包级冒烟，并记录安装包 SHA-256。完整回归和干净机验收分别记录。
 
 ## 打包和发布
 

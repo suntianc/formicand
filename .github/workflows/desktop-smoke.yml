@@ -12,6 +12,9 @@ on:
       - "scripts/*desktop*"
       - "scripts/*packag*"
       - "scripts/windows-*"
+      - "src/cli/backend*.ts"
+      - "src/platform/backend-stop.ts"
+      - "src/runtime/agent-process.ts"
       - "scripts/mac-signing.mjs"
       - "web/assets/styles/formicand/desktop-titlebar.css"
       - "web/assets/styles/formicand/entry-shell.css"
@@ -25,6 +28,9 @@ on:
       - "scripts/*desktop*"
       - "scripts/*packag*"
       - "scripts/windows-*"
+      - "src/cli/backend*.ts"
+      - "src/platform/backend-stop.ts"
+      - "src/runtime/agent-process.ts"
       - "scripts/mac-signing.mjs"
       - "web/assets/styles/formicand/desktop-titlebar.css"
       - "web/assets/styles/formicand/entry-shell.css"
@@ -52,9 +58,26 @@ jobs:
           node-version: "24"
           cache: npm
       - run: npm ci
-      - run: npm run desktop:pack
+      - if: runner.os != 'Windows'
+        run: npm run desktop:pack
+      - if: runner.os == 'Windows'
+        run: npm run desktop:dist
       - if: runner.os != 'Linux'
         run: node scripts/desktop-smoke.mjs --basic
+      - if: runner.os == 'Windows'
+        name: Install NSIS and smoke the installed Windows app
+        shell: pwsh
+        run: |
+          $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          $installer = Get-Item -LiteralPath ".tmp/release/Formicand-$version-win-x64.exe"
+          $digest = (Get-FileHash -Algorithm SHA256 -LiteralPath $installer.FullName).Hash
+          Write-Output "$($installer.Name) SHA-256 $digest"
+          "$($installer.Name) SHA-256 $digest" >> $env:GITHUB_STEP_SUMMARY
+          $destination = Join-Path $env:RUNNER_TEMP "Formicand 安装测试"
+          $install = Start-Process -FilePath $installer.FullName -ArgumentList "/S /D=$destination" -Wait -PassThru
+          if ($install.ExitCode -ne 0) { throw "NSIS exited with $($install.ExitCode)" }
+          $env:FORMICAND_DESKTOP_APP = $destination
+          node scripts/desktop-smoke.mjs --basic
       - if: runner.os == 'Linux'
         name: Packaged app on X11 with an isolated Secret Service session
         run: |

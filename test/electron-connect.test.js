@@ -24,7 +24,7 @@ import { modelProtocolFixture } from "./model-protocol-fixture.mjs";
 const require = createRequire(import.meta.url);
 const { connectBackend } = require("../desktop/backend.cjs");
 const { desktopPaths, prepareDesktopData } = require("../desktop/paths.cjs");
-const repositoryRoot = resolve(new URL("..", import.meta.url).pathname);
+const repositoryRoot = resolve(import.meta.dirname, "..");
 const backendEntry = join(repositoryRoot, "dist/src/cli/backend.js");
 const dashboardEntry = join(repositoryRoot, "dist/src/cli/dashboard.js");
 
