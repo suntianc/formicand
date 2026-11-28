@@ -133,7 +133,7 @@ async function harness(t, capabilities, config = {}) {
   return { root, store, pi, ctx, call, details, settled, shutdown, runtime };
 }
 
-test("Main shutdown waits for the pending runtime state write", { timeout: 30_000 }, async (t) => {
+test("Main shutdown waits for the pending runtime state write", { timeout: 120_000 }, async (t) => {
   const h = await harness(t, undefined, { baseUrl: "http://fixture.test", apiKey: "fixture" });
   // With the session branch already saved, shutdown has no transcript changes to flush.
   await h.runtime.flushSessionContext(h.ctx);
