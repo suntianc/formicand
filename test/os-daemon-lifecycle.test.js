@@ -21,7 +21,7 @@ import { withoutMainState } from "./fixtures/main-state.mjs";
  * backend adopts that process, and closing the session is what ends it.
  */
 
-const repositoryRoot = resolve(new URL("..", import.meta.url).pathname);
+const repositoryRoot = resolve(import.meta.dirname, "..");
 const backendEntry = join(repositoryRoot, "dist/src/cli/backend.js");
 const backendModuleUrl = pathToFileURL(backendEntry).href;
 
