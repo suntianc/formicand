@@ -1,5 +1,5 @@
+import { listenOnFixtureHttpPort } from "./fixtures/http-server.mjs";
 import assert from "node:assert/strict";
-import { once } from "node:events";
 import { createServer } from "node:http";
 import { test } from "node:test";
 import { testModelConnection } from "../dist/src/runtime/model-connection.js";
@@ -43,8 +43,7 @@ for (const path of ["/api/paas/v4", "/api/coding/paas/v4"]) {
         server.closeAllConnections();
         await new Promise((done) => server.close(done));
       });
-      server.listen(0, "127.0.0.1");
-      await once(server, "listening");
+      await listenOnFixtureHttpPort(server);
       const origin = `http://127.0.0.1:${server.address().port}`;
       const fetch = globalThis.fetch;
       t.mock.method(globalThis, "fetch", (input, init) => {

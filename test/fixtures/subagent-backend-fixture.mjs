@@ -1,5 +1,5 @@
 import { createServer } from "node:http";
-import { once } from "node:events";
+import { listenOnFixtureHttpPort } from "./http-server.mjs";
 import { randomUUID } from "node:crypto";
 import { join } from "node:path";
 import { DurableScheduler, InboxStore } from "../../dist/src/runtime/scheduler.js";
@@ -107,9 +107,7 @@ export async function startSubagentBackend({
     response.writeHead(400, { "content-type": "application/json" });
     response.end(JSON.stringify({ error: "unknown subagent action" }));
   });
-  server.listen(0, "127.0.0.1");
-  await once(server, "listening");
-  const { port } = server.address();
+  const port = await listenOnFixtureHttpPort(server);
   return {
     url: `http://127.0.0.1:${port}`,
     token,

@@ -1,4 +1,4 @@
-import { once } from "node:events";
+import { listenOnFixtureHttpPort } from "./fixtures/http-server.mjs";
 import { mkdir, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { join } from "node:path";
@@ -34,10 +34,9 @@ export async function captureStandardMainRun({ api = "openai-completions", clean
     response.writeHead(200, { "content-type": "text/event-stream" });
     response.end(protocolStream(api, { text: "收到。" }));
   });
-  provider.listen(0, "127.0.0.1");
-  await once(provider, "listening");
+  const port = await listenOnFixtureHttpPort(provider);
   const dashboard = await startDashboard({
-    modelEndpoint: `http://127.0.0.1:${provider.address().port}`,
+    modelEndpoint: `http://127.0.0.1:${port}`,
     model: CAPTURE_MODEL
   });
   cleanup.push(async () => {

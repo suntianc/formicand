@@ -1,9 +1,9 @@
+import { listenOnFixtureHttpPort } from "./fixtures/http-server.mjs";
 import assert from "node:assert/strict";
 import { SessionManager } from "@earendil-works/pi-coding-agent";
 import { test } from "node:test";
 import { createRequire } from "node:module";
 import { createServer } from "node:http";
-import { once } from "node:events";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -342,8 +342,7 @@ test("the registered ledger tool reaches the configured backend with the run cre
       );
     });
   });
-  server.listen(0, "127.0.0.1");
-  await once(server, "listening");
+  await listenOnFixtureHttpPort(server);
   const { port } = server.address();
   const root = await mkdtemp(join(tmpdir(), "formicand-extension-ledger-"));
   const previous = { ...process.env };

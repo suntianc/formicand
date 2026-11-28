@@ -1,9 +1,9 @@
+import { listenOnFixtureHttpPort } from "./fixtures/http-server.mjs";
 import { assertPrivateFile } from "./fixtures/private-file.mjs";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { createServer } from "node:http";
 import { execFile } from "node:child_process";
-import { once } from "node:events";
 import { promisify } from "node:util";
 import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
@@ -42,8 +42,7 @@ async function hostModelFixture(expectedKey, text) {
     response.writeHead(200, { "content-type": "text/event-stream" });
     response.end(protocolStream("openai-responses", { text }));
   });
-  server.listen(0, "127.0.0.1");
-  await once(server, "listening");
+  await listenOnFixtureHttpPort(server);
   return {
     baseUrl: `http://127.0.0.1:${server.address().port}/v1`,
     requests,

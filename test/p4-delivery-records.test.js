@@ -1,3 +1,4 @@
+import { listenOnFixtureHttpPort } from "./fixtures/http-server.mjs";
 import { deferCleanup } from "./fixtures/cleanup.mjs";
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
@@ -170,11 +171,9 @@ async function startPartitionProxy(target) {
     });
     response.end(result);
   });
-  await new Promise((done) => server.listen(0, "127.0.0.1", done));
-  const address = server.address();
-  assert.ok(address && typeof address === "object");
+  const port = await listenOnFixtureHttpPort(server);
   return {
-    url: `http://127.0.0.1:${address.port}`,
+    url: `http://127.0.0.1:${port}`,
     setFailing(value) {
       failing = value;
     },

@@ -1,3 +1,5 @@
+import { availableLocalHttpPort } from "../dist/src/platform/local-http-port.js";
+import { listenOnFixtureHttpPort } from "./fixtures/http-server.mjs";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
@@ -101,13 +103,8 @@ async function fixture(t, handle, maxTurns = 20, env = {}) {
     await removeAfterAsyncWrites(root);
   });
   await writeFile(join(root, "config.json"), "{}");
-  model.listen(0, "127.0.0.1");
-  await once(model, "listening");
-  const probe = createServer();
-  probe.listen(0, "127.0.0.1");
-  await once(probe, "listening");
-  const port = probe.address().port;
-  await new Promise((done) => probe.close(done));
+  const modelPort = await listenOnFixtureHttpPort(model);
+  const port = await availableLocalHttpPort();
   const workspaceRoot = join(root, "workspace");
   child = spawn(process.execPath, ["dist/src/cli/dashboard.js"], {
     cwd: resolve("."),
@@ -119,7 +116,7 @@ async function fixture(t, handle, maxTurns = 20, env = {}) {
       FORMICAND_GLOBAL_INDEX: join(root, "global.json"),
       FORMICAND_CONFIG: join(root, "config.json"),
       FORMICAND_UI_PORT: String(port),
-      FORMICAND_API_BASE: `http://127.0.0.1:${model.address().port}`,
+      FORMICAND_API_BASE: `http://127.0.0.1:${modelPort}`,
       FORMICAND_API_KEY: "test-key",
       FORMICAND_MODEL: "glm-5.3",
       PI_CODING_AGENT_DIR: join(root, "pi-agent"),

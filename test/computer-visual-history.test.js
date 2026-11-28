@@ -1,7 +1,7 @@
+import { listenOnFixtureHttpPort } from "./fixtures/http-server.mjs";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { createServer } from "node:http";
-import { once } from "node:events";
 import { createRequire } from "node:module";
 import { mkdtemp, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -55,8 +55,7 @@ async function fixture(t) {
       response.end(JSON.stringify({ error: error.message }));
     });
   });
-  server.listen(0, "127.0.0.1");
-  await once(server, "listening");
+  await listenOnFixtureHttpPort(server);
   const previous = process.env.FORMICAND_DASHBOARD_URL;
   process.env.FORMICAND_DASHBOARD_URL = `http://127.0.0.1:${server.address().port}`;
   t.after(async () => {

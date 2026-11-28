@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { once } from "node:events";
 import { createServer } from "node:http";
 import { createConnection } from "node:net";
+import { listenOnFixtureHttpPort } from "./fixtures/http-server.mjs";
 import { createWebTools } from "../dist/src/tools/web-tools.js";
 import { normalizeExaSources } from "../dist/src/tools/exa-search-provider.js";
 
@@ -51,20 +51,18 @@ async function fixture(t, handle, { sse = false } = {}) {
     if (body.method === "tools/list") return respond({ tools: [] });
     await handle({ req, res, body, respond });
   });
-  server.listen(0, "127.0.0.1");
-  await once(server, "listening");
+  const port = await listenOnFixtureHttpPort(server);
   t.after(async () => {
     server.closeAllConnections();
     await new Promise((done) => server.close(done));
   });
   return {
     requests,
-    server,
-    endpoint: `http://127.0.0.1:${server.address().port}/mcp`,
+    port,
     tools: (options = {}) =>
       createWebTools({
         provider: "exa",
-        exaEndpoint: `http://127.0.0.1:${server.address().port}/mcp`,
+        exaEndpoint: `http://127.0.0.1:${port}/mcp`,
         ...options
       })
   };
@@ -193,7 +191,7 @@ test("Exa honors the shared CONNECT proxy with independent request cleanup", asy
   const proxy = createServer();
   proxy.on("connect", (_req, socket, head) => {
     connects++;
-    const upstream = createConnection(service.server.address().port, "127.0.0.1");
+    const upstream = createConnection(service.port, "127.0.0.1");
     tunnels.add(socket);
     tunnels.add(upstream);
     upstream.once("connect", () => {
@@ -213,16 +211,15 @@ test("Exa honors the shared CONNECT proxy with independent request cleanup", asy
       socket.destroy();
     });
   });
-  proxy.listen(0, "127.0.0.1");
-  await once(proxy, "listening");
+  const proxyPort = await listenOnFixtureHttpPort(proxy);
   t.after(async () => {
     for (const socket of tunnels) socket.destroy();
     await new Promise((done) => proxy.close(done));
   });
-  process.env.HTTP_PROXY = `http://127.0.0.1:${proxy.address().port}`;
+  process.env.HTTP_PROXY = `http://127.0.0.1:${proxyPort}`;
   process.env.NO_PROXY = "";
   const tools = service.tools({
-    exaEndpoint: `http://exa.fixture.test:${service.server.address().port}/mcp`
+    exaEndpoint: `http://exa.fixture.test:${service.port}/mcp`
   });
   assert.deepEqual((await tools.get("search").execute({ query: "proxy" })).sources, []);
   assert.ok(connects > 0);

@@ -1,3 +1,4 @@
+import { listenOnFixtureHttpPort } from "./fixtures/http-server.mjs";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { execFile } from "node:child_process";
@@ -6,7 +7,6 @@ import { mkdtemp, mkdir, readFile, readdir, stat, writeFile, rm } from "node:fs/
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { createServer } from "node:http";
-import { once } from "node:events";
 import { LocalWorkspaceStore } from "../dist/src/workspace/workspace-store.js";
 
 const exec = promisify(execFile);
@@ -51,8 +51,7 @@ test(
       send({}, "stop");
       response.end("data: [DONE]\n\n");
     });
-    server.listen(0, "127.0.0.1");
-    await once(server, "listening");
+    await listenOnFixtureHttpPort(server);
     const env = Object.fromEntries(
       Object.entries(process.env).filter(([name]) => !/^(?:FORMICAND_|PI_|FORMICAND_)/.test(name))
     );

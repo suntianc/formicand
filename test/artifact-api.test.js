@@ -1,8 +1,8 @@
+import { availableLocalHttpPort } from "../dist/src/platform/local-http-port.js";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
 import { mkdtemp, mkdir, readFile, realpath, rm, symlink, writeFile } from "node:fs/promises";
-import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -54,11 +54,7 @@ test(
       await symlink(join(root, "secret.txt"), join(artifacts, "escape.txt"));
       const config = join(root, "config.json");
       await writeFile(config, "{}");
-      const probe = createServer();
-      probe.listen(0, "127.0.0.1");
-      await once(probe, "listening");
-      const port = probe.address().port;
-      await new Promise((done) => probe.close(done));
+      const port = await availableLocalHttpPort();
       child = spawn(process.execPath, ["dist/src/cli/dashboard.js"], {
         cwd: resolve("."),
         stdio: "ignore",

@@ -1,3 +1,4 @@
+import { listenOnFixtureHttpPort } from "./fixtures/http-server.mjs";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
@@ -67,14 +68,13 @@ async function provider(t) {
       response.destroy(error);
     }
   });
-  server.listen(0, "127.0.0.1");
-  await once(server, "listening");
+  const port = await listenOnFixtureHttpPort(server);
   t.after(async () => {
     server.closeAllConnections();
     await new Promise((done) => server.close(done));
   });
   return {
-    base: `http://127.0.0.1:${server.address().port}/v1`,
+    base: `http://127.0.0.1:${port}/v1`,
     requests,
     failures,
     hold(...tags) {
@@ -781,15 +781,14 @@ async function accountProvider(t, label, api = "openai-completions") {
       response.destroy(error);
     }
   });
-  server.listen(0, "127.0.0.1");
-  await once(server, "listening");
+  const port = await listenOnFixtureHttpPort(server);
   t.after(async () => {
     server.closeAllConnections();
     await new Promise((done) => server.close(done));
   });
   return {
     label,
-    base: `http://127.0.0.1:${server.address().port}/v1`,
+    base: `http://127.0.0.1:${port}/v1`,
     requests,
     failures,
     hold(tag) {
@@ -1260,13 +1259,12 @@ async function outageProxy(t, authority) {
       response.destroy(error);
     }
   });
-  server.listen(0, "127.0.0.1");
-  await once(server, "listening");
+  const port = await listenOnFixtureHttpPort(server);
   t.after(() => {
     server.closeAllConnections();
     server.close();
   });
-  return { url: `http://127.0.0.1:${server.address().port}`, state };
+  return { url: `http://127.0.0.1:${port}`, state };
 }
 
 const statePath = (dashboard) => join(dashboard.root, "main-capacity", "state.json");

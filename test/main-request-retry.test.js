@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { once } from "node:events";
+import { listenOnFixtureHttpPort } from "./fixtures/http-server.mjs";
 import { createServer } from "node:http";
 import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -219,13 +219,12 @@ async function provider(t, handle) {
       response.destroy(error);
     }
   });
-  server.listen(0, "127.0.0.1");
-  await once(server, "listening");
+  const port = await listenOnFixtureHttpPort(server);
   t.after(async () => {
     server.closeAllConnections();
     await new Promise((done) => server.close(done));
   });
-  return { base: `http://127.0.0.1:${server.address().port}/v1`, requests, failures };
+  return { base: `http://127.0.0.1:${port}/v1`, requests, failures };
 }
 async function api(dashboard, path, body) {
   const response = await fetch(dashboard.base + path, {

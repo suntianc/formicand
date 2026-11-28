@@ -1,5 +1,5 @@
+import { listenOnFixtureHttpPort } from "./fixtures/http-server.mjs";
 import assert from "node:assert/strict";
-import { once } from "node:events";
 import { createServer } from "node:http";
 import { readFileSync } from "node:fs";
 import { mkdir } from "node:fs/promises";
@@ -46,14 +46,13 @@ async function provider(t) {
       response.destroy(error);
     }
   });
-  server.listen(0, "127.0.0.1");
-  await once(server, "listening");
+  const port = await listenOnFixtureHttpPort(server);
   t.after(async () => {
     server.closeAllConnections();
     await new Promise((done) => server.close(done));
   });
   return {
-    base: `http://127.0.0.1:${server.address().port}/v1`,
+    base: `http://127.0.0.1:${port}/v1`,
     waitForCount,
     failures,
     hold() {

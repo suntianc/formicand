@@ -1,7 +1,7 @@
+import { listenOnFixtureHttpPort } from "./fixtures/http-server.mjs";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { createServer } from "node:http";
-import { once } from "node:events";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { startDashboard } from "./dashboard-fixture.mjs";
@@ -57,8 +57,7 @@ test(
       }
       res.end("data: [DONE]\n\n");
     });
-    server.listen(0, "127.0.0.1");
-    await once(server, "listening");
+    await listenOnFixtureHttpPort(server);
     const dashboard = await startDashboard({
       modelEndpoint: `http://127.0.0.1:${server.address().port}/v1`,
       model: "http-upload"

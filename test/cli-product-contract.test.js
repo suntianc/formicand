@@ -1,3 +1,4 @@
+import { listenOnFixtureHttpPort } from "./fixtures/http-server.mjs";
 import { assertPrivateFile } from "./fixtures/private-file.mjs";
 import { killFixtureChild } from "./fixtures/main-processes.mjs";
 import assert from "node:assert/strict";
@@ -18,7 +19,6 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { execFile, spawn } from "node:child_process";
 import { createServer } from "node:http";
-import { once } from "node:events";
 import { promisify } from "node:util";
 import { createRequire } from "node:module";
 import { SessionManager } from "@earendil-works/pi-coding-agent";
@@ -608,8 +608,7 @@ async function modelFixture(f) {
     response.writeHead(200, { "content-type": "text/event-stream" });
     response.end(protocolStream("openai-completions", { text: "Formicand fixture result." }));
   });
-  server.listen(0, "127.0.0.1");
-  await once(server, "listening");
+  await listenOnFixtureHttpPort(server);
   f.cleanup.push(async () => {
     server.closeAllConnections();
     await new Promise((done) => server.close(done));

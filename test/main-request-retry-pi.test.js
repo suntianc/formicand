@@ -3,7 +3,7 @@ import { readFixtureRequestBody } from "./http-request-body-fixture.mjs";
 import { parseModelRequestArchive } from "../dist/src/storage/model-request-recorder.js";
 import assert from "node:assert/strict";
 import { getCurrentTools } from "@earendil-works/pi-ai";
-import { once } from "node:events";
+import { listenOnFixtureHttpPort } from "./fixtures/http-server.mjs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { join } from "node:path";
@@ -28,10 +28,9 @@ async function fixture(t, api, handle) {
     received.push({ raw, path: request.url, body: JSON.parse(raw), snapshot });
     await handle({ response, received, dashboard });
   });
-  provider.listen(0, "127.0.0.1");
-  await once(provider, "listening");
+  const modelPort = await listenOnFixtureHttpPort(provider);
   dashboard = await startDashboard({
-    modelEndpoint: `http://127.0.0.1:${provider.address().port}`,
+    modelEndpoint: `http://127.0.0.1:${modelPort}`,
     model: "original-model",
     supportsImages: true
   });

@@ -1,7 +1,7 @@
+import { availableLocalHttpPort } from "../dist/src/platform/local-http-port.js";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { once } from "node:events";
-import { createServer } from "node:net";
 import { request as httpRequest } from "node:http";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -61,11 +61,7 @@ async function waitFor(predicate) {
 async function fixture(t, driver, cleanup = () => {}) {
   const root = await mkdtemp(join(tmpdir(), "formicand-computer-races-"));
   await writeFile(join(root, "config.json"), "{}");
-  const probe = createServer();
-  probe.listen(0, "127.0.0.1");
-  await once(probe, "listening");
-  const port = probe.address().port;
-  await new Promise((done) => probe.close(done));
+  const port = await availableLocalHttpPort();
   const dashboard = createDashboardApplication({ projectRoot: root, port, computerDriver: driver });
   t.after(async () => {
     cleanup();

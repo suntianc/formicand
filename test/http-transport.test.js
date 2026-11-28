@@ -1,3 +1,4 @@
+import { listenOnFixtureHttpPort } from "./fixtures/http-server.mjs";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { once } from "node:events";
@@ -135,8 +136,7 @@ test("abort closes a pending proxy body and a later request uses a fresh transpo
     res.writeHead(200);
     res.write("pending");
   });
-  provider.listen(0, "127.0.0.1");
-  await once(provider, "listening");
+  await listenOnFixtureHttpPort(provider);
   t.after(async () => {
     provider.closeAllConnections();
     await new Promise((done) => provider.close(done));

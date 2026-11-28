@@ -1,3 +1,4 @@
+import { listenOnFixtureHttpPort } from "./fixtures/http-server.mjs";
 import assert from "node:assert/strict";
 import { parseModelRequestArchive } from "../dist/src/storage/model-request-recorder.js";
 import { spawn } from "node:child_process";
@@ -210,8 +211,7 @@ ${state === "confirmed" ? `- confirmed: ${operation} saved; evidence ${download.
           );
         response.end(stream);
       });
-      provider.listen(0, "127.0.0.1");
-      await once(provider, "listening");
+      const modelPort = await listenOnFixtureHttpPort(provider);
       t.after(async () => {
         if (child?.pid && child.exitCode === null && child.signalCode === null) {
           await killFixtureChild(child);
@@ -254,7 +254,7 @@ ${state === "confirmed" ? `- confirmed: ${operation} saved; evidence ${download.
         FORMICAND_WORKSPACE: workspace,
         FORMICAND_TASK_ID: taskId,
         FORMICAND_RUN_ID: runId,
-        FORMICAND_API_BASE: `http://127.0.0.1:${provider.address().port}/v1`,
+        FORMICAND_API_BASE: `http://127.0.0.1:${modelPort}/v1`,
         FORMICAND_API_KEY: "local-progress-fixture",
         FORMICAND_MODEL: "fixture",
         FORMICAND_MODEL_API: "openai-completions",

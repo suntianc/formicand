@@ -1,6 +1,6 @@
+import { listenOnFixtureHttpPort } from "./fixtures/http-server.mjs";
 import { killFixtureMain } from "./fixtures/main-processes.mjs";
 import assert from "node:assert/strict";
-import { once } from "node:events";
 import { mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { dirname, join, resolve } from "node:path";
@@ -85,10 +85,9 @@ async function fixture(t, { handle, idleTimeoutMs, env = {} } = {}) {
     requests.push(body);
     await handle({ body, response, requests });
   });
-  provider.listen(0, "127.0.0.1");
-  await once(provider, "listening");
+  const modelPort = await listenOnFixtureHttpPort(provider);
   const dashboard = await startDashboard({
-    modelEndpoint: `http://127.0.0.1:${provider.address().port}`,
+    modelEndpoint: `http://127.0.0.1:${modelPort}`,
     model: "resident-fixture",
     env: { ...env, ...(idleTimeoutMs === undefined ? {} : { [IDLE_ENV]: String(idleTimeoutMs) }) }
   });

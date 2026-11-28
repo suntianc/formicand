@@ -1,3 +1,5 @@
+import { listenOnFixtureHttpPort } from "./fixtures/http-server.mjs";
+import { availableLocalHttpPort } from "../dist/src/platform/local-http-port.js";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { createServer } from "node:http";
@@ -141,8 +143,7 @@ for (const globalPolicy of [false, true, "run-exit"])
         }
         response.end("data: [DONE]\n\n");
       });
-      model.listen(0, "127.0.0.1");
-      await once(model, "listening");
+      await listenOnFixtureHttpPort(model);
       try {
         await mkdir(join(root, "workspace"));
         await writeFile(join(root, "config.json"), "{}");
@@ -162,11 +163,7 @@ for (const globalPolicy of [false, true, "run-exit"])
           PI_OFFLINE: "1"
         });
         delete process.env.FORMICAND_API_TOKEN;
-        const probe = createServer();
-        probe.listen(0, "127.0.0.1");
-        await once(probe, "listening");
-        const base = `http://127.0.0.1:${probe.address().port}`;
-        await new Promise((done) => probe.close(done));
+        const base = `http://127.0.0.1:${await availableLocalHttpPort()}`;
         dashboard = createDashboardApplication({
           projectRoot: resolve("."),
           port: Number(new URL(base).port),

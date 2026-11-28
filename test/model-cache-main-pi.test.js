@@ -1,3 +1,4 @@
+import { listenOnFixtureHttpPort } from "./fixtures/http-server.mjs";
 import assert from "node:assert/strict";
 import { parseModelRequestArchive } from "../dist/src/storage/model-request-recorder.js";
 import { spawn } from "node:child_process";
@@ -59,8 +60,7 @@ for (const api of ["openai-completions", "openai-responses"]) {
           res.writeHead(200, { "content-type": "text/event-stream" });
           res.end(stream);
         });
-        server.listen(0, "127.0.0.1");
-        await once(server, "listening");
+        await listenOnFixtureHttpPort(server);
         t.after(async () => {
           if (child?.pid && child.exitCode === null && child.signalCode === null) {
             await killFixtureChild(child);

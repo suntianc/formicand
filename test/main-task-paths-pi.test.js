@@ -1,3 +1,4 @@
+import { listenOnFixtureHttpPort } from "./fixtures/http-server.mjs";
 import { killFixtureChild } from "./fixtures/main-processes.mjs";
 import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
@@ -186,8 +187,7 @@ const footer = "draft";
     const store = new LocalWorkspaceStore(workspace);
     await store.createTask(taskId, { goal: "路径契约隔离验收" });
     await store.createRun(taskId, "paths-run");
-    server.listen(0, "127.0.0.1");
-    await once(server, "listening");
+    const port = await listenOnFixtureHttpPort(server);
     child = spawn(
       process.execPath,
       [
@@ -213,7 +213,7 @@ const footer = "draft";
           FORMICAND_PROJECT_DIR: project,
           FORMICAND_TASK_ID: taskId,
           FORMICAND_RUN_ID: "paths-run",
-          FORMICAND_API_BASE: `http://127.0.0.1:${server.address().port}/v1`,
+          FORMICAND_API_BASE: `http://127.0.0.1:${port}/v1`,
           FORMICAND_API_KEY: "local-path-fixture",
           FORMICAND_MODEL: "task-path-fixture",
           FORMICAND_DASHBOARD_URL: "",

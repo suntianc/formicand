@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { createServer } from "node:http";
-import { once } from "node:events";
+import { listenOnFixtureHttpPort } from "./fixtures/http-server.mjs";
 import { readFile, mkdir, realpath } from "node:fs/promises";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
@@ -66,8 +66,7 @@ for (const api of ["openai-completions", "openai-responses"]) {
         }
         reply({ text: "前文真实回复" });
       });
-      provider.listen(0, "127.0.0.1");
-      await once(provider, "listening");
+      const modelPort = await listenOnFixtureHttpPort(provider);
       const dashboard = await startDashboard();
       marker = join(dashboard.workspaceRoot, "edit-operation.txt");
       t.after(async () => {
@@ -97,7 +96,7 @@ for (const api of ["openai-completions", "openai-responses"]) {
       assert.equal(
         (
           await saveTestConnection(call, {
-            baseUrl: `http://127.0.0.1:${provider.address().port}/v1`,
+            baseUrl: `http://127.0.0.1:${modelPort}/v1`,
             api,
             apiKey: "local-fixture-key",
             model: "fixture"

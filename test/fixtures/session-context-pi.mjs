@@ -1,3 +1,4 @@
+import { listenOnFixtureHttpPort } from "./http-server.mjs";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
@@ -98,8 +99,7 @@ export async function sessionContextFixture(
     await new Promise((done) => server.close(done));
     await rm(root, { recursive: true, force: true });
   });
-  server.listen(0, "127.0.0.1");
-  await once(server, "listening");
+  const port = await listenOnFixtureHttpPort(server);
   await mkdir(project);
   await mkdir(join(root, "pi"));
   await writeFile(join(root, "config.json"), JSON.stringify({ contextWindow, ...config }));
@@ -127,7 +127,7 @@ export async function sessionContextFixture(
     FORMICAND_TASK_ID: taskId,
     FORMICAND_RUN_ID: runId,
     FORMICAND_GLOBAL_INDEX: join(root, "workspaces.json"),
-    FORMICAND_API_BASE: `http://127.0.0.1:${server.address().port}/v1`,
+    FORMICAND_API_BASE: `http://127.0.0.1:${port}/v1`,
     FORMICAND_API_KEY: "session-context-fixture",
     FORMICAND_MODEL: "protocol-fixture",
     FORMICAND_MODEL_API: api,

@@ -1,3 +1,4 @@
+import { listenOnFixtureHttpPort } from "./fixtures/http-server.mjs";
 import assert from "node:assert/strict";
 import { parseModelRequestArchive } from "../dist/src/storage/model-request-recorder.js";
 import { spawn } from "node:child_process";
@@ -253,8 +254,7 @@ for (const [api, compact] of [
           })
         );
       }
-      server.listen(0, "127.0.0.1");
-      await once(server, "listening");
+      const port = await listenOnFixtureHttpPort(server);
 
       // Keep machine/user model connections and storage out of this fixture.
       const inherited = Object.fromEntries(
@@ -271,7 +271,7 @@ for (const [api, compact] of [
         FORMICAND_TASK_ID: taskId,
         FORMICAND_RUN_ID: runId,
         FORMICAND_GLOBAL_INDEX: join(root, "workspaces.json"),
-        FORMICAND_API_BASE: `http://127.0.0.1:${server.address().port}/v1`,
+        FORMICAND_API_BASE: `http://127.0.0.1:${port}/v1`,
         FORMICAND_API_KEY: credential,
         FORMICAND_MODEL: "protocol-fixture",
         FORMICAND_MODEL_API: api,

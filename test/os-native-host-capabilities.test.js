@@ -1,8 +1,9 @@
+import { listenOnFixtureHttpPort } from "./fixtures/http-server.mjs";
+import { availableLocalHttpPort } from "../dist/src/platform/local-http-port.js";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
 import { createServer as createHttpServer } from "node:http";
-import { createServer } from "node:net";
 import { createRequire } from "node:module";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -45,11 +46,7 @@ async function dashboardFixture(t, options = {}, envOverrides = {}) {
     ...envOverrides
   });
   await writeFile(join(root, "config.json"), "{}\n");
-  const probe = createServer();
-  probe.listen(0, "127.0.0.1");
-  await once(probe, "listening");
-  const port = probe.address().port;
-  await new Promise((done) => probe.close(done));
+  const port = await availableLocalHttpPort();
   const identity = { backendId: "native_fixture", pid: process.pid, startedAt: "2026-01-01T00:00:00.000Z" };
   const app = createDashboardApplication({
     projectRoot: resolve("."),
@@ -236,8 +233,7 @@ await writeFile(process.argv[2],JSON.stringify({
 test("cancelling session verification rejects before releasing a credential", async (t) => {
   const started = Promise.withResolvers();
   const server = createHttpServer(() => started.resolve());
-  server.listen(0, "127.0.0.1");
-  await once(server, "listening");
+  await listenOnFixtureHttpPort(server);
   t.after(async () => {
     server.closeAllConnections();
     await new Promise((done) => server.close(done));

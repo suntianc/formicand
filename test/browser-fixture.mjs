@@ -1,5 +1,5 @@
 import { createServer } from "node:http";
-import { once } from "node:events";
+import { listenOnFixtureHttpPort } from "./fixtures/http-server.mjs";
 import { existsSync } from "node:fs";
 import { chromium } from "playwright-core";
 
@@ -80,10 +80,9 @@ export async function browserFixture() {
       <script>document.querySelector('#cookie').textContent='Cookie: '+(document.cookie||'empty')</script>
       </body></html>`);
   });
-  server.listen(0, "127.0.0.1");
-  await once(server, "listening");
+  const port = await listenOnFixtureHttpPort(server);
   return {
-    url: `http://127.0.0.1:${server.address().port}/`,
+    url: `http://127.0.0.1:${port}/`,
     started,
     async close() {
       for (const timer of timers) clearTimeout(timer);

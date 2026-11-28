@@ -1,3 +1,4 @@
+import { listenOnFixtureHttpPort } from "./fixtures/http-server.mjs";
 import { endAgentProcesses } from "./dashboard-fixture.mjs";
 import { deferCleanup } from "./fixtures/cleanup.mjs";
 import assert from "node:assert/strict";
@@ -204,13 +205,12 @@ async function provider(t, label, handle) {
       }
     }
   });
-  server.listen(0, "127.0.0.1");
-  await once(server, "listening");
+  const port = await listenOnFixtureHttpPort(server);
   deferCleanup(t, async () => {
     server.closeAllConnections();
     await new Promise((done) => server.close(done));
   });
-  return { label, baseUrl: `http://127.0.0.1:${server.address().port}/v1`, requests, failures };
+  return { label, baseUrl: `http://127.0.0.1:${port}/v1`, requests, failures };
 }
 
 const waitFor = async (check, message, timeout = 60_000) => {
