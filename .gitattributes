@@ -1,3 +1,13 @@
-# Keep the prompt bytes sent to Pi identical on every checkout.
-.pi/prompts/*.md text eol=lf
-.pi/skills/**/SKILL.md text eol=lf
+# Prettier and the prompt byte budgets both use LF on every checkout.
+*.js text eol=lf
+*.[cm]js text eol=lf
+*.ts text eol=lf
+*.[cm]ts text eol=lf
+*.tsx text eol=lf
+*.jsx text eol=lf
+*.md text eol=lf
+*.json text eol=lf
+*.css text eol=lf
+*.html text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
