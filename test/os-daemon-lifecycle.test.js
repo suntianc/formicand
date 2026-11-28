@@ -7,6 +7,7 @@ import { pathToFileURL } from "node:url";
 import { setTimeout as delay } from "node:timers/promises";
 import { test } from "node:test";
 import { modelProtocolFixture } from "./model-protocol-fixture.mjs";
+import { endAgentProcesses } from "./dashboard-fixture.mjs";
 import { withoutMainState } from "./fixtures/main-state.mjs";
 
 /**
@@ -587,7 +588,8 @@ test("jobs close normally and survive an explicit backend stop", { timeout: 150_
   t.after(async () => {
     await stopQuietly(root);
     await model?.close();
-    await rm(root.base, { recursive: true, force: true });
+    await endAgentProcesses(root.workspace);
+    await rm(root.base, { recursive: true, force: true, maxRetries: 5 });
   });
   const failures = [];
   let step = 0;

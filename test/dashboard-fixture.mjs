@@ -1,12 +1,13 @@
-import { execFile, spawn } from "node:child_process";
+import { spawn } from "node:child_process";
 import { once } from "node:events";
 import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:net";
 import { hostname, tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { promisify } from "node:util";
 import { setTimeout as delay } from "node:timers/promises";
+import { verifyProcessIdentity } from "../dist/src/runtime/process-identity.js";
+import { signalProcessGroup } from "../dist/src/platform/process-group.js";
 
 const harnessRoot = fileURLToPath(new URL("..", import.meta.url));
 
@@ -210,25 +211,13 @@ export async function endAgentProcesses(workspaceRoot) {
           .then((value) => JSON.parse(value))
           .catch(() => undefined);
         if (!record?.pid || record.host !== hostname()) continue;
-        if (!(await sameProcess(record.pid, record.startedAt))) continue;
+        if (!(await verifyProcessIdentity(record))) continue;
         try {
-          process.kill(-record.pid, "SIGKILL");
-        } catch {
-          /* the group already exited */
+          signalProcessGroup(record.pid, "SIGKILL");
+        } catch (error) {
+          if (error.code !== "ESRCH") throw error;
         }
       }
     }
-  }
-}
-
-async function sameProcess(pid, startedAt) {
-  try {
-    const { stdout } = await promisify(execFile)("ps", ["-p", String(pid), "-o", "lstart="], {
-      timeout: 5_000,
-      env: { ...process.env, LC_ALL: "C", LANG: "C", TZ: "UTC" }
-    });
-    return stdout.trim() === startedAt;
-  } catch {
-    return false;
   }
 }
