@@ -28,9 +28,9 @@ async function replaceFile(temporary: string, path: string): Promise<void> {
 export async function atomicWrite(
   path: string,
   content: string | Uint8Array,
-  options?: { mode?: number; exclusive?: boolean }
+  options?: { mode?: number; exclusive?: boolean; createParent?: boolean }
 ): Promise<void> {
-  await mkdir(dirname(path), { recursive: true });
+  if (options?.createParent !== false) await mkdir(dirname(path), { recursive: true });
   const temporary = `${path}.tmp-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const handle = await open(temporary, "wx", options?.mode);
   try {

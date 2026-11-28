@@ -215,15 +215,17 @@ const cancel = (request, taskId) =>
   request(`/api/tasks/${encodeURIComponent(taskId)}/action`, { action: "cancel" });
 
 async function settle(request, taskId, status, timeout = 60_000) {
-  await waitFor(
-    async () => {
-      const detail = await taskDetail(request, taskId);
-      return detail.status === 200 && !detail.body.runtime.active && detail.body.task.status === status;
-    },
-    `Main ${taskId} did not settle to ${status}`,
-    timeout
+  const until = Date.now() + timeout;
+  let detail;
+  do {
+    detail = await taskDetail(request, taskId);
+    if (detail.status === 200 && !detail.body.runtime.active && detail.body.task.status === status)
+      return detail.body;
+    await delay(50);
+  } while (Date.now() < until);
+  assert.fail(
+    `Main ${taskId} did not settle to ${status}: HTTP ${detail.status}, Task ${detail.body.task?.status}, active ${detail.body.runtime?.active}, Run ${detail.body.task?.activeRunId}`
   );
-  return (await taskDetail(request, taskId)).body;
 }
 
 const sessionDirectory = (dashboard, taskId) =>

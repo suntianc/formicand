@@ -292,3 +292,58 @@ test("a release names the claim it is for and keeps a newer one", async (t) => {
   assert.equal(await service.releaseIfCurrent(TASK_ID, RUN_ID, "request-new"), true);
   assert.deepEqual((await store.read()).slots, [], "the current claim is released");
 });
+
+for (const phase of ["startup", "tick"]) {
+  test(`capacity stop drains the in-flight ${phase} before returning`, { timeout: 10_000 }, async (t) => {
+    const root = await mkdtemp(join(tmpdir(), "formicand-capacity-stop-"));
+    const store = new MainCapacityStore(join(root, "capacity", "state.json"));
+    const read = store.read.bind(store);
+    const entered = Promise.withResolvers();
+    const release = Promise.withResolvers();
+    let blockRead = phase === "startup";
+    const reads = t.mock.method(store, "read", async () => {
+      if (blockRead) {
+        entered.resolve();
+        await release.promise;
+      }
+      return read();
+    });
+    const timers = t.mock.method(globalThis, "setInterval");
+    const service = createMainCapacityService({
+      store,
+      backendId: "stop-test",
+      tickMs: 5,
+      settings: () => SLOT_SETTINGS,
+      projects: async () => [],
+      sessions: async () => []
+    });
+    t.after(async () => {
+      release.resolve();
+      await service.stop();
+      await rm(root, { recursive: true, force: true });
+    });
+    const starting = service.start();
+    if (phase === "tick") {
+      await starting;
+      blockRead = true;
+      await delay(30);
+    }
+    await entered.promise;
+    let stopped = false;
+    const stopping = service.stop().then(() => {
+      stopped = true;
+    });
+    try {
+      await delay(20);
+      assert.equal(stopped, false, "stop must wait for the outstanding storage operation");
+    } finally {
+      release.resolve();
+      await starting;
+      await stopping;
+    }
+    assert.equal(timers.mock.callCount(), phase === "startup" ? 0 : 1);
+    const settledReads = reads.mock.callCount();
+    await delay(25);
+    assert.equal(reads.mock.callCount(), settledReads, "the stopped service never polls again");
+  });
+}

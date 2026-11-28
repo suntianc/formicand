@@ -139,7 +139,8 @@ export function createMainCapacityService(ports: MainCapacityServicePorts) {
   });
   let starter: ((entry: MainCapacityQueueEntry) => Promise<void>) | undefined;
   let stopping = false;
-  let started = false;
+  let starting: Promise<void> | undefined;
+  let sweeping: Promise<void> | undefined;
   let ticker: ReturnType<typeof setInterval> | undefined;
   let dispatching: Promise<void> | undefined;
   let repeat = false;
@@ -617,26 +618,34 @@ export function createMainCapacityService(ports: MainCapacityServicePorts) {
     },
 
     async start(): Promise<void> {
-      if (started) return;
-      started = true;
-      await this.recover().catch(log);
-      ticker = setInterval(
-        () => {
-          void (async () => {
-            if (stopping) return;
-            await reconcile();
-            await dispatch();
-          })().catch(log);
-        },
-        ports.tickMs ?? Number(process.env.FORMICAND_MAIN_CAPACITY_TICK_MS ?? 2_000)
-      );
-      ticker.unref();
+      if (stopping) return;
+      starting ??= this.recover()
+        .catch(log)
+        .then(() => {
+          if (stopping) return;
+          ticker = setInterval(
+            () => {
+              if (sweeping || stopping) return;
+              sweeping = reconcile()
+                .then(dispatch)
+                .catch(log)
+                .finally(() => {
+                  sweeping = undefined;
+                });
+            },
+            ports.tickMs ?? Number(process.env.FORMICAND_MAIN_CAPACITY_TICK_MS ?? 2_000)
+          );
+          ticker.unref();
+        });
+      await starting;
     },
 
     async stop(): Promise<void> {
       stopping = true;
       if (ticker) clearInterval(ticker);
       ticker = undefined;
+      await starting;
+      await sweeping;
       // eslint-disable-next-line no-restricted-syntax -- 关闭时必须等在途派发结束，派发失败已由队列里的 retry/failed 行承接，这里等待的是它结束而不是它的结果
       await dispatching?.catch(() => {});
     }

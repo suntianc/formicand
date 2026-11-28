@@ -1427,7 +1427,21 @@ test(
     outage.state.down = false;
     const retried = await request("/api/main-capacity", { action: "retry", requestId: failed.requestId });
     assert.equal(retried.status, 200, JSON.stringify(retried.body));
-    await waitFor(() => local.tags().includes("exhaust-b"), "the retried demand never ran", 45_000);
+    try {
+      await waitFor(() => local.tags().includes("exhaust-b"), "the retried demand never ran", 45_000);
+    } catch (error) {
+      const view = (await capacity(request)).body;
+      const task = (await taskDetail(request, waitingSession.taskId)).body.task;
+      t.diagnostic(
+        JSON.stringify({
+          running: view.running,
+          queued: view.queued,
+          status: task?.status,
+          lastError: task?.lastError
+        })
+      );
+      throw error;
+    }
     await settle(request, waitingSession.taskId, "completed");
     assert.equal(local.tags().filter((tag) => tag === "exhaust-b").length, 1);
     assert.deepEqual((await capacity(request)).body.queued, []);

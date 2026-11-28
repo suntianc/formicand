@@ -125,7 +125,8 @@ test(
     const dashboard = await startDashboard({
       modelEndpoint: local.base,
       model: "fixture-model",
-      defaultProject: false
+      defaultProject: false,
+      env: { FORMICAND_MAIN_IDLE_TIMEOUT_MS: "1200" }
     });
     t.after(() => dashboard.stop());
     const request = client(dashboard);
@@ -374,7 +375,8 @@ test(
     const dashboard = await startDashboard({
       modelEndpoint: local.base,
       model: "fixture-model",
-      defaultProject: false
+      defaultProject: false,
+      env: { FORMICAND_MAIN_IDLE_TIMEOUT_MS: "1200" }
     });
     t.after(() => dashboard.stop());
     const request = client(dashboard);
