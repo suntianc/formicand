@@ -1,4 +1,5 @@
 import { spawn, type ChildProcess } from "node:child_process";
+import { stopRecordedWindowsTree } from "../platform/windows-job-tree.js";
 import { utilityCommand } from "../platform/utility-command.js";
 import { signalProcessGroup, usesProcessGroups } from "../platform/process-group.js";
 import { randomUUID } from "node:crypto";
@@ -398,6 +399,12 @@ export class AgentProcessHost {
     // Signalling is the destructive step: never send one to a pid that no
     // longer matches the identity written at launch. A mismatch means the
     // process already ended, so settle from its durable records instead.
+    if (!usesProcessGroups) {
+      if (record.host === hostname() && processIsAlive(record.pid))
+        await stopRecordedWindowsTree(record.pid, record.startedAt);
+      await this.settle(record);
+      return;
+    }
     if (!(await this.owns(record))) {
       await this.settle(record);
       return;

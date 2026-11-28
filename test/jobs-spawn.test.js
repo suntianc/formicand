@@ -10,12 +10,50 @@ const execFileAsync = promisify(execFile);
 const jobsUrl = new URL("../dist/src/tools/jobs.js", import.meta.url).href;
 
 test(
+  "a Windows background command runs without a visible console",
+  { skip: process.platform !== "win32" },
+  async (t) => {
+    const { startJob, jobStatus } = await import(jobsUrl);
+    const root = await mkdtemp(join(tmpdir(), "formicand-job-console-"));
+    t.after(() => rm(root, { recursive: true, force: true, maxRetries: 5 }));
+    await writeFile(
+      join(root, "probe.ps1"),
+      `
+Add-Type -Name ConsoleProbe -Namespace Jobs -MemberDefinition @'
+[System.Runtime.InteropServices.DllImport("kernel32.dll")]
+public static extern System.IntPtr GetConsoleWindow();
+[System.Runtime.InteropServices.DllImport("user32.dll")]
+public static extern bool IsWindowVisible(System.IntPtr window);
+'@
+[Jobs.ConsoleProbe]::IsWindowVisible([Jobs.ConsoleProbe]::GetConsoleWindow())
+`
+    );
+    const shell = join(process.env.SystemRoot, "System32", "WindowsPowerShell", "v1.0", "powershell.exe");
+    const job = await startJob({
+      directory: root,
+      cwd: root,
+      command: `"${shell}" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File probe.ps1`
+    });
+    const deadline = Date.now() + 20_000;
+    for (;;) {
+      const status = await jobStatus({ directory: root, jobId: job.jobId });
+      if (status.exitCode !== undefined) {
+        assert.equal(status.exitCode, 0, status.tail);
+        assert.equal(status.tail.trim(), "False");
+        break;
+      }
+      assert.ok(Date.now() < deadline, "console probe must complete");
+      await new Promise((done) => setTimeout(done, 50));
+    }
+  }
+);
+
+test(
   "a restarted Windows agent stops the shell, command and grandchild and releases their directory",
   {
     skip: process.platform !== "win32"
   },
   async (t) => {
-    const { startJob } = await import(jobsUrl);
     const root = await mkdtemp(join(tmpdir(), "formicand-job-tree-"));
     const cwd = join(root, "working directory");
     const directory = join(root, "records");
@@ -27,6 +65,7 @@ test(
     const { spawn } = require("node:child_process");
     const child = spawn(process.execPath, ["-e", "setInterval(() => {}, 1000)"], { stdio: "ignore" });
     const fs = require("node:fs");
+    setTimeout(() => console.log("output after restart"), 500);
     fs.writeFileSync(process.argv[2] + ".tmp", JSON.stringify([process.pid, child.pid]));
     fs.renameSync(process.argv[2] + ".tmp", process.argv[2]);
   `
@@ -42,7 +81,15 @@ test(
       }
       await rm(root, { recursive: true, force: true, maxRetries: 5 });
     });
-    const job = await startJob({ directory, cwd, command: `"${process.execPath}" parent.cjs "${proof}"` });
+    const start = `import { startJob } from ${JSON.stringify(jobsUrl)};
+      console.log(JSON.stringify(await startJob(JSON.parse(process.argv[1]))));`;
+    const command = `"${process.execPath}" parent.cjs "${proof}"`;
+    const starter = await execFileAsync(
+      process.execPath,
+      ["--input-type=module", "-e", start, JSON.stringify({ directory, cwd, command })],
+      { windowsHide: true, timeout: 15_000 }
+    );
+    const job = JSON.parse(starter.stdout);
     pids.push(job.pid);
     const deadline = Date.now() + 10000;
     for (;;) {
@@ -53,6 +100,10 @@ test(
         if (error.code !== "ENOENT" || Date.now() >= deadline) throw error;
         await new Promise((done) => setTimeout(done, 30));
       }
+    }
+    while (!(await readFile(job.logPath, "utf8")).includes("output after restart")) {
+      assert.ok(Date.now() < deadline, "the job still owns its log after the starter exits");
+      await new Promise((done) => setTimeout(done, 30));
     }
     const script = `import { killJob } from ${JSON.stringify(jobsUrl)};
     console.log((await killJob({ directory: process.argv[1], jobId: process.argv[2] })).state);`;

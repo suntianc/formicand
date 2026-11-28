@@ -95,7 +95,7 @@ Windows 任务栏也会读取可执行文件的图标。[开发启动器](../scr
 
 浏览器模式的系统目录选择由[平台选择器](../src/platform/directory-picker.ts)处理，Linux 需要 zenity。桌面模式继续使用宿主的原生对话框。平台分支集中在 `src/platform/` 和 ESLint 点名的系统适配模块。
 
-运行时和 CLI 的子进程组规则见[进程组](../src/platform/process-group.ts)。文件系统的原子写入和快照分别由[原子写入](../src/storage/atomic-file.ts)与[快照](../src/storage/snapshot-file.ts)负责。验证、CLI 打包和源码更新通过[同一 npm 启动入口](../scripts/npm-command.mjs)选择可执行文件与参数。桌面打包入口见[打包和发布](#打包和发布)。
+运行时和 CLI 的子进程组规则见[进程组](../src/platform/process-group.ts)。在 Windows 上，[后台作业](../src/tools/jobs.ts)通过[独立进程](../src/platform/windows-job-worker.ts)隐藏命令窗口。启动作业的 Agent 退出后，命令继续写入原日志，后续 Agent 可核验进程身份并[停止整棵进程树](../src/platform/windows-job-tree.ts)。文件系统的原子写入和快照分别由[原子写入](../src/storage/atomic-file.ts)与[快照](../src/storage/snapshot-file.ts)负责。验证、CLI 打包和源码更新通过[同一 npm 启动入口](../scripts/npm-command.mjs)选择可执行文件与参数。桌面打包入口见[打包和发布](#打包和发布)。
 
 ## 架构
 
